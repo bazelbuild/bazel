@@ -563,6 +563,8 @@ public class ResourceLinker {
   }
 
   /** Link a proto apk to produce an apk. */
+  // aapt2 has a "convert" command which has similar behavior, but at the time of writing, will
+  // not compress any files in the res/ directory.
   public Path link(ProtoApk protoApk, Path resourceIds) {
     try {
       final Path protoApkPath = protoApk.asApkPath();

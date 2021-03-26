@@ -234,9 +234,9 @@ public class FakeCcModule
       Object frameworkIncludes,
       Object defines,
       Object localDefines,
-      Object textualHdrs,
-      Object modularPublicHdrs,
-      Object modularPrivateHdrs,
+      Sequence<?> directTextualHdrs,
+      Sequence<?> directPublicHdrs,
+      Sequence<?> directPrivateHdrs,
       Object purpose,
       StarlarkThread thread)
       throws EvalException {
@@ -294,6 +294,7 @@ public class FakeCcModule
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
       Object variablesExtension,
+      Object language,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return null;
@@ -315,6 +316,7 @@ public class FakeCcModule
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
+      Object variablesExtension,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;
@@ -334,7 +336,7 @@ public class FakeCcModule
       String outputType,
       boolean linkDepsStatically,
       StarlarkInt stamp,
-      Sequence<?> additionalInputs,
+      Object additionalInputs,
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
@@ -345,6 +347,7 @@ public class FakeCcModule
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
+      Object linkerOutputs,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;

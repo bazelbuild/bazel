@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.StarlarkThread;
@@ -45,6 +46,7 @@ import net.starlark.java.syntax.SyntaxError;
  * violating assumptions.
  */
 @Immutable
+@CheckReturnValue
 public final class Event implements Serializable {
 
   private final EventKind kind;

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -87,7 +88,9 @@ public final class CcLinkingHelper {
   private final BuildConfiguration configuration;
   private final CppConfiguration cppConfiguration;
 
-  private final List<Artifact> nonCodeLinkerInputs = new ArrayList<>();
+  private final NestedSetBuilder<Artifact> additionalLinkerInputsBuilder =
+      NestedSetBuilder.stableOrder();
+  private final List<Artifact> linkerOutputs = new ArrayList<>();
   private final List<String> linkopts = new ArrayList<>();
   private final List<CcLinkingContext> ccLinkingContexts = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
@@ -96,6 +99,7 @@ public final class CcLinkingHelper {
   @Nullable private Artifact linkerOutputArtifact;
   private LinkTargetType staticLinkType = LinkTargetType.STATIC_LIBRARY;
   private LinkTargetType dynamicLinkType = LinkTargetType.NODEPS_DYNAMIC_LIBRARY;
+  private NestedSet<Artifact> additionalLinkerInputs;
   private boolean neverlink;
 
   private boolean emitInterfaceSharedLibraries;
@@ -194,19 +198,27 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /** Adds the corresponding non-code files as linker inputs. */
+  /**
+   * Adds the corresponding non-code files as linker inputs.
+   *
+   * <p>TODO(bazel-team): There is no practical difference in non-code inputs and additional linker
+   * inputs in CppLinkActionBuilder. So these should be merged. Even before that happens, it's
+   * totally fine for nonCodeLinkerInputs to contains precompiled libraries.
+   */
   public CcLinkingHelper addNonCodeLinkerInputs(List<Artifact> nonCodeLinkerInputs) {
-    for (Artifact nonCodeLinkerInput : nonCodeLinkerInputs) {
-      String basename = nonCodeLinkerInput.getFilename();
-      Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename));
-      Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename));
-      Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename));
-      this.nonCodeLinkerInputs.add(nonCodeLinkerInput);
-    }
-    if (fdoContext.getPropellerOptimizeInputFile() != null
-        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      this.nonCodeLinkerInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-    }
+    this.additionalLinkerInputsBuilder.addAll(nonCodeLinkerInputs);
+    return this;
+  }
+
+  public CcLinkingHelper addTransitiveAdditionalLinkerInputs(
+      NestedSet<Artifact> additionalLinkerInputs) {
+    this.additionalLinkerInputsBuilder.addTransitive(additionalLinkerInputs);
+    return this;
+  }
+
+  /** TODO(bazel-team): Add to Starlark API */
+  public CcLinkingHelper addLinkerOutputs(List<Artifact> linkerOutputs) {
+    this.linkerOutputs.addAll(linkerOutputs);
     return this;
   }
 
@@ -361,6 +373,9 @@ public final class CcLinkingHelper {
       throws RuleErrorException, InterruptedException {
     Preconditions.checkNotNull(ccOutputs);
 
+    Preconditions.checkState(additionalLinkerInputs == null);
+    additionalLinkerInputs = additionalLinkerInputsBuilder.build();
+
     // Create link actions (only if there are object files or if explicitly requested).
     //
     // On some systems, the linker gives an error message if there are no input files. Even with
@@ -401,7 +416,8 @@ public final class CcLinkingHelper {
                           CcLinkingContext.LinkOptions.of(
                               ImmutableList.copyOf(linkopts), symbolGenerator)))
               .addLibraries(librariesToLink)
-              .addNonCodeInputs(nonCodeLinkerInputs)
+              // additionalLinkerInputsBuilder not expected to be a big list for now.
+              .addNonCodeInputs(additionalLinkerInputsBuilder.build().toList())
               .addLinkstamps(linkstampBuilder.build())
               .build();
     }
@@ -629,7 +645,6 @@ public final class CcLinkingHelper {
     CppLinkAction action =
         newLinkActionBuilder(linkedArtifact, linkTargetTypeUsedForNaming)
             .addObjectFiles(ccOutputs.getObjectFiles(usePic))
-            .addNonCodeInputs(nonCodeLinkerInputs)
             .addLtoCompilationContext(ccOutputs.getLtoCompilationContext())
             .setUsePicForLtoBackendActions(usePic)
             .setLinkingMode(LinkingMode.STATIC)
@@ -694,7 +709,6 @@ public final class CcLinkingHelper {
             .addActionInputs(linkActionInputs)
             .addLinkopts(linkopts)
             .addLinkopts(sonameLinkopts)
-            .addNonCodeInputs(nonCodeLinkerInputs)
             .addVariablesExtensions(variablesExtensions);
 
     dynamicLinkActionBuilder.addObjectFiles(ccOutputs.getObjectFiles(usePic));
@@ -829,28 +843,45 @@ public final class CcLinkingHelper {
 
   private CppLinkActionBuilder newLinkActionBuilder(
       Artifact outputArtifact, LinkTargetType linkType) {
-    return new CppLinkActionBuilder(
-            ruleErrorConsumer,
-            actionConstructionContext,
-            label,
-            outputArtifact,
-            configuration,
-            ccToolchain,
-            fdoContext,
-            featureConfiguration,
-            semantics)
-        .setGrepIncludes(grepIncludes)
-        .setIsStampingEnabled(isStampingEnabled)
-        .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
-        .setLinkType(linkType)
-        .setLinkerFiles(
-            (cppConfiguration.useSpecificToolFiles()
-                    && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
-                ? ccToolchain.getArFiles()
-                : ccToolchain.getLinkerFiles())
-        .setLinkArtifactFactory(linkArtifactFactory)
-        .setUseTestOnlyFlags(useTestOnlyFlags)
-        .addExecutionInfo(executionInfo);
+    if (fdoContext.getPropellerOptimizeInputFile() != null
+        && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+      this.additionalLinkerInputsBuilder.add(
+          fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+    }
+    String mnemonic =
+        (linkType.equals(LinkTargetType.OBJCPP_EXECUTABLE)
+                || linkType.equals(LinkTargetType.OBJC_EXECUTABLE))
+            ? "ObjcLink"
+            : null;
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(
+                ruleErrorConsumer,
+                actionConstructionContext,
+                label,
+                outputArtifact,
+                configuration,
+                ccToolchain,
+                fdoContext,
+                featureConfiguration,
+                semantics)
+            .setGrepIncludes(grepIncludes)
+            .setMnemonic(mnemonic)
+            .setIsStampingEnabled(isStampingEnabled)
+            .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
+            .setLinkType(linkType)
+            .setLinkerFiles(
+                (cppConfiguration.useSpecificToolFiles()
+                        && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
+                    ? ccToolchain.getArFiles()
+                    : ccToolchain.getLinkerFiles())
+            .setLinkArtifactFactory(linkArtifactFactory)
+            .setUseTestOnlyFlags(useTestOnlyFlags)
+            .addTransitiveActionInputs(additionalLinkerInputs)
+            .addExecutionInfo(executionInfo);
+    for (Artifact output : linkerOutputs) {
+      builder.addActionOutput(output);
+    }
+    return builder;
   }
 
   /**
@@ -876,12 +907,28 @@ public final class CcLinkingHelper {
     linkedName =
         CppHelper.getArtifactNameForCategory(
             ruleErrorConsumer, ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
+
+    ArtifactRoot artifactRoot = configuration.getBinDirectory(label.getRepository());
+    if (linkTargetType.equals(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)) {
+      // TODO(blaze-team): This unfortunate editing of the name is here bedcause Objective-C rules
+      // were creating this type of archive without the lib prefix, unlike what the objective-c
+      // toolchain says with getArtifactNameForCategory.
+      // This can be fixed either when implicit outputs are removed from objc_library by keeping the
+      // lib prefix, or by editing the toolchain not to add it.
+      Preconditions.checkState(linkedName.startsWith("lib"));
+      linkedName = linkedName.substring(3);
+      artifactRoot =
+          ((RuleContext) actionConstructionContext).getRule().hasBinaryOutput()
+              ? configuration.getBinDirectory(label.getRepository())
+              : configuration.getGenfilesDirectory(label.getRepository());
+    }
       PathFragment artifactFragment =
           PathFragment.create(label.getName()).getParentDirectory().getRelative(linkedName);
 
     return CppHelper.getLinkedArtifact(
         label,
         actionConstructionContext,
+        artifactRoot,
         configuration,
         linkTargetType,
         linkedArtifactNameSuffix,

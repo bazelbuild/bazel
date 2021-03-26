@@ -95,7 +95,7 @@ void RunfilesTest::AssertEnvvars(const Runfiles& runfiles,
 
 string RunfilesTest::GetTemp() {
 #ifdef _WIN32
-  DWORD size = ::GetEnvironmentVariableA("TEST_TMPDIR", NULL, 0);
+  DWORD size = ::GetEnvironmentVariableA("TEST_TMPDIR", nullptr, 0);
   if (size == 0) {
     return string();  // unset or empty envvar
   }
@@ -104,7 +104,7 @@ string RunfilesTest::GetTemp() {
   return value.get();
 #else
   char* result = getenv("TEST_TMPDIR");
-  return result != NULL ? string(result) : string();
+  return result != nullptr ? string(result) : string();
 #endif
 }
 
@@ -132,7 +132,7 @@ RunfilesTest::MockFile* RunfilesTest::MockFile::Create(
 #ifdef _WIN32
   while ((i = name.find_first_of("/\\", i + 1)) != string::npos) {
     string d = tmp + "\\" + name.substr(0, i);
-    if (!CreateDirectoryA(d.c_str(), NULL)) {
+    if (!CreateDirectoryA(d.c_str(), nullptr)) {
       cerr << "ERROR: " << __FILE__ << "(" << __LINE__
            << "): failed to create directory \"" << d << "\"" << endl;
       return nullptr;

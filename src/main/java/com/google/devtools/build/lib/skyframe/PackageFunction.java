@@ -28,7 +28,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -37,6 +36,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.io.FileSymlinkException;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.packages.InvalidPackageNameException;
 import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -53,12 +55,12 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -108,7 +110,6 @@ public class PackageFunction implements SkyFunction {
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
   @Nullable private final PackageProgressReceiver packageProgress;
-  private final ExternalPackageHelper externalPackageHelper;
 
   // Not final only for testing.
   @Nullable private BzlLoadFunction bzlLoadFunctionForInlining;
@@ -134,7 +135,7 @@ public class PackageFunction implements SkyFunction {
     @Nullable private final ImmutableList<String> globs;
     @Nullable private final ImmutableList<String> globsWithDirs;
     @Nullable private final ImmutableMap<Location, String> generatorMap;
-    @Nullable private final Module prelude; // may be null even on success
+    @Nullable private final ImmutableMap<String, Object> predeclared;
 
     boolean ok() {
       return prog != null;
@@ -146,13 +147,13 @@ public class PackageFunction implements SkyFunction {
         ImmutableList<String> globs,
         ImmutableList<String> globsWithDirs,
         ImmutableMap<Location, String> generatorMap,
-        @Nullable Module prelude) {
+        ImmutableMap<String, Object> predeclared) {
       this.errors = null;
       this.prog = prog;
       this.globs = globs;
       this.globsWithDirs = globsWithDirs;
       this.generatorMap = generatorMap;
-      this.prelude = prelude;
+      this.predeclared = predeclared;
     }
 
     // failure
@@ -162,7 +163,7 @@ public class PackageFunction implements SkyFunction {
       this.globs = null;
       this.globsWithDirs = null;
       this.generatorMap = null;
-      this.prelude = null;
+      this.predeclared = null;
     }
   }
 
@@ -176,8 +177,7 @@ public class PackageFunction implements SkyFunction {
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      IncrementalityIntent incrementalityIntent,
-      ExternalPackageHelper externalPackageHelper) {
+      IncrementalityIntent incrementalityIntent) {
     this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
@@ -188,7 +188,6 @@ public class PackageFunction implements SkyFunction {
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.incrementalityIntent = incrementalityIntent;
-    this.externalPackageHelper = externalPackageHelper;
   }
 
   @VisibleForTesting
@@ -199,8 +198,7 @@ public class PackageFunction implements SkyFunction {
       Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache,
       Cache<PackageIdentifier, CompiledBuildFile> compiledBuildFileCache,
       AtomicInteger numPackagesLoaded,
-      @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
-      ExternalPackageHelper externalPackageHelper) {
+      @Nullable BzlLoadFunction bzlLoadFunctionForInlining) {
     this(
         packageFactory,
         pkgLocator,
@@ -211,8 +209,7 @@ public class PackageFunction implements SkyFunction {
         bzlLoadFunctionForInlining,
         /*packageProgress=*/ null,
         ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-        IncrementalityIntent.INCREMENTAL,
-        externalPackageHelper);
+        IncrementalityIntent.INCREMENTAL);
   }
 
   public void setBzlLoadFunctionForInliningForTesting(BzlLoadFunction bzlLoadFunctionForInlining) {
@@ -352,12 +349,11 @@ public class PackageFunction implements SkyFunction {
   private SkyValue getExternalPackage(Environment env)
       throws PackageFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    RootedPath workspacePath = externalPackageHelper.findWorkspaceFile(env);
     if (env.valuesMissing()) {
       return null;
     }
 
-    SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
+    SkyKey workspaceKey = ExternalPackageFunction.key();
     PackageValue workspace = null;
     try {
       // This may throw a NoSuchPackageException if the WORKSPACE file was malformed or had other
@@ -477,10 +473,37 @@ public class PackageFunction implements SkyFunction {
 
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+        PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.get(env);
     IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
         (IgnoredPackagePrefixesValue)
             env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
+
+    StarlarkBuiltinsValue starlarkBuiltinsValue;
+    try {
+      if (bzlLoadFunctionForInlining == null) {
+        starlarkBuiltinsValue =
+            (StarlarkBuiltinsValue)
+                env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+      } else {
+        starlarkBuiltinsValue =
+            StarlarkBuiltinsFunction.computeInline(
+                StarlarkBuiltinsValue.key(),
+                BzlLoadFunction.InliningState.create(env),
+                packageFactory,
+                bzlLoadFunctionForInlining);
+      }
+    } catch (BuiltinsFailedException e) {
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+          .setPackageIdentifier(packageId)
+          .setTransience(Transience.PERSISTENT)
+          .setMessage(
+              String.format("Internal error while loading Starlark builtins: %s", e.getMessage()))
+          .setPackageLoadingCode(PackageLoading.Code.BUILTINS_INJECTION_FAILURE)
+          .build();
+    }
+
     if (env.valuesMissing()) {
       return null;
     }
@@ -520,7 +543,8 @@ public class PackageFunction implements SkyFunction {
               buildFileRootedPath,
               buildFileValue,
               defaultVisibility,
-              starlarkSemantics,
+              configSettingVisibilityPolicy,
+              starlarkBuiltinsValue,
               preludeLabel,
               packageLookupValue.getRoot(),
               env);
@@ -612,7 +636,10 @@ public class PackageFunction implements SkyFunction {
 
     try {
       packageFactory.afterDoneLoadingPackage(
-          pkg, starlarkSemantics, packageCacheEntry.loadTimeNanos, env.getListener());
+          pkg,
+          starlarkBuiltinsValue.starlarkSemantics,
+          packageCacheEntry.loadTimeNanos,
+          env.getListener());
     } catch (InvalidPackageException e) {
       throw new PackageFunctionException(e, Transience.PERSISTENT);
     }
@@ -753,13 +780,21 @@ public class PackageFunction implements SkyFunction {
     // modules. This ensures that each .bzl is loaded only once, regardless of diamond dependencies
     // or cache eviction. (Multiple loads of the same .bzl would screw up identity equality of some
     // Starlark symbols -- see comments in BzlLoadFunction#computeInline.)
-    BzlLoadFunction.InliningState inliningState = BzlLoadFunction.InliningState.create();
+    // TODO(brandjon): Note that using a fresh InliningState in each call to this function means
+    // that we don't get sharing between the top-level callers -- namely, the callers that retrieve
+    // the BUILD file's loads, the prelude file, and the @_builtins. Since there's still a global
+    // cache of bzls, this is only really a problem if the same bzl can appear in more than one of
+    // those contexts. This *can* happen if a dependency of the prelude file is also reachable
+    // through regular loads, but *only* in OSS Bazel, where inlining is not really used. The fix
+    // would be to thread a single InliningState through all call sites within the same call to
+    // compute().
+    BzlLoadFunction.InliningState inliningState = BzlLoadFunction.InliningState.create(env);
     for (BzlLoadValue.Key key : keys) {
       SkyValue skyValue;
       try {
         // Will complete right away if this key has been seen before in inliningState -- regardless
         // of whether it was evaluated successfully, had missing deps, or was found to be in error.
-        skyValue = bzlLoadFunctionForInlining.computeInline(key, env, inliningState);
+        skyValue = bzlLoadFunctionForInlining.computeInline(key, inliningState);
       } catch (BzlLoadFailedException e) {
         if (deferredException == null) {
           deferredException = e;
@@ -1187,7 +1222,8 @@ public class PackageFunction implements SkyFunction {
       RootedPath buildFilePath,
       FileValue buildFileValue,
       RuleVisibility defaultVisibility,
-      StarlarkSemantics starlarkSemantics,
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      StarlarkBuiltinsValue starlarkBuiltinsValue,
       @Nullable Label preludeLabel,
       Root packageRoot,
       Environment env)
@@ -1218,12 +1254,7 @@ public class PackageFunction implements SkyFunction {
         }
         compiled =
             compileBuildFile(
-                packageId,
-                buildFilePath,
-                buildFileValue,
-                starlarkSemantics,
-                preludeLabel,
-                env);
+                packageId, buildFilePath, buildFileValue, starlarkBuiltinsValue, preludeLabel, env);
         if (compiled == null) {
           return null; // skyframe restart
         }
@@ -1283,13 +1314,18 @@ public class PackageFunction implements SkyFunction {
       // even if it will be empty because we cannot attempt execution.
       Package.Builder pkgBuilder =
           packageFactory
-              .newPackageBuilder(packageId, workspaceName, starlarkSemantics, repositoryMapping)
+              .newPackageBuilder(
+                  packageId,
+                  workspaceName,
+                  starlarkBuiltinsValue.starlarkSemantics,
+                  repositoryMapping)
               .setFilename(buildFilePath)
               .setDefaultVisibility(defaultVisibility)
               // "defaultVisibility" comes from the command line.
               // Let's give the BUILD file a chance to set default_visibility once,
               // by resetting the PackageBuilder.defaultVisibilitySet flag.
-              .setDefaultVisibilitySet(false);
+              .setDefaultVisibilitySet(false)
+              .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
 
       Set<SkyKey> globDepKeys = ImmutableSet.of();
 
@@ -1306,9 +1342,9 @@ public class PackageFunction implements SkyFunction {
             compiled.prog,
             compiled.globs,
             compiled.globsWithDirs,
-            compiled.prelude,
+            compiled.predeclared,
             loadedModules,
-            starlarkSemantics,
+            starlarkBuiltinsValue.starlarkSemantics,
             globber);
 
         globDepKeys = globber.getGlobDepsRequested();
@@ -1347,10 +1383,12 @@ public class PackageFunction implements SkyFunction {
       PackageIdentifier packageId,
       RootedPath buildFilePath,
       FileValue buildFileValue,
-      StarlarkSemantics semantics,
+      StarlarkBuiltinsValue starlarkBuiltinsValue,
       @Nullable Label preludeLabel,
       Environment env)
       throws PackageFunctionException, InterruptedException {
+    StarlarkSemantics semantics = starlarkBuiltinsValue.starlarkSemantics;
+
     // read BUILD file
     Path inputFile = buildFilePath.asPath();
     byte[] buildFileBytes = null;
@@ -1413,8 +1451,9 @@ public class PackageFunction implements SkyFunction {
     }
 
     // Load (optional) prelude, which determines environment.
-    Module prelude = null;
+    ImmutableMap<String, Object> preludeBindings = null;
     if (preludeLabel != null) {
+      Module prelude;
       try {
         prelude = loadPrelude(env, packageId, preludeLabel, bzlLoadFunctionForInlining);
       } catch (NoSuchPackageException e) {
@@ -1423,6 +1462,7 @@ public class PackageFunction implements SkyFunction {
       if (prelude == null) {
         return null; // skyframe restart
       }
+      preludeBindings = prelude.getGlobals();
     }
 
     // Construct static environment for resolution/compilation.
@@ -1430,7 +1470,15 @@ public class PackageFunction implements SkyFunction {
     // (plus special errors for flag-disabled ones), but it is
     // materialized as an ephemeral eval.Module such as will be
     // used later during execution; the two environments must match.
-    ImmutableMap<String, Object> predeclared = packageFactory.getEnvironment(prelude);
+    // TODO(#11437): Remove conditional once disabling injection is no longer allowed.
+    Map<String, Object> predeclared =
+        semantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()
+            ? packageFactory.getBazelStarlarkEnvironment().getUninjectedBuildEnv()
+            : starlarkBuiltinsValue.predeclaredForBuild;
+    if (preludeBindings != null) {
+      predeclared = new HashMap<>(predeclared);
+      predeclared.putAll(preludeBindings);
+    }
     Module module = Module.withPredeclared(semantics, predeclared);
 
     // Compile BUILD file.
@@ -1447,7 +1495,7 @@ public class PackageFunction implements SkyFunction {
         ImmutableList.copyOf(globs),
         ImmutableList.copyOf(globsWithDirs),
         ImmutableMap.copyOf(generatorMap),
-        prelude);
+        ImmutableMap.copyOf(predeclared));
   }
 
   private static class InternalInconsistentFilesystemException extends Exception {

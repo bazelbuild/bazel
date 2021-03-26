@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
@@ -23,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -47,6 +50,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -95,9 +99,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -395,6 +399,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /** Returns the results of include scanning. */
+  @Nullable
   private NestedSet<Artifact> findUsedHeaders(
       ActionExecutionContext actionExecutionContext, IncludeScanningHeaderData headerData)
       throws ActionExecutionException, InterruptedException {
@@ -406,7 +411,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             actionExecutionContext
                 .getContext(CppIncludeScanningContext.class)
                 .findAdditionalInputs(this, actionExecutionContext, headerData);
+        if (includes == null) {
+          return null;
+        }
 
+        Collections.sort(includes, Artifact.EXEC_PATH_COMPARATOR);
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, includes);
       } catch (IORuntimeException e) {
         throw new EnvironmentalExecException(
@@ -481,9 +490,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .setIsValidUndeclaredHeader(getValidUndeclaredHeaderPredicate(actionExecutionContext))
               .build();
       additionalInputs = findUsedHeaders(actionExecutionContext, includeScanningHeaderData);
+      if (additionalInputs == null) {
+        return null;
+      }
 
       if (useHeaderModules) {
-        usedModules = ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet());
+        boolean separate = outputFile.equals(ccCompilationContext.getSeparateHeaderModule(usePic));
+        usedModules =
+            ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet(), separate);
       }
     }
 
@@ -569,6 +583,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     usedModules = null;
     return additionalInputs;
+  }
+
+  @Override
+  protected final NestedSet<Artifact> getOriginalInputs() {
+    return NestedSetBuilder.fromNestedSet(mandatoryInputs)
+        .addTransitive(inputsForInvalidation)
+        .build();
   }
 
   private Predicate<Artifact> getValidUndeclaredHeaderPredicate(
@@ -784,17 +805,23 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public Artifact getMainIncludeScannerSource() {
-    return getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)
-        ? Iterables.getFirst(ccCompilationContext.getHeaderModuleSrcs(), null)
-        : getSourceFile();
+    // getIncludeScannerSources() needs to return the main file first. This is used for determining
+    // what file command line includes should be interpreted relative to.
+    return getIncludeScannerSources().get(0);
   }
 
   @Override
-  public Collection<Artifact> getIncludeScannerSources() {
+  public ImmutableList<Artifact> getIncludeScannerSources() {
     if (getSourceFile().isFileType(CppFileTypes.CPP_MODULE_MAP)) {
+      boolean isSeparate = outputFile.equals(ccCompilationContext.getSeparateHeaderModule(usePic));
+      Preconditions.checkState(
+          outputFile.equals(ccCompilationContext.getHeaderModule(usePic)) || isSeparate,
+          "Trying to build unknown module",
+          outputFile);
+
       // If this is an action that compiles the header module itself, the source we build is the
       // module map, and we need to include-scan all headers that are referenced in the module map.
-      return ccCompilationContext.getHeaderModuleSrcs();
+      return ccCompilationContext.getHeaderModuleSrcs(isSeparate);
     }
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     builder.add(getSourceFile());
@@ -816,7 +843,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
     try {
-      return getEnvironment(ImmutableMap.of());
+      return getEffectiveEnvironment(ImmutableMap.of());
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -827,9 +854,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  public ImmutableMap<String, String> getEnvironment(Map<String, String> clientEnv)
+  @Override()
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
-    Map<String, String> environment = new LinkedHashMap<>(env.size());
+    Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(environment, clientEnv);
 
     if (!getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)) {
@@ -855,9 +883,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             .collect(ImmutableSet.toImmutableSet());
 
     CommandLine commandLine = compileCommandLine.getFilteredFeatureConfigurationCommandLine(this);
-
+    ParamFileInfo paramFileInfo = null;
+    if (cppConfiguration.useArgsParamsFile()) {
+      paramFileInfo =
+          ParamFileInfo.builder(ParameterFileType.GCC_QUOTED)
+              .setCharset(ISO_8859_1)
+              .setUseAlways(true)
+              .build();
+    }
     CommandLineAndParamFileInfo commandLineAndParamFileInfo =
-        new CommandLineAndParamFileInfo(commandLine, /* paramFileInfo= */ null);
+        new CommandLineAndParamFileInfo(commandLine, paramFileInfo);
 
     Args args = Args.forRegisteredAction(commandLineAndParamFileInfo, directoryInputs);
 
@@ -890,7 +925,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEnvironment(/* clientEnv= */ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -909,7 +944,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   /** Returns the compiler options. */
   @VisibleForTesting
   public List<String> getCompilerOptions() throws CommandLineExpansionException {
-    return compileCommandLine.getCompilerOptions(/* overwrittenVariables= */ null);
+    return compileCommandLine.getCompilerOptions(/*overwrittenVariables=*/ null);
   }
 
   @Override
@@ -1190,13 +1225,21 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
-    return NestedSetBuilder.fromNestedSet(mandatoryInputs)
-        .addTransitive(additionalPrunableHeaders)
-        .addTransitive(inputsForInvalidation)
-        .addTransitive(getDeclaredIncludeSrcs())
-        .addTransitive(ccCompilationContext.getTransitiveModules(usePic))
-        .add(getSourceFile())
-        .build();
+    NestedSetBuilder<Artifact> builder =
+        NestedSetBuilder.fromNestedSet(mandatoryInputs)
+            .addTransitive(additionalPrunableHeaders)
+            .addTransitive(inputsForInvalidation)
+            .addTransitive(getDeclaredIncludeSrcs())
+            .addTransitive(ccCompilationContext.getTransitiveModules(usePic))
+            .add(getSourceFile());
+
+    // The separate module is an allowed input to all compiles of this context except for its own
+    // compile.
+    Artifact separateModule = ccCompilationContext.getSeparateHeaderModule(usePic);
+    if (separateModule != null && !separateModule.equals(outputFile)) {
+      builder.add(separateModule);
+    }
+    return builder.build();
   }
 
   /**
@@ -1446,7 +1489,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return new SimpleSpawn(
           this,
           ImmutableList.copyOf(getArguments()),
-          getEnvironment(clientEnv),
+          getEffectiveEnvironment(clientEnv),
           executionInfo,
           inputs,
           getOutputs(),
@@ -1781,8 +1824,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
-        throw e.toActionExecutionException(
-            CppCompileAction.this);
+        throw e.toActionExecutionException(CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
         throw e;

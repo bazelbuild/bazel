@@ -18,11 +18,13 @@ import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -55,9 +57,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
     this.retrier = retrier;
   }
 
-  private ExecutionBlockingStub execBlockingStub() {
+  private ExecutionBlockingStub execBlockingStub(RequestMetadata metadata) {
     return ExecutionGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataFromContextInterceptor())
+        .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
         .withCallCredentials(callCredentialsProvider.getCallCredentials());
   }
 
@@ -105,7 +107,8 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
    *   trigger a retry of the Execute call, resulting in a new Operation.
    * */
   @Override
-  public ExecuteResponse executeRemotely(ExecuteRequest request, OperationObserver observer)
+  public ExecuteResponse executeRemotely(
+      RemoteActionExecutionContext context, ExecuteRequest request, OperationObserver observer)
       throws IOException, InterruptedException {
     // Execute has two components: the Execute call and (optionally) the WaitExecution call.
     // This is the simple flow without any errors:
@@ -149,9 +152,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
                             WaitExecutionRequest.newBuilder()
                                 .setName(operation.get().getName())
                                 .build();
-                        replies = execBlockingStub().waitExecution(wr);
+                        replies = execBlockingStub(context.getRequestMetadata()).waitExecution(wr);
                       } else {
-                        replies = execBlockingStub().execute(request);
+                        replies = execBlockingStub(context.getRequestMetadata()).execute(request);
                       }
                       try {
                         while (replies.hasNext()) {

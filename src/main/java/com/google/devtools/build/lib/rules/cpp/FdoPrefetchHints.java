@@ -28,8 +28,6 @@ public final class FdoPrefetchHints implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-
     FdoInputFile inputFile = FdoInputFile.fromProfileRule(ruleContext);
     if (ruleContext.hasErrors()) {
       return null;

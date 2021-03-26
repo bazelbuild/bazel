@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: IDE integration
+category: getting-started
 ---
 
 # Integrating Bazel with IDEs

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -150,11 +151,13 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       new TreeArtifactValue(
           MetadataDigestUtils.fromMetadata(ImmutableMap.of()),
           ImmutableSortedMap.of(),
+          0L,
           /*archivedRepresentation=*/ null,
           /*entirelyRemote=*/ false);
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
+  private final long totalChildSize;
 
   /**
    * Optional archived representation of the entire tree artifact which can be sent instead of all
@@ -167,10 +170,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   private TreeArtifactValue(
       byte[] digest,
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
+      long totalChildSize,
       @Nullable ArchivedRepresentation archivedRepresentation,
       boolean entirelyRemote) {
     this.digest = digest;
     this.childData = childData;
+    this.totalChildSize = totalChildSize;
     this.archivedRepresentation = archivedRepresentation;
     this.entirelyRemote = entirelyRemote;
   }
@@ -192,6 +197,10 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   public ImmutableSet<TreeFileArtifact> getChildren() {
     return childData.keySet();
+  }
+
+  public long getTotalChildBytes() {
+    return totalChildSize;
   }
 
   /** Return archived representation of the tree artifact (if present). */
@@ -264,6 +273,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     return new TreeArtifactValue(
         null,
         ImmutableSortedMap.of(),
+        0L,
         /*archivedRepresentation=*/ null,
         /*entirelyRemote=*/ false) {
       @Override
@@ -382,7 +392,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     // points to a file under the TreeArtifact, the link target traverses outside of the
     // TreeArtifact into a/b/outside_dir.
     PathFragment intermediatePath = subDir;
-    for (String pathSegment : linkTarget.getSegments()) {
+    for (String pathSegment : linkTarget.segments()) {
       intermediatePath = intermediatePath.getRelative(pathSegment);
       if (intermediatePath.containsUplevelReferences()) {
         String errorMessage =
@@ -475,13 +485,19 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       boolean entirelyRemote =
           archivedRepresentation == null || archivedRepresentation.archivedFileValue().isRemote();
 
+      long totalChildSize = 0;
       for (Map.Entry<TreeFileArtifact, FileArtifactValue> childData : finalChildData.entrySet()) {
         // Digest will be deterministic because children are sorted.
         fingerprint.addPath(childData.getKey().getParentRelativePath());
-        childData.getValue().addTo(fingerprint);
+        FileArtifactValue metadata = childData.getValue();
+        metadata.addTo(fingerprint);
 
         // Tolerate a mix of local and remote children (b/152496153#comment80).
-        entirelyRemote &= childData.getValue().isRemote();
+        entirelyRemote &= metadata.isRemote();
+
+        if (metadata.getType() == FileStateType.REGULAR_FILE) {
+          totalChildSize += metadata.getSize();
+        }
       }
 
       if (archivedRepresentation != null) {
@@ -489,7 +505,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       }
 
       return new TreeArtifactValue(
-          fingerprint.digestAndReset(), finalChildData, archivedRepresentation, entirelyRemote);
+          fingerprint.digestAndReset(),
+          finalChildData,
+          totalChildSize,
+          archivedRepresentation,
+          entirelyRemote);
     }
   }
 }

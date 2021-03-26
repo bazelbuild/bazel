@@ -66,12 +66,14 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
   }
 
+  // Get the inputs of the starlark transition as a list of canonicalized labels strings.
   private List<String> getInputs() {
-    return starlarkDefinedConfigTransition.getInputs();
+    return starlarkDefinedConfigTransition.getInputsCanonicalizedToGiven().keySet().asList();
   }
 
+  // Get the outputs of the starlark transition as a list of canonicalized labels strings.
   private List<String> getOutputs() {
-    return starlarkDefinedConfigTransition.getOutputs();
+    return starlarkDefinedConfigTransition.getOutputsCanonicalizedToGiven().keySet().asList();
   }
 
   @Override
@@ -97,7 +99,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   /** Exception class for exceptions thrown during application of a starlark-defined transition */
-  // TODO(juliexxia): add more information to this exception e.g. originating target of transition
+  // TODO(blaze-configurability): add more information to this exception e.g. originating target of
+  // transition.
   public static class TransitionException extends Exception {
     private final String message;
 

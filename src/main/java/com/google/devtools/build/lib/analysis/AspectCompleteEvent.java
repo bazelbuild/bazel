@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
@@ -29,29 +30,36 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Out
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /** This event is fired as soon as a top-level aspect is either built or fails. */
 public class AspectCompleteEvent
     implements SkyValue, BuildEventWithOrderConstraint, EventReportingArtifacts {
-  private final AspectValue aspectValue;
+  private final AspectKey aspectKey;
+  private final AspectDescriptor descriptor;
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
-  private final NestedSet<ArtifactsInOutputGroup> artifactOutputGroups;
+  private final ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups;
   private final BuildEventId configurationEventId;
 
   private AspectCompleteEvent(
-      AspectValue aspectValue,
+      AspectKey aspectKey,
+      AspectDescriptor descriptor,
       NestedSet<Cause> rootCauses,
       CompletionContext completionContext,
-      NestedSet<ArtifactsInOutputGroup> artifactOutputGroups,
+      ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups,
       BuildEventId configurationEventId) {
-    this.aspectValue = aspectValue;
+    this.aspectKey = aspectKey;
+    this.descriptor = descriptor;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
@@ -68,9 +76,15 @@ public class AspectCompleteEvent
   public static AspectCompleteEvent createSuccessful(
       AspectValue value,
       CompletionContext completionContext,
-      NestedSet<ArtifactsInOutputGroup> artifacts,
+      ImmutableMap<String, ArtifactsInOutputGroup> artifacts,
       BuildEventId configurationEventId) {
-    return new AspectCompleteEvent(value, null, completionContext, artifacts, configurationEventId);
+    return new AspectCompleteEvent(
+        value.getKey(),
+        value.getAspect().getDescriptor(),
+        null,
+        completionContext,
+        artifacts,
+        configurationEventId);
   }
 
   /**
@@ -81,16 +95,20 @@ public class AspectCompleteEvent
       CompletionContext ctx,
       NestedSet<Cause> rootCauses,
       BuildEventId configurationEventId,
-      NestedSet<ArtifactsInOutputGroup> outputs) {
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
-    return new AspectCompleteEvent(value, rootCauses, ctx, outputs, configurationEventId);
+    return new AspectCompleteEvent(
+        value.getKey(),
+        value.getAspect().getDescriptor(),
+        rootCauses,
+        ctx,
+        outputs,
+        configurationEventId);
   }
 
-  /**
-   * Returns the target associated with the event.
-   */
-  public AspectValue getAspectValue() {
-    return aspectValue;
+  /** Returns the key of the completed aspect. */
+  public AspectKey getAspectKey() {
+    return aspectKey;
   }
 
   /**
@@ -105,12 +123,27 @@ public class AspectCompleteEvent
     return rootCauses;
   }
 
+  public Label getLabel() {
+    return aspectKey.getLabel();
+  }
+
+  public String getAspectName() {
+    return descriptor.getAspectClass().getName();
+  }
+
+  @Nullable
+  public ArtifactsInOutputGroup getArtifacts(String outputGroup) {
+    return artifactOutputGroups.get(outputGroup);
+  }
+
+  public CompletionContext getCompletionContext() {
+    return completionContext;
+  }
+
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.aspectCompleted(
-        aspectValue.getKey().getLabel(),
-        configurationEventId,
-        aspectValue.getAspect().getDescriptor().getDescription());
+        aspectKey.getLabel(), configurationEventId, descriptor.getDescription());
   }
 
   @Override
@@ -127,7 +160,7 @@ public class AspectCompleteEvent
   public ReportedArtifacts reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     if (artifactOutputGroups != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.toList()) {
+      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.values()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
@@ -142,12 +175,13 @@ public class AspectCompleteEvent
         BuildEventStreamProtos.TargetComplete.newBuilder();
     builder.setSuccess(!failed());
     if (artifactOutputGroups != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.toList()) {
-        OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
-        groupBuilder.setName(artifactsInGroup.getOutputGroup());
-        groupBuilder.addFileSets(namer.apply(artifactsInGroup.getArtifacts().toNode()));
-        builder.addOutputGroup(groupBuilder.build());
-      }
+      artifactOutputGroups.forEach(
+          (outputGroup, artifactsInGroup) ->
+              builder.addOutputGroup(
+                  OutputGroup.newBuilder()
+                      .setName(outputGroup)
+                      .setIncomplete(artifactsInGroup.isIncomplete())
+                      .addFileSets(namer.apply(artifactsInGroup.getArtifacts().toNode()))));
     }
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }

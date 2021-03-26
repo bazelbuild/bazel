@@ -1348,7 +1348,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1383,7 +1383,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1426,7 +1426,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1466,7 +1466,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1503,7 +1503,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1539,7 +1539,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1609,7 +1609,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1646,7 +1646,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -1719,7 +1719,7 @@ def _impl(ctx):
             ],
             tools = [
                 tool(
-                    path = "wrapped_clang",
+                    path = "wrapped_clang_pp",
                     execution_requirements = xcode_execution_requirements,
                 ),
             ],
@@ -3851,7 +3851,11 @@ def _impl(ctx):
                               ["objc-executable", "objc++-executable"],
                     flag_groups = [
                         flag_group(
-                            flags = ["-no-canonical-prefixes"],
+                            flags = [
+                                "-no-canonical-prefixes",
+                                "-target",
+                                "x86_64-apple-macosx",
+                            ],
                         ),
                     ],
                 ),
@@ -4555,6 +4559,10 @@ def _impl(ctx):
                         key = "APPLE_SDK_PLATFORM",
                         value = "%{apple_sdk_platform_value}",
                     ),
+                    env_entry(
+                        key = "ZERO_AR_DATE",
+                        value = "1",
+                    ),
                 ] + [env_entry(key = key, value = value) for key, value in ctx.attr.extra_env.items()],
             ),
         ],
@@ -5159,8 +5167,38 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "darwin_x86_64"):
+    elif (ctx.attr.cpu == "darwin_x86_64"):
+        unfiltered_compile_flags_feature = feature(
+            name = "unfiltered_compile_flags",
+            flag_sets = [
+                flag_set(
+                    actions = [
+                        ACTION_NAMES.assemble,
+                        ACTION_NAMES.preprocess_assemble,
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.cpp_module_compile,
+                        ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.linkstamp_compile,
+                    ],
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "-no-canonical-prefixes",
+                                "-Wno-builtin-macro-redefined",
+                                "-D__DATE__=\"redacted\"",
+                                "-D__TIMESTAMP__=\"redacted\"",
+                                "-D__TIME__=\"redacted\"",
+                                "-target",
+                                "x86_64-apple-macosx",
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        )
+    elif (ctx.attr.cpu == "armeabi-v7a"):
         unfiltered_compile_flags_feature = feature(
             name = "unfiltered_compile_flags",
             flag_sets = [
@@ -5366,7 +5404,7 @@ def _impl(ctx):
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
                 ],
-                flag_groups = [flag_group(flags = ["-fdebug-compilation-dir", "."])],
+                flag_groups = [flag_group(flags = ["DEBUG_PREFIX_MAP_PWD=."])],
             ),
         ],
     )

@@ -64,7 +64,6 @@ import javax.tools.ToolProvider;
  * <ul>
  *   <li>Error Prone
  *   <li>strict Java deps
- *   <li>header compilation
  *   <li>Android desugaring
  *   <li>coverage instrumentation
  *   <li>genclass handling for IDEs
@@ -78,7 +77,7 @@ public class VanillaJavaBuilder implements Closeable {
   private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
     FileSystem fs = filesystems.get(sourceJar);
     if (fs == null) {
-      filesystems.put(sourceJar, fs = FileSystems.newFileSystem(sourceJar, null));
+      filesystems.put(sourceJar, fs = FileSystems.newFileSystem(sourceJar, (ClassLoader) null));
     }
     return fs;
   }

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -565,7 +564,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
     // check depth limit
     int depth = result.getSet().getApproxDepth();
-    int limit = depthLimit.get();
+    int limit = semantics.get(BuildLanguageOptions.NESTED_SET_DEPTH_LIMIT);
     if (depth > limit) {
       throw Starlark.errorf("depset depth %d exceeds limit (%d)", depth, limit);
     }
@@ -605,21 +604,6 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   private static boolean isEmptyStarlarkList(Object o) {
     return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
-
-  /**
-   * Sets the maximum depth for nested sets constructed by the Starlark {@code depset} function (as
-   * set by {@code --nested_set_depth_limit}).
-   *
-   * @return whether the new limit differs from the old
-   */
-  public static boolean setDepthLimit(int newLimit) {
-    int oldValue = depthLimit.getAndSet(newLimit);
-    return oldValue != newLimit;
-  }
-
-  // The effective default value comes from the --nested_set_depth_limit
-  // flag in NestedSetOptionsModule, which overrides this.
-  private static final AtomicInteger depthLimit = new AtomicInteger(3500);
 
   // Delegate equality to the underlying NestedSet. Otherwise, it's possible to create multiple
   // Depset instances wrapping the same NestedSet that aren't equal to each other.

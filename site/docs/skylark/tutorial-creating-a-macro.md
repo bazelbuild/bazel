@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Creating a macro
+category: extending
 ---
 
 # Creating a Macro

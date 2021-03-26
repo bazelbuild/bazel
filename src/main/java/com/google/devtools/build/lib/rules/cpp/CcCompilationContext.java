@@ -439,6 +439,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           isModule,
           modularHeaders);
       handleHeadersForIncludeScanning(
+          transitiveHeaderInfo.separateModuleHeaders,
+          pathToLegalArtifact,
+          treeArtifacts,
+          isModule,
+          modularHeaders);
+      handleHeadersForIncludeScanning(
           transitiveHeaderInfo.textualHeaders,
           pathToLegalArtifact,
           treeArtifacts,
@@ -452,6 +458,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     transitiveHeaderCount.compareAndSet(-1, pathToLegalArtifact.size());
     removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
+    removeArtifactsFromSet(modularHeaders, headerInfo.separateModuleHeaders);
     return new IncludeScanningHeaderData.Builder(pathToLegalArtifact, modularHeaders);
   }
 
@@ -460,11 +467,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * the modules that they are in.
    */
   public Collection<Artifact.DerivedArtifact> computeUsedModules(
-      boolean usePic, Set<Artifact> includes) {
+      boolean usePic, Set<Artifact> includes, boolean separate) {
     CompactHashSet<Artifact.DerivedArtifact> modules = CompactHashSet.create();
     for (HeaderInfo transitiveHeaderInfo : headerInfo.getTransitiveCollection()) {
       Artifact.DerivedArtifact module = transitiveHeaderInfo.getModule(usePic);
       if (module == null) {
+        // If we don't have a main module, there is also not going to be a separate module. This is
+        // verified when constructing HeaderInfo instances.
         continue;
       }
       // Not using range-based for loops here as often there is exactly one element in this list
@@ -476,11 +485,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           break;
         }
       }
+      for (int i = 0; i < transitiveHeaderInfo.separateModuleHeaders.size(); i++) {
+        Artifact header = transitiveHeaderInfo.separateModuleHeaders.get(i);
+        if (includes.contains(header)) {
+          modules.add(transitiveHeaderInfo.getSeparateModule(usePic));
+          break;
+        }
+      }
     }
     // Do not add the module of the current rule for both:
     // 1. the module compile itself
     // 2. compiles of other translation units of the same rule.
-    modules.remove(headerInfo.getModule(usePic));
+    modules.remove(separate ? headerInfo.getSeparateModule(usePic) : headerInfo.getModule(usePic));
     return modules;
   }
 
@@ -521,15 +537,28 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return directModuleMaps;
   }
 
+  Artifact.DerivedArtifact getHeaderModule(boolean usePic) {
+    return headerInfo.getModule(usePic);
+  }
+
+  Artifact.DerivedArtifact getSeparateHeaderModule(boolean usePic) {
+    return headerInfo.getSeparateModule(usePic);
+  }
+
   /**
    * @return all declared headers of the current module if the current target is compiled as a
    *     module.
    */
-  ImmutableSet<Artifact> getHeaderModuleSrcs() {
+  ImmutableList<Artifact> getHeaderModuleSrcs(boolean separateModule) {
+    if (separateModule) {
+      return headerInfo.separateModuleHeaders;
+    }
     return new ImmutableSet.Builder<Artifact>()
         .addAll(headerInfo.modularHeaders)
         .addAll(headerInfo.textualHeaders)
-        .build();
+        .addAll(headerInfo.separateModuleHeaders)
+        .build()
+        .asList();
   }
 
   /**
@@ -723,14 +752,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       looseHdrsDirs.addTransitive(otherCcCompilationContext.getLooseHdrsDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       headerInfoBuilder.addDep(otherCcCompilationContext.headerInfo);
+
       transitiveModules.addTransitive(otherCcCompilationContext.transitiveModules);
-      if (otherCcCompilationContext.headerInfo.headerModule != null) {
-        transitiveModules.add(otherCcCompilationContext.headerInfo.headerModule);
-      }
+      addIfNotNull(transitiveModules, otherCcCompilationContext.headerInfo.headerModule);
+      addIfNotNull(transitiveModules, otherCcCompilationContext.headerInfo.separateModule);
+
       transitivePicModules.addTransitive(otherCcCompilationContext.transitivePicModules);
-      if (otherCcCompilationContext.headerInfo.picHeaderModule != null) {
-        transitivePicModules.add(otherCcCompilationContext.headerInfo.picHeaderModule);
-      }
+      addIfNotNull(transitivePicModules, otherCcCompilationContext.headerInfo.picHeaderModule);
+      addIfNotNull(transitivePicModules, otherCcCompilationContext.headerInfo.separatePicModule);
 
       nonCodeInputs.addTransitive(otherCcCompilationContext.nonCodeInputs);
 
@@ -748,6 +777,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       virtualToOriginalHeaders.addTransitive(
           otherCcCompilationContext.getVirtualToOriginalHeaders());
       return this;
+    }
+
+    private static void addIfNotNull(
+        NestedSetBuilder<Artifact> builder, @Nullable Artifact artifact) {
+      if (artifact != null) {
+        builder.add(artifact);
+      }
     }
 
     /**
@@ -888,6 +924,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     public Builder addTextualHdrs(Collection<Artifact> headers) {
       this.headerInfoBuilder.addTextualHeaders(headers);
+      return this;
+    }
+
+    public Builder setSeparateModuleHdrs(
+        Collection<Artifact> headers,
+        Artifact.DerivedArtifact separateModule,
+        Artifact.DerivedArtifact separatePicModule) {
+      this.headerInfoBuilder.setSeparateModuleHdrs(headers, separateModule, separatePicModule);
       return this;
     }
 
@@ -1106,6 +1150,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** All textual header files that are contained in this module. */
     private final ImmutableList<Artifact> textualHeaders;
 
+    /** Headers that can be compiled into a separate, smaller module for performance reasons. */
+    private final ImmutableList<Artifact> separateModuleHeaders;
+
+    private final Artifact.DerivedArtifact separateModule;
+    private final Artifact.DerivedArtifact separatePicModule;
+
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
     private final ImmutableList<HeaderInfo> deps;
 
@@ -1118,6 +1168,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ImmutableList<Artifact> modularPublicHeaders,
         ImmutableList<Artifact> modularPrivateHeaders,
         ImmutableList<Artifact> textualHeaders,
+        ImmutableList<Artifact> separateModuleHeaders,
+        Artifact.DerivedArtifact separateModule,
+        Artifact.DerivedArtifact separatePicModule,
         ImmutableList<HeaderInfo> deps) {
       this.headerModule = headerModule;
       this.picHeaderModule = picHeaderModule;
@@ -1126,11 +1179,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       this.modularHeaders =
           ImmutableList.copyOf(Iterables.concat(modularPublicHeaders, modularPrivateHeaders));
       this.textualHeaders = textualHeaders;
+      this.separateModuleHeaders = separateModuleHeaders;
+      this.separateModule = separateModule;
+      this.separatePicModule = separatePicModule;
       this.deps = deps;
     }
 
     Artifact.DerivedArtifact getModule(boolean pic) {
       return pic ? picHeaderModule : headerModule;
+    }
+
+    Artifact.DerivedArtifact getSeparateModule(boolean pic) {
+      return pic ? separatePicModule : separateModule;
     }
 
     public Collection<HeaderInfo> getTransitiveCollection() {
@@ -1232,6 +1292,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       private final Set<Artifact> modularPublicHeaders = new HashSet<>();
       private final Set<Artifact> modularPrivateHeaders = new HashSet<>();
       private final Set<Artifact> textualHeaders = new HashSet<>();
+      private Collection<Artifact> separateModuleHeaders = ImmutableList.of();
+      private Artifact.DerivedArtifact separateModule = null;
+      private Artifact.DerivedArtifact separatePicModule = null;
       private final List<HeaderInfo> deps = new ArrayList<>();
 
       Builder setHeaderModule(Artifact.DerivedArtifact headerModule) {
@@ -1280,6 +1343,16 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         return this;
       }
 
+      public Builder setSeparateModuleHdrs(
+          Collection<Artifact> headers,
+          Artifact.DerivedArtifact separateModule,
+          Artifact.DerivedArtifact separatePicModule) {
+        this.separateModuleHeaders = headers;
+        this.separateModule = separateModule;
+        this.separatePicModule = separatePicModule;
+        return this;
+      }
+
       /** Adds the headers of the given {@code HeaderInfo} into the one being built. */
       public Builder mergeHeaderInfo(HeaderInfo otherHeaderInfo) {
         this.modularPublicHeaders.addAll(otherHeaderInfo.modularPublicHeaders);
@@ -1289,12 +1362,21 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
 
       public HeaderInfo build() {
+        Preconditions.checkState(
+            (separateModule == null || headerModule != null)
+                && (separatePicModule == null || picHeaderModule != null),
+            "Separate module cannot be used without main module",
+            separateModule,
+            separatePicModule);
         return new HeaderInfo(
             headerModule,
             picHeaderModule,
             ImmutableList.copyOf(modularPublicHeaders),
             ImmutableList.copyOf(modularPrivateHeaders),
             ImmutableList.copyOf(textualHeaders),
+            ImmutableList.copyOf(separateModuleHeaders),
+            separateModule,
+            separatePicModule,
             ImmutableList.copyOf(deps));
       }
     }

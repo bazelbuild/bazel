@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
@@ -52,7 +53,7 @@ public class MapBasedActionGraphTest {
     Path path = root.getRelative("foo");
     Artifact output =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, false, outSegment), path);
+            ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment), path);
     Action action =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -63,7 +64,7 @@ public class MapBasedActionGraphTest {
     path = root.getRelative("bar");
     output =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, false, outSegment), path);
+            ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment), path);
     Action action2 =
         new TestAction(
             TestAction.NO_EFFECT,
@@ -82,7 +83,8 @@ public class MapBasedActionGraphTest {
     Path path = root.getRelative("foo");
     Artifact output =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, false, root.relativeTo(execRoot).getPathString()),
+            ArtifactRoot.asDerivedRoot(
+                execRoot, RootType.Output, root.relativeTo(execRoot).getPathString()),
             path);
     Action action =
         new TestAction(
@@ -120,7 +122,7 @@ public class MapBasedActionGraphTest {
       Path path = root.getChild("foo");
       output =
           ActionsTestUtil.createArtifact(
-              ArtifactRoot.asDerivedRoot(execRoot, false, rootSegment), path);
+              ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, rootSegment), path);
       allActions.add(
           new TestAction(
               TestAction.NO_EFFECT,

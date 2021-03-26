@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
@@ -40,7 +43,7 @@ public abstract class JavaToolchainTool {
   public abstract FilesToRunProvider tool();
 
   /** Additional inputs required by the tool, e.g. a Class Data Sharing archive. */
-  public abstract ImmutableList<Artifact> data();
+  public abstract NestedSet<Artifact> data();
 
   /**
    * JVM flags to invoke the tool with, or empty if it is not a {@code _deploy.jar}. Location
@@ -58,18 +61,16 @@ public abstract class JavaToolchainTool {
     if (tool == null) {
       return null;
     }
-    TransitiveInfoCollection data = ruleContext.getPrerequisite(dataAttribute);
-    ImmutableList<Artifact> dataArtifacts =
-        data == null
-            ? ImmutableList.of()
-            : data.getProvider(FileProvider.class).getFilesToBuild().toList();
-    ImmutableMap<Label, ImmutableCollection<Artifact>> locations =
-        data == null
-            ? ImmutableMap.of()
-            : ImmutableMap.of(AliasProvider.getDependencyLabel(data), dataArtifacts);
+    NestedSetBuilder<Artifact> dataArtifacts = NestedSetBuilder.stableOrder();
+    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locations = ImmutableMap.builder();
+    for (TransitiveInfoCollection data : ruleContext.getPrerequisites(dataAttribute)) {
+      NestedSet<Artifact> files = data.getProvider(FileProvider.class).getFilesToBuild();
+      dataArtifacts.addTransitive(files);
+      locations.put(AliasProvider.getDependencyLabel(data), files.toList());
+    }
     ImmutableList<String> jvmOpts =
-        ruleContext.getExpander().withExecLocations(locations).list(jvmOptsAttribute);
-    return create(tool, dataArtifacts, jvmOpts);
+        ruleContext.getExpander().withExecLocations(locations.build()).list(jvmOptsAttribute);
+    return create(tool, dataArtifacts.build(), jvmOpts);
   }
 
   @Nullable
@@ -77,12 +78,12 @@ public abstract class JavaToolchainTool {
     if (executable == null) {
       return null;
     }
-    return create(executable, ImmutableList.of(), ImmutableList.of());
+    return create(executable, NestedSetBuilder.emptySet(STABLE_ORDER), ImmutableList.of());
   }
 
   @AutoCodec.Instantiator
   static JavaToolchainTool create(
-      FilesToRunProvider tool, ImmutableList<Artifact> data, ImmutableList<String> jvmOpts) {
+      FilesToRunProvider tool, NestedSet<Artifact> data, ImmutableList<String> jvmOpts) {
     return new AutoValue_JavaToolchainTool(tool, data, jvmOpts);
   }
 
@@ -92,15 +93,15 @@ public abstract class JavaToolchainTool {
    * <p>For a Java command, the executable command line will include {@code java -jar deploy.jar} as
    * well as any JVM flags.
    *
-   * @param toolchains {@code java_toolchain} for the action being constructed
-   * @param inputs for the action being constructed
-   * @returns the executable command line for the tool
+   * @param command the executable command line builder for the tool
+   * @param toolchain {@code java_toolchain} for the action being constructed
+   * @param inputs inputs for the action being constructed
    */
   void buildCommandLine(
       CustomCommandLine.Builder command,
       JavaToolchainProvider toolchain,
       NestedSetBuilder<Artifact> inputs) {
-    inputs.addAll(data());
+    inputs.addTransitive(data());
     Artifact executable = tool().getExecutable();
     if (!executable.getExtension().equals("jar")) {
       command.addExecPath(executable);

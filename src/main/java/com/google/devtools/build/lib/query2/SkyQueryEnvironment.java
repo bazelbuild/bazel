@@ -376,12 +376,20 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       return QueryExpressionMapper.identity();
     }
     TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
-    String universeScopePattern = Iterables.getOnlyElement(constantUniverseScopeList);
+    String universeScopePatternString = Iterables.getOnlyElement(constantUniverseScopeList);
+    TargetPattern absoluteUniverseScopePattern = null;
+    try {
+      absoluteUniverseScopePattern =
+          targetPatternParser.parse(targetPatternParser.absolutize(universeScopePatternString));
+    } catch (TargetParsingException e) {
+      return QueryExpressionMapper.identity();
+    }
     return QueryExpressionMapper.compose(
         ImmutableList.of(
-            new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern),
+            new RdepsToAllRdepsQueryExpressionMapper(
+                targetPatternParser, absoluteUniverseScopePattern),
             new FilteredDirectRdepsInUniverseExpressionMapper(
-                targetPatternParser, universeScopePattern)));
+                targetPatternParser, absoluteUniverseScopePattern)));
   }
 
   @Override

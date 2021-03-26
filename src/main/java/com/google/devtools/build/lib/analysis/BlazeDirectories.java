@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -101,10 +102,7 @@ public final class BlazeDirectories {
     return serverDirectories;
   }
 
-  /**
-   * Returns the base of the output tree, which hosts all build and scratch output for a user and
-   * workspace.
-   */
+  /** Returns the installation base directory. */
   public Path getInstallBase() {
     return serverDirectories.getInstallBase();
   }
@@ -206,7 +204,7 @@ public final class BlazeDirectories {
    */
   public ArtifactRoot getBuildDataDirectory(String workspaceName) {
     return ArtifactRoot.asDerivedRoot(
-        getExecRoot(workspaceName), false, getRelativeOutputPath(productName));
+        getExecRoot(workspaceName), RootType.Output, getRelativeOutputPath(productName));
   }
 
   /**

@@ -2,7 +2,7 @@
 layout: documentation
 title: Cquery (configurable query)
 ---
-<h1> Configurable query (cquery)</h1>
+<h1> Configurable Query (cquery)</h1>
 
 
 <p>
@@ -255,7 +255,7 @@ $ bazel cquery "config(//baz, 3732cc8)"
   available during a build.
 </p>
 
-<h3>'cquery' options</h3>
+<h3> Using cquery options</h3>
 
 <h4 id="universe_scope-comma-separated-list"><code>--universe_scope</code> (comma-separated list)</h4>
 
@@ -324,8 +324,8 @@ cc_library(
   <code>--universe_scope</code> could prevent building targets multiple times in
   configurations you don't care about. It could also help specify which configuration version of a
   target you're looking for (since it's not currently possible
-  to fully specify this any other way). We recommend that you set this
-  flag if your query expression is more complex than <code>deps(//foo)</code>.
+  to fully specify this any other way). You should set this flag
+  if your query expression is more complex than <code>deps(//foo)</code>.
 </p>
 
 <h4><code>--implicit_deps</code> (boolean, default=True)</h4>
@@ -696,7 +696,7 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
     </p>
 
     <p>
-      We can see the lingering effects of that transition below.
+      You can see the lingering effects of that transition below.
     </p>
 
 <pre>
@@ -739,5 +739,5 @@ tool(host_config)
   The Bazel configurability team is continuously improving <code>cquery</code>. If you want to
   ask questions, stay updated, or get involved, contact
 
-  the Bazel team at one of <a href="/support.html">these channels</a>.
+  the Bazel team at one of <a href="https://bazel.build/support.html">these channels</a>.
 </p>

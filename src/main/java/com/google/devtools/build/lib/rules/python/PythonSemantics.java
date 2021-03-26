@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import java.util.Collection;
@@ -62,13 +61,10 @@ public interface PythonSemantics {
    */
   void collectDefaultRunfilesForBinary(
       RuleContext ruleContext, PyCommon common, Runfiles.Builder builder)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /** Collects a rule's default runfiles. */
   void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder);
-
-  /** Returns the coverage instrumentation specification to be used in Python rules. */
-  InstrumentationSpec getCoverageInstrumentationSpec();
 
   /** Utility function to compile multiple .py files to .pyc files, if required. */
   Collection<Artifact> precompiledPythonFiles(

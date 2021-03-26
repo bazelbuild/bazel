@@ -30,7 +30,8 @@ import net.starlark.java.eval.StarlarkValue;
             + "you will be broken when it is removed."
             + "Common utilities and functionality related to Android rules.",
     documented = false)
-public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi<?>>
+public interface AndroidStarlarkCommonApi<
+        FileT extends FileApi, JavaInfoT extends JavaInfoApi<?, ?>>
     extends StarlarkValue {
 
   @StarlarkMethod(

@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Updating Bazel
+category: getting-started
 ---
 
 # Updating Bazel
@@ -35,7 +36,7 @@ Bazel backwards compatibility policy is designed to avoid _upgrade cliffs_: any
 project can be prepared for the next Bazel release without breaking
 compatibility with the current release.
 
-We recommend the following process for project migration:
+Follow this process for project migration:
 
 1. Assume that your project already works with a given Bazel release, say 0.26,
    and you want to prepare for the next release, say 0.27

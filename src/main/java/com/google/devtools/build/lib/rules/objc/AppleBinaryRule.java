@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -170,7 +171,7 @@ public class AppleBinaryRule implements RuleDefinition {
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(true)
+        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 
@@ -179,7 +180,9 @@ public class AppleBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_binary")
         .factoryClass(AppleBinary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class,
+        .ancestors(
+            BaseRuleClasses.NativeBuildRule.class,
+            ObjcRuleClasses.MultiArchPlatformRule.class,
             ObjcRuleClasses.DylibDependingRule.class)
         .build();
   }

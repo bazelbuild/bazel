@@ -99,7 +99,8 @@ final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   public static Artifact getInstrumentedFileManifest(RuleContext ruleContext,
       NestedSet<Artifact> additionalSourceFiles, NestedSet<Artifact> metadataFiles) {
     // Instrumented manifest makes sense only for rules with binary output.
-    Preconditions.checkState(ruleContext.getRule().hasBinaryOutput());
+    Preconditions.checkState(
+        ruleContext.getRule().hasBinaryOutput(), "not binary output: %s", ruleContext.getLabel());
     Artifact instrumentedFileManifest = ruleContext.getBinArtifact(
         ruleContext.getTarget().getName()  + ".instrumented_files");
 

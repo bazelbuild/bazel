@@ -109,7 +109,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("proto_library")
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
         .factoryClass(BazelProtoLibrary.class)
         .build();
   }

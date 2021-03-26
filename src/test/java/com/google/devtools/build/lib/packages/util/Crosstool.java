@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -56,6 +59,8 @@ public final class Crosstool {
     private final ImmutableList<Pair<String, String>> toolPaths;
     private final ImmutableList<String> cxxBuiltinIncludeDirectories;
     private final ImmutableList<Pair<String, String>> makeVariables;
+    private final ImmutableList<String> toolchainExecConstraints;
+    private final ImmutableList<String> toolchainTargetConstraints;
 
     private CcToolchainConfig(
         String cpu,
@@ -73,7 +78,9 @@ public final class Crosstool {
         ImmutableList<ImmutableList<String>> artifactNamePatterns,
         ImmutableList<Pair<String, String>> toolPaths,
         ImmutableList<String> cxxBuiltinIncludeDirectories,
-        ImmutableList<Pair<String, String>> makeVariables) {
+        ImmutableList<Pair<String, String>> makeVariables,
+        ImmutableList<String> toolchainExecConstraints,
+        ImmutableList<String> toolchainTargetConstraints) {
       this.cpu = cpu;
       this.compiler = compiler;
       this.toolchainIdentifier = toolchainIdentifier;
@@ -90,6 +97,8 @@ public final class Crosstool {
       this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
       this.makeVariables = makeVariables;
       this.ccTargetOs = ccTargetOs;
+      this.toolchainExecConstraints = toolchainExecConstraints;
+      this.toolchainTargetConstraints = toolchainTargetConstraints;
     }
 
     public static Builder builder() {
@@ -114,6 +123,8 @@ public final class Crosstool {
       private String targetLibc = "local";
       private String abiVersion = "local";
       private String abiLibcVersion = "local";
+      private ImmutableList<String> toolchainExecConstraints = ImmutableList.of();
+      private ImmutableList<String> toolchainTargetConstraints = ImmutableList.of();
 
       public Builder withCpu(String cpu) {
         this.cpu = cpu;
@@ -201,6 +212,16 @@ public final class Crosstool {
         return this;
       }
 
+      public Builder withToolchainExecConstraints(String... execConstraints) {
+        this.toolchainExecConstraints = ImmutableList.copyOf(execConstraints);
+        return this;
+      }
+
+      public Builder withToolchainTargetConstraints(String... targetConstraints) {
+        this.toolchainTargetConstraints = ImmutableList.copyOf(targetConstraints);
+        return this;
+      }
+
       public CcToolchainConfig build() {
         return new CcToolchainConfig(
             cpu,
@@ -218,7 +239,9 @@ public final class Crosstool {
             artifactNamePatterns,
             toolPaths,
             cxxBuiltinIncludeDirectories,
-            makeVariables);
+            makeVariables,
+            toolchainExecConstraints,
+            toolchainTargetConstraints);
       }
     }
 
@@ -232,6 +255,35 @@ public final class Crosstool {
 
     public String getCompiler() {
       return compiler;
+    }
+
+    private static String formatConstraints(String type, ImmutableList<String> constraints) {
+      if (constraints.isEmpty()) {
+        return "";
+      }
+
+      String output =
+          constraints.stream()
+              .map(constraint -> String.format("'%s',", constraint))
+              .collect(joining("\n"));
+
+      return String.format("%s_compatible_with = [\n%s\n],", type, output);
+    }
+
+    public String getToolchainExecConstraints() {
+      return formatConstraints("exec", toolchainExecConstraints);
+    }
+
+    public String getToolchainTargetConstraints() {
+      ImmutableList<String> constraints = this.toolchainTargetConstraints;
+      if (constraints.isEmpty() && getTargetCpu().equals("k8")) {
+        // Use default constraints
+        constraints =
+            ImmutableList.of(
+                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+      }
+      return formatConstraints("target", constraints);
     }
 
     public boolean hasStaticLinkCppRuntimesFeature() {
@@ -255,7 +307,9 @@ public final class Crosstool {
           /* artifactNamePatterns= */ ImmutableList.of(),
           /* toolPaths= */ ImmutableList.of(),
           /* cxxBuiltinIncludeDirectories= */ ImmutableList.of(),
-          /* makeVariables= */ ImmutableList.of());
+          /* makeVariables= */ ImmutableList.of(),
+          /* toolchainExecConstraints= */ ImmutableList.of(),
+          /* toolchainTargetConstraints= */ ImmutableList.of());
     }
 
     public static CcToolchainConfig getDefaultCcToolchainConfig() {
@@ -323,14 +377,16 @@ public final class Crosstool {
   private final MockToolsConfig config;
 
   private final String crosstoolTop;
+  private final Label crosstoolTopLabel;
   private String ccToolchainConfigFileContents;
   private ImmutableList<String> archs;
   private boolean supportsHeaderParsing;
   private ImmutableList<CcToolchainConfig> ccToolchainConfigList = ImmutableList.of();
 
-  Crosstool(MockToolsConfig config, String crosstoolTop) {
+  Crosstool(MockToolsConfig config, String crosstoolTop, Label crosstoolTopLabel) {
     this.config = config;
     this.crosstoolTop = crosstoolTop;
+    this.crosstoolTopLabel = crosstoolTopLabel;
   }
 
   public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
@@ -427,8 +483,12 @@ public final class Crosstool {
               .join(
                   "toolchain(",
                   "  name = 'cc-toolchain-" + suffix + "',",
-                  "  toolchain_type = ':toolchain_type',",
+                  "  toolchain_type = '"
+                      + TestConstants.TOOLS_REPOSITORY
+                      + "//tools/cpp:toolchain_type',",
                   "  toolchain = ':cc-compiler-" + suffix + "',",
+                  toolchain.getToolchainExecConstraints(),
+                  toolchain.getToolchainTargetConstraints(),
                   ")",
                   toolchain.getCcToolchainConfigRule(),
                   "cc_toolchain(",
@@ -498,6 +558,11 @@ public final class Crosstool {
     config.overwrite(crosstoolTop + "/BUILD", build);
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
+    config.append(
+        "WORKSPACE",
+        String.format(
+            "register_toolchains('%s:all')",
+            crosstoolTopLabel.getPackageIdentifier().getCanonicalForm()));
   }
 
   public void writeOSX() throws IOException {

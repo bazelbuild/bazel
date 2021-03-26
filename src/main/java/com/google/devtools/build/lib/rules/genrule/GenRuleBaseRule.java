@@ -71,7 +71,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <a href="../build-ref.html#deps">dependencies</a> for more information. <br/>
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
-          they are built using the <a href='../user-manual.html#configurations'><i>host</i>
+          they are built using the <a href='../guide.html#configurations'><i>host</i>
           configuration</a>, since these tools are executed as part of the build. The path of an
           individual <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.
@@ -96,10 +96,11 @@ public class GenRuleBaseRule implements RuleDefinition {
         <a href="#genrule.tools"><code>tools</code></a> for further details.
 
         <p>
-          Note that eventually the host configuration will be replaced by the execution
-          configuration. When that happens, this attribute will be deprecated in favor of
-          <code>tools</code>. Until then, this attribute allows users to selectively migrate
-          dependencies to the execution configuration.
+          The Blaze team is migrating all uses of <code>tools</code> to use <code>exec_tools</code>
+          semantics. Users are encouraged to prefer <code>exec_tools</code> to <code>tools</code>
+          where this does not cause any issues. After the functional migration is complete, we may
+          rename <code>exec_tools</code> to <code>tools</code>.  You will receive a deprecation
+          warning and migration instructions before this happens.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
@@ -342,7 +343,9 @@ public class GenRuleBaseRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("$genrule_base")
         .type(RuleClassType.ABSTRACT)
-        .ancestors(BaseRuleClasses.RuleBase.class, BaseRuleClasses.MakeVariableExpandingRule.class)
+        .ancestors(
+            BaseRuleClasses.NativeActionCreatingRule.class,
+            BaseRuleClasses.MakeVariableExpandingRule.class)
         .build();
   }
 }

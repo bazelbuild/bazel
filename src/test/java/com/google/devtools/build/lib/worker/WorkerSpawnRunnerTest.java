@@ -17,12 +17,15 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -31,6 +34,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -101,7 +105,6 @@ public class WorkerSpawnRunnerTest {
             createWorkerPool(),
             /* multiplex */ false,
             reporter,
-            null,
             localEnvProvider,
             /* binTools */ null,
             resourceManager,
@@ -128,6 +131,51 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
+    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+  }
+
+  @Test
+  public void testExecInWorker_noMultiplexWithDynamic()
+      throws ExecException, InterruptedException, IOException {
+    WorkerOptions workerOptions = new WorkerOptions();
+    workerOptions.workerMultiplex = true;
+    when(context.speculating()).thenReturn(true);
+    WorkerSpawnRunner runner =
+        new WorkerSpawnRunner(
+            new SandboxHelpers(false),
+            fs.getPath("/execRoot"),
+            createWorkerPool(),
+            /* multiplex */ true,
+            reporter,
+            localEnvProvider,
+            /* binTools */ null,
+            resourceManager,
+            /* runfilestTreeUpdater */ null,
+            workerOptions);
+    // This worker key just so happens to be multiplex and require sandboxing.
+    WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs);
+    Path logFile = fs.getPath("/worker.log");
+    when(worker.getLogFile()).thenReturn(logFile);
+    when(worker.getResponse(0))
+        .thenReturn(
+            WorkResponse.newBuilder().setExitCode(0).setRequestId(0).setOutput("out").build());
+    WorkResponse response =
+        runner.execInWorker(
+            spawn,
+            key,
+            context,
+            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableList.of(),
+            inputFileCache,
+            spawnMetrics);
+
+    assertThat(response).isNotNull();
+    assertThat(response.getExitCode()).isEqualTo(0);
+    assertThat(response.getRequestId()).isEqualTo(0);
+    assertThat(response.getOutput()).isEqualTo("out");
+    assertThat(logFile.exists()).isFalse();
+    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
   }
 
   private void assertRecordedResponsethrowsException(String recordedResponse, String exceptionText)
@@ -139,7 +187,6 @@ public class WorkerSpawnRunnerTest {
             createWorkerPool(),
             /* multiplex */ false,
             reporter,
-            null,
             localEnvProvider,
             /* binTools */ null,
             resourceManager,

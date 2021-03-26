@@ -79,20 +79,6 @@ public class ObjcImportTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testNoDepsAllowed() throws Exception {
-    createLibraryTargetWriter("//lib:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .write();
-    checkError("imp", "imp",
-        "//imp:imp: no such attribute 'deps' in 'objc_import' rule",
-        "objc_import(",
-        "    name = 'imp',",
-        "    archives = ['library.a'],",
-        "    deps = ['//lib:lib'],",
-        ")");
-  }
-
-  @Test
   public void testArchiveRequiresDotInName() throws Exception {
     checkError("x", "x", "'//x:fooa' does not produce any objc_import archives files (expected .a)",
         "objc_import(",
@@ -133,16 +119,7 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testObjcImportNotLoadedThroughMacro() throws Exception {
-    setupTestObjcImportLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestObjcImportLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_import"),

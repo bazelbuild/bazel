@@ -67,6 +67,24 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_mips64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:mips64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_riscv64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:riscv64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_x86_64",
     constraint_values = [
         "@platforms//os:linux",

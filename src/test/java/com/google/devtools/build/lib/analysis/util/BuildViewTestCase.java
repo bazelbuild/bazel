@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
+import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -64,9 +65,11 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DependencyResolver.Failure;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -93,6 +96,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -123,6 +127,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -294,7 +299,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
             .setEnvironmentExtensions(getEnvironmentExtensions())
-            .setPackageValidator(getPackageValidator());
+            .setPackageValidator(getPackageValidator())
+            .setPackageOverheadEstimator(getPackageOverheadEstimator());
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
@@ -412,6 +418,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return PackageValidator.NOOP_VALIDATOR;
   }
 
+  protected PackageOverheadEstimator getPackageOverheadEstimator() {
+    return PackageOverheadEstimator.NOOP_ESTIMATOR;
+  }
+
   protected final BuildConfigurationCollection createConfigurations(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     optionsParser =
@@ -433,7 +443,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsParser.parse(allArgs);
     optionsParser.parse(args);
 
-    // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
+    // TODO(blaze-configurability): It would be nice to be able to do some starlark options loading
+    // to ensure that the values given in this map are the right types for their keys.
     optionsParser.setStarlarkOptions(starlarkOptions);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
@@ -584,6 +595,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
    * into a single parameter so Starlark/native options don't have to be specified separately.
    *
+   * <p>NOTE: Build language options are not support by this method, for example
+   * --experimental_google_legacy_api. Use {@link #setBuildLanguageOptions} instead.
+   *
    * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
@@ -661,14 +675,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected final Collection<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
-      throws Exception {
+      throws TransitionException, InvalidConfigurationException, InconsistentAspectOrderException,
+          Failure, InterruptedException {
     return view.getDirectPrerequisitesForTesting(reporter, target, masterConfig);
-  }
-
-  protected final Collection<ConfiguredTargetAndData> getDirectPrerequisites(
-      ConfiguredTargetAndData ctad) throws Exception {
-    return view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-        reporter, ctad, masterConfig);
   }
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
@@ -686,7 +695,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final ConfiguredTargetAndData getConfiguredTargetAndDataDirectPrerequisite(
       ConfiguredTargetAndData ctad, String label) throws Exception {
     Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
-    for (ConfiguredTargetAndData candidate : getDirectPrerequisites(ctad)) {
+    for (ConfiguredTargetAndData candidate :
+        view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
+            reporter,
+            ctad.getConfiguredTarget(),
+            ctad.getConfiguredTarget().getConfigurationKey(),
+            masterConfig)) {
       if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
         return candidate;
       }
@@ -1467,7 +1481,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildConfiguration config = getConfiguration(owner);
     return getGenfilesArtifact(
         packageRelativePath,
-        ConfiguredTargetKey.builder().setLabel(makeLabel(owner)).setConfiguration(config).build(),
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseAbsoluteUnchecked(owner))
+            .setConfiguration(config)
+            .build(),
         config);
   }
 
@@ -1678,17 +1695,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         (Rule) ctad.getTarget(), ctad.getConfiguredTarget().getConfigConditions());
   }
 
-  public static Label makeLabel(String label) {
-    try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
     return ConfiguredTargetKey.builder()
-        .setLabel(makeLabel(label))
+        .setLabel(Label.parseAbsoluteUnchecked(label))
         .setConfiguration(getConfiguration(label))
         .build();
   }
@@ -1881,6 +1890,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throw new RuntimeException(e);
     }
     return config;
+  }
+
+  protected final BuildConfiguration getConfiguration(
+      BuildConfigurationValue.Key configurationKey) {
+    return skyframeExecutor.getConfiguration(reporter, configurationKey);
   }
 
   protected final BuildConfiguration getConfiguration(ConfiguredTarget ct) {
@@ -2360,6 +2374,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     private MetadataProvider actionInputFileCache = null;
     private TreeMap<String, String> clientEnv = new TreeMap<>();
     private ArtifactExpander artifactExpander = null;
+    private Executor executor = new DummyExecutor(fileSystem, getExecRoot());
 
     public ActionExecutionContextBuilder setMetadataProvider(
         MetadataProvider actionInputFileCache) {
@@ -2372,9 +2387,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return this;
     }
 
+    public ActionExecutionContextBuilder setExecutor(Executor executor) {
+      this.executor = executor;
+      return this;
+    }
+
     public ActionExecutionContext build() {
       return new ActionExecutionContext(
-          new DummyExecutor(fileSystem, getExecRoot()),
+          executor,
           actionInputFileCache,
           /*actionInputPrefetcher=*/ null,
           actionKeyContext,

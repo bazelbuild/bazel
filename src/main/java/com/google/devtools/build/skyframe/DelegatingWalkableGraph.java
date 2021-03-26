@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -174,5 +175,10 @@ public class DelegatingWalkableGraph implements WalkableGraph {
       }
     }
     return result;
+  }
+
+  @Override
+  public ImmutableSet<SkyKey> getAllKeysForTesting() {
+    return graph.getAllKeysForTesting();
   }
 }

@@ -262,7 +262,7 @@ public class BazelJavaRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$java_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.RuleBase.class, JavaBaseRule.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class, JavaBaseRule.class)
           .build();
     }
   }

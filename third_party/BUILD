@@ -3,8 +3,6 @@ load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "d
 
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -370,15 +368,15 @@ distrib_java_import(
     name = "error_prone_annotations",
     enable_distributions = ["debian"],
     jars = [
-        "error_prone/error_prone_annotations-2.4.0.jar",
-        "error_prone/error_prone_type_annotations-2.4.0.jar",
+        "error_prone/error_prone_annotations-2.5.1.jar",
+        "error_prone/error_prone_type_annotations-2.5.1.jar",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.4.0.jar",
+        "error_prone/error_prone_annotations-2.5.1.jar",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -387,9 +385,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.4.0.jar",
-        "error_prone/error_prone_check_api-2.4.0.jar",
-        "error_prone/error_prone_core-2.4.0.jar",
+        "error_prone/error_prone_annotation-2.5.1.jar",
+        "error_prone/error_prone_check_api-2.5.1.jar",
+        "error_prone/error_prone_core-2.5.1.jar",
     ],
     exports = [
         ":error_prone_annotations",

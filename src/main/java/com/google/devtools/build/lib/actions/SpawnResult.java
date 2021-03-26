@@ -217,6 +217,16 @@ public interface SpawnResult {
    */
   Optional<Long> getNumInvoluntaryContextSwitches();
 
+  /**
+   * Returns the memory in Kilobytes used during the {@link Spawn}'s execution. The spawn memory
+   * based on the maximum resident set size during command execution.
+   *
+   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  // TODO(b/81317827) implement for darwin/windows systems.
+  Optional<Long> getMemoryInKb();
+
   SpawnMetrics getMetrics();
 
   /** Returns whether the spawn result was a cache hit. */
@@ -266,6 +276,7 @@ public interface SpawnResult {
     private final Optional<Long> numBlockOutputOperations;
     private final Optional<Long> numBlockInputOperations;
     private final Optional<Long> numInvoluntaryContextSwitches;
+    private final Optional<Long> memoryKb;
     private final Optional<MetadataLog> actionMetadataLog;
     private final boolean cacheHit;
     private final String failureMessage;
@@ -291,6 +302,7 @@ public interface SpawnResult {
       this.numBlockOutputOperations = builder.numBlockOutputOperations;
       this.numBlockInputOperations = builder.numBlockInputOperations;
       this.numInvoluntaryContextSwitches = builder.numInvoluntaryContextSwitches;
+      this.memoryKb = builder.memoryInKb;
       this.cacheHit = builder.cacheHit;
       this.failureMessage = builder.failureMessage;
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
@@ -363,6 +375,11 @@ public interface SpawnResult {
     @Override
     public Optional<Long> getNumInvoluntaryContextSwitches() {
       return numInvoluntaryContextSwitches;
+    }
+
+    @Override
+    public Optional<Long> getMemoryInKb() {
+      return memoryKb;
     }
 
     @Override
@@ -440,6 +457,7 @@ public interface SpawnResult {
     private Optional<Long> numBlockOutputOperations = Optional.empty();
     private Optional<Long> numBlockInputOperations = Optional.empty();
     private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
+    private Optional<Long> memoryInKb = Optional.empty();
     private Optional<MetadataLog> actionMetadataLog = Optional.empty();
     private boolean cacheHit;
     private String failureMessage = "";
@@ -544,6 +562,11 @@ public interface SpawnResult {
 
     public Builder setNumInvoluntaryContextSwitches(long numInvoluntaryContextSwitches) {
       this.numInvoluntaryContextSwitches = Optional.of(numInvoluntaryContextSwitches);
+      return this;
+    }
+
+    public Builder setMemoryInKb(long memoryInKb) {
+      this.memoryInKb = Optional.of(memoryInKb);
       return this;
     }
 

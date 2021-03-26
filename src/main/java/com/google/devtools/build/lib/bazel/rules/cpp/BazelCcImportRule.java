@@ -14,19 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /** Rule definition for the cc_import rule. */
 public final class BazelCcImportRule implements RuleDefinition {
@@ -34,13 +29,6 @@ public final class BazelCcImportRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(CppConfiguration.class)
-        .add(
-            attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
-                .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
-                .value(CppRuleClasses.ccToolchainAttribute(env)))
-        .add(
-            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
-                .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .build();
   }
 
@@ -48,7 +36,10 @@ public final class BazelCcImportRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("cc_import")
-        .ancestors(BaseRuleClasses.BaseRule.class, CcImportRule.class)
+        .ancestors(
+            BaseRuleClasses.NativeBuildRule.class,
+            CcImportRule.class,
+            CcToolchainRequiringRule.class)
         .factoryClass(BazelCcImport.class)
         .build();
   }

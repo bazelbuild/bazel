@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState.BUILT;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -37,14 +36,15 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -123,17 +123,17 @@ public final class SkyframeBuildView {
   private final ActionKeyContext actionKeyContext;
   private boolean enableAnalysis = false;
 
-  // This hack allows us to see when a configured target has been invalidated, and thus when the set
-  // of artifact conflicts needs to be recomputed (whenever a configured target has been invalidated
-  // or newly evaluated).
-  private final ConfiguredTargetValueProgressReceiver progressReceiver =
-      new ConfiguredTargetValueProgressReceiver();
+  // This hack allows us to see when an action lookup node has been invalidated, and thus when the
+  // set of artifact conflicts needs to be recomputed (whenever an action lookup node has been
+  // invalidated or newly evaluated).
+  private final ActionLookupValueProgressReceiver progressReceiver =
+      new ActionLookupValueProgressReceiver();
   // Used to see if checks of graph consistency need to be done after analysis.
-  private volatile boolean someConfiguredTargetEvaluated = false;
+  private volatile boolean someActionLookupValueEvaluated = false;
 
-  // We keep the set of invalidated configuration target keys so that we can know if something
-  // has been invalidated after graph pruning has been executed.
-  private Set<SkyKey> dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
+  // We keep the set of invalidated action lookup nodes so that we can know if something has been
+  // invalidated after graph pruning has been executed.
+  private Set<ActionLookupKey> dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -156,16 +156,13 @@ public final class SkyframeBuildView {
   private boolean foundActionConflict;
 
   public SkyframeBuildView(
-      BlazeDirectories directories,
+      ArtifactFactory artifactFactory,
       SkyframeExecutor skyframeExecutor,
       ConfiguredRuleClassProvider ruleClassProvider,
       ActionKeyContext actionKeyContext) {
     this.actionKeyContext = actionKeyContext;
     this.factory = new ConfiguredTargetFactory(ruleClassProvider);
-    this.artifactFactory =
-        new ArtifactFactory(
-            /* execRootParent= */ directories.getExecRootBase(),
-            directories.getRelativeOutputPath());
+    this.artifactFactory = artifactFactory;
     this.skyframeExecutor = skyframeExecutor;
     this.ruleClassProvider = ruleClassProvider;
   }
@@ -174,16 +171,19 @@ public final class SkyframeBuildView {
     progressReceiver.reset();
   }
 
-  public ImmutableSet<SkyKey> getEvaluatedTargetKeys() {
-    return ImmutableSet.copyOf(progressReceiver.evaluatedConfiguredTargets);
+  public TotalAndConfiguredTargetOnlyMetric getEvaluatedCounts() {
+    return TotalAndConfiguredTargetOnlyMetric.create(
+        progressReceiver.actionLookupValueCount.get(),
+        progressReceiver.configuredTargetCount.get());
   }
 
   ConfiguredTargetFactory getConfiguredTargetFactory() {
     return factory;
   }
 
-  public int getEvaluatedActionCount() {
-    return progressReceiver.evaluatedActionCount.get();
+  public TotalAndConfiguredTargetOnlyMetric getEvaluatedActionCounts() {
+    return TotalAndConfiguredTargetOnlyMetric.create(
+        progressReceiver.actionCount.get(), progressReceiver.configuredTargetActionCount.get());
   }
 
   /**
@@ -389,7 +389,8 @@ public final class SkyframeBuildView {
       EventBus eventBus,
       boolean keepGoing,
       int numThreads,
-      boolean strictConflictChecks)
+      boolean strictConflictChecks,
+      boolean checkForActionConflicts)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ActionLookupValue> result;
@@ -441,17 +442,19 @@ public final class SkyframeBuildView {
               .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
-      if (shouldCheckForConflicts(newKeys)) {
+      if (checkForActionConflicts && shouldCheckForConflicts(newKeys)) {
         largestTopLevelKeySetCheckedForConflicts = newKeys;
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
         // targets together that haven't been built before.
-        actionConflicts =
+        ArtifactConflictFinder.ActionConflictsAndStats conflictsAndStats =
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
                 skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys),
                 strictConflictChecks,
                 actionKeyContext);
-        someConfiguredTargetEvaluated = false;
+        eventBus.post(conflictsAndStats.getStats());
+        actionConflicts = conflictsAndStats.getConflicts();
+        someActionLookupValueEvaluated = false;
       }
     }
     foundActionConflict = !actionConflicts.isEmpty();
@@ -557,13 +560,13 @@ public final class SkyframeBuildView {
   }
 
   private boolean shouldCheckForConflicts(ImmutableSet<SkyKey> newKeys) {
-    if (someConfiguredTargetEvaluated) {
+    if (someActionLookupValueEvaluated) {
       // A top-level target was added and may introduce a conflict, or a top-level target was
       // recomputed and may introduce or resolve a conflict.
       return true;
     }
 
-    if (!dirtiedConfiguredTargetKeys.isEmpty()) {
+    if (!dirtiedActionLookupKeys.isEmpty()) {
       // No target was (re)computed but at least one was dirtied.
       // Example: (//:x //foo:y) are built, and in conflict (//:x creates foo/C and //foo:y
       // creates C). Then y is removed from foo/BUILD and only //:x is built, so //foo:y is
@@ -929,7 +932,7 @@ public final class SkyframeBuildView {
       CachingAnalysisEnvironment analysisEnvironment,
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     Preconditions.checkState(
@@ -1036,9 +1039,9 @@ public final class SkyframeBuildView {
     return progressReceiver;
   }
 
-  /** Clear the invalidated configured targets detected during loading and analysis phases. */
-  public void clearInvalidatedConfiguredTargets() {
-    dirtiedConfiguredTargetKeys = Sets.newConcurrentHashSet();
+  /** Clear the invalidated action lookup nodes detected during loading and analysis phases. */
+  public void clearInvalidatedActionLookupKeys() {
+    dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
   }
 
   /**
@@ -1055,57 +1058,66 @@ public final class SkyframeBuildView {
     return skyframeExecutor.getActionKeyContext();
   }
 
-  private final class ConfiguredTargetValueProgressReceiver
-      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
-    private final Set<SkyKey> evaluatedConfiguredTargets = Sets.newConcurrentHashSet();
-    private final AtomicInteger evaluatedActionCount = new AtomicInteger();
+  private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {
+    private final AtomicInteger actionLookupValueCount = new AtomicInteger();
+    private final AtomicInteger actionCount = new AtomicInteger();
+    private final AtomicInteger configuredTargetCount = new AtomicInteger();
+    private final AtomicInteger configuredTargetActionCount = new AtomicInteger();
 
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
-      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)
-          && state != InvalidationState.DELETED) {
+      if (skyKey instanceof ActionLookupKey && state != InvalidationState.DELETED) {
         // If the value was just dirtied and not deleted, then it may not be truly invalid, since
         // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
         // is provisional--if the key is later evaluated and the value found to be clean, then we
         // remove it from the set.
-        dirtiedConfiguredTargetKeys.add(skyKey);
+        dirtiedActionLookupKeys.add((ActionLookupKey) skyKey);
       }
     }
 
     @Override
     public void evaluated(
         SkyKey skyKey,
-        @Nullable SkyValue value,
+        @Nullable SkyValue newValue,
+        @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
-      if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        switch (state) {
-          case BUILT:
-            if (evaluationSuccessState.get().succeeded()) {
-              evaluatedConfiguredTargets.add(skyKey);
-              // During multithreaded operation, this is only set to true, so no concurrency issues.
-              someConfiguredTargetEvaluated = true;
+      // We tolerate any action lookup keys here, although we only expect configured targets,
+      // aspects, and the workspace status value.
+      if (!(skyKey instanceof ActionLookupKey)) {
+        return;
+      }
+      switch (state) {
+        case BUILT:
+          boolean isConfiguredTarget = skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET);
+          if (evaluationSuccessState.get().succeeded()) {
+            actionLookupValueCount.incrementAndGet();
+            if (isConfiguredTarget) {
+              configuredTargetCount.incrementAndGet();
             }
-            if (value instanceof ConfiguredTargetValue) {
-              evaluatedActionCount.addAndGet(((ConfiguredTargetValue) value).getNumActions());
+            // During multithreaded operation, this is only set to true, so no concurrency issues.
+            someActionLookupValueEvaluated = true;
+          }
+          if (newValue instanceof ActionLookupValue) {
+            int numActions = ((ActionLookupValue) newValue).getNumActions();
+            actionCount.addAndGet(numActions);
+            if (isConfiguredTarget) {
+              configuredTargetActionCount.addAndGet(numActions);
             }
-            break;
-          case CLEAN:
-            // If the configured target value did not need to be rebuilt, then it wasn't truly
-            // invalid.
-            dirtiedConfiguredTargetKeys.remove(skyKey);
-            break;
-        }
-      } else if (skyKey.functionName().equals(SkyFunctions.ASPECT)
-          && state == BUILT
-          && value instanceof AspectValue) {
-        evaluatedActionCount.addAndGet(((AspectValue) value).getNumActions());
+          }
+          break;
+        case CLEAN:
+          // If the action lookup value did not need to be rebuilt, then it wasn't truly invalid.
+          dirtiedActionLookupKeys.remove(skyKey);
+          break;
       }
     }
 
     public void reset() {
-      evaluatedConfiguredTargets.clear();
-      evaluatedActionCount.set(0);
+      actionLookupValueCount.set(0);
+      actionCount.set(0);
+      configuredTargetCount.set(0);
+      configuredTargetActionCount.set(0);
     }
   }
 }

@@ -491,6 +491,18 @@ public class BazelRulesModule extends BlazeModule {
             "The --legacy_spawn_scheduler flag is a no-op and will be removed soon.",
         help = "Was used to enable the old spawn scheduler. Now a no-op.")
     public boolean legacySpawnScheduler;
+
+    @Option(
+        name = "incompatible_dont_use_javasourceinfoprovider",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "No-op")
+    public boolean dontUseJavaSourceInfoProvider;
   }
 
   @Override

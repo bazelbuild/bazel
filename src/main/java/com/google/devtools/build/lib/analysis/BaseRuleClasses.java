@@ -29,7 +29,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -148,6 +147,8 @@ public class BaseRuleClasses {
             return runUnder != null ? runUnder.getLabel() : null;
           });
 
+  public static final String TEST_RUNNER_EXEC_GROUP = "test";
+
   /**
    * A base rule for all test rules.
    */
@@ -155,6 +156,7 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
+          .addExecGroup(TEST_RUNNER_EXEC_GROUP)
           .requiresConfigurationFragments(TestConfiguration.class)
           // TestConfiguration only needed to create TestAction and TestProvider
           // Only necessary at top-level and can be skipped if trimmed.
@@ -248,7 +250,7 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$test_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
+          .ancestors(MakeVariableExpandingRule.class)
           .build();
     }
   }
@@ -275,6 +277,9 @@ public class BaseRuleClasses {
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 
   /** Share common attributes across both base and Starlark base rules. */
+  // TODO(bazel-team): replace this with a common RuleDefinition ancestor of NativeBuildRule
+  // and StarlarkRuleClassFunctions.baseRule. This requires refactoring StarlarkRuleClassFunctions
+  // to instantiate its RuleClasses through RuleDefinition.
   public static RuleClass.Builder commonCoreAndStarlarkAttributes(RuleClass.Builder builder) {
     return builder
         // The visibility attribute is special: it is a nodep label, and loading the
@@ -349,10 +354,6 @@ public class BaseRuleClasses {
                 .nonconfigurable("applicable_licenses is not configurable"));
   }
 
-  public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
-    return builder.add(attr("name", STRING).nonconfigurable("Rule name"));
-  }
-
   public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
       throws ConversionException {
     return builder.add(
@@ -360,30 +361,17 @@ public class BaseRuleClasses {
   }
 
   /**
-   * Ancestor of every rule.
+   * Ancestor of every native rule in BUILD files (not WORKSPACE files).
    *
-   * <p>Adds the name attribute to every rule.
+   * <p>This includes:
+   *
+   * <ul>
+   *   <li>rules that create actions ({@link NativeActionCreatingRule})
+   *   <li>rules that encapsulate toolchain and build environment context
+   *   <li>rules that aggregate other rules (like file groups, test suites, or aliases)
+   * </ul>
    */
-  public static final class RootRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-        return nameAttribute(builder).build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$root_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
-   * Common parts of some rules.
-   */
-  public static final class BaseRule implements RuleDefinition {
+  public static final class NativeBuildRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return commonCoreAndStarlarkAttributes(builder)
@@ -393,15 +381,21 @@ public class BaseRuleClasses {
           .add(
               attr("distribs", DISTRIBUTIONS)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
+          // Any rule that has provides its own meaning for the "target_compatible_with" attribute
+          // has to be excluded in `RuleContextConstraintSemantics.incompatibleConfiguredTarget()`.
+          .add(
+              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
+                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
+                  // This should be configurable to allow for complex types of restrictions.
+                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
 
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-          .name("$base_rule")
+          .name("$native_build_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(RootRule.class)
           .build();
     }
   }
@@ -433,9 +427,13 @@ public class BaseRuleClasses {
   }
 
   /**
-   * Common ancestor class for some rules.
+   * Ancestor of every native BUILD rule that creates actions.
+   *
+   * <p>This is a subset of all BUILD rules. Filegroups and aliases, for example, simply encapsulate
+   * other rules. Toolchain rules provide metadata for actions of other rules. See {@link
+   * NativeBuildRule} for these.
    */
-  public static final class RuleBase implements RuleDefinition {
+  public static final class NativeActionCreatingRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -450,26 +448,18 @@ public class BaseRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
                   .value(ImmutableList.of()))
-          .add(
-              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
-                  .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                  // This should be configurable to allow for complex types of restrictions.
-                  .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
 
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-          .name("$rule")
+          .name("$native_buildable_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .build();
     }
   }
-
-  public static final ImmutableSet<String> ALLOWED_RULE_CLASSES =
-      ImmutableSet.of("filegroup", "genrule", "Fileset");
 
   /** A base rule for all binary rules. */
   public static final class BinaryBaseRule implements RuleDefinition {
@@ -491,7 +481,7 @@ public class BaseRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$binary_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(RootRule.class, MakeVariableExpandingRule.class)
+          .ancestors(MakeVariableExpandingRule.class)
           .build();
     }
   }

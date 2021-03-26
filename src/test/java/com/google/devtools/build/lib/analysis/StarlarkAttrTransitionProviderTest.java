@@ -1040,17 +1040,6 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             + "it must begin with //command_line_option:");
   }
 
-  @Test
-  public void testCannotTransitionWithoutFlag() throws Exception {
-    writeBasicTestFiles();
-    setBuildLanguageOptions("--experimental_starlark_config_transitions=false");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/starlark:test");
-    assertContainsEvent(
-        "Starlark-defined transitions on rule attributes is experimental and disabled by default");
-  }
-
   private void writeBuildSettingsBzl() throws Exception {
     scratch.file(
         "test/starlark/build_settings.bzl",
@@ -2117,7 +2106,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testNoPlatformChange() throws Exception {
     writeAllowlistFile();
-    scratch.file("platforms/BUILD", "platform(name = 'my_platform', constraint_values = [])");
+    scratch.file(
+        "platforms/BUILD",
+        "platform(name = 'my_platform',",
+        "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + ":default_host'],",
+        "    constraint_values = [],",
+        ")");
     scratch.file(
         "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",

@@ -186,10 +186,13 @@ public final class LtoBackendAction extends SpawnAction {
       throw new ActionExecutionException(message, this, false, code);
     }
     updateInputs(
-        NestedSetBuilder.fromNestedSet(bitcodeInputSet)
-            .addTransitive(getMandatoryInputs())
-            .build());
+        NestedSetBuilder.fromNestedSet(bitcodeInputSet).addTransitive(mandatoryInputs).build());
     return bitcodeInputSet;
+  }
+
+  @Override
+  protected NestedSet<Artifact> getOriginalInputs() {
+    return mandatoryInputs;
   }
 
   private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
@@ -228,7 +231,7 @@ public final class LtoBackendAction extends SpawnAction {
     for (Artifact runfilesManifest : runfilesManifests) {
       fp.addPath(runfilesManifest.getExecPath());
     }
-    for (Artifact input : getMandatoryInputs().toList()) {
+    for (Artifact input : mandatoryInputs.toList()) {
       fp.addPath(input.getExecPath());
     }
     if (imports != null) {

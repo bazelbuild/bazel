@@ -451,43 +451,47 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   @Test
   public void keepParentToolchainContext() throws Exception {
+    // Add some platforms and custom constraints.
     scratch.file(
-        "extra/BUILD",
-        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
-        "toolchain_type(name = 'extra_toolchain')",
-        "toolchain(",
-        "    name = 'toolchain',",
-        "    toolchain_type = '//extra:extra_toolchain',",
-        "    exec_compatible_with = [],",
-        "    target_compatible_with = [],",
-        "    toolchain = ':toolchain_impl')",
-        "test_toolchain(",
-        "    name='toolchain_impl',",
-        "    data = 'foo')");
+        "platforms/BUILD",
+        "constraint_setting(name = 'local_setting')",
+        "constraint_value(name = 'local_value_a', constraint_setting = ':local_setting')",
+        "constraint_value(name = 'local_value_b', constraint_setting = ':local_setting')",
+        "platform(name = 'local_platform_a',",
+        "    constraint_values = [':local_value_a'],",
+        ")",
+        "platform(name = 'local_platform_b',",
+        "    constraint_values = [':local_value_b'],",
+        ")");
+
+    // Test normal resolution, and with a per-target exec constraint.
     scratch.file("a/BUILD", "load('//toolchain:rule.bzl', 'my_rule')", "my_rule(name = 'a')");
 
-    useConfiguration("--extra_toolchains=//extra:toolchain");
+    useConfiguration(
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
+
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a").getTargetsToBuild());
+    ToolchainContextKey parentKey =
+        ToolchainContextKey.key()
+            .configurationKey(target.getConfigurationKey())
+            // Force the constraint label, to make the exec platform be local_platform_b.
+            .execConstraintLabels(Label.parseAbsoluteUnchecked("//platforms:local_value_b"))
+            .build();
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
         getToolchainCollection(
             target,
             ConfiguredTargetKey.builder()
                 .setLabel(target.getOriginalLabel())
                 .setConfigurationKey(target.getConfigurationKey())
-                .setToolchainContextKey(
-                    ToolchainContextKey.key()
-                        .configurationKey(target.getConfigurationKey())
-                        .requiredToolchainTypeLabels(
-                            Label.parseAbsoluteUnchecked("//extra:extra_toolchain"))
-                        .build())
+                .setToolchainContextKey(parentKey)
                 .build());
 
     assertThat(toolchainCollection).isNotNull();
     assertThat(toolchainCollection).hasDefaultExecGroup();
+
+    // This should have the same exec platform as parentToolchainKey, which is local_platform_b.
     assertThat(toolchainCollection)
         .defaultToolchainContext()
-        .hasToolchainType("//extra:extra_toolchain");
-    // These should be cleared out.
-    assertThat(toolchainCollection).defaultToolchainContext().resolvedToolchainLabels().isEmpty();
+        .hasExecutionPlatform("//platforms:local_platform_b");
   }
 }

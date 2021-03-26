@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -34,7 +34,7 @@ public interface CcToolchainProviderApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         BranchFdoProfileT extends BranchFdoProfileApi,
         FdoContextT extends FdoContextApi<BranchFdoProfileT>>
-    extends ToolchainInfoApi {
+    extends StructApi {
 
   @StarlarkMethod(
       name = "needs_pic_for_dynamic_libraries",
@@ -180,4 +180,49 @@ public interface CcToolchainProviderApi<
 
   @StarlarkMethod(name = "fdo_context", documented = false, useStarlarkThread = true)
   FdoContextT getFdoContextForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "objcopy_executable",
+      structField = true,
+      doc = "The path to the objcopy binary.")
+  String objcopyExecutable();
+
+  @StarlarkMethod(
+      name = "compiler_executable",
+      structField = true,
+      doc = "The path to the compiler binary.")
+  String compilerExecutable();
+
+  @StarlarkMethod(
+      name = "preprocessor_executable",
+      structField = true,
+      doc = "The path to the preprocessor binary.")
+  String preprocessorExecutable();
+
+  @StarlarkMethod(name = "nm_executable", structField = true, doc = "The path to the nm binary.")
+  String nmExecutable();
+
+  @StarlarkMethod(
+      name = "objdump_executable",
+      structField = true,
+      doc = "The path to the objdump binary.")
+  String objdumpExecutable();
+
+  @StarlarkMethod(name = "ar_executable", structField = true, doc = "The path to the ar binary.")
+  String arExecutable();
+
+  @StarlarkMethod(
+      name = "strip_executable",
+      structField = true,
+      doc = "The path to the strip binary.")
+  String stripExecutable();
+
+  @StarlarkMethod(name = "ld_executable", structField = true, doc = "The path to the ld binary.")
+  String ldExecutable();
+
+  @StarlarkMethod(
+      name = "gcov_executable",
+      structField = true,
+      doc = "The path to the gcov binary.")
+  String gcovExecutable();
 }

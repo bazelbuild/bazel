@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
@@ -47,12 +48,12 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
     CycleInfo cycle =
         new CycleInfo(
             ImmutableList.of(
-                TransitiveTargetKey.of(makeLabel("//foo:b")),
-                TransitiveTargetKey.of(makeLabel("//foo:c"))));
+                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:b")),
+                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:c"))));
 
     ConfiguredTargetKey ctKey =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//foo:a"))
+            .setLabel(Label.parseAbsoluteUnchecked("//foo:a"))
             .setConfiguration(targetConfig)
             .build();
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey, cycle))
@@ -70,10 +71,10 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
 
     SkyKey starlarkAspectKey =
         AspectValueKey.createStarlarkAspectKey(
-            makeLabel("//foo:a"),
+            Label.parseAbsoluteUnchecked("//foo:a"),
             targetConfig,
             targetConfig,
-            makeLabel("//foo:b"),
+            Label.parseAbsoluteUnchecked("//foo:b"),
             "my Starlark key");
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, starlarkAspectKey, cycle))
         .contains(

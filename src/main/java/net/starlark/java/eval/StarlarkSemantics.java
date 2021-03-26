@@ -72,6 +72,25 @@ public final class StarlarkSemantics {
     return v != null ? v : key.defaultValue;
   }
 
+  // TODO(bazel-team): This exists solely for BuiltinsInternalModule#getFlag, which allows a
+  // (privileged) Starlark caller to programmatically retrieve a flag's value without knowing its
+  // schema and default value. Reconsider whether we should support that use case from this class.
+  /**
+   * Returns the value of the option with the given name, or the default value if it is not set or
+   * does not exist.
+   */
+  public Object getGeneric(String name, Object defaultValue) {
+    Object v = map.get(name);
+    // Try boolean prefixes if that didn't work.
+    if (v == null) {
+      v = map.get("+" + name);
+    }
+    if (v == null) {
+      v = map.get("-" + name);
+    }
+    return v != null ? v : defaultValue;
+  }
+
   /** A Key identifies an option, providing its name, type, and default value. */
   public static class Key<T> {
     public final String name;

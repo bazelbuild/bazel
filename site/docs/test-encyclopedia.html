@@ -30,10 +30,10 @@ talk to it).<p>
 for and expected behavior of Bazel tests. It will also impose requirements on
 the test runner and the build system.
 
-Our intent is to help test authors avoid relying on unspecified
-behavior, and thus give the testing infrastructure more freedom to make
-implementation changes. We will also take the opportunity to tighten up some
-holes which currently allow many tests to pass despite not being
+The test environment specification helps test authors avoid relying on
+unspecified behavior, and thus gives the testing infrastructure more freedom
+to make implementation changes. The specification tightens up some
+holes that currently allow many tests to pass despite not being
 properly hermetic, deterministic, and reentrant.</p>
 
 <p>This page is intended to be both normative and authoritative. If
@@ -500,7 +500,7 @@ prematurely and mark it as having failed.</p>
     </tr>
 
     <tr>
-      <th><code>manual</code>*</th>
+      <th><code>manual</code> *</th>
 
       <td>don't include test target in wildcard target patterns like <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
     </tr>
@@ -526,7 +526,7 @@ prematurely and mark it as having failed.</p>
   </tbody>
 </table>
 
-*Note: bazel <code>query</code> does not respect the manual tag.
+* Note: bazel <code>query</code> does not respect the manual tag.
 <h2>Runfiles</h2>
 
 <p>In the following, assume there is a *_binary() rule labeled <code>//foo/bar:unittest</code>,

@@ -22,8 +22,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase; // a bad dependency!
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
@@ -53,21 +55,30 @@ public final class SkydocTest extends BuildViewTestCase {
   private SkydocMain skydocMain;
 
   @Before
-  public void setUp() {
+  public void setUp() throws IOException {
+    scratch.dir("/execroot/io_bazel");
+    scratch.setWorkingDir("/execroot/io_bazel");
+
     skydocMain =
         new SkydocMain(
             new StarlarkFileAccessor() {
 
               @Override
               public ParserInput inputSource(String pathString) throws IOException {
-                Path path = fileSystem.getPath("/" + pathString);
+                if (!pathString.startsWith("/")) {
+                  pathString = "/execroot/io_bazel/" + pathString;
+                }
+                Path path = fileSystem.getPath(pathString);
                 byte[] bytes = FileSystemUtils.asByteSource(path).read();
                 return ParserInput.fromLatin1(bytes, path.toString());
               }
 
               @Override
               public boolean fileExists(String pathString) {
-                return fileSystem.exists(fileSystem.getPath("/" + pathString));
+                if (!pathString.startsWith("/")) {
+                  pathString = "/execroot/io_bazel/" + pathString;
+                }
+                return fileSystem.exists(PathFragment.create(pathString));
               }
             },
             "io_bazel",
@@ -77,7 +88,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testStarlarkEvaluationError() throws Exception {
     scratch.file(
-        "/test/a.bzl", //
+        "/execroot/io_bazel/test/a.bzl", //
         "def f(): 1//0",
         "f()");
     StarlarkEvaluationException ex =
@@ -102,7 +113,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testRuleInfoAttrs() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "def rule_impl(ctx):",
         "  return []",
         "",
@@ -171,7 +182,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testMultipleRuleNames() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "def rule_impl(ctx):",
         "  return []",
         "",
@@ -211,12 +222,12 @@ public final class SkydocTest extends BuildViewTestCase {
 
   @Test
   public void testRulesAcrossMultipleFiles() throws Exception {
-    scratch.file("/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
+    scratch.file("/execroot/io_bazel/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
 
     scratch.file("/other_root/deps/foo/other_root.bzl", "doc_string = 'Dep rule'");
 
     scratch.file(
-        "/deps/foo/dep_rule.bzl",
+        "/execroot/io_bazel/deps/foo/dep_rule.bzl",
         "load('//lib:rule_impl.bzl', 'rule_impl')",
         "load(':other_root.bzl', 'doc_string')",
         "",
@@ -231,7 +242,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ")");
 
     scratch.file(
-        "/test/main.bzl",
+        "/execroot/io_bazel/test/main.bzl",
         "load('//lib:rule_impl.bzl', 'rule_impl')",
         "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
         "",
@@ -259,14 +270,15 @@ public final class SkydocTest extends BuildViewTestCase {
 
   @Test
   public void testRulesAcrossRepository() throws Exception {
-    scratch.file("/external/dep_repo/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
+    scratch.file(
+        "/execroot/io_bazel/external/dep_repo/lib/rule_impl.bzl",
+        "def rule_impl(ctx):",
+        "  return []");
+
+    scratch.file("/execroot/io_bazel/deps/foo/docstring.bzl", "doc_string = 'Dep rule'");
 
     scratch.file(
-        "/deps/foo/docstring.bzl",
-        "doc_string = 'Dep rule'");
-
-    scratch.file(
-        "/deps/foo/dep_rule.bzl",
+        "/execroot/io_bazel/deps/foo/dep_rule.bzl",
         "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
         "load(':docstring.bzl', 'doc_string')",
         "",
@@ -281,7 +293,7 @@ public final class SkydocTest extends BuildViewTestCase {
         ")");
 
     scratch.file(
-        "/test/main.bzl",
+        "/execroot/io_bazel/test/main.bzl",
         "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
         "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
         "",
@@ -308,11 +320,61 @@ public final class SkydocTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadOwnRepository() throws Exception {
-    scratch.file("/deps/foo/dep_rule.bzl", "def rule_impl(ctx):", "  return []");
+  public void testRulesAcrossRepositorySiblingRepositoryLayout() throws Exception {
+    scratch.file("/execroot/dep_repo/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
+
+    scratch.file("/execroot/io_bazel/deps/foo/docstring.bzl", "doc_string = 'Dep rule'");
 
     scratch.file(
-        "/test/main.bzl",
+        "/execroot/io_bazel/deps/foo/dep_rule.bzl",
+        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
+        "load(':docstring.bzl', 'doc_string')",
+        "",
+        "_hidden_rule = rule(",
+        "    doc = doc_string,",
+        "    implementation = rule_impl,",
+        ")",
+        "",
+        "dep_rule = rule(",
+        "    doc = doc_string,",
+        "    implementation = rule_impl,",
+        ")");
+
+    scratch.file(
+        "/execroot/io_bazel/test/main.bzl",
+        "load('@dep_repo//lib:rule_impl.bzl', 'rule_impl')",
+        "load('//deps/foo:dep_rule.bzl', 'dep_rule')",
+        "",
+        "main_rule = rule(",
+        "    doc = 'Main rule',",
+        "    implementation = rule_impl,",
+        ")");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, true)
+            .build(),
+        Label.parseAbsoluteUnchecked("//test:main.bzl"),
+        ruleInfoMapBuilder,
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder());
+
+    Map<String, RuleInfo> ruleInfoMap = ruleInfoMapBuilder.build();
+
+    assertThat(ruleInfoMap.keySet()).containsExactly("main_rule");
+    assertThat(ruleInfoMap.get("main_rule").getDocString()).isEqualTo("Main rule");
+  }
+
+  @Test
+  public void testLoadOwnRepository() throws Exception {
+    scratch.file("/execroot/io_bazel/deps/foo/dep_rule.bzl", "def rule_impl(ctx):", "  return []");
+
+    scratch.file(
+        "/execroot/io_bazel/test/main.bzl",
         "load('@io_bazel//deps/foo:dep_rule.bzl', 'rule_impl')",
         "",
         "main_rule = rule(",
@@ -340,13 +402,13 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testSkydocCrashesOnCycle() throws Exception {
     scratch.file(
-        "/dep/dep.bzl",
+        "/execroot/io_bazel/dep/dep.bzl",
         "load('//test:main.bzl', 'some_var')",
         "def rule_impl(ctx):",
         "  return []");
 
     scratch.file(
-        "/test/main.bzl",
+        "/execroot/io_bazel/test/main.bzl",
         "load('//dep:dep.bzl', 'rule_impl')",
         "",
         "some_var = 1",
@@ -375,7 +437,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testMalformedFunctionDocstring() throws Exception {
     scratch.file(
-        "/test/main.bzl",
+        "/execroot/io_bazel/test/main.bzl",
         "def check_sources(name,",
         "                  required_param,",
         "                  bool_param = True,",
@@ -412,7 +474,8 @@ public final class SkydocTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             "Unable to generate documentation for function check_sources "
-                + "(defined at /test/main.bzl:1:5) due to malformed docstring. Parse errors:");
+                + "(defined at /execroot/io_bazel/test/main.bzl:1:5) "
+                + "due to malformed docstring. Parse errors:");
     assertThat(expected)
         .hasMessageThat()
         .contains(
@@ -423,7 +486,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testFuncInfoParams() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "def check_function(foo, bar, baz):",
         "  \"\"\"Runs some checks on the given function parameter.",
         "  ",
@@ -467,7 +530,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testProviderInfo() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "MyExampleInfo = provider(",
         "  doc = 'Stores information about example.',",
         "  fields = {",
@@ -517,7 +580,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testAspectInfo() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "def my_aspect_impl(ctx):\n"
             + "    return []\n"
             + "\n"
@@ -560,7 +623,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testModuleDocstring() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "\"\"\"Input file to test module docstring\"\"\"",
         "def check_function(foo):",
         "  \"\"\"Runs some checks on the given function parameter.",
@@ -592,7 +655,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testnoModuleDoc() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "def check_function(foo):",
         "  \"\"\"Runs some checks input file with no module docstring.",
         " ",
@@ -622,7 +685,7 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testMultipleLineModuleDoc() throws Exception {
     scratch.file(
-        "/test/test.bzl",
+        "/execroot/io_bazel/test/test.bzl",
         "\"\"\"Input file to test",
         "multiple lines module docstring\"\"\"",
         "def check_function(foo):",
@@ -654,12 +717,12 @@ public final class SkydocTest extends BuildViewTestCase {
   @Test
   public void testModuleDocAcrossFiles() throws Exception {
     scratch.file(
-        "/test/othertest.bzl", //
+        "/execroot/io_bazel/test/othertest.bzl", //
         "\"\"\"Should be displayed.\"\"\"",
         "load(':test.bzl', 'check_function')",
         "pass");
     scratch.file(
-        "/test/test.bzl", //
+        "/execroot/io_bazel/test/test.bzl", //
         "\"\"\"Should not be displayed.\"\"\"",
         "def check_function():",
         "  pass");

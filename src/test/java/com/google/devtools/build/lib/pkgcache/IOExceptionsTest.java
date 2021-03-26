@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -47,13 +48,11 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class IOExceptionsTest extends PackageLoadingTestCase {
-  private static String nullFunction(Path p) {
+  private static String nullFunction(PathFragment p) {
     return null;
   }
 
-  private static final Function<Path, String> NULL_FUNCTION = IOExceptionsTest::nullFunction;
-
-  private Function<Path, String> crashMessage = NULL_FUNCTION;
+  private Function<PathFragment, String> crashMessage = IOExceptionsTest::nullFunction;
 
   @Before
   public final void initializeVisitor() {
@@ -81,7 +80,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Nullable
       @Override
-      public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+      public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);
         if (crash != null) {
           throw new IOException(crash);
@@ -96,12 +95,13 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     final Path buildPath = scratch.file("pkg/BUILD",
         "sh_library(name = 'x')");
-    crashMessage = path -> buildPath.equals(path) ? "custom crash: " + buildPath : null;
+    crashMessage =
+        path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isFalse();
     scratch.overwriteFile("pkg/BUILD",
         "# another comment to force reload",
         "sh_library(name = 'x')");
-    crashMessage = NULL_FUNCTION;
+    crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
@@ -117,14 +117,15 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         "sh_library(name = 'top', deps = ['//pkg:x'])");
     final Path buildPath = scratch.file("pkg/BUILD",
         "sh_library(name = 'x')");
-    crashMessage = path -> buildPath.equals(path) ? "custom crash: " + buildPath : null;
+    crashMessage =
+        path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isFalse();
     assertContainsEvent("no such package 'pkg'");
     assertContainsEvent("custom crash");
     assertThat(eventCollector).hasSize(1);
     scratch.overwriteFile(
         "pkg/BUILD", "# another comment to force reload", "sh_library(name = 'x')");
-    crashMessage = NULL_FUNCTION;
+    crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
@@ -138,7 +139,8 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     final Path buildPath = scratch.file("top/BUILD",
         "sh_library(name = 'x')");
     buildPath.getParentDirectory().getRelative("pkg").createDirectory();
-    crashMessage = path -> buildPath.equals(path) ? "custom crash: " + buildPath : null;
+    crashMessage =
+        path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x", ImmutableMap.of()))).isFalse();
   }
 }

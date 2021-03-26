@@ -63,7 +63,6 @@ public class JavaImportBaseRule implements RuleDefinition {
                 .orderIndependent()
                 .nonconfigurable(
                     "used in Attribute.validityPredicate implementations (loading time)"))
-        .advertiseProvider(JavaSourceInfoProvider.class)
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }
@@ -73,7 +72,7 @@ public class JavaImportBaseRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("$java_import_base")
         .type(RuleClassType.ABSTRACT)
-        .ancestors(BaseRuleClasses.RuleBase.class, ProguardLibraryRule.class)
+        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class, ProguardLibraryRule.class)
         .build();
   }
 }

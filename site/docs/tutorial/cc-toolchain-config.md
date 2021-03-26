@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Configuring C++ toolchains
+category: getting-started
 ---
 
 # Bazel Tutorial: Configure C++ Toolchains
@@ -27,10 +28,9 @@ with `clang`
 
 ### Set up the build environment
 
-This tutorial assumes you are on Linux on which you have successfully built
-C++ applications - in other words, we assume that appropriate tooling and
-libraries have been installed. The tutorial uses `clang version 9.0.1` which you
-can install on your system.
+This tutorial assumes you are on Linux and have successfully built
+C++ applications and installed the appropriate tooling and libraries.
+The tutorial uses `clang version 9.0.1`, which you can install on your system.
 
 Set up your build environment as follows:
 
@@ -70,23 +70,24 @@ Set up your build environment as follows:
     ```
 
 For an entry `build:{config_name} --flag=value`, the command line flag
-`--config={config_name}` will be associated with that particular flag. See
+`--config={config_name}` is associated with that particular flag. See
 documentation for the flags used:
 [crosstool_top](../user-manual.html#flag--crosstool_top),
 [cpu](../user-manual.html#flag--cpu) and
 [host_crosstool_top](../user-manual.html#flag--host_crosstool_top).
 
-What this means is that when we build our [target](../build-ref.html#targets)
-with `bazel build --config=clang_config //main:hello-world` Bazel will use our
+When you build your [target](../build-ref.html#targets)
+with `bazel build --config=clang_config //main:hello-world`, Bazel uses your
 custom toolchain from the
 [cc_toolchain_suite](../be/c-cpp.html#cc_toolchain_suite)
-`//toolchain:clang_suite`. The suite may list different [toolchains](../be/c-cpp.html#cc_toolchain)
-for different CPUs, that's why we differentiate with the flag `--cpu=k8`.
+`//toolchain:clang_suite`. The suite may list different
+[toolchains](../be/c-cpp.html#cc_toolchain) for different CPUs,
+and that's why it is differentiated with the flag `--cpu=k8`.
 
-Since Bazel uses many internal tools written in
-C++ during the build, such as process-wrapper, we are specifying the
-pre-existing default C++ toolchain for the host platform, so that these tools
-are built using that toolchain instead of the one created in this tutorial.
+Because Bazel uses many internal tools written in C++ during the build, such as
+process-wrapper, the pre-existing default C++ toolchain is specified for
+the host platform, so that these tools are built using that toolchain instead of
+the one created in this tutorial.
 
 ## Configuring the C++ toolchain
 
@@ -138,7 +139,7 @@ slightly between different versions of clang.
 
     Bazel discovered that the `--crosstool_top` flag points to a rule that
     doesn't provide the necessary [`ToolchainInfo`](../skylark/lib/ToolchainInfo.html)
-    provider. So we need to point `--crosstool_top` to a rule that does provide
+    provider. So you need to point `--crosstool_top` to a rule that does provide
     `ToolchainInfo` - that is the `cc_toolchain_suite` rule. In the
     `toolchain/BUILD` file, replace the empty filegroup with the following:
 
@@ -189,7 +190,7 @@ slightly between different versions of clang.
     Rule '//toolchain:k8_toolchain_config' does not exist
     ```
 
-    Let's add a ":k8_toolchain_config" target to the `toolchain/BUILD` file:
+    Next, add a ":k8_toolchain_config" target to the `toolchain/BUILD` file:
 
     ```python
     filegroup(name = "k8_toolchain_config")
@@ -202,10 +203,10 @@ slightly between different versions of clang.
     'CcToolchainConfigInfo'
     ```
 
-    `CcToolchainConfigInfo` is a provider that we use to configure our C++
-    toolchains. We are going to create a Starlark rule that will provide
-    `CcToolchainConfigInfo`. Create a `toolchain/cc_toolchain_config.bzl`
-    file with the following content:
+    `CcToolchainConfigInfo` is a provider that you use to configure
+    your C++ toolchains. To fix this error, create a Starlark rule
+    that provides `CcToolchainConfigInfo` to Bazel by making a
+    `toolchain/cc_toolchain_config.bzl` file with the following content:
 
     ```python
     def _impl(ctx):
@@ -229,9 +230,8 @@ slightly between different versions of clang.
     ```
 
     `cc_common.create_cc_toolchain_config_info()` creates the needed provider
-    `CcToolchainConfigInfo`. Now let's declare a rule that will make use of
-    the newly implemented `cc_toolchain_config` rule. Add a load statement to
-    `toolchains/BUILD`:
+    `CcToolchainConfigInfo`. To use the `cc_toolchain_config` rule, add a load
+    statement to `toolchains/BUILD`:
 
     ```python
     load(":cc_toolchain_config.bzl", "cc_toolchain_config")
@@ -255,8 +255,8 @@ slightly between different versions of clang.
 
     At this point, Bazel has enough information to attempt building the code but
     it still does not know what tools to use to complete the required build
-    actions. We will modify our Starlark rule implementation to tell Bazel what
-    tools to use. For that, we'll need the tool_path() constructor from
+    actions. You will modify the Starlark rule implementation to tell Bazel what
+    tools to use. For that, you need the tool_path() constructor from
     [`@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl`](https://source.bazel.build/bazel/+/4eea5c62a566d21832c93e4c18ec559e75d5c1ce:tools/cpp/cc_toolchain_config_lib.bzl;l=400):
 
     ```python
@@ -326,8 +326,8 @@ slightly between different versions of clang.
      ....
      ```
      Bazel needs to know where to search for included headers. There are
-     multiple ways to solve this like using the `includes` attribute of
-     `cc_binary`, but here we will solve it at the toolchain level with the
+     multiple ways to solve this, such as using the `includes` attribute of
+     `cc_binary`, but here this is solved at the toolchain level with the
      [`cxx_builtin_include_directories`](../skylark/lib/cc_common.html#create_cc_toolchain_config_info)
      parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if
      you are using a different version of `clang`, the include path will be
@@ -360,11 +360,13 @@ slightly between different versions of clang.
     /usr/bin/ld: bazel-out/k8-fastbuild/bin/main/_objs/hello-world/hello-world.o: in function `print_localtime()':
     hello-world.cc:(.text+0x68): undefined reference to `std::cout'
     ```
-    The reason for this is because the linker is missing the C++ standard library
-    and it can't find its symbols. There are many ways to solve this, like using
-    the `linkopts` attribute of `cc_binary`. Here we will solve it making sure
-    that any target using our toolchain doesn't have to specify this flag. Copy
-    the following code to `cc_toolchain_config.bzl`.
+    The reason for this is because the linker is missing the C++ standard
+    library and it can't find its symbols. There are many ways to solve this,
+    such as using the `linkopts` attribute of `cc_binary`. Here it is solved by
+    making sure that any target using the toolchain doesn't have to specify
+    this flag.
+
+    Copy the following code to `cc_toolchain_config.bzl`:
 
      ```python
       # NEW
@@ -479,14 +481,14 @@ The key take-aways are:
 - The cc_toolchain_suite may list `cc_toolchains` for different CPUs and
   compilers. You can use command line flags like `--cpu` to differentiate.
 - You have to let the toolchain know where the tools live. In this tutorial
-  we have a simplified version where we access the tools from the system. If you
-  are interested in a more self-contained approach you can read about workspaces
-  [here](../be/workspace.html). Your tools
-  could come from a different workspace and you would have to make their files
-  available to the `cc_toolchain` via target dependencies on attributes like
+  there is a simplified version where you access the tools from the system. If
+  you are interested in a more self-contained approach, you can read about
+  workspaces [here](../be/workspace.html). Your tools could come from a
+  different workspace and you would have to make their files available
+  to the `cc_toolchain` with target dependencies on attributes, such as
   `compiler_files`. The `tool_paths` would need to be changed as well.
-- You can create features to customize which flags should be passed to different
-  actions, be it linking or any other type of action.
+- You can create features to customize which flags should be passed to
+  different actions, be it linking or any other type of action.
 
 ## Further reading
 

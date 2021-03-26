@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,8 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkApiProviderApi;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -109,8 +107,8 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
 
   @Override
   @Nullable
-  public JavaRuleOutputJarsProvider.OutputJar getResourceJar() {
-    return getIdeInfoProvider().getResourceJar();
+  public JavaOutput getResourceJar() {
+    return getIdeInfoProvider().getResourceJarJavaOutput();
   }
 
   @Override
@@ -154,17 +152,16 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
 
     @Override
     @Nullable
-    public JavaRuleOutputJarsProvider.OutputJar getIdlOutput() {
+    public JavaOutput getIdlOutput() {
       if (getIdeInfoProvider().getIdlClassJar() == null) {
         return null;
       }
 
       Artifact idlSourceJar = getIdeInfoProvider().getIdlSourceJar();
-      return new OutputJar(
-          getIdeInfoProvider().getIdlClassJar(),
-          null,
-          null,
-          idlSourceJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(idlSourceJar));
+      return JavaOutput.builder()
+          .setClassJar(getIdeInfoProvider().getIdlClassJar())
+          .addSourceJar(idlSourceJar)
+          .build();
     }
   }
 }

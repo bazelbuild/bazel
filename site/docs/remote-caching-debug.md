@@ -12,17 +12,13 @@ This page assumes that you have a build and/or test that successfully builds
 locally and is set up to utilize remote caching, and that you want to ensure
 that the remote cache is being effectively utilized.
 
-For tips on how to check your cache hit rate and how to compare the execution
-logs between two Bazel invocations, see [Debugging Remote Cache Hits for Remote
-Execution](/remote-execution-caching-debug.html). Everything presented in that
-guide also applies to remote caching with local execution. However, local
-execution presents some additional challenges which we will discuss here.
+For tips on how to check your cache hit rate and how to compare the execution logs between two Bazel invocations, see [Debugging Remote Cache Hits for Remote Execution](/remote-execution-caching-debug.html). Everything presented in that guide also applies to remote caching with local execution. However, local execution presents some additional challenges.
 
 ## Checking your cache hit rate
 
 Successful remote cache hits will show up in the status line, similarly to
 [Cache Hits rate with Remote
-Execution](/remote-execution-caching-debug.html#checking-your-cache-hit-rate)].
+Execution](/remote-execution-caching-debug.html#checking-your-cache-hit-rate).
 In the standard output of your Bazel run, you will see something like the
 following:
 

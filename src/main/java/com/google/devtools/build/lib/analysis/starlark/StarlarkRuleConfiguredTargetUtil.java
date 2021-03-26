@@ -79,76 +79,36 @@ public final class StarlarkRuleConfiguredTargetUtil {
    */
   @Nullable
   public static ConfiguredTarget buildRule(
-      RuleContext ruleContext,
-      AdvertisedProviderSet advertisedProviders,
-      String toolsRepository)
+      RuleContext ruleContext, AdvertisedProviderSet advertisedProviders, String toolsRepository)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
+    if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
+      ruleContext.ruleError(
+          "Found reference to a workspace rule in a context where a build"
+              + " rule was expected; probably a reference to a target in that external"
+              + " repository, properly specified as @reponame//path/to/package:target,"
+              + " should have been specified by the requesting rule.");
+      return null;
+    }
+    if (ruleClass.hasFunctionTransitionAllowlist()
+        && !Allowlist.isAvailableBasedOnRuleLocation(
+            ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
+      if (!Allowlist.isAvailable(ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
+        ruleContext.ruleError("Non-allowlisted use of Starlark transition");
+      }
+    }
+
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
-    StarlarkRuleContext starlarkRuleContext = null;
+    StarlarkRuleContext ctx = ruleContext.initStarlarkRuleContext();
+    Object target;
     try {
-      // The StarlarkRuleContext constructor may throw EvalException due
-      // to StarlarkImplicitOutputsFunction, which shouldn't be called at
-      // analysis time anyway since all such targets should be created during loading.
-      // TODO(adonovan): clean it up.
-      starlarkRuleContext = new StarlarkRuleContext(ruleContext, null);
-
-      RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
-      if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
-        ruleContext.ruleError(
-            "Found reference to a workspace rule in a context where a build"
-                + " rule was expected; probably a reference to a target in that external"
-                + " repository, properly specified as @reponame//path/to/package:target,"
-                + " should have been specified by the requesting rule.");
-        return null;
-      }
-      if (ruleClass.hasFunctionTransitionAllowlist()
-          && !Allowlist.isAvailableBasedOnRuleLocation(
-              ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
-        if (!Allowlist.isAvailable(ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
-          ruleContext.ruleError("Non-allowlisted use of Starlark transition");
-        }
-      }
-
       // call rule.implementation(ctx)
-      Object target =
+      target =
           Starlark.fastcall(
               ruleContext.getStarlarkThread(),
               ruleClass.getConfiguredTargetFunction(),
-              /*positional=*/ new Object[] {starlarkRuleContext},
+              /*positional=*/ new Object[] {ctx},
               /*named=*/ new Object[0]);
-
-      // Errors already reported?
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
-
-      // Wrong result type?
-      if (!(target instanceof Info || target == Starlark.NONE || target instanceof Iterable)) {
-        ruleContext.ruleError(
-            String.format(
-                "Rule should return a struct or a list, but got %s", Starlark.type(target)));
-        return null;
-      }
-
-      // Did the Starlark implementation function fail to fail as expected?
-      if (!expectFailure.isEmpty()) {
-        ruleContext.ruleError("Expected failure not found: " + expectFailure);
-        return null;
-      }
-
-      // Postprocess providers to create the finished target.
-      ConfiguredTarget configuredTarget;
-      try {
-        configuredTarget = createTarget(starlarkRuleContext, target, advertisedProviders);
-      } catch (BadRuleImplementation ex) {
-        // Emit a single event that spans two lines (see infoError).
-        // The message typically starts with another location, e.g. of provider creation.
-        //     ERROR p/BUILD:1:1: in foo_library rule //p:p:
-        //     ...message...
-        ruleContext.ruleError("\n" + ex.getMessage());
-        return null;
-      }
-      return configuredTarget; // may be null
 
     } catch (Starlark.UncheckedEvalException ex) {
       // MissingDepException is expected to transit through Starlark execution.
@@ -174,11 +134,37 @@ public final class StarlarkRuleConfiguredTargetUtil {
       //        ...
       ruleContext.ruleError("\n" + ex.getMessageWithStack());
       return null;
+    }
 
-    } finally {
-      if (starlarkRuleContext != null) {
-        starlarkRuleContext.nullify();
-      }
+    // Errors already reported?
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
+    // Wrong result type?
+    if (!(target instanceof Info || target == Starlark.NONE || target instanceof Iterable)) {
+      ruleContext.ruleError(
+          String.format(
+              "Rule should return a struct or a list, but got %s", Starlark.type(target)));
+      return null;
+    }
+
+    // Did the Starlark implementation function fail to fail as expected?
+    if (!expectFailure.isEmpty()) {
+      ruleContext.ruleError("Expected failure not found: " + expectFailure);
+      return null;
+    }
+
+    // Postprocess providers to create the finished target.
+    try {
+      return createTarget(ctx, target, advertisedProviders); // may be null
+    } catch (BadRuleImplementation ex) {
+      // Emit a single event that spans two lines (see infoError).
+      // The message typically starts with another location, e.g. of provider creation.
+      //     ERROR p/BUILD:1:1: in foo_library rule //p:p:
+      //     ...message...
+      ruleContext.ruleError("\n" + ex.getMessage());
+      return null;
     }
   }
 
@@ -291,10 +277,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
     InstrumentedFilesInfo instrumentedFilesProvider =
         CoverageCommon.createInstrumentedFilesInfo(
-            ruleContext,
-            sourceAttributes,
-            dependencyAttributes,
-            extensions);
+            ruleContext, sourceAttributes, dependencyAttributes, extensions);
     builder.addNativeDeclaredProvider(instrumentedFilesProvider);
   }
 
@@ -561,15 +544,15 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
 
     if (executable != null && context.isExecutable() && context.isDefaultExecutableCreated()) {
-        Artifact defaultExecutable = context.getRuleContext().createOutputArtifact();
-        if (!executable.equals(defaultExecutable)) {
+      Artifact defaultExecutable = context.getRuleContext().createOutputArtifact();
+      if (!executable.equals(defaultExecutable)) {
         throw infoError(
             info,
             "The rule '%s' both accesses 'ctx.outputs.executable' and provides "
                 + "a different executable '%s'. Do not use 'ctx.output.executable'.",
             context.getRuleContext().getRule().getRuleClass(),
             executable.getRootRelativePathString());
-        }
+      }
     }
 
     if (context.getRuleContext().getRule().isAnalysisTest()) {
@@ -687,8 +670,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
       return runfiles;
     }
     return new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
+            ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
         .addArtifact(executable)
-        .merge(runfiles).build();
+        .merge(runfiles)
+        .build();
   }
 }

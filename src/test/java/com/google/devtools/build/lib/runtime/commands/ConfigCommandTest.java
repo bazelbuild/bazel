@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -38,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -144,8 +146,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void showConfigIds() throws Exception {
     analyzeTarget();
     JsonObject fullJson =
-        new JsonParser().parse(callConfigCommand().outAsLatin1()).getAsJsonObject();
+        JsonParser.parseString(callConfigCommand().outAsLatin1()).getAsJsonObject();
     // Should be one ID for the target configuration and one for the host.
+    assertThat(fullJson).isNotNull();
     assertThat(fullJson.has("configuration-IDs")).isTrue();
     assertThat(fullJson.get("configuration-IDs").getAsJsonArray().size()).isEqualTo(2);
   }
@@ -154,8 +157,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void showSingleConfig() throws Exception {
     analyzeTarget();
     String configHash1 =
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()
@@ -164,6 +166,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     ConfigurationForOutput config =
         new Gson()
             .fromJson(callConfigCommand(configHash1).outAsLatin1(), ConfigurationForOutput.class);
+    assertThat(config).isNotNull();
     // Verify config metadata:
     assertThat(config.configHash).isEqualTo(configHash1);
     assertThat(config.skyKey)
@@ -197,8 +200,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void showSingleConfigHashPrefix() throws Exception {
     analyzeTarget();
     String configHash =
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()
@@ -208,15 +210,24 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     ConfigurationForOutput config =
         new Gson()
             .fromJson(callConfigCommand(hashPrefix).outAsLatin1(), ConfigurationForOutput.class);
+    assertThat(config).isNotNull();
     assertThat(config.configHash).startsWith(hashPrefix);
+  }
+
+  @Test
+  public void showSingleConfig_hostConfig() throws Exception {
+    analyzeTarget();
+    ConfigurationForOutput config =
+        new Gson().fromJson(callConfigCommand("host").outAsLatin1(), ConfigurationForOutput.class);
+    assertThat(config).isNotNull();
+    assertThat(config.isHost).isTrue();
   }
 
   @Test
   public void unknownHashPrefix() throws Exception {
     analyzeTarget();
     String configHash =
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()
@@ -234,7 +245,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     int numConfigs = 0;
     for (JsonElement configJson :
-        new JsonParser().parse(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+        JsonParser.parseString(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
       ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
       assertThat(config).isNotNull();
       numConfigs++;
@@ -251,8 +262,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     // Find the two target configuration hashes.
     for (JsonElement element :
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()) {
@@ -273,11 +283,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(targetConfig2Hash).isNotNull();
 
     // Get their diff.
-    ConfigurationDiffForOutput diff =
-        new Gson()
-            .fromJson(
-                callConfigCommand(targetConfig1Hash, targetConfig2Hash).outAsLatin1(),
-                ConfigurationDiffForOutput.class);
+    String result = callConfigCommand(targetConfig1Hash, targetConfig2Hash).outAsLatin1();
+    ConfigurationDiffForOutput diff = new Gson().fromJson(result, ConfigurationDiffForOutput.class);
+    assertThat(diff).isNotNull();
     assertThat(diff.configHash1).isEqualTo(targetConfig1Hash);
     assertThat(diff.configHash2).isEqualTo(targetConfig2Hash);
     FragmentDiffForOutput fragmentDiff = Iterables.getOnlyElement(diff.fragmentsDiff);
@@ -301,8 +309,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     // Find the two target configuration hashes.
     for (JsonElement element :
-        new JsonParser()
-            .parse(callConfigCommand().outAsLatin1())
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
             .getAsJsonObject()
             .get("configuration-IDs")
             .getAsJsonArray()) {
@@ -328,8 +335,54 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
             .fromJson(
                 callConfigCommand(hashPrefix1, hashPrefix2).outAsLatin1(),
                 ConfigurationDiffForOutput.class);
+    assertThat(diff).isNotNull();
     assertThat(diff.configHash1).startsWith(hashPrefix1);
     assertThat(diff.configHash2).startsWith(hashPrefix2);
+  }
+
+  @Test
+  public void compareConfigs_hostConfig() throws Exception {
+    analyzeTarget("--action_env=a=1");
+    analyzeTarget("--action_env=b=2");
+    String targetConfigHash = null;
+
+    // Find a target configuration hash.
+    for (JsonElement element :
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
+            .getAsJsonObject()
+            .get("configuration-IDs")
+            .getAsJsonArray()) {
+      String configHash = element.getAsString();
+      ConfigurationForOutput config =
+          new Gson()
+              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
+      if (isTargetConfig(config)) {
+        if (targetConfigHash == null) {
+          targetConfigHash = config.configHash;
+          break;
+        }
+      }
+    }
+
+    ConfigurationDiffForOutput diff =
+        new Gson()
+            .fromJson(
+                callConfigCommand(targetConfigHash, "host").outAsLatin1(),
+                ConfigurationDiffForOutput.class);
+    assertThat(diff).isNotNull();
+    assertThat(diff.configHash1).isEqualTo(targetConfigHash);
+    assertThat(diff.fragmentsDiff).isNotEmpty();
+
+    // Find the "is host config" option, check that it is different.
+    Optional<Pair<String, String>> isHostDiff =
+        diff.fragmentsDiff.stream()
+            .flatMap(fragmentDiff -> fragmentDiff.optionsDiff.entrySet().stream())
+            .filter(od -> od.getKey().equals("is host configuration"))
+            .map(Map.Entry::getValue)
+            .findAny();
+    assertThat(isHostDiff).isPresent();
+    assertThat(isHostDiff.get().getFirst()).isEqualTo("false");
+    assertThat(isHostDiff.get().getSecond()).isEqualTo("true");
   }
 
   @Test
@@ -356,8 +409,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     analyzeTarget("--//custom_flags:my_flag=hello");
 
     ConfigurationForOutput targetConfig = null;
-    for (JsonElement configJson :
-        new JsonParser().parse(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+    String result = callConfigCommand("--dump_all").outAsLatin1();
+    for (JsonElement configJson : JsonParser.parseString(result).getAsJsonArray()) {
       ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
       if (isTargetConfig(config)) {
         targetConfig = config;
@@ -376,7 +429,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
 
     ConfigurationForOutput targetConfig = null;
     for (JsonElement configJson :
-        new JsonParser().parse(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
+        JsonParser.parseString(callConfigCommand("--dump_all").outAsLatin1()).getAsJsonArray()) {
       ConfigurationForOutput config = new Gson().fromJson(configJson, ConfigurationForOutput.class);
       if (isTargetConfig(config)) {
         targetConfig = config;

@@ -18,6 +18,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -142,8 +143,9 @@ public class BzlCompileFunction implements SkyFunction {
     }
 
     Map<String, Object> predeclared;
+    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
     if (key.kind == BzlCompileValue.Kind.BUILTINS) {
-      predeclared = packageFactory.getBuiltinsBzlEnv();
+      predeclared = starlarkEnv.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
       // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
@@ -153,7 +155,7 @@ public class BzlCompileFunction implements SkyFunction {
       // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
-      predeclared = packageFactory.getUninjectedBuildBzlEnv();
+      predeclared = starlarkEnv.getUninjectedBuildBzlEnv();
     }
 
     // We have all deps. Parse, resolve, and return.

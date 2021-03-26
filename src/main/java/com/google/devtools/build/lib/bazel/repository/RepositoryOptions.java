@@ -53,8 +53,17 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "If set, the repository cache will hardlink the file in case of a"
-              + " cache hit, rather than copying. This is inteded to save disk space.")
+              + " cache hit, rather than copying. This is intended to save disk space.")
   public boolean useHardlinks;
+
+  @Option(
+      name = "experimental_repository_disable_download",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If set, downloading external repositories is not allowed.")
+  public boolean disableDownload;
 
   @Option(
       name = "distdir",
@@ -154,7 +163,7 @@ public class RepositoryOptions extends OptionsBase {
 
     @Override
     public RepositoryOverride convert(String input) throws OptionsParsingException {
-      String[] pieces = input.split("=");
+      String[] pieces = input.split("=", 2);
       if (pieces.length != 2) {
         throw new OptionsParsingException(
             "Repository overrides must be of the form 'repository-name=path'", input);

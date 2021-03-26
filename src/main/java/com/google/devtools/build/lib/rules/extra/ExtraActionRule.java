@@ -120,13 +120,21 @@ public final class ExtraActionRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("extra_action")
-        .ancestors(BaseRuleClasses.RuleBase.class, BaseRuleClasses.MakeVariableExpandingRule.class)
+        .ancestors(
+            BaseRuleClasses.NativeActionCreatingRule.class,
+            BaseRuleClasses.MakeVariableExpandingRule.class)
         .factoryClass(ExtraActionFactory.class)
         .build();
   }
 }
 
 /*<!-- #BLAZE_RULE (NAME = extra_action, FAMILY = Extra Actions)[GENERIC_RULE] -->
+
+<p>
+  <b>WARNING:</b> Extra actions are deprecated. Use
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  instead.
+</p>
 
 <p>
   An <code>extra_action</code> rule doesn't produce any meaningful output

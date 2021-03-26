@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -203,11 +204,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaCompileOutputs<Artifact> outputs = helper.createOutputs(classJar);
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(
-                /* classJar= */ classJar,
-                /* iJar= */ null,
-                /* manifestProto= */ outputs.manifestProto(),
-                /* sourceJars= */ ImmutableList.of(srcJar));
+            .addJavaOutput(
+                JavaOutput.builder().fromJavaCompileOutputs(outputs).addSourceJar(srcJar).build());
 
     JavaTargetAttributes attributes = attributesBuilder.build();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
@@ -238,7 +236,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             ruleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
     javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
-    ruleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
@@ -474,10 +471,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(
-                JavaSourceInfoProvider.class,
-                JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
+            .addTransitiveOnlyRuntimeJars(common.getDependencies())
             .build();
 
     Artifact validation =
@@ -512,6 +506,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             JavaRuntimeClasspathProvider.class,
             new JavaRuntimeClasspathProvider(common.getRuntimeClasspath()))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
+        .addOutputGroup(
+            JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()))
         .build();
   }
 
@@ -645,11 +642,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     semantics.addRunfilesForBinary(ruleContext, launcher, builder);
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
         ruleContext.getPrerequisites("runtime_deps");
-    builder.addTargets(runtimeDeps, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
 
     builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());
@@ -674,6 +669,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   /**
    * Collects the native libraries in the transitive closure of the deps.
    *
+   * @param ruleContext rule context
    * @param deps the dependencies to be included as roots of the transitive closure.
    * @return the native libraries found in the transitive closure of the deps.
    */

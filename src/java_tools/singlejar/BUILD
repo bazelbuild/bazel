@@ -27,25 +27,3 @@ alias(
     actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
     visibility = ["//visibility:public"],
 )
-
-alias(
-    name = "SingleJar",
-    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar",
-    visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "SingleJar_deploy.jar",
-    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bazel-singlejar_deploy.jar",
-    visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "bootstrap",
-    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bootstrap",
-)
-
-alias(
-    name = "bootstrap_deploy.jar",
-    actual = "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:bootstrap_deploy.jar",
-)

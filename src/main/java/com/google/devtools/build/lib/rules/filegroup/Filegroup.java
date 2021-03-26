@@ -68,7 +68,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             : getArtifactsForOutputGroup(outputGroupName, ruleContext.getPrerequisites("srcs"));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
-        InstrumentedFilesCollector.collectTransitive(
+        InstrumentedFilesCollector.collect(
             ruleContext,
             // Seems strange to have "srcs" in "dependency attributes" instead of "source
             // attributes", but that's correct behavior here because this rule just forwards

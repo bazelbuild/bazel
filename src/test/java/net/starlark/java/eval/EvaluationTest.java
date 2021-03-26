@@ -300,17 +300,6 @@ public final class EvaluationTest {
   }
 
   @Test
-  public void testMult() throws Exception {
-    ev.new Scenario()
-        .testExpression("6 * 7", StarlarkInt.of(42))
-        .testExpression("3 * 'ab'", "ababab")
-        .testExpression("0 * 'ab'", "")
-        .testExpression("'1' + '0' * 5", "100000")
-        .testExpression("'ab' * -4", "")
-        .testExpression("-1 * ''", "");
-  }
-
-  @Test
   public void testFloorDivision() throws Exception {
     ev.new Scenario()
         .testExpression("6 // 2", StarlarkInt.of(3))
@@ -514,40 +503,6 @@ public final class EvaluationTest {
         .testEval("(1, 2) + (3, 4)", "(1, 2, 3, 4)")
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)")
         .testIfExactError("unsupported binary operation: tuple + list", "(1, 2) + [3, 4]");
-  }
-
-  @Test
-  public void testListMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("[1, 2, 3] * 1", "[1, 2, 3]")
-        .testEval("[1, 2] * 2", "[1, 2, 1, 2]")
-        .testEval("[1, 2] * 3", "[1, 2, 1, 2, 1, 2]")
-        .testEval("[1, 2] * 4", "[1, 2, 1, 2, 1, 2, 1, 2]")
-        .testEval("[8] * 5", "[8, 8, 8, 8, 8]")
-        .testEval("[    ] * 10", "[]")
-        .testEval("[1, 2] * 0", "[]")
-        .testEval("[1, 2] * -4", "[]")
-        .testEval("2 * [1, 2]", "[1, 2, 1, 2]")
-        .testEval("10 * []", "[]")
-        .testEval("0 * [1, 2]", "[]")
-        .testEval("-4 * [1, 2]", "[]");
-  }
-
-  @Test
-  public void testTupleMultiply() throws Exception {
-    ev.new Scenario()
-        .testEval("(1, 2, 3) * 1", "(1, 2, 3)")
-        .testEval("(1, 2) * 2", "(1, 2, 1, 2)")
-        .testEval("(1, 2) * 3", "(1, 2, 1, 2, 1, 2)")
-        .testEval("(1, 2) * 4", "(1, 2, 1, 2, 1, 2, 1, 2)")
-        .testEval("(8,) * 5", "(8, 8, 8, 8, 8)")
-        .testEval("(    ) * 10", "()")
-        .testEval("(1, 2) * 0", "()")
-        .testEval("(1, 2) * -4", "()")
-        .testEval("2 * (1, 2)", "(1, 2, 1, 2)")
-        .testEval("10 * ()", "()")
-        .testEval("0 * (1, 2)", "()")
-        .testEval("-4 * (1, 2)", "()");
   }
 
   @Test
@@ -769,7 +724,42 @@ public final class EvaluationTest {
                 "foo1"));
   }
 
-  // TODO(adonovan): add more tests of load.
+  @Test
+  public void testLoadsBindLocally() throws Exception {
+    Module a = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("x = 1", "a.bzl"),
+        FileOptions.DEFAULT,
+        a,
+        new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT));
+
+    StarlarkThread bThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    bThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("a.bzl");
+          return a;
+        });
+    Module b = Module.create();
+    Starlark.execFile(
+        ParserInput.fromString("load('a.bzl', 'x')", "b.bzl"), FileOptions.DEFAULT, b, bThread);
+
+    StarlarkThread cThread = new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+    cThread.setLoader(
+        module -> {
+          assertThat(module).isEqualTo("b.bzl");
+          return b;
+        });
+    EvalException ex =
+        assertThrows(
+            EvalException.class,
+            () ->
+                Starlark.execFile(
+                    ParserInput.fromString("load('b.bzl', 'x')", "c.bzl"),
+                    FileOptions.DEFAULT,
+                    Module.create(),
+                    cThread));
+    assertThat(ex).hasMessageThat().contains("file 'b.bzl' does not contain symbol 'x'");
+  }
 
   @Test
   public void testTopLevelRebinding() throws Exception {

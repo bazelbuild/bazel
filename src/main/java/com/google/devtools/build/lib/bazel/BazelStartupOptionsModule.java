@@ -33,10 +33,19 @@ public class BazelStartupOptionsModule extends BlazeModule {
         valueHelp = "<path>",
         help =
             "The location of the user .bazelrc file containing default values of "
-                + "Bazel options. If unspecified, Bazel uses the first .bazelrc file it finds in "
+                + "Bazel options. "
+                + "/dev/null indicates that all further `--bazelrc`s will be ignored, "
+                + "which is useful to disable the search for a user rc file, "
+                + "e.g. in release builds.\n"
+                + "This option can also be specified multiple times.\n"
+                + "E.g. with "
+                + "`--bazelrc=x.rc --bazelrc=y.rc --bazelrc=/dev/null --bazelrc=z.rc`,\n"
+                + "  1) x.rc and y.rc are read.\n"
+                + "  2) z.rc is ignored due to the prior /dev/null.\n"
+                + "If unspecified, Bazel uses the first .bazelrc file it finds in "
                 + "the following two locations: the workspace directory, then the user's home "
-                + "directory. Use /dev/null to disable the search for a user rc file, e.g. in "
-                + "release builds.")
+                + "directory.\n"
+                + "Note: command line options will always supersede any option in bazelrc.")
     public String blazerc;
 
     // TODO(b/36168162): Remove this after the transition period is ower. This now only serves to

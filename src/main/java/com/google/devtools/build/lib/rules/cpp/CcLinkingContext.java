@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
@@ -193,7 +194,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final ImmutableList<Artifact> nonCodeInputs;
     private final ImmutableList<Linkstamp> linkstamps;
 
-    private LinkerInput(
+    public LinkerInput(
         Label owner,
         ImmutableList<LibraryToLink> libraries,
         ImmutableList<LinkOptions> userLinkFlags,
@@ -369,7 +370,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   private final NestedSet<LinkerInput> linkerInputs;
-  private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
+  @Nullable private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
   @Override
   public void debugPrint(Printer printer) {
@@ -382,7 +383,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   public CcLinkingContext(
-      NestedSet<LinkerInput> linkerInputs, ExtraLinkTimeLibraries extraLinkTimeLibraries) {
+      NestedSet<LinkerInput> linkerInputs,
+      @Nullable ExtraLinkTimeLibraries extraLinkTimeLibraries) {
     this.linkerInputs = linkerInputs;
     this.extraLinkTimeLibraries = extraLinkTimeLibraries;
   }
@@ -565,7 +567,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return this;
     }
 
-    Builder addLinkstamps(List<Linkstamp> linkstamps) {
+    public Builder addLinkstamps(List<Linkstamp> linkstamps) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLinkstamps(linkstamps);
       return this;

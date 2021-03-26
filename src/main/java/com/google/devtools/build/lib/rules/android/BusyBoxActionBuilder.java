@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -338,14 +339,20 @@ public final class BusyBoxActionBuilder {
         .setProgressMessage("%s for %s", message, dataContext.getLabel())
         .setMnemonic(mnemonic);
 
+    ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    executionInfo.putAll(dataContext.getExecutionInfo());
+
     if (dataContext.isPersistentBusyboxToolsEnabled()) {
       commandLine.add("--logWarnings=false");
       spawnActionBuilder
-          .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
           .addCommandLine(commandLine.build(), WORKERS_FORCED_PARAM_FILE_INFO);
+
+      executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
     } else {
       spawnActionBuilder.addCommandLine(commandLine.build(), FORCED_PARAM_FILE_INFO);
     }
+
+    spawnActionBuilder.setExecutionInfo(executionInfo.build());
 
     dataContext.registerAction(spawnActionBuilder);
   }

@@ -107,6 +107,8 @@ public abstract class ClassName implements TypeMappable<ClassName>, Comparable<C
               "java/util/concurrent/atomic/DesugarAtomic",
               "j$/util/concurrent/atomic/DesugarAtomic")
           .put("javadesugar/testing/", "jd$/testing/")
+          .put("sun/misc/Desugar", "j$/sun/misc/Desugar")
+          .put("jdk/internal/util/", "j$/jdk/internal/util/")
           .build();
 
   public static final TypeMapper SHADOWED_TO_MIRRORED_TYPE_MAPPER =

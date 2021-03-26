@@ -34,4 +34,17 @@ public enum TriState {
         throw new IllegalStateException();
     }
   }
+
+  public static TriState fromInt(int n) {
+    switch (n) {
+      case 1:
+        return YES;
+      case 0:
+        return NO;
+      case -1:
+        return AUTO;
+      default:
+        throw new IllegalArgumentException("TriState must be -1, 0, or 1");
+    }
+  }
 }

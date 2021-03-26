@@ -2558,4 +2558,41 @@ EOF
   expect_log "//external/nested:a2"
 }
 
+function test_query_external_all_targets() {
+  setup_skylib_support
+
+  mkdir -p external/nested
+  mkdir -p not-external
+
+  cat > external/nested/BUILD <<EOF
+filegroup(
+    name = "a",
+    srcs = glob(["**"]),
+)
+EOF
+  touch external/nested/A
+
+  cat > not-external/BUILD <<EOF
+filegroup(
+    name = "b",
+    srcs = glob(["**"]),
+)
+EOF
+  touch not-external/B
+
+  bazel query //...:all-targets >& $TEST_log \
+    || fail "Expected build/run to succeed"
+  expect_log "//not-external:b"
+  expect_log "//not-external:B"
+  expect_not_log "//external/nested:a"
+  expect_not_log "//external/nested:A"
+
+  bazel query --experimental_sibling_repository_layout //...:all-targets \
+    >& $TEST_log || fail "Expected build/run to succeed"
+  expect_log "//not-external:b"
+  expect_log "//not-external:B"
+  expect_log "//external/nested:a"
+  expect_log "//external/nested:A"
+}
+
 run_suite "external tests"

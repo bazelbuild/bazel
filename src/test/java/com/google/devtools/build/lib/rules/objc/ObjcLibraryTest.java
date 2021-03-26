@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -55,7 +56,9 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -579,26 +582,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "x",
         BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED,
         "objc_library( name = 'x', module_name = 'x', module_map = 'x.modulemap' )");
-  }
-
-  @Test
-  public void testCompilationActionsWithModuleMapsEnabled() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--experimental_objc_enable_module_maps");
-    String target = "//objc/library:lib@a-foo_foobar";
-    createLibraryTargetWriter(target)
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .write();
-
-    CommandAction compileActionA = compileAction(target, "a.o");
-    assertThat(compileActionA.getArguments())
-        .containsAtLeastElementsIn(
-            moduleMapArtifactArguments("//objc/library", "lib@a-foo_foobar"));
-    assertThat(compileActionA.getArguments()).contains("-fmodule-maps");
-    assertThat(Artifact.toRootRelativePaths(compileActionA.getInputs()))
-        .doesNotContain("objc/library/lib@a-foo_foobar.modulemaps/module.modulemap");
   }
 
   @Test
@@ -1145,7 +1128,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(target.get(ObjcProvider.STARLARK_CONSTRUCTOR).header());
+    return Artifact.toRootRelativePaths(
+        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 
   @Test
@@ -2119,16 +2103,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testObjcLibraryNotLoadedThroughMacro() throws Exception {
-    setupTestObjcLibraryLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestObjcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "objc_library"),
@@ -2281,5 +2256,120 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .isEqualTo("ObjcCompileHeader");
     assertThat(getGeneratingCompileAction("_objs/x/arc/z.h.processed", x).getMnemonic())
         .isEqualTo("ObjcCompileHeader");
+  }
+
+  @Test
+  public void testLinkActionMnemonic() throws Exception {
+    scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
+
+    CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
+    assertThat(archiveAction.getMnemonic()).isEqualTo("CppLink");
+    CppLinkAction fullyArchiveAction =
+        (CppLinkAction) getGeneratingActionForLabel("//foo:x_fully_linked.a");
+    assertThat(fullyArchiveAction.getMnemonic()).isEqualTo("CppLink");
+  }
+
+  protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
+    return ActionsTestUtil.execPaths(
+        ActionsTestUtil.transform(linkstamps.toList(), CcLinkingContext.Linkstamp::getArtifact));
+  }
+
+  @Test
+  public void testPassesThroughLinkstamps() throws Exception {
+    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'foo',",
+        "    deps = [':bar'],",
+        ")",
+        "cc_library(",
+        "    name = 'bar',",
+        "    linkstamp = 'bar.cc',",
+        ")");
+
+    assertThat(
+            linkstampExecPaths(
+                getConfiguredTarget("//x:foo")
+                    .get(CcInfo.PROVIDER)
+                    .getCcLinkingContext()
+                    .getLinkstamps()))
+        .containsExactly("x/bar.cc");
+  }
+
+  @Test
+  public void testCompileLanguageApi() throws Exception {
+    String fragments = "    fragments = ['google_cpp', 'cpp'],";
+    if (AnalysisMock.get().isThisBazel()) {
+      fragments = "    fragments = ['cpp'],";
+    }
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+    scratch.file("myinfo/BUILD");
+    scratch.overwriteFile("tools/build_defs/foo/BUILD");
+    scratch.file(
+        "tools/build_defs/foo/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _objc_starlark_library_impl(ctx):",
+        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
+        "    features = ['objc-compile']",
+        "    features.extend(ctx.features)",
+        "    feature_configuration = cc_common.configure_features(",
+        "        ctx = ctx,",
+        "        cc_toolchain=toolchain,",
+        "        requested_features = features,",
+        "        unsupported_features = ctx.disabled_features)",
+        "    foo_dict = {'string_variable': 'foo',",
+        "            'string_sequence_variable' : ['foo'],",
+        "            'string_depset_variable': depset(['foo'])}",
+        "    (compilation_context, compilation_outputs) = cc_common.compile(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        cc_toolchain=toolchain,",
+        "        srcs=ctx.files.srcs,",
+        "        name=ctx.label.name + '_suffix',",
+        "        language='objc'",
+        "    )",
+        "    (linking_context,",
+        "     linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        compilation_outputs=compilation_outputs,",
+        "        name = ctx.label.name,",
+        "        cc_toolchain=toolchain,",
+        "        language='objc'",
+        "    )",
+        "    files_to_build = []",
+        "    files_to_build.extend(compilation_outputs.pic_objects)",
+        "    files_to_build.extend(compilation_outputs.objects)",
+        "    library_to_link = None",
+        "    if len(ctx.files.srcs) > 0:",
+        "        library_to_link = linking_outputs.library_to_link",
+        "        if library_to_link.pic_static_library != None:",
+        "            files_to_build.append(library_to_link.pic_static_library)",
+        "        files_to_build.append(library_to_link.dynamic_library)",
+        "    return [MyInfo(libraries=[library_to_link]),",
+        "            DefaultInfo(files=depset(files_to_build)),",
+        "            CcInfo(compilation_context=compilation_context,",
+        "                   linking_context=linking_context)]",
+        "objc_starlark_library = rule(",
+        "    implementation = _objc_starlark_library_impl,",
+        "    attrs = {",
+        "      'srcs': attr.label_list(allow_files=True),",
+        "      '_my_cc_toolchain': attr.label(default =",
+        "          '//a:alias')",
+        "    },",
+        fragments,
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'objc_starlark_library')",
+        "objc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.m'],",
+        ")");
+    scratch.file("a/BUILD", "cc_toolchain_alias(name='alias')");
+    getConfiguredTarget("//foo:starlark_lib");
+    assertNoEvents();
   }
 }

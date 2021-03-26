@@ -15,9 +15,18 @@
 package com.google.devtools.build.lib.starlarkbuildapi.go;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
 
 /** Contains the metadata for a Go package. Used to generate .gopackage files. */
 @StarlarkBuiltin(
@@ -26,8 +35,33 @@ import net.starlark.java.annot.StarlarkBuiltin;
     documented = false,
     category = DocCategory.PROVIDER)
 public interface GoPackageInfoApi extends StructApi {
+  String PROVIDER_NAME = "GoPackageInfo";
 
   /** Provider for GoPackageInfo objects. */
   @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
-  public interface Provider extends ProviderApi {}
+  public interface Provider extends ProviderApi {
+    @StarlarkMethod(
+        name = PROVIDER_NAME,
+        documented = false,
+        parameters = {
+          @Param(name = "non_proto_library_label", positional = false, named = true),
+          @Param(name = "srcs", positional = false, named = true),
+          @Param(
+              name = "export_data",
+              positional = false,
+              named = true,
+              allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
+          @Param(name = "imports", positional = false, named = true),
+          @Param(name = "test", positional = false, named = true),
+        },
+        selfCall = true)
+    @StarlarkConstructor
+    GoPackageInfoApi createGoPackageInfo(
+        Label nonProtoLibraryLabel,
+        Sequence<?> srcs,
+        Object exportDataObject,
+        Sequence<?> imports,
+        boolean test)
+        throws EvalException;
+  }
 }

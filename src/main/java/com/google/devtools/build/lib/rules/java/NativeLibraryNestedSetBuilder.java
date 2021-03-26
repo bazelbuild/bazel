@@ -14,16 +14,11 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.util.FileType;
 
 /** A builder that helps construct nested sets of native libraries. */
 public final class NativeLibraryNestedSetBuilder {
@@ -64,8 +59,6 @@ public final class NativeLibraryNestedSetBuilder {
       return this;
     }
 
-    addTarget(dep);
-
     return this;
   }
 
@@ -83,22 +76,6 @@ public final class NativeLibraryNestedSetBuilder {
     CcNativeLibraryProvider provider = dep.get(CcNativeLibraryProvider.PROVIDER);
     if (provider != null) {
       builder.addTransitive(provider.getTransitiveCcNativeLibraries());
-    } else {
-      addTarget(dep);
-    }
-  }
-
-  /** Include files and genrule artifacts. */
-  private void addTarget(TransitiveInfoCollection dep) {
-    for (Artifact artifact :
-        FileType.filterList(
-            dep.getProvider(FileProvider.class).getFilesToBuild().toList(),
-            CppFileTypes.SHARED_LIBRARY)) {
-      builder.add(
-          LibraryToLink.builder()
-              .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(artifact))
-              .setDynamicLibrary(artifact)
-              .build());
     }
   }
 }

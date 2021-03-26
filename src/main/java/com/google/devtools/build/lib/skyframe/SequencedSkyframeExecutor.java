@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContaine
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -226,14 +227,16 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return recordingDiffer;
   }
 
+  @Nullable
   @Override
-  public void sync(
+  public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
       PackageOptions packageOptions,
       PathPackageLocator packageLocator,
       BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
+      Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
@@ -259,29 +262,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         buildLanguageOptions,
         commandId,
         clientEnv,
+        repoEnvOption,
         tsgm,
         options);
     long startTime = System.nanoTime();
-    handleDiffs(eventHandler, packageOptions.checkOutputFiles, options);
+    WorkspaceInfoFromDiff workspaceInfo =
+        handleDiffs(eventHandler, packageOptions.checkOutputFiles, options);
     long stopTime = System.nanoTime();
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
-  }
-
-  /**
-   * Updates ArtifactNestedSetFunction options if the flags' values changed.
-   *
-   * @return whether an update was made.
-   */
-  private static boolean nestedSetAsSkyKeyOptionsChanged(OptionsProvider options) {
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions == null) {
-      return false;
-    }
-
-    return ArtifactNestedSetFunction.sizeThresholdUpdated(
-        buildRequestOptions.nestedSetAsSkyKeyThreshold);
+    return workspaceInfo;
   }
 
   /**
@@ -341,7 +332,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsProvider.EMPTY);
   }
 
-  private void handleDiffs(
+  @Nullable
+  private WorkspaceInfoFromDiff handleDiffs(
       ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
@@ -354,13 +346,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       invalidateCachedWorkspacePathsStates();
     }
 
+    WorkspaceInfoFromDiff workspaceInfo = null;
     Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
         Maps.newHashMap();
     Set<Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet>>
         pathEntriesWithoutDiffInformation = Sets.newHashSet();
-    for (Root pathEntry : pkgLocator.get().getPathEntries()) {
+    ImmutableList<Root> pkgRoots = pkgLocator.get().getPathEntries();
+    for (Root pathEntry : pkgRoots) {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
           diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
+      if (pkgRoots.size() == 1) {
+        workspaceInfo = modifiedFileSet.getWorkspaceInfo();
+      }
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
       } else {
@@ -381,6 +378,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         managedDirectoriesChanged,
         fsvcThreads);
     handleClientEnvironmentChanges();
+    return workspaceInfo;
   }
 
   /**
@@ -912,21 +910,20 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public ExecutionFinishedEvent createExecutionFinishedEvent() {
-    ExecutionFinishedEvent result =
+  protected ExecutionFinishedEvent.Builder createExecutionFinishedEventInternal() {
+    ExecutionFinishedEvent.Builder builder =
         ExecutionFinishedEvent.builder()
             .setOutputDirtyFiles(outputDirtyFiles)
             .setOutputModifiedFilesDuringPreviousBuild(modifiedFilesDuringPreviousBuild)
             .setSourceDiffCheckingDuration(sourceDiffCheckingDuration)
             .setNumSourceFilesCheckedBecauseOfMissingDiffs(
                 numSourceFilesCheckedBecauseOfMissingDiffs)
-            .setOutputTreeDiffCheckingDuration(outputTreeDiffCheckingDuration)
-            .build();
+            .setOutputTreeDiffCheckingDuration(outputTreeDiffCheckingDuration);
     outputDirtyFiles = 0;
     modifiedFilesDuringPreviousBuild = 0;
     sourceDiffCheckingDuration = Duration.ZERO;
     outputTreeDiffCheckingDuration = Duration.ZERO;
-    return result;
+    return builder;
   }
 
   @Override

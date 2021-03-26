@@ -108,8 +108,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "gtest",
-    url = "https://github.com/google/googletest/archive/release-1.7.0.zip",
-    sha256 = "b58cb7547a28b2c718d1e38aee18a3659c9e3ff52440297e965f5edffe34b6d0",
+    url = "https://github.com/google/googletest/archive/release-1.10.0.zip",
+    sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
     build_file = "@//:gtest.BUILD",
 )
 ```
@@ -121,15 +121,15 @@ Then create `gtest.BUILD`, a `BUILD` file used to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
-*  `googletest-release-1.7.0/src/gtest-all.cc` `#include`s all of the other
-   files in `googletest-release-1.7.0/src/`, so we need to exclude it from the
-   compile or we'll get link errors for duplicate symbols.
+*  `googletest-release-1.10.0/src/gtest-all.cc` `#include`s all other
+   files in `googletest-release-1.10.0/src/`: exclude it from the
+   compile to prevent link errors for duplicate symbols.
 
 *  It uses header files that are relative to the
-`googletest-release-1.7.0/include/` directory  (`"gtest/gtest.h"`), so we must
+`googletest-release-1.10.0/include/` directory  (`"gtest/gtest.h"`), so you must
 add that directory to the include paths.
 
-*  It needs to link in `pthread`, so we add that as a `linkopt`.
+*  It needs to link in `pthread`, so add that as a `linkopt`.
 
 The final rule therefore looks like this:
 
@@ -137,23 +137,23 @@ The final rule therefore looks like this:
 cc_library(
     name = "main",
     srcs = glob(
-        ["googletest-release-1.7.0/src/*.cc"],
-        exclude = ["googletest-release-1.7.0/src/gtest-all.cc"]
+        ["googletest-release-1.10.0/src/*.cc"],
+        exclude = ["googletest-release-1.10.0/src/gtest-all.cc"]
     ),
     hdrs = glob([
-        "googletest-release-1.7.0/include/**/*.h",
-        "googletest-release-1.7.0/src/*.h"
+        "googletest-release-1.10.0/include/**/*.h",
+        "googletest-release-1.10.0/src/*.h"
     ]),
     copts = [
-        "-Iexternal/gtest/googletest-release-1.7.0/include",
-        "-Iexternal/gtest/googletest-release-1.7.0"
+        "-Iexternal/gtest/googletest-release-1.10.0/include",
+        "-Iexternal/gtest/googletest-release-1.10.0"
     ],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
 )
 ```
 
-This is somewhat messy: everything is prefixed with `googletest-release-1.7.0`
+This is somewhat messy: everything is prefixed with `googletest-release-1.10.0`
 as a byproduct of the archive's structure. You can make `http_archive` strip
 this prefix by adding the `strip_prefix` attribute:
 
@@ -162,10 +162,10 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "gtest",
-    url = "https://github.com/google/googletest/archive/release-1.7.0.zip",
-    sha256 = "b58cb7547a28b2c718d1e38aee18a3659c9e3ff52440297e965f5edffe34b6d0",
+    url = "https://github.com/google/googletest/archive/release-1.10.0.zip",
+    sha256 = "94c634d499558a76fa649edb13721dce6e98fb1e7018dfaeba3cd7a083945e91",
     build_file = "@//:gtest.BUILD",
-    strip_prefix = "googletest-release-1.7.0",
+    strip_prefix = "googletest-release-1.10.0",
 )
 ```
 
@@ -192,7 +192,7 @@ Now `cc_` rules can depend on `@gtest//:main`.
 
 ## Writing and running C++ tests
 
-For example, we could create a test `./test/hello-test.cc` such as:
+For example, you could create a test `./test/hello-test.cc`, such as:
 
 ```cpp
 #include "gtest/gtest.h"
@@ -217,7 +217,7 @@ cc_test(
 )
 ```
 
-Note that in order to make `hello-greet` visible to `hello-test`, we have to add
+To make `hello-greet` visible to `hello-test`, you must add
 `"//test:__pkg__",` to the `visibility` attribute in `./main/BUILD`.
 
 Now you can use `bazel test` to run the test.

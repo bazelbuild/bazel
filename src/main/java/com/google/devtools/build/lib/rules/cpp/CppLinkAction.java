@@ -200,10 +200,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   @Override
   @VisibleForTesting
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
-    return getEnvironment(ImmutableMap.of());
+    return getEffectiveEnvironment(ImmutableMap.of());
   }
 
-  public ImmutableMap<String, String> getEnvironment(Map<String, String> clientEnv) {
+  @Override
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
     LinkedHashMap<String, String> result = Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(result, clientEnv);
 
@@ -313,7 +314,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       return new SimpleSpawn(
           this,
           ImmutableList.copyOf(getCommandLine(actionExecutionContext.getArtifactExpander())),
-          getEnvironment(actionExecutionContext.getClientEnv()),
+          getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
           getExecutionInfo(),
           getInputs(),
           getOutputs(),

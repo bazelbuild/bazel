@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -61,9 +62,9 @@ public final class ActionMetadataHandlerTest {
       new Scratch(
           new InMemoryFileSystem(DigestHashFunction.SHA256) {
             @Override
-            public void chmod(Path path, int mode) throws IOException {
+            public void chmod(PathFragment path, int mode) throws IOException {
               assertThat(mode).isEqualTo(0555); // Read only and executable.
-              if (!chmodCalls.add(path)) {
+              if (!chmodCalls.add(getPath(path))) {
                 fail("chmod called on " + path + " twice");
               }
               super.chmod(path, mode);
@@ -77,7 +78,7 @@ public final class ActionMetadataHandlerTest {
       ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
   private final PathFragment derivedPathPrefix = PathFragment.create("bin");
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), false, derivedPathPrefix);
+      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), RootType.Output, derivedPathPrefix);
   private final Path execRoot = outputRoot.getRoot().asPath();
 
   @Before

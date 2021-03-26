@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
@@ -111,7 +112,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
                 (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(true)
+        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 
@@ -120,7 +121,8 @@ public class AppleStaticLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_static_library")
         .factoryClass(AppleStaticLibrary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.MultiArchPlatformRule.class)
+        .ancestors(
+            BaseRuleClasses.NativeBuildRule.class, ObjcRuleClasses.MultiArchPlatformRule.class)
         .build();
   }
 }

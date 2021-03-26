@@ -365,7 +365,13 @@ public interface AppleCommonApi<
                     + "information is always included. If 0, build information is always excluded. "
                     + "If -1 (the default), then the behavior is determined by the --[no]stamp "
                     + "flag. This should be set to 0 when generating the executable output for "
-                    + "test rules.")
+                    + "test rules."),
+        @Param(
+            name = "should_lipo",
+            named = true,
+            positional = false,
+            defaultValue = "True",
+            doc = "If true, invoke lipo after linking to create a universal binary.")
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
@@ -374,6 +380,7 @@ public interface AppleCommonApi<
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkInt stamp,
+      Boolean shouldLipo,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

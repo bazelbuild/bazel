@@ -22,7 +22,9 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -45,7 +47,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -82,7 +83,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   private static final RuleDefinition NATIVE_TEST_RULE =
       (MockRule)
           () ->
-              MockRule.ancestor(BaseRuleClasses.TestBaseRule.class, BaseRuleClasses.BaseRule.class)
+              MockRule.ancestor(
+                      BaseRuleClasses.TestBaseRule.class, BaseRuleClasses.NativeBuildRule.class)
                   .factory(NativeTest.class)
                   .type(RuleClassType.TEST)
                   .define(
@@ -95,7 +97,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   private static final RuleDefinition NATIVE_LIB_RULE =
       (MockRule)
           () ->
-              MockRule.ancestor(BaseRuleClasses.BaseRule.class)
+              MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
                   .define(
                       "native_lib",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
@@ -137,11 +139,11 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
   }
 
   private void assertNumberOfConfigurationsOfTargets(
-      Set<SkyKey> keys, Map<String, Integer> targetsWithCounts) {
+      Set<ActionLookupKey> keys, Map<String, Integer> targetsWithCounts) {
     ImmutableMultiset<Label> actualSet =
         keys.stream()
             .filter(key -> key instanceof ConfiguredTargetKey)
-            .map(key -> ((ConfiguredTargetKey) key).getLabel())
+            .map(ArtifactOwner::getLabel)
             .collect(toImmutableMultiset());
     ImmutableMap<Label, Integer> expected =
         targetsWithCounts
@@ -200,7 +202,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "//test:starlark_dep",
         "//test:native_shared_dep",
         "//test:starlark_shared_dep");
-    LinkedHashSet<SkyKey> visitedTargets = new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
+    LinkedHashSet<ActionLookupKey> visitedTargets =
+        new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
     // asserting that the top-level targets are the same as the ones in the diamond starting at
     // //test:suite
     assertNumberOfConfigurationsOfTargets(
@@ -334,7 +337,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "//test:starlark_dep",
         "//test:native_shared_dep",
         "//test:starlark_shared_dep");
-    LinkedHashSet<SkyKey> visitedTargets = new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
+    LinkedHashSet<ActionLookupKey> visitedTargets =
+        new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
     // asserting that the top-level targets are the same as the ones in the diamond starting at
     // //test:suite
     assertNumberOfConfigurationsOfTargets(
@@ -639,7 +643,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "//test:starlark_dep",
         "//test:native_shared_dep",
         "//test:starlark_shared_dep");
-    LinkedHashSet<SkyKey> visitedTargets = new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
+    LinkedHashSet<ActionLookupKey> visitedTargets =
+        new LinkedHashSet<>(getSkyframeEvaluatedTargetKeys());
     assertNumberOfConfigurationsOfTargets(
         visitedTargets,
         new ImmutableMap.Builder<String, Integer>()

@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getArtifactsEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.hasInput;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
@@ -62,6 +61,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -90,6 +90,12 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     @Override
     protected boolean platformBasedToolchains() {
       return true;
+    }
+
+    @Override
+    protected String defaultPlatformFlag() {
+      return String.format(
+          "--android_platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
     }
   }
 
@@ -1067,21 +1073,26 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testV1SigningMethod() throws Exception {
-    actualSignerToolTests("v1", "true", "false");
+    actualSignerToolTests("v1", "true", "false", null);
   }
 
   @Test
   public void testV2SigningMethod() throws Exception {
-    actualSignerToolTests("v2", "false", "true");
+    actualSignerToolTests("v2", "false", "true", null);
   }
 
   @Test
   public void testV1V2SigningMethod() throws Exception {
-    actualSignerToolTests("v1_v2", "true", "true");
+    actualSignerToolTests("v1_v2", "true", "true", null);
   }
 
-  private void actualSignerToolTests(String apkSigningMethod, String signV1, String signV2)
-      throws Exception {
+  @Test
+  public void testV4SigningMethod() throws Exception {
+    actualSignerToolTests("v4", "false", "false", "true");
+  }
+
+  private void actualSignerToolTests(
+      String apkSigningMethod, String signV1, String signV2, String signV4) throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -1119,6 +1130,14 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     assertThat(flagValue("--v1-signing-enabled", args)).isEqualTo(signV1);
     assertThat(flagValue("--v2-signing-enabled", args)).isEqualTo(signV2);
+    if (signV4 != null) {
+      assertThat(flagValue("--v4-signing-enabled", args)).isEqualTo(signV4);
+      if (signV4.equals("true")) {
+        assertThat(getFirstArtifactEndingWith(artifacts, "hello.apk.idsig")).isNotNull();
+      }
+    } else {
+      assertThat(args).doesNotContain("--v4-signing-enabled");
+    }
   }
 
   @Test
@@ -2475,6 +2494,56 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testLegacyMainDexListWithAndroidSdk() throws Exception {
+    scratch.file(
+        "tools/fake/BUILD",
+        "cc_binary(",
+        "    name = 'generate_main_dex_list',",
+        "    srcs = ['main.cc'])");
+
+    scratch.file(
+        "sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    aapt2 = 'aapt2',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign',",
+        "    legacy_main_dex_list_generator = '//tools/fake:generate_main_dex_list',",
+        "    tags = ['__ANDROID_RULES_MIGRATION__'])");
+
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    multidex = 'legacy')");
+
+    useConfiguration("--android_sdk=//sdk:sdk");
+    ConfiguredTarget a = getConfiguredTarget("//java/a:a");
+    Artifact mainDexList =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(a)), "main_dex_list.txt");
+    List<String> args = getGeneratingSpawnActionArgs(mainDexList);
+    NestedSet<Artifact> mainDexInputs = getGeneratingAction(mainDexList).getInputs();
+
+    MoreAsserts.assertContainsSublist(args, "--lib", "sdk/android.jar");
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs)).contains("generate_main_dex_list");
+    assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs)).contains("a_deploy.jar");
+    assertThat(getFirstArtifactEndingWith(mainDexInputs, "main_dex_list_creator")).isNull();
+  }
+
+  @Test
   public void testMainDexAaptGenerationSupported() throws Exception {
     useConfiguration("--android_sdk=//sdk:sdk", "--noincremental_dexing");
     scratch.file(
@@ -2727,19 +2796,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     List<String> args = getGeneratingSpawnActionArgs(getResourceApk(resource));
     assertPrimaryResourceDirs(ImmutableList.of("java/other/resources/res"), args);
     assertNoEvents();
-  }
-
-  @Test
-  public void testManifestMissingFails_localResources() throws Exception {
-    checkError(
-        "java/android/resources",
-        "r",
-        "manifest attribute of android_library rule //java/android/resources:r: manifest is "
-            + "required when resource_files or assets are defined.",
-        "filegroup(name = 'b')",
-        "android_library(name = 'r',",
-        "                resource_files = [':b'],",
-        "                )");
   }
 
   @Test
@@ -4426,23 +4482,34 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         // TODO(b/75051107): Remove the following line when fixed.
         "    incremental_dexing = 0,",
         ")");
+
     // Test that all bottom jars are on the runtime classpath of the app.
     ConfiguredTarget target = getConfiguredTarget("//java/r/android:foo_app");
+
     ImmutableList<Artifact> transitiveSrcJars =
         OutputGroupInfo.get(target).getOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP).toList();
     assertThat(ActionsTestUtil.baseArtifactNames(transitiveSrcJars))
         .containsExactly("libal_bottom_for_deps-src.jar", "libfoo_app-src.jar");
+    ImmutableList<Artifact> directSrcJar =
+        OutputGroupInfo.get(target)
+            .getOutputGroup(JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP)
+            .toList();
+    assertThat(ActionsTestUtil.baseArtifactNames(directSrcJar))
+        .containsExactly("libfoo_app-src.jar");
   }
 
   @Test
   public void androidManifestMergerOrderAlphabetical_MergeesSortedByExecPath() throws Exception {
-    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
-    // This is necessary because the transition would change the configuration directory, causing
-    // the manifest paths in the assertion not to match.
-    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
-    // them.
-    useConfiguration(
-        "--fat_apk_cpu=", "--android_cpu=", "--android_manifest_merger_order=alphabetical");
+    useConfiguration("--android_manifest_merger_order=alphabetical");
+    /*
+     * Dependency hierarchy:
+     * - //java/binary:application
+     *   - //java/binary:library
+     *     - //java/common:theme
+     *     - //java/android:utility
+     *       - //java/common:common
+     *         - //java/android:core
+     */
     scratch.overwriteFile(
         "java/android/BUILD",
         "android_library(",
@@ -4487,15 +4554,23 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    exports_manifest = 1,",
         "    resource_files = ['theme/res/values/values.xml'],",
         ")");
-    Artifact androidCoreManifest = getLibraryManifest(getConfiguredTarget("//java/android:core"));
-    Artifact androidUtilityManifest =
-        getLibraryManifest(getConfiguredTarget("//java/android:utility"));
-    Artifact binaryLibraryManifest =
-        getLibraryManifest(getConfiguredTarget("//java/binary:library"));
-    Artifact commonManifest = getLibraryManifest(getConfiguredTarget("//java/common:common"));
-    Artifact commonThemeManifest = getLibraryManifest(getConfiguredTarget("//java/common:theme"));
 
-    assertThat(getBinaryMergeeManifests(getConfiguredTarget("//java/binary:application")))
+    // These have to be found via the same inheritance hierarchy, because getDirectPrerequsite can
+    // only traverse one level.
+    ConfiguredTarget application = getConfiguredTarget("//java/binary:application");
+    ConfiguredTarget library = getDirectPrerequisite(application, "//java/binary:library");
+    ConfiguredTarget theme = getDirectPrerequisite(library, "//java/common:theme");
+    ConfiguredTarget utility = getDirectPrerequisite(library, "//java/android:utility");
+    ConfiguredTarget common = getDirectPrerequisite(utility, "//java/common:common");
+    ConfiguredTarget core = getDirectPrerequisite(common, "//java/android:core");
+
+    Artifact androidCoreManifest = getLibraryManifest(core);
+    Artifact androidUtilityManifest = getLibraryManifest(utility);
+    Artifact binaryLibraryManifest = getLibraryManifest(library);
+    Artifact commonManifest = getLibraryManifest(common);
+    Artifact commonThemeManifest = getLibraryManifest(theme);
+
+    assertThat(getBinaryMergeeManifests(application))
         .containsExactlyEntriesIn(
             ImmutableMap.of(
                 androidCoreManifest.getExecPath().toString(), "//java/android:core",
@@ -4509,14 +4584,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void androidManifestMergerOrderAlphabeticalByConfiguration_MergeesSortedByPathInBinOrGen()
       throws Exception {
-    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
-    // This is necessary because the transition would change the configuration directory, causing
-    // the manifest paths in the assertion not to match.
-    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
-    // them.
     useConfiguration(
-        "--fat_apk_cpu=",
-        "--android_cpu=",
         "--android_manifest_merger_order=alphabetical_by_configuration");
     scratch.overwriteFile(
         "java/android/BUILD",
@@ -4598,85 +4666,6 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "//java/common:common",
             "//java/common:theme")
         .inOrder();
-  }
-
-  @Test
-  public void androidBinaryResourceInjection() throws Exception {
-    // ResourceApk.toResourceInfo() is not compatible with the AndroidResourcesInfo provider.
-    useConfiguration("--experimental_omit_resources_info_provider_from_android_binary");
-
-    scratch.file(
-        "java/com/app/android_resource_injection.bzl",
-        "def _android_application_resources_impl(ctx):",
-        "    resource_proguard_config = ctx.actions.declare_file(ctx.label.name + '/proguard.cfg')",
-        "    ctx.actions.write(resource_proguard_config, '# Empty proguard.cfg')",
-        "",
-        "    resource_apk = ctx.actions.declare_file(ctx.label.name + '/injected_resource.ap_')",
-        "    ctx.actions.write(resource_apk, 'empty ap_')",
-        "",
-        "    manifest = ctx.actions.declare_file(ctx.label.name + '/AndroidManifest.xml')",
-        "    ctx.actions.write(manifest, 'empty manifest')",
-        "",
-        "    resource_java_src_jar = ctx.actions.declare_file(",
-        "        ctx.label.name + '/resources.srcjar')",
-        "    ctx.actions.write(resource_java_src_jar, 'empty manifest')",
-        "",
-        "    resource_java_class_jar = ctx.actions.declare_file(",
-        "        ctx.label.name + '/resources.jar')",
-        "    ctx.actions.write(resource_java_class_jar, 'empty manifest')",
-        "",
-        "    r_txt = ctx.actions.declare_file(ctx.label.name + '/r.txt')",
-        "    ctx.actions.write(r_txt, 'empty r_txt')",
-        "",
-        "    resources_zip = ctx.actions.declare_file(ctx.label.name + '/resource_files.zip')",
-        "    ctx.actions.write(resources_zip, 'empty resources zip')",
-        "",
-        "    databinding_info = ctx.actions.declare_file(ctx.label.name + '/layout-info.zip')",
-        "    ctx.actions.write(databinding_info, 'empty databinding layout info zip')",
-        "",
-        "    return [",
-        "        DefaultInfo(files = depset([resource_apk, resource_proguard_config])),",
-        "        AndroidApplicationResourceInfo(",
-        "            resource_apk = resource_apk,",
-        "            resource_java_src_jar = resource_java_src_jar,",
-        "            resource_java_class_jar = resource_java_class_jar,",
-        "            manifest = manifest,",
-        "            resource_proguard_config = resource_proguard_config,",
-        "            main_dex_proguard_config = None,",
-        "            r_txt = r_txt,",
-        "            resources_zip = resources_zip,",
-        "            databinding_info = databinding_info,",
-        "        ),",
-        "    ]",
-        "",
-        "android_application_resources = rule(",
-        "    implementation = _android_application_resources_impl,",
-        "    provides = [AndroidApplicationResourceInfo],",
-        ")",
-        "",
-        "def resource_injected_android_binary(**attrs):",
-        "  android_application_resources(name = 'application_resources')",
-        "  attrs['application_resources'] = ':application_resources'",
-        "  native.android_binary(**attrs)");
-
-    scratch.file(
-        "java/com/app/BUILD",
-        "load(':android_resource_injection.bzl', 'resource_injected_android_binary')",
-        "resource_injected_android_binary(",
-        "  name = 'app',",
-        "  manifest = 'AndroidManifest.xml')");
-
-    ConfiguredTarget app = getConfiguredTarget("//java/com/app:app");
-    assertThat(app).isNotNull();
-
-    // Assert that the injected resource apk is the only resource apk being merged into the final
-    // apk.
-    Action singleJarAction = getGeneratingAction(getFinalUnsignedApk(app));
-    List<Artifact> resourceApks =
-        getArtifactsEndingWith(singleJarAction.getInputs().toList(), ".ap_");
-    assertThat(resourceApks).hasSize(1);
-    assertThat(resourceApks.get(0).getExecPathString())
-        .endsWith("java/com/app/application_resources/injected_resource.ap_");
   }
 
   @Test
@@ -4817,8 +4806,4 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(args).doesNotContain("a_deploy.jar");
     assertThat(args).contains("/a_proguard.jar");
   }
-
-  // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would
-  // have to enforce incorrect behavior.
-  // TODO(b/117338320): Add a test when dependency order is fixed.
 }

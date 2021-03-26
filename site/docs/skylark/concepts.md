@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Extension overview
+category: extending
 ---
 
 # Extension Overview

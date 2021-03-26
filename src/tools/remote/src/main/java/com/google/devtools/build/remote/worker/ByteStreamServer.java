@@ -17,6 +17,7 @@ package com.google.devtools.build.remote.worker;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
@@ -25,7 +26,9 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Status;
@@ -66,6 +69,8 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
   @Override
   public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+    RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
     Digest digest = parseDigestFromResourceName(request.getResourceName());
 
     if (digest == null) {
@@ -78,7 +83,8 @@ final class ByteStreamServer extends ByteStreamImplBase {
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
-      Chunker c = Chunker.builder().setInput(getFromFuture(cache.downloadBlob(digest))).build();
+      Chunker c =
+          Chunker.builder().setInput(getFromFuture(cache.downloadBlob(context, digest))).build();
       while (c.hasNext()) {
         responseObserver.onNext(
             ReadResponse.newBuilder().setData(c.next().getData()).build());
@@ -94,6 +100,9 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
   @Override
   public StreamObserver<WriteRequest> write(final StreamObserver<WriteResponse> responseObserver) {
+    RequestMetadata meta = TracingMetadataUtils.fromCurrentContext();
+    RemoteActionExecutionContext context = RemoteActionExecutionContext.create(meta);
+
     Path temp = workPath.getRelative("upload").getRelative(UUID.randomUUID().toString());
     try {
       FileSystemUtils.createDirectoryAndParents(temp.getParentDirectory());
@@ -217,7 +226,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
         try {
           Digest d = digestUtil.compute(temp);
-          getFromFuture(cache.uploadFile(d, temp));
+          getFromFuture(cache.uploadFile(context, d, temp));
           try {
             temp.delete();
           } catch (IOException e) {

@@ -53,11 +53,10 @@ import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeClasspathProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
@@ -108,7 +107,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaCommon javaCommon =
         AndroidCommon.createJavaCommonWithAndroidDataBinding(
-            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary= */ false);
+            ruleContext,
+            javaSemantics,
+            resourceApk.asDataBindingContext(),
+            /* isLibrary */ false,
+            /* shouldCompileJavaSrcs */ true);
     javaSemantics.checkRule(ruleContext, javaCommon);
 
     // Use the regular Java javacopts, plus any extra needed for databinding. Enforcing
@@ -236,11 +239,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(
-                classJar,
-                classJar,
-                outputs.manifestProto(),
-                srcJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(srcJar));
+            .addJavaOutput(
+                JavaOutput.builder()
+                    .fromJavaCompileOutputs(outputs)
+                    .setCompileJar(classJar)
+                    .setCompileJdeps(
+                        javaCommon.getJavaCompilationArtifacts().getCompileTimeDependencyArtifact())
+                    .addSourceJar(srcJar)
+                    .build());
 
     javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
 
@@ -259,7 +265,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaTargetAttributes attributes = attributesBuilder.build();
     addJavaClassJarToArtifactsBuilder(javaArtifactsBuilder, attributes, classJar);
 
-    javaRuleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
     helper.createCompileAction(outputs);
     helper.createSourceJarAction(srcJar, outputs.genSource());
 
@@ -380,9 +385,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(
-                JavaSourceInfoProvider.class,
-                JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, javaSemantics))
             .build();
 
     return builder
@@ -402,6 +404,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             new JavaRuntimeClasspathProvider(javaCommon.getRuntimeClasspath()))
         .addProvider(JavaPrimaryClassProvider.class, new JavaPrimaryClassProvider(testClass))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
+        .addOutputGroup(
+            JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()))
         .build();
   }
 
@@ -444,7 +449,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     builder.addArtifacts(javaCommon.getJavaCompilationArtifacts().getRuntimeJars());
 
     builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
 
     ImmutableList<TransitiveInfoCollection> depsForRunfiles =
         ImmutableList.<TransitiveInfoCollection>builder()
@@ -459,7 +463,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     builder.addArtifacts(getRuntimeJarsForTargets(getAndCheckTestSupport(ruleContext)));
 
-    builder.addTargets(depsForRunfiles, JavaRunfilesProvider.TO_RUNFILES);
     builder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
 
     // We assume that the runtime jars will not have conflicting artifacts

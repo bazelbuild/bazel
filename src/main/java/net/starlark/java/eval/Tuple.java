@@ -245,9 +245,12 @@ public final class Tuple extends AbstractList<Object>
       return empty();
     }
 
-    // TODO(adonovan): reject unreasonably large n.
     int ni = n.toInt("repeat");
-    Object[] res = new Object[ni * elems.length];
+    long sz = (long) ni * elems.length;
+    if (sz > StarlarkList.MAX_ALLOC) {
+      throw Starlark.errorf("excessive repeat (%d * %d elements)", elems.length, ni);
+    }
+    Object[] res = new Object[(int) sz];
     for (int i = 0; i < ni; i++) {
       System.arraycopy(elems, 0, res, i * elems.length, elems.length);
     }

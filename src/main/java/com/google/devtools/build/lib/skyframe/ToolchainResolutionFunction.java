@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -81,7 +80,9 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
       // Check if debug output should be generated.
       boolean debug =
-          configuration.getOptions().get(PlatformOptions.class).toolchainResolutionDebug;
+          configuration
+              .getFragment(PlatformConfiguration.class)
+              .debugToolchainResolution(key.requiredToolchainTypeLabels());
 
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
@@ -116,6 +117,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
           env,
           key.configurationKey(),
           resolvedToolchainTypeLabels,
+          key.forceExecutionPlatform().map(platformKeys::find),
           builder,
           platformKeys,
           key.shouldSanityCheckConfiguration());
@@ -180,6 +182,24 @@ public class ToolchainResolutionFunction implements SkyFunction {
     abstract ConfiguredTargetKey targetPlatformKey();
 
     abstract ImmutableList<ConfiguredTargetKey> executionPlatformKeys();
+
+    @Nullable
+    public ConfiguredTargetKey find(Label platformLabel) {
+      if (platformLabel.equals(hostPlatformKey().getLabel())) {
+        return hostPlatformKey();
+      }
+      if (platformLabel.equals(targetPlatformKey().getLabel())) {
+        return targetPlatformKey();
+      }
+
+      for (ConfiguredTargetKey configuredTargetKey : executionPlatformKeys()) {
+        if (platformLabel.equals(configuredTargetKey.getLabel())) {
+          return configuredTargetKey;
+        }
+      }
+
+      return null;
+    }
 
     static PlatformKeys create(
         ConfiguredTargetKey hostPlatformKey,
@@ -349,6 +369,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       Environment environment,
       BuildConfigurationValue.Key configurationKey,
       ImmutableSet<Label> requiredToolchainTypeLabels,
+      Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
       boolean shouldSanityCheckConfiguration)
@@ -414,19 +435,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes = requiredToolchainTypesBuilder.build();
 
     // Find and return the first execution platform which has all required toolchains.
-    Optional<ConfiguredTargetKey> selectedExecutionPlatformKey;
-    if (!requiredToolchainTypeLabels.isEmpty()) {
-      selectedExecutionPlatformKey =
-          findExecutionPlatformForToolchains(
-              requiredToolchainTypes,
-              platformKeys.executionPlatformKeys(),
-              resolvedToolchains);
-    } else if (!platformKeys.executionPlatformKeys().isEmpty()) {
-      // Just use the first execution platform.
-      selectedExecutionPlatformKey = Optional.of(platformKeys.executionPlatformKeys().get(0));
-    } else {
-      selectedExecutionPlatformKey = Optional.empty();
-    }
+    Optional<ConfiguredTargetKey> selectedExecutionPlatformKey =
+        findExecutionPlatformForToolchains(
+            requiredToolchainTypes,
+            forcedExecutionPlatform,
+            platformKeys.executionPlatformKeys(),
+            resolvedToolchains);
 
     if (!selectedExecutionPlatformKey.isPresent()) {
       throw new NoMatchingPlatformException(
@@ -476,24 +490,46 @@ public class ToolchainResolutionFunction implements SkyFunction {
    */
   private static Optional<ConfiguredTargetKey> findExecutionPlatformForToolchains(
       ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
+      Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys,
       Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
-    for (ConfiguredTargetKey executionPlatformKey : availableExecutionPlatformKeys) {
-      if (!resolvedToolchains.containsRow(executionPlatformKey)) {
-        continue;
-      }
 
-      Map<ToolchainTypeInfo, Label> toolchains = resolvedToolchains.row(executionPlatformKey);
-      if (!toolchains.keySet().containsAll(requiredToolchainTypes)) {
-        // Not all toolchains are present, ignore this execution platform.
-        continue;
+    if (forcedExecutionPlatform.isPresent()) {
+      // Is the forced platform suitable?
+      if (isPlatformSuitable(
+          forcedExecutionPlatform.get(), requiredToolchainTypes, resolvedToolchains)) {
+        return forcedExecutionPlatform;
       }
-
-      return Optional.of(executionPlatformKey);
     }
 
-    return Optional.empty();
+    return availableExecutionPlatformKeys.stream()
+        .filter(epk -> isPlatformSuitable(epk, requiredToolchainTypes, resolvedToolchains))
+        .findFirst();
   }
+
+  private static boolean isPlatformSuitable(
+      ConfiguredTargetKey executionPlatformKey,
+      ImmutableSet<ToolchainTypeInfo> requiredToolchainTypes,
+      Table<ConfiguredTargetKey, ToolchainTypeInfo, Label> resolvedToolchains) {
+    if (requiredToolchainTypes.isEmpty()) {
+      // Since there aren't any toolchains, we should be able to use any execution platform that
+      // has made it this far.
+      return true;
+    }
+
+    if (!resolvedToolchains.containsRow(executionPlatformKey)) {
+      return false;
+    }
+
+    Map<ToolchainTypeInfo, Label> toolchains = resolvedToolchains.row(executionPlatformKey);
+    if (!toolchains.keySet().containsAll(requiredToolchainTypes)) {
+      // Not all toolchains are present, ignore this execution platform.
+      return false;
+    }
+
+    return true;
+  }
+
 
   @Nullable
   @Override

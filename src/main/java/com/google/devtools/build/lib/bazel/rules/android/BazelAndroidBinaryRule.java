@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -32,6 +33,11 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
+        .cfg(
+            ComposingTransitionFactory.of(
+                new ConfigFeatureFlagTransitionFactory(
+                    AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR),
+                AndroidRuleClasses.androidBinarySelfTransition()))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application
@@ -75,10 +81,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
                 .value(
                     environment.getToolsLabel(
                         "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
-        .cfg(
-            new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
-        .useToolchainTransition(true)
+        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

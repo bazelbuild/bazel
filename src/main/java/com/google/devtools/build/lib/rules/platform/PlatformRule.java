@@ -42,7 +42,7 @@ public class PlatformRule implements RuleDefinition {
     /* <!-- #BLAZE_RULE(platform).NAME -->
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-        .advertiseProvider(PlatformInfo.class)
+        .advertiseStarlarkProvider(PlatformInfo.PROVIDER.id())
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(constraint_values) -->
         The combination of constraint choices that this platform comprises. In order for a platform
@@ -51,7 +51,7 @@ public class PlatformRule implements RuleDefinition {
         <p>Each <code>constraint_value</code> in this list must be for a different
         <code>constraint_setting</code>. For example, you cannot define a platform that requires the
         cpu architecture to be both <code>@platforms//cpu:x86_64</code> and
-        <code>@bazel_tools//platforms:arm</code>.
+        <code>@platforms//cpu:arm</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
@@ -134,10 +134,12 @@ public class PlatformRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = platform, FAMILY = Platform)[GENERIC_RULE] -->
 
-<p>This rule defines a new platform -- a named collection of constraint choices (such as cpu
-architecture or compiler version) describing an environment in which part of the build may run.
-See the <a href="../platforms.html">Platforms</a> page for
-more details.
+<p>This rule defines a new platform -- a named collection of constraint choices
+(such as cpu architecture or compiler version) describing an environment in
+which part of the build may run.
+
+For more details, see the
+<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page.
 
 <h4 id="platform_examples">Example</h4>
 <p>

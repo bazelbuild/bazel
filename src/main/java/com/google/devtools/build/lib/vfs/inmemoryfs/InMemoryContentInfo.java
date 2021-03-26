@@ -17,8 +17,10 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem.Errno;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem.InodeOrErrno;
+import javax.annotation.Nullable;
 
 /**
  * This interface defines the function directly supported by the "files" stored in a
@@ -29,7 +31,7 @@ import java.io.IOException;
  * Subclasses must preserve this property.
  */
 @ThreadSafe
-public abstract class InMemoryContentInfo implements FileStatus {
+public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
 
   protected final Clock clock;
 
@@ -54,15 +56,9 @@ public abstract class InMemoryContentInfo implements FileStatus {
   private volatile boolean isReadable = true;
 
   protected InMemoryContentInfo(Clock clock) {
-    this(clock, true);
-  }
-
-  protected InMemoryContentInfo(Clock clock, boolean isMutable) {
     this.clock = clock;
     // When we create the file, it is modified.
-    if (isMutable) {
-      markModificationTime();
-    }
+    markModificationTime();
   }
 
   /**
@@ -124,6 +120,27 @@ public abstract class InMemoryContentInfo implements FileStatus {
     return System.identityHashCode(this);
   }
 
+  @Override
+  public final InMemoryContentInfo inode() {
+    return this;
+  }
+
+  @Nullable
+  @Override
+  public final Errno error() {
+    return null;
+  }
+
+  @Override
+  public final boolean isError() {
+    return false;
+  }
+
+  @Override
+  public final InMemoryContentInfo inodeOrThrow(PathFragment path) {
+    return this;
+  }
+
   /**
    * Sets the time that denotes when the entity denoted by this object was last
    * modified.
@@ -133,19 +150,15 @@ public abstract class InMemoryContentInfo implements FileStatus {
     markChangeTime();
   }
 
-  /**
-   * Sets the last modification and change times to the current time.
-   */
-  protected synchronized void markModificationTime() {
+  /** Sets the last modification and change times to the current time. */
+  synchronized void markModificationTime() {
     Preconditions.checkState(clock != null);
     lastModifiedTime = clock.currentTimeMillis();
     lastChangeTime = lastModifiedTime;
   }
 
-  /**
-   * Sets the last change time to the current time.
-   */
-  protected synchronized void markChangeTime() {
+  /** Sets the last change time to the current time. */
+  private synchronized void markChangeTime() {
     Preconditions.checkState(clock != null);
     lastChangeTime = clock.currentTimeMillis();
   }
@@ -195,12 +208,7 @@ public abstract class InMemoryContentInfo implements FileStatus {
     return isExecutable;
   }
 
-  /**
-   * Called just before this inode is moved.
-   *
-   * @param targetPath where the inode is relocated.
-   * @throws IOException
-   */
-  protected void movedTo(Path targetPath) throws IOException {
+  InMemoryDirectoryInfo asDirectory() {
+    throw new IllegalStateException("Not a directory: " + this);
   }
 }

@@ -46,8 +46,6 @@ import net.starlark.java.eval.Tuple;
 /**
  * A module that contains Starlark utilities for C++ support.
  *
- * <p>This is a work in progress. The API is guarded behind
- * --experimental_cc_skylark_api_enabled_packages. The API is under development and unstable.
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<
@@ -106,6 +104,7 @@ public class BazelCcModule extends CcModule
       Object codeCoverageEnabled,
       Object hdrsCheckingMode,
       Object variablesExtension,
+      Object language,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     return compile(
@@ -141,6 +140,7 @@ public class BazelCcModule extends CcModule
         codeCoverageEnabled,
         hdrsCheckingMode,
         variablesExtension,
+        language,
         thread);
   }
 
@@ -157,7 +157,7 @@ public class BazelCcModule extends CcModule
       String outputType,
       boolean linkDepsStatically,
       StarlarkInt stamp,
-      Sequence<?> additionalInputs, // <Artifact> expected
+      Object additionalInputs, // <Artifact> expected
       Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
@@ -168,6 +168,7 @@ public class BazelCcModule extends CcModule
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
+      Object linkerOutputs,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -193,6 +194,7 @@ public class BazelCcModule extends CcModule
         wholeArchive,
         additionalLinkstampDefines,
         onlyForDynamicLibs,
+        linkerOutputs,
         thread);
   }
 

@@ -88,9 +88,11 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -166,8 +168,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return ccCompilationOutputs;
     }
 
+    @StarlarkMethod(name = "compilation_outputs", documented = false, useStarlarkThread = true)
+    public CcCompilationOutputs getCcCompilationOutputsStarlark(StarlarkThread thread)
+        throws EvalException {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
+      return ccCompilationOutputs;
+    }
+
     public CcInfo getCcInfo(RuleContext ruleContext) {
       checkRestrictedUsage(ruleContext);
+      return ccInfo;
+    }
+
+    @StarlarkMethod(name = "cc_info", documented = false, useStarlarkThread = true)
+    public CcInfo getCcInfoForStarlark(StarlarkThread thread) throws EvalException {
+      CcModule.checkPrivateStarlarkificationAllowlist(thread);
       return ccInfo;
     }
 
@@ -298,7 +313,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   public static void init(
       CppSemantics semantics, RuleConfiguredTargetBuilder ruleBuilder, RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    CcCommon.checkRuleLoadedThroughMacro(ruleContext);
     semantics.validateDeps(ruleContext);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")) {
       if (!ruleContext
@@ -1495,14 +1509,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       String owner = ccSharedLibraryInfo.getLinkerInput().getOwner().toString();
       for (String linkOnceStaticLib : ccSharedLibraryInfo.getLinkOnceStaticLibs()) {
         if (linkOnceStaticLibsMap.containsKey(linkOnceStaticLib)) {
-          ruleContext.attributeError(
-              "dynamic_deps",
-              "Two shared libraries in dependencies link the same library statically. Both "
-                  + linkOnceStaticLibsMap.get(linkOnceStaticLib)
-                  + " and "
-                  + owner
-                  + " link statically "
-                  + linkOnceStaticLib);
+          if (!linkOnceStaticLibsMap.get(linkOnceStaticLib).equals(owner)) {
+            ruleContext.attributeError(
+                "dynamic_deps",
+                "Two shared libraries in dependencies link the same library statically. Both "
+                    + linkOnceStaticLibsMap.get(linkOnceStaticLib)
+                    + " and "
+                    + owner
+                    + " link statically "
+                    + linkOnceStaticLib);
+          }
         }
         linkOnceStaticLibsMap.put(linkOnceStaticLib, owner);
       }

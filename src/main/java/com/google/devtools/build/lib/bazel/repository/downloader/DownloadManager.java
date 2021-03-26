@@ -33,6 +33,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Bazel file downloader.
@@ -46,6 +47,7 @@ public class DownloadManager {
   private List<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
+  private boolean disableDownload = false;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -58,6 +60,10 @@ public class DownloadManager {
 
   public void setUrlRewriter(UrlRewriter rewriter) {
     this.rewriter = rewriter;
+  }
+
+  public void setDisableDownload(boolean disableDownload) {
+    this.disableDownload = disableDownload;
   }
 
   /**
@@ -80,7 +86,7 @@ public class DownloadManager {
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public Path download(
-      List<URL> urls,
+      List<URL> originalUrls,
       Map<URI, Map<String, String>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -94,20 +100,21 @@ public class DownloadManager {
       throw new InterruptedException();
     }
 
+    List<URL> rewrittenUrls = originalUrls;
     if (rewriter != null) {
-      urls = rewriter.amend(urls);
+      rewrittenUrls = rewriter.amend(originalUrls);
     }
 
     URL mainUrl; // The "main" URL for this request
     // Used for reporting only and determining the file name only.
-    if (urls.isEmpty()) {
+    if (rewrittenUrls.isEmpty()) {
       if (type.isPresent() && !Strings.isNullOrEmpty(type.get())) {
         mainUrl = new URL("http://nonexistent.example.org/cacheprobe." + type.get());
       } else {
         mainUrl = new URL("http://nonexistent.example.org/cacheprobe");
       }
     } else {
-      mainUrl = urls.get(0);
+      mainUrl = rewrittenUrls.get(0);
     }
     Path destination = getDownloadDestination(mainUrl, type, output);
     ImmutableSet<String> candidateFileNames = getCandidateFileNames(mainUrl, destination);
@@ -148,8 +155,13 @@ public class DownloadManager {
         }
       }
 
-      if (urls.isEmpty()) {
-        throw new IOException("Cache miss and no url specified");
+      if (rewrittenUrls.isEmpty()) {
+        StringBuilder message = new StringBuilder("Cache miss and no url specified");
+        if (!originalUrls.isEmpty()) {
+          message.append(" - ");
+          message.append(getRewriterBlockedAllUrlsMessage(originalUrls));
+        }
+        throw new IOException(message.toString());
       }
 
       for (Path dir : distdir) {
@@ -194,9 +206,25 @@ public class DownloadManager {
       }
     }
 
+    if (disableDownload) {
+      throw new IOException(
+          String.format("Failed to download repo %s: download is disabled.", repo));
+    }
+
+    if (rewrittenUrls.isEmpty() && !originalUrls.isEmpty()) {
+      throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
+    }
+
     try {
       downloader.download(
-          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+          rewrittenUrls,
+          authHeaders,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type);
     } catch (InterruptedIOException e) {
       throw new InterruptedException(e.getMessage());
     }
@@ -206,10 +234,24 @@ public class DownloadManager {
           checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
     } else if (repositoryCache.isEnabled()) {
       String newSha256 = repositoryCache.put(destination, KeyType.SHA256, canonicalId);
-      eventHandler.handle(Event.info("SHA256 (" + urls.get(0) + ") = " + newSha256));
+      eventHandler.handle(Event.info("SHA256 (" + rewrittenUrls.get(0) + ") = " + newSha256));
     }
 
     return destination;
+  }
+
+  @Nullable
+  private String getRewriterBlockedAllUrlsMessage(List<URL> originalUrls) {
+    if (rewriter == null) {
+      return null;
+    }
+    StringBuilder message = new StringBuilder("Configured URL rewriter blocked all URLs: ");
+    message.append(originalUrls);
+    String rewriterMessage = rewriter.getAllBlockedMessage();
+    if (rewriterMessage != null) {
+      message.append(" - ").append(rewriterMessage);
+    }
+    return message.toString();
   }
 
   private Path getDownloadDestination(URL url, Optional<String> type, Path output) {

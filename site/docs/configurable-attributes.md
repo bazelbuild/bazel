@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Configurable build attributes
+category: getting-started
 ---
 
 # Configurable Build Attributes
@@ -114,6 +115,7 @@ genrule(
     srcs = select({
         ":arm_cpu": ["g_arm.src"],
         ":x86_cpu": ["g_x86.src"],
+    }),
     tools = select({
         ":arm_cpu": [":tool1"],
         ":x86_cpu": [":tool2"],
@@ -330,7 +332,7 @@ The platform can be specified on the command line. It activates the
 allowing those `config_setting`s to match in `select()` expressions.
 
 For example, in order to set the `srcs` attribute of `my_rocks` to `calcite.sh`,
-we can simply run
+you can simply run
 
 ```sh
 bazel build //my_app:my_rocks --platforms=//myapp:marble_platform
@@ -638,7 +640,7 @@ flags aren't evaluated until later in the build (in the
 [analysis phase](https://docs.bazel.build/versions/master/glossary.html#analysis-phase)).
 So it can't determine which `select()` branches are chosen.
 
-Bazel [`cquery`](cquery.html) opeates after Bazel's analysis phase, so it has
+Bazel [`cquery`](cquery.html) operates after Bazel's analysis phase, so it has
 all this information and can accurately resolve `select()`s.
 
 Consider:
@@ -771,7 +773,7 @@ type 'select' has no method upper().
 ERROR: error loading package 'myapp': Package 'myapp' contains errors.
 ```
 
-Building succeeds when we comment out `sad_macro`:
+Building succeeds when you comment out `sad_macro`:
 
 ```sh
 # Comment out sad_macro so it doesn't mess up the build.

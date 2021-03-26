@@ -248,6 +248,34 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExpandedDefinesAgainstDeps() throws Exception {
+    ConfiguredTarget expandedDefines =
+        scratchConfiguredTarget(
+            "expanded_defines",
+            "expand_deps",
+            "cc_library(name = 'expand_deps',",
+            "           srcs = ['defines.cc'],",
+            "           deps = ['//foo'],",
+            "           defines = ['FOO=$(location //foo)'])");
+    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+        .containsExactly(
+            String.format("FOO=%s/foo/libfoo.a", getRuleContext(expandedDefines).getBinFragment()));
+  }
+
+  @Test
+  public void testExpandedDefinesAgainstSrcs() throws Exception {
+    ConfiguredTarget expandedDefines =
+        scratchConfiguredTarget(
+            "expanded_defines",
+            "expand_srcs",
+            "cc_library(name = 'expand_srcs',",
+            "           srcs = ['defines.cc'],",
+            "           defines = ['FOO=$(location defines.cc)'])");
+    assertThat(expandedDefines.get(CcInfo.PROVIDER).getCcCompilationContext().getDefines())
+        .containsExactly("FOO=expanded_defines/defines.cc");
+  }
+
+  @Test
   public void testStartEndLib() throws Exception {
     getAnalysisMock()
         .ccSupport()
@@ -1110,12 +1138,10 @@ public class CcCommonTest extends BuildViewTestCase {
   public void testCcLibraryNotLoadedThroughMacro() throws Exception {
     setupTestCcLibraryLoadedThroughMacro(/* loadMacro= */ false);
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
+    assertThat(getConfiguredTarget("//a:a")).isNotNull();
   }
 
   private void setupTestCcLibraryLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_library"),
@@ -1129,16 +1155,7 @@ public class CcCommonTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testFdoProfileNotLoadedThroughMacro() throws Exception {
-    setuptestFdoProfileLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setuptestFdoProfileLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "fdo_profile"),
@@ -1152,16 +1169,7 @@ public class CcCommonTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
-  @Test
-  public void testFdoPrefetchHintsNotLoadedThroughMacro() throws Exception {
-    setupTestFdoPrefetchHintsLoadedThroughMacro(/* loadMacro= */ false);
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("rules are deprecated");
-  }
-
   private void setupTestFdoPrefetchHintsLoadedThroughMacro(boolean loadMacro) throws Exception {
-    useConfiguration("--incompatible_load_cc_rules_from_bzl");
     scratch.file(
         "a/BUILD",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "fdo_prefetch_hints"),

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 import com.google.common.base.Preconditions;
@@ -22,7 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.InterruptStrategy;
-import com.google.errorprone.annotations.DoNotCall;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -37,7 +38,7 @@ public final class NestedSetBuilder<E> {
 
   private final Order order;
   private CompactHashSet<E> items;
-  private CompactHashSet<NestedSet<? extends E>> transitiveSets;
+  private CompactHashSet<NestedSet<E>> transitiveSets;
 
   public NestedSetBuilder(Order order) {
     this.order = order;
@@ -103,13 +104,6 @@ public final class NestedSetBuilder<E> {
     return this;
   }
 
-  /** @deprecated Use {@link #addTransitive} to avoid excessive memory use. */
-  @Deprecated
-  @DoNotCall
-  public NestedSetBuilder<E> addAll(NestedSet<? extends E> elements) {
-    throw new UnsupportedOperationException();
-  }
-
   /**
    * Adds a nested set as a transitive member to the set to be built.
    *
@@ -134,6 +128,7 @@ public final class NestedSetBuilder<E> {
    * @throws IllegalArgumentException if the order of {@code subset} is not compatible with the
    *     order of this builder
    */
+  @SuppressWarnings("unchecked") // Cast to NestedSet<E> is safe because NestedSet is immutable.
   public NestedSetBuilder<E> addTransitive(NestedSet<? extends E> subset) {
     Preconditions.checkNotNull(subset);
     Preconditions.checkArgument(
@@ -145,7 +140,7 @@ public final class NestedSetBuilder<E> {
       if (transitiveSets == null) {
         transitiveSets = CompactHashSet.create();
       }
-      transitiveSets.add(subset);
+      transitiveSets.add((NestedSet<E>) subset);
     }
     return this;
   }
@@ -172,31 +167,27 @@ public final class NestedSetBuilder<E> {
     return buildInternal(InterruptStrategy.PROPAGATE);
   }
 
-  // Casting from CompactHashSet<NestedSet<? extends E>> to CompactHashSet<NestedSet<E>> by way of
-  // CompactHashSet<?>.
-  @SuppressWarnings("unchecked")
   private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
       throws InterruptedException {
     if (isEmpty()) {
       return order.emptySet();
     }
 
-    // This cast is safe because NestedSets are immutable -- we will never try to add an element to
-    // these nested sets, only to retrieve elements from them. Thus, treating them as NestedSet<E>
-    // is safe.
-    CompactHashSet<NestedSet<E>> transitiveSetsCast =
-        (CompactHashSet<NestedSet<E>>) (CompactHashSet<?>) transitiveSets;
-    if (items == null && transitiveSetsCast != null && transitiveSetsCast.size() == 1) {
-      NestedSet<E> candidate = getOnlyElement(transitiveSetsCast);
-      if (candidate.getOrder().equals(order)) {
+    Set<E> direct = firstNonNull(items, ImmutableSet.of());
+    Set<NestedSet<E>> transitive = firstNonNull(transitiveSets, ImmutableSet.of());
+
+    // When there is exactly one transitive set, we can reuse it if its order matches and either
+    // there are no direct members, or the only direct member equals the transitive set's singleton.
+    if (transitive.size() == 1 && direct.size() <= 1) {
+      NestedSet<E> candidate = getOnlyElement(transitiveSets);
+      if (candidate.getOrder() == order
+          && (direct.isEmpty()
+              || getOnlyElement(direct).equals(candidate.getChildrenInterruptibly()))) {
         return candidate;
       }
     }
-    return new NestedSet<>(
-        order,
-        items == null ? ImmutableSet.of() : items,
-        transitiveSetsCast == null ? ImmutableSet.of() : transitiveSetsCast,
-        interruptStrategy);
+
+    return new NestedSet<>(order, direct, transitive, interruptStrategy);
   }
 
   private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =

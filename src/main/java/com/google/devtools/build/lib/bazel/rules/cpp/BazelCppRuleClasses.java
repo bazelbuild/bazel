@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -108,7 +109,7 @@ public class BazelCppRuleClasses {
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-          .useToolchainTransition(true)
+          .useToolchainTransition(ToolchainTransitionMode.ENABLED)
           .build();
     }
 
@@ -210,7 +211,7 @@ public class BazelCppRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$cc_decl_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .build();
     }
   }

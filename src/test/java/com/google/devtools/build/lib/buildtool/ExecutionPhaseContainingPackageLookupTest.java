@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
@@ -89,22 +88,19 @@ public class ExecutionPhaseContainingPackageLookupTest extends IoHookTestCase {
 
     // Now we want any lookup for "bar/includes/BUILD" to throw an IOException.
     setListener(
-        new FileListener() {
-          @Override
-          public void handle(PathOp op, Path path) throws IOException {
-            if (path.getPathString().contains("notfinished/includes/BUILD")) {
-              // Make sure we don't have the PackageLookup results for notfinished/includes before
-              // we throw an IOException below. This tests that we'll still throw the proper
-              // exception even without all the deps being present.
-              try {
-                Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
-                interrupted.set(false);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-              }
-            } else if (path.getPathString().contains("bar/includes/BUILD")) {
-              throw new IOException("FAIIIIIILLLLLLLLL");
+        (op, path) -> {
+          if (path.getPathString().contains("notfinished/includes/BUILD")) {
+            // Make sure we don't have the PackageLookup results for notfinished/includes before
+            // we throw an IOException below. This tests that we'll still throw the proper
+            // exception even without all the deps being present.
+            try {
+              Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
+              interrupted.set(false);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
             }
+          } else if (path.getPathString().contains("bar/includes/BUILD")) {
+            throw new IOException("FAIIIIIILLLLLLLLL");
           }
         });
 

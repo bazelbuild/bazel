@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -200,7 +201,7 @@ public class PlatformLookupUtil {
       return false;
     }
 
-    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.PROVIDER.id());
   }
 
   /** Exception used when a platform label is not a valid platform. */

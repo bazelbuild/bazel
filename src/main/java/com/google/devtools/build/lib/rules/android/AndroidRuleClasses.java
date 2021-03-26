@@ -27,12 +27,19 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -40,6 +47,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -49,6 +57,7 @@ import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
@@ -123,6 +132,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_incremental.apk");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_UNSIGNED_APK =
       fromTemplates("%{name}_unsigned.apk");
+  public static final SafeImplicitOutputsFunction ANDROID_BINARY_V4_SIGNATURE =
+      fromTemplates("%{name}.apk.idsig");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_JAR =
@@ -453,8 +464,54 @@ public final class AndroidRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$android_base")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.RuleBase.class)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
           .build();
+    }
+  }
+
+  public static TransitionFactory<Rule> androidBinarySelfTransition() {
+    return TransitionFactories.of(new AndroidBinarySelfTransition());
+  }
+
+  /**
+   * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag
+   * to match the first value from "--android_platforms". This will enable the application to select
+   * a valid Android SDK via toolchain resolution. android_binary itself should only need the SDK,
+   * not an NDK, so in theory every platform passed to "--android_platforms" should be equivalent.
+   */
+  private static final class AndroidBinarySelfTransition implements PatchTransition {
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(
+          AndroidConfiguration.Options.class, PlatformOptions.class, CppOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
+      if (androidOptions.androidPlatforms.isEmpty()) {
+        // No change.
+        return options.underlying();
+      }
+
+      BuildOptionsView newOptions = options.clone();
+      PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
+      newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
+
+      // If we are using toolchain resolution for Android, also use it for CPP.
+      // This needs to be before the AndroidBinary is analyzed so that all native dependencies
+      // use the same configuration.
+      if (androidOptions.incompatibleUseToolchainResolution) {
+        newOptions.get(CppOptions.class).enableCcToolchainResolution = true;
+      }
+
+      return newOptions.underlying();
+    }
+
+    @Override
+    public String reasonForOverride() {
+      return "properly set the target platform for Android binaries";
     }
   }
 
@@ -847,7 +904,9 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(NO_FILE)
                   .undocumented(
                       "Do not use this attribute. It's for the migration of "
-                          + "Android resource processing to Starlark only."))
+                          + "Android resource processing to Starlark only.")
+                  .aspect(androidNeverlinkAspect)
+                  .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR))
           // Nothing in the native rule reads this. This is only for facilitating the Starlark
           // migration of the android rules.
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
@@ -949,7 +1008,7 @@ public final class AndroidRuleClasses {
     public Metadata getMetadata() {
       return Metadata.builder()
           .name("android_tools_defaults_jar")
-          .ancestors(BaseRuleClasses.BaseRule.class)
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
           .factoryClass(factoryClass)
           .build();
     }

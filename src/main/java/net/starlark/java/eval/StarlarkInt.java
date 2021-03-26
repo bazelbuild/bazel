@@ -121,14 +121,9 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
         prefixBase = 16;
       }
       if (prefixBase != 0) {
-        digits = s.substring(2); // strip prefix
-        if (base == 0) {
+        if (base == 0 || base == prefixBase) {
           base = prefixBase;
-        } else if (base != prefixBase) {
-          throw new NumberFormatException(
-              String.format(
-                  "invalid base-%d literal: %s (%s prefix wants base %d)",
-                  base, Starlark.repr(stringForErrors), s.substring(0, 2), prefixBase));
+          digits = s.substring(2); // strip prefix
         }
       }
     }

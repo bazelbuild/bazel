@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -78,6 +79,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -143,7 +145,7 @@ public class RemoteSpawnRunnerTest {
 
   // The action key of the Spawn returned by newSimpleSpawn().
   private final String simpleActionId =
-      "eb45b20cc979d504f96b9efc9a08c48103c6f017afa09c0df5c70a5f92a98ea8";
+      "b9a727771337fd8ce54821f4805e2d451c4739e92fec6f8ecdb18ff9d1983b27";
 
   @Before
   public final void setUp() throws Exception {
@@ -190,7 +192,10 @@ public class RemoteSpawnRunnerTest {
         ExecuteResponse.newBuilder()
             .setResult(ActionResult.newBuilder().setExitCode(0).build())
             .build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(succeeded);
 
     Spawn spawn = simpleSpawnWithExecutionInfo(NO_CACHE);
@@ -199,15 +204,22 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
-    verify(executor).executeRemotely(requestCaptor.capture(), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            requestCaptor.capture(),
+            any(OperationObserver.class));
     assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
     assertThat(requestCaptor.getValue().getResultsCachePolicy().getPriority()).isEqualTo(1);
     assertThat(requestCaptor.getValue().getExecutionPolicy().getPriority()).isEqualTo(2);
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
     verify(cache, never())
-        .downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false));
-    verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
+        .downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false));
+    verify(cache, never()).upload(any(), any(), any(), any(), any(), any(), any());
     verifyNoMoreInteractions(localRunner);
   }
 
@@ -232,7 +244,10 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     // Throw an IOException to trigger the local fallback.
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(IOException.class);
 
     Spawn spawn = simpleSpawnWithExecutionInfo(NO_CACHE);
@@ -241,7 +256,7 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     verify(localRunner).exec(spawn, policy);
-    verify(cache).ensureInputsPresent(any(), any());
+    verify(cache).ensureInputsPresent(any(), any(), any());
     verifyNoMoreInteractions(cache);
   }
 
@@ -257,7 +272,10 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = spy(newSpawnRunner());
 
     // Throw an IOException to trigger the local fallback.
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(IOException.class);
 
     SpawnResult res =
@@ -277,8 +295,15 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
-    verify(cache).upload(any(), any(), any(), any(), any(), any());
+            any(),
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache).upload(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -291,7 +316,10 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = spy(newSpawnRunner());
 
     // Throw an IOException to trigger the local fallback.
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(IOException.class);
 
     Spawn spawn = newSimpleSpawn();
@@ -307,8 +335,15 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
-    verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
+            any(),
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache, never()).upload(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -320,12 +355,18 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteUploadLocalResults = true;
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(failedAction);
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     // Throw an IOException to trigger the local fallback.
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(IOException.class);
 
     Spawn spawn = newSimpleSpawn();
@@ -344,9 +385,22 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
-    verify(cache).upload(any(), any(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
+            any(),
+            eq(spawn),
+            eq(policy),
+            any(),
+            any(),
+            any(),
+            any(),
+            /* uploadLocalResults= */ eq(true));
+    verify(cache).upload(any(), any(), any(), any(), any(), any(), any());
+    verify(cache, never())
+        .download(
+            any(RemoteActionExecutionContext.class),
+            any(ActionResult.class),
+            any(Path.class),
+            eq(outErr),
+            any());
   }
 
   @Test
@@ -355,7 +409,10 @@ public class RemoteSpawnRunnerTest {
     // remotely
 
     ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(failedAction);
 
     RemoteSpawnRunner runner = newSpawnRunner();
@@ -364,7 +421,10 @@ public class RemoteSpawnRunnerTest {
         ExecuteResponse.newBuilder()
             .setResult(ActionResult.newBuilder().setExitCode(0).build())
             .build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(succeeded);
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -372,7 +432,11 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
-    verify(executor).executeRemotely(requestCaptor.capture(), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            requestCaptor.capture(),
+            any(OperationObserver.class));
     assertThat(requestCaptor.getValue().getSkipCacheLookup()).isTrue();
   }
 
@@ -389,18 +453,24 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner(reporter);
     // Trigger local fallback
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
 
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenThrow(new IOException("cache down"));
 
     doThrow(new IOException("cache down"))
         .when(cache)
-        .upload(any(), any(), any(), any(), any(), any());
+        .upload(any(), any(), any(), any(), any(), any(), any());
 
     SpawnResult res =
         new SpawnResult.Builder()
@@ -431,13 +501,19 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
     // Trigger local fallback
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
 
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(null);
 
     IOException err = new IOException("local execution error");
@@ -458,13 +534,19 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
     // Trigger local fallback
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
 
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenThrow(new IOException());
 
     IOException err = new IOException("local execution error");
@@ -482,9 +564,15 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(null);
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException());
 
     Spawn spawn = newSimpleSpawn();
@@ -504,7 +592,10 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(
             ExecuteResponse.newBuilder()
                 .putServerLogs(
@@ -514,7 +605,8 @@ public class RemoteSpawnRunnerTest {
                 .build());
     SettableFuture<Void> completed = SettableFuture.create();
     completed.set(null);
-    when(cache.downloadFile(eq(logPath), eq(logDigest))).thenReturn(completed);
+    when(cache.downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest)))
+        .thenReturn(completed);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -522,8 +614,12 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
-    verify(cache).downloadFile(eq(logPath), eq(logDigest));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache).downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest));
   }
 
   @Test
@@ -539,11 +635,15 @@ public class RemoteSpawnRunnerTest {
                 "logname", LogFile.newBuilder().setHumanReadable(true).setDigest(logDigest).build())
             .setStatus(timeoutStatus)
             .build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
     SettableFuture<Void> completed = SettableFuture.create();
     completed.set(null);
-    when(cache.downloadFile(eq(logPath), eq(logDigest))).thenReturn(completed);
+    when(cache.downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest)))
+        .thenReturn(completed);
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -551,8 +651,12 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
-    verify(cache).downloadFile(eq(logPath), eq(logDigest));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache).downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest));
   }
 
   @Test
@@ -561,7 +665,10 @@ public class RemoteSpawnRunnerTest {
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     ActionResult result = ActionResult.newBuilder().setExitCode(31).build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(
             ExecuteResponse.newBuilder()
                 .putServerLogs("logname", LogFile.newBuilder().setDigest(logDigest).build())
@@ -573,9 +680,20 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
-    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class), any());
-    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache)
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(result),
+            eq(execRoot),
+            any(FileOutErr.class),
+            any());
+    verify(cache, never())
+        .downloadFile(any(RemoteActionExecutionContext.class), any(Path.class), any(Digest.class));
   }
 
   @Test
@@ -584,7 +702,10 @@ public class RemoteSpawnRunnerTest {
 
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     ActionResult result = ActionResult.newBuilder().setExitCode(0).build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(
             ExecuteResponse.newBuilder()
                 .putServerLogs(
@@ -599,9 +720,20 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
-    verify(cache).download(eq(result), eq(execRoot), any(FileOutErr.class), any());
-    verify(cache, never()).downloadFile(any(Path.class), any(Digest.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache)
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(result),
+            eq(execRoot),
+            any(FileOutErr.class),
+            any());
+    verify(cache, never())
+        .downloadFile(any(RemoteActionExecutionContext.class), any(Path.class), any(Digest.class));
   }
 
   @Test
@@ -611,18 +743,36 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(cachedResult);
     Exception downloadFailure =
         new BulkTransferException(new CacheNotFoundException(Digest.getDefaultInstance()));
     doThrow(downloadFailure)
         .when(cache)
-        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(cachedResult),
+            any(Path.class),
+            any(FileOutErr.class),
+            any());
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(execResult).build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(succeeded);
-    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class), any());
+    doNothing()
+        .when(cache)
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(execResult),
+            any(Path.class),
+            any(FileOutErr.class),
+            any());
 
     Spawn spawn = newSimpleSpawn();
 
@@ -632,7 +782,11 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
     assertThat(res.exitCode()).isEqualTo(31);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
   }
 
   @Test
@@ -642,22 +796,40 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(null);
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse cachedResponse =
         ExecuteResponse.newBuilder().setResult(cachedResult).setCachedResult(true).build();
     ExecuteResponse executedResponse = ExecuteResponse.newBuilder().setResult(execResult).build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(cachedResponse)
         .thenReturn(executedResponse);
     Exception downloadFailure =
         new BulkTransferException(new CacheNotFoundException(Digest.getDefaultInstance()));
     doThrow(downloadFailure)
         .when(cache)
-        .download(eq(cachedResult), any(Path.class), any(FileOutErr.class), any());
-    doNothing().when(cache).download(eq(execResult), any(Path.class), any(FileOutErr.class), any());
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(cachedResult),
+            any(Path.class),
+            any(FileOutErr.class),
+            any());
+    doNothing()
+        .when(cache)
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(execResult),
+            any(Path.class),
+            any(FileOutErr.class),
+            any());
 
     Spawn spawn = newSimpleSpawn();
 
@@ -669,7 +841,10 @@ public class RemoteSpawnRunnerTest {
 
     ArgumentCaptor<ExecuteRequest> requestCaptor = ArgumentCaptor.forClass(ExecuteRequest.class);
     verify(executor, times(2))
-        .executeRemotely(requestCaptor.capture(), any(OperationObserver.class));
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            requestCaptor.capture(),
+            any(OperationObserver.class));
     List<ExecuteRequest> requests = requestCaptor.getAllValues();
     // first request should have been executed without skip cache lookup
     assertThat(requests.get(0).getSkipCacheLookup()).isFalse();
@@ -686,7 +861,10 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(null);
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
@@ -696,7 +874,10 @@ public class RemoteSpawnRunnerTest {
                     .setCode(Code.DEADLINE_EXCEEDED.getNumber())
                     .build())
             .build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
@@ -706,8 +887,18 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
-    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class), any());
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache)
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(cachedResult),
+            eq(execRoot),
+            any(FileOutErr.class),
+            any());
   }
 
   @Test
@@ -720,7 +911,10 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(null);
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
@@ -730,7 +924,10 @@ public class RemoteSpawnRunnerTest {
                     .setCode(Code.DEADLINE_EXCEEDED.getNumber())
                     .build())
             .build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException(new ExecutionStatusException(resp.getStatus(), resp)));
 
     Spawn spawn = newSimpleSpawn();
@@ -740,8 +937,18 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.TIMEOUT);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
-    verify(cache).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class), any());
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache)
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(cachedResult),
+            eq(execRoot),
+            any(FileOutErr.class),
+            any());
     verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
 
@@ -752,13 +959,19 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
 
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(null);
     ExecuteResponse failed =
         ExecuteResponse.newBuilder()
             .setResult(ActionResult.newBuilder().setExitCode(33).build())
             .build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(failed);
 
     Spawn spawn = newSimpleSpawn();
@@ -769,8 +982,18 @@ public class RemoteSpawnRunnerTest {
     assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
     assertThat(res.exitCode()).isEqualTo(33);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
-    verify(cache, never()).download(eq(cachedResult), eq(execRoot), any(FileOutErr.class), any());
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache, never())
+        .download(
+            any(RemoteActionExecutionContext.class),
+            eq(cachedResult),
+            eq(execRoot),
+            any(FileOutErr.class),
+            any());
     verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
 
@@ -783,9 +1006,15 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(null);
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
@@ -805,7 +1034,10 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenThrow(new IOException("reasons"));
 
     Spawn spawn = newSimpleSpawn();
@@ -849,7 +1081,10 @@ public class RemoteSpawnRunnerTest {
         ExecuteResponse.newBuilder()
             .setResult(ActionResult.newBuilder().setExitCode(0).build())
             .build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(succeeded);
 
     ImmutableList<String> args = ImmutableList.of("--foo", "--bar");
@@ -884,7 +1119,10 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(succeededAction);
 
     RemoteSpawnRunner runner = newSpawnRunner();
@@ -900,8 +1138,22 @@ public class RemoteSpawnRunnerTest {
     // assert
     verify(cache)
         .downloadMinimal(
-            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
+            any(RemoteActionExecutionContext.class),
+            any(),
+            eq(succeededAction),
+            anyCollection(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any());
+    verify(cache, never())
+        .download(
+            any(RemoteActionExecutionContext.class),
+            any(ActionResult.class),
+            any(Path.class),
+            eq(outErr),
+            any());
   }
 
   @Test
@@ -911,7 +1163,10 @@ public class RemoteSpawnRunnerTest {
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(succeededAction).build();
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(succeeded);
 
     RemoteSpawnRunner runner = newSpawnRunner();
@@ -925,11 +1180,27 @@ public class RemoteSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(Status.SUCCESS);
 
     // assert
-    verify(executor).executeRemotely(any(), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class), any(), any(OperationObserver.class));
     verify(cache)
         .downloadMinimal(
-            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
+            any(RemoteActionExecutionContext.class),
+            any(),
+            eq(succeededAction),
+            anyCollection(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any());
+    verify(cache, never())
+        .download(
+            any(RemoteActionExecutionContext.class),
+            any(ActionResult.class),
+            any(Path.class),
+            eq(outErr),
+            any());
   }
 
   @Test
@@ -938,10 +1209,22 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(succeededAction);
     IOException downloadFailure = new IOException("downloadMinimal failed");
-    when(cache.downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any()))
+    when(cache.downloadMinimal(
+            any(RemoteActionExecutionContext.class),
+            any(),
+            any(),
+            anyCollection(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any()))
         .thenThrow(downloadFailure);
 
     RemoteSpawnRunner runner = newSpawnRunner();
@@ -956,8 +1239,22 @@ public class RemoteSpawnRunnerTest {
     // assert
     verify(cache)
         .downloadMinimal(
-            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
-    verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
+            any(RemoteActionExecutionContext.class),
+            any(),
+            eq(succeededAction),
+            anyCollection(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any());
+    verify(cache, never())
+        .download(
+            any(RemoteActionExecutionContext.class),
+            any(ActionResult.class),
+            any(Path.class),
+            eq(outErr),
+            any());
   }
 
   @Test
@@ -966,12 +1263,15 @@ public class RemoteSpawnRunnerTest {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
 
-    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, false, "outs");
+    ArtifactRoot outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outs");
     Artifact topLevelOutput =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(succeededAction);
 
     RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
@@ -985,10 +1285,10 @@ public class RemoteSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(Status.SUCCESS);
 
     // assert
-    verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr), any());
+    verify(cache).download(any(), eq(succeededAction), any(Path.class), eq(outErr), any());
     verify(cache, never())
         .downloadMinimal(
-            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+            any(), any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -1048,10 +1348,13 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenAnswer(
             invocationOnMock -> {
-              OperationObserver receiver = invocationOnMock.getArgument(1);
+              OperationObserver receiver = invocationOnMock.getArgument(2);
               verify(policy, never()).report(eq(ProgressStatus.EXECUTING), any(String.class));
               receiver.onNext(Operation.getDefaultInstance());
               return succeeded;
@@ -1060,7 +1363,11 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
@@ -1078,10 +1385,13 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenAnswer(
             invocationOnMock -> {
-              OperationObserver receiver = invocationOnMock.getArgument(1);
+              OperationObserver receiver = invocationOnMock.getArgument(2);
               Operation queued =
                   Operation.newBuilder()
                       .setMetadata(
@@ -1107,7 +1417,11 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
@@ -1125,10 +1439,13 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenAnswer(
             invocationOnMock -> {
-              OperationObserver receiver = invocationOnMock.getArgument(1);
+              OperationObserver receiver = invocationOnMock.getArgument(2);
               Operation operation =
                   Operation.newBuilder()
                       .setMetadata(
@@ -1142,7 +1459,11 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
@@ -1160,10 +1481,13 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenAnswer(
             invocationOnMock -> {
-              OperationObserver receiver = invocationOnMock.getArgument(1);
+              OperationObserver receiver = invocationOnMock.getArgument(2);
               Operation completed =
                   Operation.newBuilder()
                       .setMetadata(
@@ -1179,7 +1503,11 @@ public class RemoteSpawnRunnerTest {
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
@@ -1197,13 +1525,20 @@ public class RemoteSpawnRunnerTest {
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
 
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class)))
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
         .thenReturn(succeeded);
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
-    verify(executor).executeRemotely(any(ExecuteRequest.class), any(OperationObserver.class));
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
     reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));

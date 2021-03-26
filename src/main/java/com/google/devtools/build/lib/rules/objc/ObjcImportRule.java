@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -45,7 +46,7 @@ public class ObjcImportRule implements RuleDefinition {
         .add(
             attr("archives", LABEL_LIST).mandatory().nonEmpty().allowedFileTypes(FileType.of(".a")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))
-        .useToolchainTransition(true)
+        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 
@@ -54,7 +55,11 @@ public class ObjcImportRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("objc_import")
         .factoryClass(ObjcImport.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.AlwaysLinkRule.class)
+        .ancestors(
+            BaseRuleClasses.NativeBuildRule.class,
+            ObjcRuleClasses.CompilingRule.class,
+            ObjcRuleClasses.AlwaysLinkRule.class,
+            BaseRuleClasses.MakeVariableExpandingRule.class)
         .build();
   }
 }

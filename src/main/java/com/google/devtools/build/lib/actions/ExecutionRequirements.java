@@ -249,4 +249,15 @@ public class ExecutionRequirements {
    * followed by a {@code SIGKILL} after a grace period).
    */
   public static final String GRACEFUL_TERMINATION = "supports-graceful-termination";
+
+  /** Requires the execution service to support a given xcode version e.g. "xcode_version:1.0". */
+  public static final String REQUIRES_XCODE = "requires-xcode";
+
+  /**
+   * Requires the execution service to support a "label" in addition to the xcode version. The user
+   * specifies the label as a hyphenated extension to their requested version. For example, if the
+   * user requests "--xcode_version=1.0-unstable", the action request will include
+   * "requires-xcode-label:unstable" and "requires-xcode:1.0".
+   */
+  public static final String REQUIRES_XCODE_LABEL = "requires-xcode-label";
 }

@@ -423,25 +423,6 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCannotTransitionOnBuildSettingWithoutFlag() throws Exception {
-    setBuildLanguageOptions("--experimental_starlark_config_transitions=false");
-    scratch.file(
-        "test/transitions.bzl",
-        "def _transition_impl(settings, attr):",
-        "  return {'//test:cute-animal-fact': 'puffins mate for life'}",
-        "my_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = [],",
-        "  outputs = ['//test:cute-animal-fact']",
-        ")");
-    writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests();
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test");
-    assertContainsEvent("transitions on Starlark-defined build settings is experimental");
-  }
-
-  @Test
   public void testTransitionOnBuildSetting_fromDefault() throws Exception {
     scratch.file(
         "test/transitions.bzl",
@@ -1087,7 +1068,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         .containsExactly("post-transition");
   }
 
-  // TODO(juliexxia): flip this test when this isn't allowed anymore.
+  // TODO(blaze-configurability): We probably want to eventually turn this off. Flip this test when
+  // this isn't allowed anymore.
   @Test
   public void testAllowlistOnTargetsStillWorks() throws Exception {
     // allowlists //test/...

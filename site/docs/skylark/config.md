@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Configurations
+category: extending
 ---
 
 # Configurations
@@ -27,14 +28,6 @@ and more, all completely from .bzl files (no Bazel release required). See the
 [examples](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations).
 
 <!-- [TOC] -->
-
-## Current status
-
-Ongoing bug/feature work can be found in the [Bazel
-configurability roadmap](https://bazel.build/roadmaps/configuration.html).
-
-This feature may have [memory and performance impacts](#memory-and-performance-considerations) and we are
-still working on ways to [measure and mitigate](https://github.com/bazelbuild/bazel/issues/10613) those impacts.
 
 ## User-defined build settings
 A build setting is a single piece of
@@ -405,8 +398,8 @@ A configuration
 is how we change configuration of
 configured targets in the build graph.
 
-> IMPORTANT: In order to use Starlark transitions, you need to attach a
-> special attribute to the rule to which the transition is attached:
+> IMPORTANT: Transitions have [memory and performance impact](#memory-and-performance-considerations).
+> Rules that set them must include a special attribute:
 >
 > ```python
 > "_allowlist_function_transition": attr.label(
@@ -672,13 +665,7 @@ Access to the value of a single branch of a 1:2+
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
-[target platform](../platforms.html)
-
-## Also see
-
- * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
- * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
- * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples
+[target platform](../platforms.html).
 
 ## Memory and performance considerations
 
@@ -731,3 +718,11 @@ This makes the build graph exponentially larger than the target graph, with
 corresponding memory and performance consequences.
 
 TODO: Add strategies for measurement and mitigation of these issues.
+
+## Further reading
+
+For more details on modifying build configurations, see:
+
+ * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
+ * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
+ * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples

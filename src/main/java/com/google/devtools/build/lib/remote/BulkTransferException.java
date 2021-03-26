@@ -51,4 +51,13 @@ class BulkTransferException extends IOException {
     return e instanceof BulkTransferException
         && ((BulkTransferException) e).onlyCausedByCacheNotFoundException();
   }
+
+  @Override
+  public String getMessage() {
+    // If there is only one suppressed exception, displaying that in the message should be helpful.
+    if (super.getSuppressed().length == 1) {
+      return super.getSuppressed()[0].getMessage();
+    }
+    return String.format("%d errors during bulk transfer", super.getSuppressed().length);
+  }
 }

@@ -28,17 +28,20 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.common.options.Options;
 import com.google.longrunning.Operation;
 import com.google.rpc.Code;
-import io.grpc.Context;
+import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,12 +56,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ExperimentalGrpcRemoteExecutorTest {
 
+  private RemoteActionExecutionContext context;
   private FakeExecutionService executionService;
   private RemoteOptions remoteOptions;
   private Server fakeServer;
   private ListeningScheduledExecutorService retryService;
-  private Context context;
-  private Context prevContext;
   ExperimentalGrpcRemoteExecutor executor;
 
   private static final int MAX_RETRY_ATTEMPTS = 5;
@@ -90,6 +92,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @Before
   public final void setUp() throws Exception {
+    context = RemoteActionExecutionContext.create(RequestMetadata.getDefaultInstance());
+
     executionService = new FakeExecutionService();
 
     String fakeServerName = "fake server for " + getClass();
@@ -112,13 +116,22 @@ public class ExperimentalGrpcRemoteExecutorTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName)
-                .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
-                .directExecutor()
-                .build());
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName)
+                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .directExecutor()
+                        .build();
+                return Single.just(new ChannelConnection(ch));
+              }
 
-    context = TracingMetadataUtils.contextWithMetadata(RequestMetadata.getDefaultInstance());
-    prevContext = context.attach();
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
 
     executor =
         new ExperimentalGrpcRemoteExecutor(
@@ -129,9 +142,6 @@ public class ExperimentalGrpcRemoteExecutorTest {
 
   @After
   public void tearDown() throws Exception {
-    executor.close();
-    context.detach(prevContext);
-
     retryService.shutdownNow();
     retryService.awaitTermination(
         com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
@@ -144,7 +154,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
   public void executeRemotely_smoke() throws Exception {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenAck().thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(response).isEqualTo(DUMMY_RESPONSE);
     assertThat(executionService.getExecTimes()).isEqualTo(1);
@@ -156,7 +167,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
     executionService.whenExecute(DUMMY_REQUEST).thenError(Code.UNAVAILABLE);
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(3);
     assertThat(response).isEqualTo(DUMMY_RESPONSE);
@@ -172,7 +184,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
                 .build());
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(2);
     assertThat(response).isEqualTo(DUMMY_RESPONSE);
@@ -192,7 +205,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
         assertThrows(
             IOException.class,
             () -> {
-              executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+              executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
             });
 
     assertThat(e).hasMessageThat().contains("INVALID_ARGUMENT");
@@ -209,7 +222,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
         assertThrows(
             IOException.class,
             () -> {
-              executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+              executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
             });
 
     assertThat(executionService.getExecTimes()).isEqualTo(MAX_RETRY_ATTEMPTS + 1);
@@ -221,7 +234,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(1);
     assertThat(executionService.getWaitTimes()).isEqualTo(1);
@@ -233,7 +247,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(1);
     assertThat(executionService.getWaitTimes()).isEqualTo(1);
@@ -249,7 +264,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
     }
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(1);
     assertThat(executionService.getWaitTimes()).isEqualTo(errorTimes + 1);
@@ -266,7 +282,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
     assertThrows(
         IOException.class,
         () -> {
-          executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+          executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
         });
 
     assertThat(executionService.getExecTimes()).isEqualTo(1);
@@ -288,7 +304,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
         assertThrows(
             IOException.class,
             () -> {
-              executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+              executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
             });
 
     assertThat(e).hasCauseThat().isInstanceOf(ExecutionStatusException.class);
@@ -306,7 +322,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
         assertThrows(
             IOException.class,
             () -> {
-              executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+              executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
             });
 
     assertThat(e).hasCauseThat().isInstanceOf(ExecutionStatusException.class);
@@ -322,7 +338,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
     executionService.whenExecute(DUMMY_REQUEST).thenError(Code.UNAUTHENTICATED);
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(2);
     assertThat(response).isEqualTo(DUMMY_RESPONSE);
@@ -335,7 +352,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.UNAUTHENTICATED);
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(1);
     assertThat(executionService.getWaitTimes()).isEqualTo(2);
@@ -349,7 +367,8 @@ public class ExperimentalGrpcRemoteExecutorTest {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
 
-    ExecuteResponse response = executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
 
     assertThat(executionService.getExecTimes()).isEqualTo(2);
     assertThat(executionService.getWaitTimes()).isEqualTo(2);
@@ -367,7 +386,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
         assertThrows(
             IOException.class,
             () -> {
-              executor.executeRemotely(DUMMY_REQUEST, OperationObserver.NO_OP);
+              executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
             });
 
     assertThat(e).hasCauseThat().isInstanceOf(ExecutionStatusException.class);
@@ -382,7 +401,7 @@ public class ExperimentalGrpcRemoteExecutorTest {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
     List<Operation> notified = new ArrayList<>();
-    executor.executeRemotely(DUMMY_REQUEST, notified::add);
+    executor.executeRemotely(context, DUMMY_REQUEST, notified::add);
 
     assertThat(notified)
         .containsExactly(

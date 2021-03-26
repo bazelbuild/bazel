@@ -296,10 +296,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  deps = ['" + label + "'],",
         ")");
 
-    return view.getPrerequisiteConfiguredTargetForTesting(
-        reporter,
-        getConfiguredTarget("//bin:link_target"),
-        Label.parseAbsoluteUnchecked(label),
-        masterConfig);
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//bin:link_target");
+    return getDirectPrerequisite(configuredTarget, label);
   }
 }

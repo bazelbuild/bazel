@@ -260,7 +260,10 @@ public interface SkyFunction {
      * <p>Callers should prioritize their responsibility to detect and handle errors in the returned
      * map over their responsibility to return {@code null} if values are missing. This is because
      * in nokeep_going evaluations, an error from a low level dependency is given a chance to be
-     * enriched by its reverse-dependencies, if possible.
+     * enriched by its reverse-dependencies, if possible. Callers should also prioritize throwing
+     * exceptions over checking for {@link InterruptedException}, since during the error-bubbling
+     * enrichment process, the SkyFunction is interrupted after it has received the exception to
+     * prevent it from doing too much unnecessary work.
      *
      * <p>Returns a map, {@code m}. For all {@code k} in {@code depKeys}, {@code m.get(k) != null}.
      * For all {@code v} such that there is some {@code k} such that {@code m.get(k) == v}, the
@@ -368,7 +371,8 @@ public interface SkyFunction {
      *       ks.contains(k)
      * </ul>
      *
-     * <p>If this returns true, the {@link SkyFunction} must return {@code null}.
+     * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
+     * SkyFunctionException} if it detected an error even with values missing.
      */
     boolean valuesMissing();
 
@@ -381,7 +385,8 @@ public interface SkyFunction {
     /**
      * A live view of deps known to have already been requested either through an earlier call to
      * {@link SkyFunction#compute} or inferred during change pruning. Should return {@code null} if
-     * unknown.
+     * unknown. Only for special use cases: do not use in general unless you know exactly what
+     * you're doing!
      */
     @Nullable
     default GroupedList<SkyKey> getTemporaryDirectDeps() {

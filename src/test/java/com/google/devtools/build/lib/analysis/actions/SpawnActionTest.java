@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -158,6 +158,20 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBuilderWithExecutableInRootPcakage() throws Exception {
+    Artifact tool = getSourceArtifact("tool.bin");
+    Action[] actions =
+        builder()
+            .setExecutable(tool)
+            .addOutput(destinationArtifact)
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(actions);
+    SpawnAction action = (SpawnAction) actions[0];
+    assertThat(action.getArguments()).hasSize(1);
+    assertThat(action.getArguments().get(0)).matches("\\.[/\\\\]tool.bin");
+  }
+
+  @Test
   public void testBuilderWithJavaExecutable() throws Exception {
     Action[] actions = builder()
         .addOutput(destinationArtifact)
@@ -198,7 +212,10 @@ public class SpawnActionTest extends BuildViewTestCase {
 
     Spawn spawn =
         action.getSpawn(
-            (artifact, outputs) -> outputs.add(artifact), ImmutableMap.of(), ImmutableMap.of());
+            (artifact, outputs) -> outputs.add(artifact),
+            ImmutableMap.of(),
+            /*envResolved=*/ false,
+            ImmutableMap.of());
     String paramFileName = output.getExecPathString() + "-0.params";
     // The spawn's primary arguments should reference the param file
     assertThat(spawn.getArguments())
@@ -344,7 +361,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         builder()
             .addInput(manifest)
             .addRunfilesSupplier(
-                new RunfilesSupplierImpl(
+                new SingleRunfilesSupplier(
                     PathFragment.create("destination"),
                     Runfiles.EMPTY,
                     manifest,
@@ -570,7 +587,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
-    return new RunfilesSupplierImpl(
+    return new SingleRunfilesSupplier(
         dir,
         Runfiles.EMPTY,
         manifest,

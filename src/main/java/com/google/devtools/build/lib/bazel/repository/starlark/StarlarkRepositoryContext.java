@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkReposit
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -205,7 +204,7 @@ public class StarlarkRepositoryContext
       PathFragment pathFragment = PathFragment.create(path.toString());
       return new StarlarkPath(
           pathFragment.isAbsolute()
-              ? outputDirectory.getFileSystem().getPath(path.toString())
+              ? outputDirectory.getFileSystem().getPath(pathFragment)
               : outputDirectory.getRelative(pathFragment));
     } else if (path instanceof Label) {
       return getPathFromLabel((Label) path);
@@ -616,9 +615,8 @@ public class StarlarkRepositoryContext
     env.getListener().post(w);
     try {
       Path path = starlarkPath.getPath();
-      FileSystem fileSystem = path.getFileSystem();
-      fileSystem.deleteTreesBelow(path);
-      return fileSystem.delete(path);
+      path.deleteTreesBelow();
+      return path.delete();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -975,7 +973,14 @@ public class StarlarkRepositoryContext
       // The checksum is checked on download, so if we got here, the user provided checksum is good
       return originalChecksum.get();
     }
-    return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+    try {
+      return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+    } catch (Checksum.InvalidChecksumException e) {
+      throw new IllegalStateException(
+          "Unexpected invalid checksum from internal computation of SHA-256 checksum on "
+              + path.getPathString(),
+          e);
+    }
   }
 
   private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
@@ -986,7 +991,7 @@ public class StarlarkRepositoryContext
       }
       try {
         return Optional.of(Checksum.fromString(KeyType.SHA256, sha256));
-      } catch (IllegalArgumentException e) {
+      } catch (Checksum.InvalidChecksumException e) {
         warnAboutChecksumError(urls, e.getMessage());
         throw new RepositoryFunctionException(
             Starlark.errorf(
@@ -1002,7 +1007,7 @@ public class StarlarkRepositoryContext
 
     try {
       return Optional.of(Checksum.fromSubresourceIntegrity(integrity));
-    } catch (IllegalArgumentException e) {
+    } catch (Checksum.InvalidChecksumException e) {
       warnAboutChecksumError(urls, e.getMessage());
       throw new RepositoryFunctionException(
           Starlark.errorf(

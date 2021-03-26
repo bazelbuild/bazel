@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Extension FAQ
+category: extending
 ---
 
 # Frequently Asked Questions

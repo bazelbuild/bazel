@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -91,10 +90,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .setRunfilesSupport(runfilesSupport, mainExecutable)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .addNativeDeclaredProvider(
-            InstrumentedFilesCollector.collectTransitive(
-                ruleContext,
-                ShCoverage.INSTRUMENTATION_SPEC,
-                /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+            InstrumentedFilesCollector.collect(ruleContext, ShCoverage.INSTRUMENTATION_SPEC))
         .build();
   }
 

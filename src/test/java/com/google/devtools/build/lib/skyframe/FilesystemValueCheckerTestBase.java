@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -68,7 +69,8 @@ public class FilesystemValueCheckerTestBase {
     Path outputDir = fs.getPath("/" + outSegment);
     Path outputPath = outputDir.getRelative(relPath);
     outputDir.createDirectory();
-    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(fs.getPath("/"), false, outSegment);
+    ArtifactRoot derivedRoot =
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.Output, outSegment);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)));
@@ -134,7 +136,7 @@ public class FilesystemValueCheckerTestBase {
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (statThrowsRuntimeException) {
         throw new RuntimeException("bork");
       }
@@ -142,7 +144,7 @@ public class FilesystemValueCheckerTestBase {
     }
 
     @Override
-    protected PathFragment readSymbolicLink(Path path) throws IOException {
+    protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
       if (readlinkThrowsIoException) {
         throw new IOException("readlink failed");
       }

@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -61,11 +62,10 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -119,28 +120,50 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   private final StarlarkActionFactory actionFactory;
 
-  // The fields below intended to be final except that they can be cleared by calling `nullify()`
-  // when the object becomes featureless.
+  // The fields below are intended to be final except that they can be cleared by calling
+  // `nullify()` when the object becomes featureless (analogous to freezing).
   private RuleContext ruleContext;
   private FragmentCollection fragments;
   private FragmentCollection hostFragments;
-  private AspectDescriptor aspectDescriptor;
+  @Nullable private AspectDescriptor aspectDescriptor;
 
-  private Dict<String, String> makeVariables;
+  /**
+   * This variable is used to expose the state of {@link
+   * RuleContext#configurationMakeVariableContext} to the user via {@code ctx.var}.
+   *
+   * <p>Computing this field causes a side-effect of initializing the Make var context with an empty
+   * list of additional MakeVariableSuppliers. Historically, this was fine for Starlark-defined
+   * rules, but became a problem when we started giving StarlarkRuleContexts to native rules (to
+   * sandwich them with {@code @_builtins}, for Starlarkification). The native rules would then
+   * compete with this default initialization for control over the Make var context.
+   *
+   * <p>To work around this, we now compute and cache the Dict of all Make vars lazily at the first
+   * call to {@code ctx.var}. If a native rule provides custom MakeVariableSuppliers (via {@link
+   * RuleContext#initConfigurationMakeVariableContext}) and also passes {@code ctx} to a
+   * Starlark-defined function that accesses {@code ctx.var}, then the call to {@code
+   * initConfigurationMakeVariableContext} must come first or else that call will throw a
+   * precondition exception.
+   *
+   * <p>Note that StarlarkRuleContext can (for pathological user-written rules) survive the analysis
+   * phase and be accessed concurrently. Nonetheless, it is still safe to initialize {@code ctx.var}
+   * lazily without synchronization, because {@code ctx.var} is inaccessible once {@code nullify()}
+   * has been called.
+   */
+  private Dict<String, String> cachedMakeVariables = null;
+
   private StarlarkAttributesCollection attributesCollection;
   private StarlarkAttributesCollection ruleAttributesCollection;
   private StructImpl splitAttributes;
   private Outputs outputsObject;
 
   /**
-   * Creates a new StarlarkRuleContext using ruleContext.
+   * Creates a new StarlarkRuleContext wrapping ruleContext.
    *
-   * @param aspectDescriptor aspect for which the context is created, or <code>null</code> if it is
-   *     for a rule.
-   * @throws InterruptedException
+   * <p>{@code aspectDescriptor} is the aspect for which the context is created, or <code>
+   * null</code> if it is for a rule.
    */
   public StarlarkRuleContext(RuleContext ruleContext, @Nullable AspectDescriptor aspectDescriptor)
-      throws EvalException, InterruptedException, RuleErrorException {
+      throws RuleErrorException {
     // Init ruleContext first, we need it to obtain the StarlarkSemantics used by
     // StarlarkActionFactory (and possibly others).
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
@@ -149,41 +172,38 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     this.fragments = new FragmentCollection(ruleContext, NoTransition.INSTANCE);
     this.hostFragments = new FragmentCollection(ruleContext, HostTransition.INSTANCE);
     this.aspectDescriptor = aspectDescriptor;
+    this.isForAspect = aspectDescriptor != null;
+
+    Rule rule = ruleContext.getRule();
 
     if (aspectDescriptor == null) {
-      this.isForAspect = false;
-      Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
+      Collection<Attribute> attributes = rule.getAttributes();
+
+      // Populate ctx.outputs.
       Outputs outputs = new Outputs(this);
-
-      ImplicitOutputsFunction implicitOutputsFunction =
-          ruleContext.getRule().getImplicitOutputsFunction();
-
-      if (implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction) {
-        StarlarkImplicitOutputsFunction func =
-            (StarlarkImplicitOutputsFunction) implicitOutputsFunction;
-        for (Map.Entry<String, String> entry :
-            func.calculateOutputs(
-                    ruleContext.getAnalysisEnvironment().getEventHandler(),
-                    RawAttributeMapper.of(ruleContext.getRule()))
-                .entrySet()) {
-          outputs.addOutput(
-              entry.getKey(),
-              ruleContext.getImplicitOutputArtifact(entry.getValue()));
-        }
-      }
-
+      // These getters do some computational work to return a view, so ensure we only do it once.
+      ImmutableListMultimap<String, OutputFile> explicitOutMap = rule.getExplicitOutputFileMap();
+      ImmutableMap<String, OutputFile> implicitOutMap = rule.getStarlarkImplicitOutputFileMap();
+      // Add the explicit outputs -- values of attributes of type OUTPUT or OUTPUT_LIST.
+      // We must iterate over the attribute definitions, and not just the entries in the
+      // explicitOutMap, because the latter omits empty output attributes, which must still
+      // generate None or [] fields in the struct.
       for (Attribute a : attributes) {
+        // Skip non-output attrs.
         String attrName = a.getName();
         Type<?> type = a.getType();
         if (type.getLabelClass() != LabelClass.OUTPUT) {
           continue;
         }
+
+        // Grab all associated outputs.
         ImmutableList.Builder<Artifact> artifactsBuilder = ImmutableList.builder();
-        for (OutputFile outputFile : ruleContext.getRule().getOutputFileMap().get(attrName)) {
+        for (OutputFile outputFile : explicitOutMap.get(attrName)) {
           artifactsBuilder.add(ruleContext.createOutputArtifact(outputFile));
         }
         StarlarkList<Artifact> artifacts = StarlarkList.immutableCopyOf(artifactsBuilder.build());
 
+        // For singular output attributes, unwrap sole element or else use None for arity mismatch.
         if (type == BuildType.OUTPUT) {
           if (artifacts.size() == 1) {
             outputs.addOutput(attrName, Iterables.getOnlyElement(artifacts));
@@ -193,15 +213,23 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         } else if (type == BuildType.OUTPUT_LIST) {
           outputs.addOutput(attrName, artifacts);
         } else {
-          throw new IllegalArgumentException(
-              "Type of " + attrName + "(" + type + ") is not output type ");
+          throw new AssertionError(
+              String.format("Attribute %s has unexpected output type %s", attrName, type));
         }
+      }
+      // Add the implicit outputs. In the case where the rule has a native-defined implicit outputs
+      // function, nothing is added. Note that Rule ensures that Starlark-defined implicit output
+      // keys don't conflict with output attribute names.
+      // TODO(bazel-team): Also see about requiring the key to be a valid Starlark identifier.
+      for (Map.Entry<String, OutputFile> e : implicitOutMap.entrySet()) {
+        outputs.addOutput(e.getKey(), ruleContext.createOutputArtifact(e.getValue()));
       }
 
       this.outputsObject = outputs;
 
+      // Populate ctx.attr.
       StarlarkAttributesCollection.Builder builder = StarlarkAttributesCollection.builder(this);
-      for (Attribute attribute : ruleContext.getRule().getAttributes()) {
+      for (Attribute attribute : attributes) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
       }
@@ -210,15 +238,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       this.splitAttributes = buildSplitAttributeInfo(attributes, ruleContext);
       this.ruleAttributesCollection = null;
     } else { // ASPECT
-      this.isForAspect = true;
       this.outputsObject = null;
-
       ImmutableCollection<Attribute> attributes =
           ruleContext.getMainAspect().getDefinition().getAttributes().values();
+
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
-        Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+        Object defaultValue = attribute.getDefaultValue(rule);
         if (defaultValue instanceof ComputedDefault) {
           defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
         }
@@ -229,7 +256,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       this.splitAttributes = null;
       StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
 
-      for (Attribute attribute : ruleContext.getRule().getAttributes()) {
+      for (Attribute attribute : rule.getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         ruleBuilder.addAttribute(attribute, value);
       }
@@ -239,7 +266,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           continue;
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-          Object defaultValue = attribute.getDefaultValue(ruleContext.getRule());
+          Object defaultValue = attribute.getDefaultValue(rule);
           if (defaultValue instanceof ComputedDefault) {
             defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
           }
@@ -248,12 +275,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
 
       this.ruleAttributesCollection = ruleBuilder.build();
-    }
-
-    try {
-      makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
-    } catch (ExpansionException e) {
-      throw ruleContext.throwWithRuleError(e);
     }
   }
 
@@ -276,13 +297,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       this.context = context;
     }
 
-    private void addOutput(String key, Object value)
-        throws EvalException {
-      Preconditions.checkState(!context.isImmutable(),
-          "Cannot add outputs to immutable Outputs object");
+    private void addOutput(String key, Object value) throws RuleErrorException {
+      Preconditions.checkState(!context.isImmutable());
+      // TODO(bazel-team): We should reject outputs whose key is not an identifier. Today this is
+      // allowed, and the resulting ctx.outputs value can be retrieved using getattr().
       if (outputs.containsKey(key)
           || (context.isExecutable() && EXECUTABLE_OUTPUT_NAME.equals(key))) {
-        throw Starlark.errorf("Multiple outputs with the same key: %s", key);
+        context.getRuleContext().throwWithRuleError("Multiple outputs with the same key: " + key);
       }
       outputs.put(key, value);
     }
@@ -294,6 +315,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
     @Override
     public ImmutableCollection<String> getFieldNames() {
+      // TODO(b/175954936): There's an NPE here when accessing dir(ctx.outputs) after rule
+      // analysis has completed. Since we can't throw EvalException here, this may require that we
+      // preemptively copy the fields into this object, or at least keep a "nullified" bit so we
+      // know to produce an empty result here.
       ImmutableList.Builder<String> result = ImmutableList.builder();
       if (context.isExecutable() && executableCreated) {
         result.add(EXECUTABLE_OUTPUT_NAME);
@@ -357,7 +382,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             context.ruleLabelCanonicalName);
       }
     }
-
   }
 
   public boolean isExecutable() {
@@ -367,7 +391,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public boolean isDefaultExecutableCreated() {
     return this.outputsObject.executableCreated;
   }
-
 
   /**
    * Nullifies fields of the object when it's not supposed to be used anymore to free unused memory
@@ -379,13 +402,14 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     fragments = null;
     hostFragments = null;
     aspectDescriptor = null;
-    makeVariables = null;
+    cachedMakeVariables = null;
     attributesCollection = null;
     ruleAttributesCollection = null;
     splitAttributes = null;
     outputsObject = null;
   }
 
+  /** Throws an EvalException mentioning {@code attrName} if we've already been nullified. */
   public void checkMutable(String attrName) throws EvalException {
     if (isImmutable()) {
       throw Starlark.errorf(
@@ -471,9 +495,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
   }
 
-  /**
-   * Returns the original ruleContext.
-   */
+  /** Returns the wrapped ruleContext. */
   public RuleContext getRuleContext() {
     return ruleContext;
   }
@@ -492,8 +514,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public StarlarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
     if (ruleContext.getRule().getRuleClassObject().isStarlarkTestable()) {
-      return ActionsProvider.create(
-          ruleContext.getAnalysisEnvironment().getRegisteredActions());
+      return ActionsProvider.create(ruleContext.getAnalysisEnvironment().getRegisteredActions());
     } else {
       return Starlark.NONE;
     }
@@ -669,13 +690,36 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   @Override
   public Dict<String, String> var() throws EvalException {
     checkMutable("var");
-    return makeVariables;
+    if (cachedMakeVariables == null) {
+      try {
+        cachedMakeVariables =
+            ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+      } catch (ExpansionException e) {
+        throw Starlark.errorf("%s", e.getMessage());
+      }
+    }
+    return cachedMakeVariables;
   }
 
   @Override
-  public ResolvedToolchainContext toolchains() throws EvalException {
+  public ToolchainContextApi toolchains() throws EvalException {
     checkMutable("toolchains");
-    return ruleContext.getToolchainContext();
+    ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
+    if (toolchainContext == null) {
+      // Starlark rules are easier if this cannot be null, so return a no-op value instead.
+      return new ToolchainContextApi() {
+        @Override
+        public Object getIndex(StarlarkSemantics semantics, Object key) {
+          return Starlark.NONE;
+        }
+
+        @Override
+        public boolean containsKey(StarlarkSemantics semantics, Object key) {
+          return false;
+        }
+      };
+    }
+    return toolchainContext;
   }
 
   @Override

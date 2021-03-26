@@ -20,6 +20,7 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteCache;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -44,31 +45,36 @@ class OnDiskBlobStoreCache extends RemoteCache {
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")
-  public void downloadTree(Digest rootDigest, Path rootLocation)
+  public void downloadTree(
+      RemoteActionExecutionContext context, Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
-    Directory directory = Directory.parseFrom(Utils.getFromFuture(downloadBlob(rootDigest)));
+    Directory directory =
+        Directory.parseFrom(Utils.getFromFuture(downloadBlob(context, rootDigest)));
     for (FileNode file : directory.getFilesList()) {
       Path dst = rootLocation.getRelative(file.getName());
-      Utils.getFromFuture(downloadFile(dst, file.getDigest()));
+      Utils.getFromFuture(downloadFile(context, dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
-      downloadTree(child.getDigest(), rootLocation.getRelative(child.getName()));
+      downloadTree(context, child.getDigest(), rootLocation.getRelative(child.getName()));
     }
   }
 
-  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
-    return cacheProtocol.uploadFile(digest, file);
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return cacheProtocol.uploadFile(context, digest, file);
   }
 
-  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
-    return cacheProtocol.uploadBlob(digest, data);
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return cacheProtocol.uploadBlob(context, digest, data);
   }
 
-  public void uploadActionResult(ActionKey actionKey, ActionResult actionResult)
+  public void uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
-    cacheProtocol.uploadActionResult(actionKey, actionResult);
+    cacheProtocol.uploadActionResult(context, actionKey, actionResult);
   }
 
   public DigestUtil getDigestUtil() {

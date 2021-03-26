@@ -90,7 +90,7 @@ public abstract class AndroidHostServiceFixtureTest extends AndroidBuildViewTest
                     .getArtifacts()))
         .containsExactlyElementsIn(
             ActionsTestUtil.prettyArtifactNames(
-                getConfiguredTarget("//java/com/server")
+                getDirectPrerequisite(hostServiceFixture, "//java/com/server")
                     .getProvider(RunfilesProvider.class)
                     .getDefaultRunfiles()
                     .getArtifacts()));

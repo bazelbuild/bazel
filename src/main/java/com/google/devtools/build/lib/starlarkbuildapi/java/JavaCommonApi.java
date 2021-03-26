@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -38,7 +39,7 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(name = "java_common", doc = "Utilities for Java compilation support in Starlark.")
 public interface JavaCommonApi<
         FileT extends FileApi,
-        JavaInfoT extends JavaInfoApi<FileT>,
+        JavaInfoT extends JavaInfoApi<FileT, ?>,
         JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
@@ -106,6 +107,13 @@ public interface JavaCommonApi<
             defaultValue = "[]",
             doc = "A list of dependencies. Optional."),
         @Param(
+            name = "runtime_deps",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            defaultValue = "[]",
+            doc = "A list of runtime dependencies. Optional."),
+        @Param(
             name = "experimental_local_compile_time_deps",
             positional = false,
             named = true,
@@ -120,7 +128,10 @@ public interface JavaCommonApi<
             name = "exports",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class),
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class),
+            },
             defaultValue = "[]",
             doc = "A list of exports. Optional."),
         @Param(
@@ -203,6 +214,7 @@ public interface JavaCommonApi<
       Object outputSourceJar,
       Sequence<?> javacOpts, // <String> expected.
       Sequence<?> deps, // <JavaInfoT> expected.
+      Sequence<?> runtimeDeps, // <JavaInfoT> expected.
       Sequence<?> experimentalLocalCompileTimeDeps, // <JavaInfoT> expected.
       Sequence<?> exports, // <JavaInfoT> expected.
       Sequence<?> plugins, // <JavaInfoT> expected.

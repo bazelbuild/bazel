@@ -33,6 +33,7 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -54,10 +56,12 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.RemoteCache.UploadManifest;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -98,6 +102,7 @@ public class RemoteCacheTests {
 
   @Mock private OutputFilesLocker outputFilesLocker;
 
+  private RemoteActionExecutionContext context;
   private FileSystem fs;
   private Path execRoot;
   ArtifactRoot artifactRoot;
@@ -109,11 +114,14 @@ public class RemoteCacheTests {
   @Before
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata("none", "none", Digest.getDefaultInstance().getHash());
+    context = RemoteActionExecutionContext.create(metadata);
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
-    execRoot = fs.getPath("/execroot");
+    execRoot = fs.getPath("/execroot/main");
     execRoot.createDirectoryAndParents();
     fakeFileCache = new FakeActionInputFileCache(execRoot);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, false, "outputs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
@@ -127,8 +135,8 @@ public class RemoteCacheTests {
   @Test
   public void uploadAbsoluteFileSymlinkAsFile() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path link = fs.getPath("/execroot/link");
-    Path target = fs.getPath("/execroot/target");
+    Path link = fs.getPath("/execroot/main/link");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
     link.createSymbolicLink(target);
 
@@ -147,11 +155,11 @@ public class RemoteCacheTests {
   @Test
   public void uploadAbsoluteDirectorySymlinkAsDirectory() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path foo = fs.getPath("/execroot/dir/foo");
+    Path foo = fs.getPath("/execroot/main/dir/foo");
     FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/link");
+    Path link = fs.getPath("/execroot/main/link");
     link.createSymbolicLink(dir);
 
     UploadManifest um =
@@ -159,7 +167,7 @@ public class RemoteCacheTests {
             digestUtil, result, execRoot, /*uploadSymlinks=*/ true, /*allowSymlinks=*/ true);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, fs.getPath("/execroot/link/foo"));
+    assertThat(um.getDigestToFile()).containsExactly(digest, fs.getPath("/execroot/main/link/foo"));
 
     Tree tree =
         Tree.newBuilder()
@@ -177,8 +185,8 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeFileSymlinkAsFile() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path link = fs.getPath("/execroot/link");
-    Path target = fs.getPath("/execroot/target");
+    Path link = fs.getPath("/execroot/main/link");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
     link.createSymbolicLink(target.relativeTo(execRoot));
 
@@ -197,11 +205,11 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeDirectorySymlinkAsDirectory() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path foo = fs.getPath("/execroot/dir/foo");
+    Path foo = fs.getPath("/execroot/main/dir/foo");
     FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/link");
+    Path link = fs.getPath("/execroot/main/link");
     link.createSymbolicLink(dir.relativeTo(execRoot));
 
     UploadManifest um =
@@ -209,7 +217,7 @@ public class RemoteCacheTests {
             digestUtil, result, execRoot, /*uploadSymlinks=*/ false, /*allowSymlinks=*/ true);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, fs.getPath("/execroot/link/foo"));
+    assertThat(um.getDigestToFile()).containsExactly(digest, fs.getPath("/execroot/main/link/foo"));
 
     Tree tree =
         Tree.newBuilder()
@@ -227,8 +235,8 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeFileSymlink() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path link = fs.getPath("/execroot/link");
-    Path target = fs.getPath("/execroot/target");
+    Path link = fs.getPath("/execroot/main/link");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
     link.createSymbolicLink(target.relativeTo(execRoot));
 
@@ -246,11 +254,11 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeDirectorySymlink() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path file = fs.getPath("/execroot/dir/foo");
+    Path file = fs.getPath("/execroot/main/dir/foo");
     FileSystemUtils.writeContent(file, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/link");
+    Path link = fs.getPath("/execroot/main/link");
     link.createSymbolicLink(dir.relativeTo(execRoot));
 
     UploadManifest um =
@@ -267,8 +275,8 @@ public class RemoteCacheTests {
   @Test
   public void uploadDanglingSymlinkError() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path link = fs.getPath("/execroot/link");
-    Path target = fs.getPath("/execroot/target");
+    Path link = fs.getPath("/execroot/main/link");
+    Path target = fs.getPath("/execroot/main/target");
     link.createSymbolicLink(target.relativeTo(execRoot));
 
     UploadManifest um =
@@ -276,15 +284,15 @@ public class RemoteCacheTests {
             digestUtil, result, execRoot, /*uploadSymlinks=*/ true, /*allowSymlinks=*/ true);
     IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(link)));
     assertThat(e).hasMessageThat().contains("dangling");
-    assertThat(e).hasMessageThat().contains("/execroot/link");
+    assertThat(e).hasMessageThat().contains("/execroot/main/link");
     assertThat(e).hasMessageThat().contains("target");
   }
 
   @Test
   public void uploadSymlinksNoAllowError() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path link = fs.getPath("/execroot/link");
-    Path target = fs.getPath("/execroot/target");
+    Path link = fs.getPath("/execroot/main/link");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
     link.createSymbolicLink(target.relativeTo(execRoot));
 
@@ -299,11 +307,11 @@ public class RemoteCacheTests {
   @Test
   public void uploadAbsoluteFileSymlinkInDirectoryAsFile() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path target = fs.getPath("/execroot/target");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/dir/link");
+    Path link = fs.getPath("/execroot/main/dir/link");
     link.createSymbolicLink(target);
 
     UploadManifest um =
@@ -329,13 +337,13 @@ public class RemoteCacheTests {
   @Test
   public void uploadAbsoluteDirectorySymlinkInDirectoryAsDirectory() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path bardir = fs.getPath("/execroot/bardir");
+    Path bardir = fs.getPath("/execroot/main/bardir");
     bardir.createDirectory();
-    Path foo = fs.getPath("/execroot/bardir/foo");
+    Path foo = fs.getPath("/execroot/main/bardir/foo");
     FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/dir/link");
+    Path link = fs.getPath("/execroot/main/dir/link");
     link.createSymbolicLink(bardir);
 
     UploadManifest um =
@@ -343,7 +351,8 @@ public class RemoteCacheTests {
             digestUtil, result, execRoot, /*uploadSymlinks=*/ true, /*allowSymlinks=*/ true);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, fs.getPath("/execroot/dir/link/foo"));
+    assertThat(um.getDigestToFile())
+        .containsExactly(digest, fs.getPath("/execroot/main/dir/link/foo"));
 
     Directory barDir =
         Directory.newBuilder()
@@ -368,11 +377,11 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeFileSymlinkInDirectoryAsFile() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path target = fs.getPath("/execroot/target");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/dir/link");
+    Path link = fs.getPath("/execroot/main/dir/link");
     link.createSymbolicLink(PathFragment.create("../target"));
 
     UploadManifest um =
@@ -398,13 +407,13 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeDirectorySymlinkInDirectoryAsDirectory() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path bardir = fs.getPath("/execroot/bardir");
+    Path bardir = fs.getPath("/execroot/main/bardir");
     bardir.createDirectory();
-    Path foo = fs.getPath("/execroot/bardir/foo");
+    Path foo = fs.getPath("/execroot/main/bardir/foo");
     FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/dir/link");
+    Path link = fs.getPath("/execroot/main/dir/link");
     link.createSymbolicLink(PathFragment.create("../bardir"));
 
     UploadManifest um =
@@ -412,7 +421,8 @@ public class RemoteCacheTests {
             digestUtil, result, execRoot, /*uploadSymlinks=*/ false, /*allowSymlinks=*/ true);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, fs.getPath("/execroot/dir/link/foo"));
+    assertThat(um.getDigestToFile())
+        .containsExactly(digest, fs.getPath("/execroot/main/dir/link/foo"));
 
     Directory barDir =
         Directory.newBuilder()
@@ -437,11 +447,11 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeFileSymlinkInDirectory() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path target = fs.getPath("/execroot/target");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/dir/link");
+    Path link = fs.getPath("/execroot/main/dir/link");
     link.createSymbolicLink(PathFragment.create("../target"));
 
     UploadManifest um =
@@ -466,13 +476,13 @@ public class RemoteCacheTests {
   @Test
   public void uploadRelativeDirectorySymlinkInDirectory() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path bardir = fs.getPath("/execroot/bardir");
+    Path bardir = fs.getPath("/execroot/main/bardir");
     bardir.createDirectory();
-    Path foo = fs.getPath("/execroot/bardir/foo");
+    Path foo = fs.getPath("/execroot/main/bardir/foo");
     FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/dir/link");
+    Path link = fs.getPath("/execroot/main/dir/link");
     link.createSymbolicLink(PathFragment.create("../bardir"));
 
     UploadManifest um =
@@ -515,11 +525,11 @@ public class RemoteCacheTests {
   @Test
   public void uploadSymlinkInDirectoryNoAllowError() throws Exception {
     ActionResult.Builder result = ActionResult.newBuilder();
-    Path dir = fs.getPath("/execroot/dir");
+    Path dir = fs.getPath("/execroot/main/dir");
     dir.createDirectory();
-    Path target = fs.getPath("/execroot/target");
+    Path target = fs.getPath("/execroot/main/target");
     FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
-    Path link = fs.getPath("/execroot/dir/link");
+    Path link = fs.getPath("/execroot/main/dir/link");
     link.createSymbolicLink(target);
 
     UploadManifest um =
@@ -535,9 +545,9 @@ public class RemoteCacheTests {
   public void downloadRelativeFileSymlink() throws Exception {
     RemoteCache cache = newRemoteCache();
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFileSymlinksBuilder().setPath("a/b/link").setTarget("../../foo");
+    result.addOutputFileSymlinksBuilder().setPath("main/a/b/link").setTarget("../../foo");
     // Doesn't check for dangling links, hence download succeeds.
-    cache.download(result.build(), execRoot, null, outputFilesLocker);
+    cache.download(context, result.build(), execRoot, null, outputFilesLocker);
     Path path = execRoot.getRelative("a/b/link");
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../../foo"));
@@ -548,9 +558,9 @@ public class RemoteCacheTests {
   public void downloadRelativeDirectorySymlink() throws Exception {
     RemoteCache cache = newRemoteCache();
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputDirectorySymlinksBuilder().setPath("a/b/link").setTarget("foo");
+    result.addOutputDirectorySymlinksBuilder().setPath("main/a/b/link").setTarget("foo");
     // Doesn't check for dangling links, hence download succeeds.
-    cache.download(result.build(), execRoot, null, outputFilesLocker);
+    cache.download(context, result.build(), execRoot, null, outputFilesLocker);
     Path path = execRoot.getRelative("a/b/link");
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("foo"));
@@ -566,11 +576,11 @@ public class RemoteCacheTests {
                 Directory.newBuilder()
                     .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../foo")))
             .build();
-    Digest treeDigest = cache.addContents(tree.toByteArray());
+    Digest treeDigest = cache.addContents(context, tree.toByteArray());
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/dir").setTreeDigest(treeDigest);
     // Doesn't check for dangling links, hence download succeeds.
-    cache.download(result.build(), execRoot, null, outputFilesLocker);
+    cache.download(context, result.build(), execRoot, null, outputFilesLocker);
     Path path = execRoot.getRelative("dir/link");
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../foo"));
@@ -585,7 +595,7 @@ public class RemoteCacheTests {
     IOException expected =
         assertThrows(
             IOException.class,
-            () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+            () -> cache.download(context, result.build(), execRoot, null, outputFilesLocker));
     assertThat(expected).hasMessageThat().contains("/abs/link");
     assertThat(expected).hasMessageThat().contains("absolute path");
     verify(outputFilesLocker).lock();
@@ -599,7 +609,7 @@ public class RemoteCacheTests {
     IOException expected =
         assertThrows(
             IOException.class,
-            () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+            () -> cache.download(context, result.build(), execRoot, null, outputFilesLocker));
     assertThat(expected).hasMessageThat().contains("/abs/link");
     assertThat(expected).hasMessageThat().contains("absolute path");
     verify(outputFilesLocker).lock();
@@ -614,13 +624,13 @@ public class RemoteCacheTests {
                 Directory.newBuilder()
                     .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("/foo")))
             .build();
-    Digest treeDigest = cache.addContents(tree.toByteArray());
+    Digest treeDigest = cache.addContents(context, tree.toByteArray());
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
     IOException expected =
         assertThrows(
             IOException.class,
-            () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+            () -> cache.download(context, result.build(), execRoot, null, outputFilesLocker));
     assertThat(expected.getSuppressed()).isEmpty();
     assertThat(expected).hasMessageThat().contains("dir/link");
     assertThat(expected).hasMessageThat().contains("/foo");
@@ -632,19 +642,20 @@ public class RemoteCacheTests {
   public void downloadFailureMaintainsDirectories() throws Exception {
     InMemoryRemoteCache cache = newRemoteCache();
     Tree tree = Tree.newBuilder().setRoot(Directory.newBuilder()).build();
-    Digest treeDigest = cache.addContents(tree.toByteArray());
+    Digest treeDigest = cache.addContents(context, tree.toByteArray());
     Digest outputFileDigest =
         cache.addException("outputdir/outputfile", new IOException("download failed"));
-    Digest otherFileDigest = cache.addContents("otherfile");
+    Digest otherFileDigest = cache.addContents(context, "otherfile");
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputDirectoriesBuilder().setPath("outputdir").setTreeDigest(treeDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/outputdir").setTreeDigest(treeDigest);
     result.addOutputFiles(
-        OutputFile.newBuilder().setPath("outputdir/outputfile").setDigest(outputFileDigest));
-    result.addOutputFiles(OutputFile.newBuilder().setPath("otherfile").setDigest(otherFileDigest));
+        OutputFile.newBuilder().setPath("main/outputdir/outputfile").setDigest(outputFileDigest));
+    result.addOutputFiles(
+        OutputFile.newBuilder().setPath("main/otherfile").setDigest(otherFileDigest));
     assertThrows(
         BulkTransferException.class,
-        () -> cache.download(result.build(), execRoot, null, outputFilesLocker));
+        () -> cache.download(context, result.build(), execRoot, null, outputFilesLocker));
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
     assertThat(execRoot.getRelative("outputdir").exists()).isTrue();
     assertThat(execRoot.getRelative("outputdir/outputfile").exists()).isFalse();
@@ -662,9 +673,9 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(context, "file1");
     Digest digest2 = cache.addException("file2", new IOException("download failed"));
-    Digest digest3 = cache.addContents("file3");
+    Digest digest3 = cache.addContents(context, "file3");
 
     ActionResult result =
         ActionResult.newBuilder()
@@ -678,7 +689,7 @@ public class RemoteCacheTests {
             BulkTransferException.class,
             () ->
                 cache.download(
-                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+                    context, result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
     assertThat(downloadException.getSuppressed()).hasLength(1);
     assertThat(cache.getNumSuccessfulDownloads()).isEqualTo(2);
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
@@ -694,7 +705,7 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(context, "file1");
     Digest digest2 = cache.addException("file2", new IOException("file2 failed"));
     Digest digest3 = cache.addException("file3", new IOException("file3 failed"));
 
@@ -710,7 +721,7 @@ public class RemoteCacheTests {
             BulkTransferException.class,
             () ->
                 cache.download(
-                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+                    context, result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
 
     assertThat(e.getSuppressed()).hasLength(2);
     assertThat(e.getSuppressed()[0]).isInstanceOf(IOException.class);
@@ -725,7 +736,7 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(context, "file1");
     IOException reusedException = new IOException("reused io exception");
     Digest digest2 = cache.addException("file2", reusedException);
     Digest digest3 = cache.addException("file3", reusedException);
@@ -742,7 +753,7 @@ public class RemoteCacheTests {
             BulkTransferException.class,
             () ->
                 cache.download(
-                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+                    context, result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
 
     for (Throwable t : downloadException.getSuppressed()) {
       assertThat(t).isInstanceOf(IOException.class);
@@ -757,7 +768,7 @@ public class RemoteCacheTests {
     Path stderr = fs.getPath("/execroot/stderr");
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digest1 = cache.addContents("file1");
+    Digest digest1 = cache.addContents(context, "file1");
     InterruptedException reusedInterruption = new InterruptedException("reused interruption");
     Digest digest2 = cache.addException("file2", reusedInterruption);
     Digest digest3 = cache.addException("file3", reusedInterruption);
@@ -774,7 +785,7 @@ public class RemoteCacheTests {
             InterruptedException.class,
             () ->
                 cache.download(
-                    result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
+                    context, result, execRoot, new FileOutErr(stdout, stderr), outputFilesLocker));
 
     assertThat(e.getSuppressed()).isEmpty();
     assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused interruption");
@@ -793,8 +804,8 @@ public class RemoteCacheTests {
     when(spyOutErr.childOutErr()).thenReturn(spyChildOutErr);
 
     InMemoryRemoteCache cache = newRemoteCache();
-    Digest digestStdout = cache.addContents("stdout");
-    Digest digestStderr = cache.addContents("stderr");
+    Digest digestStdout = cache.addContents(context, "stdout");
+    Digest digestStderr = cache.addContents(context, "stderr");
 
     ActionResult result =
         ActionResult.newBuilder()
@@ -803,7 +814,7 @@ public class RemoteCacheTests {
             .setStderrDigest(digestStderr)
             .build();
 
-    cache.download(result, execRoot, spyOutErr, outputFilesLocker);
+    cache.download(context, result, execRoot, spyOutErr, outputFilesLocker);
 
     verify(spyOutErr, Mockito.times(2)).childOutErr();
     verify(spyChildOutErr).clearOut();
@@ -846,7 +857,7 @@ public class RemoteCacheTests {
             .build();
     assertThrows(
         BulkTransferException.class,
-        () -> cache.download(result, execRoot, spyOutErr, outputFilesLocker));
+        () -> cache.download(context, result, execRoot, spyOutErr, outputFilesLocker));
     verify(spyOutErr, Mockito.times(2)).childOutErr();
     verify(spyChildOutErr).clearOut();
     verify(spyChildOutErr).clearErr();
@@ -869,13 +880,13 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(context, "content1");
+    Digest d2 = remoteCache.addContents(context, "content2");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
-            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/foo.tmp").setDigest(d1))
-            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/foo").setDigest(d2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("main/outputs/foo.tmp").setDigest(d1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("main/outputs/foo").setDigest(d2))
             .build();
 
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "foo.tmp");
@@ -883,7 +894,7 @@ public class RemoteCacheTests {
 
     // act
 
-    remoteCache.download(r, execRoot, new FileOutErr(), outputFilesLocker);
+    remoteCache.download(context, r, execRoot, new FileOutErr(), outputFilesLocker);
 
     // assert
 
@@ -900,13 +911,13 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(context, "content1");
+    Digest d2 = remoteCache.addContents(context, "content2");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
-            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file1").setDigest(d1))
-            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(d2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("main/outputs/file1").setDigest(d1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("main/outputs/file2").setDigest(d2))
             .build();
 
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
@@ -917,6 +928,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            context,
             "action-id",
             r,
             ImmutableList.of(a1, a2),
@@ -946,24 +958,24 @@ public class RemoteCacheTests {
     // Output Directory:
     // dir/file1
     // dir/a/file2
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(context, "content1");
+    Digest d2 = remoteCache.addContents(context, "content2");
     FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
     FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
     Directory a = Directory.newBuilder().addFiles(file2).build();
-    Digest da = remoteCache.addContents(a);
+    Digest da = remoteCache.addContents(context, a);
     Directory root =
         Directory.newBuilder()
             .addFiles(file1)
             .addDirectories(DirectoryNode.newBuilder().setName("a").setDigest(da))
             .build();
     Tree t = Tree.newBuilder().setRoot(root).addChildren(a).build();
-    Digest dt = remoteCache.addContents(t);
+    Digest dt = remoteCache.addContents(context, t);
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
             .addOutputDirectories(
-                OutputDirectory.newBuilder().setPath("outputs/dir").setTreeDigest(dt))
+                OutputDirectory.newBuilder().setPath("main/outputs/dir").setTreeDigest(dt))
             .build();
 
     SpecialArtifact dir =
@@ -979,6 +991,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            context,
             "action-id",
             r,
             ImmutableList.of(dir),
@@ -1018,12 +1031,12 @@ public class RemoteCacheTests {
     // Output Directory:
     // dir/file1
     // dir/a/file2
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(context, "content1");
+    Digest d2 = remoteCache.addContents(context, "content2");
     FileNode file1 = FileNode.newBuilder().setName("file1").setDigest(d1).build();
     FileNode file2 = FileNode.newBuilder().setName("file2").setDigest(d2).build();
     Directory a = Directory.newBuilder().addFiles(file2).build();
-    Digest da = remoteCache.addContents(a);
+    Digest da = remoteCache.addContents(context, a);
     Directory root =
         Directory.newBuilder()
             .addFiles(file1)
@@ -1054,6 +1067,7 @@ public class RemoteCacheTests {
             BulkTransferException.class,
             () ->
                 remoteCache.downloadMinimal(
+                    context,
                     "action-id",
                     r,
                     ImmutableList.of(dir),
@@ -1074,8 +1088,8 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest dOut = remoteCache.addContents("stdout");
-    Digest dErr = remoteCache.addContents("stderr");
+    Digest dOut = remoteCache.addContents(context, "stdout");
+    Digest dErr = remoteCache.addContents(context, "stderr");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
@@ -1088,6 +1102,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            context,
             "action-id",
             r,
             ImmutableList.of(),
@@ -1114,13 +1129,13 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("content1");
-    Digest d2 = remoteCache.addContents("content2");
+    Digest d1 = remoteCache.addContents(context, "content1");
+    Digest d2 = remoteCache.addContents(context, "content2");
     ActionResult r =
         ActionResult.newBuilder()
             .setExitCode(0)
-            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file1").setDigest(d1))
-            .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(d2))
+            .addOutputFiles(OutputFile.newBuilder().setPath("main/outputs/file1").setDigest(d1))
+            .addOutputFiles(OutputFile.newBuilder().setPath("main/outputs/file2").setDigest(d2))
             .build();
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
     Artifact a2 = ActionsTestUtil.createArtifact(artifactRoot, "file2");
@@ -1131,6 +1146,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            context,
             "action-id",
             r,
             ImmutableList.of(a1, a2),
@@ -1161,7 +1177,7 @@ public class RemoteCacheTests {
 
     // arrange
     InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest d1 = remoteCache.addContents("in-memory output");
+    Digest d1 = remoteCache.addContents(context, "in-memory output");
     ActionResult r = ActionResult.newBuilder().setExitCode(0).build();
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
     MetadataInjector injector = mock(MetadataInjector.class);
@@ -1171,6 +1187,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            context,
             "action-id",
             r,
             ImmutableList.of(a1),
@@ -1196,10 +1213,10 @@ public class RemoteCacheTests {
     Digest emptyDigest = digestUtil.compute(new byte[0]);
 
     // act and assert
-    assertThat(Utils.getFromFuture(remoteCache.downloadBlob(emptyDigest))).isEmpty();
+    assertThat(Utils.getFromFuture(remoteCache.downloadBlob(context, emptyDigest))).isEmpty();
 
     try (OutputStream out = file.getOutputStream()) {
-      Utils.getFromFuture(remoteCache.downloadFile(file, emptyDigest));
+      Utils.getFromFuture(remoteCache.downloadFile(context, file, emptyDigest));
     }
     assertThat(file.exists()).isTrue();
     assertThat(file.getFileSize()).isEqualTo(0);
@@ -1224,7 +1241,7 @@ public class RemoteCacheTests {
     RemoteCache remoteCache = new InMemoryRemoteCache(cas, options, digestUtil);
 
     // act
-    Utils.getFromFuture(remoteCache.downloadFile(file, helloDigest));
+    Utils.getFromFuture(remoteCache.downloadFile(context, file, helloDigest));
 
     // assert
     assertThat(file.isSymbolicLink()).isTrue();
@@ -1260,12 +1277,13 @@ public class RemoteCacheTests {
     cas.put(barTreeDigest, barTreeMessage.toByteArray());
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
-    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
 
     // act
     RemoteCache remoteCache = newRemoteCache(cas);
-    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(
+        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     // assert
     assertThat(digestUtil.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
@@ -1285,11 +1303,12 @@ public class RemoteCacheTests {
     map.put(barTreeDigest, barTreeMessage.toByteArray());
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
 
     // act
     RemoteCache remoteCache = newRemoteCache(map);
-    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(
+        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     // assert
     assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
@@ -1328,12 +1347,13 @@ public class RemoteCacheTests {
     map.put(quxDigest, "qux-contents".getBytes(UTF_8));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
-    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
 
     // act
     RemoteCache remoteCache = newRemoteCache(map);
-    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(
+        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     // assert
     assertThat(digestUtil.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
@@ -1379,11 +1399,12 @@ public class RemoteCacheTests {
     map.put(treeDigest, tree.toByteArray());
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputDirectoriesBuilder().setPath("a/").setTreeDigest(treeDigest);
+    result.addOutputDirectoriesBuilder().setPath("main/a/").setTreeDigest(treeDigest);
 
     // act
     RemoteCache remoteCache = newRemoteCache(map);
-    remoteCache.download(result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+    remoteCache.download(
+        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
 
     // assert
     assertThat(digestUtil.compute(execRoot.getRelative("a/bar/foo/file"))).isEqualTo(fileDigest);
@@ -1425,6 +1446,7 @@ public class RemoteCacheTests {
     InMemoryRemoteCache remoteCache = newRemoteCache();
     ActionResult result =
         remoteCache.upload(
+            context,
             digestUtil.asActionKey(actionDigest),
             action,
             cmd,
@@ -1440,7 +1462,7 @@ public class RemoteCacheTests {
 
     ImmutableList<Digest> toQuery =
         ImmutableList.of(fooDigest, quxDigest, barDigest, cmdDigest, actionDigest);
-    assertThat(remoteCache.findMissingDigests(toQuery)).isEmpty();
+    assertThat(remoteCache.findMissingDigests(context, toQuery)).isEmpty();
   }
 
   @Test
@@ -1461,6 +1483,7 @@ public class RemoteCacheTests {
     InMemoryRemoteCache remoteCache = newRemoteCache();
     ActionResult result =
         remoteCache.upload(
+            context,
             actionDigest,
             action,
             cmd,
@@ -1472,7 +1495,7 @@ public class RemoteCacheTests {
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
     assertThat(result).isEqualTo(expectedResult.build());
-    assertThat(remoteCache.findMissingDigests(ImmutableList.of(barDigest))).isEmpty();
+    assertThat(remoteCache.findMissingDigests(context, ImmutableList.of(barDigest))).isEmpty();
   }
 
   @Test
@@ -1517,6 +1540,7 @@ public class RemoteCacheTests {
     InMemoryRemoteCache remoteCache = newRemoteCache();
     ActionResult result =
         remoteCache.upload(
+            context,
             actionDigest,
             action,
             cmd,
@@ -1530,7 +1554,7 @@ public class RemoteCacheTests {
     assertThat(result).isEqualTo(expectedResult.build());
 
     ImmutableList<Digest> toQuery = ImmutableList.of(wobbleDigest, quxDigest, barDigest);
-    assertThat(remoteCache.findMissingDigests(toQuery)).isEmpty();
+    assertThat(remoteCache.findMissingDigests(context, toQuery)).isEmpty();
   }
 
   private static RemoteFileArtifactValue remoteFileMatchingDigest(Digest expectedDigest) {
@@ -1561,18 +1585,21 @@ public class RemoteCacheTests {
       super(new InMemoryCacheClient(), options, digestUtil);
     }
 
-    Digest addContents(String txt) throws IOException, InterruptedException {
-      return addContents(txt.getBytes(UTF_8));
+    Digest addContents(RemoteActionExecutionContext context, String txt)
+        throws IOException, InterruptedException {
+      return addContents(context, txt.getBytes(UTF_8));
     }
 
-    Digest addContents(byte[] bytes) throws IOException, InterruptedException {
+    Digest addContents(RemoteActionExecutionContext context, byte[] bytes)
+        throws IOException, InterruptedException {
       Digest digest = digestUtil.compute(bytes);
-      Utils.getFromFuture(cacheProtocol.uploadBlob(digest, ByteString.copyFrom(bytes)));
+      Utils.getFromFuture(cacheProtocol.uploadBlob(context, digest, ByteString.copyFrom(bytes)));
       return digest;
     }
 
-    Digest addContents(Message m) throws IOException, InterruptedException {
-      return addContents(m.toByteArray());
+    Digest addContents(RemoteActionExecutionContext context, Message m)
+        throws IOException, InterruptedException {
+      return addContents(context, m.toByteArray());
     }
 
     Digest addException(String txt, Exception e) {
@@ -1595,9 +1622,10 @@ public class RemoteCacheTests {
       return ((InMemoryCacheClient) cacheProtocol).getNumFailedDownloads();
     }
 
-    ImmutableSet<Digest> findMissingDigests(Iterable<Digest> digests)
+    ImmutableSet<Digest> findMissingDigests(
+        RemoteActionExecutionContext context, Iterable<Digest> digests)
         throws IOException, InterruptedException {
-      return Utils.getFromFuture(cacheProtocol.findMissingDigests(digests));
+      return Utils.getFromFuture(cacheProtocol.findMissingDigests(context, digests));
     }
 
     @Override

@@ -144,7 +144,7 @@ remote execution:
 To help find potential non-hermetic behavior you can use [Workspace rules log](/workspace-log.md).
 
 If an external dependency executes specific operations dependent on the host
-platform, we recommend splitting those operations between `WORKSPACE` and build
+platform, you should split those operations between `WORKSPACE` and build
 rules as follows:
 
 *   **Platform inspection and dependency enumeration.** These operations are

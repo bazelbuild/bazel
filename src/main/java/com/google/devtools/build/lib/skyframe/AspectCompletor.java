@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
-import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
@@ -27,9 +27,6 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.server.FailureDetails.Execution;
-import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
@@ -42,9 +39,14 @@ class AspectCompletor
     implements Completor<AspectValue, AspectCompletionValue, AspectCompletionKey, BuildEventId> {
 
   static SkyFunction aspectCompletionFunction(
-      PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
+      PathResolverFactory pathResolverFactory,
+      SkyframeActionExecutor skyframeActionExecutor,
+      MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric) {
     return new CompletionFunction<>(
-        pathResolverFactory, new AspectCompletor(), skyframeActionExecutor);
+        pathResolverFactory,
+        new AspectCompletor(),
+        skyframeActionExecutor,
+        topLevelArtifactsMetric);
   }
 
   @Override
@@ -59,19 +61,9 @@ class AspectCompletor
   }
 
   @Override
-  public MissingInputFileException getMissingFilesException(
-      AspectValue value, AspectCompletionKey key, int missingCount, Environment env) {
+  public String getLocationIdentifier(AspectValue value, AspectCompletionKey key, Environment env) {
     AspectKey aspectKey = key.actionLookupKey();
-    String message =
-        String.format(
-            "%s, aspect %s %d input file(s) do not exist",
-            aspectKey.getLabel(), aspectKey.getAspectClass().getName(), missingCount);
-    return new MissingInputFileException(
-        FailureDetail.newBuilder()
-            .setMessage(message)
-            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
-            .build(),
-        value.getLocation());
+    return aspectKey.getLabel() + ", aspect " + aspectKey.getAspectClass().getName();
   }
 
   @Override
@@ -91,7 +83,7 @@ class AspectCompletor
       AspectValue value,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
-      NestedSet<ArtifactsInOutputGroup> outputs,
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       BuildEventId configurationEventId) {
     return AspectCompleteEvent.createFailed(value, ctx, rootCauses, configurationEventId, outputs);
   }

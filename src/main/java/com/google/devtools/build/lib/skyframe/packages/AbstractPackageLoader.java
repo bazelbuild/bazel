@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -44,9 +46,11 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -59,8 +63,6 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
-import com.google.devtools.build.lib.skyframe.FileSymlinkCycleUniquenessFunction;
-import com.google.devtools.build.lib.skyframe.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
@@ -292,6 +294,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             "PackageLoader",
             DefaultPackageSettings.INSTANCE,
             PackageValidator.NOOP_VALIDATOR,
+            PackageOverheadEstimator.NOOP_ESTIMATOR,
             PackageLoadingListener.NOOP_LISTENER);
   }
 
@@ -317,6 +320,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     }
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
+    PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY
+        .set(injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
@@ -417,7 +422,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         InMemoryMemoizingEvaluator.SUPPLIER.create(
             makeFreshSkyFunctions(),
             preinjectedDifferencer,
-            new EvaluationProgressReceiver.NullEvaluationProgressReceiver(),
+            EvaluationProgressReceiver.NULL,
             GraphInconsistencyReceiver.THROWING,
             InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
             new MemoizingEvaluator.EmittedEventState(),
@@ -454,16 +459,15 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCacheRef);
           }
         };
-    ExternalPackageHelper externalPackageHelper = getExternalPackageHelper();
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
         .put(
             FileStateValue.FILE_STATE,
             new FileStateFunction(tsgm, syscallCacheRef, externalFilesHelper))
-        .put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction())
+        .put(FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction())
         .put(
-            SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
+            FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
             new FileSymlinkInfiniteExpansionUniquenessFunction())
         .put(FileValue.FILE, new FileFunction(pkgLocatorRef))
         .put(
@@ -504,8 +508,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
-                IncrementalityIntent.NON_INCREMENTAL,
-                externalPackageHelper))
+                IncrementalityIntent.NON_INCREMENTAL))
         .putAll(extraSkyFunctions);
     return builder.build();
   }

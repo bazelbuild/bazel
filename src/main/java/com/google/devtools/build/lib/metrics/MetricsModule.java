@@ -21,6 +21,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A blaze module that installs metrics instrumentations and issues a {@link BuildMetricsEvent} at
@@ -41,6 +42,9 @@ public class MetricsModule extends BlazeModule {
     public boolean bepPublishUsedHeapSizePostBuild;
   }
 
+  private final AtomicInteger numAnalyses = new AtomicInteger();
+  private final AtomicInteger numBuilds = new AtomicInteger();
+
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name()) ? ImmutableList.of(Options.class) : ImmutableList.of();
@@ -57,7 +61,7 @@ public class MetricsModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    MetricsCollector.installInEnv(env);
+    MetricsCollector.installInEnv(env, numAnalyses, numBuilds);
   }
 
   @Override

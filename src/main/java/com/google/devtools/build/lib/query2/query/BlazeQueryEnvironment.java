@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -63,7 +62,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -172,17 +170,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // becomes quadratic in runtime.
     Set<Target> targets = new LinkedHashSet<>(resolvedTargetPatterns.get(pattern));
 
-    // Sets.filter would be more convenient here, but can't deal with exceptions.
-    if (labelFilter != Predicates.<Label>alwaysTrue()) {
-      // The labelFilter is always true for bazel query; it's only used for genquery rules.
-      Iterator<Target> targetIterator = targets.iterator();
-      while (targetIterator.hasNext()) {
-        Target target = targetIterator.next();
-        if (!validateScope(target.getLabel(), strictScope)) {
-          targetIterator.remove();
-        }
-      }
-    }
+    validateScopeOfTargets(targets);
 
     Set<PackageIdentifier> packages = CompactHashSet.create();
     for (Target target : targets) {

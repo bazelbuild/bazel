@@ -450,7 +450,8 @@ public class ArtifactFactory implements ArtifactResolver {
 
   @Override
   public Map<PathFragment, Artifact> resolveSourceArtifacts(
-      Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException {
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver)
+      throws PackageRootResolver.PackageRootException, InterruptedException {
     Map<PathFragment, Artifact> result = new HashMap<>();
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 

@@ -30,7 +30,7 @@ public class ConstraintSettingRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .advertiseProvider(ConstraintSettingInfo.class)
+        .advertiseStarlarkProvider(ConstraintSettingInfo.PROVIDER.id())
         /* <!-- #BLAZE_RULE(constraint_setting).ATTRIBUTE(default_constraint_value) -->
         The label of the default value for this setting, to be used if no value is given. If this
         attribute is present, the <code>constraint_value</code> it points to must be defined in the
@@ -60,9 +60,10 @@ public class ConstraintSettingRule implements RuleDefinition {
 
 <p>This rule is used to introduce a new constraint type for which a platform may specify a value.
 For instance, you might define a <code>constraint_setting</code> named "glibc_version" to represent
-the capability for platforms to have different versions of the glibc library installed. See the
-<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page for more
-details.
+the capability for platforms to have different versions of the glibc library installed.
+
+For more details, see the
+<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page.
 
 <p>Each <code>constraint_setting</code> has an extensible set of associated
 <code>constraint_value</code>s. Usually these are defined in the same package, but sometimes a

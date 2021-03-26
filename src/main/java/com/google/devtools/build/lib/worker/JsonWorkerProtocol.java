@@ -54,6 +54,17 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
 
   @Override
   public WorkResponse getResponse() throws IOException {
+    boolean interrupted = Thread.interrupted();
+    try {
+      return parseResponse();
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private WorkResponse parseResponse() throws IOException {
     Integer exitCode = null;
     String output = null;
     Integer requestId = null;

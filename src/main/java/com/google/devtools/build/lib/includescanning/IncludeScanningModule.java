@@ -18,6 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -193,18 +194,14 @@ public class IncludeScanningModule extends BlazeModule {
               env.getDirectories(),
               env.getSkyframeBuildView().getArtifactFactory(),
               env.getExecRoot());
-      ImmutableMap.Builder<PathFragment, Artifact> pathToLegalOutputArtifact =
-          ImmutableMap.builder();
-      for (Artifact path : legalOutputPaths) {
-        pathToLegalOutputArtifact.put(path.getExecPath(), path);
-      }
       try {
         scanner.processAsync(
             source,
             ImmutableList.of(source),
             // For Swig include scanning just point to the output file in the map.
             new IncludeScanningHeaderData.Builder(
-                    pathToLegalOutputArtifact.build(), /*modularHeaders=*/ ImmutableSet.of())
+                    Maps.uniqueIndex(legalOutputPaths, Artifact::getExecPath),
+                    /*modularHeaders=*/ ImmutableSet.of())
                 .build(),
             ImmutableList.of(),
             includes,
@@ -241,7 +238,8 @@ public class IncludeScanningModule extends BlazeModule {
       spawnScannerSupplier.set(
           new SpawnIncludeScanner(
               env.getExecRoot(),
-              options.experimentalRemoteExtractionThreshold));
+              options.experimentalRemoteExtractionThreshold,
+              env.getSkyframeExecutor().getSyscalls()));
       this.spawnScannerSupplier = spawnScannerSupplier;
       env.getEventBus().register(this);
     }
@@ -303,6 +301,7 @@ public class IncludeScanningModule extends BlazeModule {
               spawnScannerSupplier,
               env.getExecRoot());
 
+      spawnScannerSupplier.get().setOutputService(env.getOutputService());
       spawnScannerSupplier.get().setInMemoryOutput(options.inMemoryIncludesFiles);
     }
   }

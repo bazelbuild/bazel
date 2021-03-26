@@ -74,7 +74,7 @@ public class DesugarInfoCollector extends ClassVisitor {
     super.visit(version, access, name, signature, superName, interfaces);
     assertThat(computeMinorClassFileVersion(version)).isEqualTo(0);
     largestClassFileVersion = Math.max(version, largestClassFileVersion);
-    if (classNameFromBinaryName(name).startsWith("-$$Lambda$")) {
+    if (classNameFromBinaryName(name).contains("$$ExternalSyntheticLambda")) {
       numberOfDesugaredLambdas++;
     }
     if (name.endsWith("$-CC")) {

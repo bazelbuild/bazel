@@ -163,16 +163,29 @@ public final class BugReport {
         ctx.getEventHandler().handle(Event.fatal(crashMsg));
 
         try {
-          if (runtime != null) {
-            runtime.cleanUpForCrash(crash.getDetailedExitCode());
-          }
           // Writing the exit code status file is only necessary if we are halting. Otherwise, the
           // caller is responsible for an orderly shutdown with the proper exit code.
           if (ctx.shouldHaltJvm()) {
-            CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode);
+            if (CustomExitCodePublisher.maybeWriteExitStatusFile(numericExitCode)) {
+              logger.atInfo().log("Wrote exit status file.");
+            } else {
+              logger.atWarning().log("Did not write exit status file; check stderr for errors.");
+            }
           }
-          CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
-              crash.getDetailedExitCode().getFailureDetail());
+
+          if (CustomFailureDetailPublisher.maybeWriteFailureDetailFile(
+              crash.getDetailedExitCode().getFailureDetail())) {
+            logger.atInfo().log("Wrote failure detail file.");
+          } else {
+            logger.atWarning().log("Did not write failure detail file; check stderr for errors.");
+          }
+
+          if (runtime != null) {
+            runtime.cleanUpForCrash(crash.getDetailedExitCode());
+            logger.atInfo().log("Cleaned up runtime.");
+          } else {
+            logger.atInfo().log("No runtime to clean.");
+          }
         } finally {
           if (ctx.shouldHaltJvm()) {
             // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
@@ -262,11 +275,6 @@ public final class BugReport {
   }
 
   private static final class DefaultBugReporter implements BugReporter {
-
-    @Override
-    public void sendBugReport(Throwable exception) {
-      BugReport.sendBugReport(exception);
-    }
 
     @Override
     public void sendBugReport(Throwable exception, List<String> args, String... values) {

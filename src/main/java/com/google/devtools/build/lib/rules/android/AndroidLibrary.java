@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo.Aar;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -186,7 +185,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     // rules respectively.
     JavaCommon javaCommon =
         AndroidCommon.createJavaCommonWithAndroidDataBinding(
-            ruleContext, javaSemantics, resourceApk.asDataBindingContext(), /* isLibrary */ true);
+            ruleContext,
+            javaSemantics,
+            resourceApk.asDataBindingContext(),
+            /* isLibrary */ true,
+            /* shouldCompileJavaSrcs */ true);
     javaSemantics.checkRule(ruleContext, javaCommon);
     AndroidCommon androidCommon = new AndroidCommon(javaCommon);
 
@@ -240,9 +243,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).build()))
         .addNativeDeclaredProvider(new AndroidCcLinkParamsProvider(androidCommon.getCcInfo()))
-        .add(
-            JavaSourceInfoProvider.class,
-            JavaSourceInfoProvider.fromJavaTargetAttributes(javaTargetAttributes, javaSemantics))
         .addNativeDeclaredProvider(new ProguardSpecProvider(transitiveProguardConfigs))
         .addNativeDeclaredProvider(
             new AndroidProguardInfo(proguardLibrary.collectLocalProguardSpecs()))
@@ -254,7 +254,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     if (!JavaCommon.isNeverLink(ruleContext)) {
       builder.addNativeDeclaredProvider(aar.toProvider(ruleContext, definesLocalResources));
     }
-
 
     return builder.build();
   }

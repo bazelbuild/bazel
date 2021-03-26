@@ -190,6 +190,23 @@ public interface QueryEnvironment<T> {
    */
   interface CustomFunctionQueryEnvironment<T> extends QueryEnvironment<T> {
     /**
+     * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of the given
+     * {@code expr} and passing of the results to the given {@code callback}.
+     *
+     * <p>This provides callers the option to decide whether or not to batch futures resulting from
+     * the given {@code expr}.
+     *
+     * @param expr The expression to evaluate
+     * @param callback The caller's callback to notify when results are available
+     * @param batch Whether or not to invoke the callback with a single batch of the result set
+     */
+    QueryTaskFuture<Void> eval(
+        QueryExpression expr,
+        QueryExpressionContext<T> context,
+        Callback<T> callback,
+        boolean batch);
+
+    /**
      * Computes the transitive closure of dependencies at most maxDepth away from the given targets,
      * and calls the given callback with the results.
      */

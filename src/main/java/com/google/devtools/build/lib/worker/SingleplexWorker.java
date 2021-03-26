@@ -118,13 +118,33 @@ class SingleplexWorker extends Worker {
   }
 
   @Override
-  WorkResponse getResponse(int requestId) throws IOException {
+  WorkResponse getResponse(int requestId) throws IOException, InterruptedException {
     recordingInputStream.startRecording(4096);
+    // Ironically, we don't allow interrupts during dynamic execution, since we can't cancel
+    // the worker short of destroying it.
+    if (!workerKey.isSpeculative()) {
+      while (recordingInputStream.available() == 0) {
+        try {
+          Thread.sleep(10);
+        } catch (InterruptedException e) {
+          // This should only happen when not in dynamic execution, so we can safely kill the
+          // worker.
+          destroy();
+          throw e;
+        }
+        if (!process.isAlive()) {
+          throw new IOException(
+              String.format(
+                  "Worker process for %s died while waiting for response",
+                  workerKey.getMnemonic()));
+        }
+      }
+    }
     return workerProtocol.getResponse();
   }
 
   @Override
-  public void finishExecution(Path execRoot) throws IOException {}
+  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {}
 
   @Override
   void destroy() {

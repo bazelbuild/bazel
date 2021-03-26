@@ -2508,8 +2508,6 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
     scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
 
-    setBuildLanguageOptions("--experimental_starlark_config_transitions=true");
-
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:foo");
     assertContainsEvent("late-bound attributes must not have a split configuration transition");

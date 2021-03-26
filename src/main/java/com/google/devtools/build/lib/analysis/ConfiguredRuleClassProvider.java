@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.ABSTRACT;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.TEST;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -55,6 +56,8 @@ import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -101,6 +104,31 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     ImmutableList<RuleSet> requires();
   }
 
+  /** An InMemoryFileSystem for bundled builtins .bzl files. */
+  public static class BundledFileSystem extends InMemoryFileSystem {
+
+    private static final byte[] EMPTY_DIGEST = new byte[0];
+
+    public BundledFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    // Bundled files are guaranteed to not change throughout the lifetime of the Bazel server, so it
+    // is permissible to use a fake digest. This helps avoid peculiarities in the interaction of
+    // InMemoryFileSystem and Skyframe. See cl/354809138 for further discussion, including of
+    // possible (but unlikely) future caveats of this approach.
+
+    @Override
+    protected synchronized byte[] getFastDigest(PathFragment path) throws IOException {
+      return EMPTY_DIGEST;
+    }
+
+    @Override
+    protected synchronized byte[] getDigest(PathFragment path) throws IOException {
+      return EMPTY_DIGEST;
+    }
+  }
+
   /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static class Builder implements RuleDefinitionEnvironment {
     private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
@@ -109,7 +137,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     private String runfilesPrefix;
     private String toolsRepository;
     @Nullable private String builtinsBzlZipResource;
-    private String builtinsBzlPackagePathInSource;
+    private boolean useDummyBuiltinsBzlInsteadOfResource = false;
+    @Nullable private String builtinsBzlPackagePathInSource;
     private final List<Class<? extends Fragment>> configurationFragmentClasses = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final Set<Class<? extends FragmentOptions>> configurationOptions =
@@ -127,7 +156,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
     private final ImmutableList.Builder<Bootstrap> starlarkBootstraps = ImmutableList.builder();
-    private ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
+    private final ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
+        ImmutableMap.builder();
+    private final ImmutableMap.Builder<String, Object> starlarkBuiltinsInternals =
         ImmutableMap.builder();
     private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
         ImmutableList.builder();
@@ -183,15 +214,37 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
      *
      * <p>This value is required for production uses. For uses in tests, this may be left null, but
      * the resulting rule class provider will not work with {@code
-     * --experimental_builtins_bzl_path=%bundled%}.
+     * --experimental_builtins_bzl_path=%bundled%}. Alternatively, tests may call {@link
+     * #useDummyBuiltinsBzl} if they do not rely on any native rules that may be migratable to
+     * Starlark.
      */
     public Builder setBuiltinsBzlZipResource(String name) {
       this.builtinsBzlZipResource = name;
+      this.useDummyBuiltinsBzlInsteadOfResource = false;
       return this;
     }
 
-    // This is required if the rule class provider will be used with
-    // "--experimental_builtins_bzl_path=%workspace%", but can be skipped in unit tests.
+    /**
+     * Instructs the rule class provider to use a set of dummy builtins definitions that inject no
+     * symbols.
+     *
+     * <p>This is only suitable for use in tests, and only when the test does not depend (even
+     * implicitly) on native rules. For example, pure tests of package loading behavior may call
+     * this method, but not tests that use AnalysisMock. Otherwise the test may break when a native
+     * rule is migrated to Starlark via builtins injection.
+     */
+    public Builder useDummyBuiltinsBzl() {
+      this.builtinsBzlZipResource = null;
+      this.useDummyBuiltinsBzlInsteadOfResource = true;
+      return this;
+    }
+
+    /**
+     * Sets the relative location of the builtins_bzl directory within a Bazel source tree.
+     *
+     * <p>This is required if the rule class provider will be used with {@code
+     * --experimental_builtins_bzl_path=%workspace%}, but can be skipped in unit tests.
+     */
     public Builder setBuiltinsBzlPackagePathInSource(String path) {
       this.builtinsBzlPackagePathInSource = path;
       return this;
@@ -258,6 +311,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
+      return this;
+    }
+
+    public Builder addStarlarkBuiltinsInternal(String name, Object object) {
+      this.starlarkBuiltinsInternals.put(name, object);
       return this;
     }
 
@@ -432,26 +490,20 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     }
 
     /**
-     * Unpacks the builtins zip file into an InMemoryFileSystem. The zip file is located as a Java
-     * resource file.
-     *
-     * <p>The files underneath the zip's {@code builtins_bzl/} directory are moved to a top-level
-     * {@code /virtual_builtins_bzl} directory. The Path to that directory is returned.
+     * Locates the builtins zip file as a Java resource, and unpacks it into the given directory.
+     * Note that the builtins_bzl/ entry itself in the zip is not copied, just its children.
      */
-    private static Path unpackBuiltinsBzlZipResource(String builtinsResourceName) {
+    private static void unpackBuiltinsBzlZipResource(String builtinsResourceName, Path targetRoot) {
       ClassLoader loader = ConfiguredRuleClassProvider.class.getClassLoader();
       try (InputStream builtinsZip = loader.getResourceAsStream(builtinsResourceName)) {
         Preconditions.checkArgument(
             builtinsZip != null, "No resource with name %s", builtinsResourceName);
 
-        InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
-        Path root = fs.getPath("/virtual_builtins_bzl");
-
         try (ZipInputStream zip = new ZipInputStream(builtinsZip)) {
           for (ZipEntry entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
             String entryName = entry.getName();
             Preconditions.checkArgument(entryName.startsWith("builtins_bzl/"));
-            Path dest = root.getRelative(entryName.substring("builtins_bzl/".length()));
+            Path dest = targetRoot.getRelative(entryName.substring("builtins_bzl/".length()));
 
             dest.getParentDirectory().createDirectoryAndParents();
             try (OutputStream os = dest.getOutputStream()) {
@@ -459,7 +511,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
             }
           }
         }
-        return root;
       } catch (IOException ex) {
         throw new IllegalArgumentException(
             "Error while unpacking builtins_bzl zip resource file", ex);
@@ -472,16 +523,40 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
         commitRuleDefinition(ruleDefinition.getLabel());
       }
 
-      Path builtinsBzlRoot =
-          builtinsBzlZipResource != null
-              ? unpackBuiltinsBzlZipResource(builtinsBzlZipResource)
-              : null;
+      // Determine the bundled builtins root, if it exists.
+      Root builtinsRoot;
+      if (builtinsBzlZipResource == null && !useDummyBuiltinsBzlInsteadOfResource) {
+        // Use of --experimental_builtins_bzl_path=%bundled% is disallowed.
+        builtinsRoot = null;
+      } else {
+        BundledFileSystem fs = new BundledFileSystem();
+        Path builtinsPath = fs.getPath("/virtual_builtins_bzl");
+        if (builtinsBzlZipResource != null) {
+          // Production case.
+          unpackBuiltinsBzlZipResource(builtinsBzlZipResource, builtinsPath);
+        } else {
+          // Dummy case, use empty bundled builtins content.
+          try {
+            builtinsPath.createDirectoryAndParents();
+            try (OutputStream os = builtinsPath.getRelative("exports.bzl").getOutputStream()) {
+              String emptyExports =
+                  ("exported_rules = {}\n" //
+                      + "exported_toplevels = {}\n"
+                      + "exported_to_java = {}\n");
+              os.write(emptyExports.getBytes(UTF_8));
+            }
+          } catch (IOException ex) {
+            throw new IllegalStateException("Failed to write dummy builtins root", ex);
+          }
+        }
+        builtinsRoot = Root.fromPath(builtinsPath);
+      }
 
       return new ConfiguredRuleClassProvider(
           preludeLabel,
           runfilesPrefix,
           toolsRepository,
-          builtinsBzlRoot,
+          builtinsRoot,
           builtinsBzlPackagePathInSource,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
@@ -497,6 +572,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
           starlarkAccessibleTopLevels.build(),
+          starlarkBuiltinsInternals.build(),
           starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
@@ -538,10 +614,15 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
    * <p>May be null in tests, in which case --experimental_builtins_bzl_path must point to a
    * builtins root.
    */
-  @Nullable private final Path builtinsBzlRoot;
+  @Nullable private final Root bundledBuiltinsRoot;
 
-  /** The relative location of the builtins_bzl directory within a Bazel source tree. */
-  private final String builtinsBzlPackagePathInSource;
+  /**
+   * The relative location of the builtins_bzl directory within a Bazel source tree.
+   *
+   * <p>May be null in tests, in which case --experimental_builtins_bzl_path may not be
+   * "%workspace%".
+   */
+  @Nullable private final String builtinsBzlPackagePathInSource;
 
   /** Maps rule class name to the metaclass instance for that rule. */
   private final ImmutableMap<String, RuleClass> ruleClassMap;
@@ -586,6 +667,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   private final ImmutableMap<String, Object> nativeRuleSpecificBindings;
 
+  private final ImmutableMap<String, Object> starlarkBuiltinsInternals;
+
   private final ImmutableMap<String, Object> environment;
 
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
@@ -604,8 +687,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       Label preludeLabel,
       String runfilesPrefix,
       String toolsRepository,
-      @Nullable Path builtinsBzlRoot,
-      String builtinsBzlPackagePathInSource,
+      @Nullable Root bundledBuiltinsRoot,
+      @Nullable String builtinsBzlPackagePathInSource,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
@@ -619,7 +702,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, Object> starlarkAccessibleJavaClasses,
+      ImmutableMap<String, Object> starlarkAccessibleTopLevels,
+      ImmutableMap<String, Object> starlarkBuiltinsInternals,
       ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
@@ -629,7 +713,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
-    this.builtinsBzlRoot = builtinsBzlRoot;
+    this.bundledBuiltinsRoot = bundledBuiltinsRoot;
     this.builtinsBzlPackagePathInSource = builtinsBzlPackagePathInSource;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
@@ -646,7 +730,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
     this.nativeRuleSpecificBindings =
-        createNativeRuleSpecificBindings(starlarkAccessibleJavaClasses, starlarkBootstraps);
+        createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
+    this.starlarkBuiltinsInternals = starlarkBuiltinsInternals;
     this.environment = createEnvironment(nativeRuleSpecificBindings);
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
@@ -708,11 +793,12 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   @Override
   @Nullable
-  public Path getBuiltinsBzlRoot() {
-    return builtinsBzlRoot;
+  public Root getBundledBuiltinsRoot() {
+    return bundledBuiltinsRoot;
   }
 
   @Override
+  @Nullable
   public String getBuiltinsBzlPackagePathInSource() {
     return builtinsBzlPackagePathInSource;
   }
@@ -842,6 +928,11 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     // should be overridable by @_builtins); in practice it means anything specifically
     // registered with the RuleClassProvider.
     return nativeRuleSpecificBindings;
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getStarlarkBuiltinsInternals() {
+    return starlarkBuiltinsInternals;
   }
 
   @Override

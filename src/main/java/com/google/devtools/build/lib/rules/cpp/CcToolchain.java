@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -61,9 +62,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    if (!isAppleToolchain()) {
-      CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    }
     validateToolchain(ruleContext);
     CcToolchainAttributesProvider attributes =
         new CcToolchainAttributesProvider(
@@ -81,8 +79,10 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     if (!CppHelper.useToolchainResolution(ruleContext)) {
       // This is not a platforms-backed build, let's provide CcToolchainAttributesProvider
       // and have cc_toolchain_suite select one of its toolchains and create CcToolchainProvider
-      // from its attributes.
-      return ruleConfiguredTargetBuilder.build();
+      // from its attributes. We also need to provide a do-nothing ToolchainInfo.
+      return ruleConfiguredTargetBuilder
+          .addNativeDeclaredProvider(new ToolchainInfo(ImmutableMap.of("cc", "dummy cc toolchain")))
+          .build();
     }
 
     // This is a platforms-backed build, we will not analyze cc_toolchain_suite at all, and we are
@@ -100,8 +100,17 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             ccToolchainProvider,
             ruleContext.getRule().getLocation());
 
+    ToolchainInfo toolchain =
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder()
+                .put("cc", ccToolchainProvider)
+                // Add a clear signal that this is a CcToolchainProvider, since just "cc" is
+                // generic enough to possibly be re-used.
+                .put("cc_provider_in_toolchain", true)
+                .build());
     ruleConfiguredTargetBuilder
         .addNativeDeclaredProvider(ccToolchainProvider)
+        .addNativeDeclaredProvider(toolchain)
         .addNativeDeclaredProvider(templateVariableInfo)
         .setFilesToBuild(ccToolchainProvider.getAllFiles())
         .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));

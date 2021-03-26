@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompileOutputs;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -80,10 +80,16 @@ public class AndroidCommon {
 
   public static final InstrumentationSpec ANDROID_COLLECTION_SPEC =
       JavaCommon.JAVA_COLLECTION_SPEC.withDependencyAttributes(
-          "deps", "data", "exports", "instruments", "runtime_deps", "binary_under_test");
+          "application_resources",
+          "deps",
+          "data",
+          "exports",
+          "instruments",
+          "runtime_deps",
+          "binary_under_test");
 
   private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
-      ImmutableSet.of("deps", "exports");
+      ImmutableSet.of("application_resources", "deps", "exports");
 
   private static final int DEX_THREADS = 5;
   private static final ResourceSet DEX_RESOURCE_SET =
@@ -219,7 +225,7 @@ public class AndroidCommon {
   public static AndroidIdeInfoProvider createAndroidIdeInfoProvider(
       RuleContext ruleContext,
       AndroidIdlHelper idlHelper,
-      OutputJar resourceJar,
+      JavaOutput resourceJarJavaOutput,
       Artifact aar,
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
@@ -229,7 +235,7 @@ public class AndroidCommon {
         new AndroidIdeInfoProvider.Builder()
             .setIdlClassJar(idlHelper.getIdlClassJar())
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
-            .setResourceJar(resourceJar)
+            .setResourceJarJavaOutput(resourceJarJavaOutput)
             .setAar(aar)
             .setNativeLibs(nativeLibs.getMap())
             .addIdlImportRoot(idlHelper.getIdlImportRoot())
@@ -308,7 +314,7 @@ public class AndroidCommon {
     if (needle.equals(PathFragment.EMPTY_FRAGMENT)) {
       return haystack;
     }
-    List<String> needleSegments = needle.getSegments();
+    List<String> needleSegments = needle.splitToListOfSegments();
     // Compute the overlap offset for duplicated parts of the needle.
     int[] overlap = new int[needleSegments.size() + 1];
     // Start overlap at -1, as it will cancel out the increment in the search.
@@ -323,7 +329,7 @@ public class AndroidCommon {
     }
     // TODO(corysmith): reverse the search algorithm.
     // Keep the index of the found so that the rightmost index is taken.
-    List<String> haystackSegments = haystack.getSegments();
+    List<String> haystackSegments = haystack.splitToListOfSegments();
     int found = -1;
     for (int i = 0, j = 0; i < haystackSegments.size(); i++) {
 
@@ -642,22 +648,26 @@ public class AndroidCommon {
     if (generatedExtensionRegistryProvider != null) {
       builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
-    OutputJar resourceJar = null;
+    JavaOutput resourceJarJavaOutput = null;
     if (resourceApk.getResourceJavaClassJar() != null && resourceSourceJar != null) {
-      resourceJar =
-          new OutputJar(
-              resourceApk.getResourceJavaClassJar(),
-              null /* ijar */,
-              outputs.manifestProto(),
-              ImmutableList.of(resourceSourceJar));
-      javaRuleOutputJarsProviderBuilder.addOutputJar(resourceJar);
+      resourceJarJavaOutput =
+          JavaOutput.builder()
+              .setClassJar(resourceApk.getResourceJavaClassJar())
+              .addSourceJar(resourceSourceJar)
+              .build();
+      javaRuleOutputJarsProviderBuilder.addJavaOutput(resourceJarJavaOutput);
     }
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider =
         javaRuleOutputJarsProviderBuilder
-            .addOutputJar(classJar, iJar, outputs.manifestProto(), ImmutableList.of(srcJar))
-            .setJdeps(outputs.depsProto())
-            .setNativeHeaders(outputs.nativeHeader())
+            .addJavaOutput(
+                JavaOutput.builder()
+                    .fromJavaCompileOutputs(outputs)
+                    .setCompileJar(iJar)
+                    .setCompileJdeps(
+                        javaCommon.getJavaCompilationArtifacts().getCompileTimeDependencyArtifact())
+                    .addSourceJar(srcJar)
+                    .build())
             .build();
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
     JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
@@ -708,7 +718,7 @@ public class AndroidCommon {
             createAndroidIdeInfoProvider(
                 ruleContext,
                 idlHelper,
-                resourceJar,
+                resourceJarJavaOutput,
                 aar,
                 resourceApk,
                 zipAlignedApk,
@@ -717,7 +727,10 @@ public class AndroidCommon {
         .addOutputGroup(
             OutputGroupInfo.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
         .addOutputGroup(
-            JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, sourceJarsProvider.getTransitiveSourceJars());
+            JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, sourceJarsProvider.getTransitiveSourceJars())
+        .addOutputGroup(
+            JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()));
   }
 
   private Runfiles getRunfiles() {
@@ -846,17 +859,32 @@ public class AndroidCommon {
       RuleContext ruleContext,
       JavaSemantics semantics,
       DataBindingContext dataBindingContext,
-      boolean isLibrary) {
+      boolean isLibrary,
+      boolean shouldCompileJavaSrcs) {
+
+    /**
+     * When within the context of an android_binary rule and shouldCompileJavaSrcs is False, the
+     * Java compilation happens within the Starlark rule.
+     */
+    if (!isLibrary && !shouldCompileJavaSrcs) {
+      ImmutableList<TransitiveInfoCollection> runtimeDeps =
+          ImmutableList.copyOf(ruleContext.getPrerequisites("application_resources"));
+      return new JavaCommon(
+          ruleContext,
+          semantics,
+          ImmutableList.of(),
+          runtimeDeps, /* compileDeps */
+          runtimeDeps,
+          runtimeDeps); /* bothDeps */
+    }
 
     ImmutableList<Artifact> ruleSources = ruleContext.getPrerequisiteArtifacts("srcs").list();
 
     ImmutableList<Artifact> dataBindingSources =
         dataBindingContext.getAnnotationSourceFiles(ruleContext);
 
-    ImmutableList<Artifact> srcs = ImmutableList.<Artifact>builder()
-        .addAll(ruleSources)
-        .addAll(dataBindingSources)
-        .build();
+    ImmutableList<Artifact> srcs =
+        ImmutableList.<Artifact>builder().addAll(ruleSources).addAll(dataBindingSources).build();
 
     ImmutableList<TransitiveInfoCollection> compileDeps;
     ImmutableList<TransitiveInfoCollection> runtimeDeps;
@@ -869,7 +897,11 @@ public class AndroidCommon {
       bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
     } else {
       // Binary:
-      compileDeps = ImmutableList.copyOf(ruleContext.getPrerequisites("deps"));
+      compileDeps =
+          ImmutableList.<TransitiveInfoCollection>builder()
+              .addAll(ruleContext.getPrerequisites("application_resources"))
+              .addAll(ruleContext.getPrerequisites("deps"))
+              .build();
       runtimeDeps = compileDeps;
       bothDeps = compileDeps;
     }

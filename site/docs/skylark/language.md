@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Starlark language
+category: extending
 ---
 
 # Starlark Language

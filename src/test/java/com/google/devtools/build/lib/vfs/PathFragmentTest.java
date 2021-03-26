@@ -268,6 +268,13 @@ public class PathFragmentTest {
   }
 
   @Test
+  public void segments() {
+    assertThat(create("/this/is/a/path").segments())
+        .containsExactly("this", "is", "a", "path")
+        .inOrder();
+  }
+
+  @Test
   public void testBasename() throws Exception {
     assertThat(create("foo/bar").getBaseName()).isEqualTo("bar");
     assertThat(create("/foo/bar").getBaseName()).isEqualTo("bar");
@@ -545,14 +552,14 @@ public class PathFragmentTest {
     assertThat(create("/a/b").segmentCount()).isEqualTo(2);
     assertThat(create("/a/b/c").segmentCount()).isEqualTo(3);
 
-    assertThat(create("").getSegments()).isEmpty();
-    assertThat(create("a").getSegments()).containsExactly("a").inOrder();
-    assertThat(create("a/b").getSegments()).containsExactly("a", "b").inOrder();
-    assertThat(create("a/b/c").getSegments()).containsExactly("a", "b", "c").inOrder();
-    assertThat(create("/").getSegments()).isEmpty();
-    assertThat(create("/a").getSegments()).containsExactly("a").inOrder();
-    assertThat(create("/a/b").getSegments()).containsExactly("a", "b").inOrder();
-    assertThat(create("/a/b/c").getSegments()).containsExactly("a", "b", "c").inOrder();
+    assertThat(create("").splitToListOfSegments()).isEmpty();
+    assertThat(create("a").splitToListOfSegments()).containsExactly("a").inOrder();
+    assertThat(create("a/b").splitToListOfSegments()).containsExactly("a", "b").inOrder();
+    assertThat(create("a/b/c").splitToListOfSegments()).containsExactly("a", "b", "c").inOrder();
+    assertThat(create("/").splitToListOfSegments()).isEmpty();
+    assertThat(create("/a").splitToListOfSegments()).containsExactly("a").inOrder();
+    assertThat(create("/a/b").splitToListOfSegments()).containsExactly("a", "b").inOrder();
+    assertThat(create("/a/b/c").splitToListOfSegments()).containsExactly("a", "b", "c").inOrder();
 
     assertThat(create("a").getSegment(0)).isEqualTo("a");
     assertThat(create("a/b").getSegment(0)).isEqualTo("a");

@@ -859,23 +859,23 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
         @Param(
-            name = "textual_hdrs",
+            name = "direct_textual_headers",
             documented = false,
             positional = false,
             named = true,
-            defaultValue = "unbound"),
+            defaultValue = "[]"),
         @Param(
-            name = "modular_public_hdrs",
+            name = "direct_public_headers",
             documented = false,
             positional = false,
             named = true,
-            defaultValue = "unbound"),
+            defaultValue = "[]"),
         @Param(
-            name = "modular_private_hdrs",
+            name = "direct_private_headers",
             documented = false,
             positional = false,
             named = true,
-            defaultValue = "unbound"),
+            defaultValue = "[]"),
         @Param(
             name = "purpose",
             documented = false,
@@ -891,9 +891,9 @@ public interface CcModuleApi<
       Object frameworkIncludes,
       Object defines,
       Object localDefines,
-      Object textualHdrs,
-      Object modularPublicHdrs,
-      Object modularPrivateHdrs,
+      Sequence<?> directTextualHdrs,
+      Sequence<?> directPublicHdrs,
+      Sequence<?> directPrivateHdrs,
       Object purpose,
       StarlarkThread thread)
       throws EvalException;
@@ -1174,6 +1174,13 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
       })
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -1189,6 +1196,7 @@ public interface CcModuleApi<
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
+      Object variablesExtension,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 

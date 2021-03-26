@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -114,7 +116,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
     this(
         owner,
-        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -159,7 +161,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public final synchronized boolean inputsDiscovered() {
-    return discoversInputs() ? inputsDiscovered : true;
+    return !discoversInputs() || inputsDiscovered;
   }
 
   /**
@@ -176,23 +178,55 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   /**
-   * Run input discovery on the action.
+   * Runs input discovery on the action.
    *
    * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of input
-   * artifacts that were not known at analysis time. May also call {@link
-   * #updateInputs(NestedSet<Artifact>)}; if it doesn't, the action itself must arrange for the
-   * newly discovered artifacts to be available during action execution, probably by keeping state
-   * in the action instance and using a custom action execution context and for {@code
-   * #updateInputs()} to be called during the execution of the action.
+   * artifacts that were not known at analysis time. May also call {@link #updateInputs}; if it
+   * doesn't, the action itself must arrange for the newly discovered artifacts to be available
+   * during action execution, probably by keeping state in the action instance and using a custom
+   * action execution context and for {@link #updateInputs} to be called during the execution of the
+   * action.
    *
-   * <p>Since keeping state within an action bad, don't do that unless there is a very good reason
-   * to do so.
+   * <p>Since keeping state within an action is bad, don't do that unless there is a very good
+   * reason to do so.
+   *
+   * <p>May return {@code null} if more dependencies were requested from skyframe but were
+   * unavailable, meaning a restart is necessary.
    */
   @Override
+  @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");
+  }
+
+  @Override
+  public final void resetDiscoveredInputs() {
+    Preconditions.checkState(discoversInputs(), "Not an input-discovering action: %s", this);
+    if (!inputsDiscovered()) {
+      return;
+    }
+    NestedSet<Artifact> originalInputs = getOriginalInputs();
+    if (originalInputs != null) {
+      synchronized (this) {
+        inputs = originalInputs;
+        inputsDiscovered = false;
+      }
+    }
+  }
+
+  /**
+   * Returns this action's <em>original</em> inputs, prior to {@linkplain #discoverInputs input
+   * discovery}.
+   *
+   * <p>Input-discovering actions which are able to reconstitute their original inputs may override
+   * this, allowing for memory savings.
+   */
+  @Nullable
+  @ForOverride
+  protected NestedSet<Artifact> getOriginalInputs() {
+    return null;
   }
 
   @Override
@@ -232,6 +266,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   public final ActionEnvironment getEnvironment() {
     return env;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException {
+    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    env.resolve(effectiveEnvironment, clientEnv);
+    return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   @Override

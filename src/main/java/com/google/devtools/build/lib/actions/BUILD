@@ -28,6 +28,7 @@ java_library(
         exclude = [
             "ActionInput.java",
             "ActionLookupKey.java",
+            "AnalysisGraphStatsEvent.java",
             "Artifact.java",
             "ArtifactFactory.java",
             "ArtifactOwner.java",
@@ -45,13 +46,14 @@ java_library(
             "FileStateValue.java",
             "FileValue.java",
             "FilesetOutputSymlink.java",
-            "InconsistentFilesystemException.java",
             "LocalHostCapacity.java",
             "LocalHostResourceManagerLinux.java",
             "LocalHostResourceManagerDarwin.java",
             "LocalHostResourceFallback.java",
             "MiddlemanType.java",
             "ResourceSet.java",
+            "PackageRootResolver.java",
+            "PackageRoots.java",
             "cache/MetadataDigestUtils.java",
         ],
     ),
@@ -65,6 +67,7 @@ java_library(
         ":fileset_output_symlink",
         ":localhost_capacity",
         ":middleman_type",
+        ":package_roots",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -133,12 +136,26 @@ java_library(
 )
 
 java_library(
+    name = "total_and_configured_target_only_metric",
+    srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
+    deps = [
+        "//third_party:auto_value",
+    ],
+)
+
+java_library(
     name = "action_lookup_key",
     srcs = ["ActionLookupKey.java"],
     deps = [
         ":artifact_owner",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
+)
+
+java_library(
+    name = "analysis_graph_stats_event",
+    srcs = ["AnalysisGraphStatsEvent.java"],
+    deps = [":total_and_configured_target_only_metric"],
 )
 
 java_library(
@@ -222,13 +239,13 @@ java_library(
         "FileStateType.java",
         "FileStateValue.java",
         "FileValue.java",
-        "InconsistentFilesystemException.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [
         ":artifacts",
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
@@ -280,9 +297,14 @@ java_library(
         "PackageRoots.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

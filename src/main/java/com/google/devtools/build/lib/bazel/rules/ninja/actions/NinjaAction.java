@@ -160,7 +160,7 @@ public class NinjaAction extends SpawnAction implements ActionCacheAwareAction {
           new DependencySet(execRoot).read(actionExecutionContext.getInputPath(depFile));
       NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
       for (Path inputPath : depSet.getDependencies()) {
-        PathFragment execRelativePath = null;
+        PathFragment execRelativePath;
 
         // This branch needed in case the depfile contains an absolute path to a source file.
         if (sourceRoot.contains(inputPath)) {
@@ -229,6 +229,11 @@ public class NinjaAction extends SpawnAction implements ActionCacheAwareAction {
             .build();
     updateInputs(inputs);
     return inputs;
+  }
+
+  @Override
+  protected NestedSet<Artifact> getOriginalInputs() {
+    return originalInputs;
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

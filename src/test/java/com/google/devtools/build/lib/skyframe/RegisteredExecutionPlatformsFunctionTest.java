@@ -113,7 +113,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -139,7 +140,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -163,7 +165,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -190,7 +193,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertExecutionPlatformLabels(
             result.get(executionPlatformsKey), PackageIdentifier.createInMainRepo("extra"))
         .containsExactly(
-            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -214,14 +218,16 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            makeLabel("//extra:execution_platform_1"), makeLabel("//extra:execution_platform_2"))
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
+            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
   @Test
   public void testRegisteredExecutionPlatforms_notExecutionPlatform() throws Exception {
     rewriteWorkspace("register_execution_platforms(", "    '//error:not_an_execution_platform')");
-    scratch.file("error/BUILD", "filegroup(name = 'not_an_execution_platform')");
+    // Have to use a rule that doesn't require a target platform, or else there will be a cycle.
+    scratch.file("error/BUILD", "toolchain_type(name = 'not_an_execution_platform')");
 
     // Request the executionPlatforms.
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
@@ -253,7 +259,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .contains(makeLabel("//platform:execution_platform_1"));
+        .contains(Label.parseAbsoluteUnchecked("//platform:execution_platform_1"));
 
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_execution_platforms('//platform:execution_platform_2')");
@@ -262,7 +268,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     result = requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .contains(makeLabel("//platform:execution_platform_2"));
+        .contains(Label.parseAbsoluteUnchecked("//platform:execution_platform_2"));
   }
 
   @Test
@@ -270,12 +276,12 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
       throws ConstraintCollection.DuplicateConstraintException {
     ConfiguredTargetKey executionPlatformKey1 =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//test:executionPlatform1"))
+            .setLabel(Label.parseAbsoluteUnchecked("//test:executionPlatform1"))
             .setConfigurationKey(null)
             .build();
     ConfiguredTargetKey executionPlatformKey2 =
         ConfiguredTargetKey.builder()
-            .setLabel(makeLabel("//test:executionPlatform2"))
+            .setLabel(Label.parseAbsoluteUnchecked("//test:executionPlatform2"))
             .setConfigurationKey(null)
             .build();
 

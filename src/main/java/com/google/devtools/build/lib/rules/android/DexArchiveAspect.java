@@ -55,13 +55,14 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoAspectCommon;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -273,6 +274,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         jars.add(rJar);
       }
 
+      Artifact buildStampJar = getAndroidBuildStampJar(base);
+      if (buildStampJar != null) {
+        jars.add(buildStampJar);
+      }
+
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       NestedSet<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
@@ -297,10 +303,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         JavaRuleOutputJarsProvider outputJarsProvider =
             base.getProvider(JavaRuleOutputJarsProvider.class);
         if (outputJarsProvider != null) {
-          return outputJarsProvider
-              .getOutputJars()
-              .stream()
-              .map(OutputJar::getClassJar)
+          return outputJarsProvider.getJavaOutputs().stream()
+              .map(JavaOutput::getClassJar)
               .collect(toImmutableList());
         } else {
           JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
@@ -319,6 +323,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       Artifact rJar = getAndroidLibraryRJar(base);
       if (rJar != null) {
           jars.add(rJar);
+      }
+
+      Artifact buildStampJar = getAndroidBuildStampJar(base);
+      if (buildStampJar != null) {
+        jars.add(buildStampJar);
       }
 
       return jars.build();
@@ -343,8 +352,17 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static Artifact getAndroidLibraryRJar(ConfiguredTarget base) {
     AndroidIdeInfoProvider provider =
         (AndroidIdeInfoProvider) base.get(AndroidIdeInfoProvider.PROVIDER.getKey());
-    if (provider != null && provider.getResourceJar() != null) {
-      return provider.getResourceJar().getClassJar();
+    if (provider != null && provider.getResourceJarJavaOutput() != null) {
+      return provider.getResourceJarJavaOutput().getClassJar();
+    }
+    return null;
+  }
+
+  private static Artifact getAndroidBuildStampJar(ConfiguredTarget base) {
+    AndroidApplicationResourceInfo provider =
+        (AndroidApplicationResourceInfo) base.get(AndroidApplicationResourceInfo.PROVIDER.getKey());
+    if (provider != null && provider.getBuildStampJar() != null) {
+      return provider.getBuildStampJar();
     }
     return null;
   }
@@ -485,6 +503,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
+            .setExecutionInfo(
+                TargetUtils.getExecutionInfo(
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)

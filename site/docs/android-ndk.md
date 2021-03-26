@@ -106,7 +106,7 @@ ABI](#configuring-the-target-abi).
 This example is available in the [Bazel examples
 repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
 
-In the `BUILD.bazel` file, we define three targets with the `android_binary`,
+In the `BUILD.bazel` file, three targets are defined with the `android_binary`,
 `android_library` and `cc_library` rules.
 
 The `android_binary` top-level target builds the APK.
@@ -376,12 +376,12 @@ bazel build //my/cc/jni:target \
       --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 ```
 
-Here, we specify that top-level `cc_library` and `cc_binary` targets are built
+In this example, the top-level `cc_library` and `cc_binary` targets are built
 using the NDK toolchain. However, this causes Bazel's own host tools to be built
 with the NDK toolchain (and thus for Android), because the host toolchain is
-copied from the target toolchain. To work around this, we specify the value of
-`--host_crosstool_top` to be `@bazel_tools//tools/cpp:toolchain` to explicitly
-set the host's C++ toolchain.
+copied from the target toolchain. To work around this, specify the value of
+`--host_crosstool_top` to be `@bazel_tools//tools/cpp:toolchain` to
+explicitly set the host's C++ toolchain.
 
 With this approach, the entire build tree is affected.
 

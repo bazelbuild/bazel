@@ -74,6 +74,8 @@ public class LoggingInterceptor implements ClientInterceptor {
       return new ReadHandler(); // <ReadRequest, ReadResponse>
     } else if (method == ByteStreamGrpc.getWriteMethod()) {
       return new WriteHandler(); // <WriteRequest, WriteResponse>
+    } else if (method == ByteStreamGrpc.getQueryWriteStatusMethod()) {
+      return new QueryWriteStatusHandler(); // <QueryWriteStatusRequest, QueryWriteStatusResponse>
     } else if (method == CapabilitiesGrpc.getGetCapabilitiesMethod()) {
       return new GetCapabilitiesHandler(); // <GetCapabilitiesRequest, ServerCapabilities>
     }

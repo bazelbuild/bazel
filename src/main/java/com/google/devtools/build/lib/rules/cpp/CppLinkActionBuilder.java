@@ -956,10 +956,6 @@ public class CppLinkActionBuilder {
     }
 
     linkCommandLineBuilder.setBuildVariables(buildVariables);
-    if (CppHelper.doNotSplitLinkingCmdLine(
-        actionConstructionContext.getAnalysisEnvironment().getStarlarkSemantics(), toolchain)) {
-      linkCommandLineBuilder.doNotSplitLinkingCmdLine();
-    }
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 
     // Compute the set of inputs - we only need stable order here.
@@ -1315,6 +1311,7 @@ public class CppLinkActionBuilder {
    * Adds non-code files to the set of inputs. They will not be passed to the linker command line
    * unless that is explicitly modified, too.
    */
+  // TOOD: Remove and just use method for addLinkerInputs
   public CppLinkActionBuilder addNonCodeInputs(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
       addNonCodeInput(input);
@@ -1328,11 +1325,6 @@ public class CppLinkActionBuilder {
    * line unless that is explicitly modified, too.
    */
   public CppLinkActionBuilder addNonCodeInput(Artifact input) {
-    String basename = input.getFilename();
-    Preconditions.checkArgument(!Link.ARCHIVE_LIBRARY_FILETYPES.matches(basename), basename);
-    Preconditions.checkArgument(!Link.SHARED_LIBRARY_FILETYPES.matches(basename), basename);
-    Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename), basename);
-
     this.nonCodeInputs.add(input);
     return this;
   }

@@ -1,4 +1,3 @@
-load("@rules_java//java:defs.bzl", "java_import", "java_runtime", "java_toolchain")
 load(
     "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
     "DEFAULT_TOOLCHAIN_CONFIGURATION",
@@ -18,7 +17,6 @@ load(
     "legacy_java_runtime_alias",
     "legacy_java_toolchain_alias",
 )
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
@@ -100,6 +98,8 @@ cc_library(
         "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
         "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
         "//src/conditions:linux_s390x": [":jni_md_header-linux"],
+        "//src/conditions:linux_mips64": [":jni_md_header-linux"],
+        "//src/conditions:linux_riscv64": [":jni_md_header-linux"],
         "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
         "//src/conditions:freebsd": [":jni_md_header-freebsd"],
@@ -111,6 +111,8 @@ cc_library(
         "//src/conditions:linux_aarch64": ["include/linux"],
         "//src/conditions:linux_ppc64le": ["include/linux"],
         "//src/conditions:linux_s390x": ["include/linux"],
+        "//src/conditions:linux_mips64": [":include/linux"],
+        "//src/conditions:linux_riscv64": [":include/linux"],
         "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
         "//src/conditions:freebsd": ["include/freebsd"],
@@ -227,11 +229,6 @@ alias(
 alias(
     name = "GenClass_deploy.jar",
     actual = "@remote_java_tools//:GenClass",
-)
-
-alias(
-    name = "bazel-singlejar_deploy.jar",
-    actual = "@remote_java_tools//:SingleJar",
 )
 
 alias(
@@ -431,12 +428,14 @@ py_test(
 # Aliases for JDKs, so that they are only downloaded when needed.
 _JDKS = [
     "remotejdk11_macos",
+    "remotejdk11_macos_aarch64",
     "remotejdk11_win",
     "remotejdk11_linux_aarch64",
     "remotejdk11_linux",
     "remotejdk11_linux_ppc64le",
     "remotejdk11_linux_s390x",
     "remotejdk15_macos",
+    "remotejdk15_macos_aarch64",
     "remotejdk15_win",
     "remotejdk15_linux",
 ]
@@ -456,7 +455,8 @@ java_runtime_version_alias(
     runtime_version = "remotejdk_11",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": ":remotejdk11_macos",
+            "//src/conditions:darwin_x86_64": ":remotejdk11_macos",
+            "//src/conditions:darwin_arm64": ":remotejdk11_macos_aarch64",
             "//src/conditions:windows": ":remotejdk11_win",
             "//src/conditions:linux_aarch64": ":remotejdk11_linux_aarch64",
             "//src/conditions:linux_x86_64": ":remotejdk11_linux",
@@ -474,7 +474,8 @@ java_runtime_version_alias(
     runtime_version = "remotejdk_15",
     selected_java_runtime = select(
         {
-            "//src/conditions:darwin": ":remotejdk15_macos",
+            "//src/conditions:darwin_x86_64": ":remotejdk15_macos",
+            "//src/conditions:darwin_arm64": ":remotejdk15_macos_aarch64",
             "//src/conditions:windows": ":remotejdk15_win",
             "//src/conditions:linux_x86_64": ":remotejdk15_linux",
         },

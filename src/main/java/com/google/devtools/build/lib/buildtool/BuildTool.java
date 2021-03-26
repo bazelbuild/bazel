@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
@@ -274,6 +275,12 @@ public class BuildTool {
                               public OptionsProvider getOptions() {
                                 return env.getOptions();
                               }
+
+                              @Nullable
+                              @Override
+                              public WorkspaceInfoFromDiff getWorkspaceInfoFromDiff() {
+                                return env.getWorkspaceInfoFromDiff();
+                              }
                             })));
       }
     }
@@ -401,9 +408,12 @@ public class BuildTool {
       buildTargets(request, result, validator);
       detailedExitCode = DetailedExitCode.success();
     } catch (BuildFailedException e) {
-      if (e.isErrorAlreadyShown()) {
-        // The actual error has already been reported by the Builder.
-      } else {
+      if (!e.isErrorAlreadyShown()) {
+        // The actual error has not already been reported by the Builder.
+        // TODO(janakr): This is wrong: --keep_going builds with errors don't have a message in
+        //  this BuildFailedException, so any error message that is only reported here will be
+        //  missing for --keep_going builds. All error reporting should be done at the site of the
+        //  error, if only for clearer behavior.
         reportExceptionError(e);
       }
       if (e.isCatastrophic()) {

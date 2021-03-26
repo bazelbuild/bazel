@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Command-line completion
+category: getting-started
 ---
 
 # Command-Line Completion

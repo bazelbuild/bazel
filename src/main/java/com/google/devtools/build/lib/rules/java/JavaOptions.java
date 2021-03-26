@@ -446,13 +446,14 @@ public class JavaOptions extends FragmentOptions {
       help = "The message translations used for translating messages in Java targets.")
   public List<String> translationTargets;
 
+  @Deprecated
   @Option(
       name = "check_constraint",
       allowMultiple = true,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Check the listed constraint.")
+      help = "No-op. Kept here for backwards compatibility.")
   public List<String> checkedConstraints;
 
   @Option(
@@ -574,17 +575,6 @@ public class JavaOptions extends FragmentOptions {
       help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE.")
   public boolean jplPropagateCcLinkParamsStore;
 
-  @Option(
-      name = "experimental_jlpl_enforce_strict_deps",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help =
-          "Turns on strict deps for all java_lite_proto_libraries even if they set strict_deps=0"
-              + " unless the java_library package disables the feature jpl_strict_deps."
-              + " Used for java_lite_proto_library.strict_deps migration.")
-  public boolean isJlplStrictDepsEnforced;
-
   // Plugins are built using the host config. To avoid cycles we just don't propagate
   // this option to the host config. If one day we decide to use plugins when building
   // host tools, we can improve this by (for example) creating a compiler configuration that is
@@ -598,20 +588,6 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Plugins to use in the build. Currently works with java_plugin.")
   public List<Label> pluginList;
-
-  @Option(
-      name = "incompatible_require_java_toolchain_header_compiler_direct",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, java_toolchains.header_compilation_direct must be set when "
-              + "--java_header_compilation is enabled.")
-  public boolean requireJavaToolchainHeaderCompilerDirect;
 
   @Option(
       name = "incompatible_disallow_resource_jars",
@@ -674,6 +650,19 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  // TODO(b/180107817): delete flag after removing from global .blazerc
+  @Option(
+      name = "incompatible_dont_collect_so_artifacts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "This flag is a noop and scheduled for removal.")
+  public boolean dontCollectSoArtifacts;
+
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
   }
@@ -732,10 +721,6 @@ public class JavaOptions extends FragmentOptions {
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
-    host.isJlplStrictDepsEnforced = isJlplStrictDepsEnforced;
-
-    host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
-
     host.disallowResourceJars = disallowResourceJars;
 
     host.javaRuntimeVersion = hostJavaRuntimeVersion;
@@ -757,6 +742,8 @@ public class JavaOptions extends FragmentOptions {
     host.hostJavaLanguageVersion = hostJavaLanguageVersion;
 
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
+
+    host.dontCollectSoArtifacts = dontCollectSoArtifacts;
 
     return host;
   }

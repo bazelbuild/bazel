@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -49,6 +50,8 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -163,7 +166,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new IgnoredPackagePrefixesFunction(
             /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
     skyFunctions.put(
-        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null, null));
+        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null));
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,
         new WorkspaceFileFunction(
@@ -180,10 +183,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
+        FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
     skyFunctions.put(
-        SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
+        FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
     // We use a non-hermetic key to allow us to invalidate the proper artifacts on rebuilds. We
     // could have the artifact depend on the corresponding FileValue, but that would not cover the
     // case of a generated directory, which we have test coverage for.
@@ -213,7 +216,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
   private SpecialArtifact treeArtifact(String path) {
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(rootDirectory, false, "out"),
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"),
         PathFragment.create("out/" + path));
   }
 
@@ -228,7 +231,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Artifact.DerivedArtifact result =
         (Artifact.DerivedArtifact)
             ActionsTestUtil.createArtifactWithExecPath(
-                ArtifactRoot.asDerivedRoot(rootDirectory, false, "out"), execPath);
+                ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"), execPath);
     result.setGeneratingActionKey(
         ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, artifacts.size()));
     artifacts.add(result);
@@ -414,7 +417,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static final class RecordingEvaluationProgressReceiver
-      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
+      implements EvaluationProgressReceiver {
     Set<SkyKey> invalidations;
     Set<SkyKey> evaluations;
 
@@ -435,7 +438,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     @Override
     public void evaluated(
         SkyKey skyKey,
-        @Nullable SkyValue value,
+        @Nullable SkyValue newValue,
+        @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
       if (evaluationSuccessState.get().succeeded()) {
@@ -984,7 +988,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     ErrorInfo error = result.getError(key);
     assertThat(error.getException()).isInstanceOf(RecursiveFilesystemTraversalException.class);
     assertThat(((RecursiveFilesystemTraversalException) error.getException()).getType())
-        .isEqualTo(RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE);
+        .isEqualTo(RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
     assertThat(error.getException()).hasMessageThat().contains("Infinite symlink expansion");
   }
 
@@ -1004,7 +1008,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     ErrorInfo error = result.getError(key);
     assertThat(error.getException()).isInstanceOf(RecursiveFilesystemTraversalException.class);
     assertThat(((RecursiveFilesystemTraversalException) error.getException()).getType())
-        .isEqualTo(RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE);
+        .isEqualTo(RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION);
     assertThat(error.getException()).hasMessageThat().contains("Symlink cycle");
   }
 

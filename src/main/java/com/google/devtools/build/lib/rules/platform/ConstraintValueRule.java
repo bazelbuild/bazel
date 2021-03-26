@@ -32,7 +32,7 @@ public class ConstraintValueRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .advertiseProvider(ConstraintValueInfo.class)
+        .advertiseStarlarkProvider(ConstraintValueInfo.PROVIDER.id())
         /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint_setting) -->
         The <code>constraint_setting</code> for which this <code>constraint_value</code> is a
         possible choice.
@@ -57,9 +57,10 @@ public class ConstraintValueRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = constraint_value, FAMILY = Platform)[GENERIC_RULE] -->
 
-This rule introduces a new value for a given constraint type. See the
-<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page for more
-details.
+This rule introduces a new value for a given constraint type.
+
+For more details, see the
+<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page.
 
 <h4 id="constraint_value_examples">Example</h4>
 <p>The following creates a new possible value for the predefined <code>constraint_value</code>

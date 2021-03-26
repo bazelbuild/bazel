@@ -178,9 +178,17 @@ public final class PrintActionCommand implements BlazeCommand {
         throws PrintActionException, InterruptedException {
       BlazeRuntime runtime = env.getRuntime();
       String commandName = PrintActionCommand.this.getClass().getAnnotation(Command.class).name();
-      BuildRequest request = BuildRequest.create(commandName, options,
-          runtime.getStartupOptionsProvider(),
-          targets, outErr, env.getCommandId(), env.getCommandStartTime());
+
+      BuildRequest request =
+          BuildRequest.builder()
+              .setCommandName(commandName)
+              .setId(env.getCommandId())
+              .setOptions(options)
+              .setStartupOptions(runtime.getStartupOptionsProvider())
+              .setOutErr(outErr)
+              .setTargets(targets)
+              .setStartTimeMillis(env.getCommandStartTime())
+              .build();
       BuildResult result = new BuildTool(env).processRequest(request, null);
       if (hasFatalBuildFailure(result)) {
         return result;

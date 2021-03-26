@@ -248,6 +248,7 @@ public enum LinkBuildVariables {
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
+        && fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
       buildVariables.addStringVariable(
           PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),

@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Aspects
+category: extending
 ---
 
 # Aspects

@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 
 /**
@@ -24,15 +26,32 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
  */
 public interface FileWriteActionContext extends ActionContext {
 
-  /**
-   * Writes the output created by the {@link DeterministicWriter} to the sole output of the given
-   * action.
-   */
   SpawnContinuation beginWriteOutputToFile(
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       DeterministicWriter deterministicWriter,
       boolean makeExecutable,
-      boolean isRemotable)
+      boolean isRemotable,
+      Artifact output)
       throws InterruptedException;
+
+  /**
+   * Writes the output created by the {@link DeterministicWriter} to the sole output of the given
+   * action.
+   */
+  default SpawnContinuation beginWriteOutputToFile(
+      AbstractAction action,
+      ActionExecutionContext actionExecutionContext,
+      DeterministicWriter deterministicWriter,
+      boolean makeExecutable,
+      boolean isRemotable)
+      throws InterruptedException {
+    return beginWriteOutputToFile(
+        action,
+        actionExecutionContext,
+        deterministicWriter,
+        makeExecutable,
+        isRemotable,
+        Iterables.getOnlyElement(action.getOutputs()));
+  }
 }

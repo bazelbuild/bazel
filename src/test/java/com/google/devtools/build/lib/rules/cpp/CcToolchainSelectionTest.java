@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -51,11 +52,11 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
             .setList("srcs", "a.cc")
             .write();
-    CcToolchainProvider toolchain =
-        (CcToolchainProvider)
-            getRuleContext(target)
-                .getToolchainContext()
-                .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
+    ToolchainInfo toolchainInfo =
+        getRuleContext(target)
+            .getToolchainContext()
+            .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
+    CcToolchainProvider toolchain = (CcToolchainProvider) toolchainInfo.getValue("cc");
     assertThat(toolchain.getCompilerFiles().getSingleton().getExecPathString()).endsWith("k8");
   }
 
@@ -69,11 +70,11 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         ScratchAttributeWriter.fromLabelString(this, "cc_library", "//lib")
             .setList("srcs", "a.cc")
             .write();
-    CcToolchainProvider toolchain =
-        (CcToolchainProvider)
-            getRuleContext(target)
-                .getToolchainContext()
-                .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
+    ToolchainInfo toolchainInfo =
+        getRuleContext(target)
+            .getToolchainContext()
+            .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
+    CcToolchainProvider toolchain = (CcToolchainProvider) toolchainInfo.getValue("cc");
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bugreport;
 
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /**
@@ -29,9 +30,11 @@ public interface BugReporter {
   }
 
   /** Reports an exception, see {@link BugReport#sendBugReport(Throwable)}. */
-  void sendBugReport(Throwable exception);
+  default void sendBugReport(Throwable exception) {
+    sendBugReport(exception, /*args=*/ ImmutableList.of());
+  }
 
-  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable, List, String[])}. */
+  /** Reports an exception, see {@link BugReport#sendBugReport(Throwable, List, String...)}. */
   void sendBugReport(Throwable exception, List<String> args, String... values);
 
   /** See {@link BugReport#handleCrash}. */

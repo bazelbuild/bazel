@@ -1,6 +1,7 @@
 ---
 layout: documentation
 title: Bazel Glossary
+category: getting-started
 ---
 
 # Bazel Glossary

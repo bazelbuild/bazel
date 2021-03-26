@@ -22,7 +22,6 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -44,18 +42,13 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * This class aggregates and reports target-wide test statuses in real-time.
- * It must be public for EventBus invocation.
- */
+/** Aggregates and reports target-wide test statuses in real-time. */
 @ThreadSafety.ThreadSafe
-public class AggregatingTestListener {
+public final class AggregatingTestListener {
 
   private static final DetailedExitCode TESTS_FAILED_DETAILED_CODE =
       DetailedExitCode.of(
@@ -63,6 +56,7 @@ public class AggregatingTestListener {
               .setMessage("tests failed")
               .setTestCommand(TestCommand.newBuilder().setCode(Code.TESTS_FAILED))
               .build());
+
   private final TestSummaryOptions summaryOptions;
   private final ExecutionOptions executionOptions;
   private final EventBus eventBus;
@@ -83,27 +77,6 @@ public class AggregatingTestListener {
     this.aggregators = new ConcurrentHashMap<>();
   }
 
-  /** Returns an unmodifiable copy of the map of test results. */
-  public Map<Artifact, TestResult> getStatusMapForTesting() {
-    Map<Artifact, TestResult> result = new HashMap<>();
-    for (TestResultAggregator aggregator : aggregators.values()) {
-      result.putAll(aggregator.getStatusMapForTesting());
-    }
-    return result;
-  }
-
-  /** Returns the known aggregate results for the given target at the current moment. */
-  public TestSummary.Builder getCurrentSummaryForTesting(ConfiguredTarget target) {
-    return aggregators.get(asKey(target)).getCurrentSummaryForTesting();
-  }
-
-  /**
-   * Returns all test status artifacts associated with a given target whose runs have yet to finish.
-   */
-  public Collection<Artifact> getIncompleteRunsForTesting(ConfiguredTarget target) {
-    return aggregators.get(asKey(target)).getIncompleteRunsForTesting();
-  }
-
   /**
    * Populates the test summary map as soon as test filtering is complete.
    * This is the earliest at which the final set of targets to test is known.
@@ -118,7 +91,7 @@ public class AggregatingTestListener {
             summaryOptions.testVerboseTimeoutWarnings);
     // Add all target runs to the map, assuming 1:1 status artifact <-> result.
     for (ConfiguredTarget target : event.getTestTargets()) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       TestResultAggregator aggregator =
@@ -178,14 +151,14 @@ public class AggregatingTestListener {
     for (ConfiguredTarget target :
         Sets.difference(
             ImmutableSet.copyOf(nonSuccessfulTargets), ImmutableSet.copyOf(skippedTargets))) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       targetFailure(asKey(target));
     }
 
     for (ConfiguredTarget target : skippedTargets) {
-      if (isAlias(target)) {
+      if (AliasProvider.isAlias(target)) {
         continue;
       }
       targetSkipped(asKey(target));
@@ -252,7 +225,7 @@ public class AggregatingTestListener {
     DetailedExitCode systemFailure = null;
     for (ConfiguredTarget testTarget : testTargets) {
       TestSummary summary;
-      if (isAlias(testTarget)) {
+      if (AliasProvider.isAlias(testTarget)) {
         ConfiguredTargetKey actualKey =
             ConfiguredTargetKey.builder()
                 .setLabel(testTarget.getLabel())
@@ -308,13 +281,8 @@ public class AggregatingTestListener {
         : TESTS_FAILED_DETAILED_CODE;
   }
 
-  private static boolean isAlias(ConfiguredTarget target) {
-    // I expect this to be consistent with target.getProvider(AliasProvider.class) != null.
-    return target instanceof AliasConfiguredTarget;
-  }
-
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
-    Preconditions.checkArgument(!isAlias(target));
+    Preconditions.checkArgument(!AliasProvider.isAlias(target));
     return ConfiguredTargetKey.builder()
         .setLabel(AliasProvider.getDependencyLabel(target))
         .setConfigurationKey(target.getConfigurationKey())

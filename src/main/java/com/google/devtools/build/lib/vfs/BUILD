@@ -11,6 +11,7 @@ filegroup(
 PATH_FRAGMENT_SOURCES = [
     "PathFragment.java",
     "PathFragmentSerializationProxy.java",
+    "PathSegmentIterator.java",
     "OsPathPolicy.java",
     "UnixOsPathPolicy.java",
     "WindowsOsPathPolicy.java",

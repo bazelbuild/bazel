@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.OutputJarApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -42,7 +42,7 @@ import net.starlark.java.eval.Sequence;
             + "you will be broken when it is removed.",
     documented = false)
 public interface AndroidIdeInfoProviderApi<
-        FileT extends FileApi, OutputJarT extends OutputJarApi<FileT>>
+        FileT extends FileApi, JavaOutputT extends JavaOutputApi<FileT>>
     extends StructApi {
 
   /** Name of this info object. */
@@ -135,7 +135,7 @@ public interface AndroidIdeInfoProviderApi<
       documented = false,
       allowReturnNones = true)
   @Nullable
-  OutputJarT getResourceJar();
+  JavaOutputT getResourceJarJavaOutput();
 
   @StarlarkMethod(
       name = "resource_apk",
@@ -180,7 +180,7 @@ public interface AndroidIdeInfoProviderApi<
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  interface Provider<FileT extends FileApi, OutputJarT extends OutputJarApi<FileT>>
+  interface Provider<FileT extends FileApi, OutputJarT extends JavaOutputApi<FileT>>
       extends ProviderApi {
 
     @StarlarkMethod(
@@ -265,7 +265,7 @@ public interface AndroidIdeInfoProviderApi<
               positional = true,
               named = false,
               allowedTypes = {
-                @ParamType(type = OutputJarApi.class),
+                @ParamType(type = JavaOutputApi.class),
                 @ParamType(type = NoneType.class),
               }),
           @Param(

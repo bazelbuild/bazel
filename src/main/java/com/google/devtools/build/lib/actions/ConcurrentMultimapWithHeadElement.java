@@ -74,6 +74,10 @@ final class ConcurrentMultimapWithHeadElement<K, V> {
     return result;
   }
 
+  int keySize() {
+    return map.size();
+  }
+
   /**
    * Obtain the entry for key, adding it to the underlying map if no entry was previously present.
    */

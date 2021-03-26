@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.r8;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.EXCLUDE_PATH_ENTRIES;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
 import com.android.tools.r8.ClassFileResourceProvider;
@@ -177,7 +178,8 @@ public class CoreLibraryDesugar {
       throws CompilationFailedException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING;
-    OutputConsumer consumer = new OutputConsumer(output, dependencyCollector, input);
+    OutputConsumer consumer =
+        new OutputConsumer(output, dependencyCollector, input, EXCLUDE_PATH_ENTRIES);
     L8Command.Builder builder =
         L8Command.builder(new DesugarDiagnosticsHandler(consumer))
             .addClasspathResourceProvider(classpath)

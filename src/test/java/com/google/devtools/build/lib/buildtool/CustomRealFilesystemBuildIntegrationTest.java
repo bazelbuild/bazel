@@ -14,27 +14,31 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.testutil.BlazeTestUtils.createFilesetRule;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.causes.Cause;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -69,7 +73,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     customFileSystem.alwaysError(fooShFile);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    events.assertContainsError("missing input file '//foo:foo.sh': nope");
+    events.assertContainsError("//foo:foo: error reading file '//foo:foo.sh': nope");
   }
 
   /** Tests that IOExceptions encountered while handling inputs are properly handled. */
@@ -85,7 +89,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
     events.assertContainsError(
-        "Executing genrule //foo:top failed: missing input file '//foo:foo.sh': nope");
+        "Executing genrule //foo:top failed: error reading file '//foo:foo.sh': nope");
   }
 
   /**
@@ -101,12 +105,9 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     customFileSystem.alwaysError(fooHFile);
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
-    assertThat(rootCauses).hasSize(1);
-    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
     events.assertContainsError(
-        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/foo.h': nope");
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: error reading file 'foo/foo.h': nope");
   }
 
   /** Tests that IOExceptions encountered when not all discovered deps are done are handled. */
@@ -140,12 +141,9 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
                 }));
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
-    assertThat(rootCauses).hasSize(1);
-    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
     events.assertContainsError(
-        "foo/BUILD:1:11: Compiling foo/foo.cc failed: missing input file 'foo/error.h': nope");
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: error reading file 'foo/error.h': nope");
   }
 
   /**
@@ -174,7 +172,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     write("bar/bar.cc", "int f() { return 0; }");
     write("bar/in.txt", "int f(); // 0");
 
-    // On an incremental skyframe build, the output file from a genrule is statted 7 times:
+    // On an incremental skyframe build, the output file from a genrule is statted 5 times:
     //   1 time in FilesystemValueChecker
     //   1 time in ActionCacheChecker#needToExecute
     //   1 time in GenRuleAction#checkOutputsForDirectories
@@ -202,6 +200,66 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
   }
 
   @Test
+  public void ioExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
+    write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
+    Path header = write("hello/subdir/undeclared.h");
+    Path buildFile = header.getParentDirectory().getChild("BUILD");
+    // Error unfortunately not noticed when we find header directly.
+    customFileSystem.alwaysError(buildFile);
+    addOptions("--discard_analysis_cache"); // Fall back to action cache on next build.
+    buildTarget("//hello:hello");
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        "^ERROR.*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
+            + " artifact: no such package 'hello/subdir': IO errors while looking for BUILD file"
+            + " reading .*hello/subdir/BUILD: nope");
+    assertThat(e.getDetailedExitCode().getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(
+            FailureDetails.FailureDetail.newBuilder()
+                .setIncludeScanning(
+                    FailureDetails.IncludeScanning.newBuilder()
+                        .setCode(FailureDetails.IncludeScanning.Code.SYSTEM_PACKAGE_LOAD_FAILURE)
+                        .setPackageLoadingCode(
+                            FailureDetails.PackageLoading.Code.OTHER_IO_EXCEPTION))
+                .build());
+  }
+
+  @Test
+  public void inconsistentExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
+    write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
+    write("hello/subdir/undeclared.h");
+    addOptions("--discard_analysis_cache"); // Fall back to action cache on next build.
+    buildTarget("//hello:hello");
+    Path buildFile = write("hello/subdir/BUILD");
+    customFileSystem.errorInsideStat(buildFile, 0);
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        ".*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
+            + " artifact: Inconsistent filesystem operations. 'stat' said .*/hello/subdir/BUILD is"
+            + " a file but then we later encountered error 'nope for .*/hello/subdir/BUILD' which"
+            + " indicates that .*/hello/subdir/BUILD is no longer a file.*");
+    events.assertContainsError("hello/subdir/BUILD ");
+    assertThat(e.getDetailedExitCode().getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(
+            FailureDetails.FailureDetail.newBuilder()
+                .setIncludeScanning(
+                    FailureDetails.IncludeScanning.newBuilder()
+                        .setCode(FailureDetails.IncludeScanning.Code.SYSTEM_PACKAGE_LOAD_FAILURE)
+                        .setPackageLoadingCode(
+                            FailureDetails.PackageLoading.Code
+                                .PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR))
+                .build());
+  }
+
+  @Test
   public void treeArtifactIOExceptionTopLevel() throws Exception {
     write(
         "foo/tree.bzl",
@@ -220,9 +278,6 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     customFileSystem.errorOnDirectory("mytree");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//foo:lib"));
-    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
-    assertThat(rootCauses).hasSize(1);
-    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:lib"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
     events.assertContainsError(
         "foo/BUILD:3:11: Failed to create output directory for TreeArtifact"
@@ -251,17 +306,135 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     addOptions("--experimental_nested_set_as_skykey_threshold=1");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
-    ImmutableList<Cause> rootCauses = e.getRootCauses().toList();
-    assertThat(rootCauses).hasSize(1);
-    assertThat(rootCauses.get(0).getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:lib"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
     events.assertContainsError(
         "foo/BUILD:3:11: Failed to create output directory for TreeArtifact"
             + " blaze-out/k8-fastbuild/bin/foo/_pic_objs/lib/mytree: nope");
   }
 
+  @Test
+  public void filesetIOException() throws Exception {
+    write("foo/BUILD");
+    Path filePath = write("foo/subdir/file");
+    // Violating best practices, this doesn't explicitly list the file underneath //foo that it
+    // wants, since then foo would have to expose that file as a target, leading to foo/subdir
+    // being listed (and cached in Skyframe) during the analysis phase, not the execution phase.
+    write(
+        "fileset/BUILD",
+        createFilesetRule("fileset", "fs_out", "FilesetEntry (srcdir = '//foo', destdir = 'x')"));
+    customFileSystem.alwaysError(filePath.getParentDirectory());
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//fileset"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    events.assertContainsError(
+        "Traversing Fileset trees to write manifest fileset/fileset.fileset_manifest failed: Error"
+            + " while traversing directory foo/subdir: nope");
+  }
+
+  @Test
+  public void filesetIOExceptionInBuildFile() throws Exception {
+    // Violating best practices, this doesn't explicitly list the file underneath //foo that it
+    // wants, since then foo would have to expose that file as a target, leading to foo/subdir
+    // being listed (and cached in Skyframe) during the analysis phase, not the execution phase.
+    Path packageBuildFile =
+        write(
+            "fileset/BUILD",
+            createFilesetRule("fileset", "fs_out", "FilesetEntry (srcdir = 'foo', destdir = 'x')"));
+    Path packageDirectory = packageBuildFile.getParentDirectory();
+    Path subdir = packageDirectory.getRelative("foo/bar");
+    subdir.createDirectoryAndParents();
+    customFileSystem.alwaysError(subdir.getChild("BUILD"));
+    BuildFailedException e =
+        assertThrows(BuildFailedException.class, () -> buildTarget("//fileset"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    events.assertContainsError(
+        "Traversing Fileset trees to write manifest fileset/fileset.fileset_manifest failed: Error"
+            + " while traversing directory fileset/foo/bar: no such package 'fileset/foo/bar': IO"
+            + " errors while looking for BUILD file");
+  }
+
+  private void runIoExceptionInTopLevelSource() throws Exception {
+    write(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  return [DefaultInfo(files = depset([], transitive = [dep[DefaultInfo].files for dep in"
+            + " ctx.attr.srcs]))]",
+        "",
+        "top_source = rule(",
+        "    implementation = _impl,",
+        "    attrs = {'srcs': attr.label_list(allow_files = True)}",
+        ")");
+    Path buildFile =
+        write(
+            "foo/BUILD",
+            "load(':rule.bzl', 'top_source')",
+            "top_source(name = 'foo', srcs = ['error.in', 'missing.in'])");
+    customFileSystem.alwaysError(buildFile.getParentDirectory().getChild("error.in"));
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+  }
+
+  @Test
+  public void ioExceptionInTopLevelSource_keepGoing() throws Exception {
+    addOptions("--keep_going");
+    runIoExceptionInTopLevelSource();
+    events.assertContainsError(
+        "foo/BUILD:2:11: //foo:foo: error reading file '//foo:error.in': nope");
+    events.assertContainsError("foo/BUILD:2:11: //foo:foo: missing input file '//foo:missing.in'");
+    events.assertContainsError("2 input file(s) are in error or do not exist");
+  }
+
+  @Test
+  public void ioExceptionInTopLevelSource_noKeepGoing() throws Exception {
+    runIoExceptionInTopLevelSource();
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        ".*foo/BUILD:2:11: //foo:foo: (error reading file '//foo:error.in': nope|missing input file"
+            + " '//foo:missing.in')");
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error or do"
+            + " not exist)");
+  }
+
+  private void runMissingFileAndIoException() throws Exception {
+    Path buildFile =
+        write(
+            "foo/BUILD",
+            "genrule(name = 'foo', srcs = ['error.in', 'missing.in'], outs = ['out'], cmd = 'touch"
+                + " $@')");
+    customFileSystem.alwaysError(buildFile.getParentDirectory().getChild("error.in"));
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+  }
+
+  @Test
+  public void missingFileAndIoException_keepGoing() throws Exception {
+    addOptions("--keep_going");
+    runMissingFileAndIoException();
+    events.assertContainsError(
+        "foo/BUILD:1:8: Executing genrule //foo:foo failed: error reading file '//foo:error.in':"
+            + " nope");
+    events.assertContainsError(
+        "foo/BUILD:1:8: Executing genrule //foo:foo failed: missing input file '//foo:missing.in'");
+    events.assertContainsError(
+        "Executing genrule //foo:foo failed: 2 input file(s) are in error or do not exist");
+  }
+
+  @Test
+  public void missingFileAndIoException_noKeepGoing() throws Exception {
+    runMissingFileAndIoException();
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        ".*foo/BUILD:1:8: Executing genrule //foo:foo failed: (error reading file '//foo:error.in':"
+            + " nope|missing input file '//foo:missing.in')");
+    MoreAsserts.assertContainsEventRegex(
+        events.collector(),
+        ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error or do"
+            + " not exist)");
+  }
+
   private static class CustomRealFilesystem extends UnixFileSystem {
-    private Map<Path, Integer> badPaths = new HashMap<>();
+    private final Map<PathFragment, Integer> badPaths = new HashMap<>();
+    private final Map<PathFragment, Integer> statBadPaths = new HashMap<>();
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
     private CustomRealFilesystem() {
@@ -273,30 +446,41 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     }
 
     void alwaysErrorAfter(Path path, int numCalls) {
-      badPaths.put(path, numCalls);
+      badPaths.put(path.asFragment(), numCalls);
     }
 
     void errorOnDirectory(String baseName) {
       createDirectoryErrorNames.add(baseName);
     }
 
-    int getNumCallsUntilError(Path path) {
-      return badPaths.getOrDefault(path, 0);
+    void errorInsideStat(Path path, int numCalls) {
+      statBadPaths.put(path.asFragment(), numCalls);
     }
 
-    private synchronized void maybeThrowExn(Path path) throws IOException {
-      if (badPaths.containsKey(path)) {
-        Integer numCallsRemaining = badPaths.get(path);
+    int getNumCallsUntilError(Path path) {
+      return badPaths.getOrDefault(path.asFragment(), 0);
+    }
+
+    private static boolean shouldThrowExn(PathFragment path, Map<PathFragment, Integer> paths) {
+      if (paths.containsKey(path)) {
+        Integer numCallsRemaining = paths.get(path);
         if (numCallsRemaining <= 0) {
-          throw new IOException("nope");
+          return true;
         } else {
-          badPaths.put(path, numCallsRemaining - 1);
+          paths.put(path, numCallsRemaining - 1);
         }
+      }
+      return false;
+    }
+
+    private synchronized void maybeThrowExn(PathFragment path) throws IOException {
+      if (shouldThrowExn(path, badPaths)) {
+        throw new IOException("nope");
       }
     }
 
     @Override
-    protected FileStatus statNullable(Path path, boolean followSymlinks) {
+    protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
       try {
         maybeThrowExn(path);
       } catch (IOException e) {
@@ -306,23 +490,80 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     }
 
     @Override
-    protected FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       maybeThrowExn(path);
-      return super.statIfFound(path, followSymlinks);
+      FileStatus fileStatus = super.statIfFound(path, followSymlinks);
+      return shouldThrowExn(path, statBadPaths) ? new ThrowingFileStatus(path) : fileStatus;
     }
 
     @Override
-    protected UnixFileStatus statInternal(Path path, boolean followSymlinks) throws IOException {
+    protected UnixFileStatus statInternal(PathFragment path, boolean followSymlinks)
+        throws IOException {
       maybeThrowExn(path);
       return super.statInternal(path, followSymlinks);
     }
 
     @Override
-    public void createDirectoryAndParents(Path path) throws IOException {
+    protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+        throws IOException {
+      maybeThrowExn(path);
+      return super.readdir(path, followSymlinks);
+    }
+
+    @Override
+    public void createDirectoryAndParents(PathFragment path) throws IOException {
       if (createDirectoryErrorNames.contains(path.getBaseName())) {
         throw new IOException("nope");
       }
       super.createDirectoryAndParents(path);
+    }
+
+    private static class ThrowingFileStatus implements FileStatus {
+      private final PathFragment path;
+
+      ThrowingFileStatus(PathFragment path) {
+        this.path = path;
+      }
+
+      @Override
+      public boolean isFile() {
+        return true;
+      }
+
+      @Override
+      public boolean isDirectory() {
+        return false;
+      }
+
+      @Override
+      public boolean isSymbolicLink() {
+        return false;
+      }
+
+      @Override
+      public boolean isSpecialFile() {
+        return false;
+      }
+
+      @Override
+      public long getSize() throws IOException {
+        throw new IOException("nope for " + path);
+      }
+
+      @Override
+      public long getLastModifiedTime() throws IOException {
+        throw new IOException("nope for " + path);
+      }
+
+      @Override
+      public long getLastChangeTime() throws IOException {
+        throw new IOException("nope for " + path);
+      }
+
+      @Override
+      public long getNodeId() throws IOException {
+        throw new IOException("nope for " + path);
+      }
     }
   }
 }

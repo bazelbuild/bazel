@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -56,7 +55,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * <p>Returns the given path as a source root. The path may not be {@code null}.
    */
   public static ArtifactRoot asSourceRoot(Root root) {
-    return INTERNER.intern(new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.Source));
+    return INTERNER.intern(
+        new ArtifactRoot(root, PathFragment.EMPTY_FRAGMENT, RootType.MainSource));
   }
 
   /**
@@ -83,8 +83,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    *
    * <p>Be careful with this method - all derived roots must be within the derived artifacts tree,
    * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
+   *
+   * <p>Call {@link #asDerivedRoot(Path, RootType, PathFragment)} if you already have a {@link
+   * PathFragment} instance for the exec path.
    */
-  public static ArtifactRoot asDerivedRoot(Path execRoot, boolean isMiddleman, String... prefixes) {
+  public static ArtifactRoot asDerivedRoot(Path execRoot, RootType rootType, String... prefixes) {
     PathFragment execPath = PathFragment.EMPTY_FRAGMENT;
     for (String prefix : prefixes) {
       // Tests can have empty segments here, be gentle to them.
@@ -92,7 +95,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
         execPath = execPath.getChild(prefix);
       }
     }
-    return asDerivedRoot(execRoot, isMiddleman, execPath);
+    return asDerivedRoot(execRoot, rootType, execPath);
   }
 
   /**
@@ -102,36 +105,48 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
    */
   public static ArtifactRoot asDerivedRoot(
-      Path execRoot, boolean isMiddleman, PathFragment execPath) {
+      Path execRoot, RootType rootType, PathFragment execPath) {
     // Make sure that we are not creating a derived artifact under the execRoot.
     Preconditions.checkArgument(!execPath.isEmpty(), "empty execPath");
+    Preconditions.checkArgument(!execPath.isAbsolute(), "execPath must be relative: %s", execPath);
     Preconditions.checkArgument(
-        !execPath.getSegments().contains(".."),
+        !execPath.containsUplevelReferences(),
         "execPath: %s contains parent directory reference (..)",
         execPath);
+    Preconditions.checkArgument(
+        isOutputRootType(rootType) || isMiddlemanRootType(rootType),
+        "%s is not a derived root type",
+        rootType);
     Path root = execRoot.getRelative(execPath);
-    return INTERNER.intern(
-        new ArtifactRoot(
-            Root.fromPath(root), execPath, isMiddleman ? RootType.Middleman : RootType.Output));
+    return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, rootType));
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
   static ArtifactRoot createForSerialization(
       Root rootForSerialization, PathFragment execPath, RootType rootType) {
-    if (rootType != RootType.Output) {
+    if (!isOutputRootType(rootType)) {
       return INTERNER.intern(new ArtifactRoot(rootForSerialization, execPath, rootType));
     }
-    return asDerivedRoot(
-        rootForSerialization.asPath(), false, execPath.getSegments().toArray(new String[0]));
+    return asDerivedRoot(rootForSerialization.asPath(), rootType, execPath);
   }
 
-  @AutoCodec.VisibleForSerialization
-  enum RootType {
-    Source,
+  /**
+   * ArtifactRoot types. Callers of asDerivedRoot methods need to specify which type of derived root
+   * artifact they want to create, which is why this enum is public.
+   */
+  public enum RootType {
+    MainSource,
+    ExternalSource,
     Output,
     Middleman,
-    ExternalSource
+    // Sibling root types are in effect when --experimental_sibling_repository_layout is activated.
+    // These will eventually replace the above Output and Middleman types when the flag becomes
+    // the default option and then removed.
+    SiblingMainOutput,
+    SiblingMainMiddleman,
+    SiblingExternalOutput,
+    SiblingExternalMiddleman,
   }
 
   private final Root root;
@@ -163,23 +178,41 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
 
   @Override
   public String getExecPathString() {
-    return getExecPath().getPathString();
-  }
-
-  public ImmutableList<String> getComponents() {
-    return execPath.getSegments();
+    return execPath.getPathString();
   }
 
   public boolean isSourceRoot() {
-    return rootType == RootType.Source || isExternalSourceRoot();
+    return rootType == RootType.MainSource || rootType == RootType.ExternalSource;
   }
 
-  public boolean isExternalSourceRoot() {
-    return rootType == RootType.ExternalSource;
+  private static boolean isOutputRootType(RootType rootType) {
+    return rootType == RootType.SiblingMainOutput
+        || rootType == RootType.SiblingExternalOutput
+        || rootType == RootType.Output;
+  }
+
+  private static boolean isMiddlemanRootType(RootType rootType) {
+    return rootType == RootType.SiblingMainMiddleman
+        || rootType == RootType.SiblingExternalMiddleman
+        || rootType == RootType.Middleman;
   }
 
   boolean isMiddlemanRoot() {
-    return rootType == RootType.Middleman;
+    return isMiddlemanRootType(rootType);
+  }
+
+  public boolean isExternal() {
+    return rootType == RootType.ExternalSource
+        || rootType == RootType.SiblingExternalOutput
+        || rootType == RootType.SiblingExternalMiddleman;
+  }
+
+  /**
+   * Returns true if the ArtifactRoot is a legacy derived root type, i.e. a derived root type
+   * created without the --experimental_sibling_repository_layout flag set.
+   */
+  public boolean isLegacy() {
+    return rootType == RootType.Output || rootType == RootType.Middleman;
   }
 
   @Override
@@ -200,7 +233,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    */
   @SuppressWarnings("unused") // Used by @AutoCodec.
   Root getRootForSerialization() {
-    if (rootType != RootType.Output) {
+    if (!isOutputRootType(rootType)) {
       return root;
     }
     // Find fragment of root that does not include execPath and return just that root. It is likely

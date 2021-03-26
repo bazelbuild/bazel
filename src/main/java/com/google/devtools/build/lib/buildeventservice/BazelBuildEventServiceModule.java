@@ -82,7 +82,7 @@ public class BazelBuildEventServiceModule
     this.config = null;
   }
 
-  private static final ImmutableSet<String> WHITELISTED_COMMANDS =
+  private static final ImmutableSet<String> ALLOWED_COMMANDS =
       ImmutableSet.of(
           "fetch",
           "build",
@@ -95,8 +95,8 @@ public class BazelBuildEventServiceModule
           "mobile-install");
 
   @Override
-  protected Set<String> whitelistedCommands(BuildEventServiceOptions besOptions) {
-    return WHITELISTED_COMMANDS;
+  protected Set<String> allowedCommands(BuildEventServiceOptions besOptions) {
+    return ALLOWED_COMMANDS;
   }
 
   @Override

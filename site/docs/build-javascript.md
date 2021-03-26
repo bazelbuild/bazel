@@ -36,7 +36,7 @@ following:
 
 You can either [Install Bazel](install.html) following the same steps that you
 would for backend development, or you can install NodeJS with npm and run
-`npm install -g @bazel/bazel`.
+`npm install -g @bazel/bazelisk`.
 
 ### Installing iBazel
 
@@ -136,8 +136,8 @@ yarn add -D @bazel/buildifier
 ```
 
 then add scripts to your `package.json` that run Buildifier.
-We've selected a set of enabled warnings here, you could add and remove from
-this list.
+Here is a set of enabled warnings you could add and remove from
+this list:
 
 ```json
 "scripts": {
@@ -177,8 +177,8 @@ rule targets that depend on the current target, including transitively.
 **Tip:** You can try out the `ts_library` rule by running bazel build src in
 the [sample project](https://github.com/alexeagle/angular-bazel-example/wiki).
 
-**Note:** We recommend standardizing your TypeScript settings into a single
-`tsconfig.json` file or as few `tsconfig.json` files as possible.
+**Recommendation:** Standardize your TypeScript settings into
+a single `tsconfig.json` file or as few `tsconfig.json` files as possible.
 
 Note the following:
 

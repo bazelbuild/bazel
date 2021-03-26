@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -90,6 +91,7 @@ import com.google.rpc.Code;
 import com.google.rpc.PreconditionFailure;
 import com.google.rpc.PreconditionFailure.Violation;
 import io.grpc.BindableService;
+import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerCall;
@@ -101,6 +103,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import io.reactivex.rxjava3.core.Single;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -178,7 +181,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
     Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
-    execRoot = fs.getPath("/exec/root");
+    execRoot = fs.getPath("/execroot/main");
     logDir = fs.getPath("/server-logs");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -204,7 +207,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
                   @Override
                   public PathFragment getExecPath() {
-                    return null; // unused here.
+                    return PathFragment.create("foo");
                   }
                 },
                 new ActionInput() {
@@ -220,7 +223,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
                   @Override
                   public PathFragment getExecPath() {
-                    return null; // unused here.
+                    return PathFragment.create("bar");
                   }
                 }),
             ResourceSet.ZERO);
@@ -253,10 +256,23 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName)
-                .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
-                .directExecutor()
-                .build());
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName)
+                        .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
+                        .directExecutor()
+                        .build();
+
+                return Single.just(new ChannelConnection(ch));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
     CallCredentialsProvider callCredentialsProvider =
@@ -305,7 +321,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setName("VARIABLE")
                     .setValue("value")
                     .build())
-            .addAllOutputFiles(ImmutableList.of("bar", "foo"))
+            .addAllOutputFiles(ImmutableList.of("main/bar", "main/foo"))
+            .setWorkingDirectory("main")
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
     channel.release();

@@ -106,8 +106,12 @@ public interface JavaSemantics {
     return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
   }
 
-  /** Name of the output group used for source jars. */
+  /** Name of the output group used for transitive source jars. */
   String SOURCE_JARS_OUTPUT_GROUP = OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
+
+  /** Name of the output group used for direct source jars. */
+  String DIRECT_SOURCE_JARS_OUTPUT_GROUP =
+      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX + "direct_source_jars";
 
   /** Implementation for the :jvm attribute. */
   static Label jvmAttribute(RuleDefinitionEnvironment env) {

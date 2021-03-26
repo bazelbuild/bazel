@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -40,7 +40,7 @@ import net.starlark.java.eval.Sequence;
 /** An Android target provider to provide Android-specific info to IDEs. */
 @Immutable
 public final class AndroidIdeInfoProvider extends NativeInfo
-    implements AndroidIdeInfoProviderApi<Artifact, OutputJar> {
+    implements AndroidIdeInfoProviderApi<Artifact, JavaOutput> {
 
   public static final Provider PROVIDER = new Provider();
 
@@ -52,7 +52,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
     private Artifact resourceApk = null;
     private Artifact idlClassJar = null;
     private Artifact idlSourceJar = null;
-    private OutputJar resourceJar = null;
+    private JavaOutput resourceJarJavaOutput = null;
     private String javaPackage = null;
     private String idlImportRoot = null;
     private final Set<Artifact> idlSrcs = new LinkedHashSet<>();
@@ -71,7 +71,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           apk,
           idlClassJar,
           idlSourceJar,
-          resourceJar,
+          resourceJarJavaOutput,
           definesAndroidResources,
           aar,
           ImmutableList.copyOf(idlSrcs),
@@ -123,8 +123,8 @@ public final class AndroidIdeInfoProvider extends NativeInfo
       return this;
     }
 
-    public Builder setResourceJar(OutputJar resourceJar) {
-      this.resourceJar = resourceJar;
+    public Builder setResourceJarJavaOutput(JavaOutput resourceJarJavaOutput) {
+      this.resourceJarJavaOutput = resourceJarJavaOutput;
       return this;
     }
 
@@ -173,7 +173,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
   @Nullable private final Artifact signedApk;
   @Nullable private final Artifact idlClassJar;
   @Nullable private final Artifact idlSourceJar;
-  @Nullable private final OutputJar resourceJar;
+  @Nullable private final JavaOutput resourceJarJavaOutput;
   @Nullable private final Artifact resourceApk;
   private final boolean definesAndroidResources;
   @Nullable private final Artifact aar;
@@ -190,7 +190,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
       @Nullable Artifact signedApk,
       @Nullable Artifact idlClassJar,
       @Nullable Artifact idlSourceJar,
-      @Nullable OutputJar resourceJar,
+      @Nullable JavaOutput resourceJarJavaOutput,
       boolean definesAndroidResources,
       @Nullable Artifact aar,
       ImmutableCollection<Artifact> idlSrcs,
@@ -205,7 +205,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
     this.signedApk = signedApk;
     this.idlClassJar = idlClassJar;
     this.idlSourceJar = idlSourceJar;
-    this.resourceJar = resourceJar;
+    this.resourceJarJavaOutput = resourceJarJavaOutput;
     this.definesAndroidResources = definesAndroidResources;
     this.aar = aar;
     this.idlSrcs = idlSrcs;
@@ -269,8 +269,8 @@ public final class AndroidIdeInfoProvider extends NativeInfo
 
   @Override
   @Nullable
-  public OutputJar getResourceJar() {
-    return resourceJar;
+  public JavaOutput getResourceJarJavaOutput() {
+    return resourceJarJavaOutput;
   }
 
   @Override
@@ -315,7 +315,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
 
   /** Provider class for {@link AndroidIdeInfoProvider} objects. */
   public static class Provider extends BuiltinProvider<AndroidIdeInfoProvider>
-      implements AndroidIdeInfoProviderApi.Provider<Artifact, OutputJar> {
+      implements AndroidIdeInfoProviderApi.Provider<Artifact, JavaOutput> {
     private Provider() {
       super(NAME, AndroidIdeInfoProvider.class);
     }
@@ -353,7 +353,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           fromNoneable(signedApk, Artifact.class),
           fromNoneable(idlClassJar, Artifact.class),
           fromNoneable(idlSourceJar, Artifact.class),
-          fromNoneable(resourceJar, OutputJar.class),
+          fromNoneable(resourceJar, JavaOutput.class),
           definesAndroidResources,
           fromNoneable(aar, Artifact.class),
           ImmutableList.copyOf(Sequence.cast(idlSrcs, Artifact.class, "idl_srcs")),

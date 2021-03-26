@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -39,7 +38,7 @@ public final class SimpleSpawn implements Spawn {
   private final NestedSet<? extends ActionInput> inputs;
   private final NestedSet<? extends ActionInput> tools;
   private final RunfilesSupplier runfilesSupplier;
-  private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
+  private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
   private final ImmutableList<? extends ActionInput> outputs;
   private final ResourceSet localResources;
 
@@ -49,7 +48,7 @@ public final class SimpleSpawn implements Spawn {
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       NestedSet<? extends ActionInput> inputs,
       NestedSet<? extends ActionInput> tools,
       ImmutableSet<? extends ActionInput> outputs,
@@ -89,7 +88,7 @@ public final class SimpleSpawn implements Spawn {
   }
 
   @Override
-  public final ImmutableMap<String, String> getExecutionInfo() {
+  public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }
 
@@ -110,7 +109,7 @@ public final class SimpleSpawn implements Spawn {
 
   @Override
   public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
-    return ImmutableMap.copyOf(filesetMappings);
+    return filesetMappings;
   }
 
   @Override

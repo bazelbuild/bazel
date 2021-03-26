@@ -35,6 +35,9 @@ public abstract class PackageMetricsContainer {
   /** Sorts by Transitive Load Count. */
   public static final Comparator<PackageMetricsContainer> TRANSITIVE_LOADS_COMP =
       Comparator.comparingLong(c -> c.getPackageMetricsInternal().getNumTransitiveLoads());
+  /** Sorts by Package Overhead. */
+  public static final Comparator<PackageMetricsContainer> OVERHEAD_COMP =
+      Comparator.comparingLong(c -> c.getPackageMetricsInternal().getPackageOverhead());
 
   public static PackageMetricsContainer create(PackageIdentifier pkgId, PackageMetrics metrics) {
     return new AutoValue_PackageMetricsContainer(pkgId, metrics);

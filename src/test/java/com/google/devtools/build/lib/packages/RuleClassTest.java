@@ -52,6 +52,8 @@ import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
@@ -307,39 +309,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
   private void assertDupError(String label, String attrName, String ruleName) {
     assertContainsEvent(String.format("Label '%s' is duplicated in the '%s' attribute of rule '%s'",
         label, attrName, ruleName));
-  }
-
-  @Test
-  public void testCreateRuleWithLegacyPublicVisibility() throws Exception {
-    RuleClass ruleClass =
-        newRuleClass(
-            "ruleVis",
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            ImplicitOutputsFunction.NONE,
-            null,
-            DUMMY_CONFIGURED_TARGET_FACTORY,
-            PredicatesWithMessage.<Rule>alwaysTrue(),
-            PREFERRED_DEPENDENCY_PREDICATE,
-            AdvertisedProviderSet.EMPTY,
-            null,
-            ImmutableSet.<Class<?>>of(),
-            true,
-            attr("visibility", LABEL_LIST).legacyAllowAnyFileType().build());
-    Map<String, Object> attributeValues = new HashMap<>();
-    attributeValues.put("visibility", Arrays.asList("//visibility:legacy_public"));
-
-    reporter.removeHandler(failFastHandler);
-    EventCollector collector = new EventCollector(EventKind.ERRORS);
-    reporter.addHandler(collector);
-
-    createRule(ruleClass, TEST_RULE_NAME, attributeValues, testRuleLocation, NO_STACK);
-
-    assertContainsEvent("//visibility:legacy_public only allowed in package declaration");
   }
 
   @Test
@@ -890,8 +859,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         supportsConstraintChecking,
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
         /*requiredToolchains=*/ ImmutableSet.of(),
-        /*useToolchainResolution=*/ true,
-        /*useToolchainTransition=*/ true,
+        /*useToolchainResolution=*/ ToolchainResolutionMode.ENABLED,
+        /*useToolchainTransition=*/ ToolchainTransitionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         /* execGroups= */ ImmutableMap.of(),
         OutputFile.Kind.FILE,
@@ -1167,7 +1136,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     assertThat(expected)
         .hasMessageThat()
-        .isEqualTo("Rule class myclass declared too many attributes (201 > 200)");
+        .isEqualTo("Rule class myclass declared too many attributes (202 > 200)");
   }
 
   @Test

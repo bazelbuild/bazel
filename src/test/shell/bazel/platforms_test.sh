@@ -78,7 +78,9 @@ EOF
   mkdir -p override || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
   cat > override/BUILD <<EOF
-filegroup(name = 'yolo')
+# Have to use a rule that doesn't require a target platform, or else there will
+# be a cycle.
+toolchain_type(name = 'yolo')
 EOF
 
   cd platforms_can_be_overridden || fail "couldn't cd into workspace"
@@ -233,7 +235,11 @@ platform(
         }
 )
 EOF
-  bazel build --extra_execution_platforms=":my_platform" --toolchain_resolution_debug :a --execution_log_json_file out.txt &> $TEST_log || fail "Build failed"
+  bazel build \
+      --extra_execution_platforms=":my_platform" \
+      --toolchain_resolution_debug=.* \
+       --execution_log_json_file out.txt \
+      :a &> $TEST_log || fail "Build failed"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"
   grep "key2" out.txt || fail "Did not find the platform key"
@@ -295,6 +301,173 @@ EOF
   grep "key2" out.txt || fail "Did not find the platform key"
   grep "key3" out.txt || fail "Did not find the target attribute key"
   grep "child_value" out.txt || fail "Did not find the overriding value"
+}
+
+function test_platform_execgroup_properties_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "default_value" out.txt || fail "Did not find the default value"
+  grep "test_value" out.txt && fail "Used the test-action value when not testing"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_value" out.txt || fail "Did not find the test-action value"
+}
+
+function test_platform_execgroup_properties_nongroup_override_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {
+    "platform_key": "override_value",
+  },
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "override_value" out.txt || fail "Did not find the overriding value"
+  grep "default_value" out.txt && fail "Used the default value"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "override_value" out.txt || fail "Did not find the overriding value"
+}
+
+function test_platform_execgroup_properties_group_override_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {
+    "test.platform_key": "test_override",
+  },
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "default_value" out.txt || fail "Used the default value"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_override" out.txt || fail "Did not find the overriding test-action value"
+}
+
+function test_platform_execgroup_properties_override_group_and_default_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {
+    "platform_key": "override_value",
+    "test.platform_key": "test_override",
+  },
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "test.platform_key": "test_value",
+  }
+)
+EOF
+  bazel build --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "override_value" out.txt || fail "Did not find the overriding value"
+  grep "default_value" out.txt && fail "Used the default value"
+
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_override" out.txt || fail "Did not find the overriding test-action value"
+}
+
+function test_platform_properties_only_applied_for_relevant_execgroups_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+)
+
+platform(
+  name = "my_platform",
+  parents = ["@local_config_platform//:host"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "unknown.platform_key": "unknown_value",
+  }
+)
+EOF
+  bazel test --extra_execution_platforms=":my_platform" :a --execution_log_json_file out.txt || fail "Build failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "default_value" out.txt || fail "Did not find the default value"
+}
+
+function test_cannot_set_properties_for_irrelevant_execgroup_on_target_cc_test() {
+  cat > a.cc <<'EOF'
+int main() {}
+EOF
+  cat > BUILD <<'EOF'
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_properties = {
+    "platform_key": "default_value",
+    "unknown.platform_key": "unknown_value",
+  }
+)
+EOF
+  bazel test :a &> $TEST_log && fail "Build passed when we expected an error"
+  grep "Tried to set properties for non-existent exec group" $TEST_log || fail "Did not complain about unknown exec group"
 }
 
 run_suite "platform mapping test"

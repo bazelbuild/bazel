@@ -141,6 +141,9 @@ public interface OutputService {
    */
   void clean() throws ExecException, InterruptedException;
 
+  /** @return true iff the file actually lives on a remote server */
+  boolean isRemoteFile(Artifact file);
+
   default ActionFileSystemType actionFileSystemType() {
     return ActionFileSystemType.DISABLED;
   }
@@ -153,7 +156,7 @@ public interface OutputService {
    *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
    * @param inputArtifactData information about required inputs to the action
    * @param outputArtifacts required outputs of the action
-   * @param trackFailedRemoteReads whether to track failed remote reads to make LostInput exceptions
+   * @param rewindingEnabled whether to track failed remote reads to enable action rewinding
    * @return an action-scoped filesystem if {@link #supportsActionFileSystem} is not {@code NONE}
    */
   @Nullable
@@ -164,7 +167,7 @@ public interface OutputService {
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      boolean trackFailedRemoteReads) {
+      boolean rewindingEnabled) {
     return null;
   }
 

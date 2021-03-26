@@ -144,7 +144,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected FileSystem fileSystem;
-  protected EventCollectionApparatus events = new EventCollectionApparatus();
+  protected EventCollectionApparatus events = createEvents();
   protected OutErr outErr = OutErr.SYSTEM_OUT_ERR;
   protected Path testRoot;
   protected ServerDirectories serverDirectories;
@@ -158,6 +158,10 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
+
+  protected EventCollectionApparatus createEvents() {
+    return new EventCollectionApparatus();
+  }
 
   @Before
   public final void createFilesAndMocks() throws Exception  {
@@ -656,10 +660,11 @@ public abstract class BuildIntegrationTestCase {
    * Creates folders on the path to {@code relativeLinkPath} and a symlink to {@code target} at
    * {@code relativeLinkPath} (equivalent to {@code ln -s <target> <relativeLinkPath>}).
    */
-  protected void createSymlink(String target, String relativeLinkPath) throws IOException {
+  protected Path createSymlink(String target, String relativeLinkPath) throws IOException {
     Path path = getWorkspace().getRelative(relativeLinkPath);
     path.getParentDirectory().createDirectoryAndParents();
     path.createSymbolicLink(PathFragment.create(target));
+    return path;
   }
 
   /**

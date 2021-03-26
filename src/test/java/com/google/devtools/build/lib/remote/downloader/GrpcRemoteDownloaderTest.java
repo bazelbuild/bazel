@@ -25,6 +25,7 @@ import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc.FetchImplBase;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -37,7 +38,9 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -49,12 +52,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.grpc.CallCredentials;
-import io.grpc.Context;
+import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -79,8 +83,7 @@ public class GrpcRemoteDownloaderTest {
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
-  private Context withEmptyMetadata;
-  private Context prevContext;
+  private RemoteActionExecutionContext context;
   private ListeningScheduledExecutorService retryService;
 
   @Before
@@ -92,19 +95,18 @@ public class GrpcRemoteDownloaderTest {
             .directExecutor()
             .build()
             .start();
-    withEmptyMetadata =
-        TracingMetadataUtils.contextWithMetadata(
-            "none", "none", DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()));
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(
+            "none",
+            "none",
+            DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash());
+    context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-
-    prevContext = withEmptyMetadata.attach();
   }
 
   @After
   public void tearDown() throws Exception {
-    withEmptyMetadata.detach(prevContext);
-
     retryService.shutdownNow();
     retryService.awaitTermination(
         com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -122,12 +124,25 @@ public class GrpcRemoteDownloaderTest {
             retryService);
     final ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build());
+            new ChannelConnectionFactory() {
+              @Override
+              public Single<? extends ChannelConnection> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
+                return Single.just(new ChannelConnection(ch));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
     return new GrpcRemoteDownloader(
+        "none",
+        "none",
         channel.retain(),
         Optional.<CallCredentials>empty(),
         retrier,
-        withEmptyMetadata,
         cacheClient,
         remoteOptions);
   }
@@ -188,7 +203,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
     final byte[] downloaded =
         downloadBlob(
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
@@ -224,12 +239,12 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(contentDigest, ByteString.copyFrom(content)));
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
     final byte[] downloaded =
         downloadBlob(
             downloader,
             new URL("http://example.com/content.txt"),
-            Optional.<Checksum>of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash())));
+            Optional.of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash())));
 
     assertThat(downloaded).isEqualTo(content);
   }
@@ -262,7 +277,8 @@ public class GrpcRemoteDownloaderTest {
     final RemoteCacheClient cacheClient = new InMemoryCacheClient();
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
 
-    getFromFuture(cacheClient.uploadBlob(contentDigest, ByteString.copyFromUtf8("wrong content")));
+    getFromFuture(
+        cacheClient.uploadBlob(context, contentDigest, ByteString.copyFromUtf8("wrong content")));
 
     IOException e =
         assertThrows(
@@ -271,8 +287,7 @@ public class GrpcRemoteDownloaderTest {
                 downloadBlob(
                     downloader,
                     new URL("http://example.com/content.txt"),
-                    Optional.<Checksum>of(
-                        Checksum.fromString(KeyType.SHA256, contentDigest.getHash()))));
+                    Optional.of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash()))));
 
     assertThat(e).hasMessageThat().contains(contentDigest.getHash());
     assertThat(e).hasMessageThat().contains(DIGEST_UTIL.computeAsUtf8("wrong content").getHash());

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -210,7 +210,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
             if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
               builder.addRunfilesSupplier(
-                  new RunfilesSupplierImpl(
+                  new SingleRunfilesSupplier(
                       PathFragment.create("a"),
                       Runfiles.EMPTY,
                       artifactA,
@@ -218,7 +218,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
                       /* runfileLinksEnabled= */ false));
             } else {
               builder.addRunfilesSupplier(
-                  new RunfilesSupplierImpl(
+                  new SingleRunfilesSupplier(
                       PathFragment.create("a"),
                       Runfiles.EMPTY,
                       artifactB,

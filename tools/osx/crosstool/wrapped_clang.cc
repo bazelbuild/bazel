@@ -123,7 +123,7 @@ void ExecProcess(const std::vector<std::string> &args) {
 void RunSubProcess(const std::vector<std::string> &args) {
   std::vector<const char *> exec_argv = ConvertToCArgs(args);
   pid_t pid;
-  int status = posix_spawn(&pid, args[0].c_str(), NULL, NULL,
+  int status = posix_spawn(&pid, args[0].c_str(), nullptr, nullptr,
                            const_cast<char **>(exec_argv.data()), environ);
   if (status == 0) {
     int wait_status;
@@ -318,6 +318,9 @@ void ProcessArgument(const std::string arg, const std::string developer_dir,
   }
 
   std::string dest_dir, bitcode_symbol_map;
+  if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
+    new_arg = "-fdebug-prefix-map=" + cwd + "=" + dest_dir;
+  }
   if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
     new_arg = "-Wl,-oso_prefix," + cwd + "/";
   }

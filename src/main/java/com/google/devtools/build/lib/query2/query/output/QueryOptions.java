@@ -116,30 +116,16 @@ public class QueryOptions extends CommonQueryOptions {
   public OrderOutput orderOutput;
 
   @Option(
-      name = "incompatible_prefer_unordered_output",
-      defaultValue = "false",
+      name = "incompatible_lexicographical_output",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       metadataTags = {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "If this option is set together with --order_output=auto (default) and if the output "
-              + "formatter supports streaming output, then the results will be unordered.")
-  public boolean preferUnorderedOutput;
-
-  @Option(
-      name = "incompatible_use_lexicographical_unordered_output",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If this option is set, sorts unordered output in lexicographical order.")
-  public boolean useLexicographicalUnorderedOutput;
+      help = "If this option is set, sorts --order_output=auto output in lexicographical order.")
+  public boolean lexicographicalOutput;
 
   @Option(
       name = "graph:conditional_edges_limit",
@@ -206,18 +192,6 @@ public class QueryOptions extends CommonQueryOptions {
               + " output formatters.")
   public TriState useGraphlessQuery;
 
-  @Option(
-      name = "experimental_query_failure_exit_code_behavior",
-      defaultValue = "three_and_seven",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      converter = QueryFailureExitCodeBehaviorConverter.class,
-      help =
-          "Determines exit code for query failures: three_and_seven means keep-going queries will"
-              + " return 3, no-keep-going will return 7; seven means all failed queries will"
-              + " return 7; underlying means failed queries will return the underlying exit code")
-  public QueryFailureExitCodeBehavior queryFailureExitCodeBehavior;
-
   /** Return the current options as a set of QueryEnvironment settings. */
   @Override
   public Set<Setting> toSettings() {
@@ -226,20 +200,5 @@ public class QueryOptions extends CommonQueryOptions {
       settings.add(Setting.TESTS_EXPRESSION_STRICT);
     }
     return settings;
-  }
-
-  /** Possible values for --experimental_query_failure_exit_code_behavior. */
-  public enum QueryFailureExitCodeBehavior {
-    THREE_AND_SEVEN,
-    SEVEN,
-    UNDERLYING
-  }
-
-  /** Converter for {@link QueryFailureExitCodeBehavior}. */
-  public static class QueryFailureExitCodeBehaviorConverter
-      extends EnumConverter<QueryFailureExitCodeBehavior> {
-    public QueryFailureExitCodeBehaviorConverter() {
-      super(QueryFailureExitCodeBehavior.class, "query failure exit code behavior");
-    }
   }
 }

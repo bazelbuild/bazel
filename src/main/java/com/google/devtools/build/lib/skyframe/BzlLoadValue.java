@@ -151,6 +151,7 @@ public class BzlLoadValue implements SkyValue {
       }
     }
 
+    // TODO(brandjon): Use something more similar to AbstractSkyKey's stringification (same below).
     @Override
     public String toString() {
       return label.toString();

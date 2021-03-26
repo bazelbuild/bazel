@@ -130,65 +130,7 @@ public abstract class FoundationTestCase {
                                              expectedMessage);
   }
 
-  protected Event assertContainsEventWithWordsInQuotes(String... words) {
-    return MoreAsserts.assertContainsEventWithWordsInQuotes(
-        eventCollector, words);
-  }
-
   protected void assertContainsEventsInOrder(String... expectedMessages) {
     MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
-  }
-
-  protected void writeBuildFileForJavaToolchain() throws Exception  {
-    scratch.file("java/com/google/test/turbine_canary_deploy.jar");
-    scratch.file("java/com/google/test/turbine_graal");
-    scratch.file("java/com/google/test/tzdata.jar");
-    scratch.overwriteFile(
-        "java/com/google/test/BUILD",
-        "java_toolchain(name = 'toolchain',",
-        "    source_version = '6',",
-        "    target_version = '6',",
-        "    bootclasspath = ['rt.jar'],",
-        "    xlint = ['toto'],",
-        "    misc = ['-Xmaxerrs 500'],",
-        "    compatible_javacopts = {",
-        "        'appengine': ['-XDappengineCompatible'],",
-        "        'android': ['-XDandroidCompatible'],",
-        "    },",
-        "    tools = [':javac_canary.jar'],",
-        "    javabuilder = [':JavaBuilder_deploy.jar'],",
-        "    jacocorunner = ':jacocorunner.jar',",
-        "    header_compiler = [':turbine_canary_deploy.jar'],",
-        "    header_compiler_direct = [':turbine_graal'],",
-        "    singlejar = ['singlejar'],",
-        "    ijar = ['ijar'],",
-        "    genclass = ['GenClass_deploy.jar'],",
-        "    timezone_data = 'tzdata.jar',",
-        "    java_runtime = ':jvm-k8'",
-        ")",
-        "java_runtime(",
-        "    name = 'jvm-k8',",
-        "    srcs = [",
-        "        'k8/a', ",
-        "        'k8/b',",
-        "    ], ",
-        "    java_home = 'k8',",
-        ")",
-        "constraint_value(",
-        "    name = 'constraint',",
-        "    constraint_setting = '"
-            + TestConstants.PLATFORM_PACKAGE_ROOT
-            + "/java/constraints:runtime',",
-        ")",
-        "toolchain(",
-        "    name = 'java_toolchain',",
-        "    toolchain = ':toolchain',",
-        "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/jdk:toolchain_type',",
-        "    target_compatible_with = [':constraint'],",
-        ")",
-        "platform(",
-        "    name = 'platform',",
-        "    constraint_values = [':constraint'],",
-        ")");
   }
 }

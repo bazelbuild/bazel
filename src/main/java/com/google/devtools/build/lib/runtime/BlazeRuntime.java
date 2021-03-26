@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSett
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -681,7 +682,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
-    return finalCommandResult;
+    return BlazeCommandResult.withResponseExtensions(
+        finalCommandResult, env.getResponseExtensions());
   }
 
   /**
@@ -1481,6 +1483,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               BlazeVersionInfo.instance().getVersion(),
               packageSettings,
               getPackageValidator(blazeModules),
+              getPackageOverheadEstimator(blazeModules),
               getPackageLoadingListener(
                   blazeModules, packageSettings, ruleClassProvider, fileSystem));
 
@@ -1616,6 +1619,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Preconditions.checkState(
           packageValidators.size() <= 1, "more than one module defined a PackageValidator");
       return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
+    }
+
+    private static PackageOverheadEstimator getPackageOverheadEstimator(
+        List<BlazeModule> blazeModules) {
+      List<PackageOverheadEstimator> packageOverheadEstimators =
+          blazeModules.stream()
+              .map(BlazeModule::getPackageOverheadEstimator)
+              .filter(estimator -> estimator != null)
+              .collect(toImmutableList());
+      Preconditions.checkState(
+          packageOverheadEstimators.size() <= 1,
+          "more than one module defined a PackageOverheadEstimator");
+      return Iterables.getFirst(packageOverheadEstimators, PackageOverheadEstimator.NOOP_ESTIMATOR);
     }
   }
 

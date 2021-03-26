@@ -278,6 +278,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         new ConfiguredRuleClassProvider.Builder()
             .setRunfilesPrefix("workspace")
             .setPrelude("//tools:empty_prelude.bzl")
+            .useDummyBuiltinsBzl()
             .build();
     SkyframeExecutor skyframeExecutor =
         makeSkyframeExecutorFactory()
@@ -309,6 +310,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         /*clientEnv=*/ ImmutableMap.of(),
+        /*repoEnvOption=*/ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         OptionsProvider.EMPTY);
     buildDriver = skyframeExecutor.getDriver();

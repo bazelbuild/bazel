@@ -62,6 +62,10 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return false;
   }
 
+  protected String defaultPlatformFlag() {
+    return String.format("--platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
+  }
+
   @Override
   protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
@@ -75,7 +79,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
     fullArgs.add("--incompatible_enable_android_toolchain_resolution");
     // Uncomment the below to get more info when tests fail because of toolchain resolution.
-    //  fullArgs.add("--toolchain_resolution_debug");
+    //  fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
     boolean hasPlatform = false;
     for (String arg : args) {
       if (arg.startsWith("--android_sdk=")) {
@@ -96,12 +100,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         fullArgs.add(arg);
       }
 
-      if (arg.startsWith("--platforms=")) {
+      if (arg.startsWith("--platforms=") || arg.startsWith("--android_platforms=")) {
         hasPlatform = true;
       }
     }
     if (!hasPlatform) {
-      fullArgs.add(String.format("--platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT));
+      fullArgs.add(defaultPlatformFlag());
     }
     super.useConfiguration(starlarkOptions, fullArgs.build().toArray(new String[0]));
   }
@@ -195,11 +199,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();
     return Iterables.find(
-            jarProvider.getOutputJars(),
-            outputJar -> {
-              assertThat(outputJar).isNotNull();
-              assertThat(outputJar.getClassJar()).isNotNull();
-              return outputJar
+            jarProvider.getJavaOutputs(),
+            javaOutput -> {
+              assertThat(javaOutput).isNotNull();
+              assertThat(javaOutput.getClassJar()).isNotNull();
+              return javaOutput
                   .getClassJar()
                   .getFilename()
                   .equals(target.getTarget().getName() + "_resources.jar");

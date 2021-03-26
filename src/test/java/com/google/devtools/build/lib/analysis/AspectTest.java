@@ -920,4 +920,77 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
     getConfiguredTarget("//a:r");
   }
+
+  @Test
+  public void topLevelConflictDetected() throws Exception {
+    String bzlFileTemplate =
+        String.join(
+            "\n",
+            "def _aspect1_impl(target, ctx):",
+            "  outfile = ctx.actions.declare_file('aspect.out')",
+            "  ctx.actions.run_shell(",
+            "    outputs = [outfile],",
+            "    progress_message = 'Action for aspect 1',",
+            "    command = 'echo \"1\" > ' + outfile.path,",
+            "  )",
+            "  return [OutputGroupInfo(files = [outfile])]",
+            "def _aspect2_impl(target, ctx):",
+            "  outfile = ctx.actions.declare_file('aspect.out')",
+            "  ctx.actions.run_shell(",
+            "    outputs = [outfile],",
+            "    progress_message = 'Action for aspect 2',",
+            "    command = 'echo \"%s\" > ' + outfile.path,",
+            "  )",
+            "  return [OutputGroupInfo(files = [outfile])]",
+            "aspect1 = aspect(implementation = _aspect1_impl)",
+            "aspect2 = aspect(implementation = _aspect2_impl)");
+    scratch.file("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
+    scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = ['foo.sh'])");
+    // Expect errors.
+    reporter.removeHandler(failFastHandler);
+    ViewCreationFailedException exception =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                update(
+                    new EventBus(),
+                    defaultFlags(),
+                    ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+                    "//foo:foo"));
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch(
+            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
+                + " attempted action: action 'Action for aspect .'");
+
+    // Fix bzl file so actions are shared: analysis should succeed now.
+    scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "1"));
+    reporter.addHandler(failFastHandler);
+    AnalysisResult result =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+            "//foo:foo");
+    assertThat(result.getAspectsMap()).hasSize(2);
+
+    // Break bzl file again: we should notice.
+    scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
+    // Expect errors.
+    reporter.removeHandler(failFastHandler);
+    exception =
+        assertThrows(
+            ViewCreationFailedException.class,
+            () ->
+                update(
+                    new EventBus(),
+                    defaultFlags(),
+                    ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+                    "//foo:foo"));
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch(
+            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
+                + " attempted action: action 'Action for aspect .'");
+  }
 }

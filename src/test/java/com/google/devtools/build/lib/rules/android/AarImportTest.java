@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -157,6 +157,46 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void proguardSpecsProvided() throws Exception {
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//a:bar");
+
+    NestedSet<Artifact> transitiveProguardSpecs =
+        binaryTarget.get(ProguardSpecProvider.PROVIDER).getTransitiveProguardSpecs();
+
+    assertThat(
+            transitiveProguardSpecs.toSet().stream()
+                .map(Artifact::getRootRelativePathString)
+                .collect(Collectors.toSet()))
+        .containsExactly(
+            "a/_aar/bar/proguard.txt", "a/_aar/foo/proguard.txt", "a/_aar/baz/proguard.txt");
+  }
+
+  @Test
+  public void testProguardExtractor() throws Exception {
+    Artifact proguardSpecsAritfact =
+        getConfiguredTarget("//a:bar")
+            .get(ProguardSpecProvider.PROVIDER)
+            .getTransitiveProguardSpecs()
+            .toList()
+            .get(0);
+
+    Artifact aarProguardExtractor =
+        getHostConfiguredTarget(
+                ruleClassProvider.getToolsRepository()
+                    + "//tools/android:aar_embedded_proguard_extractor")
+            .getProvider(FilesToRunProvider.class)
+            .getExecutable();
+
+    assertThat(getGeneratingSpawnAction(proguardSpecsAritfact).getArguments())
+        .containsExactly(
+            aarProguardExtractor.getExecPathString(),
+            "--input_aar",
+            "a/bar.aar",
+            "--output_proguard_file",
+            proguardSpecsAritfact.getExecPathString());
+  }
+
+  @Test
   public void aapt2RTxtProvided() throws Exception {
     useConfiguration("--android_sdk=//aapt2/sdk:sdk");
 
@@ -239,13 +279,6 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
     assertThat(srcJars).hasSize(1);
     Artifact srcJar = Iterables.getOnlyElement(srcJars);
     assertThat(srcJar.getExecPathString()).endsWith("foo-src.jar");
-
-    Iterable<Artifact> srcInfoJars =
-        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget)
-            .getSourceJarsForJarFiles();
-    assertThat(srcInfoJars).hasSize(1);
-    Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
-    assertThat(srcInfoJar.getExecPathString()).endsWith("foo-src.jar");
   }
 
   @Test
@@ -257,13 +290,6 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
             .getTransitiveSourceJars();
     assertThat(ActionsTestUtil.baseArtifactNames(srcJars))
         .containsExactly("foo-src.jar", "bar-src.jar");
-
-    Iterable<Artifact> srcInfoJars =
-        JavaInfo.getProvider(JavaSourceInfoProvider.class, aarImportTarget)
-            .getSourceJarsForJarFiles();
-    assertThat(srcInfoJars).hasSize(1);
-    Artifact srcInfoJar = Iterables.getOnlyElement(srcInfoJars);
-    assertThat(srcInfoJar.getExecPathString()).endsWith("bar-src.jar");
   }
 
   @Test
@@ -470,11 +496,11 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
   public void testClassesJarProvided() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
-    Iterable<OutputJar> outputJars =
-        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, aarImportTarget).getOutputJars();
-    assertThat(outputJars).hasSize(1);
+    Iterable<JavaOutput> javaOutputs =
+        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, aarImportTarget).getJavaOutputs();
+    assertThat(javaOutputs).hasSize(1);
 
-    Artifact classesJar = outputJars.iterator().next().getClassJar();
+    Artifact classesJar = javaOutputs.iterator().next().getClassJar();
     assertThat(classesJar.getFilename()).isEqualTo("classes_and_libs_merged.jar");
 
     SpawnAction jarMergingAction = ((SpawnAction) getGeneratingAction(classesJar));

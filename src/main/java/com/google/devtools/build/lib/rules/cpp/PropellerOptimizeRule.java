@@ -64,7 +64,7 @@ public final class PropellerOptimizeRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("propeller_optimize")
-        .ancestors(BaseRuleClasses.BaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(PropellerOptimize.class)
         .build();
   }

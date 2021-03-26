@@ -101,7 +101,7 @@ public abstract class Worker {
   abstract WorkResponse getResponse(int requestId) throws IOException, InterruptedException;
 
   /** Does whatever cleanup may be required after execution is done. */
-  public abstract void finishExecution(Path execRoot) throws IOException;
+  public abstract void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException;
 
   /**
    * Destroys this worker. Once this has been called, we assume it's safe to clean up related

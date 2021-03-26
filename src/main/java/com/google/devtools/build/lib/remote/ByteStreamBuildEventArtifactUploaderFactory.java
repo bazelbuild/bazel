@@ -18,8 +18,6 @@ import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import io.grpc.Context;
-import javax.annotation.Nullable;
 
 /**
  * A factory for {@link ByteStreamBuildEventArtifactUploader}.
@@ -28,22 +26,22 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
     BuildEventArtifactUploaderFactory {
 
   private final ByteStreamUploader uploader;
-  private final String remoteServerName;
-  private final Context ctx;
+  private final String remoteServerInstanceName;
+  private final String buildRequestId;
+  private final String commandId;
   private final MissingDigestsFinder missingDigestsFinder;
-  @Nullable private final String remoteInstanceName;
 
   ByteStreamBuildEventArtifactUploaderFactory(
       ByteStreamUploader uploader,
       MissingDigestsFinder missingDigestsFinder,
-      String remoteServerName,
-      Context ctx,
-      @Nullable String remoteInstanceName) {
+      String remoteServerInstanceName,
+      String buildRequestId,
+      String commandId) {
     this.uploader = uploader;
     this.missingDigestsFinder = missingDigestsFinder;
-    this.remoteServerName = remoteServerName;
-    this.ctx = ctx;
-    this.remoteInstanceName = remoteInstanceName;
+    this.remoteServerInstanceName = remoteServerInstanceName;
+    this.buildRequestId = buildRequestId;
+    this.commandId = commandId;
   }
 
   @Override
@@ -51,9 +49,9 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
     return new ByteStreamBuildEventArtifactUploader(
         uploader.retain(),
         missingDigestsFinder,
-        remoteServerName,
-        ctx,
-        remoteInstanceName,
+        remoteServerInstanceName,
+        buildRequestId,
+        commandId,
         env.getOptions().getOptions(RemoteOptions.class).buildEventUploadMaxThreads);
   }
 }

@@ -153,8 +153,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       return reportAndCreateFailureResult(
           env,
           String.format(
-              "--experimental_graphless_query requires --order_output=no and an --output"
-                  + " option that supports streaming; valid values are: %s",
+              "--experimental_graphless_query requires --order_output=no or --order_output=auto and"
+                  + " an --output option that supports streaming; valid values are: %s",
               OutputFormatters.streamingFormatterNames(formatters)),
           Query.Code.GRAPHLESS_PREREQ_UNMET);
     }
@@ -194,29 +194,14 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             if (queryEvalResult.getSuccess()) {
               return BlazeCommandResult.success();
             }
-            switch (queryOptions.queryFailureExitCodeBehavior) {
-              case THREE_AND_SEVEN:
-                // The numerical exit code expected by query users in this case is always 3
-                // (corresponding to ExitCode.PARTIAL_ANALYSIS_FAILURE), which is why the command
-                // result returned here overrides any numerical code associated with the
-                // detailedExitCode in the eval result.
-                return BlazeCommandResult.detailedExitCode(
-                    DetailedExitCode.of(
-                        ExitCode.PARTIAL_ANALYSIS_FAILURE,
-                        queryEvalResult.getDetailedExitCode().getFailureDetail()));
-              case SEVEN:
-                return BlazeCommandResult.detailedExitCode(
-                    DetailedExitCode.of(
-                        ExitCode.ANALYSIS_FAILURE,
-                        queryEvalResult.getDetailedExitCode().getFailureDetail()));
-              case UNDERLYING:
-                return BlazeCommandResult.detailedExitCode(queryEvalResult.getDetailedExitCode());
-            }
-            throw new IllegalStateException(
-                "Unknown option: "
-                    + queryOptions.queryFailureExitCodeBehavior
-                    + ", "
-                    + queryEvalResult.getDetailedExitCode());
+            // The numerical exit code expected by query users in this case is always 3
+            // (corresponding to ExitCode.PARTIAL_ANALYSIS_FAILURE), which is why the command
+            // result returned here overrides any numerical code associated with the
+            // detailedExitCode in the eval result.
+            return BlazeCommandResult.detailedExitCode(
+                DetailedExitCode.of(
+                    ExitCode.PARTIAL_ANALYSIS_FAILURE,
+                    queryEvalResult.getDetailedExitCode().getFailureDetail()));
           });
     } catch (QueryRuntimeHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));

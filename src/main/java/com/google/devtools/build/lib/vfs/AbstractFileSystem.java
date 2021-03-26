@@ -42,7 +42,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected InputStream getInputStream(Path path) throws IOException {
+  protected InputStream getInputStream(PathFragment path) throws IOException {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
@@ -59,13 +59,13 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  /** Allows the mapping of Path to InputStream to be overridden in subclasses. */
-  protected InputStream createFileInputStream(Path path) throws IOException {
+  /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
+  protected InputStream createFileInputStream(PathFragment path) throws IOException {
     return new FileInputStream(path.toString());
   }
 
   /** Returns either normal or profiled FileInputStream. */
-  private InputStream createMaybeProfiledInputStream(Path path) throws IOException {
+  private InputStream createMaybeProfiledInputStream(PathFragment path) throws IOException {
     final String name = path.toString();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
@@ -84,7 +84,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected ReadableByteChannel createReadableByteChannel(Path path) throws IOException {
+  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
     final String name = path.toString();
     if (profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_READ)
@@ -105,7 +105,7 @@ public abstract class AbstractFileSystem extends FileSystem {
    * Returns either normal or profiled FileOutputStream. Should be used by subclasses to create
    * default OutputStream instance.
    */
-  protected OutputStream createFileOutputStream(Path path, boolean append)
+  protected OutputStream createFileOutputStream(PathFragment path, boolean append)
       throws FileNotFoundException {
     final String name = path.toString();
     if (profiler.isActive()
@@ -123,7 +123,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(Path path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
     try {
       return createFileOutputStream(path, append);
     } catch (FileNotFoundException e) {

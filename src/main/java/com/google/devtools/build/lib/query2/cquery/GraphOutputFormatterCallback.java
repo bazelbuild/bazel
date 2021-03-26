@@ -50,9 +50,18 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
               // Order graph output first by target label, then by configuration hash.
               Label label1 = ct1.getLabel();
               Label label2 = ct2.getLabel();
-              return label1.equals(label2)
-                  ? ct1.getConfigurationChecksum().compareTo(ct2.getConfigurationChecksum())
-                  : label1.compareTo(label2);
+              if (!label1.equals(label2)) {
+                return label1.compareTo(label2);
+              }
+              String checksum1 = ct1.getConfigurationChecksum();
+              String checksum2 = ct2.getConfigurationChecksum();
+              if (checksum1 == null) {
+                return -1;
+              } else if (checksum2 == null) {
+                return 1;
+              } else {
+                return checksum1.compareTo(checksum2);
+              }
             };
 
         @Override

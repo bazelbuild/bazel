@@ -102,14 +102,14 @@ Java_net_starlark_java_eval_CpuProfiler_gettid(JNIEnv *env, jclass clazz) {
 // Java really does everything it can to make system programming hateful.
 static jobject makeFD(JNIEnv *env, int fd) {
   jclass fdclass = env->FindClass("java/io/FileDescriptor");
-  if (fdclass == NULL) return NULL;  // exception
+  if (fdclass == nullptr) return nullptr;  // exception
 
   jmethodID init = env->GetMethodID(fdclass, "<init>", "()V");
-  if (init == NULL) return NULL;  // exception
+  if (init == nullptr) return nullptr;  // exception
   jobject fdobj = env->NewObject(fdclass, init);
 
   jfieldID fd_field = env->GetFieldID(fdclass, "fd", "I");
-  if (fd_field == NULL) return NULL;  // exception
+  if (fd_field == nullptr) return nullptr;  // exception
   env->SetIntField(fdobj, fd_field, fd);
 
   return fdobj;
