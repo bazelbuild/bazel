@@ -94,7 +94,8 @@ public class DownloadManager {
       Path output,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      String repo)
+      String repo,
+      String sha256)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
@@ -235,6 +236,9 @@ public class DownloadManager {
     } else if (repositoryCache.isEnabled()) {
       String newSha256 = repositoryCache.put(destination, KeyType.SHA256, canonicalId);
       eventHandler.handle(Event.info("SHA256 (" + rewrittenUrls.get(0) + ") = " + newSha256));
+      if(!sha256.equals(Optional.absent()) && sha256 != newSha256) {
+        eventHandler.handle(Event.error("Incorrect SHA256 " + sha256 + ". The correct SHA256 is " + newSha256));
+      }
     }
 
     return destination;
