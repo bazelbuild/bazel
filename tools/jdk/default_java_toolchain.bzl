@@ -26,6 +26,7 @@ BASE_JDK9_JVM_OPTS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.resources=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
