@@ -32,7 +32,7 @@ class JavaToolchainTestUtil {
         "    target_version = '6',",
         "    bootclasspath = ['rt.jar'],",
         "    xlint = ['toto'],",
-        "    misc = ['-Xmaxerrs 500'],",
+        "    javacopts =['-Xmaxerrs 500'],",
         "    compatible_javacopts = {",
         "        'appengine': ['-XDappengineCompatible'],",
         "        'android': ['-XDandroidCompatible'],",
