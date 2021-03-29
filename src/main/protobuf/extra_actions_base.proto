@@ -170,6 +170,7 @@ message JavaCompileInfo {
   repeated string processorpath = 7;
   repeated string bootclasspath = 8;
   repeated string argument = 9;
+  optional string system = 10;
 }
 
 // Provides access to data that is specific to python rules.
