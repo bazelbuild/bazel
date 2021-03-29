@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -90,6 +92,18 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
     events.assertContainsError(
         "Executing genrule //foo:top failed: error reading file '//foo:foo.sh': nope");
+  }
+
+  @Test
+  public void globDanglingSymlink() throws Exception {
+    Path packageDirPath = write("foo/BUILD", "exports_files(glob(['*.txt']))").getParentDirectory();
+    write("foo/existing.txt");
+    Path badSymlink = packageDirPath.getChild("bad.txt");
+    FileSystemUtils.ensureSymbolicLink(badSymlink, "nope");
+    customFileSystem.alwaysError(badSymlink);
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> buildTarget("//foo:all"));
+    assertThat(e).hasMessageThat().contains("no such package 'foo': error globbing [*.txt]: nope");
   }
 
   /**
@@ -516,6 +530,12 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
         throw new IOException("nope");
       }
       super.createDirectoryAndParents(path);
+    }
+
+    @Override
+    protected PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
+      maybeThrowExn(path);
+      return super.readSymbolicLinkUnchecked(path);
     }
 
     private static class ThrowingFileStatus implements FileStatus {

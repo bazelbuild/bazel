@@ -110,9 +110,10 @@ public final class LoadingPhaseRunnerTest {
     return result;
   }
 
-  private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
+  private void assertCircularSymlinksDuringTargetParsing(String targetPattern, String errorMessage)
+      throws Exception {
     assertThrows(TargetParsingException.class, () -> tester.load(targetPattern));
-    tester.assertContainsError("circular symlinks detected");
+    tester.assertContainsError(errorMessage);
     TargetPatternPhaseValue result = tester.loadKeepGoing(targetPattern);
     assertThat(result.hasError()).isTrue();
   }
@@ -725,7 +726,7 @@ public final class LoadingPhaseRunnerTest {
     fooFilePath.createSymbolicLink(barFilePath);
     barFilePath.createSymbolicLink(bazFilePath);
     bazFilePath.createSymbolicLink(fooFilePath);
-    assertCircularSymlinksDuringTargetParsing("//hello:a");
+    assertCircularSymlinksDuringTargetParsing("//hello:a", "Too many levels of symbolic links");
   }
 
   @Test
@@ -738,7 +739,7 @@ public final class LoadingPhaseRunnerTest {
         .getRelative(PathFragment.create("broken/BUILD"))
         .createSymbolicLink(PathFragment.create("BUILD"));
 
-    assertCircularSymlinksDuringTargetParsing("//broken/...");
+    assertCircularSymlinksDuringTargetParsing("//broken/...", "circular symlinks detected");
   }
 
   @Test
@@ -755,7 +756,7 @@ public final class LoadingPhaseRunnerTest {
         .getRelative(PathFragment.create("broken/x"))
         .createSymbolicLink(PathFragment.create("BUILD"));
 
-    assertCircularSymlinksDuringTargetParsing("//broken/...");
+    assertCircularSymlinksDuringTargetParsing("//broken/...", "circular symlinks detected");
   }
 
   @Test
