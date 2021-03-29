@@ -2372,7 +2372,7 @@ public class RuleClass {
       if (implicitTests != null
           && NonconfigurableAttributeMapper.of(rule).get("tests", BuildType.LABEL_LIST).isEmpty()) {
         boolean explicit = true; // so that it appears in query output
-        rule.setAttributeValue(implicitTests, pkgBuilder.testSuiteImplicitTests, explicit);
+        rule.setAttributeValue(implicitTests, pkgBuilder.getTestSuiteImplicitTestsRef(), explicit);
       }
     }
 

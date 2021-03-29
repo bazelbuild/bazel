@@ -1003,6 +1003,8 @@ public class Package {
 
     private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
 
+    private final List<Label> testSuiteImplicitTests = new ArrayList<>();
+
     /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
     @Nullable
     public String getGeneratorNameByLocation(Location loc) {
@@ -1015,10 +1017,16 @@ public class Package {
       return this;
     }
 
-    // Value of '$implicit_tests' attribute shared by all test_suite rules in the
-    // package that don't specify an explicit 'tests' attribute value.
-    // It contains the label of each non-manual test in the package, in label order.
-    final List<Label> testSuiteImplicitTests = new ArrayList<>();
+    /**
+     * Returns the value to use for {@code test_suite}s' {@code $implicit_tests} attribute, as-is,
+     * when the {@code test_suite} doesn't specify an explicit, non-empty {@code tests} value. The
+     * returned list is mutated by the package-building process - it may be observed to be empty or
+     * incomplete before package loading is complete. When package loading is complete it will
+     * contain the label of each non-manual test in the package, in label order.
+     */
+    List<Label> getTestSuiteImplicitTestsRef() {
+      return Collections.unmodifiableList(testSuiteImplicitTests);
+    }
 
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
