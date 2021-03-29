@@ -102,7 +102,7 @@ class DirectoryTreeBuilder {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          currDir.addChild(new FileNode(path.getBaseName(), input, d, input.isExecutable()));
+          currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
           return 1;
         });
   }
@@ -128,7 +128,7 @@ class DirectoryTreeBuilder {
           if (input instanceof VirtualActionInput) {
             VirtualActionInput virtualActionInput = (VirtualActionInput) input;
             Digest d = digestUtil.compute(virtualActionInput);
-            currDir.addChild(new FileNode(path.getBaseName(), virtualActionInput.getBytes(), d));
+            currDir.addChild(FileNode.createExecutable(path.getBaseName(), virtualActionInput.getBytes(), d));
             return 1;
           }
 
@@ -141,15 +141,7 @@ class DirectoryTreeBuilder {
             case REGULAR_FILE:
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
               Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
-
-              boolean isExecutable;
-              if (metadata instanceof RemoteActionFileArtifactValue) {
-                isExecutable = ((RemoteActionFileArtifactValue) metadata).isExecutable();
-              } else {
-                isExecutable = inputPath.isExecutable();
-              }
-
-              currDir.addChild(new FileNode(path.getBaseName(), inputPath, d, isExecutable));
+              currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
               return 1;
 
             case DIRECTORY:

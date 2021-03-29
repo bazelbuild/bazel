@@ -2194,26 +2194,70 @@ EOF
     @local_foo//:all
 }
 
-function test_remote_input_files_executable_bit() {
-  # Test that input files uploaded to remote executor have the same executable bit with local files. #12818
+function test_remote_cache_intermediate_outputs() {
+  # test that remote cache is hit when intermediate output is not executable
   touch WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
+  name = "dep",
+  srcs = [],
+  outs = ["dep"],
+  cmd = "echo 'dep' > $@",
+)
+
+genrule(
   name = "test",
-  srcs = ["foo.txt", "bar.sh"],
-  outs = ["out.txt"],
-  cmd = "ls -l $(SRCS); touch $@",
+  srcs = [":dep"],
+  outs = ["out"],
+  cmd = "cat $(SRCS) > $@",
 )
 EOF
-  touch foo.txt bar.sh
-  chmod a+x bar.sh
 
   bazel build \
-    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_cache=grpc://localhost:${worker_port} \
     //:test >& $TEST_log || fail "Failed to build //:test"
 
-  expect_log "-rwxr--r-- .* bar.sh"
-  expect_log "-rw-r--r-- .* foo.txt"
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //:test >& $TEST_log || fail "Failed to build //:test"
+
+  expect_log "2 remote cache hit"
+}
+
+function test_remote_cache_intermediate_outputs_toplevel() {
+  # test that remote cache is hit when intermediate output is not executable in remote download toplevel mode
+  touch WORKSPACE
+  cat > BUILD <<'EOF'
+genrule(
+  name = "dep",
+  srcs = [],
+  outs = ["dep"],
+  cmd = "echo 'dep' > $@",
+)
+
+genrule(
+  name = "test",
+  srcs = [":dep"],
+  outs = ["out"],
+  cmd = "cat $(SRCS) > $@",
+)
+EOF
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:test >& $TEST_log || fail "Failed to build //:test"
+
+  bazel clean
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:test >& $TEST_log || fail "Failed to build //:test"
+
+  expect_log "2 remote cache hit"
 }
 
 function test_exclusive_tag() {
