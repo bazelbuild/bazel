@@ -48,6 +48,8 @@ DEFAULT_JAVACOPTS = [
     "-XDcompilePolicy=simple",
     "-g",
     "-parameters",
+    # see https://github.com/bazelbuild/bazel/pull/13016
+    "-Xep:BanSerializableRead:OFF",
 ]
 
 # java_toolchain parameters without specifying javac, java.compiler,
