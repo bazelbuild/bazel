@@ -101,7 +101,7 @@ public class RepositoryCache {
   }
 
   /**
-   * @return true iff the cache path is set.
+   * @return true if the cache path is set.
    */
   public boolean isEnabled() {
     return repositoryCachePath != null;
