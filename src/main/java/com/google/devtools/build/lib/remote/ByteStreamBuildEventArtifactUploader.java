@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -45,7 +44,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 
 /** A {@link BuildEventArtifactUploader} backed by {@link ByteStreamUploader}. */
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
@@ -63,16 +61,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   ByteStreamBuildEventArtifactUploader(
       ByteStreamUploader uploader,
       MissingDigestsFinder missingDigestsFinder,
-      String remoteServerName,
+      String remoteServerInstanceName,
       String buildRequestId,
       String commandId,
-      @Nullable String remoteInstanceName,
       int maxUploadThreads) {
     this.uploader = Preconditions.checkNotNull(uploader);
-    String remoteServerInstanceName = Preconditions.checkNotNull(remoteServerName);
-    if (!Strings.isNullOrEmpty(remoteInstanceName)) {
-      remoteServerInstanceName += "/" + remoteInstanceName;
-    }
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.remoteServerInstanceName = remoteServerInstanceName;

@@ -15,12 +15,13 @@
 package com.google.devtools.build.lib.packages;
 
 import java.util.List;
+import java.util.OptionalLong;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Listener for package-loading events. */
 public interface PackageLoadingListener {
 
-  PackageLoadingListener NOOP_LISTENER = (pkg, semantics, loadTimeNanos) -> {};
+  PackageLoadingListener NOOP_LISTENER = (pkg, semantics, loadTimeNanos, packageOverhead) -> {};
 
   /** Returns a {@link PackageLoadingListener} from a composed of the input listeners. */
   static PackageLoadingListener create(List<PackageLoadingListener> listeners) {
@@ -30,9 +31,9 @@ public interface PackageLoadingListener {
       case 1:
         return listeners.get(0);
       default:
-        return (pkg, semantics, loadTimeNanos) -> {
+        return (pkg, semantics, loadTimeNanos, packageOverhead) -> {
           for (PackageLoadingListener listener : listeners) {
-            listener.onLoadingCompleteAndSuccessful(pkg, semantics, loadTimeNanos);
+            listener.onLoadingCompleteAndSuccessful(pkg, semantics, loadTimeNanos, packageOverhead);
           }
         };
     }
@@ -49,7 +50,12 @@ public interface PackageLoadingListener {
    *     this does not include the time to read and parse the package's BUILD file, nor the time to
    *     read, parse, or evaluate any of the transitively loaded .bzl files, and it includes time
    *     the OS thread is runnable but not running.
+   * @param packageOverhead the package "overhead", if recorded. See {@link
+   *     PackageOverheadEstimator} for details
    */
   void onLoadingCompleteAndSuccessful(
-      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
+      Package pkg,
+      StarlarkSemantics starlarkSemantics,
+      long loadTimeNanos,
+      OptionalLong packageOverhead);
 }

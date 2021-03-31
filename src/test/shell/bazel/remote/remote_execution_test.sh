@@ -1011,8 +1011,8 @@ EOF
   [[ $(< ${localtxt}) == "remotelocal" ]] \
   || fail "Unexpected contents in " ${localtxt} ": " $(< ${localtxt})
 
-  (! [[ -f bazel-bin/a/remote.txt ]]) \
-  || fail "Expected bazel-bin/a/remote.txt to have been deleted again"
+  [[ -f bazel-bin/a/remote.txt ]] \
+  || fail "Expected bazel-bin/a/remote.txt to be downloaded"
 }
 
 function test_download_outputs_invalidation() {
@@ -1105,8 +1105,8 @@ EOF
   [[ $(< ${outtxt}) == "Hello buchgr!" ]] \
   || fail "Unexpected contents in "${outtxt}":" $(< ${outtxt})
 
-  (! [[ -f bazel-bin/a/template.txt ]]) \
-  || fail "Expected bazel-bin/a/template.txt to have been deleted again"
+  [[ -f bazel-bin/a/template.txt ]] \
+  || fail "Expected bazel-bin/a/template.txt to be downloaded"
 }
 
 function test_downloads_toplevel() {
@@ -1438,6 +1438,41 @@ EOF
 
   expect_not_log 'uri:.*file://'
   expect_log "uri:.*bytestream://localhost"
+}
+
+function test_bytestream_uri_prefix() {
+  # Test that when --remote_bytestream_uri_prefix is set, bytestream://
+  # URIs do not contain the hostname that's part of --remote_executor.
+  # They should use a fixed value instead.
+  mkdir -p a
+  cat > a/success.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/success.sh
+  cat > a/BUILD <<'EOF'
+sh_test(
+  name = "success_test",
+  srcs = ["success.sh"],
+)
+
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --remote_bytestream_uri_prefix=example.com/my-instance-name \
+    --build_event_text_file=$TEST_log \
+    //a:foo //a:success_test || fail "Failed to test //a:foo //a:success_test"
+
+  expect_not_log 'uri:.*file://'
+  expect_log "uri:.*bytestream://example.com/my-instance-name/blobs"
 }
 
 # This test is derivative of test_bep_output_groups in

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
@@ -124,6 +125,7 @@ public class RootTest {
     Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root otherFooPathRoot = Root.fromPath(fs.getPath("/foo"));
     Root barPathRoot = Root.fromPath(fs.getPath("/bar"));
+    Root bazPathRoot = Root.fromPath(fs.getPath("/baz"));
     Root fsAabsoluteRoot = Root.absoluteRoot(fs);
 
     assertThat(fooPathRoot).isNotSameInstanceAs(otherFooPathRoot);
@@ -135,7 +137,8 @@ public class RootTest {
             .put(FileSystem.class, fs)
             .put(
                 Root.RootCodecDependencies.class,
-                new Root.RootCodecDependencies(/*likelyPopularRoot=*/ fooPathRoot))
+                new Root.RootCodecDependencies(
+                    /*likelyPopularRoots=*/ ImmutableList.of(fooPathRoot, bazPathRoot)))
             .build();
     ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
     for (Object val : dependencies.values()) {
@@ -154,6 +157,10 @@ public class RootTest {
         (Root) objectCodecs.deserialize(objectCodecs.serialize(barPathRoot));
     assertThat(barPathRootDeserialized).isNotSameInstanceAs(barPathRoot);
     assertThat(barPathRootDeserialized).isEqualTo(barPathRoot);
+
+    Root bazPathRootDeserialized =
+        (Root) objectCodecs.deserialize(objectCodecs.serialize(bazPathRoot));
+    assertThat(bazPathRootDeserialized).isSameInstanceAs(bazPathRoot);
 
     Root fsAabsoluteRootDeserialized =
         (Root) objectCodecs.deserialize(objectCodecs.serialize(fsAabsoluteRoot));

@@ -277,10 +277,17 @@ public class RunCommand implements BlazeCommand  {
     List<String> targets = (runUnder != null) && (runUnder.getLabel() != null)
         ? ImmutableList.of(targetString, runUnder.getLabel().toString())
         : ImmutableList.of(targetString);
-    BuildRequest request = BuildRequest.create(
-        this.getClass().getAnnotation(Command.class).name(), options,
-        env.getRuntime().getStartupOptionsProvider(), targets, outErr,
-        env.getCommandId(), env.getCommandStartTime());
+
+    BuildRequest request =
+        BuildRequest.builder()
+            .setCommandName(this.getClass().getAnnotation(Command.class).name())
+            .setId(env.getCommandId())
+            .setOptions(options)
+            .setStartupOptions(env.getRuntime().getStartupOptionsProvider())
+            .setOutErr(outErr)
+            .setTargets(targets)
+            .setStartTimeMillis(env.getCommandStartTime())
+            .build();
 
     currentRunUnder = runUnder;
     BuildResult result;

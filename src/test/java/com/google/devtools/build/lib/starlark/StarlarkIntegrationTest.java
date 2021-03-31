@@ -2700,7 +2700,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
         "my_rule(name = 'my_rule', dep = ':dep')",
         "simple_rule(name = 'dep')");
-    setBuildLanguageOptions("--experimental_starlark_config_transitions");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
@@ -2709,7 +2708,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testPrintFromTransitionImpl() throws Exception {
-    setBuildLanguageOptions("--experimental_starlark_config_transitions");
     scratch.file(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
@@ -2761,7 +2759,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionEquality() throws Exception {
-    setBuildLanguageOptions("--experimental_starlark_config_transitions");
     scratch.file(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
@@ -2850,7 +2847,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
         "my_rule(name = 'my_rule', dep = ':dep')",
         "simple_rule(name = 'dep')");
-    setBuildLanguageOptions("--experimental_starlark_config_transitions");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");

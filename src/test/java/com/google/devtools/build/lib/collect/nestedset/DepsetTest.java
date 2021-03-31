@@ -461,8 +461,7 @@ public final class DepsetTest {
         .testEval("create_depset(3000)", "None") // succeeds
         .testIfErrorContains("depset depth 3501 exceeds limit (3500)", "create_depset(4000)");
 
-    Depset.setDepthLimit(100);
-    ev.new Scenario()
+    ev.new Scenario("--nested_set_depth_limit=100")
         .setUp(
             "def create_depset(depth):",
             "  x = depset([0])",

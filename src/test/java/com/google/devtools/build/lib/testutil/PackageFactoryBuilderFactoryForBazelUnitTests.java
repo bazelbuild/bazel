@@ -57,6 +57,7 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
           version,
           DefaultPackageSettings.INSTANCE,
           packageValidator,
+          packageOverheadEstimator,
           doChecksForTesting
               ? new BazelPackageLoadingListenerForTesting(
                   (ConfiguredRuleClassProvider) ruleClassProvider, directories)

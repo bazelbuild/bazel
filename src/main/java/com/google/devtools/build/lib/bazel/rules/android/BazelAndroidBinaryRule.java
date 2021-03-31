@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
@@ -80,7 +81,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
                 .value(
                     environment.getToolsLabel(
                         "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
-        .useToolchainTransition(true)
+        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

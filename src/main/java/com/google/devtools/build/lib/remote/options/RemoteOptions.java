@@ -181,6 +181,19 @@ public final class RemoteOptions extends OptionsBase {
               + " the unit is omitted, the value is interpreted as seconds.")
   public Duration remoteTimeout;
 
+  @Option(
+      name = "remote_bytestream_uri_prefix",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The hostname and instance name to be used in bytestream:// URIs that are written into "
+              + "build event streams. This option can be set when builds are performed using a "
+              + "proxy, which causes the values of --remote_executor and --remote_instance_name "
+              + "to no longer correspond to the canonical name of the remote execution service. "
+              + "When not set, it will default to \"${hostname}/${instance_name}\".")
+  public String remoteBytestreamUriPrefix;
+
   /** Returns the specified duration. Assumes seconds if unitless. */
   public static class RemoteTimeoutConverter implements Converter<Duration> {
     private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");

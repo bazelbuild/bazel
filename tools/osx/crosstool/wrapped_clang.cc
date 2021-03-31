@@ -123,7 +123,7 @@ void ExecProcess(const std::vector<std::string> &args) {
 void RunSubProcess(const std::vector<std::string> &args) {
   std::vector<const char *> exec_argv = ConvertToCArgs(args);
   pid_t pid;
-  int status = posix_spawn(&pid, args[0].c_str(), NULL, NULL,
+  int status = posix_spawn(&pid, args[0].c_str(), nullptr, nullptr,
                            const_cast<char **>(exec_argv.data()), environ);
   if (status == 0) {
     int wait_status;

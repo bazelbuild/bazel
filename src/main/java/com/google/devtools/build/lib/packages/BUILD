@@ -58,6 +58,7 @@ java_library(
         "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

@@ -21,7 +21,6 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -79,16 +78,4 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     help = "Whether to generate with shorter header path (uses \"_ios\" instead of \"_j2objc\")."
   )
   public boolean experimentalShorterHeaderPath;
-
-  @Option(
-      name = "incompatible_dont_use_javasourceinfoprovider",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "Whether to use JavaSourceInfoProvider to collect sources or do so directly.")
-  public boolean dontUseJavaSourceInfoProvider;
 }

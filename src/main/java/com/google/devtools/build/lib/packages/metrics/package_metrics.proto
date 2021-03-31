@@ -36,4 +36,9 @@ message PackageMetrics {
 
   // Number of transitive Starlark load()s required to create the package.
   optional uint64 num_transitive_loads = 5;
+
+  // Numeric value given to the memory and general accounting costs associated
+  // with a loaded package. Values are an approximate but reasonable proxy for
+  // the real storage costs of a package.
+  optional uint64 package_overhead = 6;
 }

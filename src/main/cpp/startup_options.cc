@@ -224,8 +224,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   // options begin with "--" or "-". Values are given together with the option
   // delimited by '=' or in the next option.
   const char* arg = argstr.c_str();
-  const char* next_arg = next_argstr.empty() ? NULL : next_argstr.c_str();
-  const char* value = NULL;
+  const char *next_arg = next_argstr.empty() ? nullptr : next_argstr.c_str();
+  const char *value = nullptr;
 
   bool is_nullary;
   if (!MaybeCheckValidNullary(argstr, &is_nullary, error)) {
@@ -267,42 +267,42 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     return blaze_exit_code::SUCCESS;
   }
 
-  if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != NULL) {
+  if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != nullptr) {
     output_base = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["output_base"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--install_base")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--install_base")) !=
+             nullptr) {
     install_base = blaze::AbsolutePathFromFlag(value);
     option_sources["install_base"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--output_user_root")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--output_user_root")) !=
+             nullptr) {
     output_user_root = blaze::AbsolutePathFromFlag(value);
     option_sources["output_user_root"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--server_jvm_out")) != NULL) {
+  } else if ((value = GetUnaryOption(arg, next_arg, "--server_jvm_out")) !=
+             nullptr) {
     server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["server_jvm_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--failure_detail_out")) !=
-             NULL) {
+             nullptr) {
     failure_detail_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["failure_detail_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
-             NULL) {
+             nullptr) {
     host_jvm_profile = value;
     option_sources["host_jvm_profile"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--server_javabase")) !=
-             NULL) {
+             nullptr) {
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
     explicit_server_javabase_ =
         blaze_util::Path(blaze::AbsolutePathFromFlag(value));
     option_sources["server_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
-             NULL) {
+             nullptr) {
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
   } else if ((value = GetUnaryOption(arg, next_arg, "--io_nice_level")) !=
-             NULL) {
+             nullptr) {
     if (!blaze_util::safe_strto32(value, &io_nice_level) ||
         io_nice_level > 7) {
       blaze_util::StringPrintf(error,
@@ -312,7 +312,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
     option_sources["io_nice_level"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--max_idle_secs")) !=
-             NULL) {
+             nullptr) {
     if (!blaze_util::safe_strto32(value, &max_idle_secs) ||
         max_idle_secs < 0) {
       blaze_util::StringPrintf(error,
@@ -321,7 +321,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
     option_sources["max_idle_secs"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--macos_qos_class")) !=
-             NULL) {
+             nullptr) {
     // We parse the value of this flag on all platforms even if it is
     // macOS-specific to ensure that rc files mentioning it are valid.
     if (strcmp(value, "user-interactive") == 0) {
@@ -351,7 +351,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
     option_sources["macos_qos_class"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--connect_timeout_secs")) != NULL) {
+                                     "--connect_timeout_secs")) != nullptr) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
         connect_timeout_secs < 1 || connect_timeout_secs > 3600) {
       blaze_util::StringPrintf(
@@ -362,8 +362,8 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["connect_timeout_secs"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-                                     "--local_startup_timeout_secs")) != NULL) {
+  } else if ((value = GetUnaryOption(
+                  arg, next_arg, "--local_startup_timeout_secs")) != nullptr) {
     if (!blaze_util::safe_strto32(value, &local_startup_timeout_secs) ||
         local_startup_timeout_secs < 1) {
       blaze_util::StringPrintf(
@@ -375,16 +375,16 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
     option_sources["local_startup_timeout_secs"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--digest_function")) !=
-             NULL) {
+             nullptr) {
     digest_function = value;
     option_sources["digest_function"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--unix_digest_hash_attribute_name")) !=
-             NULL) {
+             nullptr) {
     unix_digest_hash_attribute_name = value;
     option_sources["unix_digest_hash_attribute_name"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--command_port")) !=
-             NULL) {
+             nullptr) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
         command_port < 0 || command_port > 65535) {
       blaze_util::StringPrintf(error,
@@ -395,7 +395,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
     option_sources["command_port"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy")) !=
-             NULL) {
+             nullptr) {
     if (!have_invocation_policy_) {
       have_invocation_policy_ = true;
       invocation_policy = value;
@@ -422,7 +422,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
   }
 
-  *is_space_separated = ((value == next_arg) && (value != NULL));
+  *is_space_separated = ((value == next_arg) && (value != nullptr));
   return blaze_exit_code::SUCCESS;
 }
 

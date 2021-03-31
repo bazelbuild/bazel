@@ -36,7 +36,7 @@ LTS release to the next, or updating with each minor version release.
 The image shows both rolling and LTS releases, and the expected support for
 each.
 
-[!image](images/roadmap.png)
+<img src="images/roadmap.png" alt="Roadmap" width="100%" />
 
 ## Release branches
 
@@ -75,6 +75,6 @@ incompatible with previous releases.
 * For more information on updating your Bazel version, see
   [Updating Bazel](updating-bazel.html).
 * For more information on contributing updates to new Bazel releases, see
-  [Contributing to Bazel](bazel.build/contributing.html).
+  [Contributing to Bazel](https://bazel.build/contributing.html).
 
 

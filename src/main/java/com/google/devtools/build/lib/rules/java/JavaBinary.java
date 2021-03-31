@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -120,7 +121,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Lists.newArrayList(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     helper.addLibrariesToAttributes(deps);
     attributesBuilder.addNativeLibraries(
-        collectNativeLibraries(ruleContext, common.targetsTreatedAsDeps(ClasspathType.BOTH)));
+        collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
 
     // deploy_env is valid for java_binary, but not for java_test.
     if (ruleContext.getRule().isAttrDefined("deploy_env", BuildType.LABEL_LIST)) {
@@ -203,11 +204,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaCompileOutputs<Artifact> outputs = helper.createOutputs(classJar);
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(
-                /* classJar= */ classJar,
-                /* iJar= */ null,
-                /* manifestProto= */ outputs.manifestProto(),
-                /* sourceJars= */ ImmutableList.of(srcJar));
+            .addJavaOutput(
+                JavaOutput.builder().fromJavaCompileOutputs(outputs).addSourceJar(srcJar).build());
 
     JavaTargetAttributes attributes = attributesBuilder.build();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
@@ -238,7 +236,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             ruleOutputJarsProviderBuilder,
             javaSourceJarsProviderBuilder);
     javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
-    ruleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
 
     JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
     common.setJavaCompilationArtifacts(javaArtifacts);
@@ -474,10 +471,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(
-                JavaSourceInfoProvider.class,
-                JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
+            .addTransitiveOnlyRuntimeJars(common.getDependencies())
             .build();
 
     Artifact validation =
@@ -680,9 +674,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
    * @return the native libraries found in the transitive closure of the deps.
    */
   public static Collection<Artifact> collectNativeLibraries(
-      RuleContext ruleContext, Iterable<? extends TransitiveInfoCollection> deps) {
+      Iterable<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
-        new NativeLibraryNestedSetBuilder(ruleContext).addJavaTargets(deps).build();
+        new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
     return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 

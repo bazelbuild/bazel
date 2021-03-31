@@ -67,18 +67,32 @@ class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
 
-  public static final class MissingFileArtifactValue implements SkyValue {
+  static final class SourceFileInErrorArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
 
-    private MissingFileArtifactValue(DetailedExitCode detailedExitCode) {
-      this.detailedExitCode = detailedExitCode;
+    private SourceFileInErrorArtifactValue(Artifact artifact, IOException e) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(makeIOExceptionInputFileMessage(artifact, e))
+              .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_IO_EXCEPTION))
+              .build();
+      this.detailedExitCode = DetailedExitCode.of(failureDetail);
     }
 
-    public String getMessage() {
+    private SourceFileInErrorArtifactValue(Artifact missingArtifact) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(constructErrorMessage(missingArtifact, "missing input file"))
+              .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
+              .build();
+      this.detailedExitCode = DetailedExitCode.of(failureDetail);
+    }
+
+    String getMessage() {
       return detailedExitCode.getFailureDetail().getMessage();
     }
 
-    public DetailedExitCode getDetailedExitCode() {
+    DetailedExitCode getDetailedExitCode() {
       return detailedExitCode;
     }
 
@@ -321,27 +335,17 @@ class ArtifactFunction implements SkyFunction {
     return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
   }
 
-  static MissingFileArtifactValue makeMissingSourceInputFileValue(Artifact artifact) {
-    FailureDetail failureDetail =
-        FailureDetail.newBuilder()
-            .setMessage(constructErrorMessage(artifact))
-            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
-            .build();
-    return new MissingFileArtifactValue(DetailedExitCode.of(failureDetail));
+  static SourceFileInErrorArtifactValue makeMissingSourceInputFileValue(Artifact artifact) {
+    return new SourceFileInErrorArtifactValue(artifact);
   }
 
-  static MissingFileArtifactValue makeIOExceptionSourceInputFileValue(
+  static SourceFileInErrorArtifactValue makeIOExceptionSourceInputFileValue(
       Artifact artifact, IOException failure) {
-    FailureDetail failureDetail =
-        FailureDetail.newBuilder()
-            .setMessage(makeIOExceptionInputFileMessage(artifact, failure))
-            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_IO_EXCEPTION))
-            .build();
-    return new MissingFileArtifactValue(DetailedExitCode.of(failureDetail));
+    return new SourceFileInErrorArtifactValue(artifact, failure);
   }
 
   static String makeIOExceptionInputFileMessage(Artifact artifact, IOException failure) {
-    return constructErrorMessage(artifact) + ": " + failure.getMessage();
+    return constructErrorMessage(artifact, "error reading file") + ": " + failure.getMessage();
   }
 
   @Nullable
@@ -447,20 +451,19 @@ class ArtifactFunction implements SkyFunction {
     }
   }
 
-  private static String constructErrorMessage(Artifact artifact) {
+  private static String constructErrorMessage(Artifact artifact, String error) {
     Label ownerLabel = artifact.getOwner();
     if (ownerLabel == null) {
       // Discovered inputs may not have an owner.
-      return String.format("missing input file '%s'", artifact.getExecPathString());
+      return String.format("%s '%s'", error, artifact.getExecPathString());
     } else if (ownerLabel.toPathFragment().equals(artifact.getExecPath())) {
       // No additional useful information from path.
-      return String.format("missing input file '%s'", ownerLabel);
+      return String.format("%s '%s'", error, ownerLabel);
     } else {
       // TODO(janakr): when is this hit?
       BugReport.sendBugReport(
           new IllegalStateException("Unexpected special owner? " + artifact + ", " + ownerLabel));
-      return String.format(
-          "missing input file '%s', owner: '%s'", artifact.getExecPathString(), ownerLabel);
+      return String.format("%s '%s', owner: '%s'", error, artifact.getExecPathString(), ownerLabel);
     }
   }
 

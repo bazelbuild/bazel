@@ -1,5 +1,4 @@
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
-load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(default_visibility = ["//visibility:private"])
 

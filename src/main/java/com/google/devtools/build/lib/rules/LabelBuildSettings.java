@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.rules.LateBoundAlias.CommonAliasRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -82,7 +83,7 @@ public class LabelBuildSettings {
         .add(attr(":alias", LABEL).value(ACTUAL))
         .setBuildSetting(BuildSetting.create(flag, LABEL))
         .canHaveAnyProvider()
-        .useToolchainResolution(false)
+        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .build();
   }
 

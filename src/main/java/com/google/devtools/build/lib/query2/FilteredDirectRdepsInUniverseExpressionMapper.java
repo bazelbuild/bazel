@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.query2.RdepsToAllRdepsQueryExpressionMapper.Eligibility;
 import com.google.devtools.build.lib.query2.engine.BinaryOperatorExpression;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.LetExpression;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.query2.engine.SetExpression;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A {@link QueryExpressionMapper} that transforms each occurrence of an expression of the form
@@ -64,13 +66,13 @@ import java.util.List;
  */
 public class FilteredDirectRdepsInUniverseExpressionMapper extends QueryExpressionMapper<Void> {
   private final TargetPattern.Parser targetPatternParser;
-  private final String absoluteUniverseScopePattern;
+  private final TargetPattern absoluteUniverseScopePattern;
 
   @VisibleForTesting
   public FilteredDirectRdepsInUniverseExpressionMapper(
-      TargetPattern.Parser targetPatternParser, String universeScopePattern) {
+      TargetPattern.Parser targetPatternParser, TargetPattern absoluteUniverseScopePattern) {
     this.targetPatternParser = targetPatternParser;
-    this.absoluteUniverseScopePattern = targetPatternParser.absolutize(universeScopePattern);
+    this.absoluteUniverseScopePattern = absoluteUniverseScopePattern;
   }
 
   @Override
@@ -79,13 +81,18 @@ public class FilteredDirectRdepsInUniverseExpressionMapper extends QueryExpressi
       List<Argument> args = functionExpression.getArgs();
       // This transformation only applies to the 3-arg form of rdeps, with depth == 1.
       if (args.size() == 3 && args.get(2).getInteger() == 1) {
-        List<FunctionExpression> universeFilteringFunctions =
-            args.get(0).getExpression().accept(new ExtractFilteringFunctionsFromUniverseVisitor());
-        // If we get back a non-empty list of FunctionExpressions, these are filtering functions
-        // that can be safely factored out.
-        if (!universeFilteringFunctions.isEmpty()) {
-          QueryExpression curFunction = makeUnfilteredRdepsWithDepthOne(args.get(1));
-          for (FunctionExpression filterExpr : universeFilteringFunctions) {
+        Argument rdepsUniverseArgument = args.get(0);
+        QueryExpression rdepsUniverseExpression = rdepsUniverseArgument.getExpression();
+        ExtractFilteringFunctionsResult result =
+            rdepsUniverseExpression.accept(new ExtractFilteringFunctionsFromUniverseVisitor());
+        // If we get back a non-empty result, then there are filtering functions that can be safely
+        // factored out.
+        if (result.universeArgument != null) {
+          QueryExpression curFunction =
+              makeUnfilteredRdepsWithDepthOne(
+                  /*rdepsUniverseArgument=*/ result.universeArgument,
+                  /*sourceArgument=*/ args.get(1));
+          for (FunctionExpression filterExpr : result.filteringExpressions) {
             curFunction = wrapExprWithFilter(curFunction, filterExpr);
           }
           return curFunction;
@@ -95,11 +102,11 @@ public class FilteredDirectRdepsInUniverseExpressionMapper extends QueryExpressi
     return super.visit(functionExpression, context);
   }
 
-  private FunctionExpression makeUnfilteredRdepsWithDepthOne(Argument target) {
+  private FunctionExpression makeUnfilteredRdepsWithDepthOne(
+      Argument rdepsUniverseArgument, Argument sourceArgument) {
     return new FunctionExpression(
         new RdepsFunction(),
-        ImmutableList.of(
-            Argument.of(new TargetLiteral(absoluteUniverseScopePattern)), target, Argument.of(1)));
+        ImmutableList.of(rdepsUniverseArgument, sourceArgument, Argument.of(1)));
   }
 
   private static QueryExpression wrapExprWithFilter(
@@ -117,63 +124,86 @@ public class FilteredDirectRdepsInUniverseExpressionMapper extends QueryExpressi
     return new FunctionExpression(filteringFunction, rewrittenArgs);
   }
 
+  private static class ExtractFilteringFunctionsResult {
+    private static final ExtractFilteringFunctionsResult EMPTY =
+        new ExtractFilteringFunctionsResult(ImmutableList.of(), null);
+
+    private final ImmutableList<FunctionExpression> filteringExpressions;
+    @Nullable private final Argument universeArgument;
+
+    private ExtractFilteringFunctionsResult(
+        ImmutableList<FunctionExpression> filteringExpressions,
+        @Nullable Argument universeArgument) {
+      this.filteringExpressions = filteringExpressions;
+      this.universeArgument = universeArgument;
+    }
+  }
+
   /**
    * Internal visitor applied to the universe argument of all QueryExpressions of the form {@literal
    * rdeps(u, x, 1)}.
    */
   private class ExtractFilteringFunctionsFromUniverseVisitor
-      implements QueryExpressionVisitor<List<FunctionExpression>, Void> {
+      implements QueryExpressionVisitor<ExtractFilteringFunctionsResult, Void> {
 
     @Override
-    public List<FunctionExpression> visit(TargetLiteral targetLiteral, Void context) {
-      return ImmutableList.of();
+    public ExtractFilteringFunctionsResult visit(TargetLiteral targetLiteral, Void context) {
+      return ExtractFilteringFunctionsResult.EMPTY;
     }
 
     @Override
-    public List<FunctionExpression> visit(
+    public ExtractFilteringFunctionsResult visit(
         BinaryOperatorExpression binaryOperatorExpression, Void context) {
-      return ImmutableList.of();
+      return ExtractFilteringFunctionsResult.EMPTY;
     }
 
     @SuppressWarnings("MixedMutabilityReturnType")
     @Override
-    public List<FunctionExpression> visit(FunctionExpression functionExpression, Void context) {
+    public ExtractFilteringFunctionsResult visit(
+        FunctionExpression functionExpression, Void context) {
       FilteringQueryFunction filteringFunction =
           functionExpression.getFunction().asFilteringFunction();
       if (filteringFunction == null) {
-        return ImmutableList.of();
+        return ExtractFilteringFunctionsResult.EMPTY;
       }
       Argument filteredArgument =
           functionExpression.getArgs().get(filteringFunction.getExpressionToFilterIndex());
       Preconditions.checkArgument(filteredArgument.getType() == ArgumentType.EXPRESSION);
       QueryExpression filteredExpression = filteredArgument.getExpression();
 
-      ArrayList<FunctionExpression> results = new ArrayList<>();
       if (filteredExpression instanceof TargetLiteral) {
-        TargetLiteral literalUniverseExpression = (TargetLiteral) filteredExpression;
-        String absolutizedUniverseExpression =
-            targetPatternParser.absolutize(literalUniverseExpression.getPattern());
-        if (absolutizedUniverseExpression.equals(absoluteUniverseScopePattern)) {
-          results.add(functionExpression);
+        Eligibility eligibility =
+            RdepsToAllRdepsQueryExpressionMapper.determineEligibility(
+                targetPatternParser,
+                absoluteUniverseScopePattern,
+                ((TargetLiteral) filteredExpression).getPattern());
+        if (eligibility == Eligibility.ELIGIBLE_AS_IS
+            || eligibility == Eligibility.ELIGIBLE_WITH_FILTERING) {
+          return new ExtractFilteringFunctionsResult(
+              ImmutableList.of(functionExpression), filteredArgument);
         }
       } else if (filteredExpression instanceof FunctionExpression) {
-        List<FunctionExpression> nestedFilters = filteredExpression.accept(this);
-        if (!nestedFilters.isEmpty()) {
-          results.addAll(nestedFilters);
-          results.add(functionExpression);
+        ExtractFilteringFunctionsResult recursiveResult = filteredExpression.accept(this);
+        if (recursiveResult.universeArgument != null) {
+          return new ExtractFilteringFunctionsResult(
+              /*filteringExpressions=*/ ImmutableList.<FunctionExpression>builder()
+                  .addAll(recursiveResult.filteringExpressions)
+                  .add(functionExpression)
+                  .build(),
+              recursiveResult.universeArgument);
         }
       }
-      return results;
+      return ExtractFilteringFunctionsResult.EMPTY;
     }
 
     @Override
-    public List<FunctionExpression> visit(LetExpression letExpression, Void context) {
-      return ImmutableList.of();
+    public ExtractFilteringFunctionsResult visit(LetExpression letExpression, Void context) {
+      return ExtractFilteringFunctionsResult.EMPTY;
     }
 
     @Override
-    public List<FunctionExpression> visit(SetExpression setExpression, Void context) {
-      return ImmutableList.of();
+    public ExtractFilteringFunctionsResult visit(SetExpression setExpression, Void context) {
+      return ExtractFilteringFunctionsResult.EMPTY;
     }
   }
 }

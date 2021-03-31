@@ -40,22 +40,22 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-WORKSPACE_FILE="$(rlocation io_bazel/WORKSPACE)"
+WORKSPACE_FILES=("$(rlocation io_bazel/WORKSPACE)" "$(rlocation io_bazel/distdir_deps.bzl)")
 
 function test_verify_urls() {
   # Find url-shaped lines, skipping jekyll-tree (which isn't a valid URL), and
   # skipping comments.
   invalid_urls=()
-  for url in $(grep -E '"https://|http://' "${WORKSPACE_FILE}" | \
-    grep -v 'jekyll-tree' | \
-    grep -v '^ *#' | \
-    perl -pe 's#.*"(https?://[^"]+)".*#$1#g' | \
-    sort -u); do
-    #echo "Checking ${url}"
-    if ! curl --head -silent --fail --output /dev/null --retry 3 "${url}"; then
-      #fail "URL ${url} is invalid."
-      invalid_urls+=("${url}")
-    fi
+  for file in "${WORKSPACE_FILES[@]}"; do
+    for url in $(grep -E '"https://|http://' "${file}" | \
+      sed -e '/jekyll-tree/d' -e '/^#/d' -r -e  's#^.*"(https?://[^"]+)".*$#\1#g' | \
+      sort -u); do
+      #echo "Checking ${url}"
+      if ! curl --head -silent --fail --output /dev/null --retry 3 "${url}"; then
+        #fail "URL ${url} is invalid."
+        invalid_urls+=("${url}")
+      fi
+    done
   done
 
   if [[ ${#invalid_urls[@]} > 0 ]]; then

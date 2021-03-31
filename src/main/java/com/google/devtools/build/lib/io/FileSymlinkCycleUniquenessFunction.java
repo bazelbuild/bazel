@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.io;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
@@ -23,18 +23,17 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
- * A {@link
- * com/google/devtools/build/lib/skyframe/FileSymlinkInfiniteExpansionUniquenessFunction.java used
- * only in javadoc: com.google.devtools.build.skyframe.SkyFunction} that has the side effect of
- * reporting a file symlink expansion error exactly once. This is achieved by forcing the same value
- * key for two logically equivalent expansion errors (e.g. ['a' -> 'b' -> 'c' -> 'a/nope'] and ['b'
- * -> 'c' -> 'a' -> 'a/nope']), and letting Skyframe do its magic.
+ * A {@link com.google.devtools.build.skyframe.SkyFunction} that has the side effect of reporting a
+ * file symlink cycle. This is achieved by forcing the same key for two logically equivalent cycles
+ * (e.g. {@code ['a' -> 'b' -> 'c' -> 'a']} and {@code ['b' -> 'c' -> 'a' -> 'b']}), and letting
+ * Skyframe do its magic.
  */
-public class FileSymlinkInfiniteExpansionUniquenessFunction
-    extends AbstractChainUniquenessFunction<RootedPath> {
+public class FileSymlinkCycleUniquenessFunction extends AbstractFileChainUniquenessFunction {
+  public static final SkyFunctionName NAME =
+      SkyFunctionName.createHermetic("FILE_SYMLINK_CYCLE_UNIQUENESS");
 
-  static SkyKey key(ImmutableList<RootedPath> cycle) {
-    return Key.create(ChainUniquenessUtils.canonicalize(cycle));
+  public static SkyKey key(ImmutableList<RootedPath> cycle) {
+    return Key.create(AbstractFileChainUniquenessFunction.canonicalize(cycle));
   }
 
   @AutoCodec.VisibleForSerialization
@@ -54,7 +53,7 @@ public class FileSymlinkInfiniteExpansionUniquenessFunction
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS;
+      return NAME;
     }
   }
 
@@ -65,17 +64,16 @@ public class FileSymlinkInfiniteExpansionUniquenessFunction
 
   @Override
   protected String getConciseDescription() {
-    return "infinite symlink expansion";
+    return "circular symlinks";
   }
 
   @Override
   protected String getHeaderMessage() {
-    return "[start of symlink chain]";
+    return "[start of symlink cycle]";
   }
 
   @Override
   protected String getFooterMessage() {
-    return "[end of symlink chain]";
+    return "[end of symlink cycle]";
   }
 }
-

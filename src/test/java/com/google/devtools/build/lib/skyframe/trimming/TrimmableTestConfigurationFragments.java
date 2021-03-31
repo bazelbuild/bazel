@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.ToolchainType.ToolchainTypeRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
@@ -206,52 +207,51 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "with_configuration",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .requiresConfigurationFragments(
-                              AConfig.class,
-                              BConfig.class,
-                              CConfig.class,
-                              DConfig.class,
-                              EConfig.class,
-                              PlatformConfiguration.class)
-                          .cfg(new TestFragmentTransitionFactory())
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .add(
-                              attr("alpha", Type.STRING)
-                                  .value((String) null)
-                                  .nonconfigurable("used in transition"))
-                          .add(
-                              attr("bravo", Type.STRING)
-                                  .value((String) null)
-                                  .nonconfigurable("used in transition"))
-                          .add(
-                              attr("charlie", Type.STRING)
-                                  .value((String) null)
-                                  .nonconfigurable("used in transition"))
-                          .add(
-                              attr("delta", Type.STRING)
-                                  .value((String) null)
-                                  .nonconfigurable("used in transition"))
-                          .add(
-                              attr("echo", Type.STRING)
-                                  .value((String) null)
-                                  .nonconfigurable("used in transition"))
-                          .add(
-                              attr("platforms", BuildType.NODEP_LABEL_LIST)
-                                  .value((List<Label>) null)
-                                  .nonconfigurable("used in transition"))
-                          .add(
-                              attr("extra_execution_platforms", Type.STRING_LIST)
-                                  .value((List<String>) null)
-                                  .nonconfigurable("used in transition"))
-                          .add(
-                              attr("extra_toolchains", Type.STRING_LIST)
-                                  .value((List<String>) null)
-                                  .nonconfigurable("used in transition"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .requiresConfigurationFragments(
+                                AConfig.class,
+                                BConfig.class,
+                                CConfig.class,
+                                DConfig.class,
+                                EConfig.class,
+                                PlatformConfiguration.class)
+                            .cfg(new TestFragmentTransitionFactory())
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .add(
+                                attr("alpha", Type.STRING)
+                                    .value((String) null)
+                                    .nonconfigurable("used in transition"))
+                            .add(
+                                attr("bravo", Type.STRING)
+                                    .value((String) null)
+                                    .nonconfigurable("used in transition"))
+                            .add(
+                                attr("charlie", Type.STRING)
+                                    .value((String) null)
+                                    .nonconfigurable("used in transition"))
+                            .add(
+                                attr("delta", Type.STRING)
+                                    .value((String) null)
+                                    .nonconfigurable("used in transition"))
+                            .add(
+                                attr("echo", Type.STRING)
+                                    .value((String) null)
+                                    .nonconfigurable("used in transition"))
+                            .add(
+                                attr("platforms", BuildType.NODEP_LABEL_LIST)
+                                    .value((List<Label>) null)
+                                    .nonconfigurable("used in transition"))
+                            .add(
+                                attr("extra_execution_platforms", Type.STRING_LIST)
+                                    .value((List<String>) null)
+                                    .nonconfigurable("used in transition"))
+                            .add(
+                                attr("extra_toolchains", Type.STRING_LIST)
+                                    .value((List<String>) null)
+                                    .nonconfigurable("used in transition")));
 
     MockRule alphaRule =
         () ->
@@ -259,15 +259,14 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "alpha_native",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .requiresConfigurationFragments(AConfig.class)
-                          .setImplicitOutputsFunction(
-                              ImplicitOutputsFunction.fromTemplates("%{name}.a"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .requiresConfigurationFragments(AConfig.class)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.a")));
 
     MockRule bravoRule =
         () ->
@@ -275,15 +274,14 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "bravo_native",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .requiresConfigurationFragments(BConfig.class)
-                          .setImplicitOutputsFunction(
-                              ImplicitOutputsFunction.fromTemplates("%{name}.b"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .requiresConfigurationFragments(BConfig.class)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.b")));
 
     MockRule charlieRule =
         () ->
@@ -291,15 +289,14 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "charlie_native",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .requiresConfigurationFragments(CConfig.class)
-                          .setImplicitOutputsFunction(
-                              ImplicitOutputsFunction.fromTemplates("%{name}.c"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .requiresConfigurationFragments(CConfig.class)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.c")));
 
     MockRule deltaRule =
         () ->
@@ -307,15 +304,14 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "delta_native",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .requiresConfigurationFragments(DConfig.class)
-                          .setImplicitOutputsFunction(
-                              ImplicitOutputsFunction.fromTemplates("%{name}.d"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .requiresConfigurationFragments(DConfig.class)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.d")));
 
     MockRule echoRule =
         () ->
@@ -323,15 +319,14 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "echo_native",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .requiresConfigurationFragments(EConfig.class)
-                          .setImplicitOutputsFunction(
-                              ImplicitOutputsFunction.fromTemplates("%{name}.e"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .requiresConfigurationFragments(EConfig.class)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.e")));
 
     MockRule platformlessRule =
         () ->
@@ -339,15 +334,14 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "platformless_native",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .useToolchainResolution(false)
-                          .setImplicitOutputsFunction(
-                              ImplicitOutputsFunction.fromTemplates("%{name}.np"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.np")));
 
     MockRule platformerRule =
         () ->
@@ -355,15 +349,14 @@ public final class TrimmableTestConfigurationFragments {
                 .factory(DepsCollectingFactory.class)
                 .define(
                     "platformer_native",
-                    (ruleBuilder, env) -> {
-                      ruleBuilder
-                          .add(
-                              attr("deps", BuildType.LABEL_LIST)
-                                  .allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .useToolchainResolution(true)
-                          .setImplicitOutputsFunction(
-                              ImplicitOutputsFunction.fromTemplates("%{name}.p"));
-                    });
+                    (ruleBuilder, env) ->
+                        ruleBuilder
+                            .add(
+                                attr("deps", BuildType.LABEL_LIST)
+                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
+                            .useToolchainResolution(ToolchainResolutionMode.ENABLED)
+                            .setImplicitOutputsFunction(
+                                ImplicitOutputsFunction.fromTemplates("%{name}.p")));
 
     builder
         .addConfigurationFragment(AConfig.class)
@@ -387,16 +380,15 @@ public final class TrimmableTestConfigurationFragments {
                   .factory(DepsCollectingFactory.class)
                   .define(
                       "uses_toolchains_native",
-                      (ruleBuilder, env) -> {
-                        ruleBuilder
-                            .add(
-                                attr("deps", BuildType.LABEL_LIST)
-                                    .allowedFileTypes(FileTypeSet.ANY_FILE))
-                            .useToolchainResolution(true)
-                            .addRequiredToolchains(toolchainTypeLabel)
-                            .setImplicitOutputsFunction(
-                                ImplicitOutputsFunction.fromTemplates("%{name}.u"));
-                      });
+                      (ruleBuilder, env) ->
+                          ruleBuilder
+                              .add(
+                                  attr("deps", BuildType.LABEL_LIST)
+                                      .allowedFileTypes(FileTypeSet.ANY_FILE))
+                              .useToolchainResolution(ToolchainResolutionMode.ENABLED)
+                              .addRequiredToolchains(toolchainTypeLabel)
+                              .setImplicitOutputsFunction(
+                                  ImplicitOutputsFunction.fromTemplates("%{name}.u")));
       builder.addRuleDefinition(usesToolchainsRule);
     }
   }

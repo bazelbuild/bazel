@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -41,7 +42,7 @@ public class ObjcLibraryRule implements RuleDefinition {
         .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(true)
+        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 

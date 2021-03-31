@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -23,10 +25,12 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.LinkedHashSet;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -107,14 +111,25 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
    * once we start creating the symlinks for all inputs.
    */
   private void createDirectories() throws IOException {
-    LinkedHashSet<Path> dirsToCreate = new LinkedHashSet<>();
+    Set<Path> knownDirectories = new HashSet<>();
+    // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
+    // sandboxExecRoot and we know that sandboxExecRoot exists.
+    knownDirectories.add(sandboxExecRoot);
+    knownDirectories.add(sandboxExecRoot.getParentDirectory());
 
     for (PathFragment path :
-        Iterables.concat(
-            inputs.getFiles().keySet(),
-            inputs.getSymlinks().keySet(),
-            outputs.files(),
-            outputs.dirs())) {
+        (Iterable<PathFragment>)
+            () ->
+                Stream.concat(
+                        ImmutableList.of(
+                                inputs.getFiles().keySet(),
+                                inputs.getSymlinks().keySet(),
+                                outputs.files())
+                            .stream()
+                            .flatMap(Collection::stream)
+                            .map(PathFragment::getParentDirectory),
+                        outputs.dirs().stream())
+                    .iterator()) {
       Preconditions.checkArgument(!path.isAbsolute());
       if (path.segmentCount() > 1) {
         // Allow a single up-level reference to allow inputs from the siblings of the main
@@ -124,23 +139,39 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
             "%s escapes the sandbox exec root.",
             path);
       }
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(sandboxExecRoot.getRelative(path.subFragment(0, i)));
-      }
-    }
-    for (PathFragment path : outputs.dirs()) {
-      dirsToCreate.add(sandboxExecRoot.getRelative(path));
-    }
 
-    for (Path path : dirsToCreate) {
-      path.createDirectory();
+      createDirectoryAndParentsInSandboxRoot(sandboxExecRoot.getRelative(path), knownDirectories);
     }
 
     for (Path dir : writableDirs) {
       if (dir.startsWith(sandboxExecRoot)) {
-        dir.createDirectoryAndParents();
+        createDirectoryAndParentsInSandboxRoot(dir, knownDirectories);
       }
     }
+  }
+
+  /**
+   * Creates directory and all ancestors for it at a given path.
+   *
+   * <p>This method uses (and updates) the set of already known directories in order to minimize the
+   * IO involved with creating directories. For example a path of {@code 1/2/3/4} created after
+   * {@code 1/2/3/5} only calls for creating {@code 1/2/3/5}. We can use the set of known
+   * directories to discover that {@code 1/2/3} already exists instead of deferring to the
+   * filesystem for it.
+   */
+  private void createDirectoryAndParentsInSandboxRoot(Path path, Set<Path> knownDirectories)
+      throws IOException {
+    if (knownDirectories.contains(path)) {
+      return;
+    }
+    createDirectoryAndParentsInSandboxRoot(
+        checkNotNull(
+            path.getParentDirectory(),
+            "All paths should be under/siblings of sandboxExecRoot: %s",
+            sandboxExecRoot),
+        knownDirectories);
+    path.createDirectory();
+    knownDirectories.add(path);
   }
 
   protected void createInputs(SandboxInputs inputs) throws IOException {

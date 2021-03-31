@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -49,6 +50,102 @@ import java.util.concurrent.ExecutionException;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsProvider {
+  private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
+      ImmutableList.of(
+          BuildRequestOptions.class,
+          PackageOptions.class,
+          BuildLanguageOptions.class,
+          LoadingOptions.class,
+          AnalysisOptions.class,
+          ExecutionOptions.class,
+          KeepGoingOption.class,
+          LoadingPhaseThreadsOption.class);
+
+  /** Returns a new Builder instance. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /** A Builder class to help create instances of BuildRequest. */
+  public static final class Builder {
+    private UUID id;
+    private OptionsParsingResult options;
+    private OptionsParsingResult startupOptions;
+    private String commandName;
+    private OutErr outErr;
+    private List<String> targets;
+    private long startTimeMillis; // milliseconds since UNIX epoch.
+    private boolean needsInstrumentationFilter;
+    private boolean runTests;
+    private boolean checkForActionConflicts = true;
+
+    private Builder() {}
+
+    public Builder setId(UUID id) {
+      this.id = id;
+      return this;
+    }
+
+    public Builder setOptions(OptionsParsingResult options) {
+      this.options = options;
+      return this;
+    }
+
+    public Builder setStartupOptions(OptionsParsingResult startupOptions) {
+      this.startupOptions = startupOptions;
+      return this;
+    }
+
+    public Builder setCommandName(String commandName) {
+      this.commandName = commandName;
+      return this;
+    }
+
+    public Builder setOutErr(OutErr outErr) {
+      this.outErr = outErr;
+      return this;
+    }
+
+    public Builder setTargets(List<String> targets) {
+      this.targets = targets;
+      return this;
+    }
+
+    public Builder setStartTimeMillis(long startTimeMillis) {
+      this.startTimeMillis = startTimeMillis;
+      return this;
+    }
+
+    public Builder setNeedsInstrumentationFilter(boolean needsInstrumentationFilter) {
+      this.needsInstrumentationFilter = needsInstrumentationFilter;
+      return this;
+    }
+
+    public Builder setRunTests(boolean runTests) {
+      this.runTests = runTests;
+      return this;
+    }
+
+    public Builder setCheckforActionConflicts(boolean checkForActionConflicts) {
+      this.checkForActionConflicts = checkForActionConflicts;
+      return this;
+    }
+
+    public BuildRequest build() {
+      return new BuildRequest(
+          commandName,
+          options,
+          startupOptions,
+          targets,
+          outErr,
+          id,
+          startTimeMillis,
+          needsInstrumentationFilter,
+          runTests,
+          checkForActionConflicts);
+    }
+  }
+
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
@@ -65,30 +162,24 @@ public class BuildRequest implements OptionsProvider {
   private final OutErr outErr;
   private final List<String> targets;
 
-  private long startTimeMillis = 0; // milliseconds since UNIX epoch.
+  private final long startTimeMillis; // milliseconds since UNIX epoch.
 
-  private boolean needsInstrumentationFilter;
-  private boolean runningInEmacs;
-  private boolean runTests;
+  private final boolean needsInstrumentationFilter;
+  private final boolean runningInEmacs;
+  private final boolean runTests;
+  private final boolean checkForActionConflicts;
 
-  private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
-      ImmutableList.of(
-          BuildRequestOptions.class,
-          PackageOptions.class,
-          BuildLanguageOptions.class,
-          LoadingOptions.class,
-          AnalysisOptions.class,
-          ExecutionOptions.class,
-          KeepGoingOption.class,
-          LoadingPhaseThreadsOption.class);
-
-  private BuildRequest(String commandName,
-                       final OptionsParsingResult options,
-                       final OptionsParsingResult startupOptions,
-                       List<String> targets,
-                       OutErr outErr,
-                       UUID id,
-                       long startTimeMillis) {
+  private BuildRequest(
+      String commandName,
+      final OptionsParsingResult options,
+      final OptionsParsingResult startupOptions,
+      List<String> targets,
+      OutErr outErr,
+      UUID id,
+      long startTimeMillis,
+      boolean needsInstrumentationFilter,
+      boolean runTests,
+      boolean checkForActionConflicts) {
     this.commandName = commandName;
     this.optionsDescription = OptionsUtils.asShellEscapedString(options);
     this.outErr = outErr;
@@ -108,18 +199,23 @@ public class BuildRequest implements OptionsProvider {
           }
         });
     this.starlarkOptions = options.getStarlarkOptions();
+    this.needsInstrumentationFilter = needsInstrumentationFilter;
+    this.runTests = runTests;
+    this.checkForActionConflicts = checkForActionConflicts;
 
     for (Class<? extends OptionsBase> optionsClass : MANDATORY_OPTIONS) {
       Preconditions.checkNotNull(getOptions(optionsClass));
     }
+
+    // All this, just to pass a global boolean from the client to the server. :(
+    this.runningInEmacs = options.getOptions(UiOptions.class).runningInEmacs;
   }
 
   /**
    * Since the OptionsProvider interface is used by many teams, this method is String-keyed even
    * though it should always contain labels for our purposes. Consumers of this method should
-   * probably use the {@link
-   * com.google.devtools.build.lib.analysis.config.BuildOptions#labelizeStarlarkOptions} method
-   * before doing meaningful work with the results.
+   * probably use the {@link BuildOptions#labelizeStarlarkOptions} method before doing meaningful
+   * work with the results.
    */
   @Override
   public Map<String, Object> getStarlarkOptions() {
@@ -140,23 +236,8 @@ public class BuildRequest implements OptionsProvider {
     return commandName;
   }
 
-  /**
-   * Set to true if this build request was initiated by Emacs.
-   * (Certain output formatting may be necessary.)
-   */
-  public void setRunningInEmacs() {
-    runningInEmacs = true;
-  }
-
   boolean isRunningInEmacs() {
     return runningInEmacs;
-  }
-
-  /**
-   * Enables test execution for this build request.
-   */
-  public void setRunTests() {
-    runTests = true;
   }
 
   /**
@@ -252,10 +333,6 @@ public class BuildRequest implements OptionsProvider {
     return startTimeMillis;
   }
 
-  public void setNeedsInstrumentationFilter(boolean needInstrumentationFilter) {
-    this.needsInstrumentationFilter = needInstrumentationFilter;
-  }
-
   public boolean needsInstrumentationFilter() {
     return needsInstrumentationFilter;
   }
@@ -306,19 +383,7 @@ public class BuildRequest implements OptionsProvider {
     return ImmutableList.copyOf(getBuildOptions().aspects);
   }
 
-  public static BuildRequest create(String commandName, OptionsParsingResult options,
-      OptionsParsingResult startupOptions,
-      List<String> targets, OutErr outErr, UUID commandId, long commandStartTime) {
-
-    BuildRequest request = new BuildRequest(commandName, options, startupOptions, targets, outErr,
-        commandId, commandStartTime);
-
-    // All this, just to pass a global boolean from the client to the server. :(
-    if (options.getOptions(UiOptions.class).runningInEmacs) {
-      request.setRunningInEmacs();
-    }
-
-    return request;
+  public boolean getCheckForActionConflicts() {
+    return checkForActionConflicts;
   }
-
 }

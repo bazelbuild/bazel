@@ -78,7 +78,8 @@ public interface ArtifactResolver {
    */
   @Nullable
   Map<PathFragment, Artifact> resolveSourceArtifacts(
-      Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException;
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver)
+      throws PackageRootResolver.PackageRootException, InterruptedException;
 
   Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath);
 

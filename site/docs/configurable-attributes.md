@@ -640,7 +640,7 @@ flags aren't evaluated until later in the build (in the
 [analysis phase](https://docs.bazel.build/versions/master/glossary.html#analysis-phase)).
 So it can't determine which `select()` branches are chosen.
 
-Bazel [`cquery`](cquery.html) opeates after Bazel's analysis phase, so it has
+Bazel [`cquery`](cquery.html) operates after Bazel's analysis phase, so it has
 all this information and can accurately resolve `select()`s.
 
 Consider:

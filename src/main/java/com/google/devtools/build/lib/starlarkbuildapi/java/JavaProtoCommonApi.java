@@ -75,6 +75,6 @@ public interface JavaProtoCommonApi<
         @Param(name = "ctx", positional = true, named = false, doc = "The rule context."),
         @Param(name = "proto_toolchain_attr", positional = false, named = true)
       })
-  JavaInfoApi<FileT> getRuntimeToolchainProvider(
+  JavaInfoApi<FileT, ?> getRuntimeToolchainProvider(
       StarlarkRuleContextT starlarkRuleContext, String protoToolchainAttr) throws EvalException;
 }

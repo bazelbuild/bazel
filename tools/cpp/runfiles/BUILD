@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:private"])
 
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-
 filegroup(
     name = "srcs",
     srcs = glob(

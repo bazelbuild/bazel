@@ -132,10 +132,10 @@ public class RemoteActionFileSystemTest {
     // arrange
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact remoteArtifact = createRemoteArtifact("remote-file", "remote contents", inputs);
-    FileSystem actionFs = newRemoteActionFileSystem(inputs);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
 
     // act
-    boolean success = actionFs.delete(actionFs.getPath(remoteArtifact.getPath().getPathString()));
+    boolean success = actionFs.delete(remoteArtifact.getPath().asFragment());
 
     // assert
     assertThat(success).isTrue();
@@ -145,18 +145,18 @@ public class RemoteActionFileSystemTest {
   public void testDeleteLocalFile() throws Exception {
     // arrange
     ActionInputMap inputs = new ActionInputMap(0);
-    FileSystem actionFs = newRemoteActionFileSystem(inputs);
+    RemoteActionFileSystem actionFs = newRemoteActionFileSystem(inputs);
     Path filePath = actionFs.getPath(execRoot.getPathString()).getChild("local-file");
     FileSystemUtils.writeContent(filePath, StandardCharsets.UTF_8, "local contents");
 
     // act
-    boolean success = actionFs.delete(actionFs.getPath(filePath.getPathString()));
+    boolean success = actionFs.delete(filePath.asFragment());
 
     // assert
     assertThat(success).isTrue();
   }
 
-  private FileSystem newRemoteActionFileSystem(ActionInputMap inputs) {
+  private RemoteActionFileSystem newRemoteActionFileSystem(ActionInputMap inputs) {
     return new RemoteActionFileSystem(
         fs,
         execRoot.asFragment(),

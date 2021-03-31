@@ -298,7 +298,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             .build();
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
         executionInfo,
         inputs);
   }
@@ -313,7 +313,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
         expandedCommandLines,
-        getEffectiveEnvironment(actionExecutionContext),
+        getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
         executionInfo,
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
@@ -321,11 +321,12 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             .build());
   }
 
-  private ImmutableMap<String, String> getEffectiveEnvironment(
-      ActionExecutionContext actionExecutionContext) {
+  @Override
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException {
     LinkedHashMap<String, String> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.size());
-    env.resolve(effectiveEnvironment, actionExecutionContext.getClientEnv());
+    env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
 

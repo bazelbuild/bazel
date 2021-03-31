@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_test")
-
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
 # TestRunnerAction#getRuntimeArtifact() will get confused.
 # Deprecated, do not use.

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
@@ -25,7 +25,7 @@ import net.starlark.java.annot.StarlarkMethod;
     name = "JavaRuntimeInfo",
     category = DocCategory.PROVIDER,
     doc = "Information about the Java runtime being used.")
-public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
+public interface JavaRuntimeInfoApi extends StructApi {
 
   @StarlarkMethod(
       name = "java_home",

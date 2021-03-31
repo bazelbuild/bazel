@@ -738,7 +738,7 @@ static void WriteFileToStderrOrDie(const blaze_util::Path &path) {
   FILE *fp = fopen(path.AsNativePath().c_str(), "r");
 #endif
 
-  if (fp == NULL) {
+  if (fp == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "opening " << path.AsPrintablePath()
         << " failed: " << GetLastErrorString();
@@ -1053,9 +1053,13 @@ static bool IsVolatileArg(const string &arg) {
   // not used at server startup to be part of the startup command line. The
   // server command line difference logic can be simplified then.
   static const std::set<string> volatile_startup_options = {
-      "--option_sources=",       "--max_idle_secs=",
-      "--connect_timeout_secs=", "--local_startup_timeout_secs=",
-      "--client_debug=",         "--preemptible="};
+      "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
+      "--local_startup_timeout_secs=", "--client_debug=", "--preemptible=",
+      // Internally, -XX:HeapDumpPath is set automatically via the user's TMPDIR
+      // environment variable. Since that can change based on the shell, we
+      // tolerate changes to it. Note that an explicit setting of
+      // -XX:HeapDumpPath via --host_jvm_args *will* trigger a restart.
+      "-XX:HeapDumpPath="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');
@@ -1385,7 +1389,7 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // environment variables to modify the current process, we may actually use
   // such map to configure a process from scratch (via interfaces like execvpe
   // or posix_spawn), so we need to inherit any untouched variables.
-  for (char **entry = environ; *entry != NULL; entry++) {
+  for (char **entry = environ; *entry != nullptr; entry++) {
     const std::string var_value = *entry;
     std::string::size_type equals = var_value.find('=');
     if (equals == std::string::npos) {
@@ -2089,7 +2093,7 @@ unsigned int BlazeServer::Communicate(
 
     // Execute the requested program, but before doing so, flush everything
     // we still have to say.
-    fflush(NULL);
+    fflush(nullptr);
     ExecuteRunRequest(blaze_util::Path(request.argv(0)), argv);
   }
 

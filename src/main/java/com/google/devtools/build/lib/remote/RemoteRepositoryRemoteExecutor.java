@@ -117,7 +117,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
     Action action =
         RemoteSpawnRunner.buildAction(
-            commandHash, merkleTree.getRootDigest(), timeout, acceptCached);
+            commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     ActionResult actionResult;

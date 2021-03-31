@@ -104,6 +104,7 @@ public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
         "        'linkopts': attr.string_list(),",
         "        'platform_type': attr.string(),",
         "        'minimum_os_version': attr.string(),",
+        "        'should_lipo': attr.bool(),",
         "        'stamp': attr.int(values=[-1,0,1],default=-1),",
         "    },",
         "    fragments = ['apple', 'objc', 'cpp',],",

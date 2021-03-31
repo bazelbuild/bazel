@@ -363,26 +363,11 @@ public class FileSystemUtilsTest {
 
   @Test
   public void testMoveFileAcrossDevices() throws Exception {
-    class MultipleDeviceFS extends InMemoryFileSystem {
-      MultipleDeviceFS() {
-        super(DigestHashFunction.SHA256);
-      }
-
-      @Override
-      public void renameTo(Path source, Path target) throws IOException {
-        if (!source.startsWith(target.asFragment().subFragment(0, 1))) {
-          throw new IOException("EXDEV");
-        }
-        super.renameTo(source, target);
-      }
-    }
     FileSystem fs = new MultipleDeviceFS();
-    Path dev1 = fs.getPath("/fs1");
-    dev1.createDirectory();
-    Path dev2 = fs.getPath("/fs2");
-    dev2.createDirectory();
-    Path source = dev1.getChild("source");
-    Path target = dev2.getChild("target");
+    Path source = fs.getPath("/fs1/source");
+    source.getParentDirectory().createDirectoryAndParents();
+    Path target = fs.getPath("/fs2/target");
+    target.getParentDirectory().createDirectoryAndParents();
 
     FileSystemUtils.writeContent(source, UTF_8, "hello, world");
     source.setLastModifiedTime(142);
@@ -393,10 +378,32 @@ public class FileSystemUtilsTest {
     assertThat(target.getLastModifiedTime()).isEqualTo(142);
 
     source.createSymbolicLink(PathFragment.create("link-target"));
+
     assertThat(FileSystemUtils.moveFile(source, target)).isEqualTo(MoveResult.FILE_COPIED);
+
     assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(target.isSymbolicLink()).isTrue();
     assertThat(target.readSymbolicLink()).isEqualTo(PathFragment.create("link-target"));
+  }
+
+  @Test
+  public void testMoveFileFixPermissions() throws Exception {
+    FileSystem fs = new MultipleDeviceFS();
+    Path source = fs.getPath("/fs1/source");
+    source.getParentDirectory().createDirectoryAndParents();
+    Path target = fs.getPath("/fs2/target");
+    target.getParentDirectory().createDirectoryAndParents();
+
+    FileSystemUtils.writeContent(source, UTF_8, "linear-a");
+    source.setLastModifiedTime(142);
+    source.setReadable(false);
+
+    MoveResult moveResult = moveFile(source, target);
+
+    assertThat(moveResult).isEqualTo(MoveResult.FILE_COPIED);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("linear-a");
   }
 
   @Test
@@ -782,8 +789,8 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createHardLink(linkPath, originalPath);
     assertThat(originalPath.exists()).isTrue();
     assertThat(linkPath.exists()).isTrue();
-    assertThat(fileSystem.stat(linkPath, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath, false).getNodeId());
+    assertThat(fileSystem.stat(linkPath.asFragment(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath.asFragment(), false).getNodeId());
   }
 
   @Test
@@ -823,11 +830,25 @@ public class FileSystemUtilsTest {
     assertThat(linkPath1.exists()).isTrue();
     assertThat(linkPath2.exists()).isTrue();
     assertThat(linkPath3.exists()).isTrue();
-    assertThat(fileSystem.stat(linkPath1, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath1, false).getNodeId());
-    assertThat(fileSystem.stat(linkPath2, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath2, false).getNodeId());
-    assertThat(fileSystem.stat(linkPath3, false).getNodeId())
-        .isEqualTo(fileSystem.stat(originalPath3, false).getNodeId());
+    assertThat(fileSystem.stat(linkPath1.asFragment(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath1.asFragment(), false).getNodeId());
+    assertThat(fileSystem.stat(linkPath2.asFragment(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath2.asFragment(), false).getNodeId());
+    assertThat(fileSystem.stat(linkPath3.asFragment(), false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath3.asFragment(), false).getNodeId());
+  }
+
+  static class MultipleDeviceFS extends InMemoryFileSystem {
+    MultipleDeviceFS() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public void renameTo(PathFragment source, PathFragment target) throws IOException {
+      if (!source.startsWith(target.subFragment(0, 1))) {
+        throw new IOException("EXDEV");
+      }
+      super.renameTo(source, target);
+    }
   }
 }

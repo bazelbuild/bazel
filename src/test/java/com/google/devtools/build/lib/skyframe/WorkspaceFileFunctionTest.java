@@ -361,8 +361,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     // Test intentionally introduces errors.
     reporter.removeHandler(failFastHandler);
 
-    RootedPath workspacePath = createWorkspaceFile("workspace(name = 'foo$')");
-    SkyKey key = ExternalPackageFunction.key(workspacePath);
+    createWorkspaceFile("workspace(name = 'foo$')");
+    SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(pkg.containsErrors()).isTrue();
@@ -372,9 +372,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   @Test
   public void testBindFunction() throws Exception {
     String[] lines = {"bind(name = 'foo/bar',", "actual = '//foo:bar')"};
-    RootedPath workspacePath = createWorkspaceFile(lines);
+    createWorkspaceFile(lines);
 
-    SkyKey key = ExternalPackageFunction.key(workspacePath);
+    SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(getLabelMapping(pkg, "foo/bar"))
@@ -385,9 +385,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   @Test
   public void testBindArgsReversed() throws Exception {
     String[] lines = {"bind(actual = '//foo:bar', name = 'foo/bar')"};
-    RootedPath workspacePath = createWorkspaceFile(lines);
+    createWorkspaceFile(lines);
 
-    SkyKey key = ExternalPackageFunction.key(workspacePath);
+    SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(getLabelMapping(pkg, "foo/bar"))
@@ -402,9 +402,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
     // name must be a valid label name.
     String[] lines = {"bind(name = 'foo:bar', actual = '//bar/baz')"};
-    RootedPath workspacePath = createWorkspaceFile(lines);
+    createWorkspaceFile(lines);
 
-    SkyKey key = ExternalPackageFunction.key(workspacePath);
+    SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(pkg.containsErrors()).isTrue();
@@ -418,9 +418,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
     // //external:bar:baz is not a legal package.
     String[] lines = {"bind(name = 'foo/bar', actual = '//external:bar:baz')"};
-    RootedPath workspacePath = createWorkspaceFile(lines);
+    createWorkspaceFile(lines);
 
-    SkyKey key = ExternalPackageFunction.key(workspacePath);
+    SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(pkg.containsErrors()).isTrue();
@@ -433,7 +433,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     RootedPath workspacePath = createWorkspaceFile();
     workspacePath.asPath().delete();
 
-    SkyKey key = ExternalPackageFunction.key(workspacePath);
+    SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(pkg.containsErrors()).isFalse();
@@ -445,9 +445,9 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     String[] lines = {
       "L = ['foo', 'bar']", "bind(name = '%s/%s' % (L[0], L[1]),", "actual = '//foo:bar')"
     };
-    RootedPath workspacePath = createWorkspaceFile(lines);
+    createWorkspaceFile(lines);
 
-    SkyKey key = ExternalPackageFunction.key(workspacePath);
+    SkyKey key = ExternalPackageFunction.key();
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(getLabelMapping(pkg, "foo/bar"))

@@ -122,10 +122,25 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
 
   @Override
   public QueryTaskFuture<Void> eval(
+      QueryExpression expr,
+      QueryExpressionContext<Target> context,
+      Callback<Target> callback,
+      boolean batch) {
+    if (batch) {
+      // This uses AbstractQueryEnvironment#eval that aggregates the results of the futures into a
+      // single batch before running the callback on the batch of results, providing an alternative
+      // for the environment to decide when to batch the results and when batching is not needed.
+      return super.eval(expr, context, callback);
+    }
+    return eval(expr, context, callback);
+  }
+
+  @Override
+  public QueryTaskFuture<Void> eval(
       QueryExpression expr, QueryExpressionContext<Target> context, Callback<Target> callback) {
-    // The graphless query implementation does not perform any streaming at this point, and all
-    // operators only make a single call to the callback, so it is perfectly safe to pass the
-    // callback to the expression eval call. This is also a lot cheaper than making a copy here.
+    // The graphless query implementation does not perform any streaming at this point. However,
+    // not all operators return a single future (e.g. 'SetExpression'), as such, do not use this if
+    // the callback does heavy blocking work (e.g. 'deps').
     return expr.eval(this, context, callback);
   }
 

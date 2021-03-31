@@ -316,7 +316,7 @@ static bool UStrToVStr(const std::basic_string<U> &input,
   }
 
   // The output buffer was too small. Get required buffer size.
-  res = Convert(use_utf8, input, NULL, 0);
+  res = Convert(use_utf8, input, nullptr, 0);
   if (res > 0) {
     buf_size = res;
     buf.reset(new V[buf_size]);
@@ -335,7 +335,7 @@ static bool UStrToVStr(const std::basic_string<U> &input,
 static int ConvertWcsToMbs(const bool use_utf8, const std::wstring &input,
                            char *output, const size_t output_size) {
   return WideCharToMultiByte(use_utf8 ? CP_UTF8 : CP_ACP, 0, input.c_str(), -1,
-                             output, output_size, NULL, NULL);
+                             output, output_size, nullptr, nullptr);
 }
 
 static int ConvertMbsToWcs(const bool /* unused */, const std::string &input,

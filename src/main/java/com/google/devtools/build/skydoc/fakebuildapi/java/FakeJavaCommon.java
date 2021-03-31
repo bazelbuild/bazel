@@ -54,6 +54,7 @@ public class FakeJavaCommon
       Object outputSourceJar,
       Sequence<?> javacOpts,
       Sequence<?> deps,
+      Sequence<?> runtimeDeps,
       Sequence<?> experimentalLocalCompileTimeDeps,
       Sequence<?> exports,
       Sequence<?> plugins,

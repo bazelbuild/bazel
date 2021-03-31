@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
+import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer.LatchedGroupName;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.ArrayList;
@@ -370,27 +371,27 @@ public class BuildEventStreamer {
   }
 
   private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
-    String name = artifactGroupNamer.maybeName(set);
-    if (name == null) {
-      return;
-    }
+    try (LatchedGroupName lockedName = artifactGroupNamer.maybeName(set)) {
+      if (lockedName == null) {
+        return;
+      }
+      set = NamedArtifactGroup.expandSet(ctx, set);
+      // Invariant: all leaf successors ("direct elements") of set are ExpandedArtifacts.
 
-    set = NamedArtifactGroup.expandSet(ctx, set);
-    // Invariant: all leaf successors ("direct elements") of set are ExpandedArtifacts.
+      // We only split if the max number of entries is at least 2 (it must be at least a binary
+      // tree). The method throws for smaller values.
+      if (besOptions.maxNamedSetEntries >= 2) {
+        // We only split the event after naming it to avoid splitting the same node multiple times.
+        // Note that the artifactGroupNames keeps references to the individual pieces, so this can
+        // double the memory consumption of large nested sets.
+        set = set.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
+      }
 
-    // We only split if the max number of entries is at least 2 (it must be at least a binary tree).
-    // The method throws for smaller values.
-    if (besOptions.maxNamedSetEntries >= 2) {
-      // We only split the event after naming it to avoid splitting the same node multiple times.
-      // Note that the artifactGroupNames keeps references to the individual pieces, so this can
-      // double the memory consumption of large nested sets.
-      set = set.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
+      for (NestedSet<?> succ : set.getNonLeaves()) {
+        maybeReportArtifactSet(ctx, succ);
+      }
+      post(new NamedArtifactGroup(lockedName.getName(), ctx, set));
     }
-
-    for (NestedSet<?> succ : set.getNonLeaves()) {
-      maybeReportArtifactSet(ctx, succ);
-    }
-    post(new NamedArtifactGroup(name, ctx, set));
   }
 
   private void maybeReportConfiguration(BuildEvent configuration) {

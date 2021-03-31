@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -289,9 +289,9 @@ public class SkyframeBuilder implements Builder {
                 DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
                     detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
             if (!(cause instanceof ActionExecutionException)
-                && !(cause instanceof MissingInputFileException)) {
+                && !(cause instanceof InputFileErrorException)) {
               logger.atWarning().withCause(cause).log(
-                  "Non-action-execution/missing-input exception for %s", error);
+                  "Non-action-execution/input-error exception for %s", error);
             }
           } else {
             undetailedCause = cause;
@@ -355,12 +355,11 @@ public class SkyframeBuilder implements Builder {
       throw new BuildFailedException(
           message,
           actionExecutionCause.isCatastrophe(),
-          actionExecutionCause.getRootCauses(),
           /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
           actionExecutionCause.getDetailedExitCode());
     }
-    if (cause instanceof MissingInputFileException) {
-      throw (MissingInputFileException) cause;
+    if (cause instanceof InputFileErrorException) {
+      throw (InputFileErrorException) cause;
     }
     if (cause instanceof BuildFileNotFoundException) {
       // Sadly, this can happen because we may load new packages during input discovery. Any

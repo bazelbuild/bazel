@@ -77,8 +77,8 @@ int portable_fstatat(
     l++;
   }
   strncat(dirPath, name, PATH_MAX2-l-1);
-  char *newpath = realpath(dirPath, NULL);  // this resolve the relative path
-  if (newpath == NULL) {
+  char *newpath = realpath(dirPath, nullptr);  // this resolve the relative path
+  if (newpath == nullptr) {
     return -1;
   }
   int r = portable_stat(newpath, statbuf);
@@ -127,7 +127,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 }
 
 int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
-  return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
+  return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
 }
 
 // Queue used for all of our anomaly tracking.
@@ -149,11 +149,11 @@ static dispatch_queue_t JniDispatchQueue() {
 // macOS. Use `log_if_possible` to log when supported.
 static os_log_t JniOSLog() {
   static dispatch_once_t once_token;
-  static os_log_t log = NULL;
+  static os_log_t log = nullptr;
   // On macOS < 10.12, os_log_create is not available. Since we target 10.10,
   // this will be weakly linked and can be checked for availability at run
   // time.
-  if (&os_log_create != NULL) {
+  if (&os_log_create != nullptr) {
     dispatch_once(&once_token, ^{
       log = os_log_create("build.bazel", "jni");
       CHECK(log);
@@ -167,7 +167,7 @@ static os_log_t JniOSLog() {
 #define log_if_possible(msg)   \
   do {                         \
     os_log_t log = JniOSLog(); \
-    if (log != NULL) {         \
+    if (log != nullptr) {      \
       os_log_debug(log, msg);  \
     }                          \
   } while (0);
@@ -298,7 +298,7 @@ int portable_suspend_count() {
     CHECK(signal_val != SIG_ERR);
     dispatch_source_t signal_source =
         dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, queue);
-    CHECK(signal_source != NULL);
+    CHECK(signal_source != nullptr);
     dispatch_source_set_event_handler(signal_source, ^{
       log_if_possible("suspend anomaly due to SIGCONT");
       ++suspend_state.suspend_count;
@@ -318,7 +318,7 @@ int portable_memory_pressure_warning_count() {
     dispatch_source_t source = dispatch_source_create(
         DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0, DISPATCH_MEMORYPRESSURE_WARN,
         JniDispatchQueue());
-    CHECK(source != NULL);
+    CHECK(source != nullptr);
     dispatch_source_set_event_handler(source, ^{
       dispatch_source_memorypressure_flags_t pressureLevel =
           dispatch_source_get_data(source);
@@ -342,7 +342,7 @@ int portable_memory_pressure_critical_count() {
     dispatch_source_t source = dispatch_source_create(
         DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0,
         DISPATCH_MEMORYPRESSURE_CRITICAL, JniDispatchQueue());
-    CHECK(source != NULL);
+    CHECK(source != nullptr);
     dispatch_source_set_event_handler(source, ^{
       dispatch_source_memorypressure_flags_t pressureLevel =
           dispatch_source_get_data(source);

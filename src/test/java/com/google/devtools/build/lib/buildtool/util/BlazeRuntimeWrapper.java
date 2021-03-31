@@ -370,19 +370,20 @@ public class BlazeRuntimeWrapper {
   }
 
   BuildRequest createRequest(String commandName, List<String> targets) {
-    BuildRequest request =
-        BuildRequest.create(
-            commandName,
-            optionsParser,
-            null,
-            targets,
-            env.getReporter().getOutErr(),
-            env.getCommandId(),
-            runtime.getClock().currentTimeMillis());
+
+    BuildRequest.Builder builder =
+        BuildRequest.builder()
+            .setCommandName(commandName)
+            .setId(env.getCommandId())
+            .setOptions(optionsParser)
+            .setStartupOptions(null)
+            .setOutErr(env.getReporter().getOutErr())
+            .setTargets(targets)
+            .setStartTimeMillis(runtime.getClock().currentTimeMillis());
     if ("test".equals(commandName)) {
-      request.setRunTests();
+      builder.setRunTests(true);
     }
-    return request;
+    return builder.build();
   }
 
   public BuildRequest getLastRequest() {

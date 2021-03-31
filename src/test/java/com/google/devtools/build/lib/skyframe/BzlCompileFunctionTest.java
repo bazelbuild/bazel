@@ -51,8 +51,8 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
-      if (throwIOExceptionFor != null && path.asFragment().equals(throwIOExceptionFor)) {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+      if (path.equals(throwIOExceptionFor)) {
         throw new IOException("bork");
       }
       return super.statIfFound(path, followSymlinks);

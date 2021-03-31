@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -179,7 +180,7 @@ public class ApkActionsBuilder {
     Artifact compressedApk = getApkArtifact(ruleContext, "compressed_" + outApk.getFilename());
 
     SpawnAction.Builder compressedApkActionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setMnemonic("ApkBuilder")
             .setProgressMessage("Generating unsigned %s", apkName)
             .addOutput(compressedApk);
@@ -219,7 +220,7 @@ public class ApkActionsBuilder {
     }
 
     SpawnAction.Builder singleJarActionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setMnemonic("ApkBuilder")
             .setProgressMessage("Generating unsigned %s", apkName)
             .addInput(compressedApk)
@@ -238,7 +239,7 @@ public class ApkActionsBuilder {
       Artifact extractedJavaResourceZip =
           getApkArtifact(ruleContext, "extracted_" + javaResourceZip.getFilename());
       ruleContext.registerAction(
-          new SpawnAction.Builder()
+          createSpawnActionBuilder(ruleContext)
               .setExecutable(resourceExtractor)
               .setMnemonic("ResourceExtractor")
               .setProgressMessage("Extracting Java resources from deploy jar for %s", apkName)
@@ -300,7 +301,7 @@ public class ApkActionsBuilder {
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
   private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
     ruleContext.registerAction(
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .addInput(inputApk)
             .addOutput(zipAlignedApk)
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getZipalign())
@@ -328,7 +329,7 @@ public class ApkActionsBuilder {
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
     SpawnAction.Builder actionBuilder =
-        new SpawnAction.Builder()
+        createSpawnActionBuilder(ruleContext)
             .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getApkSigner())
             .setProgressMessage("Signing %s", apkName)
             .setMnemonic("ApkSignerTool")
@@ -385,5 +386,13 @@ public class ApkActionsBuilder {
     } else {
       return AndroidBinary.getDxArtifact(ruleContext, baseName);
     }
+  }
+
+  /** Adds execution info by propagating tags from the target */
+  private static SpawnAction.Builder createSpawnActionBuilder(RuleContext ruleContext) {
+    return new SpawnAction.Builder()
+        .setExecutionInfo(
+            TargetUtils.getExecutionInfo(
+                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
 }

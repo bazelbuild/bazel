@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -113,14 +114,15 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
-    JavaSourceInfoProvider javaSourceInfoProvider =
-        new JavaSourceInfoProvider.Builder().setSourceJars(srcJars).build();
-
     JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
-      ruleOutputJarsProviderBuilder.addOutputJar(
-          jar, compilationToRuntimeJarMap.inverse().get(jar), null /* manifestProto */, srcJars);
+      ruleOutputJarsProviderBuilder.addJavaOutput(
+          JavaOutput.builder()
+              .setClassJar(jar)
+              .setCompileJar(compilationToRuntimeJarMap.inverse().get(jar))
+              .addSourceJar(srcJar)
+              .build());
     }
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
@@ -138,8 +140,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
-            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
+            .addTransitiveOnlyRuntimeJars(common.getDependencies())
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
             .setNeverlink(neverLink)

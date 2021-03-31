@@ -85,7 +85,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final boolean isDisallowStrictDepsForJpl;
-  private final boolean isDisallowStrictDepsForJlpl;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
   private final ImportDepsCheckingLevel importDepsCheckingLevel;
@@ -93,7 +92,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final JavaClasspathMode javaClasspath;
   private final boolean inmemoryJdepsFiles;
   private final ImmutableList<String> defaultJvmFlags;
-  private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
   private final Label proguardBinary;
@@ -110,13 +108,10 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean explicitJavaTestDeps;
   private final boolean jplPropagateCcLinkParamsStore;
   private final boolean addTestSupportToCompileTimeDeps;
-  private final boolean isJlplStrictDepsEnforced;
   private final ImmutableList<Label> pluginList;
-  private final boolean requireJavaToolchainHeaderCompilerDirect;
   private final boolean disallowResourceJars;
   private final boolean disallowLegacyJavaToolchainFlags;
   private final boolean experimentalTurbineAnnotationProcessing;
-  private final boolean dontCollectSoArtifacts;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -133,7 +128,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.javaClasspath = javaOptions.javaClasspath;
     this.inmemoryJdepsFiles = javaOptions.inmemoryJdepsFiles;
     this.defaultJvmFlags = ImmutableList.copyOf(javaOptions.jvmOpts);
-    this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
@@ -146,19 +140,16 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.useLegacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.isDisallowStrictDepsForJpl = javaOptions.isDisallowStrictDepsForJpl;
-    this.isDisallowStrictDepsForJlpl = javaOptions.isDisallowStrictDepsForJlpl;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
     this.enforceOneVersionOnJavaTests = javaOptions.enforceOneVersionOnJavaTests;
     this.importDepsCheckingLevel = javaOptions.importDepsCheckingLevel;
     this.allowRuntimeDepsOnNeverLink = javaOptions.allowRuntimeDepsOnNeverLink;
     this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
     this.jplPropagateCcLinkParamsStore = javaOptions.jplPropagateCcLinkParamsStore;
-    this.isJlplStrictDepsEnforced = javaOptions.isJlplStrictDepsEnforced;
     this.disallowResourceJars = javaOptions.disallowResourceJars;
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
     this.runAndroidLint = javaOptions.runAndroidLint;
     this.limitAndroidLintToAndroidCompatible = javaOptions.limitAndroidLintToAndroidCompatible;
-    this.dontCollectSoArtifacts = javaOptions.dontCollectSoArtifacts;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -193,8 +184,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
 
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
-    this.requireJavaToolchainHeaderCompilerDirect =
-        javaOptions.requireJavaToolchainHeaderCompilerDirect;
     this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.experimentalTurbineAnnotationProcessing;
@@ -267,10 +256,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public ImmutableList<String> getDefaultJvmFlags() {
     return defaultJvmFlags;
-  }
-
-  public ImmutableList<String> getCheckedConstraints() {
-    return checkedConstraints;
   }
 
   public StrictDepsMode getStrictJavaDeps() {
@@ -384,7 +369,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useLegacyBazelJavaTest;
   }
 
-
   /**
    * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
    * dependencies instead of accidentally obtaining them from the TestRunner's dependencies.
@@ -424,20 +408,12 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return isDisallowStrictDepsForJpl;
   }
 
-  public boolean isDisallowStrictDepsForJlpl() {
-    return isDisallowStrictDepsForJlpl;
-  }
-
   public boolean jplPropagateCcLinkParamsStore() {
     return jplPropagateCcLinkParamsStore;
   }
 
   public boolean addTestSupportToCompileTimeDeps() {
     return addTestSupportToCompileTimeDeps;
-  }
-
-  public boolean isJlplStrictDepsEnforced() {
-    return isJlplStrictDepsEnforced;
   }
 
   public boolean runAndroidLint() {
@@ -453,19 +429,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return pluginList;
   }
 
-  public boolean requireJavaToolchainHeaderCompilerDirect() {
-    return requireJavaToolchainHeaderCompilerDirect;
-  }
-
   public boolean disallowResourceJars() {
     return disallowResourceJars;
   }
 
   public boolean experimentalTurbineAnnotationProcessing() {
     return experimentalTurbineAnnotationProcessing;
-  }
-
-  public boolean dontCollectSoArtifacts() {
-    return dontCollectSoArtifacts;
   }
 }

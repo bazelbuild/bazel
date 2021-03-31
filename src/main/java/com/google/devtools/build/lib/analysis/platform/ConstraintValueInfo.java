@@ -77,7 +77,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
    * method.
    */
   public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
-    return new ConfigMatchingProvider(
+    return ConfigMatchingProvider.create(
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),

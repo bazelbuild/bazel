@@ -55,7 +55,12 @@ public interface FileApi extends StarlarkValue {
       doc = "The base name of this file. This is the name of the file inside the directory.")
   String getFilename();
 
-  @StarlarkMethod(name = "extension", structField = true, doc = "The file extension of this file.")
+  @StarlarkMethod(
+      name = "extension",
+      structField = true,
+      doc =
+          "The file extension of this file, following (not including) the rightmost period."
+              + "Empty string if the file's basename includes no periods.")
   String getExtension();
 
   @StarlarkMethod(

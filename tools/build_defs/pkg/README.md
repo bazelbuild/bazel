@@ -4,15 +4,11 @@
 
 These rules have been extracted from the Bazel sources and are now available at
 [bazelbuild/rules_pkg](https://github.com/bazelbuild/rules_pkg/releases)
- [(docs)](https://github.com/bazelbuild/rules_pkg/tree/master/pkg).
+ [(docs)](https://github.com/bazelbuild/rules_pkg/tree/main/pkg).
 
 Issues and PRs against the built-in versions of these rules will no longer be
 addressed. This page will exist for reference until the code is removed from
-Bazel. You can test the removal of these rules with Bazel at version >= 0.28.0.
-
-```
-bazel build --//tools/build_defs/pkg:incompatible_no_build_defs_pkg  target...
-```
+Bazel.
 
 For more information, follow [issue 8857](https://github.com/bazelbuild/bazel/issues/8857)
 
@@ -22,22 +18,23 @@ For more information, follow [issue 8857](https://github.com/bazelbuild/bazel/is
   <h2>Rules</h2>
   <ul>
     <li><a href="#pkg_tar">pkg_tar</a></li>
-    <li><a href="#pkg_deb">pkg_deb</a></li>
   </ul>
 </div>
 
 ## Overview
 
-These build rules are used for building various packaging such as tarball
-and debian package.
+`pkg_tar()` is available for building a .tar file without depending
+on anything besides Bazel. Since this feature is deprecated and will
+eventually be removed from Bazel, you should migrate to `@rules_pkg`.
 
 <a name="basic-example"></a>
 ## Basic Example
 
-This example is a simplification of the debian packaging of Bazel:
+This example is a simplification of building Bazel and creating a distribution
+tarball.
 
 ```python
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "bazel-bin",
@@ -56,49 +53,25 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "debian-data",
+    name = "bazel-all",
     extension = "tar.gz",
     deps = [
         ":bazel-bin",
         ":bazel-tools",
     ],
 )
-
-pkg_deb(
-    name = "bazel-debian",
-    architecture = "amd64",
-    built_using = "unzip (6.0.1)",
-    data = ":debian-data",
-    depends = [
-        "zlib1g-dev",
-        "unzip",
-    ],
-    description_file = "debian/description",
-    homepage = "http://bazel.build",
-    maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
-    package = "bazel",
-    version = "0.1.1",
-)
 ```
 
-Here, the Debian package is built from three `pkg_tar` targets:
+Here, a package is built from three `pkg_tar` targets:
 
  - `bazel-bin` creates a tarball with the main binary (mode `0755`) in
    `/usr/bin`,
  - `bazel-tools` create a tarball with the base workspace (mode `0644`) to
    `/usr/share/bazel/tools` ; the `modes` attribute let us specifies executable
    files,
- - `debian-data` creates a gzip-compressed tarball that merge the three previous
+ - `bazel-all` creates a gzip-compressed tarball that merge the two previous
    tarballs.
 
-`debian-data` is then used for the data content of the debian archive created by
-`pkg_deb`.
-
-<a name="future"></a>
-## Future work
-
- - Support more format, especially `pkg_zip`.
- - Maybe a bit more integration with the `docker_build` rule.
 
 <a name="pkg_tar"></a>
 ## pkg_tar
@@ -330,194 +303,6 @@ Creates a tar file from a list of inputs.
            ...
           },
           </code>
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-<a name="pkg_deb"></a>
-### pkg_deb
-
-```python
-pkg_deb(name, data, package, architecture, maintainer, preinst, postinst, prerm, postrm, version, version_file, description, description_file, built_using, built_using_file, priority, section, homepage, depends, suggests, enhances, conflicts, predepends, recommends)
-```
-
-Create a debian package. See <a
-href="http://www.debian.org/doc/debian-policy/ch-controlfields.html">http://www.debian.org/doc/debian-policy/ch-controlfields.html</a>
-for more details on this.
-
-<table class="table table-condensed table-bordered table-params">
-  <colgroup>
-    <col class="col-param" />
-    <col class="param-description" />
-  </colgroup>
-  <thead>
-    <tr>
-      <th colspan="2">Attributes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>name</code></td>
-      <td>
-        <code>Name, required</code>
-        <p>A unique name for this rule.</p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>data</code></td>
-      <td>
-        <code>File, required</code>
-        <p>
-          A tar file that contains the data for the debian package (basically
-          the list of files that will be installed by this package).
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>package</code></td>
-      <td>
-        <code>String, required</code>
-        <p>The name of the package.</p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>architecture</code></td>
-      <td>
-        <code>String, default to 'all'</code>
-        <p>The architecture that this package target.</p>
-        <p>
-          See <a href="http://www.debian.org/ports/">http://www.debian.org/ports/</a>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>maintainer</code></td>
-      <td>
-        <code>String, required</code>
-        <p>The maintainer of the package.</p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>preinst</code>, <code>postinst</code>, <code>prerm</code> and <code>postrm</code></td>
-      <td>
-        <code>Files, optional</code>
-        <p>
-          Respectively, the pre-install, post-install, pre-remove and
-          post-remove scripts for the package.
-        </p>
-        <p>
-          See <a href="http://www.debian.org/doc/debian-policy/ch-maintainerscripts.html">http://www.debian.org/doc/debian-policy/ch-maintainerscripts.html</a>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>config</code></td>
-      <td>
-        <code>File, optional</code>
-        <p>
-          config file used for debconf integration.
-        </p>
-        <p>
-          See <a href="https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts">https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts</a>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>templates</code></td>
-      <td>
-        <code>File, optional</code>
-        <p>
-          templates file used for debconf integration.
-        </p>
-        <p>
-          See <a href="https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts">https://www.debian.org/doc/debian-policy/ch-binary.html#prompting-in-maintainer-scripts</a>.
-        </p>
-      </td>
-    </tr>
-
-    <tr>
-      <td><code>conffiles</code>, <code>conffiles_file</code></td>
-      <td>
-        <code>String list or File, optional</code>
-        <p>
-          The list of conffiles or a file containing one conffile per
-          line. Each item is an absolute path on the target system
-          where the deb is installed.
-        </p>
-        <p>
-          See <a href="https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile">https://www.debian.org/doc/manuals/debian-faq/ch-pkg_basics.en.html#s-conffile</a>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>version</code>, <code>version_file</code></td>
-      <td>
-        <code>String or File, required</code>
-        <p>
-          The package version provided either inline (with <code>version</code>)
-          or from a file (with <code>version_file</code>).
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>description</code>, <code>description_file</code></td>
-      <td>
-        <code>String or File, required</code>
-        <p>
-          The package description provided either inline (with <code>description</code>)
-          or from a file (with <code>description_file</code>).
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>built_using</code>, <code>built_using_file</code></td>
-      <td>
-        <code>String or File</code>
-        <p>
-          The tool that were used to build this package provided either inline
-          (with <code>built_using</code>) or from a file (with <code>built_using_file</code>).
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>priority</code></td>
-      <td>
-        <code>String, default to 'optional'</code>
-        <p>The priority of the package.</p>
-        <p>
-          See <a href="http://www.debian.org/doc/debian-policy/ch-archive.html#s-priorities">http://www.debian.org/doc/debian-policy/ch-archive.html#s-priorities</a>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>section</code></td>
-      <td>
-        <code>String, default to 'contrib/devel'</code>
-        <p>The section of the package.</p>
-        <p>
-          See <a href="http://www.debian.org/doc/debian-policy/ch-archive.html#s-subsections">http://www.debian.org/doc/debian-policy/ch-archive.html#s-subsections</a>.
-        </p>
-      </td>
-    </tr>
-    <tr>
-      <td><code>homepage</code></td>
-      <td>
-        <code>String, optional</code>
-        <p>The homepage of the project.</p>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <code>depends</code>, <code>suggests</code>, <code>enhances</code>,
-        <code>conflicts</code>, <code>predepends</code> and <code>recommends</code>.
-      </td>
-      <td>
-        <code>String list, optional</code>
-        <p>The list of dependencies in the project.</p>
-        <p>
-          See <a href="http://www.debian.org/doc/debian-policy/ch-relationships.html#s-binarydeps">http://www.debian.org/doc/debian-policy/ch-relationships.html#s-binarydeps</a>.
         </p>
       </td>
     </tr>

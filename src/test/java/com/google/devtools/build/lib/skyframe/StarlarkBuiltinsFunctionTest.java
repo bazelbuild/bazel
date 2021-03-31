@@ -161,8 +161,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   @Test
   public void cannotOverrideGeneralSymbol() throws Exception {
     assertBuiltinsFailure(
-        "Failed to apply declared builtins: Cannot override native module field 'glob' with an"
-            + " injected value",
+        "Failed to apply declared builtins: Cannot override 'glob' with an injected rule",
         //
         "exported_toplevels = {}", //
         "exported_rules = {'glob': 'new_builtin'}",

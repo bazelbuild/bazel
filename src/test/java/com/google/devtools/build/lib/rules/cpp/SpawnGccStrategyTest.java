@@ -68,7 +68,7 @@ public final class SpawnGccStrategyTest {
     when(action.getAdditionalInputs()).thenReturn(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     when(action.getExecutionInfo()).thenReturn(ImmutableMap.of());
     when(action.getArguments()).thenReturn(ImmutableList.of());
-    when(action.getEnvironment(ArgumentMatchers.any())).thenReturn(ImmutableMap.of());
+    when(action.getEffectiveEnvironment(ArgumentMatchers.any())).thenReturn(ImmutableMap.of());
     when(action.getDotdFile()).thenReturn(dotdFile);
     when(action.useInMemoryDotdFiles()).thenReturn(true);
     when(action.estimateResourceConsumptionLocal()).thenReturn(AbstractAction.DEFAULT_RESOURCE_SET);

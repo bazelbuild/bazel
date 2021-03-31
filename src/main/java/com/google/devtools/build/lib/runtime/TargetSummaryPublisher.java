@@ -81,12 +81,17 @@ public final class TargetSummaryPublisher {
   public void populateTargets(TestFilteringCompleteEvent event) {
     int expectedCompletions = aspectCount.get() + 1; // + 1 for target itself
     checkState(expectedCompletions > 0, "Haven't received BuildStartingEvent");
-    // Add all target runs to the map, assuming 1:1 status artifact <-> result.
     ImmutableSet<ConfiguredTarget> testTargets =
         event.getTestTargets() != null
             ? ImmutableSet.copyOf(event.getTestTargets())
             : ImmutableSet.of();
+    ImmutableSet<ConfiguredTarget> skippedTests = ImmutableSet.copyOf(event.getSkippedTests());
     for (ConfiguredTarget target : event.getTargets()) {
+      if (skippedTests.contains(target)) {
+        // Skipped tests aren't built, and won't receive completion events, so we ignore them. Note
+        // we'll still get (and ignore) a TestSummary event, but that event isn't published to BEP.
+        continue;
+      }
       // We want target summaries for alias targets, but note they don't receive test summaries.
       TargetSummaryAggregator aggregator =
           new TargetSummaryAggregator(

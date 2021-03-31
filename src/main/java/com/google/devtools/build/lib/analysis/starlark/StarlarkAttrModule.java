@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -241,14 +240,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         if (starlarkDefinedTransition.isForAnalysisTesting()) {
           builder.hasAnalysisTestTransition();
         } else {
-          if (!thread
-              .getSemantics()
-              .getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS)) {
-            throw Starlark.errorf(
-                "Starlark-defined transitions on rule attributes is experimental and disabled by "
-                    + "default. This API is in development and subject to change at any time. Use "
-                    + "--experimental_starlark_config_transitions to use this experimental API.");
-          }
           builder.hasStarlarkDefinedTransition();
         }
         builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));

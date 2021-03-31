@@ -166,9 +166,10 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     return Key.create(repository);
   }
 
+  /** The SkyKey for retrieving the local directory of an external repository. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<RepositoryName> {
+  public static class Key extends AbstractSkyKey<RepositoryName> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(RepositoryName arg) {

@@ -13,18 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -112,10 +112,11 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(javaRuleOutputJarsProvider.getAllClassOutputJars()))
         .containsExactly("foo/my_starlark_rule_lib.jar");
 
-    assertThat(javaRuleOutputJarsProvider.getOutputJars()).hasSize(1);
-    OutputJar outputJar = javaRuleOutputJarsProvider.getOutputJars().get(0);
+    assertThat(javaRuleOutputJarsProvider.getJavaOutputs()).hasSize(1);
+    JavaOutput javaOutput = javaRuleOutputJarsProvider.getJavaOutputs().get(0);
 
-    assertThat(outputJar.getIJar().prettyPrint()).isEqualTo("foo/my_starlark_rule_lib-ijar.jar");
+    assertThat(javaOutput.getCompileJar().prettyPrint())
+        .isEqualTo("foo/my_starlark_rule_lib-ijar.jar");
   }
 
   @Test
@@ -675,19 +676,158 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     JavaRuleOutputJarsProvider ruleOutputs =
         fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
 
-    assertThat(
-            prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .map(o -> o.getClassJar())
-                    .collect(ImmutableList.toImmutableList())))
+    assertThat(prettyArtifactNames(ruleOutputs.getAllClassOutputJars()))
         .containsExactly("foo/my_starlark_rule_lib.jar");
+    assertThat(prettyArtifactNames(ruleOutputs.getAllSrcOutputJars()))
+        .containsExactly("foo/my_starlark_rule_src.jar");
     assertThat(
             prettyArtifactNames(
-                ruleOutputs.getOutputJars().stream()
-                    .flatMap(o -> Streams.stream(o.getSrcJars()))
-                    .collect(ImmutableList.toImmutableList())))
-        .containsExactly("foo/my_starlark_rule_src.jar");
-    assertThat(ruleOutputs.getJdeps().prettyPrint()).isEqualTo("foo/my_jdeps.pb");
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getJdeps)
+                    .collect(toImmutableList())))
+        .containsExactly("foo/my_jdeps.pb");
+  }
+
+  @Test
+  public void buildHelperCreateJavaInfoWithGeneratedJars_javaRuleOutputJarsProvider()
+      throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(",
+        "  name = 'my_starlark_rule',",
+        "  output_jar = 'my_starlark_rule_lib.jar',",
+        "  source_jars = ['my_starlark_rule_src.jar'],",
+        "  dep = [':my_java_lib_direct'],",
+        "  generated_class_jar = 'generated_class.jar',",
+        "  generated_source_jar = 'generated_srcs.jar',",
+        ")");
+    assertNoEvents();
+
+    JavaRuleOutputJarsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
+
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getGeneratedClassJar)
+                    .collect(toImmutableList())))
+        .containsExactly("foo/generated_class.jar");
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getGeneratedSourceJar)
+                    .collect(toImmutableList())))
+        .containsExactly("foo/generated_srcs.jar");
+  }
+
+  @Test
+  public void buildHelperCreateJavaInfoWithGeneratedJars_javaGenJarsProvider() throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(",
+        "  name = 'my_starlark_rule',",
+        "  output_jar = 'my_starlark_rule_lib.jar',",
+        "  source_jars = ['my_starlark_rule_src.jar'],",
+        "  dep = [':my_java_lib_direct'],",
+        "  generated_class_jar = 'generated_class.jar',",
+        "  generated_source_jar = 'generated_srcs.jar',",
+        ")");
+    assertNoEvents();
+
+    JavaGenJarsProvider ruleOutputs = fetchJavaInfo().getProvider(JavaGenJarsProvider.class);
+
+    assertThat(ruleOutputs.getGenClassJar().prettyPrint()).isEqualTo("foo/generated_class.jar");
+    assertThat(ruleOutputs.getGenSourceJar().prettyPrint()).isEqualTo("foo/generated_srcs.jar");
+  }
+
+  @Test
+  public void buildHelperCreateJavaInfoWithCompileJdeps_javaRuleOutputJarsProvider()
+      throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(",
+        "  name = 'my_starlark_rule',",
+        "  output_jar = 'my_starlark_rule_lib.jar',",
+        "  source_jars = ['my_starlark_rule_src.jar'],",
+        "  dep = [':my_java_lib_direct'],",
+        "  compile_jdeps = 'compile.deps',",
+        ")");
+    assertNoEvents();
+
+    JavaRuleOutputJarsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
+
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getCompileJdeps)
+                    .collect(toImmutableList())))
+        .containsExactly("foo/compile.deps");
+  }
+
+  @Test
+  public void buildHelperCreateJavaInfoWithNativeHeaders_javaRuleOutputJarsProvider()
+      throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(",
+        "  name = 'my_starlark_rule',",
+        "  output_jar = 'my_starlark_rule_lib.jar',",
+        "  source_jars = ['my_starlark_rule_src.jar'],",
+        "  dep = [':my_java_lib_direct'],",
+        "  native_headers_jar = 'nativeheaders.jar',",
+        ")");
+    assertNoEvents();
+
+    JavaRuleOutputJarsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
+
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getNativeHeadersJar)
+                    .collect(toImmutableList())))
+        .containsExactly("foo/nativeheaders.jar");
+  }
+
+  @Test
+  public void buildHelperCreateJavaInfoWithManifestProto_javaRuleOutputJarsProvider()
+      throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'my_java_lib_direct', srcs = ['java/A.java'])",
+        "my_rule(",
+        "  name = 'my_starlark_rule',",
+        "  output_jar = 'my_starlark_rule_lib.jar',",
+        "  source_jars = ['my_starlark_rule_src.jar'],",
+        "  dep = [':my_java_lib_direct'],",
+        "  manifest_proto = 'manifest.proto',",
+        ")");
+    assertNoEvents();
+
+    JavaRuleOutputJarsProvider ruleOutputs =
+        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
+
+    assertThat(
+            prettyArtifactNames(
+                ruleOutputs.getJavaOutputs().stream()
+                    .map(JavaOutput::getManifestProto)
+                    .collect(toImmutableList())))
+        .containsExactly("foo/manifest.proto");
   }
 
   private RuleBuilder ruleBuilder() {
@@ -723,6 +863,14 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     private String[] newJavaInfo() {
       assertThat(useIJar && stampJar).isFalse();
       ImmutableList.Builder<String> lines = ImmutableList.builder();
+      lines.add(
+          "result = provider()",
+          "def _impl(ctx):",
+          "  ctx.actions.write(ctx.outputs.output_jar, 'JavaInfo API Test', is_executable=False) ",
+          "  dp = [dep[java_common.provider] for dep in ctx.attr.dep]",
+          "  dp_runtime = [dep[java_common.provider] for dep in ctx.attr.dep_runtime]",
+          "  dp_exports = [dep[java_common.provider] for dep in ctx.attr.dep_exports]");
+
       if (useIJar) {
         lines.add(
             "  compile_jar = java_common.run_ijar(",
@@ -768,6 +916,11 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    runtime_deps = dp_runtime,",
           "    exports = dp_exports,",
           "    jdeps = ctx.file.jdeps,",
+          "    compile_jdeps = ctx.file.compile_jdeps,",
+          "    generated_class_jar = ctx.file.generated_class_jar,",
+          "    generated_source_jar = ctx.file.generated_source_jar,",
+          "    native_headers_jar = ctx.file.native_headers_jar,",
+          "    manifest_proto = ctx.file.manifest_proto,",
           "  )",
           "  return [result(property = javaInfo)]");
       return lines.build().toArray(new String[] {});
@@ -775,17 +928,10 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     private void build() throws Exception {
       if (useIJar || stampJar || sourceFiles) {
-        writeBuildFileForJavaToolchain();
+        JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
       }
 
       ImmutableList.Builder<String> lines = ImmutableList.builder();
-      lines.add(
-          "result = provider()",
-          "def _impl(ctx):",
-          "  ctx.actions.write(ctx.outputs.output_jar, 'JavaInfo API Test', is_executable=False) ",
-          "  dp = [dep[java_common.provider] for dep in ctx.attr.dep]",
-          "  dp_runtime = [dep[java_common.provider] for dep in ctx.attr.dep_runtime]",
-          "  dp_exports = [dep[java_common.provider] for dep in ctx.attr.dep_exports]");
       lines.add(newJavaInfo());
       lines.add(
           "my_rule = rule(",
@@ -798,6 +944,11 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    'source_jars' : attr.label_list(allow_files=['.jar']),",
           "    'sources' : attr.label_list(allow_files=['.java']),",
           "    'jdeps' : attr.label(allow_single_file=True),",
+          "    'compile_jdeps' : attr.label(allow_single_file=True),",
+          "    'generated_class_jar' : attr.label(allow_single_file=True),",
+          "    'generated_source_jar' : attr.label(allow_single_file=True),",
+          "    'native_headers_jar' : attr.label(allow_single_file=True),",
+          "    'manifest_proto' : attr.label(allow_single_file=True),",
           useIJar || stampJar || sourceFiles
               ? "    '_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),"
               : "",

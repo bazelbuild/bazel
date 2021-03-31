@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -198,6 +200,15 @@ public interface Action extends ActionExecutionMetadata {
       throws ActionExecutionException, InterruptedException;
 
   /**
+   * Resets this action's inputs to a pre {@linkplain #discoverInputs input discovery} state.
+   *
+   * <p>This may be called on input-discovering actions during non-incremental builds, when it is
+   * not worthwhile to retain the discovered inputs after the action completes execution. It may
+   * still be necessary to rewind the action, so it must retain state necessary for re-execution.
+   */
+  void resetDiscoveredInputs();
+
+  /**
    * Returns the set of artifacts that can possibly be inputs. It will be called iff {@link
    * #inputsDiscovered()} is false for the given action instance and there is a related cache entry
    * in the action cache.
@@ -231,4 +242,17 @@ public interface Action extends ActionExecutionMetadata {
    */
   ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException;
+
+  /**
+   * Called by {@link com.google.devtools.build.lib.analysis.actions.StarlarkAction} in {@link
+   * #beginExecution} to use its shadowed action, if any, complete list of environment variables in
+   * the Starlark action Spawn.
+   *
+   * <p>As this method is called from the StarlarkAction, make sure it is ok to call it from a
+   * different thread than the one this action is executed on. By definition, the method should not
+   * mutate any of the called action data but if necessary, its implementation must synchronize any
+   * accesses to mutable data.
+   */
+  ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException;
 }

@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -381,7 +382,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         bzlModule != null ? bzlModule.bzlTransitiveDigest() : new byte[0]);
 
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
-    builder.useToolchainTransition(useToolchainTransition);
+    if (useToolchainTransition) {
+      builder.useToolchainTransition(ToolchainTransitionMode.ENABLED);
+    }
 
     if (execGroups != Starlark.NONE) {
       Map<String, ExecGroup> execGroupDict =

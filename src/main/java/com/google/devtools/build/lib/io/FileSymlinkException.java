@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,12 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.rules.cpp;
+package com.google.devtools.build.lib.io;
 
-/** Methods useful for tests testing the C++ Starlark API. */
-public final class StarlarkCcCommonTestHelper {
-  public static final String CC_STARLARK_WHITELIST_FLAG =
-      "--experimental_cc_skylark_api_enabled_packages=tools/build_defs,experimental";
+import java.io.IOException;
 
-  private StarlarkCcCommonTestHelper() {}
+/** Exception indicating a problem with symlinks. */
+public abstract class FileSymlinkException extends IOException {
+  protected FileSymlinkException(String message) {
+    super(message);
+  }
+
+  /** Returns a description of the problem that is suitable for printing to users. */
+  // TODO(nharmata): Consider unifying this with AbstractFileChainUniquenessFunction.
+  public abstract String getUserFriendlyMessage();
 }

@@ -221,8 +221,7 @@ my_rule(
 report_flags(name = "report")
 EOF
 
-  bazel build --cpu=k8 package:custom \
-      --experimental_starlark_config_transitions &> $TEST_log \
+  bazel build --cpu=k8 package:custom &> $TEST_log \
       || fail "Build failed unexpectedly"
   expect_not_log "platform: //plat:platform1"
   expect_log "platform: //plat:platform2"

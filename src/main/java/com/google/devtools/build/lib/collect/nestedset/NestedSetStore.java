@@ -79,8 +79,13 @@ public class NestedSetStore {
    * that does not exist in the store.
    */
   public static final class MissingNestedSetException extends Exception {
+
     public MissingNestedSetException(ByteString fingerprint) {
-      super("No NestedSet data for " + fingerprint);
+      this(fingerprint, /*cause=*/ null);
+    }
+
+    public MissingNestedSetException(ByteString fingerprint, @Nullable Throwable cause) {
+      super("No NestedSet data for " + fingerprint, cause);
     }
   }
 

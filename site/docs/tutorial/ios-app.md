@@ -171,8 +171,8 @@ following load statement to the beginning of your `BUILD` file:
 load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
 ```
 
-We only need to load the `ios_application` rule because the `objc_library` rule
-is built into the Bazel package.
+You only need to load the `ios_application` rule because the `objc_library`
+rule is built into the Bazel package.
 
 ### Add an objc_library rule
 

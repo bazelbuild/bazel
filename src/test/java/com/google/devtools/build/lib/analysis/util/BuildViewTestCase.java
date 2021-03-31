@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
+import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -126,6 +127,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -297,7 +299,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
             .setEnvironmentExtensions(getEnvironmentExtensions())
-            .setPackageValidator(getPackageValidator());
+            .setPackageValidator(getPackageValidator())
+            .setPackageOverheadEstimator(getPackageOverheadEstimator());
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
@@ -413,6 +416,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected PackageValidator getPackageValidator() {
     return PackageValidator.NOOP_VALIDATOR;
+  }
+
+  protected PackageOverheadEstimator getPackageOverheadEstimator() {
+    return PackageOverheadEstimator.NOOP_ESTIMATOR;
   }
 
   protected final BuildConfigurationCollection createConfigurations(
@@ -1474,7 +1481,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildConfiguration config = getConfiguration(owner);
     return getGenfilesArtifact(
         packageRelativePath,
-        ConfiguredTargetKey.builder().setLabel(makeLabel(owner)).setConfiguration(config).build(),
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseAbsoluteUnchecked(owner))
+            .setConfiguration(config)
+            .build(),
         config);
   }
 
@@ -1685,17 +1695,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         (Rule) ctad.getTarget(), ctad.getConfiguredTarget().getConfigConditions());
   }
 
-  public static Label makeLabel(String label) {
-    try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
     return ConfiguredTargetKey.builder()
-        .setLabel(makeLabel(label))
+        .setLabel(Label.parseAbsoluteUnchecked(label))
         .setConfiguration(getConfiguration(label))
         .build();
   }
@@ -2372,6 +2374,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     private MetadataProvider actionInputFileCache = null;
     private TreeMap<String, String> clientEnv = new TreeMap<>();
     private ArtifactExpander artifactExpander = null;
+    private Executor executor = new DummyExecutor(fileSystem, getExecRoot());
 
     public ActionExecutionContextBuilder setMetadataProvider(
         MetadataProvider actionInputFileCache) {
@@ -2384,9 +2387,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return this;
     }
 
+    public ActionExecutionContextBuilder setExecutor(Executor executor) {
+      this.executor = executor;
+      return this;
+    }
+
     public ActionExecutionContext build() {
       return new ActionExecutionContext(
-          new DummyExecutor(fileSystem, getExecRoot()),
+          executor,
           actionInputFileCache,
           /*actionInputPrefetcher=*/ null,
           actionKeyContext,

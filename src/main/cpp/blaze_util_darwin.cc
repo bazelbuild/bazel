@@ -49,7 +49,7 @@ using std::string;
 using std::vector;
 
 // A stack based class for RAII type handling of CF based types that need
-// CFRelease called on them. Checks for NULL before calling release.
+// CFRelease called on them. Checks for nullptr before calling release.
 template <typename T> class CFScopedReleaser {
  public:
   explicit CFScopedReleaser(T value) : value_(value) { }
@@ -60,7 +60,7 @@ template <typename T> class CFScopedReleaser {
   }
   T get() { return value_; }
   operator T() { return value_; }
-  bool isValid() { return value_ != NULL; }
+  bool isValid() { return value_ != nullptr; }
 
  private:
   T value_;
@@ -105,8 +105,8 @@ void WarnFilesystemType(const blaze_util::Path &output_base) {
       kCFAllocatorDefault,
       reinterpret_cast<const UInt8 *>(output_base.AsNativePath().c_str()),
       output_base.AsNativePath().length(), true));
-  CFBooleanRef cf_local = NULL;
-  CFErrorRef cf_error = NULL;
+  CFBooleanRef cf_local = nullptr;
+  CFErrorRef cf_error = nullptr;
   if (!cf_url.isValid() ||
       !CFURLCopyResourcePropertyForKey(cf_url, kCFURLVolumeIsLocalKey,
                                        &cf_local, &cf_error)) {
@@ -136,7 +136,7 @@ string GetSelfPath(const char* argv0) {
 
 uint64_t GetMillisecondsMonotonic() {
   struct timeval ts = {};
-  if (gettimeofday(&ts, NULL) < 0) {
+  if (gettimeofday(&ts, nullptr) < 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "error calling gettimeofday: " << GetLastErrorString();
   }
@@ -178,14 +178,14 @@ string GetSystemJavabase() {
 
   // java_home will print a warning if no JDK could be found
   FILE *output = popen("/usr/libexec/java_home -v 1.8+ 2> /dev/null", "r");
-  if (output == NULL) {
+  if (output == nullptr) {
     return "";
   }
 
   char buf[512];
   char *result = fgets(buf, sizeof(buf), output);
   pclose(output);
-  if (result == NULL) {
+  if (result == nullptr) {
     return "";
   }
 
@@ -225,7 +225,7 @@ void ExcludePathFromBackup(const blaze_util::Path &path) {
                        << "' from backups";
     return;
   }
-  CFErrorRef cf_error = NULL;
+  CFErrorRef cf_error = nullptr;
   if (!CFURLSetResourcePropertyForKey(cf_url, kCFURLIsExcludedFromBackupKey,
                                       kCFBooleanTrue, &cf_error)) {
     CFScopedReleaser<CFErrorRef> cf_error_releaser(cf_error);

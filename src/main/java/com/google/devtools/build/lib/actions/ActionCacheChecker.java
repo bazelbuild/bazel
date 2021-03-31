@@ -439,7 +439,7 @@ public class ActionCacheChecker {
 
   @Nullable
   public List<Artifact> getCachedInputs(Action action, PackageRootResolver resolver)
-      throws InterruptedException {
+      throws PackageRootResolver.PackageRootException, InterruptedException {
     ActionCache.Entry entry = getCacheEntry(action);
     if (entry == null || entry.isCorrupted()) {
       return ImmutableList.of();
