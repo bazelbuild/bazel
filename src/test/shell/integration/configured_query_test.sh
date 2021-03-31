@@ -916,7 +916,7 @@ bool_flag = rule(
 def _dep_transition_impl(settings, attr):
     return {
         "//$pkg:myflag": True,
-        "//command_line_option:test_arg": ["blah"]
+        "//command_line_option:platform_suffix": "blah"
     }
 
 _dep_transition = transition(
@@ -924,7 +924,7 @@ _dep_transition = transition(
     inputs = [],
     outputs = [
         "//$pkg:myflag",
-        "//command_line_option:test_arg",
+        "//command_line_option:platform_suffix",
     ],
 )
 
@@ -967,7 +967,7 @@ def format(target):
   print(bo)
   if bo == None:
     return str(target.label) + '%None'
-  first = ','.join(bo['//command_line_option:test_arg'])
+  first = str(bo['//command_line_option:platform_suffix'])
   second = str(('//$pkg:myflag' in bo) and bo['//$pkg:myflag'])
   return str(target.label) + '%' + first + '%' + second
 EOF
@@ -975,17 +975,17 @@ EOF
   bazel cquery "//$pkg:bar" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:bar%%False" output
+  assert_contains "//$pkg:bar%None%False" output
 
   bazel cquery "//$pkg:foo" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%%False" output
+  assert_contains "//$pkg:foo%None%False" output
 
   bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%%False" output
+  assert_contains "//$pkg:foo%None%False" output
   assert_contains "//$pkg:bar%blah%True" output
 
   bazel cquery "//$pkg:rules.bzl" --output=starlark \

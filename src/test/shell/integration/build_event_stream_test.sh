@@ -907,13 +907,18 @@ function test_root_cause_before_target_summary() {
 
 function test_action_conf() {
   # Verify that the expected configurations for actions are reported.
-  # The example contains a configuration transition (from building for
-  # target to building for host). As the action fails, we expect the
-  # configuration of the action to be reported as well.
-  (bazel build --build_event_text_file=$TEST_log \
+  # Expect the following configurations:
+  # 1. The top-level target configuration
+  # 2. Host configuration (since example contains transition to host).
+  # 3. Trimmed top-level target configuration (since non-test rule).
+  # As the action fails, we expect the configuration of the action to be
+  # reported as well.
+  # TODO(blaze-configurability-team): remove explicit trim_test_configuration
+  # once it is (very soon) default true.
+  (bazel build --trim_test_configuration --build_event_text_file=$TEST_log \
          -k failingtool/... && fail "build failure expected") || true
   count=`grep '^configuration' "${TEST_log}" | wc -l`
-  [ "${count}" -eq 2 ] || fail "Expected 2 configurations, found $count."
+  [ "${count}" -eq 3 ] || fail "Expected 3 configurations, found $count."
 }
 
 function test_loading_failure() {
