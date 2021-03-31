@@ -54,6 +54,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec:srcs",
+        "//src/main/java/com/google/devtools/build/lib/io:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/jni:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",

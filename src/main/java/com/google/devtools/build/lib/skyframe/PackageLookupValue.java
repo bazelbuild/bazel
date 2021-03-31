@@ -19,6 +19,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -68,7 +69,7 @@ public abstract class PackageLookupValue implements SkyValue {
   protected PackageLookupValue() {}
 
   public static PackageLookupValue success(
-      RepositoryValue repository, Root root, BuildFileName buildFileName) {
+      RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
     return new SuccessfulPackageLookupValue(repository, root, buildFileName);
   }
 
@@ -162,20 +163,20 @@ public abstract class PackageLookupValue implements SkyValue {
      * controlling a symbolic link the path goes trough). Can be {@code null}, if does not depend on
      * such a repository; will always be {@code null} for packages in the main repository.
      */
-    @Nullable private final RepositoryValue repository;
+    @Nullable private final RepositoryDirectoryValue repository;
 
     private final Root root;
     private final BuildFileName buildFileName;
 
     SuccessfulPackageLookupValue(
-        @Nullable RepositoryValue repository, Root root, BuildFileName buildFileName) {
+        @Nullable RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
       this.repository = repository;
       this.root = root;
       this.buildFileName = buildFileName;
     }
 
     @Nullable
-    public RepositoryValue repository() {
+    public RepositoryDirectoryValue repository() {
       return repository;
     }
 

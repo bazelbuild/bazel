@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,19 +28,25 @@ public class ConstraintValueInfoTest extends BuildViewTestCase {
 
   @Test
   public void constraintValue_equalsTester() {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
+    ConstraintSettingInfo setting1 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
+    ConstraintSettingInfo setting2 =
+        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:other"));
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            ConstraintValueInfo.create(setting1, makeLabel("//constraint:value")),
-            ConstraintValueInfo.create(setting1, makeLabel("//constraint:value")))
+            ConstraintValueInfo.create(
+                setting1, Label.parseAbsoluteUnchecked("//constraint:value")),
+            ConstraintValueInfo.create(
+                setting1, Label.parseAbsoluteUnchecked("//constraint:value")))
         .addEqualityGroup(
             // Different label.
-            ConstraintValueInfo.create(setting1, makeLabel("//constraint:otherValue")))
+            ConstraintValueInfo.create(
+                setting1, Label.parseAbsoluteUnchecked("//constraint:otherValue")))
         .addEqualityGroup(
             // Different setting.
-            ConstraintValueInfo.create(setting2, makeLabel("//constraint:otherValue")))
+            ConstraintValueInfo.create(
+                setting2, Label.parseAbsoluteUnchecked("//constraint:otherValue")))
         .testEquals();
   }
 }

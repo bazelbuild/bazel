@@ -32,9 +32,13 @@ import java.util.SortedMap;
  * break various things as well as render the workers less useful.
  */
 final class WorkerKey {
+  /** Build options. */
   private final ImmutableList<String> args;
+  /** Environment variables. */
   private final ImmutableMap<String, String> env;
+  /** Execution root of Bazel process. */
   private final Path execRoot;
+  /** Mnemonic of the worker. */
   private final String mnemonic;
 
   /**
@@ -43,8 +47,10 @@ final class WorkerKey {
    * methods.
    */
   private final HashCode workerFilesCombinedHash;
+  /** Worker files with the corresponding hash code. */
   private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
-  private final boolean mustBeSandboxed;
+  /** Set it to true if this job is running speculatively and thus likely to be interrupted. */
+  private final boolean isSpeculative;
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean proxied;
   /**
@@ -52,7 +58,7 @@ final class WorkerKey {
    * (ImmutableMap and ImmutableList do not cache their hashcodes.
    */
   private final int hash;
-
+  /** The format of the worker protocol sent to and read from the worker. */
   private final WorkerProtocolFormat protocolFormat;
 
   WorkerKey(
@@ -62,26 +68,17 @@ final class WorkerKey {
       String mnemonic,
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, HashCode> workerFilesWithHashes,
-      boolean mustBeSandboxed,
+      boolean isSpeculative,
       boolean proxied,
       WorkerProtocolFormat protocolFormat) {
-    /** Build options. */
     this.args = Preconditions.checkNotNull(args);
-    /** Environment variables. */
     this.env = Preconditions.checkNotNull(env);
-    /** Execution root of Bazel process. */
     this.execRoot = Preconditions.checkNotNull(execRoot);
-    /** Mnemonic of the worker. */
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
-    /** One combined hash code for all files. */
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
-    /** Worker files with the corresponding hash code. */
     this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
-    /** Set it to true if this job should be run in sandbox. */
-    this.mustBeSandboxed = mustBeSandboxed;
-    /** Set it to true if this job should be run with WorkerProxy. */
+    this.isSpeculative = isSpeculative;
     this.proxied = proxied;
-    /** The format of the worker protocol sent to and read from the worker. */
     this.protocolFormat = protocolFormat;
 
     hash = calculateHashCode();
@@ -117,14 +114,18 @@ final class WorkerKey {
     return workerFilesWithHashes;
   }
 
-  /** Getter function for variable mustBeSandboxed. */
-  public boolean mustBeSandboxed() {
-    return mustBeSandboxed;
+  /** Returns true if workers are run speculatively. */
+  public boolean isSpeculative() {
+    return isSpeculative;
   }
 
   /** Getter function for variable proxied. */
   public boolean getProxied() {
     return proxied;
+  }
+
+  public boolean isMultiplex() {
+    return getProxied() && !isSpeculative;
   }
 
   /** Returns the format of the worker protocol. */
@@ -133,12 +134,17 @@ final class WorkerKey {
   }
 
   /** Returns a user-friendly name for this worker type. */
-  public static String makeWorkerTypeName(boolean proxied) {
-    if (proxied) {
+  public static String makeWorkerTypeName(boolean proxied, boolean mustBeSandboxed) {
+    if (proxied && !mustBeSandboxed) {
       return "multiplex-worker";
     } else {
       return "worker";
     }
+  }
+
+  /** Returns a user-friendly name for this worker type. */
+  public String getWorkerTypeName() {
+    return makeWorkerTypeName(proxied, isSpeculative);
   }
 
   @Override

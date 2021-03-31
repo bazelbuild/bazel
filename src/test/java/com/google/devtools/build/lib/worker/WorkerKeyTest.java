@@ -23,7 +23,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,32 +33,53 @@ import org.junit.runners.JUnit4;
 public class WorkerKeyTest {
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
 
-  Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-  WorkerKey workerKey =
-      new WorkerKey(
-          /* args= */ ImmutableList.of("arg1", "arg2", "arg3"),
-          /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
-          /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
-          /* mnemonic= */ "dummy",
-          /* workerFilesCombinedHash= */ HashCode.fromInt(0),
-          /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
-          /* mustBeSandboxed= */ true,
-          /* proxied= */ true,
-          WorkerProtocolFormat.PROTO);
+  private WorkerKey makeWorkerKey(boolean multiplex, boolean dynamic) {
+    return new WorkerKey(
+        /* args= */ ImmutableList.of("arg1", "arg2", "arg3"),
+        /* env= */ ImmutableMap.of("env1", "foo", "env2", "bar"),
+        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+        /* mnemonic= */ "dummy",
+        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+        /* isSpeculative= */ dynamic,
+        /* proxied= */ multiplex,
+        WorkerProtocolFormat.PROTO);
+  }
 
   @Test
   public void testWorkerKeyGetter() {
-    assertThat(workerKey.mustBeSandboxed()).isEqualTo(true);
-    assertThat(workerKey.getProxied()).isEqualTo(true);
-    assertThat(WorkerKey.makeWorkerTypeName(false)).isEqualTo("worker");
-    assertThat(WorkerKey.makeWorkerTypeName(true)).isEqualTo("multiplex-worker");
+    WorkerKey keyNomultiNodynamic = makeWorkerKey(false, false);
+    assertThat(keyNomultiNodynamic.isSpeculative()).isFalse();
+    assertThat(keyNomultiNodynamic.getProxied()).isFalse();
+    assertThat(keyNomultiNodynamic.isMultiplex()).isFalse();
+    assertThat(keyNomultiNodynamic.getWorkerTypeName()).isEqualTo("worker");
+
+    WorkerKey keyMultiNoDynamic = makeWorkerKey(true, false);
+    assertThat(keyMultiNoDynamic.isSpeculative()).isFalse();
+    assertThat(keyMultiNoDynamic.getProxied()).isTrue();
+    assertThat(keyMultiNoDynamic.isMultiplex()).isTrue();
+    assertThat(keyMultiNoDynamic.getWorkerTypeName()).isEqualTo("multiplex-worker");
+
+    WorkerKey keyNoMultiDynamic = makeWorkerKey(false, true);
+    assertThat(keyNoMultiDynamic.isSpeculative()).isTrue();
+    assertThat(keyNoMultiDynamic.getProxied()).isFalse();
+    assertThat(keyNoMultiDynamic.isMultiplex()).isFalse();
+    assertThat(keyNoMultiDynamic.getWorkerTypeName()).isEqualTo("worker");
+
+    WorkerKey keyMultiDynamic = makeWorkerKey(true, true);
+    assertThat(keyMultiDynamic.isSpeculative()).isTrue();
+    assertThat(keyMultiDynamic.getProxied()).isTrue();
+    assertThat(keyMultiDynamic.isMultiplex()).isFalse();
+    assertThat(keyMultiDynamic.getWorkerTypeName()).isEqualTo("worker");
+
     // Hash code contains args, env, execRoot, proxied, and mnemonic.
-    assertThat(workerKey.hashCode()).isEqualTo(1605714200);
-    assertThat(workerKey.getProtocolFormat()).isEqualTo(WorkerProtocolFormat.PROTO);
+    assertThat(keyMultiDynamic.hashCode()).isEqualTo(1605714200);
+    assertThat(keyMultiDynamic.getProtocolFormat()).isEqualTo(WorkerProtocolFormat.PROTO);
   }
 
   @Test
   public void testWorkerKeyEquality() {
+    WorkerKey workerKey = makeWorkerKey(true, true);
     WorkerKey workerKeyWithSameFields =
         new WorkerKey(
             workerKey.getArgs(),
@@ -68,7 +88,7 @@ public class WorkerKeyTest {
             workerKey.getMnemonic(),
             workerKey.getWorkerFilesCombinedHash(),
             workerKey.getWorkerFilesWithHashes(),
-            workerKey.mustBeSandboxed(),
+            workerKey.isSpeculative(),
             workerKey.getProxied(),
             workerKey.getProtocolFormat());
     assertThat(workerKey).isEqualTo(workerKeyWithSameFields);
@@ -76,6 +96,7 @@ public class WorkerKeyTest {
 
   @Test
   public void testWorkerKeyInequality_protocol() {
+    WorkerKey workerKey = makeWorkerKey(true, true);
     WorkerKey workerKeyWithDifferentProtocol =
         new WorkerKey(
             workerKey.getArgs(),
@@ -84,7 +105,7 @@ public class WorkerKeyTest {
             workerKey.getMnemonic(),
             workerKey.getWorkerFilesCombinedHash(),
             workerKey.getWorkerFilesWithHashes(),
-            workerKey.mustBeSandboxed(),
+            workerKey.isSpeculative(),
             workerKey.getProxied(),
             WorkerProtocolFormat.JSON);
     assertThat(workerKey).isNotEqualTo(workerKeyWithDifferentProtocol);

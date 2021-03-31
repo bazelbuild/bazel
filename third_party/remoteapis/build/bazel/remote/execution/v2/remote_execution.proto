@@ -19,8 +19,10 @@ package build.bazel.remote.execution.v2;
 import "build/bazel/semver/semver.proto";
 import "google/api/annotations.proto";
 import "google/longrunning/operations.proto";
+import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 import "google/rpc/status.proto";
 
 option csharp_namespace = "Build.Bazel.Remote.Execution.V2";
@@ -103,6 +105,11 @@ service Execution {
   // where, for each requested blob not present in the CAS, there is a
   // `Violation` with a `type` of `MISSING` and a `subject` of
   // `"blobs/{hash}/{size}"` indicating the digest of the missing blob.
+  //
+  // The server does not need to guarantee that a call to this method leads to
+  // at most one execution of the action. The server MAY execute the action
+  // multiple times, potentially in parallel. These redundant executions MAY
+  // continue to run, even if the operation is completed.
   rpc Execute(ExecuteRequest) returns (stream google.longrunning.Operation) {
     option (google.api.http) = { post: "/v2/{instance_name=**}/actions:execute" body: "*" };
   }
@@ -141,7 +148,7 @@ service ActionCache {
   // [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage]
   // are available at the time of returning the
   // [ActionResult][build.bazel.remote.execution.v2.ActionResult] and will be
-  // for some period of time afterwards. The TTLs of the referenced blobs SHOULD be increased
+  // for some period of time afterwards. The lifetimes of the referenced blobs SHOULD be increased
   // if necessary and applicable.
   //
   // Errors:
@@ -159,6 +166,9 @@ service ActionCache {
   // result, along with its
   // [Command][build.bazel.remote.execution.v2.Command], into the
   // `ContentAddressableStorage`.
+  //
+  // Server implementations MAY modify the
+  // `UpdateActionResultRequest.action_result` and return an equivalent value.
   //
   // Errors:
   //
@@ -236,6 +246,10 @@ service ActionCache {
 // used in subsequent calls (e.g. to
 // [Execute][build.bazel.remote.execution.v2.Execution.Execute]).
 //
+// Servers MUST behave as though empty blobs are always available, even if they
+// have not been uploaded. Clients MAY optimize away the uploading or
+// downloading of empty blobs.
+//
 // As with other services in the Remote Execution API, any call may return an
 // error with a [RetryInfo][google.rpc.RetryInfo] error detail providing
 // information about when the client should retry the request; clients SHOULD
@@ -245,6 +259,9 @@ service ContentAddressableStorage {
   //
   // Clients can use this API before uploading blobs to determine which ones are
   // already present in the CAS and do not need to be uploaded again.
+  //
+  // Servers SHOULD increase the lifetimes of the referenced blobs if necessary and
+  // applicable.
   //
   // There are no method-specific errors.
   rpc FindMissingBlobs(FindMissingBlobsRequest) returns (FindMissingBlobsResponse) {
@@ -413,15 +430,25 @@ message Action {
   // requests for the same `Action` may not be merged.
   bool do_not_cache = 7;
 
-  // List of required supported [NodeProperty][build.bazel.remote.execution.v2.NodeProperty]
-  // keys. In order to ensure that equivalent `Action`s always hash to the same
-  // value, the supported node properties MUST be lexicographically sorted by name.
-  // Sorting of strings is done by code point, equivalently, by the UTF-8 bytes.
-  //
-  // The interpretation of these properties is server-dependent. If a property is
-  // not recognized by the server, the server will return an `INVALID_ARGUMENT`
-  // error.
-  repeated string output_node_properties = 8;
+  reserved 8; // Used for field moved to [Command][build.bazel.remote.execution.v2.Command].
+
+  // An optional additional salt value used to place this `Action` into a
+  // separate cache namespace from other instances having the same field
+  // contents. This salt typically comes from operational configuration
+  // specific to sources such as repo and service configuration,
+  // and allows disowning an entire set of ActionResults that might have been
+  // poisoned by buggy software or tool failures.
+  bytes salt = 9;
+
+  // The optional platform requirements for the execution environment. The
+  // server MAY choose to execute the action on any worker satisfying the
+  // requirements, so the client SHOULD ensure that running the action on any
+  // such worker will have the same result.  A detailed lexicon for this can be
+  // found in the accompanying platform.md.
+  // New in version 2.2: clients SHOULD set these platform properties as well
+  // as those in the [Command][build.bazel.remote.execution.v2.Command]. Servers
+  // SHOULD prefer those set here.
+  Platform platform = 10;
 }
 
 // A `Command` is the actual command executed by a worker running an
@@ -546,14 +573,30 @@ message Command {
   // The platform requirements for the execution environment. The server MAY
   // choose to execute the action on any worker satisfying the requirements, so
   // the client SHOULD ensure that running the action on any such worker will
-  // have the same result.
-  // A detailed lexicon for this can be found in the accompanying platform.md.
+  // have the same result.  A detailed lexicon for this can be found in the
+  // accompanying platform.md.
+  // DEPRECATED as of v2.2: platform properties are now specified directly in
+  // the action. See documentation note in the
+  // [Action][build.bazel.remote.execution.v2.Action] for migration.
   Platform platform = 5;
 
   // The working directory, relative to the input root, for the command to run
   // in. It must be a directory which exists in the input tree. If it is left
   // empty, then the action is run in the input root.
   string working_directory = 6;
+
+  // A list of keys for node properties the client expects to retrieve for
+  // output files and directories. Keys are either names of string-based
+  // [NodeProperty][build.bazel.remote.execution.v2.NodeProperty] or
+  // names of fields in [NodeProperties][build.bazel.remote.execution.v2.NodeProperties].
+  // In order to ensure that equivalent `Action`s always hash to the same
+  // value, the node properties MUST be lexicographically sorted by name.
+  // Sorting of strings is done by code point, equivalently, by the UTF-8 bytes.
+  //
+  // The interpretation of string-based properties is server-dependent. If a
+  // property is not recognized by the server, the server will return an
+  // `INVALID_ARGUMENT`.
+  repeated string output_node_properties = 8;
 }
 
 // A `Platform` is a set of requirements, such as hardware, operating system, or
@@ -579,6 +622,11 @@ message Platform {
   // The server MAY use the `value` of one or more properties to determine how
   // it sets up the execution environment, such as by making specific system
   // files available to the worker.
+  //
+  // Both names and values are typically case-sensitive. Note that the platform
+  // is implicitly part of the action digest, so even tiny changes in the names
+  // or values (like changing case) may result in different action cache
+  // entries.
   message Property {
     // The property name.
     string name = 1;
@@ -681,7 +729,8 @@ message Directory {
   repeated SymlinkNode symlinks = 3;
 
   // The node properties of the Directory.
-  repeated NodeProperty node_properties = 4;
+  reserved 4;
+  NodeProperties node_properties = 5;
 }
 
 // A single property for [FileNodes][build.bazel.remote.execution.v2.FileNode],
@@ -695,6 +744,23 @@ message NodeProperty {
 
     // The property value.
     string value = 2;
+}
+
+// Node properties for [FileNodes][build.bazel.remote.execution.v2.FileNode],
+// [DirectoryNodes][build.bazel.remote.execution.v2.DirectoryNode], and
+// [SymlinkNodes][build.bazel.remote.execution.v2.SymlinkNode]. The server is
+// responsible for specifying the properties that it accepts.
+//
+message NodeProperties {
+  // A list of string-based
+  // [NodeProperties][build.bazel.remote.execution.v2.NodeProperty].
+  repeated NodeProperty properties = 1;
+
+  // The file's last modification timestamp.
+  google.protobuf.Timestamp mtime = 2;
+
+  // The UNIX file mode, e.g., 0755.
+  google.protobuf.UInt32Value unix_mode = 3;
 }
 
 // A `FileNode` represents a single file and associated metadata.
@@ -711,7 +777,8 @@ message FileNode {
   bool is_executable = 4;
 
   // The node properties of the FileNode.
-  repeated NodeProperty node_properties = 5;
+  reserved 5;
+  NodeProperties node_properties = 6;
 }
 
 // A `DirectoryNode` represents a child of a
@@ -737,12 +804,16 @@ message SymlinkNode {
   // The target path can be relative to the parent directory of the symlink or
   // it can be an absolute path starting with `/`. Support for absolute paths
   // can be checked using the [Capabilities][build.bazel.remote.execution.v2.Capabilities]
-  // API. The canonical form forbids the substrings `/./` and `//` in the target
-  // path. `..` components are allowed anywhere in the target path.
+  // API. `..` components are allowed anywhere in the target path as logical
+  // canonicalization may lead to different behavior in the presence of
+  // directory symlinks (e.g. `foo/../bar` may not be the same as `bar`).
+  // To reduce potential cache misses, canonicalization is still recommended
+  // where this is possible without impacting correctness.
   string target = 2;
 
   // The node properties of the SymlinkNode.
-  repeated NodeProperty node_properties = 3;
+  reserved 3;
+  NodeProperties node_properties = 4;
 }
 
 // A content digest. A digest for a given blob consists of the size of the blob
@@ -816,10 +887,20 @@ message ExecutedActionMetadata {
 
   // When the worker finished uploading action outputs.
   google.protobuf.Timestamp output_upload_completed_timestamp = 10;
+
+  // Details that are specific to the kind of worker used. For example,
+  // on POSIX-like systems this could contain a message with
+  // getrusage(2) statistics.
+  repeated google.protobuf.Any auxiliary_metadata = 11;
 }
 
 // An ActionResult represents the result of an
 // [Action][build.bazel.remote.execution.v2.Action] being run.
+//
+// It is advised that at least one field (for example
+// `ActionResult.execution_metadata.Worker`) have a non-default value, to
+// ensure that the serialized value is non-empty, which can then be used
+// as a basic data sanity check.
 message ActionResult {
   reserved 1; // Reserved for use as the resource name.
 
@@ -1013,7 +1094,8 @@ message OutputFile {
   bytes contents = 5;
 
   // The supported node properties of the OutputFile, if requested by the Action.
-  repeated NodeProperty node_properties = 6;
+  reserved 6;
+  NodeProperties node_properties = 7;
 }
 
 // A `Tree` contains all the
@@ -1062,13 +1144,13 @@ message OutputSymlink {
   // The target path can be relative to the parent directory of the symlink or
   // it can be an absolute path starting with `/`. Support for absolute paths
   // can be checked using the [Capabilities][build.bazel.remote.execution.v2.Capabilities]
-  // API. The canonical form forbids the substrings `/./` and `//` in the target
-  // path. `..` components are allowed anywhere in the target path.
+  // API. `..` components are allowed anywhere in the target path.
   string target = 2;
 
   // The supported node properties of the OutputSymlink, if requested by the
   // Action.
-  repeated NodeProperty node_properties = 3;
+  reserved 3;
+  NodeProperties node_properties = 4;
 }
 
 // An `ExecutionPolicy` can be used to control the scheduling of the action.
@@ -1224,14 +1306,14 @@ message ExecuteOperationMetadata {
   // being executed.
   Digest action_digest = 2;
 
-  // If set, the client can use this name with
+  // If set, the client can use this resource name with
   // [ByteStream.Read][google.bytestream.ByteStream.Read] to stream the
-  // standard output.
+  // standard output from the endpoint hosting streamed responses.
   string stdout_stream_name = 3;
 
-  // If set, the client can use this name with
+  // If set, the client can use this resource name with
   // [ByteStream.Read][google.bytestream.ByteStream.Read] to stream the
-  // standard error.
+  // standard error from the endpoint hosting streamed responses.
   string stderr_stream_name = 4;
 }
 
@@ -1266,7 +1348,8 @@ message GetActionResultRequest {
   bool inline_stderr = 4;
 
   // A hint to the server to inline the contents of the listed output files.
-  // Each path needs to exactly match one path in `output_files` in the
+  // Each path needs to exactly match one file path in either `output_paths` or
+  // `output_files` (DEPRECATED since v2.1) in the
   // [Command][build.bazel.remote.execution.v2.Command] message.
   repeated string inline_output_files = 5;
 }
@@ -1485,6 +1568,11 @@ message DigestFunction {
 
     // The SHA-512 digest function.
     SHA512 = 6;
+
+    // Murmur3 128-bit digest function, x64 variant. Note that this is not a
+    // cryptographic hash function and its collision properties are not strongly guaranteed.
+    // See https://github.com/aappleby/smhasher/wiki/MurmurHash3 .
+    MURMUR3 = 7;
   }
 }
 
@@ -1494,12 +1582,17 @@ message ActionCacheUpdateCapabilities {
 }
 
 // Allowed values for priority in
-// [ResultsCachePolicy][google.devtools.remoteexecution.v2.ResultsCachePolicy]
+// [ResultsCachePolicy][build.bazel.remoteexecution.v2.ResultsCachePolicy] and
+// [ExecutionPolicy][build.bazel.remoteexecution.v2.ResultsCachePolicy]
 // Used for querying both cache and execution valid priority ranges.
 message PriorityCapabilities {
   // Supported range of priorities, including boundaries.
   message PriorityRange {
+    // The minimum numeric value for this priority range, which represents the
+    // most urgent task or longest retained item.
     int32 min_priority = 1;
+    // The maximum numeric value for this priority range, which represents the
+    // least urgent task or shortest retained item.
     int32 max_priority = 2;
   }
   repeated PriorityRange priorities = 1;
@@ -1597,4 +1690,18 @@ message RequestMetadata {
   // An identifier to tie multiple tool invocations together. For example,
   // runs of foo_test, bar_test and baz_test on a post-submit of a given patch.
   string correlated_invocations_id = 4;
+
+  // A brief description of the kind of action, for example, CppCompile or GoLink.
+  // There is no standard agreed set of values for this, and they are expected to vary between different client tools.
+  string action_mnemonic = 5;
+
+  // An identifier for the target which produced this action.
+  // No guarantees are made around how many actions may relate to a single target.
+  string target_id = 6;
+
+  // An identifier for the configuration in which the target was built,
+  // e.g. for differentiating building host tools or different target platforms.
+  // There is no expectation that this value will have any particular structure,
+  // or equality across invocations, though some client tools may offer these guarantees.
+  string configuration_id = 7;
 }

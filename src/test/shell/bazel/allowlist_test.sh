@@ -96,7 +96,7 @@ rule_with_external_dep(
 EOF
 
   bazel cquery "deps(//vinegar)" --test_arg=hotlanta --transitions=full \
-    --noimplicit_deps --experimental_starlark_config_transitions \
+    --noimplicit_deps \
     >& $TEST_log || fail "failed to query //vinegar"
   expect_log "@secret_ingredient//hotsauce"
   expect_log "test_arg:\[hotlanta\] -> \[\[\"tapatio\"\]\]"
@@ -141,7 +141,7 @@ rule_with_transition(
 )
 EOF
 
-  bazel build //vinegar --experimental_starlark_config_transitions \
+  bazel build //vinegar \
     >& $TEST_log && fail "Expected failure"
   expect_log "_allowlist_function_transition attribute (@bazel_tools//tools/allowlists/bad:bad)"
   expect_log "does not have the expected value //tools/allowlists/function_transition_allowlist:function_transition_allowlist"
@@ -203,7 +203,7 @@ rule_with_transition(name = "acetic-acid")
 EOF
 
   bazel cquery "deps(//vinegar)" --test_arg=hotlanta --transitions=full \
-    --noimplicit_deps --experimental_starlark_config_transitions \
+    --noimplicit_deps \
     >& $TEST_log || fail "failed to query //vinegar"
   expect_log "test_arg:\[hotlanta\] -> \[\[\"tapatio\"\]\]"
 }

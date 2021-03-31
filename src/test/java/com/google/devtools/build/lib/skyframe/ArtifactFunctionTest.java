@@ -118,7 +118,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public byte[] getDigest(Path path) throws IOException {
+          public byte[] getDigest(PathFragment path) throws IOException {
             return path.getBaseName().equals("unreadable") ? expectedDigest : super.getDigest(path);
           }
         });
@@ -177,7 +177,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+          public FileStatus statIfFound(PathFragment path, boolean followSymlinks)
+              throws IOException {
             if (path.getBaseName().equals("bad")) {
               throw exception;
             }

@@ -19,7 +19,10 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -79,6 +83,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -103,6 +108,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   @Mock private PackageValidator mockPackageValidator;
+
+  @Mock private PackageOverheadEstimator mockPackageOverheadEstimator;
 
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
@@ -139,6 +146,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Override
   protected PackageValidator getPackageValidator() {
     return mockPackageValidator;
+  }
+
+  @Override
+  protected PackageOverheadEstimator getPackageOverheadEstimator() {
+    return mockPackageOverheadEstimator;
   }
 
   private Package validPackageWithoutErrors(SkyKey skyKey) throws InterruptedException {
@@ -200,13 +212,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
             inv -> {
               Package pkg = inv.getArgument(0, Package.class);
               if (pkg.getName().equals("pkg")) {
-                inv.getArgument(1, ExtendedEventHandler.class).handle(Event.warn("warning event"));
+                inv.getArgument(2, ExtendedEventHandler.class).handle(Event.warn("warning event"));
                 throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
               }
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(OptionalLong.class), any(ExtendedEventHandler.class));
 
     invalidatePackages();
 
@@ -214,6 +226,25 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).isInstanceOf(InvalidPackageException.class);
     assertThat(ex).hasMessageThat().contains("no such package 'pkg': no good");
     assertContainsEvent("warning event");
+  }
+
+  @Test
+  public void testPackageOverheadPassedToValidationLogic() throws Exception {
+    scratch.file("pkg/BUILD", "# Contents doesn't matter, it's all fake");
+
+    when(mockPackageOverheadEstimator.estimatePackageOverhead(any(Package.class)))
+        .thenReturn(OptionalLong.of(42));
+
+    invalidatePackages();
+
+    SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(),
+        PackageValue.key(PackageIdentifier.parse("@//pkg")),
+        /*keepGoing=*/ false,
+        reporter);
+
+    verify(mockPackageValidator)
+        .validate(any(Package.class), eq(OptionalLong.of(42)), any(ExtendedEventHandler.class));
   }
 
   @Test
@@ -233,7 +264,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(OptionalLong.class), any(ExtendedEventHandler.class));
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
     EvaluationResult<PackageValue> result1 =
@@ -314,7 +345,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .contains(
             "according to stat, existing path /workspace/foo/BUILD is neither"
                 + " a file nor directory nor symlink.");
-    assertDetailedExitCode(ex, PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
+    assertDetailedExitCode(
+        ex,
+        PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   @Test
@@ -345,7 +379,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String msg = ex.getMessage();
     assertThat(msg).contains("Inconsistent filesystem operations");
     assertThat(msg).contains("/workspace/foo/bar/baz is no longer an existing directory");
-    assertDetailedExitCode(ex, PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
+    assertDetailedExitCode(
+        ex,
+        PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   /** Regression test for unexpected exception type from PackageValue. */
@@ -367,7 +404,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String msg = ex.getMessage();
     assertThat(msg).contains("Inconsistent filesystem operations");
     assertThat(msg).contains("Encountered error '/workspace/foo/bar (Permission denied)'");
-    assertDetailedExitCode(ex, PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
+    assertDetailedExitCode(
+        ex,
+        PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR,
+        ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
   }
 
   @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
@@ -598,7 +638,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/starlark': "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -617,7 +658,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "error loading package 'test/starlark': "
                 + "at /workspace/test/starlark/extension.bzl:1:6: "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -638,7 +680,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "error loading package 'pkg': Internal error while loading Starlark builtins: Failed"
                 + " to load builtins sources: initialization of module 'exports.bzl' (internal)"
                 + " failed");
-    assertDetailedExitCode(ex, PackageLoading.Code.BUILTINS_INJECTION_FAILURE);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.BUILTINS_INJECTION_FAILURE, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -654,7 +697,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/starlark': Encountered error while reading extension "
                 + "file 'test/starlark/extension.bzl': Symlink cycle");
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -829,7 +873,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).hasMessageThat().contains("nope");
     assertThat(ex).isInstanceOf(NoSuchPackageException.class);
     assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
-    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -843,7 +887,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).hasMessageThat().contains("nope");
     assertThat(ex).isInstanceOf(NoSuchPackageException.class);
     assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
-    assertDetailedExitCode(ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
+    assertDetailedExitCode(
+        ex, PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR, ExitCode.BUILD_FAILURE);
   }
 
   @Test
@@ -1294,12 +1339,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   private static void assertDetailedExitCode(
-      Exception exception, PackageLoading.Code expectedPackageLoadingCode) {
+      Exception exception, PackageLoading.Code expectedPackageLoadingCode, ExitCode exitCode) {
     assertThat(exception).isInstanceOf(DetailedException.class);
     DetailedExitCode detailedExitCode = ((DetailedException) exception).getDetailedExitCode();
-    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(exitCode);
     assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
         .isEqualTo(expectedPackageLoadingCode);
+    assertThat(DetailedExitCode.getExitCode(detailedExitCode.getFailureDetail()))
+        .isEqualTo(exitCode);
   }
 
   /**
@@ -1570,24 +1617,24 @@ public class PackageFunctionTest extends BuildViewTestCase {
       }
     }
 
-    private final Map<Path, FileStatusOrException> stubbedStats = Maps.newHashMap();
-    private final Set<Path> makeUnreadableAfterReaddir = Sets.newHashSet();
-    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
+    private final Map<PathFragment, FileStatusOrException> stubbedStats = Maps.newHashMap();
+    private final Set<PathFragment> makeUnreadableAfterReaddir = Sets.newHashSet();
+    private final Map<PathFragment, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path, new FileStatusOrException.FileStatusImpl(stubbedResult));
+      stubbedStats.put(path.asFragment(), new FileStatusOrException.FileStatusImpl(stubbedResult));
     }
 
     public void stubStatError(Path path, IOException stubbedResult) {
-      stubbedStats.put(path, new FileStatusOrException.ExceptionImpl(stubbedResult));
+      stubbedStats.put(path.asFragment(), new FileStatusOrException.ExceptionImpl(stubbedResult));
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path).get();
       }
@@ -1595,24 +1642,25 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     public void scheduleMakeUnreadableAfterReaddir(Path path) {
-      makeUnreadableAfterReaddir.add(path);
+      makeUnreadableAfterReaddir.add(path.asFragment());
     }
 
     @Override
-    public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
+    public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+        throws IOException {
       Collection<Dirent> result = super.readdir(path, followSymlinks);
       if (makeUnreadableAfterReaddir.contains(path)) {
-        path.setReadable(false);
+        setReadable(path, false);
       }
       return result;
     }
 
     public void throwExceptionOnGetInputStream(Path path, IOException exn) {
-      pathsToErrorOnGetInputStream.put(path, exn);
+      pathsToErrorOnGetInputStream.put(path.asFragment(), exn);
     }
 
     @Override
-    protected InputStream getInputStream(Path path) throws IOException {
+    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
       IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
       if (exnToThrow != null) {
         throw exnToThrow;

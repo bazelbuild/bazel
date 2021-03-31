@@ -30,6 +30,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -46,7 +47,8 @@ public class BazelJavaBuilder {
           new WorkRequestHandler(
               builder::parseAndBuild,
               System.err,
-              new ProtoWorkerMessageProcessor(System.in, System.out));
+              new ProtoWorkerMessageProcessor(System.in, System.out),
+              Duration.ofSeconds(10));
       try {
         workerHandler.processRequests();
       } catch (IOException e) {

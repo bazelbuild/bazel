@@ -427,8 +427,7 @@ public final class JavaCompilationHelper {
                   javaToolchain.getToolchainLabel()));
       return false;
     }
-    if (getJavaConfiguration().requireJavaToolchainHeaderCompilerDirect()
-        && javaToolchain.getHeaderCompilerDirect() == null) {
+    if (javaToolchain.getHeaderCompilerDirect() == null) {
       getRuleContext()
           .ruleError(
               String.format(

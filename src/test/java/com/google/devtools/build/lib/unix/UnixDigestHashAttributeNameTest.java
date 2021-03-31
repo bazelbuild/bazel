@@ -19,8 +19,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemTest;
-import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 
 /** Test for {@link com.google.devtools.build.lib.unix.UnixFileSystem#getFastDigest}. */
@@ -52,8 +51,8 @@ public class UnixDigestHashAttributeNameTest extends FileSystemTest {
     }
 
     @Override
-    public byte[] getxattr(Path path, String name, boolean followSymlinks) throws IOException {
-      assertThat(path).isEqualTo(absolutize("myfile"));
+    public byte[] getxattr(PathFragment path, String name, boolean followSymlinks) {
+      assertThat(path).isEqualTo(absolutize("myfile").asFragment());
       assertThat(name).isEqualTo("user.checksum.sha256");
       assertThat(followSymlinks).isTrue();
       return FAKE_DIGEST;

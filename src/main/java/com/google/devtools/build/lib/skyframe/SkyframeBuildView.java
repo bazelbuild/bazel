@@ -389,7 +389,8 @@ public final class SkyframeBuildView {
       EventBus eventBus,
       boolean keepGoing,
       int numThreads,
-      boolean strictConflictChecks)
+      boolean strictConflictChecks,
+      boolean checkForActionConflicts)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ActionLookupValue> result;
@@ -441,7 +442,7 @@ public final class SkyframeBuildView {
               .addAll(ctKeys)
               .addAll(aspectKeys)
               .build();
-      if (shouldCheckForConflicts(newKeys)) {
+      if (checkForActionConflicts && shouldCheckForConflicts(newKeys)) {
         largestTopLevelKeySetCheckedForConflicts = newKeys;
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
@@ -1057,8 +1058,7 @@ public final class SkyframeBuildView {
     return skyframeExecutor.getActionKeyContext();
   }
 
-  private final class ActionLookupValueProgressReceiver
-      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
+  private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {
     private final AtomicInteger actionLookupValueCount = new AtomicInteger();
     private final AtomicInteger actionCount = new AtomicInteger();
     private final AtomicInteger configuredTargetCount = new AtomicInteger();
@@ -1078,7 +1078,8 @@ public final class SkyframeBuildView {
     @Override
     public void evaluated(
         SkyKey skyKey,
-        @Nullable SkyValue value,
+        @Nullable SkyValue newValue,
+        @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
       // We tolerate any action lookup keys here, although we only expect configured targets,
@@ -1097,8 +1098,8 @@ public final class SkyframeBuildView {
             // During multithreaded operation, this is only set to true, so no concurrency issues.
             someActionLookupValueEvaluated = true;
           }
-          if (value instanceof ActionLookupValue) {
-            int numActions = ((ActionLookupValue) value).getNumActions();
+          if (newValue instanceof ActionLookupValue) {
+            int numActions = ((ActionLookupValue) newValue).getNumActions();
             actionCount.addAndGet(numActions);
             if (isConfiguredTarget) {
               configuredTargetActionCount.addAndGet(numActions);

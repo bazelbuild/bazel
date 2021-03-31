@@ -47,6 +47,14 @@ public class RepositoryOptionsTest {
   }
 
   @Test
+  public void testOverridePathWithEqualsSign() throws Exception {
+    RepositoryOverride actual = converter.convert("foo=/bar=/baz");
+    assertThat(actual.repositoryName())
+        .isEqualTo(RepositoryName.createFromValidStrippedName("foo"));
+    assertThat(actual.path()).isEqualTo(PathFragment.create("/bar=/baz"));
+  }
+
+  @Test
   public void testInvalidOverride() throws Exception {
     expectedException.expect(OptionsParsingException.class);
     expectedException.expectMessage(

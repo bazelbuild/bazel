@@ -153,12 +153,12 @@ string CreateTempDir(const std::string &prefix) {
 
 static bool RemoveDirRecursively(const std::string &path) {
   DIR *dir;
-  if ((dir = opendir(path.c_str())) == NULL) {
+  if ((dir = opendir(path.c_str())) == nullptr) {
     return false;
   }
 
   struct dirent *ent;
-  while ((ent = readdir(dir)) != NULL) {
+  while ((ent = readdir(dir)) != nullptr) {
     if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
       continue;
     }
@@ -296,11 +296,19 @@ bool WriteFile(const void *data, size_t size, const string &filename,
   if (fd == -1) {
     return false;
   }
-  int result = write(fd, data, size);
-  if (close(fd)) {
-    return false;  // Can fail on NFS.
+  const char *const char_data = reinterpret_cast<const char *>(data);
+  size_t written = 0;
+  while (written < size) {
+    // write fails with EINVAL on MacOs for count > INT32_MAX.
+    auto result = write(fd, char_data + written,
+                        std::min<size_t>(INT32_MAX, size - written));
+    if (result == -1) {
+      close(fd);
+      return false;
+    }
+    written += result;
   }
-  return result == static_cast<int>(size);
+  return close(fd) == 0;  // Can fail on NFS.
 }
 
 bool WriteFile(const void *data, size_t size, const Path &path,
@@ -354,8 +362,8 @@ bool PathExists(const string& path) {
 bool PathExists(const Path &path) { return PathExists(path.AsNativePath()); }
 
 string MakeCanonical(const char *path) {
-  char *resolved_path = realpath(path, NULL);
-  if (resolved_path == NULL) {
+  char *resolved_path = realpath(path, nullptr);
+  if (resolved_path == nullptr) {
     return "";
   } else {
     string ret = resolved_path;
@@ -476,10 +484,10 @@ bool PosixFileMtime::Set(const Path &path, const struct utimbuf &mtime) {
 }
 
 time_t PosixFileMtime::GetNow() {
-  time_t result = time(NULL);
+  time_t result = time(nullptr);
   if (result == -1) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "time(NULL) failed: " << GetLastErrorString();
+        << "time(nullptr) failed: " << GetLastErrorString();
   }
   return result;
 }
@@ -506,7 +514,7 @@ bool MakeDirectories(const Path &path, unsigned int mode) {
 
 string GetCwd() {
   char cwdbuf[PATH_MAX];
-  if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
+  if (getcwd(cwdbuf, sizeof cwdbuf) == nullptr) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
         << "getcwd() failed: " << GetLastErrorString();
   }
@@ -522,12 +530,12 @@ void ForEachDirectoryEntry(const string &path,
   DIR *dir;
   struct dirent *ent;
 
-  if ((dir = opendir(path.c_str())) == NULL) {
+  if ((dir = opendir(path.c_str())) == nullptr) {
     // This is not a directory or it cannot be opened.
     return;
   }
 
-  while ((ent = readdir(dir)) != NULL) {
+  while ((ent = readdir(dir)) != nullptr) {
     if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
       continue;
     }
@@ -551,7 +559,7 @@ void ForEachDirectoryEntry(const string &path,
       }
 
       consume->Consume(filename, is_directory);
-    }
+  }
 
     closedir(dir);
   }

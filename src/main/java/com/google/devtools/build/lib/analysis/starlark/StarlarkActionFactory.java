@@ -638,11 +638,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (shadowedActionUnchecked != Starlark.NONE) {
-      Action shadowedAction = (Action) shadowedActionUnchecked;
-      builder.setShadowedAction(Optional.of(shadowedAction));
-      // Add shadowed action's outputs as inputs to the starlark action to ensure that the starlark
-      // action will be executed after its shadowed action
-      builder.addInputs(shadowedAction.getOutputs());
+      builder.setShadowedAction(Optional.of((Action) shadowedActionUnchecked));
     }
 
     // Always register the action

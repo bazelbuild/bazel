@@ -53,9 +53,6 @@ import java.util.Set;
  */
 abstract class ReverseDepsUtility {
 
-  private static final boolean TOLERATE_REVERSE_DEP_INCONSISTENCIES =
-      System.getenv("BLAZE_TOLERATE_REVERSE_DEP_INCONSISTENCIES") != null;
-
   private ReverseDepsUtility() {}
 
   @VisibleForTesting static final int MAYBE_CHECK_THRESHOLD = 10;
@@ -378,8 +375,7 @@ abstract class ReverseDepsUtility {
       InMemoryNodeEntry entry, List<SkyKey> reverseDepsAsList) {
     Set<SkyKey> reverseDepsAsSet = CompactHashSet.create(reverseDepsAsList);
 
-    if (reverseDepsAsSet.size() != reverseDepsAsList.size()
-        && !TOLERATE_REVERSE_DEP_INCONSISTENCIES) {
+    if (reverseDepsAsSet.size() != reverseDepsAsList.size()) {
       // We're about to crash. Try to print an informative error message.
       Set<SkyKey> seen = new HashSet<>();
       List<SkyKey> duplicates = new ArrayList<>();
@@ -408,9 +404,7 @@ abstract class ReverseDepsUtility {
 
   private static void maybeAssertReverseDepsConsistency(
       boolean consistent, String errorMessageTemplate, Object arg1, Object arg2) {
-    if (!TOLERATE_REVERSE_DEP_INCONSISTENCIES) {
-      Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2);
-    }
+    Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2);
   }
 
   private static void maybeAssertReverseDepsConsistency(
@@ -420,8 +414,6 @@ abstract class ReverseDepsUtility {
       Object arg2,
       Object arg3,
       Object arg4) {
-    if (!TOLERATE_REVERSE_DEP_INCONSISTENCIES) {
-      Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2, arg3, arg4);
-    }
+    Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2, arg3, arg4);
   }
 }

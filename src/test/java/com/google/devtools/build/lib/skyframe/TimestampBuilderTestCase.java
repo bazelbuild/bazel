@@ -271,7 +271,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     new ActionExecutionFunction(skyframeActionExecutor, directories, tsgmRef))
                 .put(
                     SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null, null))
+                    new PackageFunction(null, null, null, null, null, null, null))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
@@ -355,7 +355,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             new ActionCacheChecker(
                 actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
             topDownActionCache,
-            null);
+            /*outputService=*/ null,
+            /*incrementalAnalysis=*/ true);
         skyframeActionExecutor.setActionExecutionProgressReportingObjects(
             EMPTY_PROGRESS_SUPPLIER, EMPTY_COMPLETION_RECEIVER);
 

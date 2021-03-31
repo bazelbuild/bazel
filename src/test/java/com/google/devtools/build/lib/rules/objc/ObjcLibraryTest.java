@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -2295,5 +2296,80 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .getCcLinkingContext()
                     .getLinkstamps()))
         .containsExactly("x/bar.cc");
+  }
+
+  @Test
+  public void testCompileLanguageApi() throws Exception {
+    String fragments = "    fragments = ['google_cpp', 'cpp'],";
+    if (AnalysisMock.get().isThisBazel()) {
+      fragments = "    fragments = ['cpp'],";
+    }
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+    scratch.file("myinfo/BUILD");
+    scratch.overwriteFile("tools/build_defs/foo/BUILD");
+    scratch.file(
+        "tools/build_defs/foo/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _objc_starlark_library_impl(ctx):",
+        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
+        "    features = ['objc-compile']",
+        "    features.extend(ctx.features)",
+        "    feature_configuration = cc_common.configure_features(",
+        "        ctx = ctx,",
+        "        cc_toolchain=toolchain,",
+        "        requested_features = features,",
+        "        unsupported_features = ctx.disabled_features)",
+        "    foo_dict = {'string_variable': 'foo',",
+        "            'string_sequence_variable' : ['foo'],",
+        "            'string_depset_variable': depset(['foo'])}",
+        "    (compilation_context, compilation_outputs) = cc_common.compile(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        cc_toolchain=toolchain,",
+        "        srcs=ctx.files.srcs,",
+        "        name=ctx.label.name + '_suffix',",
+        "        language='objc'",
+        "    )",
+        "    (linking_context,",
+        "     linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        compilation_outputs=compilation_outputs,",
+        "        name = ctx.label.name,",
+        "        cc_toolchain=toolchain,",
+        "        language='objc'",
+        "    )",
+        "    files_to_build = []",
+        "    files_to_build.extend(compilation_outputs.pic_objects)",
+        "    files_to_build.extend(compilation_outputs.objects)",
+        "    library_to_link = None",
+        "    if len(ctx.files.srcs) > 0:",
+        "        library_to_link = linking_outputs.library_to_link",
+        "        if library_to_link.pic_static_library != None:",
+        "            files_to_build.append(library_to_link.pic_static_library)",
+        "        files_to_build.append(library_to_link.dynamic_library)",
+        "    return [MyInfo(libraries=[library_to_link]),",
+        "            DefaultInfo(files=depset(files_to_build)),",
+        "            CcInfo(compilation_context=compilation_context,",
+        "                   linking_context=linking_context)]",
+        "objc_starlark_library = rule(",
+        "    implementation = _objc_starlark_library_impl,",
+        "    attrs = {",
+        "      'srcs': attr.label_list(allow_files=True),",
+        "      '_my_cc_toolchain': attr.label(default =",
+        "          '//a:alias')",
+        "    },",
+        fragments,
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'objc_starlark_library')",
+        "objc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.m'],",
+        ")");
+    scratch.file("a/BUILD", "cc_toolchain_alias(name='alias')");
+    getConfiguredTarget("//foo:starlark_lib");
+    assertNoEvents();
   }
 }

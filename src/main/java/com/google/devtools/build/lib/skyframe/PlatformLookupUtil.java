@@ -201,7 +201,7 @@ public class PlatformLookupUtil {
       return false;
     }
 
-    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
+    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.PROVIDER.id());
   }
 
   /** Exception used when a platform label is not a valid platform. */

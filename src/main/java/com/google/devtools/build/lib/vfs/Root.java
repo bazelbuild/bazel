@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -77,6 +78,9 @@ public abstract class Root implements Comparable<Root>, Serializable {
   @Nullable
   public abstract Path asPath();
 
+  /** Returns the underlying FileSystem this Root is on. */
+  public abstract FileSystem getFileSystem();
+
   public abstract boolean isAbsolute();
 
   /** Implementation of Root that is backed by a {@link Path}. */
@@ -122,6 +126,11 @@ public abstract class Root implements Comparable<Root>, Serializable {
     @Override
     public Path asPath() {
       return path;
+    }
+
+    @Override
+    public FileSystem getFileSystem() {
+      return path.getFileSystem();
     }
 
     @Override
@@ -214,6 +223,11 @@ public abstract class Root implements Comparable<Root>, Serializable {
     }
 
     @Override
+    public FileSystem getFileSystem() {
+      return fileSystem;
+    }
+
+    @Override
     public String toString() {
       return "<absolute root>";
     }
@@ -263,10 +277,34 @@ public abstract class Root implements Comparable<Root>, Serializable {
 
   /** Serialization dependencies for {@link RootCodec}. */
   public static class RootCodecDependencies {
-    private final Root likelyPopularRoot;
+    private final ImmutableList<Root> likelyPopularRoots;
 
+    /** Convenience constructor for an instance with no likely roots. */
+    public RootCodecDependencies() {
+      this(ImmutableList.of());
+    }
+
+    /** Convenience constructor for an instance with one likely root. */
     public RootCodecDependencies(Root likelyPopularRoot) {
-      this.likelyPopularRoot = likelyPopularRoot;
+      this(ImmutableList.of(likelyPopularRoot));
+    }
+
+    /**
+     * Creates an instance with the given likely roots.
+     *
+     * <p>When the RootCodec serializes any Root that compares equal to one of the likely roots, it
+     * will be emitted as a single byte. Upon deserializing, that exact Root will be returned
+     * (thereby canonicalizing to that Root instance).
+     *
+     * <p>Up to 255 likely roots may be specified. In practice, there should only be very few of
+     * them; each serialization event may incur an equality comparison with all the likely roots.
+     * Since the likely roots are checked in order, they should be ordered with the most likely ones
+     * coming first.
+     */
+    public RootCodecDependencies(Iterable<Root> likelyPopularRoots) {
+      this.likelyPopularRoots = ImmutableList.copyOf(likelyPopularRoots);
+      // max length 255; value at index i encoded as number i + 1; value 0 means "not one of these".
+      Preconditions.checkArgument(this.likelyPopularRoots.size() < 256);
     }
   }
 
@@ -280,45 +318,47 @@ public abstract class Root implements Comparable<Root>, Serializable {
     @Override
     public void serialize(SerializationContext context, Root root, CodedOutputStream codedOut)
         throws SerializationException, IOException {
+      // Common case of a common root.
       RootCodecDependencies codecDeps = context.getDependency(RootCodecDependencies.class);
-      if (root.equals(codecDeps.likelyPopularRoot)) {
-        codedOut.writeBoolNoTag(true);
-        return;
+      for (int i = 0; i < codecDeps.likelyPopularRoots.size(); i++) {
+        Root likely = codecDeps.likelyPopularRoots.get(i);
+        if (root.equals(likely)) {
+          codedOut.write((byte) (i + 1));
+          return;
+        }
       }
 
+      // Everything else.
       codedOut.writeBoolNoTag(false);
       if (root instanceof PathRoot) {
         codedOut.writeBoolNoTag(true);
         PathRoot pathRoot = (PathRoot) root;
         context.serialize(pathRoot.path, codedOut);
-        return;
-      }
-
-      if (root instanceof AbsoluteRoot) {
+      } else if (root instanceof AbsoluteRoot) {
         codedOut.writeBoolNoTag(false);
         AbsoluteRoot absoluteRoot = (AbsoluteRoot) root;
         context.serialize(absoluteRoot.fileSystem, codedOut);
-        return;
+      } else {
+        throw new IllegalStateException("Unexpected Root: " + root);
       }
-
-      throw new IllegalStateException("Unexpected Root: " + root);
     }
 
     @Override
     public Root deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      if (codedIn.readBool()) {
+      int likelyIndicator = codedIn.readRawByte();
+      if (likelyIndicator != 0) {
         RootCodecDependencies codecDeps = context.getDependency(RootCodecDependencies.class);
-        return codecDeps.likelyPopularRoot;
+        return codecDeps.likelyPopularRoots.get(likelyIndicator - 1);
       }
 
       if (codedIn.readBool()) {
         Path path = context.deserialize(codedIn);
         return new PathRoot(path);
+      } else {
+        FileSystem fileSystem = context.deserialize(codedIn);
+        return new AbsoluteRoot(fileSystem);
       }
-
-      FileSystem fileSystem = context.deserialize(codedIn);
-      return new AbsoluteRoot(fileSystem);
     }
   }
 }

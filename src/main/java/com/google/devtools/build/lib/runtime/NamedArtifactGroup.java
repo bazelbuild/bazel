@@ -74,10 +74,13 @@ class NamedArtifactGroup implements BuildEvent {
     for (Object elem : set.getLeaves()) {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
+        LocalFileType outputType =
+            completionContext.isOutputFile(expandedArtifact.artifact)
+                ? LocalFileType.OUTPUT_FILE
+                : LocalFileType.OUTPUT;
         artifacts.add(
             new LocalFile(
-                completionContext.pathResolver().toPath(expandedArtifact.artifact),
-                LocalFileType.OUTPUT));
+                completionContext.pathResolver().toPath(expandedArtifact.artifact), outputType));
       } else {
         artifacts.add(
             new LocalFile(
@@ -105,9 +108,8 @@ class NamedArtifactGroup implements BuildEvent {
         }
       } else {
         String uri =
-            converters
-                .pathConverter()
-                .apply(completionContext.pathResolver().convertPath(expandedArtifact.target));
+            pathConverter.apply(
+                completionContext.pathResolver().convertPath(expandedArtifact.target));
         if (uri != null) {
           builder.addFiles(
               newFileFromArtifact(null, expandedArtifact.artifact, expandedArtifact.relPath)

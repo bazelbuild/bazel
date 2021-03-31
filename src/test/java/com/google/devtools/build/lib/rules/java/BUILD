@@ -13,16 +13,32 @@ filegroup(
 )
 
 java_test(
+    name = "JavaInfoRoundtripTest",
+    srcs = ["JavaInfoRoundtripTest.java"],
+    data = ["//tools/build_defs/inspect:defs"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "JavaInfoStarlarkApiTest",
     srcs = ["JavaInfoStarlarkApiTest.java"],
     deps = [
+        ":java_toolchain_test_util",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -58,6 +74,7 @@ java_test(
     name = "JavaStarlarkApiTest",
     srcs = ["JavaStarlarkApiTest.java"],
     deps = [
+        ":java_toolchain_test_util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -111,6 +128,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "java_toolchain_test_util",
+    testonly = 1,
+    srcs = ["JavaToolchainTestUtil.java"],
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
     ],
 )
 

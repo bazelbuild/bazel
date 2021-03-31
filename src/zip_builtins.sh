@@ -52,7 +52,6 @@ cd "$TMPDIR"
 
 # Strip the dir prefix leading up to the builtins root.
 mv "staging/$builtins_root" builtins_bzl
-mv builtins_bzl/BUILD.builtins builtins_bzl/BUILD
 
 # The zip step must take place while cwd is tmpdir, so the paths in the zipfile
 # are relative to tmpdir.

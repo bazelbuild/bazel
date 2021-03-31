@@ -224,11 +224,21 @@ public abstract class TargetPattern implements Serializable {
   }
 
   /**
-   * For patterns of type {@link Type#SINGLE_TARGET} and {@link Type#TARGETS_IN_PACKAGE}, returns
-   * the {@link PackageIdentifier} corresponding to the package that would contain the target(s)
-   * matched by this {@link TargetPattern}.
+   * For patterns of type {@link Type#SINGLE_TARGET}, {@link Type#TARGETS_IN_PACKAGE}, and {@link
+   * Type#TARGETS_BELOW_DIRECTORY}, returns the {@link PackageIdentifier} of the pattern.
+   *
+   * <p>Note that we are using the {@link PackageIdentifier} type as a convenience; there may not
+   * actually be a package corresponding to this directory!
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>For pattern {@code //foo:bar}, returns package identifier {@code //foo}.
+   *   <li>For pattern {@code //foo:all}, returns package identifier {@code //foo}.
+   *   <li>For pattern {@code //foo/...}, returns package identifier {@code //foo}.
+   * </ul>
    */
-  public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
+  public PackageIdentifier getDirectory() {
     throw new IllegalStateException();
   }
 
@@ -269,7 +279,7 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
+    public PackageIdentifier getDirectory() {
       return directory;
     }
 
@@ -439,7 +449,7 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
+    public PackageIdentifier getDirectory() {
       return packageIdentifier;
     }
 
@@ -762,16 +772,7 @@ public abstract class TargetPattern implements Serializable {
       NOT_CONTAINED,
     }
 
-    /**
-     * Returns a {@link PackageIdentifier} identifying the most specific containing directory of the
-     * patterns that could be matched by this pattern.
-     *
-     * <p>Note that we are using the {@link PackageIdentifier} type as a convenience; there may not
-     * actually be a package corresponding to this directory!
-     *
-     * <p>This returns a {@link PackageIdentifier} that identifies the referred-to directory. For
-     * example, for "//foo/bar/...", this method returns a {@link PackageIdentifier} for "foo/bar".
-     */
+    @Override
     public PackageIdentifier getDirectory() {
       return directory;
     }

@@ -52,6 +52,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
     error_msg = ""
     for alias in aliases:
         decorated_aliases.append("'%s'" % alias)
+    repository_ctx.report_progress("Fetching SDK information for Xcode %s" % version)
     xcodebuild_result = repository_ctx.execute(
         ["xcrun", "xcodebuild", "-version", "-sdk"],
         _EXECUTE_TIMEOUT,
@@ -114,6 +115,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
       err: An error string describing the error that occurred when attempting
           to build and run xcode-locator, or None if the run was successful.
     """
+    repository_ctx.report_progress("Building xcode-locator")
     xcodeloc_src_path = str(repository_ctx.path(xcode_locator_src_label))
     env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
@@ -151,6 +153,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
         )
         return ([], error_msg.replace("\n", " "))
 
+    repository_ctx.report_progress("Running xcode-locator")
     xcode_locator_result = repository_ctx.execute(
         ["./xcode-locator-bin", "-v"],
         _EXECUTE_TIMEOUT,
@@ -183,6 +186,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
 
 def _darwin_build_file(repository_ctx):
     """Evaluates local system state to create xcode_config and xcode_version targets."""
+    repository_ctx.report_progress("Fetching the default Xcode version")
     env = repository_ctx.os.environ
     xcodebuild_result = repository_ctx.execute([
         "env",

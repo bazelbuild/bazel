@@ -104,7 +104,7 @@ public class Package {
    */
   private final PackageIdentifier packageIdentifier;
 
-  private final boolean suggestNoSuchTargetCorrections;
+  private final boolean succinctTargetNotFoundErrors;
 
   /** The filename of this package's BUILD file. */
   private RootedPath filename;
@@ -269,10 +269,10 @@ public class Package {
    * <p>{@code name} <b>MUST</b> be a suffix of {@code filename.getParentDirectory())}.
    */
   private Package(
-      PackageIdentifier packageId, String workspaceName, boolean suggestNoSuchTargetCorrections) {
+      PackageIdentifier packageId, String workspaceName, boolean succinctTargetNotFoundErrors) {
     this.packageIdentifier = packageId;
     this.workspaceName = workspaceName;
-    this.suggestNoSuchTargetCorrections = suggestNoSuchTargetCorrections;
+    this.succinctTargetNotFoundErrors = succinctTargetNotFoundErrors;
   }
 
   /** Returns this packages' identifier. */
@@ -349,14 +349,6 @@ public class Package {
    */
   private void setDefaultDeprecation(String deprecation) {
     defaultDeprecation = deprecation;
-  }
-
-  /**
-   * Sets the default 'applicable_licenses" value for this package attribute when not explicitly
-   * specified by the rule.
-   */
-  private void setDefaultApplicableLicenses(Set<Label> licenses) {
-    defaultApplicableLicenses = licenses;
   }
 
   /**
@@ -466,6 +458,7 @@ public class Package {
     this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
+    this.defaultApplicableLicenses = ImmutableSortedSet.copyOf(builder.defaultApplicableLicenses);
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -663,19 +656,24 @@ public class Package {
       return target;
     }
 
-    String alternateTargetSuggestion =
-        suggestNoSuchTargetCorrections ? getAlternateTargetSuggestion(targetName) : "";
     Label label;
     try {
       label = Label.create(packageIdentifier, targetName);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(targetName);
     }
-    String msg =
-        String.format(
-            "target '%s' not declared in package '%s'%s defined by %s",
-            targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString());
-    throw new NoSuchTargetException(label, msg);
+
+    if (succinctTargetNotFoundErrors) {
+      throw new NoSuchTargetException(
+          label, String.format("target '%s' not declared in package '%s'", targetName, getName()));
+    } else {
+      String alternateTargetSuggestion = getAlternateTargetSuggestion(targetName);
+      throw new NoSuchTargetException(
+          label,
+          String.format(
+              "target '%s' not declared in package '%s'%s defined by %s",
+              targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString()));
+    }
   }
 
   private String getAlternateTargetSuggestion(String targetName) {
@@ -888,11 +886,11 @@ public class Package {
     /** Defines configuration to control the runtime behavior of {@link Package}s. */
     public interface PackageSettings {
       /**
-       * Returns if {@link NoSuchTargetException}s thrown from {@link #getTarget} should attempt to
-       * suggest existing alternatives. The benefit is potentially improved error messaging, while
-       * the drawback is extra I/O and CPU work, which might not be desired in all environments.
+       * Returns whether or not extra detail should be added to {@link NoSuchTargetException}s
+       * thrown from {@link #getTarget}. Useful for toning down verbosity in situations where it can
+       * be less helpful.
        */
-      boolean suggestNoSuchTargetCorrections();
+      boolean succinctTargetNotFoundErrors();
 
       /**
        * Reports whether to record the set of Modules loaded by this package, which enables richer
@@ -908,8 +906,8 @@ public class Package {
       private DefaultPackageSettings() {}
 
       @Override
-      public boolean suggestNoSuchTargetCorrections() {
-        return true;
+      public boolean succinctTargetNotFoundErrors() {
+        return false;
       }
 
       @Override
@@ -1005,6 +1003,8 @@ public class Package {
 
     private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
 
+    private final List<Label> testSuiteImplicitTests = new ArrayList<>();
+
     /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
     @Nullable
     public String getGeneratorNameByLocation(Location loc) {
@@ -1017,10 +1017,16 @@ public class Package {
       return this;
     }
 
-    // Value of '$implicit_tests' attribute shared by all test_suite rules in the
-    // package that don't specify an explicit 'tests' attribute value.
-    // It contains the label of each non-manual test in the package, in label order.
-    final List<Label> testSuiteImplicitTests = new ArrayList<>();
+    /**
+     * Returns the value to use for {@code test_suite}s' {@code $implicit_tests} attribute, as-is,
+     * when the {@code test_suite} doesn't specify an explicit, non-empty {@code tests} value. The
+     * returned list is mutated by the package-building process - it may be observed to be empty or
+     * incomplete before package loading is complete. When package loading is complete it will
+     * contain the label of each non-manual test in the package, in label order.
+     */
+    List<Label> getTestSuiteImplicitTestsRef() {
+      return Collections.unmodifiableList(testSuiteImplicitTests);
+    }
 
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
@@ -1045,7 +1051,7 @@ public class Package {
         String workspaceName,
         boolean noImplicitFileExport,
         ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.pkg = new Package(id, workspaceName, packageSettings.suggestNoSuchTargetCorrections());
+      this.pkg = new Package(id, workspaceName, packageSettings.succinctTargetNotFoundErrors());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
       if (pkg.getName().startsWith("javatests/")) {
@@ -1347,7 +1353,7 @@ public class Package {
           licenses, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
-      pkg.setDefaultApplicableLicenses(ImmutableSet.copyOf(licenses));
+      this.defaultApplicableLicenses = ImmutableList.copyOf(licenses);
     }
 
     ImmutableList<Label> getDefaultApplicableLicenses() {
@@ -1727,6 +1733,9 @@ public class Package {
       }
 
       Collections.sort(tests); // (for determinism)
+      // In case we're called multiple times, as can happen in PackageFunction if skyframe deps are
+      // missing.
+      this.testSuiteImplicitTests.clear();
       this.testSuiteImplicitTests.addAll(tests);
 
       for (InputFile file : newInputFiles.values()) {

@@ -13,13 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.errorprone.annotations.DoNotCall;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -40,6 +47,9 @@ final class ActionExecutionState {
   //                           |                  | completionFuture.set()
   //                           v                  v
   //                    state.isDone,completionFuture=null
+  //
+  // (Also, via obsolete(), all states can transition to state==Obsolete.INSTANCE with a null
+  // completionFuture, which is terminal.)
   //
   // No other states are legal. In particular, state.isDone,completionFuture=<value> is not a legal
   // state.
@@ -76,16 +86,21 @@ final class ActionExecutionState {
       SharedActionCallback sharedActionCallback)
       throws ActionExecutionException, InterruptedException {
     if (this.actionLookupData.equals(actionLookupData)) {
-      // This continuation is owned by the Skyframe node executed by the current thread, so we use
-      // it to run the state machine.
+      // This object is owned by the Skyframe node executed by the current thread, so we use it to
+      // run the state machine.
       return runStateMachine(env);
     }
 
-    // This is a shared action, and the executed action is owned by another Skyframe node. If the
-    // other node is done, we simply return the done value. Otherwise we register a dependency on
-    // the completionFuture and return null.
+    // This is a shared action, and the primary action is owned by another Skyframe node. If the
+    // primary action is done, we simply return the done value. If this state is obsolete (e.g.
+    // because the other node is rewinding), we restart. Otherwise we register a dependency on the
+    // completionFuture and return null.
     ActionExecutionValue result;
     synchronized (this) {
+      if (state == Obsolete.INSTANCE) {
+        scheduleRestart(env);
+        return null;
+      }
       if (!state.isDone()) {
         if (completionFuture == null) {
           completionFuture = SettableFuture.create();
@@ -102,9 +117,7 @@ final class ActionExecutionState {
           // but have to do something in the meantime. We can just register a dep with a new future,
           // then complete it and return. If for some reason this argument is incorrect, we will be
           // restarted immediately and hopefully have a more consistent result.
-          SettableFuture<Void> dummyFuture = SettableFuture.create();
-          env.dependOnFuture(dummyFuture);
-          dummyFuture.set(null);
+          scheduleRestart(env);
         }
         return null;
       }
@@ -114,10 +127,20 @@ final class ActionExecutionState {
     return result.transformForSharedAction(action.getOutputs());
   }
 
+  private static void scheduleRestart(Environment env) {
+    SettableFuture<Void> dummyFuture = SettableFuture.create();
+    env.dependOnFuture(dummyFuture);
+    dummyFuture.set(null);
+  }
+
   private ActionExecutionValue runStateMachine(SkyFunction.Environment env)
       throws ActionExecutionException, InterruptedException {
     ActionStepOrResult original;
     synchronized (this) {
+      if (state == Obsolete.INSTANCE) {
+        scheduleRestart(env);
+        return null;
+      }
       original = state;
     }
     ActionStepOrResult current = original;
@@ -146,16 +169,67 @@ final class ActionExecutionState {
       }
     } finally {
       synchronized (this) {
-        Preconditions.checkState(state == original, "Another thread modified state");
-        state = current;
-        if (current.isDone() && completionFuture != null) {
-          completionFuture.set(null);
-          completionFuture = null;
+        if (state != Obsolete.INSTANCE) {
+          Preconditions.checkState(state == original, "Another thread illegally modified state");
+          state = current;
+          if (current.isDone() && completionFuture != null) {
+            completionFuture.set(null);
+            completionFuture = null;
+          }
         }
       }
     }
     // We're done, return the value to the caller (or throw an exception).
     return current.get();
+  }
+
+  /**
+   * Removes this state from {@code buildActionMap}, marks it obsolete so that racing shared actions
+   * with a reference to this state will restart, and signals to coalesced shared actions that they
+   * should re-evaluate.
+   */
+  void obsolete(
+      ActionLookupData requester,
+      ConcurrentMap<OwnerlessArtifactWrapper, ActionExecutionState> buildActionMap,
+      OwnerlessArtifactWrapper ownerlessArtifactWrapper) {
+    synchronized (this) {
+      if (actionLookupData.equals(requester)) {
+        // An action state's owner only obsoletes it when rewinding. The lost inputs exception
+        // thrown from ActionStepOrResult#run left its state undone.
+        Preconditions.checkState(
+            !state.isDone(), "owner unexpectedly obsoleted done state: %s", actionLookupData);
+        ActionExecutionState removedState = buildActionMap.remove(ownerlessArtifactWrapper);
+        Preconditions.checkState(
+            removedState == this,
+            "owner removed unexpected state from buildActionMap; owner: %s, removed: %s",
+            actionLookupData,
+            removedState.actionLookupData);
+        state = Obsolete.INSTANCE;
+        if (completionFuture != null) {
+          completionFuture.set(null);
+          completionFuture = null;
+        }
+        return;
+      }
+      if (!state.isDone()) {
+        // An action obsoletes other actions' states when rewinding its dependencies. It may race
+        // with other actions to do so. Removing the buildActionMap entry must only be done by the
+        // race's winner, to ensure the removal only happens once and removes this state.
+        //
+        // An action may also attempt to obsolete a dependency's not-done state, if it lost the race
+        // with another rewinding action, and the dep started evaluating. If so, then do nothing,
+        // because that dep is already doing what it needs to.
+        return;
+      }
+      ActionExecutionState removedState = buildActionMap.remove(ownerlessArtifactWrapper);
+      Preconditions.checkState(
+          removedState == this,
+          "removed unexpected state from buildActionMap; requester: %s, this: %s, removed: %s",
+          requester,
+          actionLookupData,
+          removedState.actionLookupData);
+      state = Obsolete.INSTANCE;
+    }
   }
 
   /** A callback to receive events for shared actions that are not executed. */
@@ -187,8 +261,21 @@ final class ActionExecutionState {
       return new Finished(value);
     }
 
+    /**
+     * Must not be called with a {@link LostInputsActionExecutionException}. Throw it from {@link
+     * #run} instead.
+     */
     static ActionStepOrResult of(ActionExecutionException exception) {
+      checkArgument(
+          !(exception instanceof LostInputsActionExecutionException),
+          "unexpected LostInputs exception: %s",
+          exception);
       return new Exceptional(exception);
+    }
+
+    @DoNotCall("Throw from #run instead.")
+    static ActionStepOrResult of(LostInputsActionExecutionException ignored) {
+      throw new IllegalArgumentException();
     }
 
     static ActionStepOrResult of(InterruptedException exception) {
@@ -207,7 +294,8 @@ final class ActionExecutionState {
      * of executing the action. This must only be called if {@link #isDone} returns false, and must
      * only be called by one thread at a time for the same instance.
      */
-    ActionStepOrResult run(SkyFunction.Environment env) throws InterruptedException;
+    ActionStepOrResult run(SkyFunction.Environment env)
+        throws LostInputsActionExecutionException, InterruptedException;
 
     /**
      * Returns the final value of the action or an exception to indicate that the action failed (or
@@ -218,7 +306,7 @@ final class ActionExecutionState {
 
   /**
    * Abstract implementation of {@link ActionStepOrResult} that declares final implementations for
-   * {@link #isDone} (to return false) and {@link #get} (tho throw {@link IllegalStateException}).
+   * {@link #isDone} (to return false) and {@link #get} (to throw {@link IllegalStateException}).
    *
    * <p>The framework prevents concurrent calls to {@link #run}, so implementations can keep state
    * without having to lock. Note that there may be multiple calls to {@link #run} from different
@@ -294,6 +382,29 @@ final class ActionExecutionState {
         throw (InterruptedException) e;
       }
       throw (ActionExecutionException) e;
+    }
+  }
+
+  /**
+   * Represents an action state that is obsolete. Any non-primary shared actions observing this
+   * state must restart (see {@link #scheduleRestart}.
+   */
+  private static final class Obsolete implements ActionStepOrResult {
+    private static final Obsolete INSTANCE = new Obsolete();
+
+    @Override
+    public boolean isDone() {
+      return false;
+    }
+
+    @Override
+    public ActionStepOrResult run(SkyFunction.Environment env) {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public ActionExecutionValue get() {
+      throw new IllegalStateException();
     }
   }
 }

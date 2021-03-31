@@ -79,8 +79,8 @@ static void AssertTearDown(const WCHAR* dir1, const WCHAR* dir2) {
   wstring dir1str(wtmpdir + L"\\" + dir1);
   wstring subdir(dir1str + L"\\subdir");
   wstring wfile(subdir + L"\\hello.txt");
-  EXPECT_TRUE(::CreateDirectoryW(dir1str.c_str(), NULL));
-  EXPECT_TRUE(::CreateDirectoryW(subdir.c_str(), NULL));
+  EXPECT_TRUE(::CreateDirectoryW(dir1str.c_str(), nullptr));
+  EXPECT_TRUE(::CreateDirectoryW(subdir.c_str(), nullptr));
   EXPECT_TRUE(CreateDummyFile(wfile));
   EXPECT_NE(::GetFileAttributesW(wfile.c_str()), INVALID_FILE_ATTRIBUTES);
   ASSERT_EQ(::GetFileAttributesW((wtmpdir + L"\\" + dir2).c_str()),
@@ -323,7 +323,7 @@ TEST_F(FileWindowsTest, TestMtimeHandling) {
   Path tempdir(tempdir_cstr);
 
   Path target = tempdir.GetRelative("target" TOSTRING(__LINE__));
-  EXPECT_TRUE(CreateDirectoryW(target.AsNativePath().c_str(), NULL));
+  EXPECT_TRUE(CreateDirectoryW(target.AsNativePath().c_str(), nullptr));
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   // Assert that a directory is always a good embedded binary. (We do not care

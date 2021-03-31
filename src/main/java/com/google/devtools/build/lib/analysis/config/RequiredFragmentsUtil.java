@@ -169,7 +169,7 @@ public class RequiredFragmentsUtil {
         fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
     // Fragments required by attached select()s.
     configConditions.forEach(
-        configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));
+        configCondition -> requiredFragments.addAll(configCondition.requiredFragmentOptions()));
     // We consider build settings (which are both targets and configuration) to require themselves:
     if (buildSettingLabel.isPresent()) {
       requiredFragments.add(buildSettingLabel.get().toString());

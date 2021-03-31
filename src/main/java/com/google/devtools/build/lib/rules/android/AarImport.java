@@ -41,9 +41,9 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
@@ -138,7 +138,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     JavaRuleOutputJarsProvider.Builder jarProviderBuilder =
         new JavaRuleOutputJarsProvider.Builder()
-            .addOutputJar(mergedJar, null /* ijar */, null /* manifestProto */, ImmutableList.of());
+            .addJavaOutput(JavaOutput.builder().setClassJar(mergedJar).build());
 
     ImmutableList<TransitiveInfoCollection> targets =
         ImmutableList.<TransitiveInfoCollection>builder()
@@ -214,8 +214,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
     JavaSourceJarsProvider javaSourceJarsProvider =
         JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
-    JavaSourceInfoProvider javaSourceInfoProvider =
-        new JavaSourceInfoProvider.Builder().setSourceJars(srcJars).build();
 
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
@@ -224,7 +222,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .setNeverlink(JavaCommon.isNeverLink(ruleContext))
             .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
             .addProvider(JavaSourceJarsProvider.class, javaSourceJarsProvider)
-            .addProvider(JavaSourceInfoProvider.class, javaSourceInfoProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(

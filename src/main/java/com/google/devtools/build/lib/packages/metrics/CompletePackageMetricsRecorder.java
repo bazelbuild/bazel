@@ -57,6 +57,13 @@ final class CompletePackageMetricsRecorder implements PackageMetricsRecorder {
   }
 
   @Override
+  public synchronized Map<PackageIdentifier, Long> getPackageOverhead() {
+    return Maps.transformValues(
+        Maps.filterValues(metrics, PackageMetrics::hasPackageOverhead),
+        PackageMetrics::getPackageOverhead);
+  }
+
+  @Override
   public synchronized void clear() {
     metrics.clear();
   }

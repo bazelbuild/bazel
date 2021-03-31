@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -129,8 +128,6 @@ public abstract class AnalysisMock extends LoadingMock {
             directories,
             ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER),
-        SkyFunctions.REPOSITORY,
-        new RepositoryLoaderFunction(),
         CcSkyframeFdoSupportValue.SKYFUNCTION,
         new CcSkyframeFdoSupportFunction(directories));
   }

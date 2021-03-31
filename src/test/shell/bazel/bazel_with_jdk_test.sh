@@ -168,16 +168,22 @@ EOF
   export JAVA_HOME="$PWD/jdk"
   export PATH="$PWD/jdk/bin:$PATH"
 
-  bazel cquery --toolchain_resolution_debug --java_runtime_version=8 '//java/main:JavaExample' \
-      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
+  bazel cquery \
+      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --java_runtime_version=8 \
+      //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 
-  bazel cquery --toolchain_resolution_debug --java_runtime_version=local_jdk_8 '//java/main:JavaExample' \
-      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
+  bazel cquery \
+      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --java_runtime_version=local_jdk_8 \
+      //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 
-  bazel cquery --toolchain_resolution_debug --java_runtime_version=11 '//java/main:JavaExample' \
-      &>"${TEST_log}" || fail "Selecting prepackaged JDK version 11 failed"
+  bazel cquery \
+      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --java_runtime_version=11 \
+      //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
   expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 }
 
@@ -197,16 +203,22 @@ EOF
   export JAVA_HOME="$PWD/jdk"
   export PATH="$PWD/jdk/bin:$PATH"
 
-  bazel cquery --toolchain_resolution_debug --java_runtime_version=11 '//java/main:JavaExample' \
-      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
+  bazel cquery \
+      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --java_runtime_version=11 \
+      //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 
-  bazel cquery --toolchain_resolution_debug --java_runtime_version=local_jdk_11 '//java/main:JavaExample' \
-      &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
+  bazel cquery \
+      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --java_runtime_version=local_jdk_11 \
+      //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 
-  bazel cquery --toolchain_resolution_debug --java_runtime_version=15 '//java/main:JavaExample' \
-      &>"${TEST_log}"  || fail "Selecting prepackaged JDK version 15 failed"
+  bazel cquery \
+      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --java_runtime_version=15 \
+      //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 }
 
@@ -226,7 +238,9 @@ EOF
   export JAVA_HOME="$PWD/jdk"
   export PATH="$PWD/jdk/bin:$PATH"
 
-  bazel cquery --toolchain_resolution_debug '//java/main:JavaExample' &>"${TEST_log}" \
+  bazel cquery \
+      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      //java/main:JavaExample &>"${TEST_log}" \
       || fail "Failed to resolve Java toolchain when version cannot be detected"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
 }

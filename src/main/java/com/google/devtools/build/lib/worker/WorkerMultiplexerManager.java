@@ -75,7 +75,7 @@ public class WorkerMultiplexerManager {
     InstanceInfo instanceInfo = multiplexerInstance.get(key);
     if (instanceInfo == null) {
       throw createUserExecException(
-          "Attempting to remove non-existent multiplexer instance.",
+          String.format("Attempting to remove non-existent multiplexer instance for %s.", key),
           Code.MULTIPLEXER_INSTANCE_REMOVAL_FAILURE);
     }
     instanceInfo.decreaseRefCount();

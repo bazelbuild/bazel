@@ -825,7 +825,7 @@ public final class CcCommon {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(unsupportedFeatures);
     if (!toolchain.supportsHeaderParsing()) {
-      // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
+      // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
       unsupportedFeaturesBuilder.add(CppRuleClasses.PARSE_HEADERS);
     }

@@ -41,7 +41,4 @@ public interface UnloadedToolchainContext extends ToolchainContext, SkyValue {
 
   @Override
   ImmutableSet<Label> resolvedToolchainLabels();
-
-  /** Returns a copy of this context, without the resolved toolchain data. */
-  UnloadedToolchainContext withoutResolvedToolchains();
 }

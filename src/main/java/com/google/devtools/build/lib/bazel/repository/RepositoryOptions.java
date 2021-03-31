@@ -163,7 +163,7 @@ public class RepositoryOptions extends OptionsBase {
 
     @Override
     public RepositoryOverride convert(String input) throws OptionsParsingException {
-      String[] pieces = input.split("=");
+      String[] pieces = input.split("=", 2);
       if (pieces.length != 2) {
         throw new OptionsParsingException(
             "Repository overrides must be of the form 'repository-name=path'", input);

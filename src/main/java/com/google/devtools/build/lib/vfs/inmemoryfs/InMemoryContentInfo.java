@@ -17,7 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem.Errno;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem.InodeOrErrno;
 import javax.annotation.Nullable;
@@ -137,7 +137,7 @@ public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
   }
 
   @Override
-  public final InMemoryContentInfo inodeOrThrow(Path path) {
+  public final InMemoryContentInfo inodeOrThrow(PathFragment path) {
     return this;
   }
 

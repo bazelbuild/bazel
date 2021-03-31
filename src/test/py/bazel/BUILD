@@ -1,4 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("//tools/python:private/defs.bzl", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:private"])

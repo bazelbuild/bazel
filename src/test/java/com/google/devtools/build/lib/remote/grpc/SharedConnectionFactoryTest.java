@@ -20,15 +20,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.remote.grpc.SharedConnectionFactory.SharedConnection;
+import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
-import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import java.io.IOException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -42,26 +41,14 @@ import org.mockito.junit.MockitoRule;
 @RunWith(JUnit4.class)
 public class SharedConnectionFactoryTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
-
-  private final AtomicReference<Throwable> rxGlobalThrowable = new AtomicReference<>(null);
+  @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   @Mock private Connection connection;
   @Mock private ConnectionFactory connectionFactory;
 
   @Before
   public void setUp() {
-    RxJavaPlugins.setErrorHandler(rxGlobalThrowable::set);
-
     when(connectionFactory.create()).thenAnswer(invocation -> Single.just(connection));
-  }
-
-  @After
-  public void tearDown() throws Throwable {
-    // Make sure rxjava didn't receive global errors
-    Throwable t = rxGlobalThrowable.getAndSet(null);
-    if (t != null) {
-      throw t;
-    }
   }
 
   @Test
@@ -125,32 +112,37 @@ public class SharedConnectionFactoryTest {
 
   @Test
   public void create_concurrentCreate_shareConnections() throws InterruptedException {
-    SharedConnectionFactory factory = new SharedConnectionFactory(connectionFactory, 2);
-    Semaphore semaphore = new Semaphore(0);
-    AtomicBoolean finished = new AtomicBoolean(false);
-    Thread t =
-        new Thread(
-            () -> {
-              factory
-                  .create()
-                  .doOnSuccess(
-                      conn -> {
-                        assertThat(conn.getUnderlyingConnection()).isEqualTo(connection);
-                        semaphore.release();
-                        Thread.sleep(Integer.MAX_VALUE);
-                        finished.set(true);
-                      })
-                  .blockingSubscribe();
+    int maxConcurrency = 10;
+    SharedConnectionFactory factory =
+        new SharedConnectionFactory(connectionFactory, maxConcurrency);
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Runnable runnable =
+        () -> {
+          try {
+            TestObserver<SharedConnection> observer = factory.create().test();
 
-              finished.set(true);
-            });
-    t.start();
-    semaphore.acquire();
+            observer
+                .assertNoErrors()
+                .assertValue(conn -> conn.getUnderlyingConnection() == connection)
+                .assertComplete();
+          } catch (Throwable e) {
+            error.set(e);
+          }
+        };
+    Thread[] threads = new Thread[maxConcurrency];
+    for (int i = 0; i < threads.length; ++i) {
+      threads[i] = new Thread(runnable);
+    }
 
-    TestObserver<SharedConnection> observer = factory.create().test();
+    for (Thread thread : threads) {
+      thread.start();
+    }
+    for (Thread thread : threads) {
+      thread.join();
+    }
 
-    observer.assertValue(conn -> conn.getUnderlyingConnection() == connection).assertComplete();
-    assertThat(finished.get()).isFalse();
+    assertThat(error.get()).isNull();
+    verify(connectionFactory, times(1)).create();
   }
 
   @Test

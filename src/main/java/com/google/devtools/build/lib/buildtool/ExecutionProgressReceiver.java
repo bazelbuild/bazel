@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
+import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,13 +39,13 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * Listener for executed actions and built artifacts. We use a listener so that we have an
- * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
+ * Listener for executed actions and built artifacts. We use a listener so that we have an accurate
+ * set of successfully run actions and built artifacts, even if the build is interrupted.
  */
 public final class ExecutionProgressReceiver
-    extends EvaluationProgressReceiver.NullEvaluationProgressReceiver
     implements SkyframeActionExecutor.ProgressSupplier,
-        SkyframeActionExecutor.ActionCompletedReceiver {
+        SkyframeActionExecutor.ActionCompletedReceiver,
+        EvaluationProgressReceiver {
   private static final ThreadLocal<NumberFormat> PROGRESS_MESSAGE_NUMBER_FORMATTER =
       ThreadLocal.withInitial(
           () -> {
@@ -102,7 +103,8 @@ public final class ExecutionProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
-      @Nullable SkyValue value,
+      @Nullable SkyValue newValue,
+      @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     SkyFunctionName type = skyKey.functionName();

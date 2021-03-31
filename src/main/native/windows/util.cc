@@ -56,11 +56,11 @@ wstring GetLastErrorString(DWORD error_code) {
     return L"";
   }
 
-  LPWSTR message = NULL;
+  LPWSTR message = nullptr;
   DWORD size = FormatMessageW(
       FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS |
           FORMAT_MESSAGE_ALLOCATE_BUFFER,
-      NULL, error_code, LANG_USER_DEFAULT, (LPWSTR)&message, 0, NULL);
+      nullptr, error_code, LANG_USER_DEFAULT, (LPWSTR)&message, 0, nullptr);
 
   if (size == 0) {
     wstringstream err;
@@ -90,7 +90,7 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
   SIZE_T size = 0;
   // According to MSDN, the first call to InitializeProcThreadAttributeList is
   // expected to fail.
-  InitializeProcThreadAttributeList(NULL, kAttributeCount, 0, &size);
+  InitializeProcThreadAttributeList(nullptr, kAttributeCount, 0, &size);
   SetLastError(ERROR_SUCCESS);
 
   std::unique_ptr<uint8_t[]> data(new uint8_t[size]);
@@ -111,8 +111,8 @@ bool AutoAttributeList::Create(HANDLE stdin_h, HANDLE stdout_h, HANDLE stderr_h,
   if (!UpdateProcThreadAttribute(
           attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
           attr_list->handles_.ValidHandles(),
-          attr_list->handles_.ValidHandlesCount() * sizeof(HANDLE), NULL,
-          NULL)) {
+          attr_list->handles_.ValidHandlesCount() * sizeof(HANDLE), nullptr,
+          nullptr)) {
     if (error_msg) {
       DWORD err = GetLastError();
       *error_msg = MakeErrorMessage(WSTR(__FILE__), __LINE__,
@@ -195,6 +195,10 @@ static bool Contains(const wstring& s, const WCHAR* substr) {
 }
 
 wstring AsShortPath(wstring path, wstring* result) {
+  // Using `MAX_PATH` - 4 (256) instead of `MAX_PATH` to fix
+  // https://github.com/bazelbuild/bazel/issues/12310
+  static const size_t kMaxPath = MAX_PATH - 4;
+
   if (path.empty()) {
     result->clear();
     return L"";
@@ -212,7 +216,7 @@ wstring AsShortPath(wstring path, wstring* result) {
     return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
                             L"path is not normalized");
   }
-  if (path.size() >= MAX_PATH && !HasSeparator(path)) {
+  if (path.size() >= kMaxPath && !HasSeparator(path)) {
     return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"AsShortPath", path,
                             L"path is just a file name but too long");
   }
@@ -221,31 +225,32 @@ wstring AsShortPath(wstring path, wstring* result) {
                             L"path is not absolute");
   }
   // At this point we know the path is either just a file name (shorter than
-  // MAX_PATH), or an absolute, normalized, Windows-style path (of any length).
+  // `kMaxPath`), or an absolute, normalized, Windows-style path (of any
+  // length).
 
   std::replace(path.begin(), path.end(), '/', '\\');
   // Fast-track: the path is already short.
-  if (path.size() < MAX_PATH) {
+  if (path.size() < kMaxPath) {
     *result = path;
     return L"";
   }
-  // At this point we know that the path is at least MAX_PATH long and that it's
-  // absolute, normalized, and Windows-style.
+  // At this point we know that the path is at least `kMaxPath` long and that
+  // it's absolute, normalized, and Windows-style.
 
   wstring wlong = wstring(L"\\\\?\\") + path;
 
   // Experience shows that:
   // - GetShortPathNameW's result has a "\\?\" prefix if and only if the input
   //   did too (though this behavior is not documented on MSDN)
-  // - CreateProcess{A,W} only accept an executable of MAX_PATH - 1 length
+  // - CreateProcess{A,W} only accept an executable of `MAX_PATH` - 1 length
   // Therefore for our purposes the acceptable shortened length is
-  // MAX_PATH + 4 (null-terminated). That is, MAX_PATH - 1 for the shortened
+  // `kMaxPath` + 4 (null-terminated). That is, `kMaxPath` - 1 for the shortened
   // path, plus a potential "\\?\" prefix that's only there if `wlong` also had
   // it and which we'll omit from `result`, plus a null terminator.
-  static const size_t kMaxShortPath = MAX_PATH + 4;
+  static const size_t kMaxShortPath = kMaxPath + 4;
 
   WCHAR wshort[kMaxShortPath];
-  DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), NULL, 0);
+  DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), nullptr, 0);
   if (wshort_size == 0) {
     DWORD err_code = GetLastError();
     wstring res = MakeErrorMessage(WSTR(__FILE__), __LINE__,

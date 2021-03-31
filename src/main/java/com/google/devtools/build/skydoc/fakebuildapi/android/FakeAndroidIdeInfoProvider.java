@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.OutputJarApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -27,7 +27,7 @@ import net.starlark.java.eval.Sequence;
 
 /** Fake implementation of AndroidIdeInfoProvider. */
 public class FakeAndroidIdeInfoProvider
-    implements AndroidIdeInfoProviderApi<FileApi, OutputJarApi<FileApi>> {
+    implements AndroidIdeInfoProviderApi<FileApi, JavaOutputApi<FileApi>> {
 
   @Nullable
   @Override
@@ -82,7 +82,7 @@ public class FakeAndroidIdeInfoProvider
 
   @Nullable
   @Override
-  public OutputJarApi<FileApi> getResourceJar() {
+  public JavaOutputApi<FileApi> getResourceJarJavaOutput() {
     return null;
   }
 
@@ -126,10 +126,10 @@ public class FakeAndroidIdeInfoProvider
 
   /** Fake implementation of {@link AndroidIdeInfoProviderApi.Provider}. */
   public static class FakeProvider
-      implements AndroidIdeInfoProviderApi.Provider<FileApi, OutputJarApi<FileApi>> {
+      implements AndroidIdeInfoProviderApi.Provider<FileApi, JavaOutputApi<FileApi>> {
 
     @Override
-    public AndroidIdeInfoProviderApi<FileApi, OutputJarApi<FileApi>> createInfo(
+    public AndroidIdeInfoProviderApi<FileApi, JavaOutputApi<FileApi>> createInfo(
         Object javaPackage,
         Object manifest,
         Object generatedManifest,

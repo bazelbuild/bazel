@@ -211,4 +211,26 @@ function test_zipper_permissions() {
   fi
 }
 
+function test_unzipper_zip64_archive() {
+  local -r test_dir="${TEST_TMPDIR}/${FUNCNAME[0]}"
+  mkdir -p "${test_dir}"
+  cd "${test_dir}"
+  mkdir source
+  # That creates a file which need extensions for {,un}compressed_size, followed
+  # by one which needs them for the offset.
+  local -r mb=$((2 ** 20))
+  /bin/dd if=/dev/zero of=source/file1 bs="${mb}" count=4097 conv=sparse \
+      >& "${TEST_log}"
+  echo "hello" > source/file2
+  filelist=(file1 file2)
+  pushd source > /dev/null
+  "${ZIP}" -q0X ../zip.zip file1 file2
+  popd > /dev/null
+
+  echo ${PWD}/zip.zip
+  "${ZIPPER}" x zip.zip -d unzipped
+
+  diff -r unzipped source
+}
+
 run_suite "zipper tests"

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -47,8 +46,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
-    if (ruleContext.getFragment(JavaConfiguration.class).isDisallowStrictDepsForJlpl()
-        && ruleContext.attributes().has("strict_deps")
+    if (ruleContext.attributes().has("strict_deps")
         && ruleContext.attributes().isAttributeValueExplicitlySpecified("strict_deps")) {
       ruleContext.attributeError("strict_deps", "The strict_deps attribute has been removed.");
       return null;
@@ -59,9 +57,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(
-            ruleContext,
-            javaProtoLibraryAspectProviders,
-            ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced());
+            ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true);
 
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path

@@ -17,8 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.flogger.StackSize;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.util.GroupedList;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,6 +35,8 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Environment {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   protected boolean valuesMissing = false;
   // Hack for the common case that there are no errors in the retrieved values. In that case, we
   // don't have to filter out any impermissible exceptions. Hack because we communicate this in an
@@ -325,6 +330,16 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
                 && (exceptionClass4 == null || !exceptionClass4.isInstance(e))
                 && (exceptionClass5 == null || !exceptionClass5.isInstance(e)))) {
           valuesMissing = true;
+          // TODO(b/166268889): Remove when debugged.
+          if (e instanceof IOException) {
+            logger.atInfo().withStackTrace(StackSize.SMALL).withCause(e).log(
+                "IOException suppressed by lack of Skyframe declaration (%s %s %s %s %s)",
+                exceptionClass1,
+                exceptionClass2,
+                exceptionClass3,
+                exceptionClass4,
+                exceptionClass5);
+          }
           return;
         }
       }

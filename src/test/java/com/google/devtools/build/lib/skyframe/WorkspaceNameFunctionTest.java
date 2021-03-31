@@ -71,7 +71,8 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(eval())
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(FileSymlinkCycleException.class);
+        .isInstanceOf(NoSuchPackageException.class);
+    assertContainsEvent("circular symlinks detected");
   }
 
   @Test

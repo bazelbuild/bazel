@@ -497,8 +497,11 @@ provide runtime dependencies (including `deps` and `data`) or source files
 def _example_library_impl(ctx):
     ...
     runfiles = ctx.runfiles(files = ctx.files.data)
-    for target in ctx.attr.srcs + ctx.attr.hdrs + ctx.attr.deps + ctx.attr.data:
-        runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
+    all_targets = ctx.attr.srcs + ctx.attr.hdrs + ctx.attr.deps + ctx.attr.data
+    runfiles = runfiles.merge_all([
+        target[DefaultInfo].default_runfiles
+        for target in all_targets
+    ])
     return [
         DefaultInfo(..., runfiles = runfiles),
         ...

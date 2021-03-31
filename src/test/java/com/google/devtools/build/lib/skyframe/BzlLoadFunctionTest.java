@@ -485,16 +485,16 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    public FileStatus statIfFound(Path path, boolean followSymlinks) throws IOException {
-      if (path.equals(badPathForStat)) {
+    public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+      if (badPathForStat != null && badPathForStat.asFragment().equals(path)) {
         throw new IOException("bad");
       }
       return super.statIfFound(path, followSymlinks);
     }
 
     @Override
-    protected InputStream getInputStream(Path path) throws IOException {
-      if (path.equals(badPathForRead)) {
+    protected InputStream getInputStream(PathFragment path) throws IOException {
+      if (badPathForRead != null && badPathForRead.asFragment().equals(path)) {
         throw new IOException("bad");
       }
       return super.getInputStream(path);

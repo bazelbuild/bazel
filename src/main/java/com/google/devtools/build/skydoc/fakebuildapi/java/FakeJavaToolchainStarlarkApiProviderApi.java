@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 
@@ -60,17 +59,17 @@ final class FakeJavaToolchainStarlarkApiProviderApi implements JavaToolchainStar
   }
 
   @Override
-  public String toProto() throws EvalException {
-    return "";
-  }
-
-  @Override
-  public String toJson() throws EvalException {
-    return "";
-  }
-
-  @Override
   public void repr(Printer printer) {}
 
   private FakeJavaToolchainStarlarkApiProviderApi() {}
+
+  @Override
+  public String toProto() {
+    return null;
+  }
+
+  @Override
+  public String toJson() {
+    return null;
+  }
 }

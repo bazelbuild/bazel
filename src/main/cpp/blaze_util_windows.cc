@@ -89,7 +89,7 @@ class WindowsDumper : public Dumper {
   bool Finish(string* error) override;
 
  private:
-  WindowsDumper() : threadpool_(NULL), cleanup_group_(NULL) {}
+  WindowsDumper() : threadpool_(nullptr), cleanup_group_(nullptr) {}
 
   PTP_POOL threadpool_;
   PTP_CLEANUP_GROUP cleanup_group_;
@@ -135,8 +135,8 @@ Dumper* Create(string* error) { return WindowsDumper::Create(error); }
 WindowsDumper* WindowsDumper::Create(string* error) {
   unique_ptr<WindowsDumper> result(new WindowsDumper());
 
-  result->threadpool_ = CreateThreadpool(NULL);
-  if (result->threadpool_ == NULL) {
+  result->threadpool_ = CreateThreadpool(nullptr);
+  if (result->threadpool_ == nullptr) {
     if (error) {
       string msg = GetLastErrorString();
       *error = "CreateThreadpool failed: " + msg;
@@ -145,7 +145,7 @@ WindowsDumper* WindowsDumper::Create(string* error) {
   }
 
   result->cleanup_group_ = CreateThreadpoolCleanupGroup();
-  if (result->cleanup_group_ == NULL) {
+  if (result->cleanup_group_ == nullptr) {
     string msg = GetLastErrorString();
     CloseThreadpool(result->threadpool_);
     if (error) {
@@ -164,7 +164,7 @@ WindowsDumper* WindowsDumper::Create(string* error) {
   InitializeThreadpoolEnvironment(&result->threadpool_env_);
   SetThreadpoolCallbackPool(&result->threadpool_env_, result->threadpool_);
   SetThreadpoolCallbackCleanupGroup(&result->threadpool_env_,
-                                    result->cleanup_group_, NULL);
+                                    result->cleanup_group_, nullptr);
 
   return result.release();  // release pointer ownership
 }
@@ -184,7 +184,7 @@ void WindowsDumper::Dump(const void* data, const size_t size,
                                               &dir_cache_lock_, &dir_cache_,
                                               &error_lock_, &error_msg_));
   PTP_WORK w = CreateThreadpoolWork(WorkCallback, ctx.get(), &threadpool_env_);
-  if (w == NULL) {
+  if (w == nullptr) {
     string err = GetLastErrorString();
     err = string("WindowsDumper::Dump() couldn't submit work: ") + err;
 
@@ -197,14 +197,14 @@ void WindowsDumper::Dump(const void* data, const size_t size,
 }
 
 bool WindowsDumper::Finish(string* error) {
-  if (threadpool_ == NULL) {
+  if (threadpool_ == nullptr) {
     return true;
   }
-  CloseThreadpoolCleanupGroupMembers(cleanup_group_, FALSE, NULL);
+  CloseThreadpoolCleanupGroupMembers(cleanup_group_, FALSE, nullptr);
   CloseThreadpoolCleanupGroup(cleanup_group_);
   CloseThreadpool(threadpool_);
-  threadpool_ = NULL;
-  cleanup_group_ = NULL;
+  threadpool_ = nullptr;
+  cleanup_group_ = nullptr;
 
   std::lock_guard<std::mutex> g(error_lock_);
   if (!error_msg_.empty() && error) {
@@ -429,8 +429,8 @@ string GetHomeDir() {
   // is the same as %USERPROFILE%, but it does not require the envvar to be set.
   // On Windows 2016 Server, Nano server: FOLDERID_Profile is unknown but
   // %USERPROFILE% is set. See https://github.com/bazelbuild/bazel/issues/6701
-  if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT, NULL,
-                                       &wpath))) {
+  if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT,
+                                       nullptr, &wpath))) {
     string result = blaze_util::WstringToCstring(wpath);
     ::CoTaskMemFree(wpath);
     return result;
@@ -580,10 +580,10 @@ static HANDLE CreateJvmOutputFile(const blaze_util::Path& path,
         /* dwCreationDisposition */
         daemon_out_append ? OPEN_ALWAYS : CREATE_ALWAYS,
         /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-        /* hTemplateFile */ NULL);
+        /* hTemplateFile */ nullptr);
     if (handle != INVALID_HANDLE_VALUE) {
-      if (daemon_out_append
-          && !SetFilePointerEx(handle, {0}, NULL, FILE_END)) {
+      if (daemon_out_append &&
+          !SetFilePointerEx(handle, {0}, nullptr, FILE_END)) {
         fprintf(stderr, "Could not seek to end of file (%s)\n",
                 path.AsPrintablePath().c_str());
         return INVALID_HANDLE_VALUE;
@@ -633,11 +633,11 @@ int ExecuteDaemon(const blaze_util::Path& exe,
                   const StartupOptions& options,
                   BlazeServerStartup** server_startup) {
   SECURITY_ATTRIBUTES inheritable_handle_sa = {sizeof(SECURITY_ATTRIBUTES),
-                                               NULL, TRUE};
+                                               nullptr, TRUE};
 
   AutoHandle devnull(::CreateFileW(
       L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+      &inheritable_handle_sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
   if (!devnull.IsValid()) {
     std::string error = GetLastErrorString();
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
@@ -705,15 +705,15 @@ int ExecuteDaemon(const blaze_util::Path& exe,
     WithEnvVars env_obj(env);
 
     ok = CreateProcessW(
-        /* lpApplicationName */ NULL,
+        /* lpApplicationName */ nullptr,
         /* lpCommandLine */ cmdline.cmdline,
-        /* lpProcessAttributes */ NULL,
-        /* lpThreadAttributes */ NULL,
+        /* lpProcessAttributes */ nullptr,
+        /* lpThreadAttributes */ nullptr,
         /* bInheritHandles */ TRUE,
         /* dwCreationFlags */ DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP |
             EXTENDED_STARTUPINFO_PRESENT,
-        /* lpEnvironment */ NULL,
-        /* lpCurrentDirectory */ NULL,
+        /* lpEnvironment */ nullptr,
+        /* lpCurrentDirectory */ nullptr,
         /* lpStartupInfo */ &startupInfoEx.StartupInfo,
         /* lpProcessInformation */ &processInfo);
   }
@@ -937,7 +937,7 @@ void CreateSecureOutputRoot(const blaze_util::Path& path) {
 }
 
 string GetEnv(const string& name) {
-  DWORD size = ::GetEnvironmentVariableA(name.c_str(), NULL, 0);
+  DWORD size = ::GetEnvironmentVariableA(name.c_str(), nullptr, 0);
   if (size == 0) {
     return string();  // unset or empty envvar
   }
@@ -966,7 +966,7 @@ string GetPathEnv(const string& name) {
 }
 
 bool ExistsEnv(const string& name) {
-  return ::GetEnvironmentVariableA(name.c_str(), NULL, 0) != 0;
+  return ::GetEnvironmentVariableA(name.c_str(), nullptr, 0) != 0;
 }
 
 void SetEnv(const string& name, const string& value) {
@@ -991,7 +991,7 @@ bool WarnIfStartedFromDesktop() {
       "Try opening a console, such as the Windows Command Prompt (cmd.exe) "
       "or PowerShell, and running \"bazel help\".\n\n"
       "Press Enter to close this window...");
-  ReadFile(GetStdHandle(STD_INPUT_HANDLE), dummy, 1, dummy, NULL);
+  ReadFile(GetStdHandle(STD_INPUT_HANDLE), dummy, 1, dummy, nullptr);
   return true;
 }
 
@@ -1015,13 +1015,13 @@ void SetupStdStreams() {
                                      STD_ERROR_HANDLE};
   for (int i = 0; i <= 2; ++i) {
     HANDLE handle = ::GetStdHandle(stdhandles[i]);
-    if (handle == INVALID_HANDLE_VALUE || handle == NULL) {
+    if (handle == INVALID_HANDLE_VALUE || handle == nullptr) {
       // Ensure we have open fds to each std* stream. Otherwise we can end up
       // with bizarre things like stdout going to the lock file, etc.
       _open("NUL", (i == 0) ? _O_RDONLY : _O_WRONLY);
     }
     DWORD mode = 0;
-    if (i > 0 && handle != INVALID_HANDLE_VALUE && handle != NULL &&
+    if (i > 0 && handle != INVALID_HANDLE_VALUE && handle != nullptr &&
         ::GetConsoleMode(handle, &mode)) {
       DWORD newmode = mode | ENABLE_PROCESSED_OUTPUT |
                       ENABLE_WRAP_AT_EOL_OUTPUT |
@@ -1096,10 +1096,10 @@ uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
         /* lpFileName */ lockfile.AsNativePath().c_str(),
         /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
         /* dwShareMode */ FILE_SHARE_READ,
-        /* lpSecurityAttributes */ NULL,
+        /* lpSecurityAttributes */ nullptr,
         /* dwCreationDisposition */ CREATE_ALWAYS,
         /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-        /* hTemplateFile */ NULL);
+        /* hTemplateFile */ nullptr);
     if (blaze_lock->handle != INVALID_HANDLE_VALUE) {
       // We could open the file, so noone else holds a lock on it.
       break;

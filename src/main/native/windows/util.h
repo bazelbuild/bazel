@@ -51,7 +51,7 @@ class AutoHandle {
   }
 
   bool IsValid() const {
-    return handle_ != INVALID_HANDLE_VALUE && handle_ != NULL;
+    return handle_ != INVALID_HANDLE_VALUE && handle_ != nullptr;
   }
 
   AutoHandle& operator=(const HANDLE& rhs) {

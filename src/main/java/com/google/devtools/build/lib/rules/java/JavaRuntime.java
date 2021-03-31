@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -116,11 +117,15 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
                 "JAVABASE", javaHome.getPathString()),
             ruleContext.getRule().getLocation());
 
+    ToolchainInfo toolchainInfo =
+        new ToolchainInfo(
+            ImmutableMap.<String, Object>builder().put("java_runtime", javaRuntime).build());
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(javaRuntime)
         .addNativeDeclaredProvider(templateVariableInfo)
+        .addNativeDeclaredProvider(toolchainInfo)
         .build();
   }
 

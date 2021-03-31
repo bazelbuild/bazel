@@ -124,16 +124,23 @@ public class TestCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
-    BuildRequest request = BuildRequest.create(
-        getClass().getAnnotation(Command.class).name(), options,
-        runtime.getStartupOptionsProvider(), targets,
-        env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
-    request.setRunTests();
+
+    BuildRequest.Builder builder =
+        BuildRequest.builder()
+            .setCommandName(getClass().getAnnotation(Command.class).name())
+            .setId(env.getCommandId())
+            .setOptions(options)
+            .setStartupOptions(runtime.getStartupOptionsProvider())
+            .setOutErr(env.getReporter().getOutErr())
+            .setTargets(targets)
+            .setStartTimeMillis(env.getCommandStartTime())
+            .setRunTests(true);
     if (options.getOptions(CoreOptions.class).collectCodeCoverage
         && !options.containsExplicitOption(
             InstrumentationFilterSupport.INSTRUMENTATION_FILTER_FLAG)) {
-      request.setNeedsInstrumentationFilter(true);
+      builder.setNeedsInstrumentationFilter(true);
     }
+    BuildRequest request = builder.build();
 
     BuildResult buildResult = new BuildTool(env).processRequest(request, null);
 

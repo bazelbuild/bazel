@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,17 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 
-/** Exception indicating a problem with symlinks. */
-public abstract class FileSymlinkException extends IOException {
-  protected FileSymlinkException(String message) {
-    super(message);
+/**
+ * Signals that a source file requested by a top-level target (not via an action) was missing or
+ * that access threw an {@link IOException}.
+ */
+public class InputFileErrorException extends BuildFailedException {
+  public InputFileErrorException(String message, DetailedExitCode detailedExitCode) {
+    super(message, /*catastrophic=*/ false, /*errorAlreadyShown=*/ true, detailedExitCode);
   }
-
-  /** Returns a description of the problem that is suitable for printing to users. */
-  // TODO(nharmata): Consider unifying this with AbstractChainUniquenessFunction.
-  public abstract String getUserFriendlyMessage();
 }

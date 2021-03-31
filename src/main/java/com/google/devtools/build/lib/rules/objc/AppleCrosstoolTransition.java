@@ -23,24 +23,25 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
- * Transition that produces a configuration that causes c++ toolchain selection to use the
- * CROSSTOOL given in apple_crosstool_top.
+ * Transition that produces a configuration that causes c++ toolchain selection to use the CROSSTOOL
+ * given in apple_crosstool_top.
  */
-public class AppleCrosstoolTransition implements PatchTransition {
+public final class AppleCrosstoolTransition implements PatchTransition {
 
   /** A singleton instance of AppleCrosstoolTransition. */
-  @AutoCodec
+  @SerializationConstant
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
+
+  private AppleCrosstoolTransition() {}
 
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
@@ -50,10 +51,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
 
   @Override
   public BuildOptions patch(BuildOptionsView buildOptions, EventHandler eventHandler) {
-    BuildOptionsView result = buildOptions.clone();
-
     AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
-    CoreOptions configOptions = buildOptions.get(CoreOptions.class);
 
     if (appleOptions.configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
       // The configuration distinguisher is only set by AppleCrosstoolTransition and
@@ -62,10 +60,19 @@ public class AppleCrosstoolTransition implements PatchTransition {
       return buildOptions.underlying();
     }
 
+    CoreOptions configOptions = buildOptions.get(CoreOptions.class);
     String cpu =
         ApplePlatform.cpuStringForTarget(
             appleOptions.applePlatformType,
             determineSingleArchitecture(appleOptions, configOptions));
+
+    // Avoid a clone if nothing would change.
+    if (configOptions.cpu.equals(cpu)
+        && buildOptions.get(CppOptions.class).crosstoolTop.equals(appleOptions.appleCrosstoolTop)) {
+      return buildOptions.underlying();
+    }
+
+    BuildOptionsView result = buildOptions.clone();
     setAppleCrosstoolTransitionConfiguration(buildOptions, result, cpu);
     return result.underlying();
   }
@@ -81,14 +88,13 @@ public class AppleCrosstoolTransition implements PatchTransition {
    */
   public static void setAppleCrosstoolTransitionConfiguration(
       BuildOptionsView from, BuildOptionsView to, String cpu) {
-    Label crosstoolTop = from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
-    Label libcTop = from.get(AppleCommandLineOptions.class).appleLibcTop;
-    String cppCompiler = from.get(AppleCommandLineOptions.class).cppCompiler;
+    AppleCommandLineOptions appleOptions = from.get(AppleCommandLineOptions.class);
 
     CoreOptions toOptions = to.get(CoreOptions.class);
     CppOptions toCppOptions = to.get(CppOptions.class);
 
-    if (toOptions.cpu.equals(cpu) && toCppOptions.crosstoolTop.equals(crosstoolTop)) {
+    if (toOptions.cpu.equals(cpu)
+        && toCppOptions.crosstoolTop.equals(appleOptions.appleCrosstoolTop)) {
       // If neither the CPU nor the Crosstool changes, do nothing. This is so that C++ to
       // Objective-C dependencies work if the top-level configuration is already an Apple one.
       // Removing the configuration distinguisher (which can't be set from the command line) and
@@ -99,14 +105,15 @@ public class AppleCrosstoolTransition implements PatchTransition {
     }
 
     toOptions.cpu = cpu;
-    toCppOptions.crosstoolTop = crosstoolTop;
+    toCppOptions.crosstoolTop = appleOptions.appleCrosstoolTop;
     to.get(AppleCommandLineOptions.class).configurationDistinguisher =
         ConfigurationDistinguisher.APPLE_CROSSTOOL;
-    to.get(CppOptions.class).cppCompiler = cppCompiler;
-    to.get(CppOptions.class).libcTopLabel = libcTop;
+
+    toCppOptions.cppCompiler = appleOptions.cppCompiler;
+    toCppOptions.libcTopLabel = appleOptions.appleLibcTop;
 
     // OSX toolchains do not support fission.
-    to.get(CppOptions.class).fissionModes = ImmutableList.of();
+    toCppOptions.fissionModes = ImmutableList.of();
 
     // Ensure platforms aren't set so that platform mapping can take place.
     to.get(PlatformOptions.class).platforms = ImmutableList.of();

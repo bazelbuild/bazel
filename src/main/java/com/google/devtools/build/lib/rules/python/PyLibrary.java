@@ -40,7 +40,9 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     PythonSemantics semantics = createSemantics();
-    PyCommon common = new PyCommon(ruleContext, semantics, /*validateSources=*/ true);
+    PyCommon common =
+        new PyCommon(
+            ruleContext, semantics, /*validateSources=*/ true, /*requiresMainFile=*/ false);
     semantics.validate(ruleContext, common);
 
     List<Artifact> srcs = common.getPythonSources();

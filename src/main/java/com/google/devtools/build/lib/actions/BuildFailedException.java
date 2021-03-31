@@ -16,10 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.devtools.build.lib.causes.Cause;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -41,7 +37,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 @ThreadSafe
 public class BuildFailedException extends Exception implements DetailedException {
   private final boolean catastrophic;
-  private final NestedSet<Cause> rootCauses;
   private final boolean errorAlreadyShown;
   private final DetailedExitCode detailedExitCode;
 
@@ -49,7 +44,6 @@ public class BuildFailedException extends Exception implements DetailedException
     this(
         message,
         /*catastrophic=*/ false,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*errorAlreadyShown=*/ false,
         detailedExitCode);
   }
@@ -57,22 +51,16 @@ public class BuildFailedException extends Exception implements DetailedException
   public BuildFailedException(
       String message,
       boolean catastrophic,
-      NestedSet<Cause> rootCauses,
       boolean errorAlreadyShown,
       DetailedExitCode detailedExitCode) {
     super(message);
     this.catastrophic = catastrophic;
-    this.rootCauses = rootCauses;
     this.errorAlreadyShown = errorAlreadyShown;
     this.detailedExitCode = checkNotNull(detailedExitCode);
   }
 
   public boolean isCatastrophic() {
     return catastrophic;
-  }
-
-  public NestedSet<Cause> getRootCauses() {
-    return rootCauses;
   }
 
   public boolean isErrorAlreadyShown() {

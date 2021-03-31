@@ -63,10 +63,10 @@ using std::string;
 string GetOutputRoot() {
   char buf[2048];
   struct passwd pwbuf;
-  struct passwd *pw = NULL;
+  struct passwd *pw = nullptr;
   int uid = getuid();
   int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-  if (r != -1 && pw != NULL) {
+  if (r != -1 && pw != nullptr) {
     return blaze_util::JoinPath(pw->pw_dir, ".cache/bazel");
   } else {
     return "/tmp";

@@ -233,4 +233,97 @@ EOF
       || fail "aspect params file does not contain tree artifact args"
 }
 
+# Test the inputs cache of Starlark actions triggered from aspects
+function test_starlark_action_inputs_cache() {
+  local package="a"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+def _actions_test_impl(target, ctx):
+    compile_action = None
+
+    for action in target.actions:
+      if action.mnemonic == "CppCompile":
+        compile_action = action
+
+    if not compile_action:
+      fail("Couln't find compile action")
+
+    aspect_out = ctx.actions.declare_file("run_timestamp")
+    ctx.actions.run_shell(
+        shadowed_action = compile_action,
+        mnemonic = "AspectAction",
+        outputs = [aspect_out],
+        # record the timestamp in output file to validate action rerun
+        command = "cat ${package}/x.h > %s & date >> %s" % (
+            aspect_out.path,
+            aspect_out.path,
+        ),
+    )
+
+    return [OutputGroupInfo(out = [aspect_out])]
+
+actions_test_aspect = aspect(implementation = _actions_test_impl)
+EOF
+
+echo "inline int x() { return 42; }" > "${package}/x.h"
+  cat > "${package}/a.cc" <<EOF
+#include "${package}/x.h"
+
+int a() { return x(); }
+EOF
+  cat > "${package}/BUILD" <<EOF
+cc_library(
+  name = "x",
+  hdrs  = ["x.h"],
+)
+
+cc_library(
+  name = "a",
+  srcs = ["a.cc"],
+  deps = [":x"],
+)
+EOF
+
+  bazel build "${package}:a" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out \
+      --experimental_shadowed_action || \
+      fail "bazel build should've succeeded"
+
+  cp "bazel-bin/${package}/run_timestamp" "${package}/run_1_timestamp"
+
+  # Test that the Starlark action is not rerun after bazel shutdown if
+  # the inputs did not change
+  bazel shutdown
+
+  bazel build "${package}:a" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out \
+      --experimental_shadowed_action || \
+      fail "bazel build should've passed"
+
+  cp "bazel-bin/${package}/run_timestamp" "${package}/run_2_timestamp"
+
+  diff "${package}/run_1_timestamp" "${package}/run_2_timestamp" \
+      || fail "Starlark action should not rerun after bazel shutdown"
+
+  # Test that the Starlark action would rerun if the inputs of the
+  # shadowed action changed
+  rm "${package}/x.h"
+  echo "inline int x() { return 0; }" > "${package}/x.h"
+
+  bazel build "${package}:a" \
+      --aspects="//${package}:lib.bzl%actions_test_aspect" \
+      --output_groups=out \
+      --experimental_shadowed_action || \
+      fail "bazel build should've passed"
+
+  cp "bazel-bin/${package}/run_timestamp" "${package}/run_3_timestamp"
+
+  diff "${package}/run_1_timestamp" "${package}/run_3_timestamp" \
+      && fail "Starlark action should rerun after shadowed action inputs change" \
+      || :
+}
+
 run_suite "Tests Starlark API pertaining to action inspection via aspect"

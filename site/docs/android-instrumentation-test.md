@@ -80,6 +80,14 @@ $ which Xvfb
 /usr/bin/Xvfb
 ```
 
+- **32-bit Libraries**. Some of the binaries used by the test infrastructure are
+  32-bit, so on 64-bit machines, ensure that 32-bit binaries can be run. For
+  Ubuntu, install these 32-bit libraries:
+
+```
+sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386 lib32z1 libbz2-1.0:i386
+```
+
 ## Getting started
 
 Here is a typical target dependency graph of an `android_instrumentation_test`:

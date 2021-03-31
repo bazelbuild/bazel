@@ -1619,6 +1619,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -2347,6 +2348,7 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/build_options_cache",
+        ":config/core_options",
         ":config/fragment_options",
         ":config/transitions/no_transition",
         ":config/transitions/patch_transition",

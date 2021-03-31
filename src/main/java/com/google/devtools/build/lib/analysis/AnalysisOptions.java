@@ -63,22 +63,21 @@ public class AnalysisOptions extends OptionsBase {
   public int maxConfigChangesToShow;
 
   @Option(
-    name = "experimental_extra_action_filter",
-    defaultValue = "",
-    converter = RegexFilter.RegexFilterConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Filters set of targets to schedule extra_actions for."
-  )
+      name = "experimental_extra_action_filter",
+      defaultValue = "",
+      converter = RegexFilter.RegexFilterConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Deprecated in favor of aspects. Filters set of targets to schedule extra_actions for.")
   public RegexFilter extraActionFilter;
 
   @Option(
-    name = "experimental_extra_action_top_level_only",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Only schedules extra_actions for top level targets."
-  )
+      name = "experimental_extra_action_top_level_only",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Deprecated in favor of aspects. Only schedules extra_actions for top level targets.")
   public boolean extraActionTopLevelOnly;
 
   @Option(

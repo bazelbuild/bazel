@@ -234,9 +234,9 @@ public class FakeCcModule
       Object frameworkIncludes,
       Object defines,
       Object localDefines,
-      Object textualHdrs,
-      Object modularPublicHdrs,
-      Object modularPrivateHdrs,
+      Sequence<?> directTextualHdrs,
+      Sequence<?> directPublicHdrs,
+      Sequence<?> directPrivateHdrs,
       Object purpose,
       StarlarkThread thread)
       throws EvalException {
@@ -316,6 +316,7 @@ public class FakeCcModule
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
+      Object variablesExtension,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return null;

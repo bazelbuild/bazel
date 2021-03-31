@@ -77,12 +77,13 @@ class WindowsPipe : public IPipe {
   bool Send(const void* buffer, int size) override {
     DWORD actually_written = 0;
     return ::WriteFile(_write_handle, buffer, size, &actually_written,
-                       NULL) == TRUE;
+                       nullptr) == TRUE;
   }
 
   int Receive(void* buffer, int size, int* error) override {
     DWORD actually_read = 0;
-    BOOL result = ::ReadFile(_read_handle, buffer, size, &actually_read, NULL);
+    BOOL result =
+        ::ReadFile(_read_handle, buffer, size, &actually_read, nullptr);
     if (error != nullptr) {
       // TODO(laszlocsomor): handle the error mode that is errno=EINTR on Linux.
       *error = result ? IPipe::SUCCESS : IPipe::OTHER_ERROR;
@@ -97,7 +98,7 @@ class WindowsPipe : public IPipe {
 
 IPipe* CreatePipe() {
   // The pipe HANDLEs can be inherited.
-  SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+  SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
   HANDLE read_handle = INVALID_HANDLE_VALUE;
   HANDLE write_handle = INVALID_HANDLE_VALUE;
   if (!CreatePipe(&read_handle, &write_handle, &sa, 0)) {
@@ -144,13 +145,13 @@ bool WindowsFileMtime::IsUntampered(const Path& path) {
       /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
-      /* lpSecurityAttributes */ NULL,
+      /* lpSecurityAttributes */ nullptr,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */
       // Per CreateFile's documentation on MSDN, opening directories requires
       // the FILE_FLAG_BACKUP_SEMANTICS flag.
       is_directory ? FILE_FLAG_BACKUP_SEMANTICS : FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL));
+      /* hTemplateFile */ nullptr));
 
   if (!handle.IsValid()) {
     return false;
@@ -187,20 +188,20 @@ bool WindowsFileMtime::Set(const Path& path, FILETIME time) {
       /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ FILE_WRITE_ATTRIBUTES,
       /* dwShareMode */ FILE_SHARE_READ,
-      /* lpSecurityAttributes */ NULL,
+      /* lpSecurityAttributes */ nullptr,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */
       IsDirectoryW(path.AsNativePath())
           ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
           : FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL));
+      /* hTemplateFile */ nullptr));
   if (!handle.IsValid()) {
     return false;
   }
   return ::SetFileTime(
              /* hFile */ handle,
-             /* lpCreationTime */ NULL,
-             /* lpLastAccessTime */ NULL,
+             /* lpCreationTime */ nullptr,
+             /* lpLastAccessTime */ nullptr,
              /* lpLastWriteTime */ &time) == TRUE;
 }
 
@@ -233,17 +234,17 @@ static bool OpenFileForReading(const Path& path, HANDLE* result) {
       /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ kAllShare,
-      /* lpSecurityAttributes */ NULL,
+      /* lpSecurityAttributes */ nullptr,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
+      /* hTemplateFile */ nullptr);
   return true;
 }
 
 int ReadFromHandle(file_handle_type handle, void* data, size_t size,
                    int* error) {
   DWORD actually_read = 0;
-  bool success = ::ReadFile(handle, data, size, &actually_read, NULL);
+  bool success = ::ReadFile(handle, data, size, &actually_read, nullptr);
   if (error != nullptr) {
     // TODO(laszlocsomor): handle the error cases that are errno=EINTR and
     // errno=EAGAIN on Linux.
@@ -322,17 +323,17 @@ bool WriteFile(const void* data, size_t size, const Path& path,
       /* lpFileName */ path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
       /* dwShareMode */ FILE_SHARE_READ,
-      /* lpSecurityAttributes */ NULL,
+      /* lpSecurityAttributes */ nullptr,
       /* dwCreationDisposition */ CREATE_ALWAYS,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL));
+      /* hTemplateFile */ nullptr));
   if (!handle.IsValid()) {
     return false;
   }
 
   // TODO(laszlocsomor): respect `perm` and set the file permissions accordingly
   DWORD actually_written = 0;
-  ::WriteFile(handle, data, size, &actually_written, NULL);
+  ::WriteFile(handle, data, size, &actually_written, nullptr);
   return actually_written == size;
 }
 
@@ -343,7 +344,7 @@ int WriteToStdOutErr(const void* data, size_t size, bool to_stdout) {
     return WriteResult::OTHER_ERROR;
   }
 
-  if (::WriteFile(h, data, size, &written, NULL)) {
+  if (::WriteFile(h, data, size, &written, nullptr)) {
     return (written == size) ? WriteResult::SUCCESS : WriteResult::OTHER_ERROR;
   } else {
     return (GetLastError() == ERROR_NO_DATA) ? WriteResult::BROKEN_PIPE
@@ -411,8 +412,8 @@ static bool RealPath(const WCHAR* path, unique_ptr<WCHAR[]>* result = nullptr) {
   // Attempt opening the path, which may be anything -- a file, a directory, a
   // symlink, even a dangling symlink is fine.
   // Follow reparse points, getting us that much closer to the real path.
-  AutoHandle h(CreateFileW(path, 0, kAllShare, NULL, OPEN_EXISTING,
-                           FILE_FLAG_BACKUP_SEMANTICS, NULL));
+  AutoHandle h(CreateFileW(path, 0, kAllShare, nullptr, OPEN_EXISTING,
+                           FILE_FLAG_BACKUP_SEMANTICS, nullptr));
   if (!h.IsValid()) {
     // Path does not exist or it's a dangling junction/symlink.
     return false;
@@ -495,8 +496,8 @@ string MakeCanonical(const char* path) {
 }
 
 static bool CanReadFileW(const wstring& path) {
-  AutoHandle handle(CreateFileW(path.c_str(), GENERIC_READ, kAllShare, NULL,
-                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+  AutoHandle handle(CreateFileW(path.c_str(), GENERIC_READ, kAllShare, nullptr,
+                                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
   return handle.IsValid();
 }
 
@@ -548,10 +549,10 @@ bool CanAccessDirectory(const Path& path) {
       /* lpFileName */ dummy_path.AsNativePath().c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE | GENERIC_READ,
       /* dwShareMode */ kAllShare,
-      /* lpSecurityAttributes */ NULL,
+      /* lpSecurityAttributes */ nullptr,
       /* dwCreationDisposition */ OPEN_ALWAYS,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
+      /* hTemplateFile */ nullptr);
   DWORD err = GetLastError();
   if (handle == INVALID_HANDLE_VALUE) {
     // We couldn't open the file, and not because the dummy file already exists.
@@ -573,8 +574,8 @@ bool IsDirectoryW(const wstring& path) {
   // Attempt opening the path, which may be anything -- a file, a directory, a
   // symlink, even a dangling symlink is fine.
   // Follow reparse points in order to return false for dangling ones.
-  AutoHandle h(CreateFileW(path.c_str(), 0, kAllShare, NULL, OPEN_EXISTING,
-                           FILE_FLAG_BACKUP_SEMANTICS, NULL));
+  AutoHandle h(CreateFileW(path.c_str(), 0, kAllShare, nullptr, OPEN_EXISTING,
+                           FILE_FLAG_BACKUP_SEMANTICS, nullptr));
   BY_HANDLE_FILE_INFORMATION info;
   return h.IsValid() && GetFileInformationByHandle(h, &info) &&
          info.dwFileAttributes != INVALID_FILE_ATTRIBUTES &&
@@ -620,7 +621,7 @@ bool MakeDirectoriesW(const wstring& path, unsigned int mode) {
         << ") could not find dirname: " << GetLastErrorString();
   }
   return MakeDirectoriesW(parent, mode) &&
-         ::CreateDirectoryW(abs_path.c_str(), NULL) == TRUE;
+         ::CreateDirectoryW(abs_path.c_str(), nullptr) == TRUE;
 }
 
 bool MakeDirectories(const string& path, unsigned int mode) {

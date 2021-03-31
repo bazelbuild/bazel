@@ -248,11 +248,11 @@ load(
 
 default_java_toolchain(
   name = "repository_default_toolchain",
-  configuration = DEFAULT_TOOLCHAIN_CONFIGURATION, # One of predefined configurations
-                                                   # Other parameters are from java_toolchain rule:
-  java_runtime = "//tools/jdk:remote_jdk11",       # JDK to use for compilation and toolchain's tools execution
-  jvm_opts = JDK9_JVM_OPTS + ["--enable_preview"], # Additional JDK options
-  misc = DEFAULT_JAVACOPTS + ["--enable_preview"], # Additional javac options
+  configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,      # One of predefined configurations
+                                                        # Other parameters are from java_toolchain rule:
+  java_runtime = "//tools/jdk:remote_jdk11",            # JDK to use for compilation and toolchain's tools execution
+  jvm_opts = JDK9_JVM_OPTS + ["--enable_preview"],      # Additional JDK options
+  javacopts = DEFAULT_JAVACOPTS + ["--enable_preview"], # Additional javac options
   source_version = "9",
 )
 ```
@@ -281,7 +281,7 @@ You may configure JVM and javac flags either with flags or with
 The relevant flags are `--jvmopt`, `--host_jvmopt`, `--javacopt`,  and
 `--host_javacopt`.
 
-The relevant `default_java_toolchain` attributes are `misc`, `jvm_opts`,
+The relevant `default_java_toolchain` attributes are `javacopts`, `jvm_opts`,
 `javabuilder_jvm_opts`, and `turbine_jvm_opts`.
 
 #### Package specific Java compiler flags configuration

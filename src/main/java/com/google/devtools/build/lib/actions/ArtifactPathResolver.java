@@ -105,7 +105,7 @@ public interface ArtifactPathResolver {
     @Override
     public Path toPath(ActionInput input) {
       if (input instanceof Artifact) {
-        return fileSystem.getPath(((Artifact) input).getPath().getPathString());
+        return fileSystem.getPath(((Artifact) input).getPath().asFragment());
       }
       return execRoot.getRelative(input.getExecPath());
     }

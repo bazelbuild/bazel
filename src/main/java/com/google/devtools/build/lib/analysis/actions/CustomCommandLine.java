@@ -797,6 +797,16 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
+     * Adds an artifact by calling {@link PathFragment#getCallablePathString}.
+     *
+     * <p>Prefer this over manually calling {@link PathFragment#getCallablePathString}, as it avoids
+     * storing a copy of the path string.
+     */
+    public Builder addCallablePath(@Nullable PathFragment value) {
+      return addObjectInternal(new CallablePathFragment(value));
+    }
+
+    /**
      * Adds an artifact by calling {@link PathFragment#getPathString}.
      *
      * <p>Prefer this over manually calling {@link PathFragment#getPathString}, as it avoids storing
@@ -1318,6 +1328,20 @@ public final class CustomCommandLine extends CommandLine {
       } else {
         fingerprint.addString(CommandLineItem.expandToCommandLine(substitutedArg));
       }
+    }
+  }
+
+  /** A {@link PathFragment} that is expanded with {@link PathFragment#getCallablePathString()}. */
+  private static final class CallablePathFragment {
+    public final PathFragment fragment;
+
+    CallablePathFragment(PathFragment fragment) {
+      this.fragment = fragment;
+    }
+
+    @Override
+    public String toString() {
+      return fragment.getCallablePathString();
     }
   }
 }

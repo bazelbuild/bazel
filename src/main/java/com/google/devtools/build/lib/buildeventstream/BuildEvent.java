@@ -43,13 +43,25 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
      */
     public enum LocalFileType {
       OUTPUT,
+      /** An OUTPUT_FILE is an OUTPUT that is known to be a file, not a directory. */
+      OUTPUT_FILE,
       SUCCESSFUL_TEST_OUTPUT,
       FAILED_TEST_OUTPUT,
       COVERAGE_OUTPUT,
       STDOUT,
       STDERR,
       LOG,
-      PERFORMANCE_LOG,
+      PERFORMANCE_LOG;
+
+      /** Returns true if the LocalFile is a generic output from an Action. */
+      public boolean isOutput() {
+        return this == OUTPUT || this == OUTPUT_FILE;
+      }
+
+      /** Returns true if the LocalFile is known by construction to be a file, not a directory. */
+      public boolean isGuaranteedFile() {
+        return this != OUTPUT;
+      }
     }
 
     /** Indicates the type of compression the local file should have. */

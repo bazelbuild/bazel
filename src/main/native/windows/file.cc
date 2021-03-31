@@ -110,7 +110,7 @@ wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
   }
 
   std::wstring wpath(AddUncPrefixMaybe(path));
-  DWORD size = ::GetLongPathNameW(wpath.c_str(), NULL, 0);
+  DWORD size = ::GetLongPathNameW(wpath.c_str(), nullptr, 0);
   if (size == 0) {
     DWORD err_code = GetLastError();
     return MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetLongPathNameW", path,
@@ -214,14 +214,14 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
   // directory, or the path was invalid to begin with. Either way set `create`
   // to false, meaning we'll just attempt to open the path for metadata-reading
   // and check if it's a junction pointing to the desired target.
-  bool create = CreateDirectoryW(name.c_str(), NULL) != 0;
+  bool create = CreateDirectoryW(name.c_str(), nullptr) != 0;
 
   AutoHandle handle;
   if (create) {
     handle = CreateFileW(
-        name.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL,
+        name.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, nullptr,
         OPEN_EXISTING,
-        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   }
 
   if (!handle.IsValid()) {
@@ -234,8 +234,8 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     create = false;
     handle = CreateFileW(
         name.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        NULL, OPEN_EXISTING,
-        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+        nullptr, OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
     if (!handle.IsValid()) {
       // We can't open the directory at all: either it disappeared, or it turned
       // into a file, or the path is invalid, or another process holds it open
@@ -375,7 +375,7 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
             handle, FSCTL_SET_REPARSE_POINT, reparse_buffer,
             reparse_buffer->ReparseDataLength +
                 offsetof(REPARSE_DATA_BUFFER, GenericReparseBuffer.DataBuffer),
-            NULL, 0, &bytes_returned, NULL)) {
+            nullptr, 0, &bytes_returned, nullptr)) {
       DWORD err = GetLastError();
       if (err == ERROR_DIR_NOT_EMPTY) {
         return CreateJunctionResult::kAlreadyExistsButNotJunction;
@@ -391,9 +391,9 @@ int CreateJunction(const wstring& junction_name, const wstring& junction_target,
     // The junction already exists. Check if it points to the right target.
 
     DWORD bytes_returned;
-    if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, NULL, 0,
+    if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
                            reparse_buffer, MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
-                           &bytes_returned, NULL)) {
+                           &bytes_returned, nullptr)) {
       DWORD err = GetLastError();
       // Some unknown error occurred.
       if (error) {
@@ -470,9 +470,9 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
 
   AutoHandle handle(CreateFileW(
       AddUncPrefixMaybe(path).c_str(), 0,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
       OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
-      NULL));
+      nullptr));
   if (!handle.IsValid()) {
     DWORD err = GetLastError();
     if (err == ERROR_SHARING_VIOLATION) {
@@ -495,9 +495,9 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
   uint8_t raw_buf[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
   PREPARSE_DATA_BUFFER buf = reinterpret_cast<PREPARSE_DATA_BUFFER>(raw_buf);
   DWORD bytes_returned;
-  if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, NULL, 0, buf,
+  if (!::DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0, buf,
                          MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned,
-                         NULL)) {
+                         nullptr)) {
     DWORD err = GetLastError();
     if (err == ERROR_NOT_A_REPARSE_POINT) {
       return ReadSymlinkOrJunctionResult::kNotALink;

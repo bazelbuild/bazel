@@ -81,9 +81,9 @@ TEST(FilePosixTest, GetAllFilesUnder) {
 
 TEST(FilePosixTest, MakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
-  ASSERT_STRNE(tmp_dir, NULL);
+  ASSERT_STRNE(tmp_dir, nullptr);
   const char* test_src_dir = getenv("TEST_SRCDIR");
-  ASSERT_STRNE(NULL, test_src_dir);
+  ASSERT_STRNE(nullptr, test_src_dir);
 
   string dir = JoinPath(tmp_dir, "x/y/z");
   bool ok = MakeDirectories(dir, 0755);
@@ -142,7 +142,7 @@ TEST(FilePosixTest, MakeDirectories) {
 
 TEST(FilePosixTest, HammerMakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
-  ASSERT_STRNE(tmp_dir, NULL);
+  ASSERT_STRNE(tmp_dir, nullptr);
 
   string path = JoinPath(tmp_dir, "x/y/z");
   // TODO(ulfjack): Fix this!
@@ -237,7 +237,7 @@ class MockDirectoryEntryConsumer : public DirectoryEntryConsumer {
 TEST(FilePosixTest, ForEachDirectoryEntry) {
   // Get the test's temp dir.
   char* tmpdir_cstr = getenv("TEST_TMPDIR");
-  ASSERT_FALSE(tmpdir_cstr == NULL);
+  ASSERT_FALSE(tmpdir_cstr == nullptr);
   string tempdir(tmpdir_cstr);
   ASSERT_FALSE(tempdir.empty());
   if (tempdir.back() == '/') {

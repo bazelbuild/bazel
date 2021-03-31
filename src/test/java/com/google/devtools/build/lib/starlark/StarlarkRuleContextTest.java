@@ -1514,6 +1514,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testExternalWorkspaceLoad() throws Exception {
+    // RepositoryDelegatorFunction deletes and creates symlink for the repository and as such is not
+    // safe to execute in parallel. Disable checks with package loader to avoid parallel
+    // evaluations.
+    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
     scratch.file(
         "/r1/BUILD",
         "filegroup(name = 'test',",
@@ -1823,6 +1827,95 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
     Sequence<?> rootSymlinkFilenamesList = (Sequence) rootSymlinkFilenames;
     assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
+  }
+
+  @Test
+  public void runfiles_merge() throws Exception {
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file("test/other.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def symlink_merge_impl(ctx):",
+        "  runfiles = ctx.runfiles(symlinks = {",
+        "    'symlink_' + ctx.file.symlink.short_path: ctx.file.symlink",
+        "  })",
+        "  if ctx.attr.dep:",
+        "    runfiles = runfiles.merge(ctx.attr.dep[DefaultInfo].default_runfiles)",
+        "  return DefaultInfo(",
+        "    runfiles = runfiles",
+        "  )",
+        "symlink_merge_rule = rule(",
+        "  implementation = symlink_merge_impl,",
+        "  attrs = {",
+        "    'symlink': attr.label(allow_single_file=True),",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'symlink_merge_rule')",
+        "symlink_merge_rule(name = 'lib_a', symlink = ':a.py', dep = 'lib_b')",
+        "symlink_merge_rule(name = 'lib_b', symlink = ':b.py')",
+        "sh_binary(",
+        "  name = 'test',",
+        "  srcs = ['test/other.py'],",
+        "  data = [':lib_a'],",
+        ")");
+    setRuleContext(createRuleContext("//test:test"));
+    Object symlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
+    assertThat(symlinkPathsList)
+        .containsExactly("symlink_test/a.py", "symlink_test/b.py")
+        .inOrder();
+  }
+
+  @Test
+  public void runfiles_mergeAll() throws Exception {
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file("test/c.py");
+    scratch.file("test/other.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def symlink_merge_all_impl(ctx):",
+        "  runfiles = ctx.runfiles(symlinks = {",
+        "    'symlink_' + ctx.file.symlink.short_path: ctx.file.symlink",
+        "  })",
+        "  if ctx.attr.deps:",
+        "    runfiles = runfiles.merge_all([dep[DefaultInfo].default_runfiles",
+        "                                   for dep in ctx.attr.deps])",
+        "  return DefaultInfo(",
+        "    runfiles = runfiles",
+        "  )",
+        "symlink_merge_all_rule = rule(",
+        "  implementation = symlink_merge_all_impl,",
+        "  attrs = {",
+        "    'symlink': attr.label(allow_single_file=True),",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'symlink_merge_all_rule')",
+        "symlink_merge_all_rule(name = 'lib_a', symlink = ':a.py', deps = [':lib_b', ':lib_c'])",
+        "symlink_merge_all_rule(name = 'lib_b', symlink = ':b.py')",
+        "symlink_merge_all_rule(name = 'lib_c', symlink = ':c.py')",
+        "sh_binary(",
+        "  name = 'test',",
+        "  srcs = ['test/other.py'],",
+        "  data = [':lib_a'],",
+        ")");
+    setRuleContext(createRuleContext("//test:test"));
+    Object symlinkPaths =
+        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
+    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
+    Sequence<?> symlinkPathsList = Sequence.cast(symlinkPaths, String.class, "symlinkPaths");
+    assertThat(symlinkPathsList)
+        .containsExactly("symlink_test/a.py", "symlink_test/b.py", "symlink_test/c.py")
+        .inOrder();
   }
 
   @Test
@@ -3122,5 +3215,30 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setRuleContext(createRuleContext("@foo//bar:baz"));
     Object result = ev.eval("ruleContext.build_file_path");
     assertThat(result).isEqualTo("bar/BUILD");
+  }
+
+  @Test
+  public void testNoToolchainContext() throws Exception {
+    // Build setting rules do not have a toolchain context, as they are part of the configuration.
+    scratch.file(
+        "test/BUILD",
+        "load(':rule.bzl', 'sample_setting')",
+        "toolchain_type(name = 'toolchain_type')",
+        "sample_setting(",
+        "    name = 'test',",
+        "    build_setting_default = True,",
+        ")");
+    scratch.file(
+        "test/rule.bzl",
+        "def _sample_impl(ctx):",
+        "    info = ctx.toolchains['//:toolchain_type']",
+        "    if info != None:",
+        "        fail('Toolchain should be empty')",
+        "sample_setting = rule(",
+        "    implementation = _sample_impl,",
+        "    build_setting = config.bool(flag = True),",
+        ")");
+    getConfiguredTarget("//test:test");
+    assertNoEvents();
   }
 }

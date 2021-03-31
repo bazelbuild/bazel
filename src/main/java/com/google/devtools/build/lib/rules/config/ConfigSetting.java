@@ -129,7 +129,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     }
 
     ConfigMatchingProvider configMatcher =
-        new ConfigMatchingProvider(
+        ConfigMatchingProvider.create(
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
@@ -144,7 +144,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
-        .addRequiredConfigFragments(configMatcher.getRequiredFragmentOptions())
+        .addRequiredConfigFragments(configMatcher.requiredFragmentOptions())
         .build();
   }
 
