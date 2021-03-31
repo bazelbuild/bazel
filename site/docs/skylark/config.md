@@ -145,8 +145,8 @@ $ bazel build //my/target --//example:roasts=blonde \
     --//example:roasts=medium,dark
 ```
 
-The above will be parsed to {//example:roasts:["blonde", "medium,dark"]} and
-`ctx.build_setting_value` will return a list ["blonde", "medium,dark"].
+The above is parsed to `{"//example:roasts": ["blonde", "medium,dark"]}` and
+`ctx.build_setting_value` returns the list `["blonde", "medium,dark"]`.
 
 #### Instantiating build settings
 
