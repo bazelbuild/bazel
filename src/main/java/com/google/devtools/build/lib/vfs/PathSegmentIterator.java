@@ -33,7 +33,7 @@ final class PathSegmentIterator implements Iterator<String> {
   private final String normalizedPath;
   private int start;
 
-  PathSegmentIterator(String normalizedPath, int driveStrLength) {
+  private PathSegmentIterator(String normalizedPath, int driveStrLength) {
     this.normalizedPath = normalizedPath;
     this.start = driveStrLength;
   }
