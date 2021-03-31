@@ -205,7 +205,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
 
   @Test
   public void testVisibilityErrorNoKeepGoing() throws Exception {
-    scratch.file("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar'])");
+    scratch.file("foo/BUILD", "sh_test(name = 'foo', srcs = ['test.sh'], deps = ['//bar'])");
     scratch.file("bar/BUILD", "sh_library(name = 'bar', visibility = ['//visibility:private'])");
 
     try {
@@ -222,7 +222,7 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                 .getBuildConfigurationCollection()
                 .getTargetConfigurations());
     String message =
-        "in sh_library rule //foo:foo: target '//bar:bar' is not visible from"
+        "in sh_test rule //foo:foo: target '//bar:bar' is not visible from"
             + " target '//foo:foo'. Check the visibility declaration of the"
             + " former target if you think the dependency is legitimate";
     assertThat(collector.events.get(topLevel))

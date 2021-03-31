@@ -1083,7 +1083,7 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file(
         "conflict/BUILD",
-        "config_setting(name = 'a', values = {'test_arg': 'a'})",
+        "config_setting(name = 'a', values = {'cpu': 'unobtainiumx'})",
         "cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))",
         "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
     AnalysisResult result =
