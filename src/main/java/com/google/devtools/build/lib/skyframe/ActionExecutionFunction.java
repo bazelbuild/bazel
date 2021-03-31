@@ -753,7 +753,7 @@ public class ActionExecutionFunction implements SkyFunction {
         ActionMetadataHandler.create(
             state.inputArtifactData,
             action.discoversInputs(),
-            skyframeActionExecutor.useArchivedTreeArtifacts(),
+            skyframeActionExecutor.useArchivedTreeArtifacts(action),
             action.getOutputs(),
             tsgm.get(),
             pathResolver,

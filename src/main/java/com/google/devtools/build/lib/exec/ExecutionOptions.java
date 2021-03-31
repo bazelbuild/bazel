@@ -442,6 +442,40 @@ public class ExecutionOptions extends OptionsBase {
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
 
+  @Option(
+      name = "archived_tree_artifact_mnemonics_filter",
+      defaultValue = "-.*", // disabled by default
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      converter = RegexFilter.RegexFilterConverter.class,
+      help =
+          "Regex filter for mnemonics of actions for which we should create archived tree"
+              + " artifacts. This option is a no-op for actions which do not generate tree"
+              + " artifacts.")
+  public RegexFilter archivedArtifactsMnemonicsFilter;
+
+  @Option(
+      name = "experimental_send_archived_tree_artifact_inputs",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      expansion = "--archived_tree_artifact_mnemonics_filter=.*",
+      help =
+          "Send input tree artifacts as a single archived file rather than sending each file in the"
+              + " artifact as a separate input.")
+  public Void ignoredEnableAllArchivedArtifacts;
+
+  @Option(
+      name = "noexperimental_send_archived_tree_artifact_inputs",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      expansion = "--archived_tree_artifact_mnemonics_filter=-.*",
+      help =
+          "Send input tree artifacts as a single archived file rather than sending each file in the"
+              + " artifact as a separate input.")
+  public Void ignoredDisableAllArchivedArtifacts;
+
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.
