@@ -29,18 +29,17 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * This class tests the functionality of the PathFragment.
- */
-@RunWith(JUnit4.class)
-public class PathFragmentTest {
+/** Tests for {@link PathFragment}. */
+@RunWith(TestParameterInjector.class)
+public final class PathFragmentTest {
 
   @Test
   public void testEqualsAndHashCode() {
@@ -254,6 +253,27 @@ public class PathFragmentTest {
     assertThat(create("").segmentCount()).isEqualTo(0);
   }
 
+  @Test
+  public void isSingleSegment_true(@TestParameter({"/foo", "foo"}) String path) {
+    assertThat(create(path).isSingleSegment()).isTrue();
+  }
+
+  @Test
+  public void isSingleSegment_false(
+      @TestParameter({"/", "", "/foo/bar", "foo/bar", "/foo/bar/baz", "foo/bar/baz"}) String path) {
+    assertThat(create(path).isSingleSegment()).isFalse();
+  }
+
+  @Test
+  public void isMultiSegment_true(
+      @TestParameter({"/foo/bar", "foo/bar", "/foo/bar/baz", "foo/bar/baz"}) String path) {
+    assertThat(create(path).isMultiSegment()).isTrue();
+  }
+
+  @Test
+  public void isMultiSegment_false(@TestParameter({"/", "", "/foo", "foo"}) String path) {
+    assertThat(create(path).isMultiSegment()).isFalse();
+  }
 
   @Test
   public void testGetSegment() {

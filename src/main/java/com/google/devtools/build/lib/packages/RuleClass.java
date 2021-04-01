@@ -2814,19 +2814,9 @@ public class RuleClass {
   }
 
   public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {
-    if (!packageIdentifier.getRepository().isMain()) {
-      return false;
-    }
-
-    if (!packageIdentifier.getPackageFragment().startsWith(THIRD_PARTY_PREFIX)) {
-      return false;
-    }
-
-    if (packageIdentifier.getPackageFragment().segmentCount() <= 1) {
-      return false;
-    }
-
-    return true;
+    return packageIdentifier.getRepository().isMain()
+        && packageIdentifier.getPackageFragment().startsWith(THIRD_PARTY_PREFIX)
+        && packageIdentifier.getPackageFragment().isMultiSegment();
   }
 
   // Returns true if this rule is a license() rule as defined in
