@@ -41,7 +41,15 @@ public class CommandFailureUtils {
     void describeCommandCwd(String cwd, StringBuilder message);
     void describeCommandEnvPrefix(StringBuilder message, boolean isolated);
     void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry);
-    void describeCommandElement(StringBuilder message, String commandElement);
+    /**
+     * Formats the command element and adds it to the message.
+     *
+     * @param message the message to modify
+     * @param commandElement the command element to be added to the message
+     * @param isBinary is true if the `commandElement` is the binary to be executed
+     */
+    void describeCommandElement(StringBuilder message, String commandElement, boolean isBinary);
+
     void describeCommandExec(StringBuilder message);
   }
 
@@ -76,7 +84,8 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandElement(StringBuilder message, String commandElement) {
+    public void describeCommandElement(
+        StringBuilder message, String commandElement, boolean isBinary) {
       message.append(ShellEscaper.escapeString(commandElement));
     }
 
@@ -115,8 +124,10 @@ public class CommandFailureUtils {
     }
 
     @Override
-    public void describeCommandElement(StringBuilder message, String commandElement) {
-      message.append(commandElement);
+    public void describeCommandElement(
+        StringBuilder message, String commandElement, boolean isBinary) {
+      // Replace the forward slashes with back slashes if the `commandElement` is the binary path
+      message.append(isBinary ? commandElement.replace('/', '\\') : commandElement);
     }
 
     @Override
@@ -203,6 +214,7 @@ public class CommandFailureUtils {
       }
     }
 
+    boolean isFirstArgument = true;
     for (String commandElement : commandLineElements) {
       if (form == CommandDescriptionForm.ABBREVIATED
           && message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
@@ -213,9 +225,10 @@ public class CommandFailureUtils {
         if (numberRemaining < size) {
           message.append(prettyPrintArgs ? " \\\n    " : " ");
         }
-        describeCommandImpl.describeCommandElement(message, commandElement);
+        describeCommandImpl.describeCommandElement(message, commandElement, isFirstArgument);
         numberRemaining--;
       }
+      isFirstArgument = false;
     }
 
     if (form == CommandDescriptionForm.COMPLETE) {

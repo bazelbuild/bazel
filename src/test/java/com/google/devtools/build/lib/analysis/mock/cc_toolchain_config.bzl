@@ -92,6 +92,7 @@ _FEATURE_NAMES = struct(
     fission_flags_for_lto_backend = "fission_flags_for_lto_backend",
     min_os_version_flag = "min_os_version_flag",
     include_directories = "include_directories",
+    external_include_paths = "external_include_paths",
     absolute_path_directories = "absolute_path_directories",
     from_package = "from_package",
     change_tool = "change_tool",
@@ -988,6 +989,22 @@ _include_directories_feature = feature(
     ],
 )
 
+_external_include_paths_feature = feature(
+    name = _FEATURE_NAMES.external_include_paths,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-isystem",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
 _from_package_feature = feature(
     name = _FEATURE_NAMES.from_package,
     flag_sets = [
@@ -1260,6 +1277,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.fission_flags_for_lto_backend: _fission_flags_for_lto_backend_feature,
     _FEATURE_NAMES.min_os_version_flag: _min_os_version_flag_feature,
     _FEATURE_NAMES.include_directories: _include_directories_feature,
+    _FEATURE_NAMES.external_include_paths: _external_include_paths_feature,
     _FEATURE_NAMES.from_package: _from_package_feature,
     _FEATURE_NAMES.absolute_path_directories: _absolute_path_directories_feature,
     _FEATURE_NAMES.change_tool: _change_tool_feature,

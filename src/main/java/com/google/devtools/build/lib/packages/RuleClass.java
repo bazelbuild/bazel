@@ -2369,10 +2369,13 @@ public class RuleClass {
     // all test labels, populated later.
     if (this.name.equals("test_suite")) {
       Attribute implicitTests = this.getAttributeByName("$implicit_tests");
-      if (implicitTests != null
-          && NonconfigurableAttributeMapper.of(rule).get("tests", BuildType.LABEL_LIST).isEmpty()) {
+      NonconfigurableAttributeMapper attributeMapper = NonconfigurableAttributeMapper.of(rule);
+      if (implicitTests != null && attributeMapper.get("tests", BuildType.LABEL_LIST).isEmpty()) {
         boolean explicit = true; // so that it appears in query output
-        rule.setAttributeValue(implicitTests, pkgBuilder.getTestSuiteImplicitTestsRef(), explicit);
+        rule.setAttributeValue(
+            implicitTests,
+            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Type.STRING_LIST)),
+            explicit);
       }
     }
 
@@ -2811,19 +2814,9 @@ public class RuleClass {
   }
 
   public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {
-    if (!packageIdentifier.getRepository().isMain()) {
-      return false;
-    }
-
-    if (!packageIdentifier.getPackageFragment().startsWith(THIRD_PARTY_PREFIX)) {
-      return false;
-    }
-
-    if (packageIdentifier.getPackageFragment().segmentCount() <= 1) {
-      return false;
-    }
-
-    return true;
+    return packageIdentifier.getRepository().isMain()
+        && packageIdentifier.getPackageFragment().startsWith(THIRD_PARTY_PREFIX)
+        && packageIdentifier.getPackageFragment().isMultiSegment();
   }
 
   // Returns true if this rule is a license() rule as defined in

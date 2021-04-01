@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Splitter;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -54,7 +52,7 @@ public class SearchPath {
   @Nullable
   public static Path which(List<Path> searchPath, String exe) {
     PathFragment fragment = PathFragment.create(exe);
-    if (fragment.segmentCount() != 1 || fragment.isAbsolute()) {
+    if (fragment.isAbsolute() || !fragment.isSingleSegment()) {
       return null;
     }
 

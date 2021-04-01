@@ -470,10 +470,13 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_no_product_name_out_symlink",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.EXECUTION},
+      deprecationWarning =
+          "This flag is deprecated and will be removed soon. Please file an issue if you need to "
+              + "use it",
       help =
           "If this flag is set to true, the <product>-out symlink will not be created if "
               + "--symlink_prefix is used.")

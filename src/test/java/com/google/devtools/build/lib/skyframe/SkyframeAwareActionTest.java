@@ -229,7 +229,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
     @Override
     public String getMnemonic() {
-      return null;
+      return "ExecutionCountingAction";
     }
 
     @Override

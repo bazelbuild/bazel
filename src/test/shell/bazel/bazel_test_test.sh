@@ -852,4 +852,22 @@ EOF
   expect_log "<testcase name=\"a/x\""
 }
 
+function test_xml_output_format() {
+  touch WORKSPACE
+  cat <<'EOF' > BUILD
+py_test(
+    name = 'x',
+    srcs = ['x.py'],
+)
+EOF
+  touch x.py
+
+  bazel test //:x &> $TEST_log \
+      || fail "expected success"
+
+  cat bazel-testlogs/x/test.xml > $TEST_log
+  expect_log "<testsuite name=\"x\""
+  expect_log "<testcase name=\"x\""
+}
+
 run_suite "bazel test tests"

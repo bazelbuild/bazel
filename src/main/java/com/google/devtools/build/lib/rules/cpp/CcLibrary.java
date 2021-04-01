@@ -390,7 +390,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         linkingHelper.buildCcLinkingContextFromLibrariesToLink(
             neverLink ? ImmutableList.of() : libraryToLinks,
             compilationInfo.getCcCompilationContext());
-    CcNativeLibraryProvider ccNativeLibraryProvider =
+    CcNativeLibraryInfo ccNativeLibraryInfo =
         CppHelper.collectNativeCcLibraries(ruleContext.getPrerequisites("deps"), libraryToLinks);
 
     /*
@@ -479,7 +479,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(ccNativeLibraryProvider)
         .addNativeDeclaredProvider(
             CcInfo.builder()
                 .setCcCompilationContext(compilationInfo.getCcCompilationContext())
@@ -487,6 +486,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 .setCcDebugInfoContext(
                     CppHelper.mergeCcDebugInfoContexts(
                         compilationInfo.getCcCompilationOutputs(), ccInfosFromDeps))
+                .setCcNativeLibraryInfo(ccNativeLibraryInfo)
                 .build())
         .addOutputGroups(
             CcCommon.mergeOutputGroups(ImmutableList.of(currentOutputGroups, outputGroups.build())))

@@ -1192,9 +1192,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(
-            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
-        .addNativeDeclaredProvider(
-            new CcNativeLibraryProvider(collectTransitiveCcNativeLibraries(ruleContext, libraries)))
+            CcInfo.builder()
+                .setCcCompilationContext(ccCompilationContext)
+                .setCcNativeLibraryInfo(
+                    new CcNativeLibraryInfo(
+                        collectTransitiveCcNativeLibraries(ruleContext, libraries)))
+                .build())
         .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addOutputGroup(OutputGroupInfo.VALIDATION, headerTokens)
         .addOutputGroups(outputGroups);
@@ -1206,9 +1209,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, List<LibraryToLink> libraries) {
     NestedSetBuilder<LibraryToLink> builder = NestedSetBuilder.linkOrder();
     builder.addAll(libraries);
-    for (CcNativeLibraryProvider dep :
-        ruleContext.getPrerequisites("deps", CcNativeLibraryProvider.PROVIDER)) {
-      builder.addTransitive(dep.getTransitiveCcNativeLibraries());
+    for (CcInfo dep : ruleContext.getPrerequisites("deps", CcInfo.PROVIDER)) {
+      builder.addTransitive(dep.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
     }
     return builder.build();
   }

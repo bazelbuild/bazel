@@ -363,6 +363,8 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:guava",

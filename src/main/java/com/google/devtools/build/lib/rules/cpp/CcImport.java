@@ -49,7 +49,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
       Artifact noPicStaticLibrary = null;
       Artifact picStaticLibrary = null;
       if (staticLibrary != null) {
-        if (staticLibrary.getExtension().equals(".pic.a")) {
+        if (staticLibrary.getFilename().endsWith(".pic.a")) {
           picStaticLibrary = staticLibrary;
         } else {
           noPicStaticLibrary = staticLibrary;

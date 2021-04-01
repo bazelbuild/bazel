@@ -370,7 +370,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         if (filesToBuild.isSingleton()) {
           Artifact outputFile = filesToBuild.getSingleton();
           PathFragment relativeOutputFile = outputFile.getExecPath();
-          if (relativeOutputFile.segmentCount() <= 1) {
+          if (!relativeOutputFile.isMultiSegment()) {
             // This should never happen, since the path should contain at
             // least a package name and a file name.
             throw new IllegalStateException(

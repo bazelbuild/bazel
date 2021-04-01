@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextAp
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcDebugInfoContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkThread;
@@ -38,6 +39,12 @@ public class FakeCcInfo implements CcInfoApi<FileApi> {
 
   @Override
   public CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread) {
+    return null;
+  }
+
+  @Override
+  public CcNativeLibraryInfoApi getCcNativeLibraryInfoFromStarlark(StarlarkThread thread)
+      throws EvalException {
     return null;
   }
 

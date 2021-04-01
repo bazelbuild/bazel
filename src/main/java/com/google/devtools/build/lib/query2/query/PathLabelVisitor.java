@@ -59,7 +59,7 @@ final class PathLabelVisitor {
   public Iterable<Target> somePath(
       ExtendedEventHandler eventHandler, Iterable<Target> from, Iterable<Target> to)
       throws NoSuchThingException, InterruptedException {
-    Visitor visitor = new Visitor(eventHandler, VisitorMode.SOMEPATH);
+    Visitor visitor = new Visitor(eventHandler, targetProvider, VisitorMode.SOMEPATH);
     // TODO(ulfjack): It might be faster to stop the visitation once we see any 'to' Target.
     visitor.visitTargets(from);
     for (Target t : to) {
@@ -84,7 +84,7 @@ final class PathLabelVisitor {
   public Iterable<Target> allPaths(
       ExtendedEventHandler eventHandler, Iterable<Target> from, Iterable<Target> to)
       throws NoSuchThingException, InterruptedException {
-    Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
+    Visitor visitor = new Visitor(eventHandler, targetProvider, VisitorMode.ALLPATHS);
     visitor.visitTargets(from);
     Set<Target> result = new HashSet<>();
     Queue<Target> workQueue = new ArrayDeque<>();
@@ -109,7 +109,7 @@ final class PathLabelVisitor {
   public Iterable<Target> samePkgDirectRdeps(
       ExtendedEventHandler eventHandler, Iterable<Target> from)
       throws NoSuchThingException, InterruptedException {
-    Visitor visitor = new Visitor(eventHandler, VisitorMode.SAME_PKG_DIRECT_RDEPS);
+    Visitor visitor = new Visitor(eventHandler, targetProvider, VisitorMode.SAME_PKG_DIRECT_RDEPS);
     for (Target t : from) {
       visitor.visitTargets(t.getPackage().getTargets().values());
     }
@@ -129,7 +129,7 @@ final class PathLabelVisitor {
       Iterable<Target> universe,
       int depth)
       throws NoSuchThingException, InterruptedException {
-    Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
+    Visitor visitor = new Visitor(eventHandler, targetProvider, VisitorMode.ALLPATHS);
     visitor.visitTargets(universe);
 
     Set<Target> result = new HashSet<>();
@@ -173,10 +173,10 @@ final class PathLabelVisitor {
   private static class Visit {
     private final Target from;
     private final Attribute attribute;
-    private final Target target;
+    private final Label targetLabel;
 
-    private Visit(Target from, Attribute attribute, Target target) {
-      if (target == null) {
+    private Visit(Target from, Attribute attribute, Label targetLabel) {
+      if (targetLabel == null) {
         throw new NullPointerException(
             String.format(
                 "'%s' attribute '%s'",
@@ -185,19 +185,22 @@ final class PathLabelVisitor {
       }
       this.from = from;
       this.attribute = attribute;
-      this.target = target;
+      this.targetLabel = targetLabel;
     }
   }
 
   private class Visitor {
     private final ExtendedEventHandler eventHandler;
+    private final TargetProvider targetProvider;
     private final VisitorMode mode;
     private final Set<Target> visited = new HashSet<>();
     private final Map<Target, List<Target>> parentMap = new HashMap<>();
     private final Queue<Visit> workQueue = new ArrayDeque<>();
 
-    public Visitor(ExtendedEventHandler eventHandler, VisitorMode mode) {
+    public Visitor(
+        ExtendedEventHandler eventHandler, TargetProvider targetProvider, VisitorMode mode) {
       this.eventHandler = eventHandler;
+      this.targetProvider = targetProvider;
       this.mode = Preconditions.checkNotNull(mode);
     }
 
@@ -219,38 +222,32 @@ final class PathLabelVisitor {
     private void visitTargets(Iterable<Target> targets)
         throws InterruptedException, NoSuchThingException {
       for (Target t : targets) {
-        enqueue(null, null, t);
+        enqueue(null, null, t.getLabel());
       }
       while (!workQueue.isEmpty()) {
         Visit visit = workQueue.remove();
-        visit(visit.from, visit.attribute, visit.target);
+        visit(visit.from, visit.attribute, visit.targetLabel);
       }
     }
 
     private void enqueue(Target from, Attribute attribute, Label label)
         throws InterruptedException, NoSuchThingException {
-      Target target;
-      target = targetProvider.getTarget(eventHandler, label);
-      enqueue(from, attribute, target);
+      workQueue.add(new Visit(from, attribute, label));
     }
 
-    private void enqueue(Target from, Attribute attribute, Target target) {
-      workQueue.add(new Visit(from, attribute, target));
-    }
-
-    private void visit(Target from, Attribute attribute, Target target)
+    private void visit(Target from, Attribute attribute, Label targetLabel)
         throws InterruptedException, NoSuchThingException {
+      Target target = null;
       if (from != null) {
         switch (mode) {
           case DEPS:
+            target = targetProvider.getTarget(eventHandler, targetLabel);
             // Don't update parentMap; only use visited.
             break;
           case SAME_PKG_DIRECT_RDEPS:
             // Only track same-package dependencies.
-            if (target
-                .getLabel()
-                .getPackageIdentifier()
-                .equals(from.getLabel().getPackageIdentifier())) {
+            if (targetLabel.getPackageIdentifier().equals(from.getLabel().getPackageIdentifier())) {
+              target = targetProvider.getTarget(eventHandler, targetLabel);
               if (!parentMap.containsKey(target)) {
                 parentMap.put(target, new ArrayList<>());
               }
@@ -260,17 +257,21 @@ final class PathLabelVisitor {
             // target, and we're now at 'target' target, so we have one level, and can return here.
             return;
           case ALLPATHS:
+            target = targetProvider.getTarget(eventHandler, targetLabel);
             if (!parentMap.containsKey(target)) {
               parentMap.put(target, new ArrayList<>());
             }
             parentMap.get(target).add(from);
             break;
           case SOMEPATH:
+            target = targetProvider.getTarget(eventHandler, targetLabel);
             parentMap.putIfAbsent(target, ImmutableList.of(from));
             break;
         }
 
         visitAspectsIfRequired(from, attribute, target);
+      } else {
+        target = targetProvider.getTarget(eventHandler, targetLabel);
       }
 
       if (!visited.add(target)) {
