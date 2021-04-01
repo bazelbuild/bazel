@@ -934,11 +934,7 @@ public interface CcModuleApi<
       name = "is_cc_toolchain_resolution_enabled_do_not_use",
       documented = false,
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            doc = "The rule context."),
+        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
       },
       doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.")
   boolean isCcToolchainResolutionEnabled(StarlarkRuleContextT ruleContext);
@@ -947,11 +943,7 @@ public interface CcModuleApi<
       name = "create_cc_toolchain_config_info",
       doc = "Creates a <code>CcToolchainConfigInfo</code> provider",
       parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            doc = "The rule context."),
+        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
         @Param(
             name = "features",
             positional = false,
@@ -1263,10 +1255,4 @@ public interface CcModuleApi<
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException;
-
-  @StarlarkMethod(
-      name = "get_CcNativeLibraryProvider",
-      documented = false,
-      useStarlarkThread = true)
-  Object getCcNativeLibraryProvider(StarlarkThread thread) throws EvalException;
 }

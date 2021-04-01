@@ -16,17 +16,17 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
- * Provider for native libraries in the transitive closure of a target that are needed for executing
- * C++ code.
+ * Information about native libraries in the transitive closure of a target that are needed for
+ * executing C++ code.
  */
 @StarlarkBuiltin(name = "CcNativeLibrary", documented = false, category = DocCategory.PROVIDER)
-public interface CcNativeLibraryProviderApi extends StructApi {
+public interface CcNativeLibraryInfoApi extends StarlarkValue {
 
   @StarlarkMethod(name = "libs", structField = true, documented = false)
   Depset getTransitiveCcNativeLibrariesStarlark() throws EvalException;

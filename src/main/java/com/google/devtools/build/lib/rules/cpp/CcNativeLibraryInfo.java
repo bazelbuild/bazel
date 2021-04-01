@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
+import java.util.List;
 
 /**
  * A target that provides native libraries in the transitive closure of its deps that are needed for
@@ -28,22 +30,15 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryProvide
  */
 @Immutable
 @AutoCodec
-public final class CcNativeLibraryProvider extends NativeInfo
-    implements CcNativeLibraryProviderApi {
+public final class CcNativeLibraryInfo implements CcNativeLibraryInfoApi {
 
-  public static final BuiltinProvider<CcNativeLibraryProvider> PROVIDER =
-      new BuiltinProvider<CcNativeLibraryProvider>(
-          "CcNativeLibraryProvider", CcNativeLibraryProvider.class) {};
+  public static final CcNativeLibraryInfo EMPTY =
+      new CcNativeLibraryInfo(NestedSetBuilder.emptySet(Order.LINK_ORDER));
 
   private final NestedSet<LibraryToLink> transitiveCcNativeLibraries;
 
-  public CcNativeLibraryProvider(NestedSet<LibraryToLink> transitiveCcNativeLibraries) {
+  public CcNativeLibraryInfo(NestedSet<LibraryToLink> transitiveCcNativeLibraries) {
     this.transitiveCcNativeLibraries = transitiveCcNativeLibraries;
-  }
-
-  @Override
-  public BuiltinProvider<CcNativeLibraryProvider> getProvider() {
-    return PROVIDER;
   }
 
   /**
@@ -59,5 +54,20 @@ public final class CcNativeLibraryProvider extends NativeInfo
   @Override
   public Depset getTransitiveCcNativeLibrariesStarlark() {
     return Depset.of(LibraryToLink.TYPE, getTransitiveCcNativeLibraries());
+  }
+
+  /** Merge several CcNativeLibraryInfo objects into one. */
+  public static CcNativeLibraryInfo merge(List<CcNativeLibraryInfo> providers) {
+    if (providers.isEmpty()) {
+      return EMPTY;
+    } else if (providers.size() == 1) {
+      return Iterables.getOnlyElement(providers);
+    }
+
+    NestedSetBuilder<LibraryToLink> transitiveCcNativeLibraries = NestedSetBuilder.linkOrder();
+    for (CcNativeLibraryInfo provider : providers) {
+      transitiveCcNativeLibraries.addTransitive(provider.getTransitiveCcNativeLibraries());
+    }
+    return new CcNativeLibraryInfo(transitiveCcNativeLibraries.build());
   }
 }
