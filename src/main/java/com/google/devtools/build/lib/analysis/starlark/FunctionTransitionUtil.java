@@ -332,6 +332,8 @@ public class FunctionTransitionUtil {
                       .convert(
                           optionValueAsList.stream().map(Object::toString).collect(joining(",")));
             }
+          } else if (def.getType() == List.class && optionValue == null) {
+            convertedValue = def.getDefaultValue();
           } else if (optionValue == null || def.getType().isInstance(optionValue)) {
             convertedValue = optionValue;
           } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
