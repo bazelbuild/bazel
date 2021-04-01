@@ -313,6 +313,16 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
+   * Returns the immutable list of external include directories (possibly empty but never null).
+   * This includes the include dirs from the transitive deps closure of the target. This list does
+   * not contain duplicates. All fragments are either absolute or relative to the exec root (see
+   * {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot(String)}).
+   */
+  public ImmutableList<PathFragment> getExternalIncludeDirs() {
+    return commandLineCcCompilationContext.externalIncludeDirs;
+  }
+
+  /**
    * Returns the immutable set of declared include directories, relative to a "-I" or "-iquote"
    * directory" (possibly empty but never null).
    */
@@ -648,6 +658,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final ImmutableList<PathFragment> quoteIncludeDirs;
     private final ImmutableList<PathFragment> systemIncludeDirs;
     private final ImmutableList<PathFragment> frameworkIncludeDirs;
+    private final ImmutableList<PathFragment> externalIncludeDirs;
     private final ImmutableList<String> defines;
     private final ImmutableList<String> localDefines;
 
@@ -656,12 +667,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ImmutableList<PathFragment> quoteIncludeDirs,
         ImmutableList<PathFragment> systemIncludeDirs,
         ImmutableList<PathFragment> frameworkIncludeDirs,
+        ImmutableList<PathFragment> externalIncludeDirs,
         ImmutableList<String> defines,
         ImmutableList<String> localDefines) {
       this.includeDirs = includeDirs;
       this.quoteIncludeDirs = quoteIncludeDirs;
       this.systemIncludeDirs = systemIncludeDirs;
       this.frameworkIncludeDirs = frameworkIncludeDirs;
+      this.externalIncludeDirs = externalIncludeDirs;
       this.defines = defines;
       this.localDefines = localDefines;
     }
@@ -684,6 +697,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final TransitiveSetHelper<PathFragment> quoteIncludeDirs = new TransitiveSetHelper<>();
     private final TransitiveSetHelper<PathFragment> systemIncludeDirs = new TransitiveSetHelper<>();
     private final TransitiveSetHelper<PathFragment> frameworkIncludeDirs =
+        new TransitiveSetHelper<>();
+    private final TransitiveSetHelper<PathFragment> externalIncludeDirs =
         new TransitiveSetHelper<>();
     private final NestedSetBuilder<PathFragment> looseHdrsDirs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
@@ -749,6 +764,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       quoteIncludeDirs.addTransitive(otherCcCompilationContext.getQuoteIncludeDirs());
       systemIncludeDirs.addTransitive(otherCcCompilationContext.getSystemIncludeDirs());
       frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
+      externalIncludeDirs.addTransitive(otherCcCompilationContext.getExternalIncludeDirs());
       looseHdrsDirs.addTransitive(otherCcCompilationContext.getLooseHdrsDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       headerInfoBuilder.addDep(otherCcCompilationContext.headerInfo);
@@ -876,6 +892,26 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     /** Add framewrok include directories to be added with "-F". */
     public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
       this.frameworkIncludeDirs.addAll(frameworkIncludeDirs);
+      return this;
+    }
+
+    /**
+     * Mark specified include directory as external, coming from an external workspace. It can be
+     * added with "-isystem" (GCC) or --system-header-prefix (Clang) to suppress warnings coming
+     * from external files.
+     */
+    public Builder addExternalIncludeDir(PathFragment externalIncludeDir) {
+      this.externalIncludeDirs.add(externalIncludeDir);
+      return this;
+    }
+
+    /**
+     * Mark specified include directories as external, coming from an external workspace. These can
+     * be added with "-isystem" (GCC) or --system-header-prefix (Clang) to suppress warnings coming
+     * from external files.
+     */
+    public Builder addExternalIncludeDirs(Iterable<PathFragment> externalIncludeDirs) {
+      this.externalIncludeDirs.addAll(externalIncludeDirs);
       return this;
     }
 
@@ -1023,6 +1059,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               quoteIncludeDirs.getMergedResult(),
               systemIncludeDirs.getMergedResult(),
               frameworkIncludeDirs.getMergedResult(),
+              externalIncludeDirs.getMergedResult(),
               defines.getMergedResult(),
               ImmutableList.copyOf(localDefines)),
           constructedPrereq,
