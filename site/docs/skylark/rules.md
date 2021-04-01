@@ -489,9 +489,10 @@ on the rule context, [`ctx.runfiles`](lib/ctx.html#runfiles) and passed to the
 
 Some rules specify attributes, generally named
 [`data`](../be/common-definitions.html#common.data), whose outputs are added to
-a targets' runfiles. Runfiles should also be merged in from any targets which
-provide runtime dependencies (including `deps` and `data`) or source files
-(which might include `filegroup` targets with associated `data`):
+a targets' runfiles. Runfiles should also be merged in from `data`, as well as
+from any attributes which might provide code for eventual execution, generally
+`srcs` (which might contain `filegroup` targets with associated `data`) and
+`deps`.
 
 ```python
 def _example_library_impl(ctx):
