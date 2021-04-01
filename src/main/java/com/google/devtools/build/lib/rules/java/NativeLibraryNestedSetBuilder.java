@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 
 /** A builder that helps construct nested sets of native libraries. */
@@ -53,9 +53,9 @@ public final class NativeLibraryNestedSetBuilder {
       return this;
     }
 
-    CcNativeLibraryProvider ccProvider = dep.get(CcNativeLibraryProvider.PROVIDER);
-    if (ccProvider != null) {
-      builder.addTransitive(ccProvider.getTransitiveCcNativeLibraries());
+    CcInfo ccProvider = dep.get(CcInfo.PROVIDER);
+    if (ccProvider != null && ccProvider.getCcNativeLibraryInfo() != null) {
+      builder.addTransitive(ccProvider.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
       return this;
     }
 
@@ -73,9 +73,9 @@ public final class NativeLibraryNestedSetBuilder {
 
   /** Include native Java libraries of a specified target into the nested set. */
   private void addCcTarget(TransitiveInfoCollection dep) {
-    CcNativeLibraryProvider provider = dep.get(CcNativeLibraryProvider.PROVIDER);
-    if (provider != null) {
-      builder.addTransitive(provider.getTransitiveCcNativeLibraries());
+    CcInfo ccProvider = dep.get(CcInfo.PROVIDER);
+    if (ccProvider != null && ccProvider.getCcNativeLibraryInfo() != null) {
+      builder.addTransitive(ccProvider.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
     }
   }
 }

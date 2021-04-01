@@ -866,16 +866,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " \"<key>=<value>\" as an argument.")
   public List<Map.Entry<String, String>> commandLineFlagAliases;
 
-  @Option(
-      name = "experimental_send_archived_tree_artifact_inputs",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      defaultValue = "false",
-      help =
-          "Send input tree artifacts as a single archived file rather than sending each file in the"
-              + " artifact as a separate input.")
-  public boolean sendArchivedTreeArtifactInputs;
-
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -922,7 +912,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.enableAggregatingMiddleman = enableAggregatingMiddleman;
-    host.sendArchivedTreeArtifactInputs = sendArchivedTreeArtifactInputs;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

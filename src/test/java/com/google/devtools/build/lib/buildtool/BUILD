@@ -184,11 +184,28 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "UnusedInputsFailureIntegrationTest",
+    srcs = ["UnusedInputsFailureIntegrationTest.java"],
+    tags = ["manual"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 
@@ -568,6 +585,7 @@ java_test(
 java_test(
     name = "CustomRealFilesystemBuildIntegrationTest",
     srcs = ["CustomRealFilesystemBuildIntegrationTest.java"],
+    shard_count = 4,
     tags = ["manual"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -586,6 +604,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 

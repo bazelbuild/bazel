@@ -45,6 +45,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.TransitionResolver;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -53,6 +56,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -505,11 +510,22 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       throw new AssertionError(e);
     }
     try {
+      // Need to emulate the activities of the top-level trimming transition since not going
+      // through sufficiently normal evaluation channels.
+      Target target = skyframeExecutor.getPackageManager().getTarget(reporter, parsedLabel);
+      ConfigurationTransition transition =
+          TransitionResolver.evaluateTransition(
+              configuration,
+              NoTransition.INSTANCE,
+              target,
+              ruleClassProvider.getTrimmingTransitionFactory());
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-          reporter, parsedLabel, configuration);
+          reporter, parsedLabel, configuration, transition);
     } catch (StarlarkTransition.TransitionException
         | InvalidConfigurationException
-        | InterruptedException e) {
+        | InterruptedException
+        | NoSuchPackageException
+        | NoSuchTargetException e) {
       throw new AssertionError(e);
     }
   }

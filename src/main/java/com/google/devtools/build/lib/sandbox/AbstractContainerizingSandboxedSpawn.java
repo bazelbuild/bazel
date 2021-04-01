@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -25,12 +25,10 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -117,25 +115,19 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     knownDirectories.add(sandboxExecRoot);
     knownDirectories.add(sandboxExecRoot.getParentDirectory());
 
+    Iterable<PathFragment> files =
+        Iterables.concat(
+            inputs.getFiles().keySet(), inputs.getSymlinks().keySet(), outputs.files());
     for (PathFragment path :
-        (Iterable<PathFragment>)
-            () ->
-                Stream.concat(
-                        ImmutableList.of(
-                                inputs.getFiles().keySet(),
-                                inputs.getSymlinks().keySet(),
-                                outputs.files())
-                            .stream()
-                            .flatMap(Collection::stream)
-                            .map(PathFragment::getParentDirectory),
-                        outputs.dirs().stream())
-                    .iterator()) {
-      Preconditions.checkArgument(!path.isAbsolute());
-      if (path.segmentCount() > 1) {
+        Iterables.concat(
+            Iterables.transform(files, PathFragment::getParentDirectory), outputs.dirs())) {
+      Preconditions.checkArgument(!path.isAbsolute(), path);
+      if (path.containsUplevelReferences() && path.isMultiSegment()) {
         // Allow a single up-level reference to allow inputs from the siblings of the main
-        // repository in the sandbox execution root.
+        // repository in the sandbox execution root, but forbid multiple up-level references.
+        // PathFragment is normalized, so up-level references are guaranteed to be at the beginning.
         Preconditions.checkArgument(
-            !path.subFragment(1).containsUplevelReferences(),
+            !PathFragment.containsUplevelReferences(path.getSegment(1)),
             "%s escapes the sandbox exec root.",
             path);
       }

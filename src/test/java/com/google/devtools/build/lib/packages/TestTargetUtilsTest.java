@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -166,19 +166,23 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
   }
 
-  private static final Function<Target, Label> TO_LABEL =
-      new Function<Target, Label>() {
-        @Override
-        public Label apply(Target input) {
-          return input.getLabel();
-        }
-      };
+  @Test
+  public void testSortTagsBySenseSeparatesTagsNaively() {
+    // Contrived, but intentional.
+    Pair<Collection<String>, Collection<String>> result =
+        TestTargetUtils.sortTagsBySense(
+            ImmutableList.of("tag1", "tag2", "tag3", "-tag1", "+tag2", "-tag3"));
+
+    assertThat(result.first).containsExactly("tag1", "tag2", "tag3");
+    assertThat(result.second).containsExactly("tag1", "tag3");
+  }
 
   private void assertExpandedSuitesSkyframe(Iterable<Target> expected, Collection<Target> suites)
       throws Exception {
     ImmutableSet<Label> expectedLabels =
-        ImmutableSet.copyOf(Iterables.transform(expected, TO_LABEL));
-    ImmutableSet<Label> suiteLabels = ImmutableSet.copyOf(Iterables.transform(suites, TO_LABEL));
+        ImmutableSet.copyOf(Iterables.transform(expected, Target::getLabel));
+    ImmutableSet<Label> suiteLabels =
+        ImmutableSet.copyOf(Iterables.transform(suites, Target::getLabel));
     SkyKey key = TestsForTargetPatternValue.key(suiteLabels);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()

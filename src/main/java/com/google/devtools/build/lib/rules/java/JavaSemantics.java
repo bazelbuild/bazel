@@ -437,8 +437,7 @@ public interface JavaSemantics {
       throws InterruptedException;
 
   /** Translates XMB messages to translations artifact suitable for Java targets. */
-  ImmutableList<Artifact> translate(
-      RuleContext ruleContext, JavaConfiguration javaConfig, List<Artifact> messages);
+  ImmutableList<Artifact> translate(RuleContext ruleContext, List<Artifact> messages);
 
   /**
    * Get the launcher artifact for a java binary, creating the necessary actions for it.

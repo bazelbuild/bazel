@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCa
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -82,5 +84,35 @@ public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
     addOptions("--jobs=2");
 
     buildTarget("//test:d");
+  }
+
+  /** Tests that bad symlinks for inputs are properly handled. */
+  @Test
+  public void testCircularSymlinkMidLevel() throws Exception {
+    Path fooBuildFile =
+        write(
+            "foo/BUILD",
+            "sh_binary(name = 'foo', srcs = ['foo.sh'])",
+            "genrule(name = 'top', srcs = [':foo'], outs = ['out'], cmd = 'touch $@')");
+    Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
+    fooShFile.createSymbolicLink(PathFragment.create("foo.sh"));
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
+    events.assertContainsError(
+        "Executing genrule //foo:top failed: error reading file '//foo:foo.sh': Symlink cycle");
+  }
+
+  @Test
+  public void testDanglingSymlinkMidLevel() throws Exception {
+    Path fooBuildFile =
+        write(
+            "foo/BUILD",
+            "sh_binary(name = 'foo', srcs = ['foo.sh'])",
+            "genrule(name = 'top', srcs = [':foo'], outs = ['out'], cmd = 'touch $@')");
+    Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
+    fooShFile.createSymbolicLink(PathFragment.create("doesnotexist"));
+
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
+    events.assertContainsError("Symlinking //foo:foo failed: missing input file '//foo:foo.sh'");
   }
 }

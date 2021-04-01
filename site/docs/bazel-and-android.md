@@ -16,7 +16,7 @@ The following resources will help you work with Bazel on Android projects:
 *  [Tutorial: Building an Android app](tutorial/android-app.html). This tutorial
    is a good place to start learning about Bazel commands and concepts, and how
    to build Android apps with Bazel.
-*  [Codelab: Building Android Apps with Bazel](https://codelabs.developers.google.com/codelabs/bazel-android-intro/index.html).
+*  [Codelab: Building Android Apps with Bazel](https://developer.android.com/codelabs/bazel-android-intro#0).
    This codelab explains how to build Android apps with Bazel.
 
 ## Features

@@ -1012,15 +1012,14 @@ public class CppHelper {
         && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 
-  public static CcNativeLibraryProvider collectNativeCcLibraries(
+  public static CcNativeLibraryInfo collectNativeCcLibraries(
       List<? extends TransitiveInfoCollection> deps, List<LibraryToLink> libraries) {
     NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.linkOrder();
     result.addAll(libraries);
-    for (CcNativeLibraryProvider dep :
-        AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.PROVIDER)) {
-      result.addTransitive(dep.getTransitiveCcNativeLibraries());
+    for (CcInfo dep : AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)) {
+      result.addTransitive(dep.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
     }
-    return new CcNativeLibraryProvider(result.build());
+    return new CcNativeLibraryInfo(result.build());
   }
 
   static boolean useToolchainResolution(RuleContext ruleContext) {

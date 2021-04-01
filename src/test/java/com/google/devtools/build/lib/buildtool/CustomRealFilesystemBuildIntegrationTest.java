@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,14 +49,13 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Integration tests with a custom filesystem layer, for faking things like IOExceptions, on top of
  * the real unix filesystem (so we can execute actions).
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTestCase {
 
   private CustomRealFilesystem customFileSystem = null;
@@ -111,17 +112,80 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    */
   @Test
   public void testIOException_nonMandatoryInputs() throws Exception {
-    Path fooBuildFile =
-        write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
+    write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
-    Path fooHFile = fooBuildFile.getParentDirectory().getRelative("foo.h");
-    writeAbsolute(fooHFile, "//thisisacomment");
+    Path fooHFile = write("foo/foo.h", "//thisisacomment");
     customFileSystem.alwaysError(fooHFile);
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
     events.assertContainsError(
         "foo/BUILD:1:11: Compiling foo/foo.cc failed: error reading file 'foo/foo.h': nope");
+  }
+
+  @Test
+  public void incrementalNonMandatoryInputIOException(
+      @TestParameter boolean keepGoing, @TestParameter({"0", "1"}) int nestedSetOnSkyframe)
+      throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
+    write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
+    write("foo/foo.cc", "#include \"foo/foo.h\"");
+    Path fooHFile = write("foo/foo.h", "//thisisacomment");
+    buildTarget("//foo");
+    write("foo/foo.cc", "//no include anymore");
+    customFileSystem.alwaysError(fooHFile);
+    if (keepGoing) {
+      buildTarget("//foo");
+    } else {
+      // TODO(b/166268889): fix this: this really crashes, not just a bug report!
+      assertThrows(RuntimeException.class, () -> buildTarget("//foo"));
+    }
+  }
+
+  @Test
+  public void unusedInputIOExceptionIncremental(@TestParameter boolean keepGoing) throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    write(
+        "foo/pruning.bzl",
+        "def _impl(ctx):",
+        "  inputs = ctx.attr.inputs.files",
+        "  output = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  unused_file = ctx.actions.declare_file(ctx.label.name + '.unused')",
+        "  ctx.actions.run(",
+        "    inputs = inputs,",
+        "    outputs = [output, unused_file],",
+        "    arguments = [output.path, unused_file.path] + [f.path for f in inputs.to_list()],",
+        "    executable = ctx.executable.executable,",
+        "    unused_inputs_list = unused_file,",
+        "  )",
+        "  return DefaultInfo(files = depset([output]))",
+        "",
+        "build_rule = rule(",
+        "  attrs = {",
+        "    'inputs': attr.label(allow_files = True),",
+        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "  },",
+        "  implementation = _impl,",
+        ")");
+    Path unusedSh =
+        write("foo/all_unused.sh", "touch $1", "shift", "unused=$1", "shift", "echo $@ > $unused");
+    unusedSh.setExecutable(true);
+    write(
+        "foo/BUILD",
+        "load('//foo:pruning.bzl', 'build_rule')",
+        "build_rule(name = 'prune', inputs = ':unused.txt', executable = ':all_unused.sh')");
+    Path unusedPath = write("foo/unused.txt");
+    buildTarget("//foo:prune");
+    customFileSystem.alwaysError(unusedPath);
+    if (keepGoing) {
+      buildTarget("//foo:prune");
+    } else {
+      // TODO(b/166268889): fix.
+      RuntimeException e = assertThrows(RuntimeException.class, () -> buildTarget("//foo:prune"));
+      assertThat(e).hasCauseThat().isInstanceOf(IOException.class);
+      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("nope");
+    }
   }
 
   /** Tests that IOExceptions encountered when not all discovered deps are done are handled. */

@@ -239,13 +239,13 @@ DIST_DEPS = {
         ],
     },
     "desugar_jdk_libs": {
-        # Commit b102111a91ee5910e680bc9e32146da3e081055e of 2020-08-01
-        "archive": "b102111a91ee5910e680bc9e32146da3e081055e.zip",
-        "sha256": "2a043b861779ad382a75a6e3705c00a8168d433db07d09a883ae85912aa5009e",
-        "strip_prefix": "desugar_jdk_libs-b102111a91ee5910e680bc9e32146da3e081055e",
+        # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
+        "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
+        "sha256": "299452e6f4a4981b2e6d22357f7332713382a63e4c137f5fd6b89579f6d610cb",
+        "strip_prefix": "desugar_jdk_libs-5847d6a06302136d95a14b4cbd4b55a9c9f1436e",
         "urls": [
-            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
-            "https://github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
+            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
+            "https://github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
         ],
         "used_in": [
             "additional_distfiles",
