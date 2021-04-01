@@ -287,13 +287,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   public void samePkgDirectRdeps(
       Iterable<Target> from, QueryExpression caller, Callback<Target> callback)
       throws InterruptedException, QueryException {
-    Set<Target> targetsToPreload = new HashSet<>();
-    for (Target t : from) {
-      targetsToPreload.addAll(getSiblingTargetsInPackage(t));
-    }
-    try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
-      preloadTransitiveClosure(targetsToPreload, /*maxDepth=*/ 1);
-    }
     try {
       callback.process(
           new PathLabelVisitor(targetProvider, dependencyFilter)
