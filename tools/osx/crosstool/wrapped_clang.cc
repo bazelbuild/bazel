@@ -405,8 +405,13 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  std::vector<std::string> dsymutil_args = {
-      "/usr/bin/xcrun", "dsymutil", linked_binary, "-o", dsym_path, "--flat"};
+  std::vector<std::string> dsymutil_args = {"/usr/bin/xcrun",
+                                            "dsymutil",
+                                            linked_binary,
+                                            "-o",
+                                            dsym_path,
+                                            "--flat",
+                                            "--no-swiftmodule-timestamp"};
   RunSubProcess(dsymutil_args);
   return 0;
 }
