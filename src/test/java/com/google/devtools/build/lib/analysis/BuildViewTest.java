@@ -588,17 +588,6 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --output directory name=foo");
   }
 
-  @Test
-  public void testFileTranslations() throws Exception {
-    scratch.file("foo/file");
-    scratch.file("foo/BUILD",
-        "exports_files(['file'])");
-    useConfiguration("--message_translations=//foo:file");
-    scratch.file("bar/BUILD",
-        "sh_library(name = 'bar')");
-    update("//bar");
-  }
-
   // Regression test: "output_filter broken (but in a different way)"
   @Test
   public void testOutputFilterSeeWarning() throws Exception {
