@@ -130,8 +130,8 @@ pkg_tar(
     remap_paths = {
         "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.
-        "../googleapis": "third_party/googleapis",
-        "../remoteapis": "third_party/remoteapis",
+        "external/googleapis": "third_party/googleapis",
+        "external/remoteapis": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
