@@ -72,18 +72,20 @@ describes the output formats <code>bazel query</code> supports.
         of characters drawn from the alphabet characters <code>A-Za-z</code>,
         the numerals <code>0-9</code>, and the special characters <code>*/@.-_:$~</code>
         (asterisk, forward slash, at, period, hyphen, underscore, colon, dollar sign, tilde).
-        However, unquoted words may not start with a hyphen <code>-</code> or asterisk
-        <code>*</code> even though relative <a href="build-ref.html#name">target names</a> may
-        start with those characters.
       </p>
       <p>
-        Unquoted words also may not include the characters plus sign <code>+</code> or equals sign
-        <code>=</code>, even though those characters are permitted in target names. Thus, when
-        writing code that generates query expressions, target names should be quoted.
-      </p>
+        Exceptions:
+
+      <ul>
+        <li>An unquoted word may not start with a hyphen <code>-</code></li>.
+        <li>
+          An unquoted word may not include the characters plus sign <code>+</code> or equals sign
+          <code>=</code> at all.
+        </li>
+      </ul>
       <p>
-        Quoting <em>is</em> necessary when writing scripts that
-        construct Bazel query expressions from user-supplied values.
+        These three characters are permitted in <a href="build-ref.html#name">target names</a> but
+        they are also used for operators in the query language. For example,
       </p>
       <pre>
         //foo:bar+wiz    # WRONG: scanned as //foo:bar + wiz.
@@ -91,11 +93,25 @@ describes the output formats <code>bazel query</code> supports.
         "//foo:bar+wiz"  # OK.
         "//foo:bar=wiz"  # OK.
       </pre>
+
+      Concrete examples, for the first argument to the <a href='#kind'>kind</a> function:
+
+      <pre>
+        kind("blah rule", //a:b)  # The first argument contains a space character, so it needs to be quoted.
+        kind(.blah, //a:b)        # It's fine for the first argument to be unquoted and start with a period.
+        kind(".+blah", //a:b)     # The first argument contains a plus character, so it needs to be quoted.
+        kind(*blah, //a:b)        # It's fine for the first argument to be unquoted and start with an asterisk. (But this is a silly example, because the first argument is an invalid regex).
+      </pre>
+
       <p>
-        Note that this quoting is in addition to any quoting that may
-        be required by your shell. e.g.
+        Therefore, it is recommended to quote strings when producing query expressions programmatically from arbitrary user-supplied values.
+      <p>
+      <p>
+        Additionally, your shell may have its own quoting requirements, e.g.
       </p>
-      <pre>bazel query ' "//foo:bar=wiz" '     # single-quotes for shell, double-quotes for Bazel.</pre>
+      <pre>
+        bazel query ' "//foo:bar=wiz" '  # single-quotes for shell, double-quotes for Bazel.
+      </pre>
 
       <p>
         Keywords, when quoted, are treated as ordinary words. For example,
@@ -121,15 +137,9 @@ describes the output formats <code>bazel query</code> supports.
         "'a' + 'a'"    # OK
       </pre>
 
-     <p>This syntax doesn't need quote marks in most cases.
-        The (unusual) <code>".*test rule"</code> example needs quotes: it
-        starts with a period and contains a space.
-        Quoting <code>"cc_library"</code> is unnecessary but harmless.
-     </p>
-
     <li><b>Punctuation</b>, such as parens <code>()</code>, period
     <code>.</code> and comma <code>,</code>, etc. Words containing
-    punctuation (other than the exceptions listed above) must be quoted.
+    punctuation (other than the exceptions listed above in <b>Words</b>) must be quoted.
   </ul>
 
 <p>
