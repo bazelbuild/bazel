@@ -226,18 +226,6 @@ DIST_DEPS = {
             "additional_distfiles",
         ],
     },
-    # for Stardoc
-    "build_bazel_rules_nodejs": {
-        "archive": "rules_nodejs-2.2.2.tar.gz",
-        "sha256": "f2194102720e662dbf193546585d705e645314319554c6ce7e47d8b59f459e9c",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/releases/download/2.2.2/rules_nodejs-2.2.2.tar.gz",
-        ],
-        "used_in": [
-            "additional_distfiles",
-        ],
-    },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",

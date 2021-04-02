@@ -450,10 +450,6 @@ dist_http_archive(
     name = "io_bazel_rules_sass",
 )
 
-dist_http_archive(
-    name = "build_bazel_rules_nodejs",
-)
-
 http_archive(
     name = "java_tools_langtools_javac11",
     sha256 = "cf0814fa002ef3d794582bb086516d8c9ed0958f83f19799cdb08949019fe4c7",
