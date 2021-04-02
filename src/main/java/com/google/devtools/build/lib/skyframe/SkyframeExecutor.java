@@ -454,7 +454,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             outputArtifactsSeen,
             outputArtifactsFromActionCache,
             statusReporterRef,
-            this::getPathEntries);
+            this::getPathEntries,
+            PathFragment.create(directories.getRelativeOutputPath()));
     this.artifactFactory =
         new ArtifactFactory(
             /* execRootParent= */ directories.getExecRootBase(),

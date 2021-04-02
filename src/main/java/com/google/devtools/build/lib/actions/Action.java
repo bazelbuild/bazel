@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -87,7 +88,11 @@ public interface Action extends ActionExecutionMetadata {
    * @throws IOException if there is an error deleting the outputs.
    * @throws InterruptedException if the execution is interrupted
    */
-  void prepare(Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+  void prepare(
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
       throws IOException, InterruptedException;
 
   /**

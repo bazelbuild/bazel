@@ -519,9 +519,13 @@ public class TestRunnerAction extends AbstractAction
    */
   @Override
   protected void deleteOutputs(
-      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
       throws IOException, InterruptedException {
-    super.deleteOutputs(execRoot, pathResolver, bulkDeleter);
+    super.deleteOutputs(
+        execRoot, pathResolver, bulkDeleter, outputPrefixForArchivedArtifactsCleanup);
 
     // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
     // shard count.

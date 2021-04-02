@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -161,6 +162,16 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         runfilesSupplier,
         outputs,
         env);
+    if (outputs.stream().anyMatch(Artifact::isTreeArtifact)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Unexpected tree artifact output(s): [%s] in JavaCompileAction: %s",
+              outputs.stream()
+                  .filter(Artifact::isTreeArtifact)
+                  .map(Artifact::getExecPathString)
+                  .collect(joining(",")),
+              this));
+    }
     this.compilationType = compilationType;
     // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
     // mode is enabled or not. Investigate whether we can store just that.
@@ -630,7 +641,9 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
           deleteOutputs(
               actionExecutionContext.getExecRoot(),
               actionExecutionContext.getPathResolver(),
-              /*bulkDeleter=*/ null);
+              /*bulkDeleter=*/ null,
+              // We don't create any tree artifacts anyway.
+              /*outputPrefixForArchivedArtifactsCleanup=*/ null);
         } catch (IOException e) {
           throw new EnvironmentalExecException(
                   e,
