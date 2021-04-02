@@ -408,7 +408,7 @@ message Execution {
     ACTION_INPUT_READ_IO_EXCEPTION = 19 [(metadata) = { exit_code: 36 }];
     ACTION_NOT_UP_TO_DATE = 20 [(metadata) = { exit_code: 1 }];
     PSEUDO_ACTION_EXECUTION_PROHIBITED = 21 [(metadata) = { exit_code: 1 }];
-    DISCOVERED_INPUT_DOES_NOT_EXIST = 22 [(metadata) = { exit_code: 1 }];
+    DISCOVERED_INPUT_DOES_NOT_EXIST = 22 [(metadata) = { exit_code: 36 }];
     ACTION_OUTPUTS_DELETION_FAILURE = 23 [(metadata) = { exit_code: 1 }];
     ACTION_OUTPUTS_NOT_CREATED = 24 [(metadata) = { exit_code: 1 }];
     ACTION_FINALIZATION_FAILURE = 25 [(metadata) = { exit_code: 1 }];

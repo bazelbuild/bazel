@@ -14,15 +14,17 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -137,7 +139,15 @@ public class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase
     } else {
       // TODO(b/159596514): fix.
       RuntimeException e = assertThrows(RuntimeException.class, () -> buildTarget("//foo:prune"));
-      assertThat(e).hasCauseThat().isInstanceOf(IOException.class);
+      assertThat(e).hasCauseThat().isInstanceOf(DetailedException.class);
+      assertThat(((DetailedException) e.getCause()).getDetailedExitCode().getFailureDetail())
+          .comparingExpectedFieldsOnly()
+          .isEqualTo(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setExecution(
+                      FailureDetails.Execution.newBuilder()
+                          .setCode(FailureDetails.Execution.Code.SOURCE_INPUT_IO_EXCEPTION))
+                  .build());
     }
   }
 

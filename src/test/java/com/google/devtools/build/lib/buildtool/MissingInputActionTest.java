@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
@@ -25,14 +27,17 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests related to "missing input file" errors. */
 @TestSpec(size = Suite.MEDIUM_TESTS)
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
   @Override
   protected BlazeModule getBuildInfoModule() {
@@ -144,5 +149,32 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
     events.assertContainsError(expected);
     events.assertContainsEventWithFrequency(expected, 1);
     events.assertContainsError(label);
+  }
+
+  @Test
+  public void allErrorsAggregated(@TestParameter({"0", "1"}) int nestedSetOnSkyframe)
+      throws Exception {
+    addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
+    write(
+        "foo/BUILD",
+        "genrule(name = 'foo', srcs = [':in', ':genin'], outs = ['out'], cmd = 'touch $@')",
+        "genrule(name = 'gen', outs = ['genin'], cmd = 'false')");
+    AtomicReference<TargetCompleteEvent> targetCompleteEventRef = new AtomicReference<>();
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          @SuppressWarnings("unused")
+          @Subscribe
+          public void accept(TargetCompleteEvent event) {
+            targetCompleteEventRef.set(event);
+          }
+        });
+    RecordingOutErr outErr = new RecordingOutErr();
+    this.outErr = outErr;
+    addOptions("--keep_going");
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+    assertThat(outErr.errAsLatin1())
+        .contains("Executing genrule //foo:foo failed: missing input file '//foo:in'");
+    assertThat(outErr.errAsLatin1()).contains("Executing genrule //foo:gen failed");
+    assertThat(targetCompleteEventRef.get().getRootCauses().toList()).hasSize(2);
   }
 }

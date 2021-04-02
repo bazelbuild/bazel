@@ -780,6 +780,7 @@ java_library(
         ":action_template_expansion_value",
         ":aggregating_artifact_value",
         ":coverage_report_value",
+        ":detailed_exceptions",
         ":metadata_consumer_for_metrics",
         ":recursive_filesystem_traversal",
         ":runfiles_artifact_value",
@@ -809,6 +810,7 @@ java_library(
     name = "artifact_nested_set_function",
     srcs = ["ArtifactNestedSetFunction.java"],
     deps = [
+        ":artifact_function",
         ":artifact_nested_set_key",
         ":artifact_nested_set_value",
         "//src/main/java/com/google/devtools/build/lib/actions",

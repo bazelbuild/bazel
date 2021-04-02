@@ -21,9 +21,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -56,14 +57,14 @@ import org.junit.runner.RunWith;
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(TestParameterInjector.class)
-public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTestCase {
+public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegrationTestCase {
 
   private CustomRealFilesystem customFileSystem = null;
 
   @Override
   protected FileSystem createFileSystem() {
     if (customFileSystem == null) {
-      customFileSystem = new CustomRealFilesystem();
+      customFileSystem = new CustomRealFilesystem(getDigestHashFunction());
     }
     return customFileSystem;
   }
@@ -112,13 +113,34 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    */
   @Test
   public void testIOException_nonMandatoryInputs() throws Exception {
+    addOptions("--features=cc_include_scanning");
     write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
     Path fooHFile = write("foo/foo.h", "//thisisacomment");
     customFileSystem.alwaysError(fooHFile);
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: include scanning: Include scanning"
+            + " IOException: nope");
+  }
+
+  @Test
+  public void ioExceptionInSkyframeOptionalInput(@TestParameter boolean keepGoing)
+      throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    addOptions("--features=cc_include_scanning");
+    write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
+    Path ccFile = write("foo/foo.cc", "#include \"foo/foo.h\"");
+    // Making the destination a symlink keeps the include scanner from populating the syscalls cache
+    // before Skyframe gets a chance to stat the bad file.
+    ccFile.getParentDirectory().getChild("foo.h").createSymbolicLink(PathFragment.create("bad.h"));
+    Path badFile = write("foo/bad.h", "//ok contents");
+    customFileSystem.alwaysError(badFile);
+
+    BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     events.assertContainsError(
         "foo/BUILD:1:11: Compiling foo/foo.cc failed: error reading file 'foo/foo.h': nope");
   }
@@ -127,6 +149,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
   public void incrementalNonMandatoryInputIOException(
       @TestParameter boolean keepGoing, @TestParameter({"0", "1"}) int nestedSetOnSkyframe)
       throws Exception {
+    addOptions("--features=cc_include_scanning");
     addOptions("--keep_going=" + keepGoing);
     addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
     write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
@@ -183,14 +206,26 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     } else {
       // TODO(b/166268889): fix.
       RuntimeException e = assertThrows(RuntimeException.class, () -> buildTarget("//foo:prune"));
-      assertThat(e).hasCauseThat().isInstanceOf(IOException.class);
-      assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("nope");
+      assertThat(e).hasCauseThat().isInstanceOf(DetailedException.class);
+      assertThat(e)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("error reading file '//foo:unused.txt': nope");
+      assertThat(((DetailedException) e.getCause()).getDetailedExitCode().getFailureDetail())
+          .comparingExpectedFieldsOnly()
+          .isEqualTo(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setExecution(
+                      FailureDetails.Execution.newBuilder()
+                          .setCode(FailureDetails.Execution.Code.SOURCE_INPUT_IO_EXCEPTION))
+                  .build());
     }
   }
 
   /** Tests that IOExceptions encountered when not all discovered deps are done are handled. */
   @Test
   public void testIOException_missingNonMandatoryInput() throws Exception {
+    addOptions("--features=cc_include_scanning");
     Path fooBuildFile =
         write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/error.h\"", "#include \"foo/other.h\"");
@@ -219,9 +254,10 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
                 }));
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     events.assertContainsError(
-        "foo/BUILD:1:11: Compiling foo/foo.cc failed: error reading file 'foo/error.h': nope");
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: include scanning: Include scanning"
+            + " IOException: nope");
   }
 
   /**
@@ -230,6 +266,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    */
   @Test
   public void testIOException_nonMandatoryGeneratedInputs() throws Exception {
+    addOptions("--features=cc_include_scanning");
     write(
         "bar/BUILD",
         "cc_library(",
@@ -279,6 +316,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
 
   @Test
   public void ioExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    addOptions("--features=cc_include_scanning");
     write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
     write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
     Path header = write("hello/subdir/undeclared.h");
@@ -308,6 +346,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
 
   @Test
   public void inconsistentExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    addOptions("--features=cc_include_scanning");
     write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
     write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
     write("hello/subdir/undeclared.h");
@@ -515,8 +554,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     private final Map<PathFragment, Integer> statBadPaths = new HashMap<>();
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
-    private CustomRealFilesystem() {
-      super(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    private CustomRealFilesystem(DigestHashFunction digestHashFunction) {
+      super(digestHashFunction, /*hashAttributeName=*/ "");
     }
 
     void alwaysError(Path path) {

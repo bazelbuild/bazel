@@ -43,7 +43,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceFileInErrorArtifactValue;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -165,9 +166,11 @@ public final class CompletionFunction<
 
     // Avoid iterating over nested set twice.
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    Map<SkyKey, ValueOrException2<ActionExecutionException, IOException>> inputDeps =
+    Map<SkyKey, ValueOrException2<ActionExecutionException, SourceArtifactException>> inputDeps =
         env.getValuesOrThrow(
-            Artifact.keys(allArtifacts), ActionExecutionException.class, IOException.class);
+            Artifact.keys(allArtifacts),
+            ActionExecutionException.class,
+            SourceArtifactException.class);
 
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
     Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts = new HashMap<>();
@@ -184,10 +187,10 @@ public final class CompletionFunction<
       try {
         SkyValue artifactValue = inputDeps.get(Artifact.key(input)).get();
         if (artifactValue != null) {
-          if (artifactValue instanceof SourceFileInErrorArtifactValue) {
+          if (artifactValue instanceof MissingArtifactValue) {
             handleSourceFileError(
                 input,
-                (SourceFileInErrorArtifactValue) artifactValue,
+                ((MissingArtifactValue) artifactValue).getDetailedExitCode(),
                 rootCausesBuilder,
                 env,
                 value,
@@ -213,19 +216,13 @@ public final class CompletionFunction<
             || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
           firstActionExecutionException = e;
         }
-      } catch (IOException e) {
+      } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
           BugReport.sendBugReport(
               new IllegalStateException(
-                  "Unexpected IOException for generated artifact: " + input, e));
+                  "Non-source artifact had SourceArtifactException: " + input, e));
         }
-        handleSourceFileError(
-            input,
-            ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
-            rootCausesBuilder,
-            env,
-            value,
-            key);
+        handleSourceFileError(input, e.getDetailedExitCode(), rootCausesBuilder, env, value, key);
       }
     }
     expandedFilesets.putAll(topLevelFilesets);
@@ -300,7 +297,7 @@ public final class CompletionFunction<
 
   private void handleSourceFileError(
       Artifact input,
-      SourceFileInErrorArtifactValue artifactValue,
+      DetailedExitCode detailedExitCode,
       NestedSetBuilder<Cause> rootCausesBuilder,
       Environment env,
       ValueT value,
@@ -308,7 +305,7 @@ public final class CompletionFunction<
       throws InterruptedException {
     LabelCause cause =
         ActionExecutionFunction.createLabelCause(
-            input, artifactValue, key.actionLookupKey().getLabel());
+            input, detailedExitCode, key.actionLookupKey().getLabel());
     rootCausesBuilder.add(cause);
     env.getListener().handle(completor.getRootCauseError(value, key, cause, env));
     skyframeActionExecutor.recordExecutionError();
