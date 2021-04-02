@@ -203,7 +203,7 @@ DIST_DEPS = {
         "strip_prefix": "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
     },
     "rules_pkg": {
-        "archive": "rules_pkg-0.3.0.tar.gz",
+        "archive": "rules_pkg-0.4.0.tar.gz",
         "sha256": "038f1caa773a7e35b3663865ffb003169c6a71dc995e39bf4815792f385d837d",
         "urls": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.4.0/rules_pkg-0.4.0.tar.gz",
