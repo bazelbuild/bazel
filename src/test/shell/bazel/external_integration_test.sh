@@ -38,6 +38,7 @@ EOF
 
   cat > zoo/BallPit.java <<EOF
 import carnivore.Mongoose;
+
 public class BallPit {
     public static void main(String args[]) {
         Mongoose.frolic();
@@ -325,6 +326,7 @@ EOF
 
   cat > zoo/BallPit.java <<EOF
 import carnivore.Mongoose;
+
 public class BallPit {
     public static void main(String args[]) {
         Mongoose.frolic();
@@ -397,6 +399,7 @@ sh_binary(
     srcs = ["test.sh"],
     data = ["@toto//file"],
 )
+
 genrule(
   name = "test_sh",
   outs = ["test.sh"],
@@ -454,6 +457,7 @@ sh_binary(
     srcs = ["test.sh"],
     data = ["@toto//file"],
 )
+
 genrule(
   name = "test_sh",
   outs = ["test.sh"],
@@ -906,7 +910,7 @@ http_archive(
 )
 EOF
   bazel build @repo//... &> $TEST_log && fail "Expected to fail"
-  expect_log "[Ii]nvalid SHA-256 checksum. The correct checksum is $(sha256sum repo.zip)."
+  expect_log "[Ii]nvalid SHA256 checksum a random string. The correct checksum is $(sha256sum repo.zip)."
   shutdown_server
 }
 
@@ -1053,6 +1057,7 @@ function test_failing_fetch_with_keep_going() {
   create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
+
 cc_binary(
     name = "hello-world",
     srcs = ["hello-world.cc"],
@@ -1504,11 +1509,13 @@ EOF
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//:rule.bzl", "probe")
+
 http_archive(
   name = "ext",
   url = "file://${WRKDIR}/ext.zip",
   strip_prefix="ext",
 )
+
 probe(
   name = "probe",
   sha256 = "${sha256}",
@@ -1540,6 +1547,7 @@ def _rule_impl(ctx):
       "genrule(name='ext', outs = ['ext.txt'], cmd = 'echo no cache hit > $@', "
       + "visibility = ['//visibility:public'],)" ,
     )
+
 probe = repository_rule(
   implementation = _rule_impl,
   attrs = {"sha256" : attr.string()},
@@ -1737,6 +1745,7 @@ def _impl(ctx):
     "BUILD",
     "exports_files(['foo'], visibility=['//visibility:public'])",
   )
+
 ext_file = repository_rule(
   implementation = _impl,
   attrs = { "urls" : attr.string_list(), "sha256" : attr.string() },
@@ -1927,6 +1936,7 @@ genrule(
   outs = ["local.txt"],
   cmd = "cp $< $@",
 )
+
 genrule(
   name = "unrelated",
   outs = ["unrelated.txt"],
@@ -1992,6 +2002,7 @@ def _rule_impl(ctx):
   ctx.report_progress("Actual files")
   ctx.file("data", "Hello world")
   ctx.file("BUILD", "exports_files(['data'])")
+
 with_progress = repository_rule(
   implementation = _rule_impl,
   attrs = {},
@@ -2223,12 +2234,14 @@ repos()
 EOF
   cat > repos.bzl <<"EOF"
 load("//:foo.bzl", "foo_repos")
+
 def repos():
   # ..forgot to add the repository bar
   foo_repos()
 EOF
   cat > foo.bzl <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 def foo_repos():
     http_archive(
         name = "foo",
@@ -2284,6 +2297,7 @@ EOF
   cd main
   cat > foo.bzl <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 def foo():
   http_archive(
     name = "a",
@@ -2293,6 +2307,7 @@ def foo():
 EOF
   cat > bar.bzl <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 def bar():
   http_archive(
     name = "b",
@@ -2303,8 +2318,10 @@ EOF
   cat > WORKSPACE <<EOF
 load("//:foo.bzl", "foo")
 load("//:bar.bzl", "bar")
+
 foo()
 bar()
+
 load("@a//:notabuildfile.bzl", "x")
 EOF
   touch BUILD
@@ -2342,6 +2359,7 @@ def _impl(ctx):
   ctx.file("data.txt", ctx.attr.value)
   ctx.file("data.bzl", "value = %s" % (ctx.attr.value,))
   ctx.symlink(ctx.attr._generic_build_file, "BUILD")
+
 data_repo = repository_rule(
   implementation = _impl,
   attrs = { "value" : attr.string(),
@@ -2352,9 +2370,11 @@ EOF
   touch BUILD
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:withimplicit.bzl", "data_repo")
+
 data_repo(
   name = "data",
   value = "42")
+
 load("@data//:value.bzl", "value")
 EOF
 
@@ -2423,6 +2443,7 @@ genrule(
   srcs = ["@ext//:data"],
   outs = ["it.txt"],
 )
+
 genrule(
   name = "ws",
   cmd = "cp $< $@",
@@ -2465,6 +2486,7 @@ EOF
   touch $test_repo1/WORKSPACE
   cat > $test_repo1/a/BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
+
 java_library(
     name = "a",
     srcs = ["A.java"],
@@ -2473,6 +2495,7 @@ java_library(
 EOF
   cat > $test_repo1/a/A.java <<EOF
 package a;
+
 public class A {
     public static void main(String args[]) {
     }
@@ -2482,6 +2505,7 @@ EOF
   touch $test_repo2/WORKSPACE
   cat > $test_repo2/BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
+
 filegroup(
     name = "resource_files",
     srcs = ["resource.txt"]
