@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -117,7 +118,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
     Path fooHFile = write("foo/foo.h", "//thisisacomment");
-    customFileSystem.alwaysError(fooHFile);
+    customFileSystem.alwaysErrorAfter(fooHFile, 1);
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
@@ -233,7 +234,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     Path otherHFile = fooBuildFile.getParentDirectory().getRelative("other.h");
     writeAbsolute(errorHFile, "//thisisacomment");
     writeAbsolute(otherHFile, "//thisisacomment");
-    customFileSystem.alwaysError(errorHFile);
+    customFileSystem.alwaysErrorAfter(errorHFile, 1);
     getSkyframeExecutor()
         .getEvaluatorForTesting()
         .injectGraphTransformerForTesting(
@@ -287,17 +288,20 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     write("bar/bar.cc", "int f() { return 0; }");
     write("bar/in.txt", "int f(); // 0");
 
-    // On an incremental skyframe build, the output file from a genrule is statted 5 times:
-    //   1 time in FilesystemValueChecker
-    //   1 time in ActionCacheChecker#needToExecute
-    //   1 time in GenRuleAction#checkOutputsForDirectories
-    //   1 time in SkyframeActionExecutor#checkOutputs
-    //   1 time in SkyframeActionExecutor#setOutputsReadOnlyAndExecutable
+    // On an incremental skyframe build, the output file from a genrule is accessed 7 times via this
+    // test's instrumented methods.
+    //   FilesystemValueChecker
+    //   ActionCacheChecker#needToExecute
+    //   Path#getDigest (from ActionCacheChecker)
+    //   Internal remote execution client to check if symlink
+    //   GenRuleAction#checkOutputsForDirectories
+    //   SpawnIncludeScanner#shouldparseRemotely
+    //   IncludeParser#extractInclusions
 
-    int numStatsOnIncrementalBuildWithChange = 5;
+    int numAccessesOnIncrementalBuildWithChange = 7;
     buildTarget("//bar");
     Path barHOutputPath = Iterables.getOnlyElement(getArtifacts("//bar:bar.h")).getPath();
-    customFileSystem.alwaysErrorAfter(barHOutputPath, numStatsOnIncrementalBuildWithChange);
+    customFileSystem.alwaysErrorAfter(barHOutputPath, numAccessesOnIncrementalBuildWithChange);
     write("bar/in.txt", "int f(); // 1");
     buildTarget("//foo");
     // Check that the expected number of stats were made on the generated file (note that this
@@ -308,7 +312,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     // fail, but all the previous ones done (e.g. during the genrule execution) succeed. But for now
     // we just check the exact number of stats done.
     assertThat(customFileSystem.getNumCallsUntilError(barHOutputPath)).isEqualTo(0);
-    customFileSystem.alwaysErrorAfter(barHOutputPath, numStatsOnIncrementalBuildWithChange);
+    customFileSystem.alwaysErrorAfter(barHOutputPath, numAccessesOnIncrementalBuildWithChange);
     write("bar/in.txt", "int f(); // 2");
     buildTarget("//foo");
     assertThat(customFileSystem.getNumCallsUntilError(barHOutputPath)).isEqualTo(0);
@@ -639,6 +643,12 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     protected PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
       maybeThrowExn(path);
       return super.readSymbolicLinkUnchecked(path);
+    }
+
+    @Override
+    protected InputStream createFileInputStream(PathFragment path) throws IOException {
+      maybeThrowExn(path);
+      return super.createFileInputStream(path);
     }
 
     private static class ThrowingFileStatus implements FileStatus {
