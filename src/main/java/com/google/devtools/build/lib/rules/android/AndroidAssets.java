@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -78,7 +79,7 @@ public class AndroidAssets {
     }
 
     ImmutableList.Builder<Artifact> assets = ImmutableList.builder();
-    ImmutableList.Builder<PathFragment> assetRoots = ImmutableList.builder();
+    ImmutableSet.Builder<PathFragment> assetRoots = ImmutableSet.builder();
 
     for (TransitiveInfoCollection target : assetTargets) {
       for (Artifact file : target.getProvider(FileProvider.class).getFilesToBuild().toList()) {
@@ -99,7 +100,7 @@ public class AndroidAssets {
       }
     }
 
-    return new AndroidAssets(assets.build(), assetRoots.build(), assetsDir.getPathString());
+    return new AndroidAssets(assets.build(), assetRoots.build().asList(), assetsDir.getPathString());
   }
 
   @Nullable

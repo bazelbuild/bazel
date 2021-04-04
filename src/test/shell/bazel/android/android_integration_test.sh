@@ -464,4 +464,31 @@ EOF
   fi
 }
 
+function test_lots_of_assets {
+  write_hello_android_files
+  setup_android_sdk_support
+
+  cat > java/com/example/hello/BUILD <<'EOF'
+LONG_PATH = "a" * 200
+RANGE = [str(i) for i in range(5000)]
+
+android_binary(
+    name = "hello",
+    manifest = "AndroidManifest.xml",
+    srcs = glob(["*.java"]),
+    resource_files = glob(["res/**"]),
+    assets_dir = LONG_PATH,
+    assets = [":file" + i for i in RANGE],
+)
+
+[genrule(
+    name = "file" + i,
+    outs = [LONG_PATH + "/" + i],
+    cmd = "touch $@",
+) for i in RANGE]
+EOF
+
+  bazel build java/com/example/hello:hello || fail "build failed"
+}
+
 run_suite "Android integration tests"
