@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -140,15 +141,18 @@ public class ActionExecutionFunction implements SkyFunction {
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
+  private final BugReporter bugReporter;
   private ConcurrentMap<Action, ContinuationState> stateMap;
 
   public ActionExecutionFunction(
       SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
-      AtomicReference<TimestampGranularityMonitor> tsgm) {
+      AtomicReference<TimestampGranularityMonitor> tsgm,
+      BugReporter bugReporter) {
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.directories = directories;
     this.tsgm = tsgm;
+    this.bugReporter = bugReporter;
     // TODO(b/136156191): This stays in RAM while the SkyFunction of the action is pending, which
     // can result in a lot of memory pressure if a lot of actions are pending.
     stateMap = Maps.newConcurrentMap();
@@ -952,7 +956,7 @@ public class ActionExecutionFunction implements SkyFunction {
         retrievedMetadata = nonMandatoryDiscovered.get(Artifact.key(input)).get();
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
-          BugReport.sendBugReport(
+          bugReporter.sendBugReport(
               new IllegalStateException(
                   "Non-source artifact had SourceArtifactException" + input, e));
         }
@@ -1230,14 +1234,14 @@ public class ActionExecutionFunction implements SkyFunction {
         value = valueOrException.get();
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
-          BugReport.sendBugReport(
+          bugReporter.sendBugReport(
               new IllegalStateException(
                   "Non-source artifact had SourceArtifactException" + input, e));
         }
         if (mandatory) {
           sourceArtifactErrorCauses.add(
               createLabelCauseNullOwnerOk(
-                  input, e.getDetailedExitCode(), action.getOwner().getLabel()));
+                  input, e.getDetailedExitCode(), action.getOwner().getLabel(), bugReporter));
           continue;
         }
       } catch (ActionExecutionException e) {
@@ -1265,7 +1269,8 @@ public class ActionExecutionFunction implements SkyFunction {
               createLabelCause(
                   input,
                   ((MissingArtifactValue) value).getDetailedExitCode(),
-                  action.getOwner().getLabel()));
+                  action.getOwner().getLabel(),
+                  bugReporter));
           continue;
         } else {
           value = FileArtifactValue.MISSING_FILE_MARKER;
@@ -1428,21 +1433,27 @@ public class ActionExecutionFunction implements SkyFunction {
   }
 
   static LabelCause createLabelCause(
-      Artifact input, DetailedExitCode detailedExitCode, Label labelInCaseOfBug) {
+      Artifact input,
+      DetailedExitCode detailedExitCode,
+      Label labelInCaseOfBug,
+      BugReporter bugReporter) {
     if (input.getOwner() == null) {
-      BugReport.sendBugReport(
+      bugReporter.sendBugReport(
           new IllegalStateException(
               String.format(
                   "Mandatory artifact %s with exit code %s should have owner (%s)",
                   input, detailedExitCode, labelInCaseOfBug)));
     }
-    return createLabelCauseNullOwnerOk(input, detailedExitCode, labelInCaseOfBug);
+    return createLabelCauseNullOwnerOk(input, detailedExitCode, labelInCaseOfBug, bugReporter);
   }
 
   private static LabelCause createLabelCauseNullOwnerOk(
-      Artifact input, DetailedExitCode detailedExitCode, Label actionLabel) {
+      Artifact input,
+      DetailedExitCode detailedExitCode,
+      Label actionLabel,
+      BugReporter bugReporter) {
     if (!input.isSourceArtifact()) {
-      BugReport.sendBugReport(
+      bugReporter.sendBugReport(
           new IllegalStateException(
               String.format(
                   "Unexpected exit code %s for generated artifact %s (%s)",
@@ -1699,7 +1710,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     private void handleSourceArtifactExceptionFromSkykey(SkyKey key, SourceArtifactException e) {
       if (!(key instanceof Artifact) || !((Artifact) key).isSourceArtifact()) {
-        BugReport.sendBugReport(
+        bugReporter.sendBugReport(
             new IllegalStateException(
                 "Unexpected SourceArtifactException for key: " + key + ", " + action, e));
         missingArtifactCauses.add(
@@ -1710,13 +1721,17 @@ public class ActionExecutionFunction implements SkyFunction {
       if (isMandatory((Artifact) key)) {
         missingArtifactCauses.add(
             createLabelCauseNullOwnerOk(
-                (Artifact) key, e.getDetailedExitCode(), action.getOwner().getLabel()));
+                (Artifact) key,
+                e.getDetailedExitCode(),
+                action.getOwner().getLabel(),
+                bugReporter));
       }
     }
 
     void accumulateMissingFileArtifactValue(Artifact input, MissingArtifactValue value) {
       missingArtifactCauses.add(
-          createLabelCause(input, value.getDetailedExitCode(), action.getOwner().getLabel()));
+          createLabelCause(
+              input, value.getDetailedExitCode(), action.getOwner().getLabel(), bugReporter));
     }
 
     /** @throws ActionExecutionException if there is any accumulated exception from the inputs. */

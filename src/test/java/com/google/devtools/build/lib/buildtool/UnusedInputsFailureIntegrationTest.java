@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -45,6 +46,7 @@ public class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase
 
   @Test
   public void incrementalFailureOnUnusedInput() throws Exception {
+    RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();
     write(
         "foo/pruning.bzl",
         "def _impl(ctx):",
@@ -80,24 +82,51 @@ public class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase
         "genrule(name = 'gen', outs = ['in'], tools = [':gen_run.sh'], cmd = '$(location"
             + " :gen_run.sh) && touch $@')");
     buildTarget("//foo:foo");
+    bugReporter.assertNoExceptions();
+
     write("foo/gen_run.sh", "false");
     if (keepGoing) {
       buildTarget("//foo:foo");
+      bugReporter.assertNoExceptions();
     } else if (nestedSetOnSkyframe == 0) {
+      RecordingOutErr outErr = new RecordingOutErr();
+      this.outErr = outErr;
       // Not great, but what to do.
-      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+      BuildFailedException e =
+          assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+      assertThat(e.getDetailedExitCode().getFailureDetail())
+          .comparingExpectedFieldsOnly()
+          .isEqualTo(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setSpawn(
+                      FailureDetails.Spawn.newBuilder()
+                          .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT))
+                  .build());
+      assertThat(outErr.errAsLatin1()).contains("Executing genrule //foo:gen failed");
+      bugReporter.assertNoExceptions();
     } else {
-      // TODO(b/159596514): fix.
-      RuntimeException e = assertThrows(RuntimeException.class, () -> buildTarget("//foo:foo"));
-      assertThat(e)
-          .hasCauseThat()
-          .hasMessageThat()
-          .contains("Error evaluating artifact nested set");
+      RecordingOutErr outErr = new RecordingOutErr();
+      this.outErr = outErr;
+      BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+      assertThat(e.getDetailedExitCode().getFailureDetail())
+          .comparingExpectedFieldsOnly()
+          .isEqualTo(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setExecution(
+                      FailureDetails.Execution.newBuilder()
+                          .setCode(FailureDetails.Execution.Code.UNEXPECTED_EXCEPTION)
+                          .build())
+                  .build());
+      assertThat(outErr.errAsLatin1()).contains("Executing genrule //foo:gen failed");
+      Throwable cause = bugReporter.getFirstCause();
+      assertThat(cause).hasMessageThat().contains("Error evaluating artifact nested set");
+      assertThat(cause).hasMessageThat().contains("foo/gen_run.sh");
     }
   }
 
   @Test
   public void incrementalUnusedSymlinkCycle() throws Exception {
+    RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();
     write(
         "foo/pruning.bzl",
         "def _impl(ctx):",
@@ -132,23 +161,38 @@ public class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase
         "load('//foo:pruning.bzl', 'build_rule')",
         "build_rule(name = 'prune', inputs = ':in', executable = ':all_unused.sh')");
     buildTarget("//foo:prune");
+    bugReporter.assertNoExceptions();
+
     inPath.delete();
     inPath.createSymbolicLink(PathFragment.create("in"));
     if (keepGoing) {
       buildTarget("//foo:prune");
+      bugReporter.assertNoExceptions();
     } else {
-      // TODO(b/159596514): fix.
-      RuntimeException e = assertThrows(RuntimeException.class, () -> buildTarget("//foo:prune"));
-      assertThat(e).hasCauseThat().isInstanceOf(DetailedException.class);
-      assertThat(((DetailedException) e.getCause()).getDetailedExitCode().getFailureDetail())
-          .comparingExpectedFieldsOnly()
-          .isEqualTo(
-              FailureDetails.FailureDetail.newBuilder()
-                  .setExecution(
-                      FailureDetails.Execution.newBuilder()
-                          .setCode(FailureDetails.Execution.Code.SOURCE_INPUT_IO_EXCEPTION))
-                  .build());
+      RecordingOutErr outErr = new RecordingOutErr();
+      this.outErr = outErr;
+      BuildFailedException e =
+          assertThrows(BuildFailedException.class, () -> buildTarget("//foo:prune"));
+      assertDetailedExitCodeIsSourceIOFailure(e);
+      Throwable cause = bugReporter.getFirstCause();
+      assertDetailedExitCodeIsSourceIOFailure(cause);
+      assertThat(cause).hasMessageThat().isEqualTo("error reading file '//foo:in': Symlink cycle");
+      assertThat(outErr.errAsLatin1()).contains("error reading file '//foo:in': Symlink cycle");
     }
+  }
+
+  private static final FailureDetails.FailureDetail SOURCE_IO_FAILURE =
+      FailureDetails.FailureDetail.newBuilder()
+          .setExecution(
+              FailureDetails.Execution.newBuilder()
+                  .setCode(FailureDetails.Execution.Code.SOURCE_INPUT_IO_EXCEPTION))
+          .build();
+
+  private static void assertDetailedExitCodeIsSourceIOFailure(Throwable exception) {
+    assertThat(exception).isInstanceOf(DetailedException.class);
+    assertThat(((DetailedException) exception).getDetailedExitCode().getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(SOURCE_IO_FAILURE);
   }
 
   @Test

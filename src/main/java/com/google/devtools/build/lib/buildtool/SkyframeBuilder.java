@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -87,6 +87,7 @@ public class SkyframeBuilder implements Builder {
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
   private final TopDownActionCache topDownActionCache;
+  private final BugReporter bugReporter;
 
   @VisibleForTesting
   public SkyframeBuilder(
@@ -96,7 +97,8 @@ public class SkyframeBuilder implements Builder {
       TopDownActionCache topDownActionCache,
       ModifiedFileSet modifiedOutputFiles,
       MetadataProvider fileCache,
-      ActionInputPrefetcher actionInputPrefetcher) {
+      ActionInputPrefetcher actionInputPrefetcher,
+      BugReporter bugReporter) {
     this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
@@ -104,6 +106,7 @@ public class SkyframeBuilder implements Builder {
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.bugReporter = bugReporter;
   }
 
   @Override
@@ -257,7 +260,7 @@ public class SkyframeBuilder implements Builder {
    * <p>Throws on catastrophic failures and, if !keepGoing, on any failure.
    */
   @Nullable
-  private static DetailedExitCode processResult(
+  private DetailedExitCode processResult(
       ExtendedEventHandler eventHandler,
       EvaluationResult<?> result,
       boolean keepGoing,
@@ -270,7 +273,7 @@ public class SkyframeBuilder implements Builder {
       }
 
       if (result.getCatastrophe() != null) {
-        rethrow(result.getCatastrophe());
+        rethrow(result.getCatastrophe(), bugReporter);
       }
       if (keepGoing) {
         // If build fails and keepGoing is true, an exit code is assigned using reported errors
@@ -327,7 +330,7 @@ public class SkyframeBuilder implements Builder {
         throw new BuildFailedException(
             null, createDetailedExitCode("cycle found during execution", Code.CYCLE));
       } else {
-        rethrow(exception);
+        rethrow(exception, bugReporter);
       }
     }
 
@@ -336,7 +339,8 @@ public class SkyframeBuilder implements Builder {
 
   /** Figure out why an action's execution failed and rethrow the right kind of exception. */
   @VisibleForTesting
-  public static void rethrow(Throwable cause) throws BuildFailedException, TestExecException {
+  public static void rethrow(Throwable cause, BugReporter bugReporter)
+      throws BuildFailedException, TestExecException {
     Throwables.throwIfUnchecked(cause);
     Throwable innerCause = cause.getCause();
     if (innerCause instanceof TestExecException) {
@@ -378,7 +382,7 @@ public class SkyframeBuilder implements Builder {
     // We encountered an exception we don't think we should have encountered. This can indicate
     // an exception-processing bug in our code, such as lower level exceptions not being properly
     // handled, or in our expectations in this method.
-    BugReport.sendBugReport(
+    bugReporter.sendBugReport(
         new IllegalStateException("action terminated with unexpected exception", cause));
     String message =
         "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();

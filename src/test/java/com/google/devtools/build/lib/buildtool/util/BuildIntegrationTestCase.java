@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.buildtool.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
@@ -47,6 +49,10 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil.DummyWorkspaceStatusActionContext;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
@@ -107,11 +113,13 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
 
@@ -151,6 +159,7 @@ public abstract class BuildIntegrationTestCase {
   protected BlazeDirectories directories;
   protected MockToolsConfig mockToolsConfig;
   protected BinTools binTools;
+  private BugReporter bugReporter = BugReporter.defaultInstance();
 
   protected BlazeRuntimeWrapper runtimeWrapper;
   protected Path outputBase;
@@ -215,6 +224,35 @@ public abstract class BuildIntegrationTestCase {
           }
         };
     setupOptions();
+  }
+
+  /**
+   * Configures the server to record bug reports using the returned {@link RecordingBugReporter}.
+   *
+   * <p>The server is reinitialized so that this change is picked up.
+   */
+  protected final RecordingBugReporter recordBugReportsAndReinitialize() throws Exception {
+    RecordingBugReporter recordingBugReporter = new RecordingBugReporter();
+    setCustomBugReporterAndReinitialize(recordingBugReporter);
+    return recordingBugReporter;
+  }
+
+  /**
+   * Configures the server to record bug reports using the given {@link BugReporter}.
+   *
+   * <p>The server is reinitialized so that this change is picked up.
+   */
+  protected final void setCustomBugReporterAndReinitialize(BugReporter bugReporter)
+      throws Exception {
+    this.bugReporter = checkNotNull(bugReporter);
+    reinitializeAndPreserveOptions();
+  }
+
+  protected final void reinitializeAndPreserveOptions() throws Exception {
+    List<String> options = runtimeWrapper.getOptions();
+    createFilesAndMocks();
+    runtimeWrapper.resetOptions();
+    runtimeWrapper.addOptions(options);
   }
 
   protected void runPriorToBeforeMethods() throws Exception {
@@ -370,6 +408,7 @@ public abstract class BuildIntegrationTestCase {
     return new BlazeRuntime.Builder()
         .setFileSystem(fileSystem)
         .setProductName(TestConstants.PRODUCT_NAME)
+        .setBugReporter(bugReporter)
         .setStartupOptionsProvider(startupOptionsParser)
         .addBlazeModule(connectivityModule)
         .addBlazeModule(getNoResolvedFileModule())
@@ -817,5 +856,42 @@ public abstract class BuildIntegrationTestCase {
       }
     }
     fail("didn't find expected error: \"" + expectedError + "\"");
+  }
+
+  /** {@link BugReporter} that stores bug reports for later inspection. */
+  protected static final class RecordingBugReporter implements BugReporter {
+    @GuardedBy("this")
+    private final List<Throwable> exceptions = new ArrayList<>();
+
+    @Override
+    public synchronized void sendBugReport(
+        Throwable exception, List<String> args, String... values) {
+      exceptions.add(exception);
+    }
+
+    @Override
+    public void handleCrash(Crash crash, CrashContext ctx) {
+      // Unexpected: try to crash JVM.
+      BugReport.handleCrash(crash, ctx);
+    }
+
+    public synchronized ImmutableList<Throwable> getExceptions() {
+      return ImmutableList.copyOf(exceptions);
+    }
+
+    public synchronized Throwable getFirstCause() {
+      assertThat(exceptions).isNotEmpty();
+      Throwable first = exceptions.get(0);
+      assertThat(first).hasCauseThat().isNotNull();
+      return first.getCause();
+    }
+
+    public synchronized void assertNoExceptions() {
+      assertThat(exceptions).isEmpty();
+    }
+
+    public synchronized void clear() {
+      exceptions.clear();
+    }
   }
 }

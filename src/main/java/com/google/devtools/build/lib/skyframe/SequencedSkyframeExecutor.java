@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -173,7 +174,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      BugReporter bugReporter) {
     super(
         skyframeExecutorConsumerOnInit,
         evaluatorSupplier,
@@ -195,7 +197,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
         /*nonexistentFileReceiver=*/ null,
-        managedDirectoriesKnowledge);
+        managedDirectoriesKnowledge,
+        bugReporter);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
@@ -1050,6 +1053,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Iterable<SkyValueDirtinessChecker> customDirtinessCheckers = ImmutableList.of();
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredPackagePrefixesFunction;
+    private BugReporter bugReporter = BugReporter.defaultInstance();
 
     private Builder() {}
 
@@ -1084,7 +1088,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               externalPackageHelper,
               actionOnIOExceptionReadingBuildFile,
               defaultBuildOptions,
-              managedDirectoriesKnowledge);
+              managedDirectoriesKnowledge,
+              bugReporter);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -1116,6 +1121,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
     public Builder setIgnoredPackagePrefixesFunction(SkyFunction ignoredPackagePrefixesFunction) {
       this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
+      return this;
+    }
+
+    public Builder setBugReporter(BugReporter bugReporter) {
+      this.bugReporter = bugReporter;
       return this;
     }
 

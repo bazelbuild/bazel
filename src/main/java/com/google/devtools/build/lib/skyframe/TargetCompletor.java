@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -46,12 +47,14 @@ class TargetCompletor
   static SkyFunction targetCompletionFunction(
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
-      MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric) {
+      MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
+      BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
-        topLevelArtifactsMetric);
+        topLevelArtifactsMetric,
+        bugReporter);
   }
 
   private TargetCompletor(SkyframeActionExecutor announceTargetSummaries) {

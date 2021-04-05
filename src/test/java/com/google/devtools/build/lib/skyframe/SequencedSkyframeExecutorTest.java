@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -1590,7 +1591,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
-            ActionInputPrefetcher.NONE);
+            ActionInputPrefetcher.NONE,
+            BugReporter.defaultInstance());
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
     // Note that since ImmutableSet iterates through its elements in the order they are passed in
@@ -1727,7 +1729,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
-            ActionInputPrefetcher.NONE);
+            ActionInputPrefetcher.NONE,
+            BugReporter.defaultInstance());
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
     Set<Artifact> normalArtifacts = ImmutableSet.of(topArtifact);
@@ -1853,7 +1856,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
-            ActionInputPrefetcher.NONE);
+            ActionInputPrefetcher.NONE,
+            BugReporter.defaultInstance());
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
     BuildFailedException e =
@@ -1968,7 +1972,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
-            ActionInputPrefetcher.NONE);
+            ActionInputPrefetcher.NONE,
+            BugReporter.defaultInstance());
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
     // Note that since ImmutableSet iterates through its elements in the order they are passed in
@@ -2076,7 +2081,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
-            ActionInputPrefetcher.NONE);
+            ActionInputPrefetcher.NONE,
+            BugReporter.defaultInstance());
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
     Set<Artifact> normalArtifacts = ImmutableSet.of(succeededOutput, failedOutput);
@@ -2174,7 +2180,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
-            ActionInputPrefetcher.NONE);
+            ActionInputPrefetcher.NONE,
+            BugReporter.defaultInstance());
     Set<ConfiguredTargetKey> builtTargets = new HashSet<>();
     Set<AspectKey> builtAspects = new HashSet<>();
     Set<Artifact> normalArtifacts = ImmutableSet.of(failedOutput1, failedOutput2);
@@ -2257,7 +2264,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             null,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /*fileCache=*/ null,
-            ActionInputPrefetcher.NONE);
+            ActionInputPrefetcher.NONE,
+            BugReporter.defaultInstance());
     builder.buildArtifacts(
         reporter,
         ImmutableSet.of(topOutput),

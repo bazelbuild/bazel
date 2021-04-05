@@ -81,7 +81,8 @@ public final class WorkspaceBuilder {
             diffAwarenessFactories.build(),
             skyFunctions.build(),
             customDirtinessCheckers.build(),
-            managedDirectoriesKnowledge);
+            managedDirectoriesKnowledge,
+            runtime.getBugReporter());
     return new BlazeWorkspace(
         runtime,
         directories,

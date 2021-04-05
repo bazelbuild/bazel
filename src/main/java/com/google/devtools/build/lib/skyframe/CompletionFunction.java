@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.SuccessfulArtifactFilter;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -133,16 +133,19 @@ public final class CompletionFunction<
   private final Completor<ValueT, ResultT, KeyT, FailureT> completor;
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final FilesMetricConsumer topLevelArtifactsMetric;
+  private final BugReporter bugReporter;
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
       Completor<ValueT, ResultT, KeyT, FailureT> completor,
       SkyframeActionExecutor skyframeActionExecutor,
-      FilesMetricConsumer topLevelArtifactsMetric) {
+      FilesMetricConsumer topLevelArtifactsMetric,
+      BugReporter bugReporter) {
     this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.topLevelArtifactsMetric = topLevelArtifactsMetric;
+    this.bugReporter = bugReporter;
   }
 
   @SuppressWarnings("unchecked") // Cast to KeyT
@@ -218,7 +221,7 @@ public final class CompletionFunction<
         }
       } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
-          BugReport.sendBugReport(
+          bugReporter.sendBugReport(
               new IllegalStateException(
                   "Non-source artifact had SourceArtifactException: " + input, e));
         }
@@ -305,7 +308,7 @@ public final class CompletionFunction<
       throws InterruptedException {
     LabelCause cause =
         ActionExecutionFunction.createLabelCause(
-            input, detailedExitCode, key.actionLookupKey().getLabel());
+            input, detailedExitCode, key.actionLookupKey().getLabel(), bugReporter);
     rootCausesBuilder.add(cause);
     env.getListener().handle(completor.getRootCauseError(value, key, cause, env));
     skyframeActionExecutor.recordExecutionError();
