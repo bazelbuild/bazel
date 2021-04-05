@@ -1074,8 +1074,9 @@ public class ActionExecutionFunction implements SkyFunction {
 
   /**
    * Declare dependency on all known inputs of action. Throws exception if any are known to be
-   * missing. Some inputs may not yet be in the graph, in which case the builder should abort.
+   * missing. Some inputs may not yet be in the graph, in which case this returns {@code null}.
    */
+  @Nullable
   private CheckInputResults checkInputs(
       Environment env,
       Action action,
@@ -1097,7 +1098,8 @@ public class ActionExecutionFunction implements SkyFunction {
         mandatoryInputs,
         requestedSkyKeys,
         ActionInputMap::new,
-        CheckInputResults::new);
+        CheckInputResults::new,
+        /*allowValuesMissingEarlyReturn=*/ true);
   }
 
   /**
@@ -1117,6 +1119,10 @@ public class ActionExecutionFunction implements SkyFunction {
       Iterable<SkyKey> requestedSkyKeys,
       Collection<ActionInput> lostInputs)
       throws ActionExecutionException, InterruptedException {
+    // The rewinding strategy should be calculated with whatever information is available, instead
+    // of returning null if there are missing dependencies, so this uses false for
+    // allowValuesMissingEarlyReturn. (Lost inputs coinciding with missing dependencies is possible
+    // with, at least, action file systems and include scanning.)
     return accumulateInputs(
         env,
         action,
@@ -1129,9 +1135,15 @@ public class ActionExecutionFunction implements SkyFunction {
             expandedArtifacts,
             archivedArtifacts,
             filesetsInsideRunfiles,
-            topLevelFilesets) -> actionInputMapSink);
+            topLevelFilesets) -> actionInputMapSink,
+        /*allowValuesMissingEarlyReturn=*/ false);
   }
 
+  /**
+   * May return {@code null} if {@code allowValuesMissingEarlyReturn} and {@code
+   * env.valuesMissing()} are true and no inputs result in {@link ActionExecutionException}s.
+   */
+  @Nullable
   private <S extends ActionInputMapSink, R> R accumulateInputs(
       Environment env,
       Action action,
@@ -1145,7 +1157,8 @@ public class ActionExecutionFunction implements SkyFunction {
       ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       IntFunction<S> actionInputMapSinkFactory,
-      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
+      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
+      boolean allowValuesMissingEarlyReturn)
       throws ActionExecutionException, InterruptedException {
 
     if (evalInputsAsNestedSet(allInputs)) {
@@ -1157,7 +1170,8 @@ public class ActionExecutionFunction implements SkyFunction {
           mandatoryInputs,
           requestedSkyKeys,
           actionInputMapSinkFactory,
-          accumulateInputResultsFactory);
+          accumulateInputResultsFactory,
+          allowValuesMissingEarlyReturn);
     }
     // Only populate input data if we have the input values, otherwise they'll just go unused.
     // We still want to loop through the inputs to collect missing deps errors. During the
@@ -1322,7 +1336,8 @@ public class ActionExecutionFunction implements SkyFunction {
       ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       IntFunction<S> actionInputMapSinkFactory,
-      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
+      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
+      boolean allowValuesMissingEarlyReturn)
       throws ActionExecutionException, InterruptedException {
     ImmutableList<Artifact> allInputsList = allInputs.toList();
 
@@ -1350,7 +1365,7 @@ public class ActionExecutionFunction implements SkyFunction {
     boolean errorFree = actionExecutionFunctionExceptionHandler.accumulateAndThrowExceptions();
 
     // No exceptions from dependencies, it's now safe to check for missing values.
-    if (errorFree && env.valuesMissing()) {
+    if (allowValuesMissingEarlyReturn && errorFree && env.valuesMissing()) {
       return null;
     }
 
