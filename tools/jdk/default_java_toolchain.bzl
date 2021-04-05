@@ -22,12 +22,14 @@ JDK8_JVM_OPTS = [
 BASE_JDK9_JVM_OPTS = [
     # Allow JavaBuilder to access internal javac APIs.
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-    "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
     "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
 
     # quiet warnings from com.google.protobuf.UnsafeUtil,
@@ -234,7 +236,9 @@ def _bootclasspath_impl(ctx):
 
     args = ctx.actions.args()
     args.add("-XX:+IgnoreUnrecognizedVMOptions")
+    args.add("--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED")
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED")
+    args.add("--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
     args.add_joined(
         "-cp",
         [class_outputs[0].dirname, "%s/lib/tools.jar" % host_javabase.java_home],
