@@ -117,7 +117,7 @@ http_archive(
 **NOTE:** If the destination already contains a `BUILD` file, you can leave
 out the `build_file` attribute.
 
-Then create `gtest.BUILD`, a `BUILD` file used to compile Google Test.
+Then create `gtest.BUILD` and a empty `BUILD` in project root directory, a `BUILD` file used to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
@@ -196,7 +196,7 @@ For example, you could create a test `./test/hello-test.cc`, such as:
 
 ```cpp
 #include "gtest/gtest.h"
-#include "lib/hello-greet.h"
+#include "main/hello-greet.h"
 
 TEST(HelloTest, GetGreet) {
   EXPECT_EQ(get_greet("Bazel"), "Hello Bazel");
