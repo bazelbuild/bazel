@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -61,6 +62,7 @@ import net.starlark.java.eval.Sequence;
 @Immutable
 @ThreadSafe
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Override
   public boolean isImmutable() {
@@ -511,22 +513,33 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   /** If the action might create directories as outputs this method must be called. */
   protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
+    FileArtifactValue metadata;
     for (Artifact output : getOutputs()) {
-      Path path = actionExecutionContext.getInputPath(output);
-      String ownerString = Label.print(getOwner().getLabel());
-      if (path.isDirectory()) {
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.warn(
-                        getOwner().getLocation(),
-                        "output '"
-                            + output.prettyPrint()
-                            + "' of "
-                            + ownerString
-                            + " is a directory; dependency checking of directories is unsound")
-                    .withTag(ownerString));
+      try {
+        metadata = actionExecutionContext.getMetadataHandler().getMetadata(output);
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
+        metadata = null;
       }
+      if (metadata != null) {
+        if (!metadata.getType().isDirectory()) {
+          continue;
+        }
+      } else if (!actionExecutionContext.getInputPath(output).isDirectory()) {
+        continue;
+      }
+      String ownerString = Label.print(getOwner().getLabel());
+      actionExecutionContext
+          .getEventHandler()
+          .handle(
+              Event.warn(
+                      getOwner().getLocation(),
+                      "output '"
+                          + output.prettyPrint()
+                          + "' of "
+                          + ownerString
+                          + " is a directory; dependency checking of directories is unsound")
+                  .withTag(ownerString));
     }
   }
 

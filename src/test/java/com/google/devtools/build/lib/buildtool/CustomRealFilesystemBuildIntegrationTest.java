@@ -288,17 +288,16 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     write("bar/bar.cc", "int f() { return 0; }");
     write("bar/in.txt", "int f(); // 0");
 
-    // On an incremental skyframe build, the output file from a genrule is accessed 7 times via this
+    // On an incremental skyframe build, the output file from a genrule is accessed 6 times via this
     // test's instrumented methods.
     //   FilesystemValueChecker
     //   ActionCacheChecker#needToExecute
     //   Path#getDigest (from ActionCacheChecker)
     //   Internal remote execution client to check if symlink
-    //   GenRuleAction#checkOutputsForDirectories
     //   SpawnIncludeScanner#shouldparseRemotely
     //   IncludeParser#extractInclusions
 
-    int numAccessesOnIncrementalBuildWithChange = 7;
+    int numAccessesOnIncrementalBuildWithChange = 6;
     buildTarget("//bar");
     Path barHOutputPath = Iterables.getOnlyElement(getArtifacts("//bar:bar.h")).getPath();
     customFileSystem.alwaysErrorAfter(barHOutputPath, numAccessesOnIncrementalBuildWithChange);
