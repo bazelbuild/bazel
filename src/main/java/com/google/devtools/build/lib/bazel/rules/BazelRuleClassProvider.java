@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRu
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
+import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
@@ -342,7 +343,7 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
-          DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
+          DexArchiveAspect dexArchiveAspect = new BazelDexArchiveAspect(toolsRepository);
           builder.addNativeAspectClass(androidNeverlinkAspect);
           builder.addNativeAspectClass(dexArchiveAspect);
 

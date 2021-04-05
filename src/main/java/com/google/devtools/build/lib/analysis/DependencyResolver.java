@@ -276,6 +276,7 @@ public abstract class DependencyResolver {
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
+            config,
             outgoingLabels,
             fromRule,
             attributeMap,
@@ -300,6 +301,7 @@ public abstract class DependencyResolver {
    */
   private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
       partiallyResolveDependencies(
+          BuildConfiguration config,
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
           @Nullable ConfiguredAttributeMapper attributeMap,
@@ -384,7 +386,11 @@ public abstract class DependencyResolver {
       ImmutableList.Builder<Aspect> propagatingAspects = ImmutableList.builder();
       propagatingAspects.addAll(attribute.getAspects(fromRule));
       collectPropagatingAspects(
-          aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
+          aspects,
+          attribute.getName(),
+          config,
+          entry.getKey().getOwningAspect(),
+          propagatingAspects);
 
       Label executionPlatformLabel = null;
       if (toolchainContexts != null) {
@@ -696,9 +702,16 @@ public abstract class DependencyResolver {
   private static void collectPropagatingAspects(
       Iterable<Aspect> aspectPath,
       String attributeName,
+      BuildConfiguration config,
       @Nullable AspectClass aspectOwningAttribute,
       ImmutableList.Builder<Aspect> filteredAspectPath) {
     for (Aspect aspect : aspectPath) {
+      if (!aspect.getDefinition().propagateViaAttribute().test(config, attributeName)) {
+        // This condition is only included to support the migration to platform-based Android
+        // toolchain selection. See DexArchiveAspect for details. One that migration is complete,
+        // this logic should be removed on the principle of unnecessary complexity.
+        continue;
+      }
       if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
         // Do not propagate over the aspect's own attributes.
         continue;
