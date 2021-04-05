@@ -725,8 +725,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               deps = [':native_wrapper'],",
         "               manifest = 'AndroidManifest.xml',",
         "              )");
+    ConfiguredTarget app = getConfiguredTarget("//java/android/app:app");
     assertNativeLibrariesCopiedNotLinked(
-        getConfiguredTarget("//java/android/app:app"),
+        app,
+        getConfiguration(getDirectPrerequisite(app, "//java/android/app:native_wrapper")),
         "src java/android/app/dep.so",
         "src java/android/app/native_prebuilt.so");
   }
@@ -742,8 +744,11 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               deps = [':native'],",
         "               manifest = 'AndroidManifest.xml',",
         "              )");
+    ConfiguredTarget app = getConfiguredTarget("//java/android/app:app");
     assertNativeLibrariesCopiedNotLinked(
-        getConfiguredTarget("//java/android/app:app"), "src java/android/app/libnative.so");
+        app,
+        getConfiguration(getDirectPrerequisite(app, "//java/android/app:native")),
+        "src java/android/app/libnative.so");
   }
 
   @Test

@@ -481,9 +481,23 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(
       BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
-    Map<String, String> rootMap = new HashMap<>();
     BuildConfiguration targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
+    BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
+    return artifactsToStrings(targetConfiguration, hostConfiguration, artifacts);
+  }
+
+  /**
+   * Given a collection of Artifacts, returns a corresponding set of strings of the form "{root}
+   * {relpath}", such as "bin x/libx.a". Such strings make assertions easier to write.
+   *
+   * <p>The returned set preserves the order of the input.
+   */
+  public static Set<String> artifactsToStrings(
+      BuildConfiguration targetConfiguration,
+      BuildConfiguration hostConfiguration,
+      Iterable<? extends Artifact> artifacts) {
+    Map<String, String> rootMap = new HashMap<>();
     rootMap.put(
         targetConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin");
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
@@ -493,7 +507,6 @@ public final class AnalysisTestUtil {
         targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getRoot().toString(),
         "internal");
 
-    BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
     rootMap.put(
         hostConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin(host)");
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
