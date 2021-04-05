@@ -436,7 +436,7 @@ public class CompilationSupport {
                 ccToolchain,
                 fdoContext,
                 buildConfiguration,
-                ruleContext.getFragment(CppConfiguration.class),
+                buildConfiguration.getFragment(CppConfiguration.class),
                 ruleContext.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
@@ -488,7 +488,7 @@ public class CompilationSupport {
       resultLink.link(compilationOutputs);
     }
 
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
     Map<String, NestedSet<Artifact>> arcOutputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
             objcArcCompilationInfo.getCcCompilationOutputs(),
@@ -1221,7 +1221,7 @@ public class CompilationSupport {
                 toolchain,
                 toolchain.getFdoContext(),
                 buildConfiguration,
-                ruleContext.getFragment(CppConfiguration.class),
+                buildConfiguration.getFragment(CppConfiguration.class),
                 ruleContext.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
@@ -1415,7 +1415,7 @@ public class CompilationSupport {
             toolchain,
             toolchain.getFdoContext(),
             buildConfiguration,
-            ruleContext.getFragment(CppConfiguration.class),
+            buildConfiguration.getFragment(CppConfiguration.class),
             ruleContext.getSymbolGenerator(),
             TargetUtils.getExecutionInfo(
                 ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
