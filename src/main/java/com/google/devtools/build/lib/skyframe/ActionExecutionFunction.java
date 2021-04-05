@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -111,6 +112,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -1339,23 +1341,23 @@ public class ActionExecutionFunction implements SkyFunction {
       AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
       boolean allowValuesMissingEarlyReturn)
       throws ActionExecutionException, InterruptedException {
-    ImmutableList<Artifact> allInputsList = allInputs.toList();
-
-    // Some keys have more than 1 corresponding Artifact (e.g. actions with 2 outputs).
-    // For Artifacts whose Artifact::key isn't itself.
-    Multimap<SkyKey, Artifact> skyKeyToArtifactSet =
-        MultimapBuilder.hashKeys().hashSetValues().build();
-    allInputsList.forEach(
-        input -> {
-          SkyKey key = Artifact.key(input);
-          if (key != input) {
-            skyKeyToArtifactSet.put(key, input);
-          }
-        });
 
     ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler =
         new ActionExecutionFunctionExceptionHandler(
-            skyKeyToArtifactSet,
+            Suppliers.memoize(
+                () -> {
+                  ImmutableList<Artifact> allInputsList = allInputs.toList();
+                  Multimap<SkyKey, Artifact> skyKeyToArtifactSet =
+                      MultimapBuilder.hashKeys().hashSetValues().build();
+                  allInputsList.forEach(
+                      input -> {
+                        SkyKey key = Artifact.key(input);
+                        if (key != input) {
+                          skyKeyToArtifactSet.put(key, input);
+                        }
+                      });
+                  return skyKeyToArtifactSet;
+                }),
             inputDeps,
             action,
             mandatoryInputs,
@@ -1368,6 +1370,8 @@ public class ActionExecutionFunction implements SkyFunction {
     if (allowValuesMissingEarlyReturn && errorFree && env.valuesMissing()) {
       return null;
     }
+
+    ImmutableList<Artifact> allInputsList = allInputs.toList();
 
     // When there are no missing values or there was an error, we can start checking individual
     // files. We don't bother to optimize the error-ful case since it's rare.
@@ -1591,7 +1595,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
   /** Helper subclass for the error-handling logic for ActionExecutionFunction#accumulateInputs. */
   private final class ActionExecutionFunctionExceptionHandler {
-    private final Multimap<SkyKey, Artifact> skyKeyToDerivedArtifactSet;
+    private final Supplier<Multimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions;
     private final List<
             ValueOrException3<
                 SourceArtifactException, ActionExecutionException, ArtifactNestedSetEvalException>>
@@ -1605,7 +1609,7 @@ public class ActionExecutionFunction implements SkyFunction {
     private ActionExecutionException firstActionExecutionException;
 
     ActionExecutionFunctionExceptionHandler(
-        Multimap<SkyKey, Artifact> skyKeyToDerivedArtifactSet,
+        Supplier<Multimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions,
         List<
                 ValueOrException3<
                     SourceArtifactException,
@@ -1616,7 +1620,7 @@ public class ActionExecutionFunction implements SkyFunction {
         Set<Artifact> mandatoryInputs,
         Iterable<SkyKey> requestedSkyKeys,
         boolean valuesMissing) {
-      this.skyKeyToDerivedArtifactSet = skyKeyToDerivedArtifactSet;
+      this.skyKeyToDerivedArtifactSetForExceptions = skyKeyToDerivedArtifactSetForExceptions;
       this.inputDeps = inputDeps;
       this.action = action;
       this.mandatoryInputs = mandatoryInputs;
@@ -1688,7 +1692,7 @@ public class ActionExecutionFunction implements SkyFunction {
         handleActionExecutionExceptionPerArtifact((Artifact) key, e);
         return;
       }
-      for (Artifact input : skyKeyToDerivedArtifactSet.get(key)) {
+      for (Artifact input : skyKeyToDerivedArtifactSetForExceptions.get().get(key)) {
         handleActionExecutionExceptionPerArtifact(input, e);
       }
     }
