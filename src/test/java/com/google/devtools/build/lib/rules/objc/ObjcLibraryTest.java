@@ -605,7 +605,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithNoBitcode() throws Exception {
-    useConfiguration("--ios_multi_cpus=arm64", "--apple_bitcode=none");
+    useConfiguration("--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=none");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -623,7 +623,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
    */
   @Test
   public void testCompilationActionsWithBitcode_simulator() throws Exception {
-    useConfiguration("--ios_multi_cpus=x86_64", "--apple_bitcode=embedded");
+    useConfiguration(
+        "--apple_platform_type=ios", "--ios_multi_cpus=x86_64", "--apple_bitcode=embedded");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
