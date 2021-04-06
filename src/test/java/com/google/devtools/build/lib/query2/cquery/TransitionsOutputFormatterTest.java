@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -212,7 +213,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
-        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(universeScope,
+        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(UniverseScope.EMPTY,
             targetPatternSet);
     options.transitions = verbosity;
     // TODO(blaze-configurability): Test late-bound attributes.

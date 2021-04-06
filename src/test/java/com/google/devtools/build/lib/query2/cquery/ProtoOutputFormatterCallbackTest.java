@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -216,7 +217,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
-        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(universeScope,
+        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(UniverseScope.EMPTY,
             targetPatternSet);
 
     ProtoOutputFormatterCallback callback =

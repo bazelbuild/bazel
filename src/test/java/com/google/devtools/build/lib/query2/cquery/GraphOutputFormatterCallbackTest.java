@@ -20,6 +20,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
@@ -70,7 +71,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
-        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(universeScope,
+        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(UniverseScope.EMPTY,
             targetPatternSet);
 
     ByteArrayOutputStream output = new ByteArrayOutputStream();
