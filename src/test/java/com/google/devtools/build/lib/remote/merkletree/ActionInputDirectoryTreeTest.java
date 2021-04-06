@@ -70,9 +70,9 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        new FileNode("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), false);
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        new FileNode("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"));
+        FileNode.createExecutable("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
   }
@@ -117,19 +117,13 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(3, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        new FileNode("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"), false);
+        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        new FileNode(
-            "bar.cc",
-            execRoot.getRelative(bar.getExecPath()),
-            digestUtil.computeAsUtf8("bar"),
-            false);
+        FileNode.createExecutable(
+            "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"));
     FileNode expectedBuzzNode =
-        new FileNode(
-            "buzz.cc",
-            execRoot.getRelative(buzz.getExecPath()),
-            digestUtil.computeAsUtf8("buzz"),
-            false);
+        FileNode.createExecutable(
+            "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBarNode);
