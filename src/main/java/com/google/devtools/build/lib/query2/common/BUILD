@@ -33,6 +33,7 @@ java_library(
         "CommonQueryOptions.java",
     ],
     deps = [
+        ":universe-scope",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/aspectresolvers",
         "//src/main/java/com/google/devtools/common/options",

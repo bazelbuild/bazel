@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -169,7 +168,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               !streamResults,
               env.getSkyframeExecutor()
                   .maybeGetHardcodedUniverseScope()
-                  .orElse(getUniverseScope(queryOptions)),
+                  .orElse(queryOptions.getUniverseScope()),
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
               settings,
               useGraphlessQuery)) {
@@ -207,15 +206,6 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.detailedExitCode(DetailedExitCode.of(e.getFailureDetail()));
     }
-  }
-
-  private static UniverseScope getUniverseScope(QueryOptions queryOptions) {
-    if (!queryOptions.universeScope.isEmpty()) {
-      return UniverseScope.fromUniverseScopeList(ImmutableList.copyOf(queryOptions.universeScope));
-    }
-    return queryOptions.inferUniverseScope
-        ? UniverseScope.INFER_FROM_QUERY_EXPRESSION
-        : UniverseScope.EMPTY;
   }
 
   protected abstract Either<BlazeCommandResult, QueryEvalResult> doQuery(

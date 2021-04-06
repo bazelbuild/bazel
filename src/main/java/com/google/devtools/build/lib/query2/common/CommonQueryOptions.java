@@ -58,6 +58,15 @@ public class CommonQueryOptions extends OptionsBase {
       help = "Whether each format is terminated with \\0 instead of newline.")
   public boolean lineTerminatorNull;
 
+  public UniverseScope getUniverseScope() {
+    if (!universeScope.isEmpty()) {
+      return UniverseScope.fromUniverseScopeList(ImmutableList.copyOf(universeScope));
+    }
+    return inferUniverseScope
+        ? UniverseScope.INFER_FROM_QUERY_EXPRESSION
+        : UniverseScope.EMPTY;
+  }
+
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {
     if (lineTerminatorNull) {
