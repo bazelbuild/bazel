@@ -112,7 +112,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions) {
-    super(keepGoing, strictScope, universeScope, labelFilter, eventHandler, settings, extraFunctions);
+    super(
+        keepGoing, strictScope, universeScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;

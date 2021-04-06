@@ -183,8 +183,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
-      UniverseScope universeScope,
-      Collection<String> universe) throws QueryException, InterruptedException {
+      UniverseScope universeScope, Collection<String> universe)
+      throws QueryException, InterruptedException {
     if (ImmutableList.copyOf(universe)
         .equals(ImmutableList.of(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(

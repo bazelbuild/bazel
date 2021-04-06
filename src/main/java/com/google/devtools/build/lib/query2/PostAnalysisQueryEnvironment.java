@@ -155,12 +155,14 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return super.evaluateQuery(expr, callback);
   }
 
-  private void beforeEvaluateQuery(
-      UniverseSkyKey universeKey) throws QueryException {
+  private void beforeEvaluateQuery(UniverseSkyKey universeKey) throws QueryException {
     graph = walkableGraphSupplier.get();
     GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
         new GraphBackedRecursivePackageProvider(
-            graph, getTargetPatternsForUniverseKey(universeKey), pkgPath, new RecursivePkgValueRootPackageExtractor());
+            graph,
+            getTargetPatternsForUniverseKey(universeKey),
+            pkgPath,
+            new RecursivePkgValueRootPackageExtractor());
     resolver =
         new RecursivePackageProviderBackedTargetPatternResolver(
             graphBackedRecursivePackageProvider,

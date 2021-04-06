@@ -213,8 +213,8 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
-        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(UniverseScope.EMPTY,
-            targetPatternSet);
+        ((ConfiguredTargetQueryHelper) helper)
+            .getPostAnalysisQueryEnvironment(UniverseScope.EMPTY, targetPatternSet);
     options.transitions = verbosity;
     // TODO(blaze-configurability): Test late-bound attributes.
     TransitionsOutputFormatterCallback callback =

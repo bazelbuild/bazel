@@ -62,9 +62,7 @@ public class CommonQueryOptions extends OptionsBase {
     if (!universeScope.isEmpty()) {
       return UniverseScope.fromUniverseScopeList(ImmutableList.copyOf(universeScope));
     }
-    return inferUniverseScope
-        ? UniverseScope.INFER_FROM_QUERY_EXPRESSION
-        : UniverseScope.EMPTY;
+    return inferUniverseScope ? UniverseScope.INFER_FROM_QUERY_EXPRESSION : UniverseScope.EMPTY;
   }
 
   /** Ugly workaround since line terminator option default has to be constant expression. */
