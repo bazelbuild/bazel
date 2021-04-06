@@ -200,7 +200,15 @@ string GetSystemJavabase() {
 
 int ConfigureDaemonProcess(posix_spawnattr_t *attrp,
                            const StartupOptions &options) {
-  return posix_spawnattr_set_qos_class_np(attrp, options.macos_qos_class);
+  qos_class_t qos_class = options.macos_qos_class;
+  if (qos_class != QOS_CLASS_UNSPECIFIED) {
+    int err = posix_spawnattr_set_qos_class_np(attrp, qos_class);
+    if (err != 0) {
+      errno = err;
+      return -1;
+    }
+  }
+  return 0;
 }
 
 void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,

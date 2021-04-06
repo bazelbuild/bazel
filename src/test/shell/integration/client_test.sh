@@ -382,7 +382,7 @@ function test_proxy_settings() {
 }
 
 function test_macos_qos_class() {
-  for class in user-interactive user-initiated default utility background; do
+  for class in utility background; do
     bazel --macos_qos_class="${class}" info >"${TEST_log}" 2>&1 \
       || fail "Unknown QoS class ${class}"
     # On macOS it'd be nice to verify that the server is indeed running at the
@@ -392,9 +392,13 @@ function test_macos_qos_class() {
     # real thing would be quite expensive.
   done
 
-  bazel --macos_qos_class=foo >"${TEST_log}" 2>&1 \
-    && fail "Expected failure with invalid QoS class name"
-  expect_log "Invalid argument.*qos_class.*foo"
+  for class in user-interactive user-initiated default ; do
+    bazel --macos_qos_class="${class}" >"${TEST_log}" 2>&1 \
+      && fail "Expected failure with invalid QoS class name"
+    expect_log "Invalid argument.*qos_class.*${class}"
+  done
+
+
 }
 
 run_suite "Tests of the bazel client."

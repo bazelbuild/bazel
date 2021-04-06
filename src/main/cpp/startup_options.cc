@@ -94,7 +94,7 @@ StartupOptions::StartupOptions(const string &product_name,
       idle_server_tasks(true),
       original_startup_options_(std::vector<RcStartupFlag>()),
 #if defined(__APPLE__)
-      macos_qos_class(QOS_CLASS_DEFAULT),
+      macos_qos_class(QOS_CLASS_UNSPECIFIED),
 #endif
       unlimit_coredumps(false),
       incompatible_enable_execution_transition(false),
@@ -324,19 +324,9 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              nullptr) {
     // We parse the value of this flag on all platforms even if it is
     // macOS-specific to ensure that rc files mentioning it are valid.
-    if (strcmp(value, "user-interactive") == 0) {
-#if defined(__APPLE__)
-      macos_qos_class = QOS_CLASS_USER_INTERACTIVE;
-#endif
-    } else if (strcmp(value, "user-initiated") == 0) {
-#if defined(__APPLE__)
-      macos_qos_class = QOS_CLASS_USER_INITIATED;
-#endif
-    } else if (strcmp(value, "default") == 0) {
-#if defined(__APPLE__)
-      macos_qos_class = QOS_CLASS_DEFAULT;
-#endif
-    } else if (strcmp(value, "utility") == 0) {
+    // There is also apparently "QOS_CLASS_MAINTENANCE", but this doesn't
+    // appear to have been exposed in the public headers as of macOS 11.1.
+    if (strcmp(value, "utility") == 0) {
 #if defined(__APPLE__)
       macos_qos_class = QOS_CLASS_UTILITY;
 #endif
