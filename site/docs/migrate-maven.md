@@ -3,6 +3,8 @@ layout: documentation
 title: Migrating from Maven to Bazel
 ---
 
+> FYI 🙋‍♀️ Try Project [Exodus](https://github.com/wix/exodus) to help you with the heavy lifting 🙈
+
 # Migrating from Maven to Bazel
 
 This page describes how to migrate from Maven to Bazel, including the
