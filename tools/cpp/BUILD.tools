@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
-
-load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 
 # The toolchain type used to distinguish cc toolchains.
 toolchain_type(name = "toolchain_type")
