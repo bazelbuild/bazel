@@ -204,7 +204,12 @@ public final class AndroidSdkProvider extends NativeInfo
   public static void verifyPresence(RuleContext ruleContext) throws RuleErrorException {
     if (fromRuleContext(ruleContext) == null) {
       throw ruleContext.throwWithRuleError(
-          "No Android SDK found. Use the --android_sdk command line option to specify one.");
+          ruleContext
+                  .getConfiguration()
+                  .getFragment(AndroidConfiguration.class)
+                  .incompatibleUseToolchainResolution()
+              ? "No Android SDK found."
+              : "No Android SDK found. Use the --android_sdk command line option to specify one.");
     }
   }
 
