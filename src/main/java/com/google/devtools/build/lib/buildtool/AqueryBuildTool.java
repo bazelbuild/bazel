@@ -133,6 +133,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
             env.getRelativeWorkingDirectory(),
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
+            aqueryOptions.getUniverseScope(),
             aqueryOptions);
     queryEnvironment.setActionFilters(actionFilters);
 

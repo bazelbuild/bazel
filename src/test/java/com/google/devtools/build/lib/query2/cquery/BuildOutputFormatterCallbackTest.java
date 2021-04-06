@@ -74,7 +74,8 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
-        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
+        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(universeScope,
+            targetPatternSet);
 
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     BuildOutputFormatterCallback callback =

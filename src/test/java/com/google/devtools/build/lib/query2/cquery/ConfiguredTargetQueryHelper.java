@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
@@ -34,6 +35,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<KeyedCo
   @Override
   protected ConfiguredTargetQueryEnvironment getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
+      UniverseScope universeScope,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys)
       throws InterruptedException {
@@ -49,6 +51,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<KeyedCo
         parserPrefix,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
+        universeScope,
         this.settings);
   }
 

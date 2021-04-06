@@ -216,7 +216,8 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
-        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
+        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(universeScope,
+            targetPatternSet);
 
     ProtoOutputFormatterCallback callback =
         new ProtoOutputFormatterCallback(

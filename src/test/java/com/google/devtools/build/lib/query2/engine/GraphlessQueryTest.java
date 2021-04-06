@@ -124,6 +124,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
                 relativeWorkingDirectory,
                 keepGoing,
                 strictScope,
+                universeScope,
                 loadingPhaseThreads,
                 labelFilter,
                 eventHandler,

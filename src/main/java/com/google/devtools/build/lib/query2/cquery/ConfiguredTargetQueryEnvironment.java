@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.cquery.ProtoOutputFormatterCallback.OutputType;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -119,6 +120,7 @@ public class ConfiguredTargetQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
+      UniverseScope universeScope,
       Set<Setting> settings)
       throws InterruptedException {
     super(
@@ -130,6 +132,7 @@ public class ConfiguredTargetQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
+        universeScope,
         settings);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor = KeyedConfiguredTarget::getConfiguredTargetKey;
@@ -147,6 +150,7 @@ public class ConfiguredTargetQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
+      UniverseScope universeScope,
       CqueryOptions cqueryOptions)
       throws InterruptedException {
     this(
@@ -159,6 +163,7 @@ public class ConfiguredTargetQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
+        universeScope,
         cqueryOptions.toSettings());
     this.cqueryOptions = cqueryOptions;
   }

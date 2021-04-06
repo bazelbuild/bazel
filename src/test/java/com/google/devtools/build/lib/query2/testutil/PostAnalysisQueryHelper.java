@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -182,6 +183,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
+      UniverseScope universeScope,
       Collection<String> universe) throws QueryException, InterruptedException {
     if (ImmutableList.copyOf(universe)
         .equals(ImmutableList.of(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
@@ -201,6 +203,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
     return getPostAnalysisQueryEnvironment(
         walkableGraph,
+        universeScope,
         new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
         analysisHelper.getSkyframeExecutor().getTransitiveConfigurationKeys());
   }
@@ -217,6 +220,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
    */
   protected abstract PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
+      UniverseScope universeScope,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys)
       throws InterruptedException;
@@ -225,7 +229,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   public ResultAndTargets<T> evaluateQuery(String query)
       throws QueryException, InterruptedException {
     PostAnalysisQueryEnvironment<T> env =
-        getPostAnalysisQueryEnvironment(getUniverseScopeAsStringList());
+        getPostAnalysisQueryEnvironment(universeScope, getUniverseScopeAsStringList());
     AggregateAllOutputFormatterCallback<T, ?> callback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(env);
     QueryEvalResult queryEvalResult;

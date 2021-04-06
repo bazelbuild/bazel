@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
@@ -87,13 +88,13 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   /**
    * Note that the correct operation of this class critically depends on the Reporter being a
    * singleton object, shared by all cooperating classes contributing to Query.
-   *
-   * @param strictScope if true, fail the whole query if a label goes out of scope.
+   *  @param strictScope if true, fail the whole query if a label goes out of scope.
+   * @param universeScope
    * @param loadingPhaseThreads the number of threads to use during loading the packages for the
    *     query.
    * @param labelFilter a predicate that determines if a specific label is allowed to be visited
-   *     during query execution. If it returns false, the query execution is stopped with an error
-   *     message.
+ *     during query execution. If it returns false, the query execution is stopped with an error
+ *     message.
    * @param settings a set of enabled settings
    */
   public GraphlessBlazeQueryEnvironment(
@@ -104,12 +105,13 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       PathFragment relativeWorkingDirectory,
       boolean keepGoing,
       boolean strictScope,
+      UniverseScope universeScope,
       int loadingPhaseThreads,
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions) {
-    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
+    super(keepGoing, strictScope, universeScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
@@ -105,12 +106,13 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       PathFragment relativeWorkingDirectory,
       boolean keepGoing,
       boolean strictScope,
+      UniverseScope universeScope,
       int loadingPhaseThreads,
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions) {
-    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
+    super(keepGoing, strictScope, universeScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternPreloader = targetPatternPreloader;
     this.relativeWorkingDirectory = relativeWorkingDirectory;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;

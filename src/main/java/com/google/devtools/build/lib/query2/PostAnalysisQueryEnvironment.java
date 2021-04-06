@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
+import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -98,17 +100,15 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.query2.common.CommonQueryOptions#useAspects} is on.
  */
 public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQueryEnvironment<T> {
+  private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
+      skyKey -> (ConfiguredTargetKey) skyKey.argument();
+
   protected final TopLevelConfigurations topLevelConfigurations;
   protected final BuildConfiguration hostConfiguration;
   private final PathFragment parserPrefix;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
   protected WalkableGraph graph;
-
-  private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
-      skyKey -> (ConfiguredTargetKey) skyKey.argument();
-  private static final ImmutableList<TargetPattern> ALL_PATTERNS =
-      ImmutableList.of(TargetPattern.defaultParser().parseConstantUnchecked("//..."));
 
   protected RecursivePackageProviderBackedTargetPatternResolver resolver;
 
@@ -121,8 +121,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
+      UniverseScope universeScope,
       Set<Setting> settings) {
-    super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
+    super(keepGoing, true, universeScope, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
     this.topLevelConfigurations = topLevelConfigurations;
     this.hostConfiguration = hostConfiguration;
     this.parserPrefix = parserPrefix;
@@ -149,15 +150,17 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   public QueryEvalResult evaluateQuery(
       QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException, IOException {
-    beforeEvaluateQuery();
+    UniverseSkyKey universeKey = getUniverseKey(expr, parserPrefix);
+    beforeEvaluateQuery(universeKey);
     return super.evaluateQuery(expr, callback);
   }
 
-  private void beforeEvaluateQuery() throws QueryException {
+  private void beforeEvaluateQuery(
+      UniverseSkyKey universeKey) throws QueryException {
     graph = walkableGraphSupplier.get();
     GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
         new GraphBackedRecursivePackageProvider(
-            graph, ALL_PATTERNS, pkgPath, new RecursivePkgValueRootPackageExtractor());
+            graph, getTargetPatternsForUniverseKey(universeKey), pkgPath, new RecursivePkgValueRootPackageExtractor());
     resolver =
         new RecursivePackageProviderBackedTargetPatternResolver(
             graphBackedRecursivePackageProvider,

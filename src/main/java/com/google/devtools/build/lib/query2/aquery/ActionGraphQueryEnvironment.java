@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.SkyQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.InputsFunction;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
@@ -82,6 +83,7 @@ public class ActionGraphQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
+      UniverseScope universeScope,
       Set<Setting> settings) {
     super(
         keepGoing,
@@ -92,6 +94,7 @@ public class ActionGraphQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
+        universeScope,
         settings);
     this.configuredTargetKeyExtractor =
         configuredTargetValue ->
@@ -112,6 +115,7 @@ public class ActionGraphQueryEnvironment
       PathFragment parserPrefix,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
+      UniverseScope universeScope,
       AqueryOptions aqueryOptions) {
     this(
         keepGoing,
@@ -122,6 +126,7 @@ public class ActionGraphQueryEnvironment
         parserPrefix,
         pkgPath,
         walkableGraphSupplier,
+        universeScope,
         aqueryOptions.toSettings());
     this.aqueryOptions = aqueryOptions;
   }

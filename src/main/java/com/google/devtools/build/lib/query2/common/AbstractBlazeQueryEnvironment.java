@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -43,7 +44,11 @@ import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCall
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
@@ -65,6 +70,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   protected final boolean keepGoing;
   protected final boolean strictScope;
 
+  private final UniverseScope universeScope;
+
   protected final DependencyFilter dependencyFilter;
   protected final Predicate<Label> labelFilter;
 
@@ -76,6 +83,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   protected AbstractBlazeQueryEnvironment(
       boolean keepGoing,
       boolean strictScope,
+      UniverseScope universeScope,
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
@@ -83,6 +91,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     this.eventHandler = new ErrorSensingEventHandler<>(eventHandler, DetailedExitCode.class);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
+    this.universeScope = universeScope;
     this.dependencyFilter = constructDependencyFilter(settings);
     this.labelFilter = labelFilter;
     this.settings = Sets.immutableEnumSet(settings);
@@ -91,6 +100,23 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
 
   @Override
   public abstract void close();
+
+  protected UniverseScope getUniverseScope() {
+    return universeScope;
+  }
+
+  protected UniverseSkyKey getUniverseKey(QueryExpression expr, PathFragment parserPrefix) {
+    return universeScope.getUniverseKey(expr, parserPrefix);
+  }
+
+  /** Returns the TargetPatterns corresponding to {@code universeKey}. */
+  protected ImmutableList<TargetPattern> getTargetPatternsForUniverseKey(SkyKey universeKey) {
+    return ImmutableList.copyOf(
+        Iterables.transform(
+            PrepareDepsOfPatternsFunction.getTargetPatternKeys(
+                PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler)),
+            TargetPatternKey::getParsedPattern));
+  }
 
   private static DependencyFilter constructDependencyFilter(
       Set<Setting> settings) {
