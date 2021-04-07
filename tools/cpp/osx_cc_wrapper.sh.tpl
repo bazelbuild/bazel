@@ -28,6 +28,7 @@
 set -eu
 
 INSTALL_NAME_TOOL="/usr/bin/install_name_tool"
+OTOOL="/usr/bin/otool"
 
 LIBS=
 LIB_DIRS=
@@ -78,22 +79,9 @@ function get_library_path() {
     done
 }
 
-# A convenient method to return the actual path even for non symlinks
-# and multi-level symlinks.
-function get_realpath() {
-    local previous="$1"
-    local next=$(readlink "${previous}")
-    while [ -n "${next}" ]; do
-        previous="${next}"
-        next=$(readlink "${previous}")
-    done
-    echo "${previous}"
-}
-
 # Get the path of a lib inside a tool
 function get_otool_path() {
-    # the lib path is the path of the original lib relative to the workspace
-    get_realpath $1 | sed 's|^.*/bazel-out/|bazel-out/|'
+    ${OTOOL} -D "$1" | awk 'NR==2{print $1}' | sed 's|^.*/bazel-out/|bazel-out/|'
 }
 
 # Do replacements in the output
@@ -116,4 +104,3 @@ for rpath in ${RPATHS}; do
         fi
     done
 done
-
