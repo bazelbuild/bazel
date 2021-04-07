@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
@@ -98,17 +99,15 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.query2.common.CommonQueryOptions#useAspects} is on.
  */
 public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQueryEnvironment<T> {
+  private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
+      skyKey -> (ConfiguredTargetKey) skyKey.argument();
+
   protected final TopLevelConfigurations topLevelConfigurations;
   protected final BuildConfiguration hostConfiguration;
   private final PathFragment parserPrefix;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
   protected WalkableGraph graph;
-
-  private static final Function<SkyKey, ConfiguredTargetKey> SKYKEY_TO_CTKEY =
-      skyKey -> (ConfiguredTargetKey) skyKey.argument();
-  private static final ImmutableList<TargetPattern> ALL_PATTERNS =
-      ImmutableList.of(TargetPattern.defaultParser().parseConstantUnchecked("//..."));
 
   protected RecursivePackageProviderBackedTargetPatternResolver resolver;
 
@@ -157,7 +156,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     graph = walkableGraphSupplier.get();
     GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
         new GraphBackedRecursivePackageProvider(
-            graph, ALL_PATTERNS, pkgPath, new RecursivePkgValueRootPackageExtractor());
+            graph,
+            UniverseTargetPattern.all(),
+            pkgPath,
+            new RecursivePkgValueRootPackageExtractor());
     resolver =
         new RecursivePackageProviderBackedTargetPatternResolver(
             graphBackedRecursivePackageProvider,
