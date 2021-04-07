@@ -82,8 +82,16 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public class BuildEventStreamer {
+  /** Return value for {@link #routeBuildEvent}. */
+  private enum RetentionDecision {
+    BUFFERED,
+    DISCARD,
+    POST
+  }
+
   private final Collection<BuildEventTransport> transports;
   private final BuildEventStreamOptions besOptions;
+  private final boolean publishTargetSummaries;
 
   @GuardedBy("this")
   private Set<BuildEventId> announcedEvents;
@@ -158,10 +166,12 @@ public class BuildEventStreamer {
   private BuildEventStreamer(
       Collection<BuildEventTransport> transports,
       BuildEventStreamOptions options,
+      boolean publishTargetSummaries,
       CountingArtifactGroupNamer artifactGroupNamer,
       String oomMessage) {
     this.transports = transports;
     this.besOptions = options;
+    this.publishTargetSummaries = publishTargetSummaries;
     this.announcedEvents = null;
     this.progressCount = 0;
     this.artifactGroupNamer = artifactGroupNamer;
@@ -438,8 +448,17 @@ public class BuildEventStreamer {
       }
     }
 
-    if (shouldIgnoreBuildEvent(event)) {
-      return;
+    switch (routeBuildEvent(event)) {
+      case DISCARD:
+        // Check if there are pending events waiting on this event
+        maybePostPendingEventsBeforeDiscarding(event);
+        return; // bail: we're dropping this event
+      case BUFFERED:
+        // Bail: the event was buffered and the BuildEventStreamer is now responsible for eventually
+        // posting (or discarding) it
+        return;
+      case POST:
+        break; // proceed
     }
 
     if (event instanceof BuildStartingEvent) {
@@ -518,6 +537,38 @@ public class BuildEventStreamer {
     return !event.getResult().getSuccess()
         && !event.getResult().wasCatastrophe()
         && event.getResult().getStopOnFirstFailure();
+  }
+
+  /**
+   * Given an event that will be discarded (not buffered), publishes any events waiting on the given
+   * event.
+   *
+   * @param event event that is being discarded (not buffered)
+   */
+  private void maybePostPendingEventsBeforeDiscarding(BuildEvent event) {
+    if (publishTargetSummaries && isVacuousTestSummary(event)) {
+      // Target summaries should "post after" test summaries, but we can't a priori know whether
+      // test summaries will be vacuous (as that depends on test execution progress). So check for
+      // and publish any pending (target summary) events here. If we don't do this then
+      // clearPendingEvents() will publish "aborted" test_summary events for the very events we're
+      // discarding here (b/184580877), followed by the pending target_summary events, which is not
+      // only confusing but also delays target_summary events until the end of the build.
+      //
+      // Technically it seems we should do this with all events we're dropping but that would be
+      // a lot of extra locking e.g. for every ActionExecutedEvent and it's only necessary to
+      // check for this where events are configured to "post after" events that may be discarded.
+      BuildEventId eventId = event.getEventId();
+      Collection<BuildEvent> toReconsider;
+      synchronized (this) {
+        toReconsider = pendingEvents.removeAll(eventId);
+        // Pretend we posted this event so a target summary arriving after this test summary (which
+        // is common) doesn't get erroneously buffered in bufferUntilPrerequisitesReceived().
+        postedEvents.add(eventId);
+      }
+      for (BuildEvent freedEvent : toReconsider) {
+        buildEvent(freedEvent);
+      }
+    }
   }
 
   private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
@@ -657,21 +708,27 @@ public class BuildEventStreamer {
     }
   }
 
-  /** Returns whether a {@link BuildEvent} should be ignored. */
-  private boolean shouldIgnoreBuildEvent(BuildEvent event) {
+  /** Returns whether a {@link BuildEvent} should be ignored or was buffered. */
+  private RetentionDecision routeBuildEvent(BuildEvent event) {
     if (event instanceof ActionExecutedEvent
         && !shouldPublishActionExecutedEvent((ActionExecutedEvent) event)) {
-      return true;
+      return RetentionDecision.DISCARD;
     }
 
-    if (bufferUntilPrerequisitesReceived(event) || isVacuousTestSummary(event)) {
-      return true;
+    if (bufferUntilPrerequisitesReceived(event)) {
+      return RetentionDecision.BUFFERED;
+    }
+
+    if (isVacuousTestSummary(event)) {
+      return RetentionDecision.DISCARD;
     }
 
     if (isTestCommand && event instanceof BuildCompleteEvent) {
       // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
       // TestingCompleteEvent that contains the correct exit code.
-      return !isCrash((BuildCompleteEvent) event);
+      return isCrash((BuildCompleteEvent) event)
+          ? RetentionDecision.POST
+          : RetentionDecision.DISCARD;
     }
 
     if (event instanceof TargetParsingCompleteEvent) {
@@ -680,11 +737,13 @@ public class BuildEventStreamer {
       // TODO(b/109727414): This is brittle. It would be better to always post one PatternExpanded
       // event for each pattern given on the command line instead of one event for all of them
       // combined.
-      return ((TargetParsingCompleteEvent) event).getOriginalTargetPattern().size() == 1
-          && !((TargetParsingCompleteEvent) event).getFailedTargetPatterns().isEmpty();
+      boolean discard =
+          ((TargetParsingCompleteEvent) event).getOriginalTargetPattern().size() == 1
+              && !((TargetParsingCompleteEvent) event).getFailedTargetPatterns().isEmpty();
+      return discard ? RetentionDecision.DISCARD : RetentionDecision.POST;
     }
 
-    return false;
+    return RetentionDecision.POST;
   }
 
   /** Returns whether an {@link ActionExecutedEvent} should be published. */
@@ -783,6 +842,7 @@ public class BuildEventStreamer {
   public static final class Builder {
     private Set<BuildEventTransport> buildEventTransports;
     private BuildEventStreamOptions besStreamOptions;
+    private boolean publishTargetSummaries;
     private CountingArtifactGroupNamer artifactGroupNamer;
     private String oomMessage;
 
@@ -793,6 +853,11 @@ public class BuildEventStreamer {
 
     public Builder besStreamOptions(BuildEventStreamOptions value) {
       this.besStreamOptions = value;
+      return this;
+    }
+
+    public Builder publishTargetSummaries(boolean publishTargetSummaries) {
+      this.publishTargetSummaries = publishTargetSummaries;
       return this;
     }
 
@@ -810,6 +875,7 @@ public class BuildEventStreamer {
       return new BuildEventStreamer(
           checkNotNull(buildEventTransports),
           checkNotNull(besStreamOptions),
+          publishTargetSummaries,
           checkNotNull(artifactGroupNamer),
           nullToEmpty(oomMessage));
     }

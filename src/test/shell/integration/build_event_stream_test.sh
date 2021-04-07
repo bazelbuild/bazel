@@ -755,7 +755,7 @@ function test_aspect_analysis_failure_no_target_summary() {
   expect_log_once '^completed '  # target completes due to -k
   # One "aborted" for failed aspect analysis, another for target_summary_id
   # announced by "completed" event asserted above
-  expect_log_n '^aborted ' 2
+  expect_log_n 'aborted' 2
   expect_not_log '^target_summary '  # no summary due to analysis failure
 }
 
@@ -1063,7 +1063,7 @@ function test_test_fails_to_build() {
   (bazel test --experimental_bep_target_summary \
          --build_event_text_file=$TEST_log \
          pkg:test_that_fails_to_build && fail "test failure expected") || true
-  expect_not_log '^test_summary'
+  expect_not_log 'test_summary'  # no test_summary events or references to them
   expect_log_once '^target_summary '
   expect_not_log 'overall_build_success'
   expect_log 'last_message: true'
