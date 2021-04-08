@@ -431,9 +431,14 @@ final class EvalUtils {
    *
    * @throws EvalException if {@code object} is not a sequence or mapping.
    */
-  static Object index(Mutability mu, StarlarkSemantics semantics, Object object, Object key)
+  static Object index(StarlarkThread starlarkThread, Object object, Object key)
       throws EvalException {
-    if (object instanceof StarlarkIndexable) {
+    Mutability mu = starlarkThread.mutability();
+    StarlarkSemantics semantics = starlarkThread.getSemantics();
+
+    if (object instanceof StarlarkIndexable.Threaded) {
+      return ((StarlarkIndexable.Threaded) object).getIndex(starlarkThread, semantics, key);
+    } else if (object instanceof StarlarkIndexable) {
       Object result = ((StarlarkIndexable) object).getIndex(semantics, key);
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
       // it should go in the implementations of StarlarkIndexable#getIndex that produce non-Starlark
