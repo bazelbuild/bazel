@@ -400,7 +400,7 @@ final class Eval {
       IndexExpression index = (IndexExpression) lhs;
       Object object = eval(fr, index.getObject());
       Object key = eval(fr, index.getKey());
-      Object x = EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
+      Object x = EvalUtils.index(fr.thread, object, key);
       // Evaluate rhs after lhs.
       Object y = eval(fr, rhs);
       Object z;
@@ -717,7 +717,7 @@ final class Eval {
     Object object = eval(fr, index.getObject());
     Object key = eval(fr, index.getKey());
     try {
-      return EvalUtils.index(fr.thread.mutability(), fr.thread.getSemantics(), object, key);
+      return EvalUtils.index(fr.thread, object, key);
     } catch (EvalException ex) {
       fr.setErrorLocation(index.getLbracketLocation());
       throw ex;
