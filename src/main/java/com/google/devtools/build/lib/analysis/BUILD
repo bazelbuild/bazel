@@ -349,6 +349,7 @@ java_library(
         ":starlark/starlark_command_line",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
+        ":starlark/starlark_toolchain_context",
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
@@ -990,8 +991,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
-        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -2151,6 +2150,7 @@ java_library(
     srcs = ["starlark/StarlarkExecGroupCollection.java"],
     deps = [
         ":resolved_toolchain_context",
+        ":starlark/starlark_toolchain_context",
         ":toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/net/starlark/java/eval",
@@ -2194,6 +2194,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "starlark/starlark_toolchain_context",
+    srcs = ["starlark/StarlarkToolchainContext.java"],
+    deps = [
+        ":resolved_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:auto_value",
+        "//third_party:jsr305",
     ],
 )
 

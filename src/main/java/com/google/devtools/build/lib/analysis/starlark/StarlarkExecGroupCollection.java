@@ -81,7 +81,8 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
           execGroup,
           String.join(", ", getScrubbedExecGroups()));
     }
-    ToolchainContextApi toolchainContext = toolchainCollection().getToolchainContext(execGroup);
+    ToolchainContextApi toolchainContext =
+        StarlarkToolchainContext.create(toolchainCollection().getToolchainContext(execGroup));
     return new AutoValue_StarlarkExecGroupCollection_StarlarkExecGroupContext(toolchainContext);
   }
 

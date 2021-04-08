@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
 import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionException;
 import com.google.devtools.build.lib.analysis.LocationExpander;
-import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -688,22 +687,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   @Override
   public ToolchainContextApi toolchains() throws EvalException {
     checkMutable("toolchains");
-    ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
-    if (toolchainContext == null) {
-      // Starlark rules are easier if this cannot be null, so return a no-op value instead.
-      return new ToolchainContextApi() {
-        @Override
-        public Object getIndex(StarlarkSemantics semantics, Object key) {
-          return Starlark.NONE;
-        }
-
-        @Override
-        public boolean containsKey(StarlarkSemantics semantics, Object key) {
-          return false;
-        }
-      };
-    }
-    return toolchainContext;
+    return StarlarkToolchainContext.create(ruleContext.getToolchainContext());
   }
 
   @Override
