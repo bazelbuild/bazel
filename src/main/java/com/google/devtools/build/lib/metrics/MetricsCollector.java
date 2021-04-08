@@ -165,15 +165,23 @@ class MetricsCollector {
 
   private MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
+    long usedHeapSizePostBuild = 0;
     if (bepPublishUsedHeapSizePostBuild) {
       System.gc();
       MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-      memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
+      usedHeapSizePostBuild = memBean.getHeapMemoryUsage().getUsed();
+      memoryMetrics.setUsedHeapSizePostBuild(usedHeapSizePostBuild);
     }
     PostGCMemoryUseRecorder.get()
         .getPeakPostGcHeap()
         .map(PeakHeap::bytes)
         .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
+
+    if (memoryMetrics.getPeakPostGcHeapSize() < usedHeapSizePostBuild) {
+      // If we just did a GC and computed the heap size, update the one we got from the GC
+      // notification (which may arrive too late for this specific GC).
+      memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
+    }
     return memoryMetrics.build();
   }
 
