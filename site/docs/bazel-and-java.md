@@ -242,7 +242,7 @@ Example toolchain configuration:
 
 ```python
 load(
-  '@bazel_tools@bazel_tools//tools/jdk:default_java_toolchain.bzl',
+  "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
   "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION", "JDK9_JVM_OPTS", "DEFAULT_JAVACOPTS"
 )
 
@@ -291,7 +291,7 @@ files using `package_configuration` attribute of `default_java_toolchain`.
 Please refer to the example below.
 
 ```python
-load("@bazel_tools@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
 
 # This is a convenience macro that inherits values from Bazel's default java_toolchain
 default_java_toolchain(
