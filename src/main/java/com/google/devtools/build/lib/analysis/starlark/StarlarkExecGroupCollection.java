@@ -82,7 +82,7 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
           String.join(", ", getScrubbedExecGroups()));
     }
     ToolchainContextApi toolchainContext = toolchainCollection().getToolchainContext(execGroup);
-    return new StarlarkExecGroupContext(toolchainContext);
+    return new AutoValue_StarlarkExecGroupCollection_StarlarkExecGroupContext(toolchainContext);
   }
 
   private static String castGroupName(Object key) throws EvalException {
@@ -113,17 +113,10 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
    * The starlark object that is returned by ctx.exec_groups[<name>]. Gives information about that
    * exec group.
    */
-  public static class StarlarkExecGroupContext implements ExecGroupContextApi {
-    ToolchainContextApi toolchainContext;
-
-    private StarlarkExecGroupContext(ToolchainContextApi toolchainContext) {
-      this.toolchainContext = toolchainContext;
-    }
-
+  @AutoValue
+  public abstract static class StarlarkExecGroupContext implements ExecGroupContextApi {
     @Override
-    public ToolchainContextApi toolchains() {
-      return toolchainContext;
-    }
+    public abstract ToolchainContextApi toolchains();
 
     @Override
     public void repr(Printer printer) {
