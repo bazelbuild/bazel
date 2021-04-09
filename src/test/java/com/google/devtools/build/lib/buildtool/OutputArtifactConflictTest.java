@@ -19,54 +19,18 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.TargetCompletedId;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for action conflicts. */
-@RunWith(TestParameterInjector.class)
+@RunWith(JUnit4.class)
 public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
-
-  static class AnalysisFailureEventListener extends BlazeModule {
-
-    private final List<TargetCompletedId> eventIds = new ArrayList<>();
-    private final List<String> failedTargetNames = new ArrayList<>();
-
-    @Override
-    public void beforeCommand(CommandEnvironment env) {
-      env.getEventBus().register(this);
-    }
-
-    @Subscribe
-    public void onAnalysisFailure(AnalysisFailureEvent event) {
-      eventIds.add(event.getEventId().getTargetCompleted());
-      failedTargetNames.add(event.getFailedTarget().getLabel().toString());
-    }
-  }
-
-  private final AnalysisFailureEventListener eventListener = new AnalysisFailureEventListener();
-
-  @Override
-  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    return super.getRuntimeBuilder().addBlazeModule(eventListener);
-  }
-
-  @Test
-  public void testArtifactPrefix(
-      @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
+  private void runArtifactPrefix(boolean keepGoing, boolean modifyBuildFile) throws Exception {
     if (modifyBuildFile) {
       write("x/BUILD", "cc_library(name = 'y', srcs = ['y.cc'])");
     } else {
@@ -82,7 +46,6 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
       buildTarget("//x/y");
     }
     assertNoEvents(events.errors());
-    assertThat(eventListener.failedTargetNames).isEmpty();
 
     if (keepGoing) {
       runtimeWrapper.addOptions("--keep_going");
@@ -101,159 +64,31 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
     // Skip over config key string ...
     events.assertContainsError(
         "/bin/x/y' (belonging to //x:y) is a prefix of output path 'blaze-out");
-    assertThat(Iterables.size(events.errors())).isGreaterThan(1);
     if (keepGoing) {
-      assertThat(eventListener.failedTargetNames).containsExactly("//x:y", "//x/y:y");
+      assertThat(Iterables.size(events.errors())).isGreaterThan(1);
     } else {
-      assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x/y:y");
+      assertThat(events.errors()).hasSize(1);
     }
   }
 
   @Test
-  public void testAspectArtifactSharesPrefixWithTargetArtifact(
-      @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
-    if (modifyBuildFile) {
-      write("x/BUILD", "genrule(name = 'y', outs = ['y.out'], cmd = 'touch $@')");
-    } else {
-      write("x/BUILD", "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')");
-    }
-    write("x/y/BUILD", "cc_library(name = 'y')");
-    write(
-        "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
-
-    if (modifyBuildFile) {
-      buildTarget("//x/y", "//x:y");
-      write("x/BUILD", "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')");
-    } else {
-      buildTarget("//x/y");
-    }
-    assertNoEvents(events.errors());
-    assertThat(eventListener.failedTargetNames).isEmpty();
-
-    addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
-    if (keepGoing) {
-      addOptions("--keep_going");
-    }
-    try {
-      // Skyframe full should throw an error here even if we just build //x:y. However, because our
-      // testing infrastructure sets up lots of symlinks, Skyframe invalidates the //x/y action, and
-      // so would not find a conflict here without re-evaluating //x/y. Note that in a real client,
-      // requesting the //x/y target would not be necessary to throw an exception.
-      buildTarget("//x:y", "//x/y");
-      fail();
-    } catch (BuildFailedException | ViewCreationFailedException e) {
-      // Expected.
-    }
-    events.assertContainsError("output path 'blaze-out/");
-    // Skip over config key string ...
-    events.assertContainsError(
-        "/bin/x/y' (belonging to //x:y) is a prefix of output path 'blaze-out");
-    // When an aspect artifact's path is in aa prefix conflict with a target artifact's path, the
-    // target artifact is created and only the aspect fails analysis.
-    assertThat(Iterables.size(events.errors())).isGreaterThan(1);
-    assertThat(eventListener.failedTargetNames).containsExactly("//x:y");
-    assertThat(eventListener.eventIds.get(0).getAspect()).isEqualTo("//x:aspect.bzl%my_aspect");
+  public void testArtifactPrefix_keepGoing() throws Exception {
+    runArtifactPrefix(true, false);
   }
 
   @Test
-  public void testAspectArtifactPrefix(
-      @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
-    if (modifyBuildFile) {
-      write(
-          "x/BUILD",
-          "genrule(name = 'y', outs = ['y.out'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
-    } else {
-      write(
-          "x/BUILD",
-          "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
-    }
-    write(
-        "x/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "    if not getattr(ctx.rule.attr, 'outs', None):",
-        "        return struct(output_groups = {})",
-        "    conflict_outputs = list()",
-        "    for out in ctx.rule.attr.outs:",
-        "        if out.name[1:] == '.bad':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1])",
-        "            conflict_outputs.append(aspect_out)",
-        "            cmd = 'echo %s > %s' % (out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "        elif out.name[1:] == '.dir':",
-        "            aspect_out = ctx.actions.declare_file(out.name[:1] + '/' + out.name)",
-        "            conflict_outputs.append(aspect_out)",
-        "            out_dir = aspect_out.path[:len(aspect_out.path) - len(out.name) + 1]",
-        "            cmd = 'mkdir %s && echo %s > %s' % (out_dir, out.name, aspect_out.path)",
-        "            ctx.actions.run_shell(",
-        "                outputs = [aspect_out],",
-        "                command = cmd,",
-        "            )",
-        "    return [OutputGroupInfo(",
-        "        files = depset(conflict_outputs)",
-        "    )]",
-        "",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+  public void testArtifactPrefix_noKeepGoing() throws Exception {
+    runArtifactPrefix(false, false);
+  }
 
-    if (modifyBuildFile) {
-      buildTarget("//x:y", "//x:ydir");
-      write(
-          "x/BUILD",
-          "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')",
-          "genrule(name = 'ydir', outs = ['y.dir'], cmd = 'touch $@')");
-    } else {
-      buildTarget("//x:y");
-    }
-    assertNoEvents(events.errors());
-    assertThat(eventListener.failedTargetNames).isEmpty();
+  @Test
+  public void testArtifactPrefix_keepGoing_modifyBuildFile() throws Exception {
+    runArtifactPrefix(true, true);
+  }
 
-    addOptions("--aspects=//x:aspect.bzl%my_aspect", "--output_groups=files");
-    if (keepGoing) {
-      addOptions("--keep_going");
-    }
-    try {
-      // Skyframe full should throw an error here even if we just build //x:y. However, because our
-      // testing infrastructure sets up lots of symlinks, Skyframe invalidates the //x/y action, and
-      // so would not find a conflict here without re-evaluating //x/y. Note that in a real client,
-      // requesting the //x/y target would not be necessary to throw an exception.
-      buildTarget("//x:y", "//x:ydir");
-      fail();
-    } catch (BuildFailedException | ViewCreationFailedException e) {
-      // Expected.
-    }
-    events.assertContainsError("output path 'blaze-out/");
-    // Skip over config key string ...
-    events.assertContainsError(
-        "/bin/x/y' (belonging to //x:y) is a prefix of output path 'blaze-out");
-    assertThat(events.errors()).hasSize(1);
-    assertThat(eventListener.eventIds.get(0).getAspect()).isEqualTo("//x:aspect.bzl%my_aspect");
-    if (keepGoing) {
-      assertThat(eventListener.failedTargetNames).containsExactly("//x:y", "//x:ydir");
-    } else {
-      assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x:ydir");
-    }
+  @Test
+  public void testArtifactPrefix_noKeepGoing_modifyBuildFile() throws Exception {
+    runArtifactPrefix(false, true);
   }
 
   @Test
@@ -267,7 +102,6 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
     } catch (BuildFailedException | ViewCreationFailedException e) {
       // Expected.
     }
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x/y:y");
     write("x/BUILD", "# no conflict");
     events.clear();
     buildTarget("//x/y");
@@ -287,7 +121,6 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
     } catch (BuildFailedException | ViewCreationFailedException e) {
       // Expected.
     }
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x/y:y");
   }
 
   @Test
@@ -355,7 +188,6 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
     write("conflict/bar.cc", "int main() { return 0; }");
     write("x/y/BUILD", "cc_library(name = 'y')");
     runtimeWrapper.addOptions("--keep_going");
-
     assertThrows(
         BuildFailedException.class,
         () -> buildTarget("//x/y", "//x:y", "//conflict:x", "//conflict:_objs/x/foo.pic.o"));
@@ -363,10 +195,6 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
         "file 'conflict/_objs/x/foo.pic.o' is generated by these conflicting actions:");
     events.assertContainsError(
         "/bin/x/y' (belonging to //x:y) is a prefix of output path 'blaze-out");
-    // When two targets have conflicting artifacts, the first target named on the commandline "wins"
-    // and is successfully built. All other targets fail analysis for conflicting with the first.
-    assertThat(eventListener.failedTargetNames)
-        .containsExactly("//x:y", "//x/y:y", "//conflict:_objs/x/foo.pic.o");
   }
 
   @Test
@@ -398,9 +226,6 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
         .hasCauseThat()
         .hasCauseThat()
         .isInstanceOf(MutableActionGraph.ActionConflictException.class);
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
-    eventListener.failedTargetNames.clear();
-
     e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
@@ -408,6 +233,5 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
         .hasCauseThat()
         .hasCauseThat()
         .isInstanceOf(MutableActionGraph.ActionConflictException.class);
-    assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
   }
 }

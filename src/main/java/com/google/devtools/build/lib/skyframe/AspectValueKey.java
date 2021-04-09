@@ -35,21 +35,7 @@ public abstract class AspectValueKey implements ActionLookupKey {
   private static final Interner<StarlarkAspectLoadingKey> starlarkAspectKeyInterner =
       BlazeInterners.newWeakInterner();
 
-  /**
-   * Gets the name of the aspect that would be returned by the corresponding value's {@code
-   * aspectValue.getAspect().getAspectClass().getName()}, if the value could be produced.
-   *
-   * <p>Only needed for reporting errors in BEP when the key's AspectValue fails evaluation.
-   */
-  public abstract String getAspectName();
-
   public abstract String getDescription();
-
-  @Nullable
-  abstract BuildConfigurationValue.Key getAspectConfigurationKey();
-
-  /** Returns the key for the base configured target for this aspect. */
-  public abstract ConfiguredTargetKey getBaseConfiguredTargetKey();
 
   public static AspectKey createAspectKey(
       Label label,
@@ -135,10 +121,6 @@ public abstract class AspectValueKey implements ActionLookupKey {
       return SkyFunctions.ASPECT;
     }
 
-    @Override
-    public String getAspectName() {
-      return aspectDescriptor.getDescription();
-    }
 
     @Override
     public Label getLabel() {
@@ -192,13 +174,11 @@ public abstract class AspectValueKey implements ActionLookupKey {
      * base target's configuration.
      */
     @Nullable
-    @Override
     BuildConfigurationValue.Key getAspectConfigurationKey() {
       return aspectConfigurationKey;
     }
 
     /** Returns the key for the base configured target for this aspect. */
-    @Override
     public ConfiguredTargetKey getBaseConfiguredTargetKey() {
       return baseConfiguredTargetKey;
     }
@@ -332,11 +312,6 @@ public abstract class AspectValueKey implements ActionLookupKey {
     }
 
     @Override
-    public String getAspectName() {
-      return String.format("%s%%%s", starlarkFileLabel, starlarkValueName);
-    }
-
-    @Override
     public Label getLabel() {
       return targetLabel;
     }
@@ -345,18 +320,6 @@ public abstract class AspectValueKey implements ActionLookupKey {
     public String getDescription() {
       // Starlark aspects are referred to on command line with <file>%<value ame>
       return String.format("%s%%%s of %s", starlarkFileLabel, starlarkValueName, targetLabel);
-    }
-
-    @Nullable
-    @Override
-    BuildConfigurationValue.Key getAspectConfigurationKey() {
-      return aspectConfigurationKey;
-    }
-
-    /** Returns the key for the base configured target for this aspect. */
-    @Override
-    public ConfiguredTargetKey getBaseConfiguredTargetKey() {
-      return baseConfiguredTargetKey;
     }
 
     @Override

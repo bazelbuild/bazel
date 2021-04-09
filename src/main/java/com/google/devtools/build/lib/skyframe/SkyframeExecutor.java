@@ -153,7 +153,6 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -2431,10 +2430,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /**
    * Checks the given action lookup values for action conflicts. Values satisfying the returned
    * predicate are known to be transitively error-free from action conflicts. {@link
-   * #resetActionConflictsStoredInSkyframe} must be called after this to free memory coming from
-   * this call.
+   * #filterActionConflictsForTopLevelArtifacts} must be called after this to free memory coming
+   * from this call.
+   *
+   * <p>This method is only called in keep-going mode, since otherwise any known action conflicts
+   * will immediately fail the build.
    */
-  TopLevelActionConflictReport filterActionConflictsForConfiguredTargetsAndAspects(
+  Predicate<ActionLookupKey> filterActionConflictsForConfiguredTargetsAndAspects(
       ExtendedEventHandler eventHandler,
       Iterable<ActionLookupKey> keys,
       ImmutableMap<ActionAnalysisMetadata, ArtifactConflictFinder.ConflictException>
@@ -2456,59 +2458,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // of action conflict is rare.
     memoizingEvaluator.delete(
         SkyFunctionName.functionIs(SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING));
-    return new TopLevelActionConflictReport(result, topLevelArtifactContext);
-  }
 
-  /**
-   * Encapsulation of the result of #filterActionConflictsForConfiguredTargetsAndAspects() allowing
-   * callers to determine which top-level keys did not have conflicts and retrieve the
-   * ConflictException for those that keys that did have conflicts.
-   */
-  static final class TopLevelActionConflictReport {
-
-    private final EvaluationResult<ActionLookupConflictFindingValue> result;
-    private final TopLevelArtifactContext topLevelArtifactContext;
-
-    TopLevelActionConflictReport(
-        EvaluationResult<ActionLookupConflictFindingValue> result,
-        TopLevelArtifactContext topLevelArtifactContext) {
-      this.result = result;
-      this.topLevelArtifactContext = topLevelArtifactContext;
-    }
-
-    boolean isConflictFree(ActionLookupKey k) {
-      return result.get(
-              TopLevelActionLookupConflictFindingFunction.Key.create(k, topLevelArtifactContext))
-          != null;
-    }
-
-    /**
-     * Get the ConflictException produced for the given ActionLookupKey. Will throw if the given key
-     * {@link #isConflictFree is conflict-free}.
-     */
-    ConflictException getConflictException(ActionLookupKey k) {
-      ErrorInfo errorInfo =
-          result.getError(
-              TopLevelActionLookupConflictFindingFunction.Key.create(k, topLevelArtifactContext));
-      Exception e = errorInfo.getException();
-      Preconditions.checkState(
-          e instanceof ConflictException, "%s did not fail with ConflictException: %s", k, e);
-      return (ConflictException) e;
-    }
-  }
-
-  /**
-   * Clears all action conflicts stored in skyframe that were discovered by a call to {@link
-   * #filterActionConflictsForConfiguredTargetsAndAspects}.
-   *
-   * <p>This function must be called after a call to {@link
-   * #filterActionConflictsForConfiguredTargetsAndAspects}, either directly (in the case of
-   * no-keep_going evaluations) or indirectly by {@link #filterActionConflictsForTopLevelArtifacts}
-   * in keep_going evaluations.
-   */
-  public void resetActionConflictsStoredInSkyframe() {
-    memoizingEvaluator.delete(
-        SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
+    return k ->
+        result.get(
+                TopLevelActionLookupConflictFindingFunction.Key.create(k, topLevelArtifactContext))
+            != null;
   }
 
   /**
@@ -2533,7 +2487,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             eventHandler);
 
     // Remove remaining action-conflict detection values immediately for memory efficiency.
-    resetActionConflictsStoredInSkyframe();
+    memoizingEvaluator.delete(
+        SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
 
     return a -> result.get(ActionLookupConflictFindingValue.key(a)) != null;
   }
