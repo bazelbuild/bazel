@@ -78,6 +78,8 @@ function write_test_rule() {
   mkdir -p toolchain
   cat >> toolchain/rule_${rule_name}.bzl <<EOF
 def _impl(ctx):
+  if '//toolchain:${toolchain_name}' not in ctx.toolchains:
+    fail('Toolchain type //toolchain:${toolchain_name} not found')
   toolchain = ctx.toolchains['//toolchain:${toolchain_name}']
   message = ctx.attr.message
   print(

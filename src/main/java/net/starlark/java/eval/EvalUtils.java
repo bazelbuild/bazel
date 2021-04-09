@@ -73,9 +73,10 @@ final class EvalUtils {
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
-  static Object binaryOp(
-      TokenKind op, Object x, Object y, StarlarkSemantics semantics, Mutability mu)
+  static Object binaryOp(TokenKind op, Object x, Object y, StarlarkThread starlarkThread)
       throws EvalException {
+    StarlarkSemantics semantics = starlarkThread.getSemantics();
+    Mutability mu = starlarkThread.mutability();
     switch (op) {
       case PLUS:
         if (x instanceof StarlarkInt) {
@@ -339,6 +340,8 @@ final class EvalUtils {
       case IN:
         if (y instanceof StarlarkIndexable) {
           return ((StarlarkIndexable) y).containsKey(semantics, x);
+        } else if (y instanceof StarlarkIndexable.Threaded) {
+          return ((StarlarkIndexable.Threaded) y).containsKey(starlarkThread, semantics, x);
         } else if (y instanceof String) {
           if (!(x instanceof String)) {
             throw Starlark.errorf(
@@ -349,7 +352,7 @@ final class EvalUtils {
         break;
 
       case NOT_IN:
-        Object z = binaryOp(TokenKind.IN, x, y, semantics, mu);
+        Object z = binaryOp(TokenKind.IN, x, y, starlarkThread);
         if (z != null) {
           return !Starlark.truth(z);
         }

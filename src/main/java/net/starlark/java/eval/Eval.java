@@ -460,7 +460,7 @@ final class Eval {
       list.extend(y);
       return list;
     }
-    return EvalUtils.binaryOp(op, x, y, fr.thread.getSemantics(), fr.thread.mutability());
+    return EvalUtils.binaryOp(op, x, y, fr.thread);
   }
 
   // ---- expressions ----
@@ -532,8 +532,7 @@ final class Eval {
       default:
         Object y = eval(fr, binop.getY());
         try {
-          return EvalUtils.binaryOp(
-              binop.getOperator(), x, y, fr.thread.getSemantics(), fr.thread.mutability());
+          return EvalUtils.binaryOp(binop.getOperator(), x, y, fr.thread);
         } catch (EvalException ex) {
           fr.setErrorLocation(binop.getOperatorLocation());
           throw ex;
