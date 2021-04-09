@@ -20,13 +20,12 @@ import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABE
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collections;
 import java.util.HashMap;
@@ -135,15 +133,6 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   protected abstract HashMap<String, QueryFunction> getDefaultFunctions();
 
   protected abstract BuildConfiguration getConfiguration(T target);
-
-  protected ConfiguredRuleClassProvider.Builder setRuleClassProviders(MockRule... mockRules) {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    for (MockRule rule : mockRules) {
-      builder.addRuleDefinition(rule);
-    }
-    return builder;
-  }
 
   @Override
   protected boolean testConfigurableAttributes() {
@@ -337,18 +326,18 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     super.testSet();
   }
 
-  /** PatchTransition on --test_arg */
-  public static class TestArgPatchTransition implements PatchTransition {
+  /** PatchTransition on --foo */
+  public static class FooPatchTransition implements PatchTransition {
     String toOption;
     String name;
 
-    public TestArgPatchTransition(String toOption, String name) {
+    public FooPatchTransition(String toOption, String name) {
       this.toOption = toOption;
       this.name = name;
     }
 
-    public TestArgPatchTransition(String toOption) {
-      this(toOption, "TestArgPatchTransition");
+    public FooPatchTransition(String toOption) {
+      this(toOption, "FooPatchTransition");
     }
 
     @Override
@@ -358,13 +347,13 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(TestOptions.class);
+      return ImmutableSet.of(DummyTestOptions.class);
     }
 
     @Override
     public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptionsView result = options.clone();
-      result.get(TestOptions.class).testArguments = Collections.singletonList(toOption);
+      result.get(DummyTestOptions.class).foo = toOption;
       return result.underlying();
     }
   }
@@ -375,7 +364,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         () ->
             MockRule.define(
                 "transitioned_rule",
-                (builder, env) -> builder.cfg(new TestArgPatchTransition("SET BY PATCH")).build());
+                (builder, env) -> builder.cfg(new FooPatchTransition("SET BY PATCH")).build());
 
     MockRule untransitionedRule = () -> MockRule.define("untransitioned_rule");
 
@@ -407,7 +396,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                 "rule_with_transition_and_dep",
                 (builder, env) ->
                     builder
-                        .cfg(new TestArgPatchTransition("SET BY PATCH"))
+                        .cfg(new FooPatchTransition("SET BY PATCH"))
                         .addAttribute(
                             attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build())
                         .build());

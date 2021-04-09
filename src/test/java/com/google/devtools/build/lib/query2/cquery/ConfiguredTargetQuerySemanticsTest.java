@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -72,16 +73,16 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 "rule_with_transitions",
                 attr("patch_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(TransitionFactories.of(new TestArgPatchTransition("SET BY PATCH"))),
+                    .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH"))),
                 attr("string_dep", STRING),
                 attr("split_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .cfg(
                         TransitionFactories.of(
-                            new TestArgSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2"))),
+                            new FooSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2"))),
                 attr("patch_dep_list", LABEL_LIST)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(TransitionFactories.of(new TestArgPatchTransition("SET BY PATCH 2"))));
+                    .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH 2"))));
     MockRule noAttributeRule = () -> MockRule.define("no_attribute_rule");
 
     helper.useRuleClassProvider(
@@ -239,7 +240,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         () ->
             MockRule.define(
                 "rule_class_transition",
-                (builder, env) -> builder.cfg(new TestArgPatchTransition("SET BY PATCH")).build());
+                (builder, env) -> builder.cfg(new FooPatchTransition("SET BY PATCH")).build());
 
     helper.useRuleClassProvider(setRuleClassProviders(ruleClassTransition).build());
     helper.setUniverseScope("//test:rule_class");
@@ -247,9 +248,11 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     writeFile("test/BUILD", "rule_class_transition(name='rule_class')");
 
     Set<KeyedConfiguredTarget> ruleClass = eval("//test:rule_class");
-    TestOptions testOptions =
-        getConfiguration(Iterables.getOnlyElement(ruleClass)).getOptions().get(TestOptions.class);
-    assertThat(testOptions.testArguments).containsExactly("SET BY PATCH");
+    DummyTestOptions testOptions =
+        getConfiguration(Iterables.getOnlyElement(ruleClass))
+            .getOptions()
+            .get(DummyTestOptions.class);
+    assertThat(testOptions.foo).isEqualTo("SET BY PATCH");
   }
 
   private void createConfigRulesAndBuild() throws Exception {

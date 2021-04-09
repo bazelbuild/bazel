@@ -101,10 +101,10 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "config_setting(",
         "  name = 'garfield',",
-        "  values = {'test_arg': 'cat'}",
+        "  values = {'foo': 'cat'}",
         ")");
 
-    getHelper().useConfiguration("--test_arg=cat");
+    getHelper().useConfiguration("--foo=cat");
     assertThat(getOutput("//test:my_rule"))
         .containsExactly(
             "# /workspace/test/BUILD:1:8",
@@ -116,7 +116,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "#   /workspace/test/BUILD:1:8 in <toplevel>")
         .inOrder();
 
-    getHelper().useConfiguration("--test_arg=hound");
+    getHelper().useConfiguration("--foo=hound");
     assertThat(getOutput("//test:my_rule"))
         .containsExactly(
             "# /workspace/test/BUILD:1:8",
@@ -142,7 +142,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "config_setting(",
         "  name = 'garfield',",
-        "  values = {'test_arg': 'cat'}",
+        "  values = {'foo': 'cat'}",
         ")",
         "alias(",
         "  name = 'my_alias',",
@@ -177,7 +177,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "config_setting(",
         "  name = 'garfield',",
-        "  values = {'test_arg': 'cat'}",
+        "  values = {'foo': 'cat'}",
         ")",
         "alias(",
         "  name = 'my_alias',",
@@ -187,7 +187,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "  })",
         ")");
 
-    getHelper().useConfiguration("--test_arg=cat");
+    getHelper().useConfiguration("--foo=cat");
     assertThat(getOutput("//test:my_alias"))
         .containsExactly(
             "# /workspace/test/BUILD:13:6",
@@ -199,7 +199,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "#   /workspace/test/BUILD:13:6 in <toplevel>")
         .inOrder();
 
-    getHelper().useConfiguration("--test_arg=hound");
+    getHelper().useConfiguration("--foo=hound");
     assertThat(getOutput("//test:my_alias"))
         .containsExactly(
             "# /workspace/test/BUILD:13:6",
@@ -225,7 +225,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "config_setting(",
         "  name = 'garfield',",
-        "  values = {'test_arg': 'cat'}",
+        "  values = {'foo': 'cat'}",
         ")");
 
     assertThat(getOutput("//test:lasagna.java")).containsExactly("");
@@ -245,10 +245,10 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "config_setting(",
         "  name = 'garfield',",
-        "  values = {'test_arg': 'cat'}",
+        "  values = {'foo': 'cat'}",
         ")");
 
-    getHelper().useConfiguration("--test_arg=cat");
+    getHelper().useConfiguration("--foo=cat");
     assertThat(getOutput("//test:output.txt"))
         .containsExactly(
             "# /workspace/test/BUILD:1:8",
@@ -261,7 +261,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             "#   /workspace/test/BUILD:1:8 in <toplevel>")
         .inOrder();
 
-    getHelper().useConfiguration("--test_arg=hound");
+    getHelper().useConfiguration("--foo=hound");
     assertThat(getOutput("//test:output.txt"))
         .containsExactly(
             "# /workspace/test/BUILD:1:8",
