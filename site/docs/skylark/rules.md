@@ -390,7 +390,7 @@ def _example_library_impl(ctx):
     ctx.actions.run(
         mnemonic="ExampleCompile",
         executable = ctx.executable._compiler,
-        arguments=args,
+        arguments = [args],
         inputs = inputs,
         outputs = [output_file],
     )
