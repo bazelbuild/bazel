@@ -55,6 +55,13 @@ import java.util.Set;
 @ThreadSafe
 public final class GraphBackedRecursivePackageProvider extends AbstractRecursivePackageProvider {
 
+  /**
+   * Helper interface for clients of GraphBackedRecursivePackageProvider to indicate what universe
+   * packages should be resolved in.
+   *
+   * Client can either specify a fixed set of target patterns (using {@link #of()}), or specify that
+   * all targets are valid (using {@link #all()}).
+   */
   public interface UniverseTargetPattern {
     ImmutableList<TargetPattern> patterns();
 
