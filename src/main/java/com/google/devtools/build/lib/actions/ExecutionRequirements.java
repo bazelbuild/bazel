@@ -160,6 +160,8 @@ public class ExecutionRequirements {
   /** Specify the type of worker protocol the worker uses. */
   public static final String REQUIRES_WORKER_PROTOCOL = "requires-worker-protocol";
 
+  public static final String SUPPORTS_WORKER_CANCELLATION = "supports-worker-cancellation";
+
   /** Denotes what the type of worker protocol the worker uses. */
   public enum WorkerProtocolFormat {
     JSON,
