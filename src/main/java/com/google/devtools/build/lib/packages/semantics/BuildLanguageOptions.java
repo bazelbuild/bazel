@@ -159,6 +159,15 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean experimentalGoogleLegacyApi;
 
   @Option(
+      name = "experimental_javawrapcc_api",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If set to true, exposes JavaWrapCcApi.")
+  public boolean experimentalJavaWrapCcApi;
+
+  @Option(
       name = "experimental_ninja_actions",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -637,6 +646,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
+            .setBool(EXPERIMENTAL_JAVAWRAPCC_API, experimentalJavaWrapCcApi)
             .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
@@ -705,6 +715,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-experimental_enable_android_migration_apis";
   public static final String EXPERIMENTAL_EXEC_GROUPS = "-experimental_exec_groups";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
+  public static final String EXPERIMENTAL_JAVAWRAPCC_API = "+experimental_javawrapcc_api";
   public static final String EXPERIMENTAL_NINJA_ACTIONS = "-experimental_ninja_actions";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
