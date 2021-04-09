@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
@@ -42,12 +40,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
-import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
@@ -503,29 +499,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   public ImmutableList<String> getCompatibleJavacOptions(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
     return ImmutableList.of();
-  }
-
-  @Override
-  public void addProviders(
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      Artifact gensrcJar,
-      RuleConfiguredTargetBuilder ruleBuilder) {
-    // TODO(plf): Figure out whether we can remove support for C++ dependencies in Bazel.
-    ImmutableList<? extends TransitiveInfoCollection> deps =
-        javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH);
-    ImmutableList<CcInfo> ccInfos =
-        ImmutableList.<CcInfo>builder()
-            .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
-            .addAll(
-                AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
-                    .map(JavaCcLinkParamsProvider::getCcInfo)
-                    .collect(ImmutableList.toImmutableList()))
-            .build();
-
-    // TODO(plf): return empty CcLinkingInfo because deps= in Java targets should not contain C++
-    // targets. We need to make sure that no one uses this functionality, though.
-    ruleBuilder.addNativeDeclaredProvider(new JavaCcLinkParamsProvider(CcInfo.merge(ccInfos)));
   }
 
   // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.

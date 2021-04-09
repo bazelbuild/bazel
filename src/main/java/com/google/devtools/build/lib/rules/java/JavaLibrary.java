@@ -155,7 +155,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 
-    semantics.addProviders(ruleContext, common, outputs.genSource(), builder);
     if (generatedExtensionRegistryProvider != null) {
       builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }

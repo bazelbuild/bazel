@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -423,18 +422,6 @@ public interface JavaSemantics {
   /** Return the JVM flags to be used in a Java binary. */
   Iterable<String> getJvmFlags(
       RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts, List<String> userJvmFlags);
-
-  /**
-   * Adds extra providers to a Java target.
-   *
-   * @throws InterruptedException
-   */
-  void addProviders(
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      Artifact gensrcJar,
-      RuleConfiguredTargetBuilder ruleBuilder)
-      throws InterruptedException;
 
   /** Translates XMB messages to translations artifact suitable for Java targets. */
   ImmutableList<Artifact> translate(RuleContext ruleContext, List<Artifact> messages);

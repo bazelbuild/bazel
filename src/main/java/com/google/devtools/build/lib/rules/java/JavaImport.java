@@ -110,7 +110,6 @@ public class JavaImport implements RuleConfiguredTargetFactory {
 
     ImmutableBiMap<Artifact, Artifact> compilationToRuntimeJarMap =
         compilationToRuntimeJarMapBuilder.build();
-    semantics.addProviders(ruleContext, common, /* gensrcJar= */ null, ruleBuilder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 

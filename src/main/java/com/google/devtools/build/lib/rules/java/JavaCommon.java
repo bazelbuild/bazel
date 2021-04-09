@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -40,6 +44,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
@@ -689,6 +694,28 @@ public class JavaCommon {
 
     javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
+
+    addCcRelatedProviders(builder);
+  }
+
+  /** Adds Cc related providers to a Java target. */
+  private void addCcRelatedProviders(RuleConfiguredTargetBuilder ruleBuilder) {
+    ImmutableList<? extends TransitiveInfoCollection> deps =
+        targetsTreatedAsDeps(ClasspathType.BOTH);
+    ImmutableList<CcInfo> ccInfos =
+        Streams.concat(
+                AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream(),
+                AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
+                    .map(JavaCcLinkParamsProvider::getCcInfo))
+            .collect(toImmutableList());
+
+    CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
+    ruleBuilder.addNativeDeclaredProvider(
+        new JavaCcLinkParamsProvider(
+            CcInfo.builder()
+                .setCcLinkingContext(mergedCcInfo.getCcLinkingContext())
+                .setCcNativeLibraryInfo(mergedCcInfo.getCcNativeLibraryInfo())
+                .build()));
   }
 
   private InstrumentedFilesInfo getInstrumentationFilesProvider(
