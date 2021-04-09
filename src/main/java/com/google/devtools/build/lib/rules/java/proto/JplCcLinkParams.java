@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.java.JavaInfo;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,17 +44,30 @@ public class JplCcLinkParams {
       JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
       if (javaCcLinkParamsProvider != null) {
         providers.add(javaCcLinkParamsProvider.getCcInfo());
+        continue;
+      }
+
+      JavaCcInfoProvider javaCcInfoProvider = JavaInfo.getProvider(JavaCcInfoProvider.class, t);
+      if (javaCcInfoProvider != null) {
+        providers.add(javaCcInfoProvider.getCcInfo());
       }
     }
 
     for (TransitiveInfoCollection t : protoRuntimes) {
-      JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
-      if (javaCcLinkParamsProvider != null) {
-        providers.add(javaCcLinkParamsProvider.getCcInfo());
-      }
       CcInfo ccInfo = t.get(CcInfo.PROVIDER);
       if (ccInfo != null) {
         providers.add(ccInfo);
+      }
+
+      JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
+      if (javaCcLinkParamsProvider != null) {
+        providers.add(javaCcLinkParamsProvider.getCcInfo());
+        continue;
+      }
+
+      JavaCcInfoProvider javaCcInfoProvider = JavaInfo.getProvider(JavaCcInfoProvider.class, t);
+      if (javaCcInfoProvider != null) {
+        providers.add(javaCcInfoProvider.getCcInfo());
       }
     }
 

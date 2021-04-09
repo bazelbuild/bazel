@@ -643,6 +643,14 @@ public class JavaOptions extends FragmentOptions {
       help = "This flag is a noop and scheduled for removal.")
   public boolean dontCollectSoArtifacts;
 
+  @Option(
+      name = "experimental_publish_javacclinkparamsinfo",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, JavaCcLinkParamsInfo is published as part of JavaInfo.")
+  public boolean experimentalPublishJavaCcLinkParamsInfo;
+
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
   }
@@ -724,6 +732,7 @@ public class JavaOptions extends FragmentOptions {
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     host.dontCollectSoArtifacts = dontCollectSoArtifacts;
+    host.experimentalPublishJavaCcLinkParamsInfo = experimentalPublishJavaCcLinkParamsInfo;
 
     return host;
   }

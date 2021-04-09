@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -50,6 +53,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -69,6 +73,7 @@ import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistry
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * A helper class for android rules.
@@ -817,18 +822,16 @@ public class AndroidCommon {
     CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingContext(ccLinkingContext).build();
 
     ImmutableList<CcInfo> ccInfos =
-        ImmutableList.<CcInfo>builder()
-            .add(linkoptsCcInfo)
-            .addAll(
+        Streams.concat(
+                Stream.of(linkoptsCcInfo),
+                JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps).stream()
+                    .map(JavaCcInfoProvider::getCcInfo),
                 AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
-                    .map(JavaCcLinkParamsProvider::getCcInfo)
-                    .collect(ImmutableList.toImmutableList()))
-            .addAll(
+                    .map(JavaCcLinkParamsProvider::getCcInfo),
                 AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER).stream()
-                    .map(AndroidCcLinkParamsProvider::getLinkParams)
-                    .collect(ImmutableList.toImmutableList()))
-            .addAll(AnalysisUtils.getProviders(deps, CcInfo.PROVIDER))
-            .build();
+                    .map(AndroidCcLinkParamsProvider::getLinkParams),
+                AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream())
+            .collect(toImmutableList());
 
     return CcInfo.merge(ccInfos);
   }

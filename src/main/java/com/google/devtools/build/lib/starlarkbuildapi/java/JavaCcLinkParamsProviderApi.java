@@ -47,7 +47,7 @@ public interface JavaCcLinkParamsProviderApi<
       structField = true,
       doc = "Returns the CcLinkingInfo provider.",
       documented = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_JAVACCLINKPARAMSINFO)
   CcInfoApiT getCcInfo();
 
   /** The provider implementing this can construct the JavaCcLinkParamsInfo provider. */
@@ -64,7 +64,7 @@ public interface JavaCcLinkParamsProviderApi<
         name = NAME,
         doc = "The <code>JavaCcLinkParamsInfo</code> constructor.",
         documented = true,
-        enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
+        enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_JAVACCLINKPARAMSINFO,
         parameters = {
           @Param(name = "store", doc = "The CcInfo provider.", positional = true, named = false),
         },

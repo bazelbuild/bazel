@@ -120,6 +120,7 @@ java_library(
         "DeployArchiveBuilder.java",
         "ImportDepsCheckActionBuilder.java",
         "JavaBuildInfoFactory.java",
+        "JavaCcInfoProvider.java",
         "JavaCcLinkParamsProvider.java",
         "JavaCommon.java",
         "JavaCompilationArgsProvider.java",

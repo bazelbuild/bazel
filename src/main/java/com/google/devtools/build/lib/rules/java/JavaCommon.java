@@ -695,27 +695,36 @@ public class JavaCommon {
     javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
 
-    addCcRelatedProviders(builder);
+    addCcRelatedProviders(builder, javaInfoBuilder);
   }
 
   /** Adds Cc related providers to a Java target. */
-  private void addCcRelatedProviders(RuleConfiguredTargetBuilder ruleBuilder) {
+  private void addCcRelatedProviders(
+      RuleConfiguredTargetBuilder ruleBuilder, JavaInfo.Builder javaInfoBuilder) {
     ImmutableList<? extends TransitiveInfoCollection> deps =
         targetsTreatedAsDeps(ClasspathType.BOTH);
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(
                 AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream(),
                 AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
-                    .map(JavaCcLinkParamsProvider::getCcInfo))
+                    .map(JavaCcLinkParamsProvider::getCcInfo),
+                JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps).stream()
+                    .map(JavaCcInfoProvider::getCcInfo))
             .collect(toImmutableList());
 
     CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
-    ruleBuilder.addNativeDeclaredProvider(
-        new JavaCcLinkParamsProvider(
-            CcInfo.builder()
-                .setCcLinkingContext(mergedCcInfo.getCcLinkingContext())
-                .setCcNativeLibraryInfo(mergedCcInfo.getCcNativeLibraryInfo())
-                .build()));
+    CcInfo filteredCcInfo =
+        CcInfo.builder()
+            .setCcLinkingContext(mergedCcInfo.getCcLinkingContext())
+            .setCcNativeLibraryInfo(mergedCcInfo.getCcNativeLibraryInfo())
+            .build();
+
+    if (ruleContext
+        .getFragment(JavaConfiguration.class)
+        .experimentalPublishJavaCcLinkParamsInfo()) {
+      ruleBuilder.addNativeDeclaredProvider(new JavaCcLinkParamsProvider(filteredCcInfo));
+    }
+    javaInfoBuilder.addProvider(JavaCcInfoProvider.class, new JavaCcInfoProvider(filteredCcInfo));
   }
 
   private InstrumentedFilesInfo getInstrumentationFilesProvider(

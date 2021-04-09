@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -75,24 +77,27 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
-    JavaInfo javaInfo =
+    JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
-            .build();
+            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY);
 
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
             .setFilesToBuild(filesToBuild.build())
             .addProvider(RunfilesProvider.simple(runfiles))
             .addOutputGroup(
-                OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-            .addNativeDeclaredProvider(javaInfo);
+                OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER));
 
     if (ruleContext.getFragment(JavaConfiguration.class).jplPropagateCcLinkParamsStore()) {
-      result.addNativeDeclaredProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()));
+      JavaCcLinkParamsProvider javaCcLinkParamsProvider =
+          createCcLinkingInfo(ruleContext, ImmutableList.of());
+      result.addNativeDeclaredProvider(javaCcLinkParamsProvider);
+      javaInfoBuilder.addProvider(
+          JavaCcInfoProvider.class, new JavaCcInfoProvider(javaCcLinkParamsProvider.getCcInfo()));
     }
+    result.addNativeDeclaredProvider(javaInfoBuilder.build());
 
     return result.build();
   }
