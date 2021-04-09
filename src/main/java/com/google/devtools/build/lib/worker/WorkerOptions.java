@@ -178,4 +178,12 @@ public class WorkerOptions extends OptionsBase {
           "If enabled, workers that support the experimental multiplexing feature will use that"
               + " feature.")
   public boolean workerMultiplex;
+
+  @Option(
+      name = "experimental_worker_cancellation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If enabled, Bazel may send cancellation requests to workers that support them.")
+  public boolean workerCancellation;
 }

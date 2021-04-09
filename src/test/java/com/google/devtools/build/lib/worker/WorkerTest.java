@@ -204,8 +204,16 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_json_incorrectFields_fails() throws IOException {
-    verifyGetResponseFailure(
-        "{\"testField\":0}", "testField is an incorrect field in work response");
+  public void testGetResponse_json_unknownFieldsIgnored() throws IOException, InterruptedException {
+    TestWorker testWorker =
+        createTestWorker(
+            "{\"exitCode\":1,\"output\":\"test output\",\"requestId\":1,\"unknown\":{1:['a']}}"
+                .getBytes(UTF_8),
+            JSON);
+    WorkResponse readResponse = testWorker.getResponse(1);
+    WorkResponse response =
+        WorkResponse.newBuilder().setExitCode(1).setOutput("test output").setRequestId(1).build();
+
+    assertThat(readResponse).isEqualTo(response);
   }
 }
