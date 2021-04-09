@@ -1,18 +1,18 @@
 # Description:
 #   JaCoCo is a free code coverage library for Java, created by the EclEmma team.
 #
-# http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip
+# https://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.6/jacoco-0.8.6.zip
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 load("//src:release_archive.bzl", "release_archive")
 
 licenses(["reciprocal"])  # EPL 1.0 (Eclipse Public License)
 
-exports_files(["LICENSE"])
+exports_files(["license.html"])
 
 package(default_visibility = ["//visibility:public"])
 
-VERSION = "0.8.3"
+VERSION = "0.8.6"
 
 filegroup(
     name = "srcs",
@@ -36,9 +36,9 @@ filegroup(
         ["*-sources.jar"],
         allow_empty = True,
     ) + ["LICENSE"] + [
-        "//third_party:asm/asm-8.0-sources.jar",
-        "//third_party:asm/asm-analysis-8.0-sources.jar",
-        "//third_party:asm/asm-commons-8.0-sources.jar",
+        "//third_party:asm/asm-9.1-sources.jar",
+        "//third_party:asm/asm-analysis-9.1-sources.jar",
+        "//third_party:asm/asm-commons-9.1-sources.jar",
     ],
 )
 
