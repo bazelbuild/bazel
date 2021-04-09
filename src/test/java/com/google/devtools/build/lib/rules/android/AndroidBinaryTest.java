@@ -36,6 +36,7 @@ import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -62,6 +64,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,6 +83,16 @@ import org.junit.runners.Suite.SuiteClasses;
 @RunWith(Suite.class)
 @SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
+
+  /** Allow use of --foo as a dummy flag */
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfigurationFragment(DummyTestFragment.class);
+    return builder.build();
+  }
+
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)
   public static class WithoutPlatforms extends AndroidBinaryTest {}
@@ -4384,10 +4397,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
-        "    values = {'test_arg': 'a'})",
+        "    values = {'foo': 'a'})",
         "config_setting(",
         "    name = 'b',",
-        "    values = {'test_arg': 'b'})");
+        "    values = {'foo': 'b'})");
     scratchConfiguredTarget(
         "java/foo",
         "abin",
