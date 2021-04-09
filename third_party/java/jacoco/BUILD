@@ -8,7 +8,7 @@ load("//src:release_archive.bzl", "release_archive")
 
 licenses(["reciprocal"])  # EPL 1.0 (Eclipse Public License)
 
-exports_files(["license.html"])
+exports_files(["LICENSE"])
 
 package(default_visibility = ["//visibility:public"])
 
