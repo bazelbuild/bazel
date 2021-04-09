@@ -218,8 +218,11 @@ public class CommandFailureUtils {
     for (String commandElement : commandLineElements) {
       if (form == CommandDescriptionForm.ABBREVIATED
           && message.length() + commandElement.length() > APPROXIMATE_MAXIMUM_MESSAGE_LENGTH) {
-        message.append(
-            " ... (remaining " + numberRemaining + " argument(s) skipped)");
+        message
+            .append(" ... (remaining ")
+            .append(numberRemaining)
+            .append(numberRemaining == 1 ? " argument" : " arguments")
+            .append(" skipped)");
         break;
       } else {
         if (numberRemaining < size) {
