@@ -77,13 +77,6 @@ public class J2ObjcLibraryRule implements RuleDefinition {
                 .allowedRuleClasses(
                     "j2objc_library", "java_library", "java_import", "java_proto_library")
                 .allowedFileTypes())
-        /*<!-- #BLAZE_RULE(j2objc_library).IMPLICIT_OUTPUTS -->
-        <ul>
-         <li><code><var>name</var>_fully_linked.a</code>: A fully linked static library that
-             contains the full transitive closure of transpiled dependencies.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)

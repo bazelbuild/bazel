@@ -33,13 +33,6 @@ public class ObjcLibraryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class, AppleConfiguration.class, CppConfiguration.class)
-        /*<!-- #BLAZE_RULE(objc_library).IMPLICIT_OUTPUTS -->
-        <ul>
-         <li><code><var>name</var>_fully_linked.a</code>: A fully linked static library that
-             contains the full transitive closure of library dependencies.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)

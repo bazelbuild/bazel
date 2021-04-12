@@ -80,9 +80,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     compilationSupport
         .registerCompileAndArchiveActions(common)
-        .registerFullyLinkAction(
-            common.getObjcProvider(),
-            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .validateAttributes();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =

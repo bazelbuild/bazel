@@ -277,12 +277,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 ? new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-arc-exceptions")
                 : new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-weak");
 
-        compilationSupport
-            .registerCompileAndArchiveActions(
-                common, extraCompileArgs, ImmutableList.<PathFragment>of())
-            .registerFullyLinkAction(
-                common.getObjcProvider(),
-                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+        compilationSupport.registerCompileAndArchiveActions(
+            common, extraCompileArgs, ImmutableList.<PathFragment>of());
         ccCompilationContext = compilationSupport.getCcCompilationContext();
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
