@@ -77,14 +77,14 @@ filegroup(
 
 java_import(
     name = "jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.3.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.3-src.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.6.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.6-src.jar",
 )
 
 java_import(
     name = "jacoco-core",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.3.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.3-src.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.6.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.6-src.jar",
     exports = [
         ":asm",
         ":asm-commons",
@@ -94,12 +94,12 @@ java_import(
 
 filegroup(
     name = "jacoco-core-jars",
-    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.3.jar"],
+    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.6.jar"],
 )
 
 java_import(
     name = "jacoco-report",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.3.jar"],
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.6.jar"],
     srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-sources.jar",
     exports = [
         ":asm",
@@ -109,32 +109,32 @@ java_import(
 
 java_import(
     name = "bazel-jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.3.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.6.jar"],
 )
 
 java_import(
     name = "bazel-jacoco-agent-neverlink",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.3.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.6.jar"],
     neverlink = 1,
 )
 
 java_import(
     name = "asm",
-    jars = ["java_tools/third_party/java/jacoco/asm-8.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-8.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-9.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-9.1-sources.jar",
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["java_tools/third_party/java/jacoco/asm-commons-8.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-commons-8.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-9.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-9.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["java_tools/third_party/java/jacoco/asm-tree-8.0.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-tree-8.0-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-9.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-9.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
