@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "Common utilities and functionality related to Android rules.",
     documented = false)
 public interface AndroidStarlarkCommonApi<
-        FileT extends FileApi, JavaInfoT extends JavaInfoApi<?, ?>>
+        FileT extends FileApi, JavaInfoT extends JavaInfoApi<?, ?, ?>>
     extends StarlarkValue {
 
   @StarlarkMethod(

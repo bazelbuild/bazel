@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static org.junit.Assert.assertThrows;
 
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
@@ -1267,18 +1269,25 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "def _exports_impl(ctx):",
         "  f = make_file(ctx)",
         "  return JavaInfo(output_jar=f, compile_jar=f, exports=[f])",
+        "def _nativelibs_impl(ctx):",
+        "  f = make_file(ctx)",
+        "  return JavaInfo(output_jar=f, compile_jar=f, native_libraries=[f])",
         "bad_deps = rule(_deps_impl)",
         "bad_runtime_deps = rule(_runtime_deps_impl)",
-        "bad_exports = rule(_exports_impl)");
+        "bad_exports = rule(_exports_impl)",
+        "bad_libs = rule(_nativelibs_impl)");
     scratch.file(
         "foo/BUILD",
-        "load(':bad_rules.bzl', 'bad_deps', 'bad_runtime_deps', 'bad_exports')",
+        "load(':bad_rules.bzl', 'bad_deps', 'bad_runtime_deps', 'bad_exports', 'bad_libs')",
         "bad_deps(name='bad_deps')",
         "bad_runtime_deps(name='bad_runtime_deps')",
-        "bad_exports(name='bad_exports')");
+        "bad_exports(name='bad_exports')",
+        "bad_libs(name='bad_libs')");
+
     checkError("//foo:bad_deps", "Expected 'sequence of JavaInfo'");
     checkError("//foo:bad_runtime_deps", "Expected 'sequence of JavaInfo'");
     checkError("//foo:bad_exports", "Expected 'sequence of JavaInfo'");
+    checkError("//foo:bad_libs", "Expected 'sequence of CcInfo'");
   }
 
   @Test
@@ -1497,6 +1506,44 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(exports.getSet(Label.class).toList())
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
+  }
+
+  /** Tests that JavaInfo provides information about transitive native libraries in Starlark. */
+  @Test
+  public void javaInfo_getTransitiveNativeLibraries() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_native_libraries)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_library(name = 'my_cc_lib_c.so', srcs = ['cc/c.cc'])",
+        "cc_library(name = 'my_cc_lib_b.so', srcs = ['cc/b.cc'])",
+        "cc_library(name = 'my_cc_lib_a.so', srcs = ['cc/a.cc'])",
+        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'], deps = ['my_cc_lib_c.so'])",
+        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = ['my_cc_lib_b.so'])",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
+        "             deps = [':my_java_lib_b', ':my_java_lib_c', 'my_cc_lib_a.so'])",
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+
+    Depset nativeLibs = (Depset) info.getValue("property");
+
+    assertThat(
+            nativeLibs.getSet(LibraryToLink.class).toList().stream()
+                .map(LibraryToLink::getLibraryIdentifier))
+        .containsExactly("foo/libmy_cc_lib_a.so", "foo/libmy_cc_lib_b.so", "foo/libmy_cc_lib_c.so")
+        .inOrder();
   }
 
   private void writeJavaCustomLibraryWithLabels(String path) throws Exception {

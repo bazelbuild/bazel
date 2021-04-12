@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -71,6 +72,7 @@ final class JavaInfoBuildHelper {
    * @param exports libraries to make available for users of this library. <a
    *     href="https://docs.bazel.build/versions/master/be/java.html#java_library"
    *     target="_top">java_library.exports</a>
+   * @param nativeLibraries CC library dependencies that are needed for this library
    * @return new created JavaInfo instance
    */
   JavaInfo createJavaInfo(
@@ -79,6 +81,7 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> compileTimeDeps,
       Sequence<JavaInfo> runtimeDeps,
       Sequence<JavaInfo> exports,
+      Sequence<CcInfo> nativeLibraries,
       Location location) {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     javaInfoBuilder.setLocation(location);
@@ -133,6 +136,9 @@ final class JavaInfoBuildHelper {
                 concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
 
     javaInfoBuilder.setRuntimeJars(ImmutableList.of(javaOutput.getClassJar()));
+
+    javaInfoBuilder.addProvider(
+        JavaCcInfoProvider.class, new JavaCcInfoProvider(CcInfo.merge(nativeLibraries)));
 
     return javaInfoBuilder.build();
   }
