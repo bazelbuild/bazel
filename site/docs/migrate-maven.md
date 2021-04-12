@@ -3,8 +3,6 @@ layout: documentation
 title: Migrating from Maven to Bazel
 ---
 
-> FYI 🙋‍♀️ Try Project [Exodus](https://github.com/wix/exodus) to help you with the heavy lifting 🙈
-
 # Migrating from Maven to Bazel
 
 This page describes how to migrate from Maven to Bazel, including the
@@ -245,3 +243,7 @@ of the build.
 
 When you have BUILD files at the desired granularity, you can use Bazel
 to produce all of your builds.
+
+## See more
+
+* Project [Exodus](https://github.com/wix/exodus) - community project that supports automated migration.
