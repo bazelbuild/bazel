@@ -257,6 +257,7 @@ public final class JavacOptions {
           return true;
         case "--add-exports":
         case "--add-opens":
+        case "--add-modules":
           if (remaining.hasNext()) {
             modular.add(option);
             modular.add(remaining.next());
@@ -270,7 +271,9 @@ public final class JavacOptions {
         target = null;
         return true;
       }
-      if (option.startsWith("--add-exports=") || option.startsWith("--add-opens=")) {
+      if (option.startsWith("--add-exports=")
+          || option.startsWith("--add-opens=")
+          || option.startsWith("--add-modules=")) {
         modular.add(option);
         return true;
       }
