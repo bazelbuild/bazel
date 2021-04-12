@@ -419,11 +419,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
-        .isEqualTo(
-            Label.parseAbsolute(
-                "//foo/bar:baz",
-                /* defaultToMain= */ false,
-                /* repositoryMapping= */ ImmutableMap.of()));
+        .isEqualTo(Label.parseAbsoluteUnchecked("//foo/bar:baz"));
   }
 
   @Test
@@ -537,36 +533,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testLabelAttrDefaultValueAsString() throws Exception {
     Attribute sligleAttr = buildAttribute("a1", "attr.label(default = '//foo:bar')");
     assertThat(sligleAttr.getDefaultValueUnchecked())
-        .isEqualTo(
-            Label.parseAbsolute(
-                "//foo:bar",
-                /* defaultToMain= */ false,
-                /* repositoryMapping= */ ImmutableMap.of()));
+        .isEqualTo(Label.parseAbsoluteUnchecked("//foo:bar"));
 
     Attribute listAttr =
         buildAttribute("a2", "attr.label_list(default = ['//foo:bar', '//bar:foo'])");
     assertThat(listAttr.getDefaultValueUnchecked())
         .isEqualTo(
             ImmutableList.of(
-                Label.parseAbsolute(
-                    "//foo:bar",
-                    /* defaultToMain= */ false,
-                    /* repositoryMapping= */ ImmutableMap.of()),
-                Label.parseAbsolute(
-                    "//bar:foo",
-                    /* defaultToMain= */ false,
-                    /*repositoryMapping= */ ImmutableMap.of())));
+                Label.parseAbsoluteUnchecked("//foo:bar"),
+                Label.parseAbsoluteUnchecked("//bar:foo")));
 
     Attribute dictAttr =
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
     assertThat(dictAttr.getDefaultValueUnchecked())
-        .isEqualTo(
-            ImmutableMap.of(
-                Label.parseAbsolute(
-                    "//foo:bar",
-                    /* defaultToMain= */ false,
-                    /* repositoryMapping= */ ImmutableMap.of()),
-                "my value"));
+        .isEqualTo(ImmutableMap.of(Label.parseAbsoluteUnchecked("//foo:bar"), "my value"));
   }
 
   @Test

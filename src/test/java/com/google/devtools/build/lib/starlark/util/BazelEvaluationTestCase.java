@@ -140,7 +140,7 @@ public final class BazelEvaluationTestCase {
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
-        Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false),
+        Label.parseAbsoluteUnchecked("//test:label"),
         "test/label.bzl",
         /*loads=*/ ImmutableMap.of(),
         /*bzlTransitiveDigest=*/ new byte[0]);
