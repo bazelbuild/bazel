@@ -42,6 +42,10 @@ import javax.annotation.Nullable;
 @RequiresOptions(options = {AppleCommandLineOptions.class})
 public class AppleConfiguration extends Fragment implements AppleConfigurationApi<PlatformType> {
   /**
+   * Environment variable name for the developer dir of the selected Xcode.
+   **/
+  public static final String DEVELOPER_DIR_ENV_NAME = "DEVELOPER_DIR";
+  /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
    * toolkit in action execution.
