@@ -173,18 +173,14 @@ public class CompilationSupport {
 
   private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
 
-  private static final ImmutableList<String> ACTIVATED_ACTIONS =
+  private static final ImmutableList<String> OBJC_ACTIONS =
       ImmutableList.of(
           "objc-compile",
           "objc++-compile",
           "objc-archive",
           "objc-fully-link",
           "objc-executable",
-          "objc++-executable",
-          "assemble",
-          "preprocess-assemble",
-          "c-compile",
-          "c++-compile");
+          "objc++-executable");
 
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
@@ -532,13 +528,12 @@ public class CompilationSupport {
     boolean isTool = ruleContext.getConfiguration().isToolConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
-            .addAll(ccToolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
-            .addAll(ACTIVATED_ACTIONS)
+            .addAll(ruleContext.getFeatures())
+            .addAll(OBJC_ACTIONS)
             .add(CppRuleClasses.LANG_OBJC)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS)
-            .add(isTool ? "host" : "nonhost")
-            .add(configuration.getCompilationMode().toString());
+            .add(isTool ? "host" : "nonhost");
 
     if (!attributes.enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
@@ -548,11 +543,6 @@ public class CompilationSupport {
     }
     if (getPchFile().isPresent()) {
       activatedCrosstoolSelectables.add("pch");
-    }
-    if (objcConfiguration.generateDsym()) {
-      activatedCrosstoolSelectables.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
-    } else {
-      activatedCrosstoolSelectables.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
     }
     if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
       activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
@@ -566,13 +556,8 @@ public class CompilationSupport {
                 .getXcodeVersion()
                 .toStringWithComponents(2));
 
-    activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
-
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
-
-    ImmutableSet.Builder<String> disabledFeatures = ImmutableSet.<String>builder();
-    disabledFeatures.addAll(ruleContext.getDisabledFeatures());
+    ImmutableSet.Builder<String> disabledFeatures =
+        ImmutableSet.<String>builder().addAll(ruleContext.getDisabledFeatures());
     if (disableParseHeaders) {
       disabledFeatures.add(CppRuleClasses.PARSE_HEADERS);
     }
