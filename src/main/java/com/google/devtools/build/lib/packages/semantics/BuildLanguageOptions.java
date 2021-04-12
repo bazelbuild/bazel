@@ -774,8 +774,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
-  public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
-      "+record_rule_instantiation_callstack";
   public static final String EXPERIMENTAL_SHADOWED_ACTION = "-experimental_shadowed_action";
 
   // non-booleans
