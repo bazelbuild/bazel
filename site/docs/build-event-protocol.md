@@ -7,15 +7,15 @@ title: Build Event Protocol
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
-allows third party programs to gain insight into a Bazel invocation. For
-example, you could use the Build Event Protocol to gather information for an IDE
+(BEP) allows third party programs to gain insight into a Bazel invocation. For
+example, you could use the BEP to gather information for an IDE
 plugin or a dashboard that displays build results.
 
 The protocol is a set of [protocol
 buffer](https://developers.google.com/protocol-buffers/) messages with some
 semantics defined on top of it. It includes information about build and test
-results, build progress, the build configuration and much more. The Build Event
-Protocol is intended to be consumed programmatically and makes parsing Bazel’s
+results, build progress, the build configuration and much more. The BEP is
+intended to be consumed programmatically and makes parsing Bazel’s
 command line output a thing of the past.
 
 The Build Event Protocol represents information about a build as events. A
@@ -55,7 +55,7 @@ network transport, some announced build events may never be posted.
 
 ### Consume in binary format
 
-To consume the Build Event Protocol in a binary format:
+To consume the BEP in a binary format:
 
 1. Have Bazel serialize the protocol buffer messages to a file by specifying the
 option `--build_event_binary_file=/path/to/file`. The file will contain
@@ -70,7 +70,7 @@ serialized protocol buffer message.
 
 ### Consume in text or JSON formats
 
-The following Bazel command line flags will output the Build Event Protocol in
+The following Bazel command line flags will output the BEP in
 human-readable formats, such as text and JSON:
 
 ```
@@ -82,13 +82,13 @@ human-readable formats, such as text and JSON:
 
 The [Build Event
 Service](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)
-Protocol is a generic [gRPC](https://www.grpc.io) service for transmitting build
-events. The Build Event Service protocol is independent of the Build Event
-Protocol and treats the Build Event Protocol events as opaque bytes. Bazel ships
+Protocol is a generic [gRPC](https://www.grpc.io) service for publishing build
+events. The Build Event Service protocol is independent of the BEP and treats
+BEP events as opaque bytes. Bazel ships
 with a gRPC client implementation of the Build Event Service protocol that
-transmits Build Event Protocol events. One can specify the endpoint to send the
-events to using the `--bes_backend=HOST:PORT flag`. Bazel’s implementation also
-supports TLS which can be enabled by specifying the `--tls_enabled flag`.
+publishes Build Event Protocol events. One can specify the endpoint to send the
+events to using the `--bes_backend=HOST:PORT` flag. Bazel’s implementation also
+supports TLS which can be enabled by specifying the `--tls_enabled` flag.
 
 There is currently an experimental open source implementation of the [Build
 Event Service](https://github.com/buildbarn/bb-event-service/) in Go as part of
