@@ -206,6 +206,15 @@ public class CompilationSupport {
     return builder.build();
   }
 
+  private String getPurpose() {
+    // ProtoSupport creates multiple {@code CcCompilationContext}s for a single rule, potentially
+    // multiple archives per build configuration. This covers that worst case.
+    return "Objc_build_arch_"
+        + buildConfiguration.getMnemonic()
+        + "_with_suffix_"
+        + intermediateArtifacts.archiveFileNameSuffix();
+  }
+
   private CompilationInfo compile(
       ObjcCompilationContext objcCompilationContext,
       VariablesExtension extension,
@@ -359,7 +368,7 @@ public class CompilationSupport {
       extraModuleMapFeatureConfiguration = Optional.absent();
     }
 
-    String purpose = String.format("%s_objc_arc", semantics.getPurpose());
+    String purpose = String.format("%s_objc_arc", getPurpose());
     extensionBuilder.setArcEnabled(true);
     CompilationInfo objcArcCompilationInfo =
         compile(
@@ -380,7 +389,7 @@ public class CompilationSupport {
             /* generateModuleMap= */ true,
             /* shouldProcessHeaders= */ true);
 
-    purpose = String.format("%s_non_objc_arc", semantics.getPurpose());
+    purpose = String.format("%s_non_objc_arc", getPurpose());
     extensionBuilder.setArcEnabled(false);
     CompilationInfo nonObjcArcCompilationInfo =
         compile(
@@ -459,7 +468,7 @@ public class CompilationSupport {
             nonObjcArcCompilationInfo.getCcCompilationContext()),
         ImmutableList.of());
     ccCompilationContextBuilder.setPurpose(
-        String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
+        String.format("%s_merged_arc_non_arc_objc", getPurpose()));
 
     CcCompilationOutputs precompiledFilesObjects =
         CcCompilationOutputs.builder()
@@ -513,10 +522,7 @@ public class CompilationSupport {
   }
 
   ObjcCppSemantics createObjcCppSemantics() {
-    return new ObjcCppSemantics(
-        intermediateArtifacts,
-        buildConfiguration,
-        attributes.enableModules());
+    return attributes.enableModules() ? ObjcCppSemantics.MODULES : ObjcCppSemantics.NO_MODULES;
   }
 
   private FeatureConfiguration getFeatureConfiguration(
@@ -1688,7 +1694,7 @@ public class CompilationSupport {
       ObjcCppSemantics semantics,
       FeatureConfiguration featureConfiguration)
       throws RuleErrorException, InterruptedException {
-    String purpose = String.format("%s_extra_module_map", semantics.getPurpose());
+    String purpose = String.format("%s_extra_module_map", getPurpose());
     CcCompilationHelper result =
         new CcCompilationHelper(
             ruleContext,

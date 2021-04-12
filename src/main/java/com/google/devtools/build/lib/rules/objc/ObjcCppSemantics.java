@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
@@ -34,24 +33,17 @@ import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
  * CppSemantics for objc builds.
  */
 public class ObjcCppSemantics implements CppSemantics {
+  public static final ObjcCppSemantics MODULES = new ObjcCppSemantics(true);
+  public static final ObjcCppSemantics NO_MODULES = new ObjcCppSemantics(false);
 
-  private final IntermediateArtifacts intermediateArtifacts;
-  private final BuildConfiguration buildConfiguration;
   private final boolean enableModules;
 
   /**
    * Creates an instance of ObjcCppSemantics
    *
-   * @param intermediateArtifacts used to create headers_list artifacts
-   * @param buildConfiguration the build configuration for this build
    * @param enableModules whether modules are enabled
    */
-  public ObjcCppSemantics(
-      IntermediateArtifacts intermediateArtifacts,
-      BuildConfiguration buildConfiguration,
-      boolean enableModules) {
-    this.intermediateArtifacts = intermediateArtifacts;
-    this.buildConfiguration = buildConfiguration;
+  public ObjcCppSemantics(boolean enableModules) {
     this.enableModules = enableModules;
   }
 
@@ -106,21 +98,6 @@ public class ObjcCppSemantics implements CppSemantics {
     // its module maps, which include validation does not recognize.  Modules should only be used
     // rarely and in third party code anyways.
     return !enableModules;
-  }
-
-  /**
-   * Gets the purpose for the {@code CcCompilationContext}.
-   *
-   * @see CcCompilationContext.Builder#setPurpose
-   */
-  public String getPurpose() {
-    // ProtoSupport creates multiple {@code CcCompilationContext}s for a single rule,
-    // potentially
-    // multiple archives per build configuration. This covers that worst case.
-    return "ObjcCppSemantics_build_arch_"
-        + buildConfiguration.getMnemonic()
-        + "_with_suffix_"
-        + intermediateArtifacts.archiveFileNameSuffix();
   }
 
   /** cc_shared_library is not supported with Objective-C */
