@@ -18,6 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.Correspondence;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
@@ -89,6 +92,44 @@ public class CallStackTest {
 
     assertCallStackContents(factory.createFrom(stack1), stack1);
     assertCallStackContents(factory.createFrom(stack2), stack2);
+  }
+
+  @Test
+  public void testSerialization() throws Exception {
+    CallStack.Factory factory = new CallStack.Factory();
+
+    ImmutableList<StarlarkThread.CallStackEntry> stackEntries1 =
+        ImmutableList.of(
+            entryFromNameAndLocation("somename", "f1.bzl", 1, 2),
+            entryFromNameAndLocation("someOtherName", "f2.bzl", 2, 4),
+            entryFromNameAndLocation("somename", "f1.bzl", 4, 2),
+            entryFromNameAndLocation("somethingElse", "f3.bzl", 5, 6));
+
+    ImmutableList<StarlarkThread.CallStackEntry> stackEntries2 =
+        ImmutableList.of(entryFromNameAndLocation("shortStack", "short.bzl", 9, 10));
+
+    CallStack callStack1 = factory.createFrom(stackEntries1);
+    CallStack callStack2 = factory.createFrom(stackEntries2);
+
+    CallStack.Serializer serializer = new CallStack.Serializer();
+    ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
+    serializer.serializeCallStack(callStack1, codedOut);
+    serializer.serializeCallStack(callStack2, codedOut);
+    serializer.serializeCallStack(callStack1, codedOut);
+    codedOut.flush();
+
+    CallStack.Deserializer deserializer = new CallStack.Deserializer();
+    CodedInputStream codedIn = CodedInputStream.newInstance(bytesOut.toByteArray());
+
+    CallStack deserializedCallStack1 = deserializer.deserializeCallStack(codedIn);
+    assertCallStackContents(deserializedCallStack1, stackEntries1);
+
+    CallStack deserializedCallStack2 = deserializer.deserializeCallStack(codedIn);
+    assertCallStackContents(deserializedCallStack2, stackEntries2);
+
+    CallStack deserializedCallStack1Again = deserializer.deserializeCallStack(codedIn);
+    assertCallStackContents(deserializedCallStack1Again, stackEntries1);
   }
 
   /** Asserts the provided {@link CallStack} faithfully represents the expected stack. */

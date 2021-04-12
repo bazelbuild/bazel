@@ -14,11 +14,17 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -41,7 +47,7 @@ public final class CallStack {
   private final List<String> strings;
   /** Number of frames in this stack. */
   private final int size;
-  /** Top (inntermost call) of the call stack. */
+  /** Top (innermost call) of the call stack. */
   @Nullable private final Node node;
 
   private CallStack(List<String> strings, int size, @Nullable Node node) {
@@ -176,6 +182,119 @@ public final class CallStack {
         stringTable.add(s);
       }
       return i;
+    }
+  }
+
+  /**
+   * Efficient serializer for {@link CallStack}s. All {@link CallStack}s instances passed to a
+   * {@link Serializer} <b>MUST</b> have originated from the same {@link Factory} instance.
+   */
+  static class Serializer {
+    private static final int NULL_NODE_ID = 0;
+
+    private final IdentityHashMap<Node, Integer> nodeTable = new IdentityHashMap<>();
+    @Nullable private List<String> stringTable;
+
+    Serializer() {
+      nodeTable.put(null, NULL_NODE_ID);
+    }
+
+    void serializeCallStack(CallStack callStack, CodedOutputStream codedOut) throws IOException {
+      if (stringTable == null) {
+        codedOut.writeInt32NoTag(callStack.strings.size());
+        for (String string : callStack.strings) {
+          codedOut.writeStringNoTag(string);
+        }
+        stringTable = callStack.strings;
+      } else {
+        Preconditions.checkArgument(
+            stringTable == callStack.strings,
+            "Can only serialize CallStacks that share a string table.");
+      }
+
+      codedOut.writeInt32NoTag(callStack.size);
+      emitNode(callStack.node, codedOut);
+    }
+
+    private void emitNode(Node node, CodedOutputStream codedOut) throws IOException {
+      Integer index = nodeTable.get(node);
+      if (index != null) {
+        codedOut.writeInt32NoTag(index);
+        return;
+      }
+
+      if (node == null) {
+        return;
+      }
+
+      int newIndex = nodeTable.size();
+      codedOut.writeInt32NoTag(newIndex);
+      nodeTable.put(node, newIndex);
+      codedOut.writeInt32NoTag(node.name);
+      codedOut.writeInt32NoTag(node.file);
+      codedOut.writeInt32NoTag(node.line);
+      codedOut.writeInt32NoTag(node.col);
+      emitNode(node.parent, codedOut);
+    }
+  }
+
+  /**
+   * Deserializes {@link CallStack}s as serialized by a {@link Serializer}. Deserialized instances
+   * are optimized as if they had been created from the same {@link Factory}.
+   */
+  static class Deserializer {
+    private static final Node DUMMY_NODE = new Node(-1, -1, -1, -1, null);
+
+    private final List<Node> nodeTable = new ArrayList<>();
+    @Nullable private List<String> stringTable;
+
+    Deserializer() {
+      // By convention index 0 = null.
+      nodeTable.add(null);
+    }
+
+    CallStack deserializeCallStack(CodedInputStream codedIn) throws IOException {
+      if (stringTable == null) {
+        int length = codedIn.readInt32();
+        stringTable = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+          // Avoid having a new set of strings per deserialized string table. Use common
+          // canonicalizer based on assertion that most strings (function names, locations) were
+          // already some degree of shared across packages.
+          stringTable.add(StringCanonicalizer.intern(codedIn.readString()));
+        }
+      }
+
+      int size = codedIn.readInt32();
+      return new CallStack(stringTable, size, readNode(codedIn));
+    }
+
+    @Nullable
+    private Node readNode(CodedInputStream codedIn) throws IOException {
+      int index = codedIn.readInt32();
+      if (index < nodeTable.size()) {
+        Node result = nodeTable.get(index);
+        Preconditions.checkState(result != DUMMY_NODE, "Loop detected at index %s", index);
+        return result;
+      }
+
+      Preconditions.checkState(
+          index == nodeTable.size(),
+          "Unexpected next value index - read %s, expected %s",
+          index,
+          nodeTable.size());
+
+      // Add dummy node to grow the table and save our spot in the table until we're done.
+      nodeTable.add(DUMMY_NODE);
+      int name = codedIn.readInt32();
+      int file = codedIn.readInt32();
+      int line = codedIn.readInt32();
+      int col = codedIn.readInt32();
+      Node parent = readNode(codedIn);
+
+      Node result = new Node(name, file, line, col, parent);
+      nodeTable.set(index, result);
+      return result;
     }
   }
 }
