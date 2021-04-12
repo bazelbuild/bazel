@@ -531,8 +531,6 @@ public class CompilationSupport {
             .addAll(ruleContext.getFeatures())
             .addAll(OBJC_ACTIONS)
             .add(CppRuleClasses.LANG_OBJC)
-            .add(CppRuleClasses.DEPENDENCY_FILE)
-            .add(CppRuleClasses.INCLUDE_PATHS)
             .add(isTool ? "host" : "nonhost");
 
     if (!attributes.enableModules()) {
@@ -540,9 +538,6 @@ public class CompilationSupport {
     }
     if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
       activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
-    }
-    if (getPchFile().isPresent()) {
-      activatedCrosstoolSelectables.add("pch");
     }
     if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
       activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);

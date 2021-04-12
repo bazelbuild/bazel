@@ -4283,6 +4283,7 @@ def _impl(ctx):
 
     pch_feature = feature(
         name = "pch",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
@@ -4291,7 +4292,15 @@ def _impl(ctx):
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
                 ],
-                flag_groups = [flag_group(flags = ["-include", "%{pch_file}"])],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-include",
+                            "%{pch_file}",
+                        ],
+                        expand_if_available = "pch_file",
+                    ),
+                ],
             ),
         ],
     )
