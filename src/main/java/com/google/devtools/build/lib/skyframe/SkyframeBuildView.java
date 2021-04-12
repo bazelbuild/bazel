@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
@@ -104,9 +105,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -315,7 +316,7 @@ public final class SkyframeBuildView {
       eventHandler.handle(
           Event.info(
               "--discard_analysis_cache was used in the previous build, "
-              + "discarding analysis cache."));
+                  + "discarding analysis cache."));
       skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configurations, maxDifferencesToShow);
@@ -479,12 +480,12 @@ public final class SkyframeBuildView {
             keepGoing,
             eventBus);
     Collection<Exception> reportedExceptions = Sets.newHashSet();
+    ViewCreationFailedException noKeepGoingException = null;
     for (Map.Entry<ActionAnalysisMetadata, ConflictException> bad : actionConflicts.entrySet()) {
       ConflictException ex = bad.getValue();
       DetailedExitCode detailedExitCode;
       try {
-        ex.rethrowTyped();
-        throw new IllegalStateException("ConflictException.rethrowTyped must throw");
+        throw ex.rethrowTyped();
       } catch (ActionConflictException ace) {
         detailedExitCode = ace.getDetailedExitCode();
         ace.reportTo(eventHandler);
@@ -503,24 +504,32 @@ public final class SkyframeBuildView {
       }
       // TODO(ulfjack): Don't throw here in the nokeep_going case, but report all known issues.
       if (!keepGoing) {
-        throw new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ex);
+        noKeepGoingException =
+            new ViewCreationFailedException(detailedExitCode.getFailureDetail(), ex);
+        if (errors.second != null) {
+          throw noKeepGoingException;
+        }
       }
     }
 
     // This is here for backwards compatibility. The keep_going and nokeep_going code paths were
     // checking action conflicts and analysis errors in different orders, so we only throw the
     // analysis error here after first throwing action conflicts.
-    if (!keepGoing) {
+    //
+    // If there is no other analysis error, we will have not thrown for action conflicts because we
+    // have not yet reported a root cause for the action conflict. Finding that root cause requires
+    // a skyframe evaluation.
+    if (!keepGoing && errors.second != null) {
       throw errors.second;
     }
 
     if (foundActionConflict) {
       // In order to determine the set of configured targets transitively error free from action
       // conflict issues, we run a post-processing update() that uses the bad action map.
-      Predicate<ActionLookupKey> errorFreePredicate;
+      TopLevelActionConflictReport topLevelActionConflictReport;
       enableAnalysis(true);
       try {
-        errorFreePredicate =
+        topLevelActionConflictReport =
             skyframeExecutor.filterActionConflictsForConfiguredTargetsAndAspects(
                 eventHandler,
                 Iterables.concat(ctKeys, aspectKeys),
@@ -529,10 +538,48 @@ public final class SkyframeBuildView {
       } finally {
         enableAnalysis(false);
       }
+      // Report an AnalysisFailureEvent to BEP for the top-level targets with discoverable action
+      // conflicts, then finally throw if evaluation is --nokeep_going.
+      for (ActionLookupKey ctKey : Iterables.concat(ctKeys, aspectKeys)) {
+        if (!topLevelActionConflictReport.isErrorFree(ctKey)) {
+          Optional<ConflictException> e = topLevelActionConflictReport.getConflictException(ctKey);
+          if (!e.isPresent()) {
+            continue;
+          }
+          AnalysisFailedCause failedCause =
+              makeArtifactConflictAnalysisFailedCause(configurationLookupSupplier, e.get());
+          BuildConfigurationValue.Key configKey =
+              ctKey instanceof ConfiguredTargetKey
+                  ? ((ConfiguredTargetKey) ctKey).getConfigurationKey()
+                  : ((AspectValueKey) ctKey).getAspectConfigurationKey();
+          eventBus.post(
+              new AnalysisFailureEvent(
+                  ctKey,
+                  configurationLookupSupplier.get().get(configKey).toBuildEvent().getEventId(),
+                  NestedSetBuilder.create(Order.STABLE_ORDER, failedCause)));
+          if (!keepGoing) {
+            noKeepGoingException =
+                new ViewCreationFailedException(
+                    failedCause.getDetailedExitCode().getFailureDetail(), e.get());
+          }
+        }
+      }
 
+      // If we're here and we're --nokeep_going, then there was a conflict due to actions not
+      // discoverable by TopLevelActionLookupConflictFindingFunction. This includes extra actions,
+      // coverage artifacts, and artifacts produced by aspects in output groups not present in
+      // --output_groups. Throw the exception produced by the ArtifactConflictFinder which cannot
+      // identify root-cause top-level keys but does catch all possible conflicts.
+      if (!keepGoing) {
+        skyframeExecutor.resetActionConflictsStoredInSkyframe();
+        throw noKeepGoingException;
+      }
+
+      // Filter cts and aspects to only error-free keys. Note that any analysis failure - not just
+      // action conflicts - will be observed here and lead to a key's exclusion.
       cts =
           ctKeys.stream()
-              .filter(errorFreePredicate)
+              .filter(topLevelActionConflictReport::isErrorFree)
               .map(
                   k ->
                       Preconditions.checkNotNull((ConfiguredTargetValue) result.get(k), k)
@@ -541,7 +588,7 @@ public final class SkyframeBuildView {
 
       aspects =
           aspectKeys.stream()
-              .filter(errorFreePredicate)
+              .filter(topLevelActionConflictReport::isErrorFree)
               .map(result::get)
               .map(AspectValue.class::cast)
               .collect(
@@ -557,6 +604,36 @@ public final class SkyframeBuildView {
         result.getWalkableGraph(),
         ImmutableMap.copyOf(aspects),
         packageRoots);
+  }
+
+  private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
+      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      ConflictException e) {
+    try {
+      throw e.rethrowTyped();
+    } catch (ActionConflictException ace) {
+      return makeArtifactConflictAnalysisFailedCause(configurationLookupSupplier, ace);
+    } catch (ArtifactPrefixConflictException apce) {
+      return new AnalysisFailedCause(apce.getFirstOwner(), null, apce.getDetailedExitCode());
+    }
+  }
+
+  private static AnalysisFailedCause makeArtifactConflictAnalysisFailedCause(
+      Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
+      ActionConflictException ace) {
+    DetailedExitCode detailedExitCode = ace.getDetailedExitCode();
+    Label causeLabel = ace.getArtifact().getArtifactOwner().getLabel();
+    BuildConfigurationValue.Key causeConfigKey = null;
+    if (ace.getArtifact().getArtifactOwner() instanceof ConfiguredTargetKey) {
+      causeConfigKey =
+          ((ConfiguredTargetKey) ace.getArtifact().getArtifactOwner()).getConfigurationKey();
+    }
+    BuildConfiguration causeConfig =
+        causeConfigKey == null ? null : configurationLookupSupplier.get().get(causeConfigKey);
+    return new AnalysisFailedCause(
+        causeLabel,
+        causeConfig == null ? null : causeConfig.toBuildEvent().getEventId().getConfiguration(),
+        detailedExitCode);
   }
 
   private boolean shouldCheckForConflicts(ImmutableSet<SkyKey> newKeys) {
@@ -653,7 +730,8 @@ public final class SkyframeBuildView {
       ErrorInfo errorInfo = errorEntry.getValue();
       assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph());
       skyframeExecutor
-          .getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
+          .getCyclesReporter()
+          .reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
@@ -726,7 +804,6 @@ public final class SkyframeBuildView {
                 : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
-        // TODO(ulfjack): Report the action conflict.
         rootCauses = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       } else if (cause instanceof NoSuchPackageException) {
         // This branch is only taken in --nokeep_going builds. In a --keep_going build, the
@@ -953,11 +1030,11 @@ public final class SkyframeBuildView {
   }
 
   /**
-   * Returns the host configuration trimmed to the same fragments as the input configuration. If
-   * the input is null, returns the top-level host configuration.
+   * Returns the host configuration trimmed to the same fragments as the input configuration. If the
+   * input is null, returns the top-level host configuration.
    *
-   * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the
-   * correct host configuration at the top-level.
+   * <p>This may only be called after {@link #setTopLevelHostConfiguration} has set the correct host
+   * configuration at the top-level.
    */
   public BuildConfiguration getHostConfiguration(BuildConfiguration config) {
     if (config == null) {
@@ -1013,9 +1090,8 @@ public final class SkyframeBuildView {
   }
 
   /**
-   * Workaround to clear all legacy data, like the artifact factory. We need
-   * to clear them to avoid conflicts.
-   * TODO(bazel-team): Remove this workaround. [skyframe-execution]
+   * Workaround to clear all legacy data, like the artifact factory. We need to clear them to avoid
+   * conflicts. TODO(bazel-team): Remove this workaround. [skyframe-execution]
    */
   void clearLegacyData() {
     artifactFactory.clear();

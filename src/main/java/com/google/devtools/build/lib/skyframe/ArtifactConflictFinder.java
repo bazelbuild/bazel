@@ -199,14 +199,15 @@ class ArtifactConflictFinder {
       this.apce = e;
     }
 
-    void rethrowTyped() throws ActionConflictException, ArtifactPrefixConflictException {
+    IllegalStateException rethrowTyped()
+        throws ActionConflictException, ArtifactPrefixConflictException {
       if (ace == null) {
         throw Preconditions.checkNotNull(apce);
       }
       if (apce == null) {
         throw Preconditions.checkNotNull(ace);
       }
-      throw new IllegalStateException();
+      throw new IllegalStateException("malformed ConflictException has no well-typed cause");
     }
   }
 
