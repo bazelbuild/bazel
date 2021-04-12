@@ -180,35 +180,35 @@ distrib_java_import(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-8.0.jar"],
-    srcjar = "asm/asm-8.0-sources.jar",
+    jars = ["asm/asm-9.1.jar"],
+    srcjar = "asm/asm-9.1-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-8.0.jar"],
-    srcjar = "asm/asm-analysis-8.0-sources.jar",
+    jars = ["asm/asm-analysis-9.1.jar"],
+    srcjar = "asm/asm-analysis-9.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-8.0.jar"],
-    srcjar = "asm/asm-commons-8.0-sources.jar",
+    jars = ["asm/asm-commons-9.1.jar"],
+    srcjar = "asm/asm-commons-9.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-8.0.jar"],
-    srcjar = "asm/asm-tree-8.0-sources.jar",
+    jars = ["asm/asm-tree-9.1.jar"],
+    srcjar = "asm/asm-tree-9.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-8.0.jar"],
-    srcjar = "asm/asm-util-8.0-sources.jar",
+    jars = ["asm/asm-util-9.1.jar"],
+    srcjar = "asm/asm-util-9.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
