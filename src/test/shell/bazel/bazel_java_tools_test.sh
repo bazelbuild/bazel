@@ -176,15 +176,14 @@ function test_java_tools_has_BUILD() {
   expect_path_in_java_tools "BUILD"
 }
 
-# TODO(#11674) reenable after the upgrade
-function disable_test_java_tools_has_jacocoagent() {
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.3.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-tree-8.0.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-commons-8.0.jar"
-  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-8.0.jar"
+function test_java_tools_has_jacocoagent() {
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/jacocoagent-0.8.6.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.6.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.6.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.6.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-tree-9.1.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-commons-9.1.jar"
+  expect_path_in_java_tools "java_tools/third_party/java/jacoco/asm-9.1.jar"
   expect_path_in_java_tools "java_tools/third_party/java/jacoco/LICENSE"
 }
 

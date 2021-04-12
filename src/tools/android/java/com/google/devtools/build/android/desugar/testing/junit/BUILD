@@ -37,10 +37,10 @@ filegroup(
 
 genrule(
     name = "jacoco_agent_jar",
-    srcs = ["//third_party/java/jacoco:blaze-agent-0.8.3"],
+    srcs = ["//third_party/java/jacoco:blaze-agent-0.8.6"],
     outs = ["jacoco_agent.jar"],
     cmd = """
-        cp $(location //third_party/java/jacoco:blaze-agent-0.8.3) $(OUTS)
+        cp $(location //third_party/java/jacoco:blaze-agent-0.8.6) $(OUTS)
     """,
 )
 
