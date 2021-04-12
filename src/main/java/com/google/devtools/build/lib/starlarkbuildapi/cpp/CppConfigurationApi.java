@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -111,4 +112,13 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       useStarlarkThread = true)
   boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "apple_bitcode_mode",
+      doc =
+          "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"
+              + " Apple, and only for device builds; for simulator builds, it always returns "
+              + "<code>'none'</code>.",
+      structField = true)
+  AppleBitcodeModeApi getAppleBitcodeMode();
 }

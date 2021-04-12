@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
@@ -263,6 +264,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         dependencySpecificConfigurations) {
       AppleConfiguration childAppleConfig =
           dependencySpecificConfiguration.config().getFragment(AppleConfiguration.class);
+      CppConfiguration childCppConfig =
+          dependencySpecificConfiguration.config().getFragment(CppConfiguration.class);
       ObjcConfiguration childObjcConfig =
           dependencySpecificConfiguration.config().getFragment(ObjcConfiguration.class);
       IntermediateArtifacts intermediateArtifacts =
@@ -273,7 +276,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
               dependencySpecificConfiguration.config());
       String arch = childAppleConfig.getSingleArchitecture();
 
-      if (childAppleConfig.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+      if (childCppConfig.getAppleBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
         Artifact bitcodeSymbol = intermediateArtifacts.bitcodeSymbolMap();
         builder.addOutput(arch, OutputType.BITCODE_SYMBOLS, bitcodeSymbol);
       }

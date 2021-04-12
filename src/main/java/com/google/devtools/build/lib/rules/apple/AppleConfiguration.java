@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -64,50 +66,71 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   /** Default cpu for iOS builds. */
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
-  private final String iosCpu;
-  private final String appleSplitCpu;
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;
-  private final ImmutableList<String> iosMultiCpus;
-  private final ImmutableList<String> watchosCpus;
-  private final ImmutableList<String> tvosCpus;
-  private final ImmutableList<String> macosCpus;
-  private final ImmutableList<String> catalystCpus;
   private final EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
+  private final AppleCpus appleCpus;
   private final boolean mandatoryMinimumVersion;
   private final boolean objcProviderFromLinked;
 
   public AppleConfiguration(BuildOptions buildOptions) {
     AppleCommandLineOptions options = buildOptions.get(AppleCommandLineOptions.class);
-    String iosCpu = iosCpuFromCpu(buildOptions.get(CoreOptions.class).cpu);
     this.options = options;
-    this.iosCpu = iosCpu;
-    this.appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
+    this.appleCpus = AppleCpus.create(options, buildOptions.get(CoreOptions.class));
     this.applePlatformType =
         Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
     this.configurationDistinguisher = options.configurationDistinguisher;
-    this.iosMultiCpus = ImmutableList.copyOf(
-        Preconditions.checkNotNull(options.iosMultiCpus, "iosMultiCpus"));
-    this.watchosCpus = (options.watchosCpus == null || options.watchosCpus.isEmpty())
-        ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
-        : ImmutableList.copyOf(options.watchosCpus);
-    this.tvosCpus = (options.tvosCpus == null || options.tvosCpus.isEmpty())
-        ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
-        : ImmutableList.copyOf(options.tvosCpus);
-    this.macosCpus = (options.macosCpus == null || options.macosCpus.isEmpty())
-        ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
-        : ImmutableList.copyOf(options.macosCpus);
-    this.catalystCpus =
-        (options.catalystCpus == null || options.catalystCpus.isEmpty())
-            ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU)
-            : ImmutableList.copyOf(options.catalystCpus);
     this.platformBitcodeModes = collectBitcodeModes(options.appleBitcodeMode);
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
     this.objcProviderFromLinked = options.objcProviderFromLinked;
+  }
+
+  /** A class that contains information pertaining to Apple CPUs. */
+  @AutoValue
+  public abstract static class AppleCpus {
+    public static AppleCpus create(AppleCommandLineOptions options, CoreOptions coreOptions) {
+      String iosCpu = iosCpuFromCpu(coreOptions.cpu);
+      String appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
+      ImmutableList<String> iosMultiCpus =
+          ImmutableList.copyOf(Preconditions.checkNotNull(options.iosMultiCpus, "iosMultiCpus"));
+      ImmutableList<String> watchosCpus =
+          (options.watchosCpus == null || options.watchosCpus.isEmpty())
+              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU)
+              : ImmutableList.copyOf(options.watchosCpus);
+      ImmutableList<String> tvosCpus =
+          (options.tvosCpus == null || options.tvosCpus.isEmpty())
+              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
+              : ImmutableList.copyOf(options.tvosCpus);
+      ImmutableList<String> macosCpus =
+          (options.macosCpus == null || options.macosCpus.isEmpty())
+              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
+              : ImmutableList.copyOf(options.macosCpus);
+      ImmutableList<String> catalystCpus =
+          (options.catalystCpus == null || options.catalystCpus.isEmpty())
+              ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU)
+              : ImmutableList.copyOf(options.catalystCpus);
+
+      return new AutoValue_AppleConfiguration_AppleCpus(
+          iosCpu, appleSplitCpu, iosMultiCpus, watchosCpus, tvosCpus, macosCpus, catalystCpus);
+    }
+
+    abstract String iosCpu();
+
+    abstract String appleSplitCpu();
+
+    abstract ImmutableList<String> iosMultiCpus();
+
+    abstract ImmutableList<String> watchosCpus();
+
+    abstract ImmutableList<String> tvosCpus();
+
+    abstract ImmutableList<String> macosCpus();
+
+    abstract ImmutableList<String> catalystCpus();
   }
 
   /** Determines cpu value from apple-specific toolchain identifier. */
@@ -162,7 +185,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public String getIosCpu() {
-    return iosCpu;
+    return appleCpus.iosCpu();
   }
 
   /**
@@ -184,24 +207,24 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public String getSingleArchitecture() {
-    if (!Strings.isNullOrEmpty(appleSplitCpu)) {
-      return appleSplitCpu;
+    return getSingleArchitecture(applePlatformType, appleCpus);
+  }
+
+  private static String getSingleArchitecture(PlatformType applePlatformType, AppleCpus appleCpus) {
+    if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
+      return appleCpus.appleSplitCpu();
     }
     switch (applePlatformType) {
       case IOS:
-        if (!getIosMultiCpus().isEmpty()) {
-          return getIosMultiCpus().get(0);
-        } else {
-          return getIosCpu();
-        }
+        return Iterables.getFirst(appleCpus.iosMultiCpus(), appleCpus.iosCpu());
       case WATCHOS:
-        return watchosCpus.get(0);
+        return appleCpus.watchosCpus().get(0);
       case TVOS:
-        return tvosCpus.get(0);
+        return appleCpus.tvosCpus().get(0);
       case MACOS:
-        return macosCpus.get(0);
+        return appleCpus.macosCpus().get(0);
       case CATALYST:
-        return catalystCpus.get(0);
+        return appleCpus.catalystCpus().get(0);
       default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
@@ -226,13 +249,13 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    *     configuration transition) yet does not match {@code platformType}
    */
   public List<String> getMultiArchitectures(PlatformType platformType) {
-    if (!Strings.isNullOrEmpty(appleSplitCpu)) {
+    if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
       if (applePlatformType != platformType) {
         throw new IllegalArgumentException(
             String.format("Expected post-split-transition platform type %s to match input %s ",
                 applePlatformType, platformType));
       }
-      return ImmutableList.of(appleSplitCpu);
+      return ImmutableList.of(appleCpus.appleSplitCpu());
     }
     switch (platformType) {
       case IOS:
@@ -242,13 +265,13 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
           return getIosMultiCpus();
         }
       case WATCHOS:
-        return watchosCpus;
+        return appleCpus.watchosCpus();
       case TVOS:
-        return tvosCpus;
+        return appleCpus.tvosCpus();
       case MACOS:
-        return macosCpus;
+        return appleCpus.macosCpus();
       case CATALYST:
-        return catalystCpus;
+        return appleCpus.catalystCpus();
       default:
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
@@ -263,11 +286,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @Override
   public ApplePlatform getSingleArchPlatform() {
     return ApplePlatform.forTarget(applePlatformType, getSingleArchitecture());
-  }
-
-  private boolean hasValidSingleArchPlatform() {
-    return ApplePlatform.isApplePlatform(
-        ApplePlatform.cpuStringForTarget(applePlatformType, getSingleArchitecture()));
   }
 
   /**
@@ -323,7 +341,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   // TODO(b/28754442): Deprecate for more general Starlark-exposed platform retrieval.
   @Override
   public ApplePlatform getIosCpuPlatform() {
-    return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
+    return ApplePlatform.forTarget(PlatformType.IOS, getIosCpu());
   }
 
   /**
@@ -347,7 +365,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * which is the specific CPU <b>this target</b> is being built for.
    */
   public ImmutableList<String> getIosMultiCpus() {
-    return iosMultiCpus;
+    return appleCpus.iosMultiCpus();
   }
 
   /**
@@ -361,8 +379,18 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public AppleBitcodeMode getBitcodeMode() {
-    if (hasValidSingleArchPlatform()) {
-      ApplePlatform platform = getSingleArchPlatform();
+    return getAppleBitcodeMode(applePlatformType, appleCpus, platformBitcodeModes);
+  }
+
+  /** Returns the bitcode mode to use for compilation steps. */
+  public static AppleBitcodeMode getAppleBitcodeMode(
+      PlatformType applePlatformType,
+      AppleCpus appleCpus,
+      EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes) {
+    String architecture = getSingleArchitecture(applePlatformType, appleCpus);
+    String cpuString = ApplePlatform.cpuStringForTarget(applePlatformType, architecture);
+    if (ApplePlatform.isApplePlatform(cpuString)) {
+      ApplePlatform platform = ApplePlatform.forTarget(applePlatformType, architecture);
       if (platform.isDevice()) {
         return platformBitcodeModes.get(applePlatformType);
       }
@@ -386,9 +414,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @Override
   public String getOutputDirectoryName() {
     List<String> components = new ArrayList<>();
-    if (!appleSplitCpu.isEmpty()) {
+    if (!appleCpus.appleSplitCpu().isEmpty()) {
       components.add(applePlatformType.toString().toLowerCase());
-      components.add(appleSplitCpu);
+      components.add(appleCpus.appleSplitCpu());
 
       if (options.getMinimumOsVersion() != null) {
         components.add("min" + options.getMinimumOsVersion());
@@ -438,7 +466,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * Compute the platform-type-to-bitcode-mode mapping from the pairs that were passed on the
    * command line.
    */
-  private static EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> collectBitcodeModes(
+  public static EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> collectBitcodeModes(
       List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>> platformModeMappings) {
     EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> modes =
         new EnumMap<>(ApplePlatform.PlatformType.class);

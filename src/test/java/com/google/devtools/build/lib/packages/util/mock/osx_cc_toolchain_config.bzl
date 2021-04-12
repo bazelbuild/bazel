@@ -5942,6 +5942,8 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = [
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
                         "objc-executable",
@@ -7369,6 +7371,8 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = [
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
                         "objc-executable",

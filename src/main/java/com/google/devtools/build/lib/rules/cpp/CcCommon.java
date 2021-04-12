@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -801,6 +802,22 @@ public final class CcCommon {
       ImmutableSet<String> unsupportedFeatures,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
+    return configureFeaturesOrReportRuleError(
+        ruleContext,
+        ruleContext.getConfiguration(),
+        requestedFeatures,
+        unsupportedFeatures,
+        toolchain,
+        cppSemantics);
+  }
+
+  public static FeatureConfiguration configureFeaturesOrReportRuleError(
+      RuleContext ruleContext,
+      BuildConfiguration buildConfiguration,
+      ImmutableSet<String> requestedFeatures,
+      ImmutableSet<String> unsupportedFeatures,
+      CcToolchainProvider toolchain,
+      CppSemantics cppSemantics) {
     cppSemantics.validateLayeringCheckFeatures(
         ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
     try {
@@ -808,7 +825,7 @@ public final class CcCommon {
           requestedFeatures,
           unsupportedFeatures,
           toolchain,
-          ruleContext.getFragment(CppConfiguration.class));
+          buildConfiguration.getFragment(CppConfiguration.class));
     } catch (EvalException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
@@ -871,7 +888,8 @@ public final class CcCommon {
             .addAll(ImmutableSet.of(cppConfiguration.getCompilationMode().toString()))
             .addAll(DEFAULT_ACTION_CONFIGS)
             .addAll(requestedFeatures)
-            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
+            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
+            .addAll(cppConfiguration.getAppleBitcodeMode().getFeatureNames());
 
     if (!cppConfiguration.dontEnableHostNonhost()) {
       if (toolchain.isToolConfiguration()) {

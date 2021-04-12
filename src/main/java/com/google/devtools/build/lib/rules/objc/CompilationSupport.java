@@ -540,11 +540,6 @@ public class CompilationSupport {
         ImmutableSet.<String>builder()
             .addAll(ccToolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
             .addAll(ACTIVATED_ACTIONS)
-            .addAll(
-                ruleContext
-                    .getFragment(AppleConfiguration.class)
-                    .getBitcodeMode()
-                    .getFeatureNames())
             .add(CppRuleClasses.LANG_OBJC)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS)
@@ -567,11 +562,6 @@ public class CompilationSupport {
     }
     if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
       activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
-    }
-    AppleBitcodeMode bitcodeMode =
-        configuration.getFragment(AppleConfiguration.class).getBitcodeMode();
-    if (bitcodeMode != AppleBitcodeMode.NONE) {
-      activatedCrosstoolSelectables.addAll(bitcodeMode.getFeatureNames());
     }
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
     // particular versions of Xcode. To ensure consistency across platforms, use exactly two
@@ -608,6 +598,7 @@ public class CompilationSupport {
 
     return CcCommon.configureFeaturesOrReportRuleError(
         ruleContext,
+        buildConfiguration,
         activatedCrosstoolSelectables.build(),
         disabledFeatures.build(),
         ccToolchain,
@@ -1210,6 +1201,7 @@ public class CompilationSupport {
       // Formed from existing label, just replacing name with artifact name.
     }
 
+    CppConfiguration cppConfiguration = buildConfiguration.getFragment(CppConfiguration.class);
     CcLinkingHelper executableLinkingHelper =
         new CcLinkingHelper(
                 ruleContext,
@@ -1221,7 +1213,7 @@ public class CompilationSupport {
                 toolchain,
                 toolchain.getFdoContext(),
                 buildConfiguration,
-                buildConfiguration.getFragment(CppConfiguration.class),
+                cppConfiguration,
                 ruleContext.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
@@ -1261,7 +1253,7 @@ public class CompilationSupport {
       linkerOutputs.add(linkmap);
     }
 
-    if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+    if (cppConfiguration.getAppleBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
       Artifact bitcodeSymbolMap = intermediateArtifacts.bitcodeSymbolMap();
       extensionBuilder
           .setBitcodeSymbolMap(bitcodeSymbolMap)

@@ -2087,16 +2087,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testGenerateDsymFlagPropagatesToCcLibraryFeature() throws Exception {
-    useConfiguration("--apple_generate_dsym");
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc/lib")
-        .setList("srcs", "a.cc")
-        .write();
-    CommandAction compileAction = compileAction("//cc/lib", "a.o");
-    assertThat(compileAction.getArguments()).contains("-DDUMMY_GENERATE_DSYM_FILE");
-  }
-
-  @Test
   public void testArtifactsToAlwaysBuild() throws Exception {
     ConfiguredTarget x =
         scratchConfiguredTarget(
