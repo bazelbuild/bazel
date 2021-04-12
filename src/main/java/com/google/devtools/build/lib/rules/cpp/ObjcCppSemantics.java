@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -22,12 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
-import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 
 /**
  * CppSemantics for objc builds.
@@ -60,7 +55,7 @@ public class ObjcCppSemantics implements CppSemantics {
         // TODO(waltl): do better with include scanning.
         .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFilesMiddleman())
         .setShouldScanIncludes(
-            configuration.getFragment(ObjcConfiguration.class).shouldScanIncludes());
+            configuration.getFragment(CppConfiguration.class).objcShouldScanIncludes());
   }
 
   @Override
@@ -84,8 +79,7 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public boolean needsDotdInputPruning(BuildConfiguration configuration) {
-    return configuration.getFragment(ObjcConfiguration.class).getDotdPruningPlan()
-        == DotdPruningMode.USE;
+    return configuration.getFragment(CppConfiguration.class).objcShouldGenerateDotdFiles();
   }
 
   @Override

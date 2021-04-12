@@ -792,6 +792,14 @@ public final class CppConfiguration extends Fragment
     return cppOptions.generateLlvmLcov;
   }
 
+  public boolean objcShouldScanIncludes() {
+    return cppOptions.objcScanIncludes;
+  }
+
+  public boolean objcShouldGenerateDotdFiles() {
+    return cppOptions.objcGenerateDotdFiles;
+  }
+
   @Override
   public boolean macosSetInstallName() {
     return cppOptions.macosSetInstallName;
