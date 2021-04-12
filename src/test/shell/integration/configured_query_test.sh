@@ -1234,4 +1234,33 @@ EOF
   assert_equals $? 1
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/13301
+function test_external_repo_scope() {
+  if [ "${PRODUCT_NAME}" != "bazel" ]; then
+    # Tests of external repositories only work under bazel.
+    return 0
+  fi
+
+  local -r dir=$FUNCNAME
+
+  mkdir -p $dir/repo
+  touch $dir/repo/WORKSPACE
+  cat > $dir/repo/BUILD <<EOF
+sh_library(name='maple', deps=[':japanese'])
+sh_library(name='japanese')
+EOF
+
+  mkdir -p $dir/main
+  cat > $dir/main/WORKSPACE <<EOF
+local_repository(name = "repo", path = "../repo")
+EOF
+  touch $dir/main/BUILD
+
+  cd $dir/main
+  bazel cquery @repo//... &>"$TEST_log" || fail "Unexpected failure"
+  expect_not_log "no targets found beneath"
+  expect_log "@repo//:maple"
+  expect_log "@repo//:japanese"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"

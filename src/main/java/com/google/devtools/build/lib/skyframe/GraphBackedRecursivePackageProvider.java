@@ -55,16 +55,57 @@ import java.util.Set;
 @ThreadSafe
 public final class GraphBackedRecursivePackageProvider extends AbstractRecursivePackageProvider {
 
+  /**
+   * Helper interface for clients of GraphBackedRecursivePackageProvider to indicate what universe
+   * packages should be resolved in.
+   *
+   * <p>Client can either specify a fixed set of target patterns (using {@link #of()}), or specify
+   * that all targets are valid (using {@link #all()}).
+   */
+  public interface UniverseTargetPattern {
+    ImmutableList<TargetPattern> patterns();
+
+    boolean allowAll();
+
+    static UniverseTargetPattern of(ImmutableList<TargetPattern> patterns) {
+      return new UniverseTargetPattern() {
+        @Override
+        public ImmutableList<TargetPattern> patterns() {
+          return patterns;
+        }
+
+        @Override
+        public boolean allowAll() {
+          return false;
+        }
+      };
+    }
+
+    static UniverseTargetPattern all() {
+      return new UniverseTargetPattern() {
+        @Override
+        public ImmutableList<TargetPattern> patterns() {
+          return ImmutableList.of();
+        }
+
+        @Override
+        public boolean allowAll() {
+          return true;
+        }
+      };
+    }
+  }
+
   private final WalkableGraph graph;
   private final ImmutableList<Root> pkgRoots;
   private final RootPackageExtractor rootPackageExtractor;
-  private final ImmutableList<TargetPattern> universeTargetPatterns;
+  private final UniverseTargetPattern universeTargetPatterns;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public GraphBackedRecursivePackageProvider(
       WalkableGraph graph,
-      ImmutableList<TargetPattern> universeTargetPatterns,
+      UniverseTargetPattern universeTargetPatterns,
       PathPackageLocator pkgPath,
       RootPackageExtractor rootPackageExtractor) {
     this.graph = Preconditions.checkNotNull(graph);
@@ -163,15 +204,19 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
     // Check that this package is covered by at least one of our universe patterns.
     boolean inUniverse = false;
-    for (TargetPattern pattern : universeTargetPatterns) {
-      if (!pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
-        continue;
-      }
-      PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
-      if (((TargetsBelowDirectory) pattern)
-          .containsAllTransitiveSubdirectories(packageIdentifier)) {
-        inUniverse = true;
-        break;
+    if (universeTargetPatterns.allowAll()) {
+      inUniverse = true;
+    } else {
+      for (TargetPattern pattern : universeTargetPatterns.patterns()) {
+        if (!pattern.getType().equals(TargetPattern.Type.TARGETS_BELOW_DIRECTORY)) {
+          continue;
+        }
+        PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
+        if (((TargetsBelowDirectory) pattern)
+            .containsAllTransitiveSubdirectories(packageIdentifier)) {
+          inUniverse = true;
+          break;
+        }
       }
     }
 
