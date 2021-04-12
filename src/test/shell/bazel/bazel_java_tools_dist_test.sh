@@ -138,7 +138,8 @@ function test_java_tools_has_javac() {
   expect_path_in_java_tools "javac-9+181-r4173-1.srcjar"
 }
 
-function test_java_tools_has_jacocoagent() {
+# TODO(#11674) reenable after the upgrade
+function disable_test_java_tools_has_jacocoagent() {
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.agent-0.8.3-sources.jar"
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.core-0.8.3-sources.jar"
   expect_path_in_java_tools "third_party/java/jacoco/org.jacoco.report-0.8.3-sources.jar"
