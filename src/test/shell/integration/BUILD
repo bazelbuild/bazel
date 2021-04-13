@@ -491,7 +491,7 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
     shard_count = 3,
     tags = [
@@ -510,7 +510,7 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
     tags = [
         "no_windows",
@@ -528,7 +528,7 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorkerMultiplexer_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorkerMultiplexer_deploy.jar",
     ],
     shard_count = 3,
     tags = [
@@ -547,7 +547,7 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
     ],
     # TODO(b/34450149): remove when no longer flaky
     flaky = 1,
