@@ -95,7 +95,6 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
                     .label(),
                 bazelStarlarkContext.getRepoMapping(),
                 bazelStarlarkContext.getConvertedLabelsInPackage());
-
         return context.convert((String) key);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf("Unable to parse toolchain label '%s': %s", key, e.getMessage());

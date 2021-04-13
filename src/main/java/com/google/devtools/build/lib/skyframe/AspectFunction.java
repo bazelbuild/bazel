@@ -462,7 +462,6 @@ public final class AspectFunction implements SkyFunction {
                 associatedConfiguredTargetAndData.getTarget());
         toolchainContext =
             ResolvedToolchainContext.load(
-                targetPkg.getRepositoryMapping(),
                 unloadedToolchainContext,
                 targetDescription,
                 // TODO(161222568): Support exec groups on aspects.

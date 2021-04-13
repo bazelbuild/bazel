@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
@@ -44,7 +43,6 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
    * providers to be used for each toolchain type.
    */
   public static ResolvedToolchainContext load(
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
       UnloadedToolchainContext unloadedToolchainContext,
       String targetDescription,
       Iterable<ConfiguredTargetAndData> toolchainTargets)
@@ -91,15 +89,11 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         unloadedToolchainContext.requiredToolchainTypes(),
         unloadedToolchainContext.resolvedToolchainLabels(),
         // this:
-        repoMapping,
         targetDescription,
         unloadedToolchainContext.requestedLabelToToolchainType(),
         toolchains.build(),
         templateVariableProviders.build());
   }
-
-  /** Returns the repository mapping applied by the Starlark 'in' operator to string-form labels. */
-  public abstract ImmutableMap<RepositoryName, RepositoryName> repoMapping();
 
   /** Returns a description of the target being used, for error messaging. */
   public abstract String targetDescription();

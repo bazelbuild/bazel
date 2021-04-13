@@ -355,7 +355,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(
-                  target.getPackage().getRepositoryMapping(),
                   unloadedContext.getValue(),
                   targetDescription,
                   toolchainDependencies));
