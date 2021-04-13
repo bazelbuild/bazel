@@ -96,6 +96,10 @@ final class JavaInfoBuildHelper {
       javaCompilationArgsBuilder.addDirectCompileTimeJar(
           /* interfaceJar= */ javaOutput.getCompileJar(), /* fullJar= */ javaOutput.getClassJar());
     }
+    if (javaOutput.getCompileJdeps() != null) {
+      javaCompilationArgsBuilder.addCompileTimeJavaDependencyArtifacts(
+          NestedSetBuilder.create(Order.STABLE_ORDER, javaOutput.getCompileJdeps()));
+    }
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder().addJavaOutput(javaOutput).build();
