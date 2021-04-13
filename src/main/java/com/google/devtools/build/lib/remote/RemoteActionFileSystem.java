@@ -191,7 +191,8 @@ class RemoteActionFileSystem extends DelegateFileSystem {
      * TODO(buchgr): Optimize the case where we are creating a symlink to a remote output. This does
      * add a non-trivial amount of complications though (as symlinks tend to do).
      */
-    downloadFileIfRemote(execRoot.getRelative(targetFragment));
+    System.out.println("createSymbolicLink(" + linkPath + ", " + targetFragment + ")");
+    // downloadFileIfRemote(execRoot.getRelative(targetFragment));
     super.createSymbolicLink(linkPath, targetFragment);
   }
 
