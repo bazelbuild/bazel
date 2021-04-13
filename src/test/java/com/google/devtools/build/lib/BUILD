@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_visibility = [
@@ -52,6 +52,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/windows:srcs",
+        "//src/test/java/com/google/devtools/build/lib/worker:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -554,93 +555,6 @@ java_test(
         "//third_party:guava",
         "//third_party:mockito",
         "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "worker-tests",
-    srcs =
-        glob([
-            "worker/*Test.java",
-        ]) + [
-            "worker/TestUtils.java",
-        ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":AllTests",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
-        "//src/main/java/com/google/devtools/build/lib/exec/local",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/build/lib/worker",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//src/main/protobuf:worker_protocol_java_proto",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/events:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:apache_commons_pool2_checked_in",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-    ],
-)
-
-java_library(
-    name = "ExampleWorker-lib",
-    srcs = glob(["worker/*ExampleWorker*.java"]),
-    visibility = [
-        "//src/test/shell/integration:__pkg__",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
-        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:worker_protocol_java_proto",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-    ],
-)
-
-java_binary(
-    name = "ExampleWorker",
-    main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
-    visibility = [
-        "//src/test/shell/integration:__pkg__",
-    ],
-    runtime_deps = [
-        ":ExampleWorker-lib",
-    ],
-)
-
-java_binary(
-    name = "ExampleWorkerMultiplexer",
-    main_class = "com.google.devtools.build.lib.worker.ExampleWorkerMultiplexer",
-    visibility = [
-        "//src/test/shell/integration:__pkg__",
-    ],
-    runtime_deps = [
-        ":ExampleWorker-lib",
     ],
 )
 
