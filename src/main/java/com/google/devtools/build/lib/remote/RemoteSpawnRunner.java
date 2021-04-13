@@ -35,6 +35,7 @@ import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
+import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -694,6 +695,22 @@ public class RemoteSpawnRunner implements SpawnRunner {
                         .setCatastrophic(catastrophe))
                 .build())
         .build();
+  }
+
+  static List<Property> getExtraPlatformProperties(Spawn spawn, Path execRoot) {
+    // Hack on Windows. The included headers dumped by cl.exe in stdout contain absolute paths.
+    // When compiling the file from different workspace, the shared cache will cause header
+    // dependency checking to fail. This was initially fixed by a hack (see
+    // https://github.com/bazelbuild/bazel/issues/9172 for more details), but is broken again due
+    // to cl/356735700. We include workspace name here so action results from different workspaces
+    // on Windows won't be shared.
+    boolean isWindows = System.getProperty("os.name").startsWith("Windows");
+    if (isWindows) {
+      return ImmutableList
+          .of(Property.newBuilder().setName("workspace").setValue(execRoot.getBaseName()).build());
+    }
+
+    return ImmutableList.of();
   }
 
   static Action buildAction(

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -61,7 +62,8 @@ public final class PlatformUtils {
   }
 
   @Nullable
-  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
+  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions,
+      List<Property> extraProperties)
       throws UserExecException {
     SortedMap<String, String> defaultExecProperties =
         remoteOptions != null
@@ -101,8 +103,16 @@ public final class PlatformUtils {
       }
     }
 
+    platformBuilder.addAllProperties(extraProperties);
+
     sortPlatformProperties(platformBuilder);
     return platformBuilder.build();
+  }
+
+  @Nullable
+  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
+      throws UserExecException {
+    return getPlatformProto(spawn, remoteOptions, ImmutableList.of());
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {
