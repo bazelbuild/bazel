@@ -121,4 +121,10 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "<code>'none'</code>.",
       structField = true)
   AppleBitcodeModeApi getAppleBitcodeMode();
+
+  @StarlarkMethod(
+      name = "apple_generate_dsym",
+      doc = "Whether to generate Apple debug symbol(.dSYM) artifacts.",
+      structField = true)
+  boolean appleGenerateDsym();
 }

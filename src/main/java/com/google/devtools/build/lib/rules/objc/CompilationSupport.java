@@ -1217,7 +1217,7 @@ public class CompilationSupport {
 
     ImmutableList.Builder<Artifact> linkerOutputs = ImmutableList.builder();
 
-    if (objcConfiguration.generateDsym()) {
+    if (cppConfiguration.appleGenerateDsym()) {
       Artifact dsymSymbol =
           objcConfiguration.shouldStripBinary()
               ? intermediateArtifacts.dsymSymbolForUnstrippedBinary()
