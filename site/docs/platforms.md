@@ -150,11 +150,11 @@ build as part of a target pattern expansion. For example, the following two
 invocations skip any incompatible targets found in a target pattern expansion.
 
 ```console
-$ bazel build --platforms=//:myplatform //...`
+$ bazel build --platforms=//:myplatform //...
 ```
 
 ```console
-$ bazel build --platforms=//:myplatform //:all`
+$ bazel build --platforms=//:myplatform //:all
 ```
 
 Incompatible tests in a [`test_suite`](be/general.html#test_suite) are
