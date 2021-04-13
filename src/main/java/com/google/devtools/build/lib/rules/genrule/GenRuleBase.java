@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -44,6 +46,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -64,19 +67,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
    * own attributes over and above what is present in {@link GenRuleBaseRule}.
    */
   protected abstract boolean isStampingEnabled(RuleContext ruleContext);
-
-  /**
-   * Updates the {@link RuleConfiguredTargetBuilder} that is used for this rule.
-   *
-   * <p>GenRule implementations can override this method to enhance and update the builder without
-   * needing to entirely override the {@link com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory#create} method.
-   */
-  protected RuleConfiguredTargetBuilder updateBuilder(
-      RuleConfiguredTargetBuilder builder,
-      RuleContext ruleContext,
-      NestedSet<Artifact> filesToBuild) {
-    return builder;
-  }
 
   enum CommandType {
     BASH,
@@ -266,13 +256,15 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             .addTransitiveArtifacts(filesToBuild)
             .build());
 
-    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
+    return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .setRunfilesSupport(null, getExecutable(ruleContext, filesToBuild))
-        .addProvider(RunfilesProvider.class, runfilesProvider);
-
-    builder = updateBuilder(builder, ruleContext, filesToBuild);
-    return builder.build();
+        .addProvider(RunfilesProvider.class, runfilesProvider)
+        .addNativeDeclaredProvider(
+            InstrumentedFilesCollector.collect(
+                ruleContext,
+                new InstrumentationSpec(FileTypeSet.ANY_FILE).withSourceAttributes("srcs")))
+        .build();
   }
 
   protected CommandHelper.Builder commandHelperBuilder(RuleContext ruleContext) {
