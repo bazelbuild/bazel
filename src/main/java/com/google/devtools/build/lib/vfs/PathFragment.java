@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -47,10 +48,9 @@ import javax.annotation.Nullable;
  *
  * <p>Mac and Windows path fragments are case insensitive.
  */
+@Immutable
 public final class PathFragment
-    implements Comparable<PathFragment>,
-        FileType.HasFileType,
-        CommandLineItem {
+    implements Comparable<PathFragment>, FileType.HasFileType, CommandLineItem {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   @SerializationConstant public static final PathFragment EMPTY_FRAGMENT = new PathFragment("", 0);
