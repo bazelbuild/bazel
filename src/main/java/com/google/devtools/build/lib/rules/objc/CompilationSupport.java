@@ -532,13 +532,11 @@ public class CompilationSupport {
       BuildConfiguration configuration,
       ObjcCppSemantics semantics,
       boolean forSwiftModuleMap) {
-    boolean isTool = ruleContext.getConfiguration().isToolConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
             .addAll(ruleContext.getFeatures())
             .addAll(OBJC_ACTIONS)
-            .add(CppRuleClasses.LANG_OBJC)
-            .add(isTool ? "host" : "nonhost");
+            .add(CppRuleClasses.LANG_OBJC);
 
     if (!attributes.enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
