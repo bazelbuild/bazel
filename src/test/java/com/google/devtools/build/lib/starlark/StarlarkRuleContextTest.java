@@ -3233,14 +3233,15 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/rule.bzl",
         "def _sample_impl(ctx):",
-        "    info = ctx.toolchains['//:toolchain_type']",
-        "    if info != None:",
-        "        fail('Toolchain should be empty')",
+        "    # This should raise an error.",
+        "    ctx.toolchains['//:toolchain_type']",
+        "    fail('Toolchain was not empty')",
         "sample_setting = rule(",
         "    implementation = _sample_impl,",
         "    build_setting = config.bool(flag = True),",
         ")");
-    getConfiguredTarget("//test:test");
-    assertNoEvents();
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:test"));
+    assertContainsEvent("Toolchains are not valid in this context");
+    assertDoesNotContainEvent("Toolchain was not empty");
   }
 }
