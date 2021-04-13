@@ -42,9 +42,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 /** An example implementation of a worker process that is used for integration tests. */
 public final class ExampleWorker {
@@ -144,6 +147,23 @@ public final class ExampleWorker {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
+    if (workerOptions.waitForSignal) {
+      Semaphore signalSem = new Semaphore(0);
+      Signal.handle(
+          new Signal("HUP"),
+          new SignalHandler() {
+            @Override
+            public void handle(Signal sig) {
+              signalSem.release();
+            }
+          });
+      try {
+        signalSem.acquire();
+      } catch (InterruptedException e) {
+        System.out.println("Interrupted while waiting for signal");
+        e.printStackTrace();
+      }
+    }
     try (PrintStream ps = new PrintStream(baos)) {
       System.setOut(ps);
       System.setErr(ps);

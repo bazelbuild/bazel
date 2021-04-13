@@ -175,11 +175,6 @@ public final class WorkerTest {
   }
 
   @Test
-  public void testGetResponse_json_emptyString_throws() throws IOException {
-    verifyGetResponseFailure("", "Could not parse json work request correctly");
-  }
-
-  @Test
   public void testGetResponse_badJson_throws() throws IOException {
     verifyGetResponseFailure(
         "{ \"output\": \"I'm missing a bracket\"", "Could not parse json work request correctly");
