@@ -7,33 +7,27 @@ category: getting-started
 # Backward Compatibility
 
 This page provides information on how to handle backward compatibility,
-including migration requirements and how to communicate incompatible changes.
-It also covers policy information and guidelines to follow these policies.
+including migrating from one release to another and how to communicate
+incompatible changes.
 
-Bazel is evolving, and changes will be made to Bazel that at times will be
-incompatible and require some changes from Bazel users.
-
-## GitHub labels
-
-* All incompatible changes: label [**incompatible-change**](https://github.com/bazelbuild/bazel/issues?q=label%3Aincompatible-change)
-* Expected breaking change in release X.Y: label **breaking-change-X.Y** (for example: [**breaking-change-0.21**](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Abreaking-change-0.21))
-* Release X.Y is in a migration window: label **migration-X.Y** (for example: [**migration-0.21**](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Amigration-0.21))
-
+Bazel is evolving. Minor versions released as part of an
+[LTS major version](versioning.html#lts-releases) are fully backward-compatible.
+Changes between major LTS releases may contain incompatible changes that require
+some migration effort. For more information on how the Bazel release cadence
+works, see
+[Announcing Bazel Long Term Support (LTS) releases](https://blog.bazel.build/2020/11/10/long-term-support-release.html).
 
 ## At a glance
 
-1. Every breaking change is guarded with an `--incompatible_*` flag.
-1. Newly introduced incompatible flags default to off.
-1. For every `--incompatible_*` flag, there is a GitHub issue that explains
-   the change in behavior and provides a migration recipe.
-1. The migration window is at least one release long and is set by the author of the incompatible change.
+1. It is recommended to use `--incompatible_*` flags for breaking changes.
+1. For every `--incompatible_*` flag, a GitHub issue explains
+   the change in behavior and aims to provide a migration recipe.
 1. APIs and behavior guarded by an `--experimental_*` flag can change at any time.
-1. Users should never run their production builds with `--experimental_*`  or `--incompatible_*` flags.
+1. Never run production builds with `--experimental_*`  or `--incompatible_*` flags.
 
 ## How to follow this policy
 
-* [For Bazel users - how to update
-  Bazel](updating-bazel.html)
+* [For Bazel users - how to update Bazel](updating-bazel.html)
 * [For contributors - best practices for incompatible changes](https://bazel.build/breaking-changes-guide.html)
 * <a href='https://github.com/bazelbuild/continuous-integration/tree/master/docs/release-playbook.%6D%64'>For release managers - how to update issue labels and release</a>
 
@@ -52,31 +46,13 @@ This includes:
 
 ## Incompatible changes and migration recipes
 
-When a release contains an incompatible change, the Bazel team provides
-_migration windows_ and _migration recipes_ to make it easier for Bazel users
-to update their code.
-
-Migration window is one or more release of Bazel during which a migration from
-old functionality to new functionality is possible, according to a migration
-recipe.
-
-During the migration window, both the old and new functionality
-are available in the Bazel release. For every incompatible change, a
-_migration recipe_ is provided that allows updating the user code
+For every incompatible change in a new release, the Bazel team aims to provide a
+_migration recipe_ that helps you update your code
 (`BUILD` and `.bzl` files, as well as any Bazel usage in scripts,
-usage of Bazel API, and so on) in such a way that **it works simultaneously
-without any flags with old and new functionality**.
+usage of Bazel API, and so on).
 
-In other words, during a migration window for an incompatible change `foo`:
-
-1. `--incompatible_foo` flag is available in Bazel release and defaults to off.
-1. User code can be updated in such a way that it works simultaneously with
-   that flag being on or off.
-1. After the code is migrated, the users can check whether they migrated
-   successfully by building with `--incompatible_foo=true`. However, their
-   code will continue to work in the same release in default state (where
-   `--incompatible_foo` is off), as well after the migration window is over
-   (at which point the flag will be effectively on).
+Incompatible changes should have an associated `--incompatible_*` flag and a
+corresponding GitHub issue.
 
 ## Communicating incompatible changes
 
@@ -89,15 +65,8 @@ For every incompatible change, the issue specifies the following:
 * Migration recipe
 
 The incompatible change issue is closed when the incompatible flag is flipped at
-HEAD.
-
-All the incompatible changes for which a Bazel release X.Y is part of a
-migration window are marked with a label "migration-X.Y" label (for example
-[migration-0.21](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Amigration-0.21)).
-
-All the incompatible changes that are expected to happen in release X.Y
-are marked with a label "breaking-change-X.Y" (for example
-[breaking-change-0.21](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Abreaking-change-0.21)).
+HEAD. All incompatible changes that are expected to happen in release X.Y
+are marked with a label "breaking-change-X.Y"."
 
 
 
