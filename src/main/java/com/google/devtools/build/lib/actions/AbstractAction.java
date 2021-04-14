@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -403,7 +404,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * @param outputPrefixForArchivedArtifactsCleanup derived output prefix to construct archived tree
    *     artifacts to be cleaned up. If null, no cleanup is needed.
    */
-  protected void deleteOutputs(
+  protected final void deleteOutputs(
       Path execRoot,
       ArtifactPathResolver pathResolver,
       @Nullable BulkDeleter bulkDeleter,
@@ -414,14 +415,41 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
             ? Iterables.concat(
                 outputs, archivedTreeArtifactOutputs(outputPrefixForArchivedArtifactsCleanup))
             : outputs;
+    Iterable<PathFragment> additionalPathOutputsToDelete = getAdditionalPathOutputsToDelete();
+    Iterable<PathFragment> directoryOutputsToDelete = getDirectoryOutputsToDelete();
     if (bulkDeleter != null) {
-      bulkDeleter.bulkDelete(Artifact.asPathFragments(artifactsToDelete));
+      bulkDeleter.bulkDelete(
+          Iterables.concat(
+              Artifact.asPathFragments(artifactsToDelete),
+              additionalPathOutputsToDelete,
+              directoryOutputsToDelete));
       return;
     }
 
+    // TODO(b/185277726): Either we don't need a path resolver for actual deletion of output
+    //  artifacts (likely) or we need to transform the fragments below (and then the resolver should
+    //  be augmented to deal with exec-path PathFragments).
     for (Artifact output : artifactsToDelete) {
       deleteOutput(output, pathResolver);
     }
+
+    for (PathFragment path : additionalPathOutputsToDelete) {
+      deleteOutput(execRoot.getRelative(path), /*root=*/ null);
+    }
+
+    for (PathFragment path : directoryOutputsToDelete) {
+      execRoot.getRelative(path).deleteTree();
+    }
+  }
+
+  @ForOverride
+  protected Iterable<PathFragment> getAdditionalPathOutputsToDelete() {
+    return ImmutableList.of();
+  }
+
+  @ForOverride
+  protected Iterable<PathFragment> getDirectoryOutputsToDelete() {
+    return ImmutableList.of();
   }
 
   private Iterable<Artifact> archivedTreeArtifactOutputs(PathFragment derivedPathPrefix) {

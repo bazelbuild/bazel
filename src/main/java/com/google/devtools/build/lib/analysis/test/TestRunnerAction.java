@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -126,6 +125,10 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment testStderr;
   private final PathFragment testInfrastructureFailure;
   private final PathFragment baseDir;
+
+  private final ImmutableSet<PathFragment> filesToDeleteBeforeExecution;
+  private final ImmutableSet<PathFragment> directoriesToDeleteBeforeExecution;
+
   private final Artifact coverageData;
   @Nullable private final Artifact coverageDirectory;
   private final TestTargetProperties testProperties;
@@ -252,6 +255,38 @@ public class TestRunnerAction extends AbstractAction
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
     this.lcovMergerRunfilesSupplier = lcovMergerRunfilesSupplier;
+
+    // Mark all possible test outputs for deletion before test execution.
+    // TestRunnerAction potentially can create many more non-declared outputs - xml output, coverage
+    // data file and logs for failed attempts. All those outputs are uniquely identified by the test
+    // log base name with arbitrary prefix and extension.
+
+    // We need to remove *.(xml|data|shard|warnings|zip) files if they are present.
+    ImmutableSet.Builder<PathFragment> filesToDeleteBuilder =
+        ImmutableSet.<PathFragment>builder()
+            .add(
+                xmlOutputPath,
+                testWarningsPath,
+                unusedRunfilesLogPath,
+                testStderr,
+                testExitSafe,
+                testInfrastructureFailure,
+                // We cannot use coverageData artifact since it may be null. Generate coverage name
+                // instead.
+                baseDir.getChild("coverage.dat"),
+                baseDir.getChild("test.zip")); // Delete files fetched from remote execution.
+    if (testShard != null) {
+      filesToDeleteBuilder.add(testShard);
+    }
+    this.filesToDeleteBeforeExecution = filesToDeleteBuilder.build();
+    this.directoriesToDeleteBeforeExecution =
+        ImmutableSet.of(
+            // Note that splitLogsPath points to a file inside the splitLogsDir so it's not
+            // necessary to delete it explicitly.
+            splitLogsDir,
+            undeclaredOutputsDir,
+            undeclaredOutputsAnnotationsDir,
+            baseDir.getRelative("test_attempts"));
   }
 
   public RunfilesSupplier getLcovMergerRunfilesSupplier() {
@@ -510,69 +545,14 @@ public class TestRunnerAction extends AbstractAction
     return "Testing " + getTestName();
   }
 
-  /**
-   * Deletes <b>all</b> possible test outputs.
-   *
-   * <p>TestRunnerAction potentially can create many more non-declared outputs - xml output,
-   * coverage data file and logs for failed attempts. All those outputs are uniquely identified by
-   * the test log base name with arbitrary prefix and extension.
-   */
   @Override
-  protected void deleteOutputs(
-      Path execRoot,
-      ArtifactPathResolver pathResolver,
-      @Nullable BulkDeleter bulkDeleter,
-      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
-      throws IOException, InterruptedException {
-    super.deleteOutputs(
-        execRoot, pathResolver, bulkDeleter, outputPrefixForArchivedArtifactsCleanup);
-
-    // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
-    // shard count.
-
-    // We also need to remove *.(xml|data|shard|warnings|zip) files if they are present.
-    execRoot.getRelative(xmlOutputPath).delete();
-    execRoot.getRelative(testWarningsPath).delete();
-    execRoot.getRelative(unusedRunfilesLogPath).delete();
-    // Note that splitLogsPath points to a file inside the splitLogsDir so
-    // it's not necessary to delete it explicitly.
-    execRoot.getRelative(splitLogsDir).deleteTree();
-    execRoot.getRelative(undeclaredOutputsDir).deleteTree();
-    execRoot.getRelative(undeclaredOutputsAnnotationsDir).deleteTree();
-    execRoot.getRelative(testStderr).delete();
-    execRoot.getRelative(testExitSafe).delete();
-    if (testShard != null) {
-      execRoot.getRelative(testShard).delete();
-    }
-    execRoot.getRelative(testInfrastructureFailure).delete();
-
-    // Coverage files use "coverage" instead of "test".
-    String coveragePrefix = "coverage";
-
-    // We cannot use coverageData artifact since it may be null. Generate coverage name instead.
-    execRoot.getRelative(baseDir.getChild(coveragePrefix + ".dat")).delete();
-
-    // Delete files fetched from remote execution.
-    execRoot.getRelative(baseDir.getChild("test.zip")).delete();
-    deleteTestAttemptsDirMaybe(execRoot.getRelative(baseDir), "test");
+  protected Iterable<PathFragment> getAdditionalPathOutputsToDelete() {
+    return filesToDeleteBeforeExecution;
   }
 
-  private static void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix)
-      throws IOException {
-    Path testAttemptsDir = outputDir.getChild(namePrefix + "_attempts");
-    if (testAttemptsDir.exists()) {
-      // Normally we should have used deleteTree(testAttemptsDir). However, if test output is
-      // in a FUSE filesystem implemented with the high-level API, there may be .fuse???????
-      // entries, which prevent removing the directory.  As a workaround, code below will throw
-      // IOException if it will fail to remove something inside testAttemptsDir, but will
-      // silently suppress any exceptions when deleting testAttemptsDir itself.
-      testAttemptsDir.deleteTreesBelow();
-      try {
-        testAttemptsDir.delete();
-      } catch (IOException e) {
-        // Do nothing.
-      }
-    }
+  @Override
+  protected Iterable<PathFragment> getDirectoryOutputsToDelete() {
+    return directoriesToDeleteBeforeExecution;
   }
 
   void createEmptyOutputs(ActionExecutionContext context) throws IOException {
