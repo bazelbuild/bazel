@@ -72,6 +72,7 @@ public final class SpawnGccStrategyTest {
     when(action.getDotdFile()).thenReturn(dotdFile);
     when(action.useInMemoryDotdFiles()).thenReturn(true);
     when(action.estimateResourceConsumptionLocal()).thenReturn(AbstractAction.DEFAULT_RESOURCE_SET);
+    when(action.shouldParseShowIncludes()).thenReturn(false);
     when(action.createSpawn(any())).thenCallRealMethod();
 
     // act
