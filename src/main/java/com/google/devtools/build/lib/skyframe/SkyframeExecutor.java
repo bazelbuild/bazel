@@ -3142,10 +3142,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return ExecutionFinishedEvent.builderWithDefaults();
   }
 
-  protected Iterable<ActionLookupValue> getActionLookupValuesInBuild(
+  final Iterable<ActionLookupValue> getActionLookupValuesInBuild(
       List<ConfiguredTargetKey> topLevelCtKeys, List<AspectValueKey> aspectKeys)
       throws InterruptedException {
-    if (!tracksStateForIncrementality()) {
+    if (!isAnalysisIncremental()) {
       // If we do not track incremental state we do not have graph edges, so we cannot traverse the
       // graph and find only actions in the current build. In this case we can simply return all
       // ActionLookupValues in the graph, since the graph's lifetime is a single build anyway.

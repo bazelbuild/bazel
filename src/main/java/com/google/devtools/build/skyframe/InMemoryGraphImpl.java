@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
@@ -113,25 +112,6 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getDoneValues() {
-    return Collections.unmodifiableMap(
-        Maps.filterValues(
-            Maps.transformValues(
-                nodeMap,
-                entry -> {
-                  if (!entry.isDone()) {
-                    return null;
-                  }
-                  try {
-                    return entry.getValue();
-                  } catch (InterruptedException e) {
-                    throw new IllegalStateException(e);
-                  }
-                }),
-            Predicates.notNull()));
-  }
-
-  @Override
   public Map<SkyKey, NodeEntry> getAllValues() {
     return Collections.unmodifiableMap(nodeMap);
   }
@@ -145,9 +125,4 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   protected ConcurrentMap<SkyKey, ? extends NodeEntry> getNodeMap() {
     return nodeMap;
   }
-
-  boolean keepsEdges() {
-    return keepEdges;
-  }
-
 }
