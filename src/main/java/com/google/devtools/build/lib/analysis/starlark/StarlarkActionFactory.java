@@ -94,8 +94,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return new ActionRegistry() {
 
       @Override
-      public void registerAction(ActionAnalysisMetadata... actions) {
-        getRuleContext().registerAction(actions);
+      public void registerAction(ActionAnalysisMetadata action) {
+        getRuleContext().registerAction(action);
       }
 
       @Override
@@ -386,19 +386,19 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   /**
-   * Registers actions in the context of this {@link StarlarkActionFactory}.
+   * Registers action in the context of this {@link StarlarkActionFactory}.
    *
-   * <p>Use {@link #getActionConstructionContext()} to obtain the context required to create those
-   * actions.
+   * <p>Use {@link #getActionConstructionContext()} to obtain the context required to create this
+   * action.
    */
-  public void registerAction(ActionAnalysisMetadata... actions) throws EvalException {
+  public void registerAction(ActionAnalysisMetadata action) throws EvalException {
     validateActionCreation();
-    getRuleContext().registerAction(actions);
+    getRuleContext().registerAction(action);
   }
 
   /**
    * Returns information needed to construct actions that can be registered with {@link
-   * #registerAction(ActionAnalysisMetadata...)}.
+   * #registerAction}.
    */
   public ActionConstructionContext getActionConstructionContext() {
     return context.getRuleContext();

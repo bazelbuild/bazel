@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -62,7 +63,6 @@ public class LtoBackendActionTest extends BuildViewTestCase {
   private Artifact destinationArtifact;
   private BitcodeFiles allBitcodeFiles;
   private AnalysisTestUtil.CollectingAnalysisEnvironment collectingAnalysisEnvironment;
-  private Executor executor;
   private ActionExecutionContext context;
 
   @Before
@@ -86,7 +86,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
   @Before
   public final void createExecutorAndContext() throws Exception {
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     context =
         new ActionExecutionContext(
             executor,
@@ -108,17 +108,17 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
   @Test
   public void testEmptyImports() throws Exception {
-    Action[] actions =
-        new LtoBackendAction.Builder()
-            .addImportsInfo(allBitcodeFiles, imports1Artifact)
-            .addInput(bitcode1Artifact)
-            .addInput(index1Artifact)
-            .addOutput(destinationArtifact)
-            .setExecutable(scratch.file("/bin/clang").asFragment())
-            .setProgressMessage("Test")
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
-    collectingAnalysisEnvironment.registerAction(actions);
-    LtoBackendAction action = (LtoBackendAction) actions[0];
+    LtoBackendAction action =
+        (LtoBackendAction)
+            new LtoBackendAction.Builder()
+                .addImportsInfo(allBitcodeFiles, imports1Artifact)
+                .addInput(bitcode1Artifact)
+                .addInput(index1Artifact)
+                .addOutput(destinationArtifact)
+                .setExecutable(scratch.file("/bin/clang").asFragment())
+                .setProgressMessage("Test")
+                .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(action);
     assertThat(action.getOwner().getLabel())
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
@@ -137,17 +137,17 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
   @Test
   public void testNonEmptyImports() throws Exception {
-    Action[] actions =
-        new LtoBackendAction.Builder()
-            .addImportsInfo(allBitcodeFiles, imports2Artifact)
-            .addInput(bitcode2Artifact)
-            .addInput(index2Artifact)
-            .addOutput(destinationArtifact)
-            .setExecutable(scratch.file("/bin/clang").asFragment())
-            .setProgressMessage("Test")
-            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
-    collectingAnalysisEnvironment.registerAction(actions);
-    LtoBackendAction action = (LtoBackendAction) actions[0];
+    LtoBackendAction action =
+        (LtoBackendAction)
+            new LtoBackendAction.Builder()
+                .addImportsInfo(allBitcodeFiles, imports2Artifact)
+                .addInput(bitcode2Artifact)
+                .addInput(index2Artifact)
+                .addOutput(destinationArtifact)
+                .setExecutable(scratch.file("/bin/clang").asFragment())
+                .setProgressMessage("Test")
+                .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    collectingAnalysisEnvironment.registerAction(action);
     assertThat(action.getOwner().getLabel())
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode2Artifact, index2Artifact);
@@ -241,9 +241,9 @@ public class LtoBackendActionTest extends BuildViewTestCase {
               builder.setInheritedEnvironment(Arrays.asList("baz"));
             }
 
-            Action[] actions = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
-            collectingAnalysisEnvironment.registerAction(actions);
-            return actions[0];
+            SpawnAction action = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+            collectingAnalysisEnvironment.registerAction(action);
+            return action;
           }
         },
         actionKeyContext);
@@ -253,7 +253,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
   public void discoverInputs_missingInputErrorMessage() throws Exception {
     FileSystemUtils.writeIsoLatin1(imports1Artifact.getPath(), "file1.o", "file2.o", "file3.o");
 
-    Action[] actions =
+    SpawnAction action =
         new LtoBackendAction.Builder()
             .addImportsInfo(
                 new BitcodeFiles(
@@ -265,7 +265,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             .addOutput(destinationArtifact)
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     ActionExecutionException e =
-        assertThrows(ActionExecutionException.class, () -> actions[0].discoverInputs(context));
+        assertThrows(ActionExecutionException.class, () -> action.discoverInputs(context));
 
     assertThat(e).hasMessageThat().endsWith("(first 10): file1.o, file3.o");
   }

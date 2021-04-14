@@ -2105,7 +2105,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected class StubAnalysisEnvironment implements AnalysisEnvironment {
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... action) {
+    public void registerAction(ActionAnalysisMetadata action) {
       throw new UnsupportedOperationException();
     }
 

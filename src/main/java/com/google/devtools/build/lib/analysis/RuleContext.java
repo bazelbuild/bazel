@@ -679,7 +679,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public void registerAction(ActionAnalysisMetadata... action) {
+  public void registerAction(ActionAnalysisMetadata action) {
     getAnalysisEnvironment().registerAction(action);
   }
 

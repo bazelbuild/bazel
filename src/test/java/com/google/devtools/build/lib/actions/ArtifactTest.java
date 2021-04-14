@@ -188,16 +188,14 @@ public class ArtifactTest {
     MiddlemanAction.create(
         new ActionRegistry() {
           @Override
-          public void registerAction(ActionAnalysisMetadata... actions) {
-            for (ActionAnalysisMetadata action : actions) {
-              try {
-                actionGraph.registerAction(action);
-              } catch (ActionConflictException e) {
-                throw new IllegalStateException(e);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Didn't expect interrupt in test", e);
-              }
+          public void registerAction(ActionAnalysisMetadata action) {
+            try {
+              actionGraph.registerAction(action);
+            } catch (ActionConflictException e) {
+              throw new IllegalStateException(e);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw new IllegalStateException("Didn't expect interrupt in test", e);
             }
           }
 

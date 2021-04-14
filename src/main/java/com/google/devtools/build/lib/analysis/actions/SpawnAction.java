@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -657,9 +656,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     /**
-     * Builds the SpawnAction and ParameterFileWriteAction (if param file is used) using the passed-
-     * in action configuration. The first item of the returned array is always the SpawnAction
-     * itself.
+     * Builds the SpawnAction using the passed-in action configuration.
      *
      * <p>This method makes a copy of all the collections, so it is safe to reuse the builder after
      * this method returns.
@@ -670,17 +667,16 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * This logic was removed, but if people don't notice and still rely on the side-effect, things
      * may break.
      *
-     * @return the SpawnAction and any actions required by it, with the first item always being the
-     *      SpawnAction itself.
+     * @return the SpawnAction.
      */
     @CheckReturnValue
-    public Action[] build(ActionConstructionContext context) {
+    public SpawnAction build(ActionConstructionContext context) {
       return build(context.getActionOwner(execGroup), context.getConfiguration());
     }
 
-    @VisibleForTesting @CheckReturnValue
-    public Action[] build(ActionOwner owner, BuildConfiguration configuration) {
-      Action[] actions = new Action[1];
+    @VisibleForTesting
+    @CheckReturnValue
+    public SpawnAction build(ActionOwner owner, BuildConfiguration configuration) {
       CommandLines.Builder result = CommandLines.builder();
       result.addCommandLine(executableArgs.build());
       for (CommandLineAndParamFileInfo pair : this.commandLines) {
@@ -693,11 +689,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               : useDefaultShellEnvironment
                   ? configuration.getActionEnvironment()
                   : ActionEnvironment.create(environment, inheritedEnvironment);
-      Action spawnAction =
-          buildSpawnAction(
-              owner, commandLines, configuration.getCommandLineLimits(), configuration, env);
-      actions[0] = spawnAction;
-      return actions;
+      return buildSpawnAction(
+          owner, commandLines, configuration.getCommandLineLimits(), configuration, env);
     }
 
     @CheckReturnValue

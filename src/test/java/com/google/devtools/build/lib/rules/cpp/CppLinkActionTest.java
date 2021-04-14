@@ -81,7 +81,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "cc_library(name = 'dummyRuleContext')"),
         new StubAnalysisEnvironment() {
           @Override
-          public void registerAction(ActionAnalysisMetadata... action) {
+          public void registerAction(ActionAnalysisMetadata action) {
             // No-op.
           }
 

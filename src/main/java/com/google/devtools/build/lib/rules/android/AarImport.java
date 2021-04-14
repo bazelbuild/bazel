@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -277,10 +276,10 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Create action to extract embedded Proguard.txt from an AAR. If the file is not found, an empty
+   * Creates action to extract embedded Proguard.txt from an AAR. If the file is not found, an empty
    * file will be created
    */
-  private static Action[] createAarEmbeddedProguardExtractorActions(
+  private static SpawnAction createAarEmbeddedProguardExtractorActions(
       RuleContext ruleContext, Artifact aar, Artifact proguardSpecArtifact) {
     return new SpawnAction.Builder()
         .useDefaultShellEnvironment()
@@ -316,13 +315,13 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Create an action to extract a file (specified by the parameter filename) from an AAR file. Note
-   * that the parameter jdepsOutputArtifact is not necessary for this action. Conversely, the action
-   * of checking dependencies for aar_import needs this action instead. Therefore we add the output
-   * artifact of import_deps_checker to this extraction action as input. Therefore, the dependency
-   * checking will run each time.
+   * Creates an action to extract a file (specified by the parameter filename) from an AAR file.
+   * Note that the parameter jdepsOutputArtifact is not necessary for this action. Conversely, the
+   * action of checking dependencies for aar_import needs this action instead. Therefore we add the
+   * output artifact of import_deps_checker to this extraction action as input. Therefore, the
+   * dependency checking will run each time.
    */
-  private static Action[] createSingleFileExtractorActions(
+  private static SpawnAction createSingleFileExtractorActions(
       RuleContext ruleContext,
       Artifact aar,
       String filename,
@@ -348,7 +347,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
     return builder.build(ruleContext);
   }
 
-  private static Action[] createAarResourcesExtractorActions(
+  private static SpawnAction createAarResourcesExtractorActions(
       RuleContext ruleContext,
       Artifact aar,
       Artifact resourcesDir,
@@ -377,7 +376,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .build(ruleContext);
   }
 
-  private static Action[] createAarEmbeddedJarsExtractorActions(
+  private static SpawnAction createAarEmbeddedJarsExtractorActions(
       RuleContext ruleContext,
       Artifact aar,
       Artifact jarsTreeArtifact,
@@ -400,7 +399,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .build(ruleContext);
   }
 
-  private static Action[] createAarJarsMergingActions(
+  private static SpawnAction createAarJarsMergingActions(
       RuleContext ruleContext, Artifact jarsTreeArtifact, Artifact mergedJar, Artifact paramFile) {
     return singleJarSpawnActionBuilder(ruleContext)
         .setMnemonic("AarJarsMerger")
@@ -418,7 +417,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .build(ruleContext);
   }
 
-  private static Action[] createAarNativeLibsFilterActions(
+  private static SpawnAction createAarNativeLibsFilterActions(
       RuleContext ruleContext, Artifact aar, Artifact outputZip) {
     SpawnAction.Builder actionBuilder =
         new SpawnAction.Builder()

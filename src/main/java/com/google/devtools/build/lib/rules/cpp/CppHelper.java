@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -739,7 +738,7 @@ public class CppHelper {
         featureConfiguration.getToolRequirementsForAction(CppActionNames.STRIP)) {
       executionInfoBuilder.put(executionRequirement, "");
     }
-    Action[] stripAction =
+    SpawnAction stripAction =
         new SpawnAction.Builder()
             .addInput(input)
             .addTransitiveInputs(toolchain.getStripFiles())

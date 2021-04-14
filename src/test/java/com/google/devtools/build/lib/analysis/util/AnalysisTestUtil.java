@@ -62,7 +62,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -101,9 +100,9 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... actions) {
-      Collections.addAll(this.actions, actions);
-      original.registerAction(actions);
+    public void registerAction(ActionAnalysisMetadata action) {
+      this.actions.add(action);
+      original.registerAction(action);
     }
 
     /** Calls {@link MutableActionGraph#registerAction} for all collected actions. */
@@ -350,8 +349,7 @@ public final class AnalysisTestUtil {
         };
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... action) {
-    }
+    public void registerAction(ActionAnalysisMetadata action) {}
 
     @Override
     public boolean hasErrors() {
