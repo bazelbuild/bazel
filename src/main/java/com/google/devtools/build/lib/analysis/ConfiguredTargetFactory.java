@@ -20,6 +20,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -322,7 +323,8 @@ public final class ConfiguredTargetFactory {
                     prerequisiteMap.values()))
             .build();
 
-    List<NestedSet<AnalysisFailure>> analysisFailures = depAnalysisFailures(ruleContext);
+    List<NestedSet<AnalysisFailure>> analysisFailures =
+        depAnalysisFailures(ruleContext, ImmutableList.of());
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
     }
@@ -386,11 +388,18 @@ public final class ConfiguredTargetFactory {
     }
   }
 
-  private List<NestedSet<AnalysisFailure>> depAnalysisFailures(RuleContext ruleContext) {
+  /**
+   * If {@code --allow_analysis_failures} is true, returns a collection of propagated analysis
+   * failures from the target's dependencies and {@code extraDeps} -- one NestedSet per dep with
+   * failures to propagate. Otherwise if {@code --allow_analysis_failures} is false, returns the
+   * empty set.
+   */
+  private ImmutableList<NestedSet<AnalysisFailure>> depAnalysisFailures(
+      RuleContext ruleContext, Iterable<? extends TransitiveInfoCollection> extraDeps) {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<NestedSet<AnalysisFailure>> analysisFailures = ImmutableList.builder();
       Iterable<? extends TransitiveInfoCollection> infoCollections =
-          ruleContext.getConfiguredTargetMap().values();
+          Iterables.concat(ruleContext.getConfiguredTargetMap().values(), extraDeps);
       for (TransitiveInfoCollection infoCollection : infoCollections) {
         AnalysisFailureInfo failureInfo =
             infoCollection.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR);
@@ -544,8 +553,13 @@ public final class ConfiguredTargetFactory {
     // will be propagated via a hook elsewhere as AnalysisFailureInfo.
     boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
 
+    List<NestedSet<AnalysisFailure>> analysisFailures =
+        depAnalysisFailures(ruleContext, ImmutableList.of(associatedTarget.getConfiguredTarget()));
+    if (!analysisFailures.isEmpty()) {
+      return erroredConfiguredAspectWithFailures(ruleContext, analysisFailures);
+    }
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
-      return null;
+      return erroredConfiguredAspect(ruleContext);
     }
 
     ConfiguredAspect configuredAspect = null;
@@ -559,15 +573,58 @@ public final class ConfiguredTargetFactory {
     } finally {
       ruleContext.close();
     }
-    if (configuredAspect != null) {
-      validateAdvertisedProviders(
-          configuredAspect,
-          aspectKey,
-          aspect.getDefinition().getAdvertisedProviders(),
-          associatedTarget.getTarget(),
-          env.getEventHandler());
+    if (configuredAspect == null) {
+      return erroredConfiguredAspect(ruleContext);
     }
+
+    validateAdvertisedProviders(
+        configuredAspect,
+        aspectKey,
+        aspect.getDefinition().getAdvertisedProviders(),
+        associatedTarget.getTarget(),
+        env.getEventHandler());
     return configuredAspect;
+  }
+
+  private ConfiguredAspect erroredConfiguredAspectWithFailures(
+      RuleContext ruleContext, List<NestedSet<AnalysisFailure>> analysisFailures)
+      throws ActionConflictException, InterruptedException {
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
+    builder.addNativeDeclaredProvider(AnalysisFailureInfo.forAnalysisFailureSets(analysisFailures));
+    // Unlike erroredConfiguredTargetAspectWithFailures, we do not add a RunfilesProvider; that
+    // would result in a RunfilesProvider being provided twice in the merged configured target.
+    return builder.build();
+  }
+
+  /**
+   * Returns a {@link ConfiguredAspect} which indicates that an analysis error occurred in
+   * processing the aspect. In most cases, this returns null, which signals to callers that the
+   * target failed to build and thus the build should fail. However, if analysis failures are
+   * allowed in this build, this returns a stub {@link ConfiguredAspect} which contains information
+   * about the failure.
+   */
+  @Nullable
+  private ConfiguredAspect erroredConfiguredAspect(RuleContext ruleContext)
+      throws ActionConflictException, InterruptedException {
+    if (ruleContext.getConfiguration().allowAnalysisFailures()) {
+      ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
+
+      for (String errorMessage : ruleContext.getSuppressedErrorMessages()) {
+        analysisFailures.add(new AnalysisFailure(ruleContext.getLabel(), errorMessage));
+      }
+      ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
+      builder.addNativeDeclaredProvider(
+          AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
+      // Unlike erroredConfiguredTarget, we do not add a RunfilesProvider; that would result in a
+      // RunfilesProvider being provided twice in the merged configured target.
+      return builder.build();
+    } else {
+      // Returning a null ConfiguredAspect is an indication a rule error occurred. Exceptions are
+      // not propagated, as this would show a nasty stack trace to users, and only provide info
+      // on one specific failure with poor messaging. By returning null, the caller can
+      // inspect ruleContext for multiple errors and output thorough messaging on each.
+      return null;
+    }
   }
 
   private ImmutableMap<String, Attribute> mergeAspectAttributes(ImmutableList<Aspect> aspectPath) {

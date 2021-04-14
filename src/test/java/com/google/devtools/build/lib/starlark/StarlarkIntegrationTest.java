@@ -98,6 +98,14 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     return (StructImpl) configuredTarget.get(key);
   }
 
+  private static final Correspondence<AnalysisFailure, AnalysisFailure>
+      analysisFailureCorrespondence =
+          Correspondence.from(
+              (actual, expected) ->
+                  actual.getLabel().equals(expected.getLabel())
+                      && actual.getMessage().contains(expected.getMessage()),
+              "is equivalent to");
+
   @Test
   public void testRemoteLabelAsDefaultAttributeValue() throws Exception {
     scratch.file(
@@ -2155,13 +2163,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     AnalysisFailureInfo info =
         (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
 
-    Correspondence<AnalysisFailure, AnalysisFailure> correspondence =
-        Correspondence.from(
-            (actual, expected) ->
-                actual.getLabel().equals(expected.getLabel())
-                    && actual.getMessage().contains(expected.getMessage()),
-            "is equivalent to");
-
     AnalysisFailure expectedOne =
         new AnalysisFailure(
             Label.parseAbsoluteUnchecked("//test:one"), "This Is My Failure Message");
@@ -2169,9 +2170,119 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         new AnalysisFailure(
             Label.parseAbsoluteUnchecked("//test:two"), "This Is My Failure Message");
 
-    assertThat(info.getCauses().getSet(AnalysisFailure.class).toList())
-        .comparingElementsUsing(correspondence)
+    assertThat(info.getCausesNestedSet().toList())
+        .comparingElementsUsing(analysisFailureCorrespondence)
         .containsExactly(expectedOne, expectedTwo);
+  }
+
+  @Test
+  public void analysisFailureInfo_fromFailingAspect() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_aspect_impl(target, ctx):",
+        "   fail('This Is My Aspect Failure Message')",
+        "",
+        "custom_aspect = aspect(implementation = custom_aspect_impl, attr_aspects = ['deps'])",
+        "",
+        "def custom_rule_impl(ctx):",
+        "   return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "     attrs = {'deps' : attr.label_list(aspects = [custom_aspect])})");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'one')",
+        "custom_rule(name = 'two', deps = [':one'])");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:two");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure expectedOne =
+        new AnalysisFailure(
+            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Aspect Failure Message");
+
+    assertThat(info.getCausesNestedSet().toList())
+        .comparingElementsUsing(analysisFailureCorrespondence)
+        .containsExactly(expectedOne);
+  }
+
+  @Test
+  public void analysisFailureInfo_fromTransitivelyFailingAspect() throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_aspect_impl(target, ctx):",
+        "   if hasattr(ctx.rule.attr, 'kaboom') and ctx.rule.attr.kaboom:",
+        "       fail('This Is My Aspect Failure Message')",
+        "   return []",
+        "",
+        "custom_aspect = aspect(implementation = custom_aspect_impl, attr_aspects = ['deps'])",
+        "",
+        "def custom_rule_impl(ctx):",
+        "   return []",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "     attrs = {'deps' : attr.label_list(aspects = [custom_aspect]),",
+        "              'kaboom' : attr.bool()})");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'one', kaboom = True)",
+        "custom_rule(name = 'two', deps = [':one'])",
+        "custom_rule(name = 'three', deps = [':two'])");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:three");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure expectedOne =
+        new AnalysisFailure(
+            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Aspect Failure Message");
+
+    assertThat(info.getCausesNestedSet().toList())
+        .comparingElementsUsing(analysisFailureCorrespondence)
+        .containsExactly(expectedOne);
+  }
+
+  @Test
+  public void analysisFailureInfo_withFailingAspectAndFailingRule_propagatesOnlyFromFailingRule()
+      throws Exception {
+    scratch.file(
+        "test/extension.bzl",
+        "def custom_aspect_impl(target, ctx):",
+        "   fail('This Is My Aspect Failure Message')",
+        "",
+        "custom_aspect = aspect(implementation = custom_aspect_impl, attr_aspects = ['deps'])",
+        "",
+        "def custom_rule_impl(ctx):",
+        "   fail('This Is My Rule Failure Message')",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "     attrs = {'deps' : attr.label_list(aspects = [custom_aspect])})");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:extension.bzl', 'custom_rule')",
+        "",
+        "custom_rule(name = 'one')",
+        "custom_rule(name = 'two', deps = [':one'])");
+
+    useConfiguration("--allow_analysis_failures=true");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:two");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure expectedRuleFailure =
+        new AnalysisFailure(
+            Label.parseAbsoluteUnchecked("//test:one"), "This Is My Rule Failure Message");
+
+    assertThat(info.getCausesNestedSet().toList())
+        .comparingElementsUsing(analysisFailureCorrespondence)
+        .containsExactly(expectedRuleFailure);
   }
 
   @Test
