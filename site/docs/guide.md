@@ -160,7 +160,7 @@ workspace.
 <tr>
   <td><code>//...</code></td>
   <td>All targets in packages in the workspace. This does not include targets
-  from a href="external.html">external repositories</a>.</td>
+  from <a href="external.html">external repositories</a>.</td>
 </tr>
 <tr>
   <td><code>//:all</code></td>
