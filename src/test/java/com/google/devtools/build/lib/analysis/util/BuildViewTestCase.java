@@ -175,6 +175,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -1346,16 +1347,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     if ((owner instanceof ActionLookupKey)) {
-      ActionLookupValue actionLookupValue;
+      SkyValue skyValue;
       try {
-        actionLookupValue =
-            (ActionLookupValue)
-                skyframeExecutor.getEvaluatorForTesting().getExistingValue((SkyKey) owner);
+        skyValue = skyframeExecutor.getEvaluatorForTesting().getExistingValue((SkyKey) owner);
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
-      if (actionLookupValue != null) {
-        for (ActionAnalysisMetadata action : actionLookupValue.getActions()) {
+      if (skyValue instanceof ActionLookupValue) {
+        for (ActionAnalysisMetadata action : ((ActionLookupValue) skyValue).getActions()) {
           for (Artifact output : action.getOutputs()) {
             if (output.getRootRelativePath().equals(rootRelativePath)
                 && output.getRoot().equals(root)) {
@@ -1366,6 +1365,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
     }
     // Fall back: some tests don't actually need an artifact with an owner.
+    // TODO(janakr): the tests that are passing in nonsense here should be changed.
     return view.getArtifactFactory().getDerivedArtifact(rootRelativePath, root, owner);
   }
 

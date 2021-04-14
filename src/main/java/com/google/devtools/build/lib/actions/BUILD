@@ -155,7 +155,7 @@ java_library(
 java_library(
     name = "analysis_graph_stats_event",
     srcs = ["AnalysisGraphStatsEvent.java"],
-    deps = [":total_and_configured_target_only_metric"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto"],
 )
 
 java_library(

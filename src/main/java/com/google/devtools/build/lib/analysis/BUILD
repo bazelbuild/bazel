@@ -313,7 +313,6 @@ java_library(
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
         ":configurations_collector",
-        ":configured_object_value",
         ":configured_target",
         ":constraints/constraint_constants",
         ":constraints/constraint_semantics",
@@ -341,6 +340,7 @@ java_library(
         ":provider_collection",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
+        ":rule_configured_object_value",
         ":rule_definition_context",
         ":rule_definition_environment",
         ":starlark/args",
@@ -689,10 +689,18 @@ java_library(
     srcs = ["ConfiguredObjectValue.java"],
     deps = [
         ":provider_collection",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
+    ],
+)
+
+java_library(
+    name = "rule_configured_object_value",
+    srcs = ["RuleConfiguredObjectValue.java"],
+    deps = [
+        ":configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/actions",
     ],
 )
 
@@ -702,7 +710,6 @@ java_library(
     deps = [
         ":config/config_matching_provider",
         ":transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
         "//src/main/java/net/starlark/java/eval",

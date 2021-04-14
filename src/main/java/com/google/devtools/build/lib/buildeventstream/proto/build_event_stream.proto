@@ -865,11 +865,14 @@ message BuildMetrics {
   message BuildGraphMetrics {
     // How many configured targets/aspects were in this build, including any
     // that were analyzed on a prior build and are still valid. May not be
-    // populated if analysis phase was fully cached.
+    // populated if analysis phase was fully cached. Note: for historical
+    // reasons this includes input/output files and other configured targets
+    // that do not actually have associated actions.
     int32 action_lookup_value_count = 1;
     // How many configured targets alone were in this build: always at most
     // action_lookup_value_count. Useful mainly for historical comparisons to
-    // TargetMetrics.targets_configured, which used to not count aspects.
+    // TargetMetrics.targets_configured, which used to not count aspects. This
+    // also includes configured targets that do not have associated actions.
     int32 action_lookup_value_count_not_including_aspects = 5;
     // How many actions belonged to the configured targets/aspects above. It may
     // not be necessary to execute all of these actions to build the requested
@@ -879,6 +882,15 @@ message BuildMetrics {
     // action_count. Useful mainly for historical comparisons to
     // ActionMetrics.actions_created, which used to not count aspects' actions.
     int32 action_count_not_including_aspects = 6;
+    // How many "input file" configured targets there were: one per source file.
+    // Should agree with artifact_metrics.source_artifacts_read.count above,
+    int32 input_file_configured_target_count = 7;
+    // How many "output file" configured targets there were: output files that
+    // are targets (not implicit outputs).
+    int32 output_file_configured_target_count = 8;
+    // How many "other" configured targets there were (like alias,
+    // package_group, and other non-rule non-file configured targets).
+    int32 other_configured_target_count = 9;
     // How many artifacts are outputs of the above actions. May not be populated
     // if analysis phase was fully cached.
     int32 output_artifact_count = 3;

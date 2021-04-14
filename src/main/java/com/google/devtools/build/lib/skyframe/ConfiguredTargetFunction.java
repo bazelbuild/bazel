@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
@@ -242,7 +240,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // not prepared for it.
       return new NonRuleConfiguredTargetValue(
           new EmptyConfiguredTarget(target.getLabel(), configuredTargetKey.getConfigurationKey()),
-          GeneratingActions.EMPTY,
           transitivePackagesForPackageRootResolution == null
               ? null
               : transitivePackagesForPackageRootResolution.build());
@@ -1059,22 +1056,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ? null
               : transitivePackagesForPackageRootResolution.build());
     } else {
-      GeneratingActions generatingActions;
-      // Check for conflicting actions within this configured target (that indicates a bug in the
-      // rule implementation).
-      try {
-        generatingActions =
-            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                analysisEnvironment.getActionKeyContext(),
-                analysisEnvironment.getRegisteredActions(),
-                configuredTargetKey,
-                /*outputFiles=*/ null);
-      } catch (ActionConflictException e) {
-        throw new ConfiguredTargetFunctionException(e);
-      }
+      Preconditions.checkState(
+          analysisEnvironment.getRegisteredActions().isEmpty(),
+          "Non-rule can't have actions: %s %s %s %s",
+          configuredTargetKey,
+          analysisEnvironment.getRegisteredActions(),
+          configuredTarget);
       return new NonRuleConfiguredTargetValue(
           configuredTarget,
-          generatingActions,
           transitivePackagesForPackageRootResolution == null
               ? null
               : transitivePackagesForPackageRootResolution.build());

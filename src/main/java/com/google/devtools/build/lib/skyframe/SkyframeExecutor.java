@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
+import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -97,10 +98,14 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -108,6 +113,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
@@ -1090,7 +1096,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             }
             // ctValue may be null if target was not successfully analyzed.
             if (ctValue != null) {
-              ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+              if (!(ctValue instanceof ActionLookupValue)
+                  && discardType.discardsLoading()
+                  && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
+                // If loading is already being deleted, deleting these nodes doesn't hurt. Morally
+                // we should always be able to delete these, since they're not used for execution,
+                // but it leaves the graph inconsistent, and the --discard_analysis_cache with
+                // --track_incremental_state case isn't worth optimizing for.
+                it.remove();
+              } else {
+                ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+              }
             }
           } else if (functionName.equals(SkyFunctions.ASPECT)) {
             AspectValue aspectValue;
@@ -3142,18 +3158,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return ExecutionFinishedEvent.builderWithDefaults();
   }
 
-  final Iterable<ActionLookupValue> getActionLookupValuesInBuild(
+  final AnalysisTraversalResult getActionLookupValuesInBuild(
       List<ConfiguredTargetKey> topLevelCtKeys, List<AspectValueKey> aspectKeys)
       throws InterruptedException {
+    AnalysisTraversalResult result = new AnalysisTraversalResult();
     if (!isAnalysisIncremental()) {
-      // If we do not track incremental state we do not have graph edges, so we cannot traverse the
-      // graph and find only actions in the current build. In this case we can simply return all
-      // ActionLookupValues in the graph, since the graph's lifetime is a single build anyway.
-      return Iterables.filter(memoizingEvaluator.getDoneValues().values(), ActionLookupValue.class);
+      // If we do not have incremental analysis state we do not have graph edges, so we cannot
+      // traverse the graph and find only actions in the current build. In this case we can simply
+      // return all ActionLookupValues in the graph, since the graph's lifetime is a single build
+      // anyway.
+      for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getDoneValues().entrySet()) {
+        if ((entry.getKey() instanceof ActionLookupKey) && entry.getValue() != null) {
+          result.accumulate(entry.getValue(), (ActionLookupKey) entry.getKey());
+        }
+      }
+      return result;
     }
     WalkableGraph walkableGraph = SkyframeExecutorWrappingWalkableGraph.of(this);
     Set<SkyKey> seen = CompactHashSet.create();
-    List<ActionLookupValue> result = new ArrayList<>();
     for (ConfiguredTargetKey key : topLevelCtKeys) {
       findActionsRecursively(walkableGraph, key, seen, result);
     }
@@ -3163,22 +3185,95 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return result;
   }
 
+  static class AnalysisTraversalResult {
+    // Some metrics indicate this is a rough average # of ALVs in a build.
+    private final Sharder<ActionLookupValue> actionShards = new Sharder<>(NUM_JOBS, 200_000);
+
+    // Metrics.
+    private int configuredObjectCount = 0;
+    private int configuredTargetCount = 0;
+    private int actionCount = 0;
+    private int actionCountNotIncludingAspects = 0;
+    private int inputFileConfiguredTargetCount = 0;
+    private int outputFileConfiguredTargetCount = 0;
+    private int otherConfiguredTargetCount = 0;
+
+    private AnalysisTraversalResult() {}
+
+    private void accumulate(SkyValue value, ActionLookupKey keyForDebugging) {
+      boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
+      boolean isActionLookupValue = value instanceof ActionLookupValue;
+      if (!isConfiguredTarget && !isActionLookupValue) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                String.format(
+                    "Should only be called with ConfiguredTargetValue or ActionLookupValue: %s %s"
+                        + " %s",
+                    value.getClass(), keyForDebugging, value)));
+        return;
+      }
+      configuredObjectCount++;
+      if (isConfiguredTarget) {
+        configuredTargetCount++;
+      }
+      if (isActionLookupValue) {
+        ActionLookupValue alv = (ActionLookupValue) value;
+        int numActions = alv.getNumActions();
+        actionCount += numActions;
+        if (isConfiguredTarget) {
+          actionCountNotIncludingAspects += numActions;
+        }
+        actionShards.add(alv);
+        return;
+      }
+      if (!(value instanceof NonRuleConfiguredTargetValue)) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                String.format(
+                    "Unexpected value type: %s %s %s", value.getClass(), keyForDebugging, value)));
+        return;
+      }
+      ConfiguredTarget configuredTarget =
+          ((NonRuleConfiguredTargetValue) value).getConfiguredTarget();
+      if (configuredTarget instanceof InputFileConfiguredTarget) {
+        inputFileConfiguredTargetCount++;
+      } else if (configuredTarget instanceof OutputFileConfiguredTarget) {
+        outputFileConfiguredTargetCount++;
+      } else {
+        otherConfiguredTargetCount++;
+      }
+    }
+
+    Sharder<ActionLookupValue> getActionShards() {
+      return actionShards;
+    }
+
+    BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.Builder getMetrics() {
+      return BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.newBuilder()
+          .setActionLookupValueCount(configuredObjectCount)
+          .setActionLookupValueCountNotIncludingAspects(configuredTargetCount)
+          .setActionCount(actionCount)
+          .setActionCountNotIncludingAspects(actionCountNotIncludingAspects)
+          .setInputFileConfiguredTargetCount(inputFileConfiguredTargetCount)
+          .setOutputFileConfiguredTargetCount(outputFileConfiguredTargetCount)
+          .setOtherConfiguredTargetCount(otherConfiguredTargetCount);
+    }
+  }
+
   private static void findActionsRecursively(
-      WalkableGraph walkableGraph, SkyKey key, Set<SkyKey> seen, List<ActionLookupValue> result)
+      WalkableGraph walkableGraph, SkyKey key, Set<SkyKey> seen, AnalysisTraversalResult result)
       throws InterruptedException {
     if (!(key instanceof ActionLookupKey) || !seen.add(key)) {
-      // The subgraph of dependencies of ActionLookupValues never has a non-ActionLookupValue
-      // depending on an ActionLookupValue. So we can skip any non-ActionLookupValues in the
-      // traversal as an optimization.
+      // The subgraph of dependencies of ActionLookupKeys never has a non-ActionLookupKey depending
+      // on an ActionLookupKey. So we can skip any non-ActionLookupKeys in the traversal as an
+      // optimization.
       return;
     }
     SkyValue value = walkableGraph.getValue(key);
     if (value == null) {
       return; // The value failed to evaluate.
     }
-    if (value instanceof ActionLookupValue) {
-      result.add((ActionLookupValue) value);
-    }
+    result.accumulate(value, (ActionLookupKey) key);
     for (SkyKey dep : walkableGraph.getDirectDeps(key)) {
       findActionsRecursively(walkableGraph, dep, seen, result);
     }

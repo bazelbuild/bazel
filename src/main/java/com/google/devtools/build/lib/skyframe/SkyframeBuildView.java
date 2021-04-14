@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -142,7 +144,7 @@ public final class SkyframeBuildView {
   private BuildConfiguration topLevelHostConfiguration;
   // Fragment-limited versions of the host configuration. It's faster to create/cache these here
   // than to store them in Skyframe.
-  private Map<BuildConfiguration, BuildConfiguration> hostConfigurationCache =
+  private final Map<BuildConfiguration, BuildConfiguration> hostConfigurationCache =
       Maps.newConcurrentMap();
 
   private BuildConfigurationCollection configurations;
@@ -174,8 +176,7 @@ public final class SkyframeBuildView {
 
   public TotalAndConfiguredTargetOnlyMetric getEvaluatedCounts() {
     return TotalAndConfiguredTargetOnlyMetric.create(
-        progressReceiver.actionLookupValueCount.get(),
-        progressReceiver.configuredTargetCount.get());
+        progressReceiver.configuredObjectCount.get(), progressReceiver.configuredTargetCount.get());
   }
 
   ConfiguredTargetFactory getConfiguredTargetFactory() {
@@ -448,12 +449,17 @@ public final class SkyframeBuildView {
         // This operation is somewhat expensive, so we only do it if the graph might have changed in
         // some way -- either we analyzed a new target or we invalidated an old one or are building
         // targets together that haven't been built before.
+        SkyframeExecutor.AnalysisTraversalResult analysisTraversalResult =
+            skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys);
         ArtifactConflictFinder.ActionConflictsAndStats conflictsAndStats =
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
-                skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys),
-                strictConflictChecks,
-                actionKeyContext);
-        eventBus.post(conflictsAndStats.getStats());
+                analysisTraversalResult.getActionShards(), strictConflictChecks, actionKeyContext);
+        BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics buildGraphMetrics =
+            analysisTraversalResult
+                .getMetrics()
+                .setOutputArtifactCount(conflictsAndStats.getOutputArtifactCount())
+                .build();
+        eventBus.post(new AnalysisGraphStatsEvent(buildGraphMetrics));
         actionConflicts = conflictsAndStats.getConflicts();
         someActionLookupValueEvaluated = false;
       }
@@ -1135,7 +1141,7 @@ public final class SkyframeBuildView {
   }
 
   private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {
-    private final AtomicInteger actionLookupValueCount = new AtomicInteger();
+    private final AtomicInteger configuredObjectCount = new AtomicInteger();
     private final AtomicInteger actionCount = new AtomicInteger();
     private final AtomicInteger configuredTargetCount = new AtomicInteger();
     private final AtomicInteger configuredTargetActionCount = new AtomicInteger();
@@ -1165,16 +1171,17 @@ public final class SkyframeBuildView {
       }
       switch (state) {
         case BUILT:
+          if (!evaluationSuccessState.get().succeeded()) {
+            return;
+          }
+          configuredObjectCount.incrementAndGet();
           boolean isConfiguredTarget = skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET);
-          if (evaluationSuccessState.get().succeeded()) {
-            actionLookupValueCount.incrementAndGet();
-            if (isConfiguredTarget) {
-              configuredTargetCount.incrementAndGet();
-            }
-            // During multithreaded operation, this is only set to true, so no concurrency issues.
-            someActionLookupValueEvaluated = true;
+          if (isConfiguredTarget) {
+            configuredTargetCount.incrementAndGet();
           }
           if (newValue instanceof ActionLookupValue) {
+            // During multithreaded operation, this is only set to true, so no concurrency issues.
+            someActionLookupValueEvaluated = true;
             int numActions = ((ActionLookupValue) newValue).getNumActions();
             actionCount.addAndGet(numActions);
             if (isConfiguredTarget) {
@@ -1190,7 +1197,7 @@ public final class SkyframeBuildView {
     }
 
     public void reset() {
-      actionLookupValueCount.set(0);
+      configuredObjectCount.set(0);
       actionCount.set(0);
       configuredTargetCount.set(0);
       configuredTargetActionCount.set(0);
