@@ -31,14 +31,11 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,8 +54,7 @@ import net.starlark.java.syntax.Location;
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
 @AutoCodec
-public final class JavaInfo extends NativeInfo
-    implements JavaInfoApi<Artifact, JavaOutput, CcInfo> {
+public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact, JavaOutput> {
 
   public static final String STARLARK_NAME = "JavaInfo";
 
@@ -130,8 +126,6 @@ public final class JavaInfo extends NativeInfo
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
-    List<JavaCcInfoProvider> javaCcInfoProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaCcInfoProvider.class);
 
     ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
     ImmutableList.Builder<String> javaConstraints = ImmutableList.builder();
@@ -152,7 +146,6 @@ public final class JavaInfo extends NativeInfo
         .addProvider(
             JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
-        .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
         // TODO(iirina): merge or remove JavaCompilationInfoProvider
         .setRuntimeJars(runtimeJars.build())
@@ -372,24 +365,6 @@ public final class JavaInfo extends NativeInfo
             JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
   }
 
-  /** Returns the transitive set of CC native libraries required by the target. */
-  public NestedSet<LibraryToLink> getTransitiveNativeLibraries() {
-    return getProviderAsNestedSet(
-        JavaCcInfoProvider.class,
-        x -> x.getCcInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
-  }
-
-  @Override
-  public Depset /*<LibraryToLink>*/ getTransitiveNativeLibrariesForStarlark() {
-    return Depset.of(LibraryToLink.TYPE, getTransitiveNativeLibraries());
-  }
-
-  @Override
-  public CcInfoApi<Artifact> getCcLinkParamInfo() {
-    JavaCcInfoProvider javaCcInfoProvider = getProvider(JavaCcInfoProvider.class);
-    return javaCcInfoProvider != null ? javaCcInfoProvider.getCcInfo() : CcInfo.EMPTY;
-  }
-
   /** Returns all constraints set on the associated target. */
   public ImmutableList<String> getJavaConstraints() {
     return javaConstraints;
@@ -452,14 +427,6 @@ public final class JavaInfo extends NativeInfo
       }
     }
 
-    private void checkSequenceOfCcInfo(Sequence<?> seq, String field) throws EvalException {
-      for (Object v : seq) {
-        if (!(v instanceof CcInfo)) {
-          throw Starlark.errorf("Expected 'sequence of CcInfo' for '%s'", field);
-        }
-      }
-    }
-
     @Override
     @SuppressWarnings({"unchecked"})
     public JavaInfo javaInfo(
@@ -476,7 +443,6 @@ public final class JavaInfo extends NativeInfo
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
         Object jdepsApi,
-        Sequence<?> nativeLibraries,
         StarlarkThread thread)
         throws EvalException {
       Artifact outputJar = (Artifact) outputJarApi;
@@ -491,7 +457,6 @@ public final class JavaInfo extends NativeInfo
       checkSequenceOfJavaInfo(deps, "deps");
       checkSequenceOfJavaInfo(runtimeDeps, "runtime_deps");
       checkSequenceOfJavaInfo(exports, "exports");
-      checkSequenceOfCcInfo(nativeLibraries, "native_libraries");
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
               JavaOutput.builder()
@@ -509,7 +474,6 @@ public final class JavaInfo extends NativeInfo
               (Sequence<JavaInfo>) deps,
               (Sequence<JavaInfo>) runtimeDeps,
               (Sequence<JavaInfo>) exports,
-              (Sequence<CcInfo>) nativeLibraries,
               thread.getCallerLocation());
     }
   }

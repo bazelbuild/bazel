@@ -18,11 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -38,10 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
     name = "JavaInfo",
     doc = "A provider encapsulating information about Java and Java-like targets.",
     category = DocCategory.PROVIDER)
-public interface JavaInfoApi<
-        FileT extends FileApi,
-        JavaOutputT extends JavaOutputApi<FileT>,
-        CcInfoT extends CcInfoApi<FileT>>
+public interface JavaInfoApi<FileT extends FileApi, JavaOutputT extends JavaOutputApi<FileT>>
     extends StructApi {
 
   @StarlarkMethod(
@@ -173,19 +168,6 @@ public interface JavaInfoApi<
       structField = true,
       doc = "Returns a set of labels that are being exported from this rule transitively.")
   Depset /*<Label>*/ getTransitiveExports();
-
-  @StarlarkMethod(
-      name = "transitive_native_libraries",
-      structField = true,
-      doc = "Returns the transitive set of CC native libraries required by the target.")
-  Depset /*<LibraryToLink>*/ getTransitiveNativeLibrariesForStarlark();
-
-  @StarlarkMethod(
-      name = "cc_link_params_info",
-      structField = true,
-      doc = "C++ libraries to be linked into Java targets.",
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  CcInfoApi<FileT> getCcLinkParamInfo();
 
   /** Provider class for {@link JavaInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
@@ -328,17 +310,11 @@ public interface JavaInfoApi<
                       + " proto encoded using the deps.proto protobuf included with Bazel.  If"
                       + " available this file is typically produced by a compiler. IDEs and other"
                       + " tools can use this information for more efficient processing."),
-          @Param(
-              name = "native_libraries",
-              allowedTypes = {@ParamType(type = Sequence.class, generic1 = CcInfoApi.class)},
-              named = true,
-              defaultValue = "[]",
-              doc = "CC native library dependencies that are needed for this library."),
         },
         selfCall = true,
         useStarlarkThread = true)
     @StarlarkConstructor
-    JavaInfoApi<?, ?, ?> javaInfo(
+    JavaInfoApi<?, ?> javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,
         Object sourceJarApi,
@@ -352,7 +328,6 @@ public interface JavaInfoApi<
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
         Object jdepsApi,
-        Sequence<?> nativeLibraries,
         StarlarkThread thread)
         throws EvalException;
   }

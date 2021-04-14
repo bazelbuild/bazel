@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
@@ -59,7 +58,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A helper class to create configured targets for Java rules. */
@@ -703,11 +701,8 @@ public class JavaCommon {
   /** Adds Cc related providers to a Java target. */
   private void addCcRelatedProviders(
       RuleConfiguredTargetBuilder ruleBuilder, JavaInfo.Builder javaInfoBuilder) {
-    Iterable<? extends TransitiveInfoCollection> deps = targetsTreatedAsDeps(ClasspathType.BOTH);
-    if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
-      deps = Iterables.concat(deps, ruleContext.getPrerequisites("data"));
-    }
-
+    ImmutableList<? extends TransitiveInfoCollection> deps =
+        targetsTreatedAsDeps(ClasspathType.BOTH);
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(
                 AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream(),
@@ -718,21 +713,10 @@ public class JavaCommon {
             .collect(toImmutableList());
 
     CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
-
-    // Collect libraries coming from JavaNativeLibraryInfo provider
-    CcNativeLibraryInfo mergedCcNativeLibraryInfo =
-        CcNativeLibraryInfo.merge(
-            Streams.concat(
-                    Stream.of(mergedCcInfo.getCcNativeLibraryInfo()),
-                    AnalysisUtils.getProviders(deps, JavaNativeLibraryInfo.PROVIDER).stream()
-                        .map(JavaNativeLibraryInfo::getTransitiveJavaNativeLibraries)
-                        .map(CcNativeLibraryInfo::new))
-                .collect(toImmutableList()));
-
     CcInfo filteredCcInfo =
         CcInfo.builder()
             .setCcLinkingContext(mergedCcInfo.getCcLinkingContext())
-            .setCcNativeLibraryInfo(mergedCcNativeLibraryInfo)
+            .setCcNativeLibraryInfo(mergedCcInfo.getCcNativeLibraryInfo())
             .build();
 
     if (ruleContext
