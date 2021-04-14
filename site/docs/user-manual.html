@@ -2793,7 +2793,7 @@ adb -s deadbeef install ...
   All of the options described in this section must be specified using the
   <code class='flag'>--key=value</code> or <code class='flag'>--key value</code>
   syntax. Also, these options must appear <i>before</i> the name of the Bazel
-  command.
+  command. Use <code>startup --key=value</code> to list these in a <code>.bazelrc</code> file.
 </p>
 
 <h4 id='flag--output_base'><code class='flag'>--output_base=<var>dir</var></code></h4>
@@ -2832,33 +2832,34 @@ adb -s deadbeef install ...
   by an incremental build of <code>//bar</code>.
 </p>
 <p>
-  We recommend you do not use NFS locations for the output base, as
-  the higher access latency of NFS will cause noticeably slower
-  builds.
+  <b>Tip:</b>We recommend you do not use an NFS or similar networked file system for the root
+  directory, as the higher access latency will cause noticeably slower builds.
 </p>
 
 <h4 id='flag--output_user_root'><code class='flag'>--output_user_root=<var>dir</var></code></h4>
 <p>
-  Points to the root directory where output bases are created unless
-  overriden with <code class='flag'>--output_base</code>. The directory
+  Points to the root directory where output and install bases are created. The directory
   must either not exist or be owned by the calling user. In the past,
   this was allowed to point to a directory shared among various users
-  but it's not allowed any longer. This may be allowed once the following is addressed:
-  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>.
+  but it's not allowed any longer. This may be allowed once
+  <a href='https://github.com/bazelbuild/bazel/issues/11100'>issue #11100</a> is addressed.
 </p>
 <p>
   If the <code class='flag'>--output_base</code> option is specified, it overrides
   using <code class='flag'>--output_user_root</code> to calculate the output base.
 </p>
 <p>
-  The install base location is also calculated based on
+  The install base location is calculated based on
   <code class='flag'>--output_user_root</code>, plus the MD5 identity of the Bazel embedded
   binaries.
 </p>
 <p>
-  You can also use the <code class='flag'>--output_user_root</code> option to choose an
+  You can use the <code class='flag'>--output_user_root</code> option to choose an
   alternate base location for all of Bazel's output (install base and output
-  base) if there is a better location in your filesystem layout.
+  base) if there is a better location in your filesystem layout.</p>
+<p>
+  <b>Tip:</b>We recommend you do not use an NFS or similar networked file system for the root
+  directory, as the higher access latency will cause noticeably slower builds.
 </p>
 
 <a name="startup_flag--host_javabase"></a>
