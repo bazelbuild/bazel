@@ -1485,6 +1485,19 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .build();
     }
 
+    if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      // Hack on Windows. The included headers dumped by cl.exe in stdout contain absolute paths.
+      // When compiling the file from different workspace, the shared cache will cause header
+      // dependency checking to fail. This was initially fixed by a hack (see
+      // https://github.com/bazelbuild/bazel/issues/9172 for more details), but is broken again due
+      // to cl/356735700. We require execution service to ignore caches from other workspace.
+      executionInfo =
+          ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
+              .putAll(executionInfo)
+              .put(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE, "")
+              .build();
+    }
+
     try {
       return new SimpleSpawn(
           this,

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingExternalLayoutResolver;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -91,7 +91,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
     RemotePathResolver remotePathResolver;
     if (buildLanguageOptions != null && buildLanguageOptions.experimentalSiblingRepositoryLayout) {
       RemoteOptions remoteOptions = checkNotNull(env.getOptions().getOptions(RemoteOptions.class));
-      remotePathResolver = new SiblingExternalLayoutResolver(execRoot, remoteOptions.incompatibleRemoteOutputPathsRelativeToInputRoot);
+      remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot, remoteOptions.incompatibleRemoteOutputPathsRelativeToInputRoot);
     } else {
       remotePathResolver = new DefaultRemotePathResolver(execRoot);
     }

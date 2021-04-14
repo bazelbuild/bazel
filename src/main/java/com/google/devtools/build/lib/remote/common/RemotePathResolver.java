@@ -130,7 +130,7 @@ public interface RemotePathResolver {
   }
 
   /**
-   * A {@link RemotePathResolver} used when {@code --experimental_sibling_external_layout} is set.
+   * A {@link RemotePathResolver} used when {@code --experimental_sibling_repository_layout} is set.
    * Use parent directory of {@code execRoot} and set {@code workingDirectory} to the base name of
    * {@code execRoot}.
    *
@@ -138,12 +138,12 @@ public interface RemotePathResolver {
    * {@code --incompatible_remote_output_paths_relative_to_input_root} is not set, otherwise,
    * relative to input root.
    */
-  class SiblingExternalLayoutResolver implements RemotePathResolver {
+  class SiblingRepositoryLayoutResolver implements RemotePathResolver {
 
     private final Path execRoot;
     private final boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
 
-    public SiblingExternalLayoutResolver(Path execRoot,
+    public SiblingRepositoryLayoutResolver(Path execRoot,
         boolean incompatibleRemoteOutputPathsRelativeToInputRoot) {
       this.execRoot = execRoot;
       this.incompatibleRemoteOutputPathsRelativeToInputRoot = incompatibleRemoteOutputPathsRelativeToInputRoot;

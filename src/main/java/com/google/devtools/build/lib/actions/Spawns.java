@@ -75,6 +75,12 @@ public final class Spawns {
     return defaultSandboxDisallowNetwork;
   }
 
+  /** Returns whether caches from other workspace can be used for this spawn. */
+  public static boolean shouldDifferentiateWorkspaceCache(Spawn spawn) {
+    return spawn.getExecutionInfo()
+        .containsKey(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
+  }
+
   /**
    * Returns whether a Spawn claims to support being executed with the persistent worker strategy
    * according to its execution info tags.

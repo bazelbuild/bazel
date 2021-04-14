@@ -229,7 +229,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     maybeWriteParamFilesLocally(spawn);
 
     // Get the remote platform properties.
-    Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+    Platform platform = PlatformUtils
+        .getPlatformProto(spawn, remoteOptions, getExtraPlatformProperties(spawn, execRoot));
 
     Command command =
         buildCommand(
@@ -698,16 +699,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   static List<Property> getExtraPlatformProperties(Spawn spawn, Path execRoot) {
-    // Hack on Windows. The included headers dumped by cl.exe in stdout contain absolute paths.
-    // When compiling the file from different workspace, the shared cache will cause header
-    // dependency checking to fail. This was initially fixed by a hack (see
-    // https://github.com/bazelbuild/bazel/issues/9172 for more details), but is broken again due
-    // to cl/356735700. We include workspace name here so action results from different workspaces
-    // on Windows won't be shared.
-    boolean isWindows = System.getProperty("os.name").startsWith("Windows");
-    if (isWindows) {
+    if (Spawns.shouldDifferentiateWorkspaceCache(spawn)) {
       return ImmutableList
-          .of(Property.newBuilder().setName("workspace").setValue(execRoot.getBaseName()).build());
+          .of(Property.newBuilder().setName("bazel-workspace").setValue(execRoot.getBaseName())
+              .build());
     }
 
     return ImmutableList.of();
