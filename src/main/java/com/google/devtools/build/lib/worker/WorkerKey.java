@@ -53,6 +53,8 @@ final class WorkerKey {
   private final boolean isSpeculative;
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean proxied;
+  /** If true, the workers for this key are able to cancel work requests. */
+  private final boolean cancellable;
   /**
    * Cached value for the hash of this key, because the value is expensive to calculate
    * (ImmutableMap and ImmutableList do not cache their hashcodes.
@@ -70,6 +72,7 @@ final class WorkerKey {
       SortedMap<PathFragment, HashCode> workerFilesWithHashes,
       boolean isSpeculative,
       boolean proxied,
+      boolean cancellable,
       WorkerProtocolFormat protocolFormat) {
     this.args = Preconditions.checkNotNull(args);
     this.env = Preconditions.checkNotNull(env);
@@ -79,8 +82,8 @@ final class WorkerKey {
     this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
     this.isSpeculative = isSpeculative;
     this.proxied = proxied;
+    this.cancellable = cancellable;
     this.protocolFormat = protocolFormat;
-
     hash = calculateHashCode();
   }
 
@@ -126,6 +129,10 @@ final class WorkerKey {
 
   public boolean isMultiplex() {
     return getProxied() && !isSpeculative;
+  }
+
+  public boolean isCancellable() {
+    return cancellable;
   }
 
   /** Returns the format of the worker protocol. */
