@@ -97,7 +97,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
 
     ImmutableList.Builder<TreeFileArtifact> sourcesBuilder = ImmutableList.builder();
-    ImmutableList.Builder<Artifact> privateHeadersBuilder = ImmutableList.builder();
+    NestedSetBuilder<Artifact> privateHeadersBuilder = NestedSetBuilder.<Artifact>stableOrder();
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
       boolean isHeader = CppFileTypes.CPP_HEADER.matches(inputTreeFileArtifact.getExecPath());
       boolean isTextualInclude =
@@ -122,7 +122,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       }
     }
     ImmutableList<TreeFileArtifact> sources = sourcesBuilder.build();
-    ImmutableList<Artifact> privateHeaders = privateHeadersBuilder.build();
+    NestedSet<Artifact> privateHeaders = privateHeadersBuilder.build();
 
     for (TreeFileArtifact inputTreeFileArtifact : sources) {
       try {
@@ -173,7 +173,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
         cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
         cppCompileActionBuilder.buildMandatoryInputs(),
-        cppCompileActionBuilder.buildPrunableHeaders(),
+        cppCompileActionBuilder.getPrunableHeaders(),
         cppCompileActionBuilder.getCcCompilationContext().getLooseHdrsDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
         cppCompileActionBuilder.buildInputsForInvalidation(),
@@ -190,7 +190,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       Artifact sourceTreeFileArtifact,
       Artifact outputTreeFileArtifact,
       @Nullable Artifact dotdFileArtifact,
-      ImmutableList<Artifact> privateHeaders)
+      NestedSet<Artifact> privateHeaders)
       throws ActionTemplateExpansionException {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
     builder.setAdditionalPrunableHeaders(privateHeaders);
