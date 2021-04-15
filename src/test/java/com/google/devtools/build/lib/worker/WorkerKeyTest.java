@@ -43,6 +43,7 @@ public class WorkerKeyTest {
         /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
         /* isSpeculative= */ dynamic,
         /* proxied= */ multiplex,
+        /* cancellable=*/ false,
         WorkerProtocolFormat.PROTO);
   }
 
@@ -90,6 +91,7 @@ public class WorkerKeyTest {
             workerKey.getWorkerFilesWithHashes(),
             workerKey.isSpeculative(),
             workerKey.getProxied(),
+            workerKey.isCancellable(),
             workerKey.getProtocolFormat());
     assertThat(workerKey).isEqualTo(workerKeyWithSameFields);
   }
@@ -107,6 +109,7 @@ public class WorkerKeyTest {
             workerKey.getWorkerFilesWithHashes(),
             workerKey.isSpeculative(),
             workerKey.getProxied(),
+            workerKey.isCancellable(),
             WorkerProtocolFormat.JSON);
     assertThat(workerKey).isNotEqualTo(workerKeyWithDifferentProtocol);
   }

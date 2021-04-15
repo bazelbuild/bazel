@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -45,14 +47,17 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
+import java.util.concurrent.Semaphore;
 import org.apache.commons.pool2.PooledObject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -112,7 +117,6 @@ public class WorkerSpawnRunnerTest {
             new WorkerOptions());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
-    when(worker.getLogFile()).thenReturn(logFile);
     when(worker.getResponse(0))
         .thenReturn(WorkResponse.newBuilder().setExitCode(0).setOutput("out").build());
     WorkResponse response =
@@ -135,11 +139,101 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
+  public void testExecInWorker_finishesAsyncOnInterrupt() throws InterruptedException, IOException {
+    WorkerSpawnRunner runner =
+        new WorkerSpawnRunner(
+            new SandboxHelpers(false),
+            fs.getPath("/execRoot"),
+            createWorkerPool(),
+            /* multiplex */ false,
+            reporter,
+            localEnvProvider,
+            /* binTools */ null,
+            resourceManager,
+            /* runfilesTreeUpdater=*/ null,
+            new WorkerOptions());
+    WorkerKey key = createWorkerKey(fs, "mnem", false);
+    Path logFile = fs.getPath("/worker.log");
+    when(worker.getResponse(anyInt()))
+        .thenThrow(new InterruptedException())
+        .thenReturn(WorkResponse.newBuilder().setRequestId(2).build());
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            runner.execInWorker(
+                spawn,
+                key,
+                context,
+                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+                ImmutableList.of(),
+                inputFileCache,
+                spawnMetrics));
+    assertThat(logFile.exists()).isFalse();
+    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(worker, times(1)).putRequest(WorkRequest.newBuilder().setRequestId(0).build());
+  }
+
+  @Test
+  public void testExecInWorker_sendsCancelMessageOnInterrupt()
+      throws ExecException, InterruptedException, IOException {
+    WorkerOptions workerOptions = new WorkerOptions();
+    workerOptions.workerCancellation = true;
+    when(spawn.getExecutionInfo())
+        .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
+    WorkerSpawnRunner runner =
+        new WorkerSpawnRunner(
+            new SandboxHelpers(false),
+            fs.getPath("/execRoot"),
+            createWorkerPool(),
+            /* multiplex */ false,
+            reporter,
+            localEnvProvider,
+            /* binTools */ null,
+            resourceManager,
+            /* runfilesTreeUpdater=*/ null,
+            workerOptions);
+    WorkerKey key = createWorkerKey(fs, "mnem", false);
+    Path logFile = fs.getPath("/worker.log");
+    Semaphore secondResponseRequested = new Semaphore(0);
+    when(worker.getResponse(anyInt()))
+        .thenThrow(new InterruptedException())
+        .thenAnswer(
+            invocation -> {
+              secondResponseRequested.release();
+              return WorkResponse.newBuilder()
+                  .setRequestId(invocation.getArgument(0))
+                  .setWasCancelled(true)
+                  .build();
+            });
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            runner.execInWorker(
+                spawn,
+                key,
+                context,
+                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+                ImmutableList.of(),
+                inputFileCache,
+                spawnMetrics));
+    secondResponseRequested.acquire();
+    assertThat(logFile.exists()).isFalse();
+    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    ArgumentCaptor<WorkRequest> argumentCaptor = ArgumentCaptor.forClass(WorkRequest.class);
+    verify(worker, times(2)).putRequest(argumentCaptor.capture());
+    assertThat(argumentCaptor.getAllValues().get(0))
+        .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
+    assertThat(argumentCaptor.getAllValues().get(1))
+        .isEqualTo(WorkRequest.newBuilder().setRequestId(0).setCancel(true).build());
+  }
+
+  @Test
   public void testExecInWorker_noMultiplexWithDynamic()
       throws ExecException, InterruptedException, IOException {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerMultiplex = true;
-    when(context.speculating()).thenReturn(true);
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
             new SandboxHelpers(false),
@@ -155,7 +249,6 @@ public class WorkerSpawnRunnerTest {
     // This worker key just so happens to be multiplex and require sandboxing.
     WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs);
     Path logFile = fs.getPath("/worker.log");
-    when(worker.getLogFile()).thenReturn(logFile);
     when(worker.getResponse(0))
         .thenReturn(
             WorkResponse.newBuilder().setExitCode(0).setRequestId(0).setOutput("out").build());

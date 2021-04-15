@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.worker.ExampleWorkerOptions.ExampleWorkOptions;
+import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.common.options.OptionsParser;
@@ -42,12 +43,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
 
 /** An example implementation of a worker process that is used for integration tests. */
 public final class ExampleWorker {
@@ -70,6 +68,7 @@ public final class ExampleWorker {
 
   // The options passed to this worker on a per-worker-lifetime basis.
   static ExampleWorkerOptions workerOptions;
+  private static WorkerMessageProcessor messageProcessor;
 
   private static class InterruptableWorkRequestHandler extends WorkRequestHandler {
 
@@ -118,7 +117,7 @@ public final class ExampleWorker {
       parser.parse(args);
       workerOptions = parser.getOptions(ExampleWorkerOptions.class);
       WorkerProtocolFormat protocolFormat = workerOptions.workerProtocol;
-      WorkRequestHandler.WorkerMessageProcessor messageProcessor = null;
+      messageProcessor = null;
       switch (protocolFormat) {
         case JSON:
           messageProcessor =
@@ -147,21 +146,23 @@ public final class ExampleWorker {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
 
-    if (workerOptions.waitForSignal) {
-      Semaphore signalSem = new Semaphore(0);
-      Signal.handle(
-          new Signal("HUP"),
-          new SignalHandler() {
-            @Override
-            public void handle(Signal sig) {
-              signalSem.release();
-            }
-          });
+    if (workerOptions.waitForCancel) {
       try {
-        signalSem.acquire();
-      } catch (InterruptedException e) {
-        System.out.println("Interrupted while waiting for signal");
-        e.printStackTrace();
+        WorkRequest workRequest = messageProcessor.readWorkRequest();
+        if (workRequest.getRequestId() != currentRequest.getRequestId()) {
+          System.err.format(
+              "Got cancel request for %d while expecting cancel request for %d%n",
+              workRequest.getRequestId(), currentRequest.getRequestId());
+          return 1;
+        }
+        if (!workRequest.getCancel()) {
+          System.err.format(
+              "Got non-cancel request for %d while expecting cancel request%n",
+              workRequest.getRequestId());
+          return 1;
+        }
+      } catch (IOException e) {
+        throw new RuntimeException("Exception while waiting for cancel request", e);
       }
     }
     try (PrintStream ps = new PrintStream(baos)) {
