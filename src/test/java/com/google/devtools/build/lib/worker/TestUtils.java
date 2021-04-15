@@ -45,6 +45,7 @@ class TestUtils {
         /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
         /* mustBeSandboxed= */ false,
         /* proxied= */ proxied,
+        /* cancellable= */ false,
         WorkerProtocolFormat.PROTO);
   }
 
@@ -58,6 +59,7 @@ class TestUtils {
         /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
         /* mustBeSandboxed= */ true,
         /* proxied= */ true,
+        /* cancellable= */ false,
         protocolFormat);
   }
 
