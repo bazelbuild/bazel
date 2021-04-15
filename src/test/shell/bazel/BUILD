@@ -216,8 +216,6 @@ sh_test(
 
 JAVA_VERSIONS = ("11", "17")
 
-JAVA_VERSIONS_COVERAGE = ("11", "17")
-
 [
     sh_test(
         name = "bazel_java_test_jdk" + java_version + "_toolchain_head",
@@ -476,7 +474,7 @@ sh_test(
             "no_windows",
         ],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    for java_version in JAVA_VERSIONS
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.
@@ -502,7 +500,7 @@ sh_test(
         ],
         tags = ["no_windows"],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    for java_version in JAVA_VERSIONS
 ]
 
 sh_test(
