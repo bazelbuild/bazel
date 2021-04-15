@@ -170,7 +170,7 @@ that counts files in targets, potentially filtering them by extension.
 It shows how to use a provider to return values, how to use parameters to pass
 an argument into an aspect implementation, and how to invoke an aspect from a rule.
 
-file_count.bzl file:
+`file_count.bzl` file:
 
 ```python
 FileCountInfo = provider(
@@ -214,7 +214,7 @@ file_count_rule = rule(
 )
 ```
 
-BUILD.bazel file:
+`BUILD.bazel` file:
 
 ```python
 load('//file_count.bzl', 'file_count_rule')
