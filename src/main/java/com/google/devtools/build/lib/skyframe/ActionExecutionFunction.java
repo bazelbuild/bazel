@@ -1369,7 +1369,7 @@ public class ActionExecutionFunction implements SkyFunction {
             requestedSkyKeys,
             env.valuesMissing());
 
-    boolean errorFree = actionExecutionFunctionExceptionHandler.accumulateAndThrowExceptions();
+    boolean errorFree = actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
 
     // No exceptions from dependencies, it's now safe to check for missing values.
     if (allowValuesMissingEarlyReturn && errorFree && env.valuesMissing()) {
@@ -1393,11 +1393,13 @@ public class ActionExecutionFunction implements SkyFunction {
     for (Artifact input : allInputsList) {
       SkyValue value = ArtifactNestedSetFunction.getInstance().getValueForKey(Artifact.key(input));
       if (value == null) {
-        Preconditions.checkState(
-            !errorFree || !mandatoryInputs.contains(input),
-            "Null value for mandatory %s with no errors or values missing: %s",
-            input,
-            action);
+        if (errorFree && (mandatoryInputs == null || mandatoryInputs.contains(input))) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  String.format(
+                      "Null value for mandatory %s with no errors or values missing: %s",
+                      input, action)));
+        }
         continue;
       }
       if (value instanceof MissingArtifactValue) {
@@ -1646,9 +1648,12 @@ public class ActionExecutionFunction implements SkyFunction {
      * <p>This also updates ArtifactNestedSetFunction#skyKeyToSkyValue if an Artifact's value is
      * non-null.
      *
-     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception.
+     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception and
+     *     there {@link #valuesMissing}. If there were no values missing, returns false, indicating
+     *     that there were errors, allowing the caller to discover any further errors before calling
+     *     {@link #maybeThrowException} to throw the fully accumulated exception.
      */
-    boolean accumulateAndThrowExceptions() throws ActionExecutionException {
+    boolean accumulateAndMaybeThrowExceptions() throws ActionExecutionException {
       int i = 0;
       for (SkyKey key : requestedSkyKeys) {
         try {
@@ -1663,6 +1668,7 @@ public class ActionExecutionFunction implements SkyFunction {
           }
           ArtifactNestedSetFunction.getInstance().updateValueForKey(key, value);
         } catch (SourceArtifactException e) {
+          ArtifactNestedSetFunction.getInstance().removeStaleKeyBecauseOfException(key);
           handleSourceArtifactExceptionFromSkykey(key, e);
         } catch (ActionExecutionException e) {
           handleActionExecutionExceptionFromSkykey(key, e);

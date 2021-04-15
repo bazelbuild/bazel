@@ -189,6 +189,8 @@ final class ActionInputMapHelper {
       filesetActionKey = generatingActionKey;
     }
 
+    // TODO(janakr: properly handle exceptions coming from here, or prove they can never happen in
+    //  practice.
     ActionExecutionValue filesetValue = (ActionExecutionValue) env.getValue(filesetActionKey);
     if (filesetValue == null) {
       // At this point skyframe does not guarantee that the filesetValue will be ready, since
