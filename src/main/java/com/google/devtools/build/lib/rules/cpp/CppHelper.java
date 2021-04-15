@@ -194,12 +194,13 @@ public class CppHelper {
       if (llvmCov == null) {
         llvmCov = "";
       }
+      String gcov = toolchain.getToolPathStringOrNull(Tool.GCOV);
+      if (gcov == null) {
+        gcov = "";
+      }
       NestedSetBuilder<Pair<String, String>> coverageEnvironment =
           NestedSetBuilder.<Pair<String, String>>stableOrder()
-              .add(
-                  Pair.of(
-                      "COVERAGE_GCOV_PATH",
-                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()))
+              .add(Pair.of("COVERAGE_GCOV_PATH", gcov))
               .add(Pair.of("LLVM_COV", llvmCov))
               .add(Pair.of("GENERATE_LLVM_LCOV", cppConfiguration.generateLlvmLCov() ? "1" : "0"));
       if (cppConfiguration.getFdoInstrument() != null) {
