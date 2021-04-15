@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collections;
 import java.util.HashMap;
@@ -250,10 +252,116 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
             evalToListOfStrings(explicits + " + " + implicits + " + " + PLATFORM_LABEL));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
+    assertThat(filteredDeps).containsAtLeastElementsIn(evalToListOfStrings(explicits));
+    assertThat(filteredDeps).containsNoneIn(evalToListOfStrings(implicits));
+  }
+
+  @Test
+  public void testNoImplicitDeps_starlark_toolchains() throws Exception {
+    writeFile(
+        "test/toolchain.bzl",
+        "def _impl(ctx):",
+        "  toolchain = platform_common.ToolchainInfo()",
+        "  return [toolchain]",
+        "test_toolchain = rule(",
+        "    implementation = _impl,",
+        ")");
+    writeFile(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "implicit_toolchain_deps_rule = rule(",
+        "    implementation = _impl,",
+        "    toolchains = ['//test:toolchain_type']",
+        ")");
+    writeFile(
+        "test/BUILD",
+        "load(':toolchain.bzl', 'test_toolchain')",
+        "load(':rule.bzl', 'implicit_toolchain_deps_rule')",
+        "implicit_toolchain_deps_rule(",
+        "    name = 'my_rule',",
+        ")",
+        "toolchain_type(name = 'toolchain_type')",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain_type = ':toolchain_type',",
+        "    toolchain = ':toolchain_impl',",
+        ")",
+        "test_toolchain(name = 'toolchain_impl')");
+    ((PostAnalysisQueryHelper<T>) helper).useConfiguration("--extra_toolchains=//test:toolchain");
+
+    String implicits = "//test:toolchain_impl";
+    String explicits = "//test:my_rule";
+
+    // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsAtLeastElementsIn(evalToListOfStrings(explicits));
+        .containsAtLeastElementsIn(evalToListOfStrings(explicits + " + " + implicits));
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
+    assertThat(filteredDeps).containsAtLeastElementsIn(evalToListOfStrings(explicits));
+    assertThat(filteredDeps).containsNoneIn(evalToListOfStrings(implicits));
+  }
+
+  @Test
+  public void testNoImplicitDeps_cc_toolchains() throws Exception {
+    writeFile(
+        "test/toolchain/toolchain_config.bzl",
+        "def _impl(ctx):",
+        "    return cc_common.create_cc_toolchain_config_info(",
+        "                ctx = ctx,",
+        "                toolchain_identifier = 'mock-llvm-toolchain-k8',",
+        "                host_system_name = 'mock-system-name-for-k8',",
+        "                target_system_name = 'mock-target-system-name-for-k8',",
+        "                target_cpu = 'k8',",
+        "                target_libc = 'mock-libc-for-k8',",
+        "                compiler = 'mock-compiler-for-k8',",
+        "                abi_libc_version = 'mock-abi-libc-for-k8',",
+        "                abi_version = 'mock-abi-version-for-k8')",
+        "cc_toolchain_config = rule(",
+        "    implementation = _impl,",
+        "    attrs = {},",
+        "    provides = [CcToolchainConfigInfo],",
+        ")");
+    writeFile(
+        "test/toolchain/BUILD",
+        "load(':toolchain_config.bzl', 'cc_toolchain_config')",
+        "cc_toolchain_config(name = 'some-cc-toolchain-config')",
+        "filegroup(name = 'nothing', srcs = [])",
+        "cc_toolchain(",
+        "    name = 'some_cc_toolchain_impl',",
+        "    all_files = ':nothing',",
+        "    as_files = ':nothing',",
+        "    compiler_files = ':nothing',",
+        "    dwp_files = ':nothing',",
+        "    linker_files = ':nothing',",
+        "    objcopy_files = ':nothing',",
+        "    strip_files = ':nothing',",
+        "    toolchain_config = ':some-cc-toolchain-config',",
+        ")",
+        "toolchain(",
+        "    name = 'some_cc_toolchain',",
+        "    toolchain = ':some_cc_toolchain_impl',",
+        "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
+        ")");
+    writeFile(
+        "test/BUILD", "cc_library(", "    name = 'my_rule',", "    srcs = ['whatever.cpp'],", ")");
+    ((PostAnalysisQueryHelper<T>) helper)
+        .useConfiguration("--extra_toolchains=//test/toolchain:some_cc_toolchain");
+
+    String implicits = "//test/toolchain:some_cc_toolchain_impl";
+    String explicits = "//test:my_rule";
+
+    // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsNoneIn(evalToListOfStrings(implicits));
+        .containsAtLeastElementsIn(
+            evalToListOfStrings(explicits + " + " + implicits + " + " + PLATFORM_LABEL));
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
+    assertThat(filteredDeps).containsAtLeastElementsIn(evalToListOfStrings(explicits));
+    assertThat(filteredDeps).containsNoneIn(evalToListOfStrings(implicits));
   }
 
   // Regression test for b/148550864

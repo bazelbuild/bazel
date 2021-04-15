@@ -425,6 +425,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         continue;
       }
       if (key.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+        ConfiguredTargetKey ctkey = (ConfiguredTargetKey) key.argument();
         T dependency = getValueFromKey(key);
         Preconditions.checkState(
             dependency != null,
@@ -432,13 +433,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 + " come across this error, please ping b/150301500 or contact the blaze"
                 + " configurability team.",
             key);
-        boolean implicit =
-            implicitDeps == null
-                || implicitDeps.contains(
-                    ConfiguredTargetKey.builder()
-                        .setLabel(getCorrectLabel(dependency))
-                        .setConfiguration(getConfiguration(dependency))
-                        .build());
+
+        boolean implicit = implicitDeps == null || implicitDeps.contains(ctkey);
         values.add(new ClassifiedDependency<>(dependency, implicit));
         knownCtDeps.add(key);
       } else if (settings.contains(Setting.INCLUDE_ASPECTS)
