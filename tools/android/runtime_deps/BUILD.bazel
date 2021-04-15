@@ -41,6 +41,34 @@ genrule(
 )
 
 genrule(
+  name = "gen_version_txt",
+  outs = ["version.txt"],
+  stamp = True,
+  cmd = """
+embed_label="$$(grep BUILD_EMBED_LABEL bazel-out/stable-status.txt | cut -d ' ' -f 2-)"
+if [[ -z "$$embed_label" ]]; then
+  # this happens when building for tests
+  version="not_set"
+  bazel_version="not_set"
+  bazel_repo_commit="not_set"
+elif [[ "$$embed_label" =~ ^[0-9]+[.][0-9]+[.][0-9]+\\ [0-9]+[.][0-9]+[.][0-9]+\\ [0-9a-f]{40}$$ ]]; then
+  version="$$(echo $$embed_label | cut -d ' ' -f 1)"
+  bazel_version="$$(echo $$embed_label | cut -d ' ' -f 2)"
+  bazel_repo_commit="$$(echo $$embed_label | cut -d ' ' -f 3)"
+else
+  echo "bad format for --embed_label"
+  exit 1
+fi
+
+cat > $@ << EOF
+bazel_android_tools_version $$version
+bazel_repo_commit $$bazel_repo_commit
+built_with_bazel_version $$bazel_version
+EOF
+""",
+)
+
+genrule(
     name = "desugar_jdk_libs",
     srcs = ["@desugar_jdk_libs"],
     outs = ["desugar_jdk_libs.jar"],
@@ -50,6 +78,7 @@ genrule(
 pkg_tar(
     name = "android_tools",
     srcs = [
+        ":version.txt",
         "BUILD",
         "WORKSPACE",
         ":desugar_jdk_libs.jar",
