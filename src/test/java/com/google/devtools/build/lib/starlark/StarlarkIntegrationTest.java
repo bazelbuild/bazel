@@ -3197,6 +3197,26 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("'command' must be of type string");
   }
 
+  // Regression test for b/180124719.
+  @Test
+  public void actionsRunShell_argumentsNonSequenceValue_fails() throws Exception {
+    scratch.file(
+        "test/starlark/test_rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "  exe = ctx.actions.declare_file('exe')",
+        "  ctx.actions.run_shell(outputs=[exe], command='touch', arguments='exe')",
+        "  return []",
+        "my_rule = rule(implementation = _my_rule_impl)");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:test_rule.bzl', 'my_rule')",
+        "my_rule(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/starlark:target");
+    assertContainsEvent("'arguments' got value of type 'string', want 'sequence'");
+  }
+
   /** Starlark integration test that forces inlining. */
   @RunWith(JUnit4.class)
   public static class StarlarkIntegrationTestsWithInlineCalls extends StarlarkIntegrationTest {

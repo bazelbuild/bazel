@@ -331,9 +331,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "runfiles that are automatically made available to the action."),
         @Param(
             name = "arguments",
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = String.class),
-            },
+            // TODO(#13365): improve the @ParamType annotation once it can support multiple
+            // contained types.
+            allowedTypes = {@ParamType(type = Sequence.class)},
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -444,7 +444,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object unusedInputsList,
       Object executableUnchecked,
       Object toolsUnchecked,
-      Object arguments,
+      Sequence<?> arguments,
       Object mnemonicUnchecked,
       Object progressMessage,
       Boolean useDefaultShellEnv,
@@ -493,6 +493,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "The list can contain Files or FilesToRunProvider instances."),
         @Param(
             name = "arguments",
+            // TODO(#13365): improve the @ParamType annotation once it can support multiple
+            // contained types.
+            allowedTypes = {@ParamType(type = Sequence.class)},
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -644,7 +647,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Sequence<?> outputs,
       Object inputs,
       Object toolsUnchecked,
-      Object arguments,
+      Sequence<?> arguments,
       Object mnemonicUnchecked,
       Object commandUnchecked,
       Object progressMessage,
