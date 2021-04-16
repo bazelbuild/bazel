@@ -28,19 +28,9 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingM
  * CppSemantics for objc builds.
  */
 public class ObjcCppSemantics implements CppSemantics {
-  public static final ObjcCppSemantics MODULES = new ObjcCppSemantics(true);
-  public static final ObjcCppSemantics NO_MODULES = new ObjcCppSemantics(false);
+  public static final ObjcCppSemantics INSTANCE = new ObjcCppSemantics();
 
-  private final boolean enableModules;
-
-  /**
-   * Creates an instance of ObjcCppSemantics
-   *
-   * @param enableModules whether modules are enabled
-   */
-  public ObjcCppSemantics(boolean enableModules) {
-    this.enableModules = enableModules;
-  }
+  private ObjcCppSemantics() {}
 
   @Override
   public void finalizeCompileActionBuilder(
@@ -88,10 +78,7 @@ public class ObjcCppSemantics implements CppSemantics {
 
   @Override
   public boolean needsIncludeValidation() {
-    // We disable include validation when modules are enabled, because Apple uses absolute paths in
-    // its module maps, which include validation does not recognize.  Modules should only be used
-    // rarely and in third party code anyways.
-    return !enableModules;
+    return true;
   }
 
   /** cc_shared_library is not supported with Objective-C */

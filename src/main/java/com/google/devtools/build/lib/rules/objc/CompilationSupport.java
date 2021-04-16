@@ -523,7 +523,7 @@ public class CompilationSupport {
   }
 
   ObjcCppSemantics createObjcCppSemantics() {
-    return attributes.enableModules() ? ObjcCppSemantics.MODULES : ObjcCppSemantics.NO_MODULES;
+    return ObjcCppSemantics.INSTANCE;
   }
 
   private FeatureConfiguration getFeatureConfiguration(
