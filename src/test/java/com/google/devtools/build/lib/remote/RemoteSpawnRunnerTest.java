@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -597,6 +598,44 @@ public class RemoteSpawnRunnerTest {
             any(RemoteActionExecutionContext.class),
             any(ExecuteRequest.class),
             any(OperationObserver.class)))
+        .thenReturn(
+            ExecuteResponse.newBuilder()
+                .putServerLogs(
+                    "logname",
+                    LogFile.newBuilder().setHumanReadable(true).setDigest(logDigest).build())
+                .setResult(ActionResult.newBuilder().setExitCode(31).build())
+                .build());
+    SettableFuture<Void> completed = SettableFuture.create();
+    completed.set(null);
+    when(cache.downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest)))
+        .thenReturn(completed);
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.NON_ZERO_EXIT);
+
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    verify(cache).downloadFile(any(RemoteActionExecutionContext.class), eq(logPath), eq(logDigest));
+  }
+
+  @Test
+  public void testHumanReadableServerLogsSavedForFailingActionWithSiblingRepositoryLayout()
+      throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner(new SiblingRepositoryLayoutResolver(execRoot));
+    Digest logDigest = digestUtil.computeAsUtf8("bla");
+    Path logPath = logDir
+        .getRelative("b9a727771337fd8ce54821f4805e2d451c4739e92fec6f8ecdb18ff9d1983b27")
+        .getRelative("logname");
+    when(executor.executeRemotely(
+        any(RemoteActionExecutionContext.class),
+        any(ExecuteRequest.class),
+        any(OperationObserver.class)))
         .thenReturn(
             ExecuteResponse.newBuilder()
                 .putServerLogs(
@@ -1563,24 +1602,37 @@ public class RemoteSpawnRunnerTest {
         /* verboseFailures= */ false,
         executor,
         /* reporter= */ null,
-        /* topLevelOutputs= */ ImmutableSet.of());
+        /* topLevelOutputs= */ ImmutableSet.of(),
+        RemotePathResolver.createDefault(execRoot));
   }
 
   private RemoteSpawnRunner newSpawnRunner(Reporter reporter) {
     return newSpawnRunner(
-        /* verboseFailures= */ false, executor, reporter, /* topLevelOutputs= */ ImmutableSet.of());
+        /* verboseFailures= */ false, executor, reporter, /* topLevelOutputs= */ ImmutableSet.of(),
+        RemotePathResolver.createDefault(execRoot));
   }
 
   private RemoteSpawnRunner newSpawnRunner(ImmutableSet<ActionInput> topLevelOutputs) {
     return newSpawnRunner(
-        /* verboseFailures= */ false, executor, /* reporter= */ null, topLevelOutputs);
+        /* verboseFailures= */ false, executor, /* reporter= */ null, topLevelOutputs,
+        RemotePathResolver.createDefault(execRoot));
+  }
+
+  private RemoteSpawnRunner newSpawnRunner(RemotePathResolver remotePathResolver) {
+    return newSpawnRunner(
+        /* verboseFailures= */ false,
+        executor,
+        /* reporter= */ null,
+        /* topLevelOutputs= */ ImmutableSet.of(),
+        remotePathResolver);
   }
 
   private RemoteSpawnRunner newSpawnRunner(
       boolean verboseFailures,
       @Nullable RemoteExecutionClient executor,
       @Nullable Reporter reporter,
-      ImmutableSet<ActionInput> topLevelOutputs) {
+      ImmutableSet<ActionInput> topLevelOutputs,
+      RemotePathResolver remotePathResolver) {
     return new RemoteSpawnRunner(
         execRoot,
         remoteOptions,
@@ -1595,6 +1647,6 @@ public class RemoteSpawnRunnerTest {
         digestUtil,
         logDir,
         topLevelOutputs,
-        RemotePathResolver.createDefault(execRoot));
+        remotePathResolver);
   }
 }

@@ -144,6 +144,10 @@ public interface RemotePathResolver {
     private final Path execRoot;
     private final boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
 
+    public SiblingRepositoryLayoutResolver(Path execRoot) {
+      this(execRoot, /* incompatibleRemoteOutputPathsRelativeToInputRoot= */ false);
+    }
+
     public SiblingRepositoryLayoutResolver(Path execRoot,
         boolean incompatibleRemoteOutputPathsRelativeToInputRoot) {
       this.execRoot = execRoot;
