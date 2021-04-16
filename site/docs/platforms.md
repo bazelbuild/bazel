@@ -210,7 +210,7 @@ The above can be interpreted as follows:
 
 To make your constraints more readable, use
 [skylib](https://github.com/bazelbuild/bazel-skylib)'s
-[`selects.with_or()`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectswith_or).
+[`selects.with_or()`](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectswith_or).
 
 You can express inverse compatibility in a similar way. The following example
 describes a library that is compatible with everything _except_ for ARM.

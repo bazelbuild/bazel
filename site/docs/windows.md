@@ -80,11 +80,11 @@ Starting with Bazel 1.0, you can build any rule without Bash unless it is a:
 - Starlark rule that uses `ctx.actions.run_shell()` or `ctx.resolve_command()`
 
 However, `genrule` is often used for simple tasks like
-[copying a file](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/copy_file.bzl)
-or [writing a text file](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/write_file.bzl).
+[copying a file](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/copy_file.bzl)
+or [writing a text file](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/write_file.bzl).
 Instead of using `genrule` (and depending on Bash) you may find a suitable rule
 in the
-[bazel-skylib repository](https://github.com/bazelbuild/bazel-skylib/tree/master/rules).
+[bazel-skylib repository](https://github.com/bazelbuild/bazel-skylib/tree/main/rules).
 When built on Windows, **these rules do not require Bash**.
 
 <a name="bazel-test-without-bash"></a>

@@ -198,7 +198,7 @@ string_flag(
 ```
 
 For a complete list, see
-[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
+[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/common_settings.bzl).
 
 ### Using build settings
 

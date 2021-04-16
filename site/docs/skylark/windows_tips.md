@@ -172,38 +172,38 @@ Solutions:
   Build rule examples:
 
   - `copy_file()`
-    ([source](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/copy_file.bzl),
-    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/copy_file_doc.md)):
+    ([source](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/copy_file.bzl),
+    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/copy_file_doc.md)):
     copies a file somewhere else, optionally making it executable
 
   - `write_file()`
-    ([source](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/write_file.bzl),
-    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/write_file_doc.md)):
+    ([source](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/write_file.bzl),
+    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/write_file_doc.md)):
     writes a text file, with the desired line endings (`auto`, `unix`, or `windows`), optionally
     making it executable (if it's a script)
 
   - `run_binary()`
-    ([source](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/run_binary.bzl),
-    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/run_binary_doc.md)):
+    ([source](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/run_binary.bzl),
+    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/run_binary_doc.md)):
     runs a binary (or `*_binary` rule) with given inputs and expected outputs as a build action
     (this is a build rule wrapper for `ctx.actions.run`)
 
   - `native_binary()`
-    ([source](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/native_binary.bzl),
-    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/native_binary_doc.md#native_binary)):
+    ([source](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/native_binary.bzl),
+    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/native_binary_doc.md#native_binary)):
     wraps a native binary in a `*_binary` rule, which you can `bazel run` or use in `run_binary()`'s
     `tool` attribute or `native.genrule()`'s `tools` attribute
 
   Test rule examples:
 
   - `diff_test()`
-    ([source](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/diff_test.bzl),
-    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/diff_test_doc.md)):
+    ([source](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/diff_test.bzl),
+    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/diff_test_doc.md)):
     test that compares contents of two files
 
   - `native_test()`
-    ([source](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/native_binary.bzl),
-    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/native_binary_doc.md#native_test)):
+    ([source](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/native_binary.bzl),
+    [documentation](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/native_binary_doc.md#native_test)):
     wraps a native binary in a `*_test` rule, which you can `bazel test`
 
 - **On Windows, consider using `.bat` scripts for trivial things.**
