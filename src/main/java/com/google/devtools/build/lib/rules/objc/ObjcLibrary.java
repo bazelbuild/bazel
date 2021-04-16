@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,7 +43,6 @@ import java.util.TreeMap;
  * Implementation for {@code objc_library}.
  */
 public class ObjcLibrary implements RuleConfiguredTargetFactory {
-
   /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule context.
    */
@@ -72,8 +72,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     ImmutableList.Builder<Artifact> objectFilesCollector = ImmutableList.builder();
     CompilationSupport compilationSupport =
-        new CompilationSupport.Builder()
-            .setRuleContext(ruleContext)
+        new CompilationSupport.Builder(ruleContext, ObjcCppSemantics.INSTANCE)
             .setOutputGroupCollector(outputGroupCollector)
             .setObjectFilesCollector(objectFilesCollector)
             .build();

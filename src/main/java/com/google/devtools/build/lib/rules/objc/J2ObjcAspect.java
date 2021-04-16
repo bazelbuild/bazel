@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -264,8 +265,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         CcToolchainProvider ccToolchain =
             CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
         CompilationSupport compilationSupport =
-            new CompilationSupport.Builder()
-                .setRuleContext(ruleContext)
+            new CompilationSupport.Builder(ruleContext, ObjcCppSemantics.INSTANCE)
                 .setToolchainProvider(ccToolchain)
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
                 .doNotUsePch()

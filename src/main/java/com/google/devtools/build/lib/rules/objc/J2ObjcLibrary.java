@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
 import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import java.util.List;
 
@@ -86,8 +87,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
             .build();
 
-    new CompilationSupport.Builder()
-        .setRuleContext(ruleContext)
+    new CompilationSupport.Builder(ruleContext, ObjcCppSemantics.INSTANCE)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .doNotUsePch()
         .build()
