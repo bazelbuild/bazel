@@ -21,6 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CcBinary;
  */
 public class BazelCcBinary extends CcBinary {
   public BazelCcBinary() {
-    super(BazelCppSemantics.INSTANCE);
+    super(BazelCppSemantics.CPP);
   }
 }

@@ -304,7 +304,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.INSTANCE, builder);
+          CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.CPP, builder);
           builder.addNativeAspectClass(ccProtoAspect);
           builder.addRuleDefinition(new CcProtoLibraryRule(ccProtoAspect));
         }
