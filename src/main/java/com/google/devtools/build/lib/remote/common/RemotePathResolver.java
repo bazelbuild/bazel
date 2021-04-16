@@ -31,10 +31,9 @@ import javax.annotation.Nullable;
 public interface RemotePathResolver {
 
   /**
-   * @return the {@code workingDirectory} for a remote action. {@code null} if working directory
+   * @return the {@code workingDirectory} for a remote action. Empty string if working directory
    * is the input root.
    */
-  @Nullable
   String getWorkingDirectory();
 
   /**
@@ -97,10 +96,9 @@ public interface RemotePathResolver {
       this.execRoot = execRoot;
     }
 
-    @Nullable
     @Override
     public String getWorkingDirectory() {
-      return null;
+      return "";
     }
 
     @Override
