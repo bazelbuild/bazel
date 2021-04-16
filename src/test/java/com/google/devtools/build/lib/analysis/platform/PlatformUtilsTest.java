@@ -107,7 +107,7 @@ public final class PlatformUtilsTest {
             .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
             .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
             .addProperties(
-                Platform.Property.newBuilder().setName("bazel-workspace-to-differentiate-cache-key")
+                Platform.Property.newBuilder().setName("bazel-differentiate-workspace-cache")
                     .setValue("aa"))
             .build();
     // execProperties are sorted by key
