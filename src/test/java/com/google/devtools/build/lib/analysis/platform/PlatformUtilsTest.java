@@ -104,6 +104,8 @@ public final class PlatformUtilsTest {
 
     Platform expected =
         Platform.newBuilder()
+            .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
+            .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
             .addProperties(
                 Platform.Property.newBuilder().setName("bazel-workspace-to-differentiate-cache-key")
                     .setValue("aa"))
