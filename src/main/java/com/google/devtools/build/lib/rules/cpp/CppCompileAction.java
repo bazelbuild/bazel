@@ -1421,7 +1421,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     Spawn spawn;
     try {
-      spawn = createSpawn(actionExecutionContext.getClientEnv());
+      spawn = createSpawn(actionExecutionContext.getExecRoot(),
+          actionExecutionContext.getClientEnv());
     } finally {
       clearAdditionalInputs();
     }
@@ -1457,7 +1458,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
-  protected Spawn createSpawn(Map<String, String> clientEnv) throws ActionExecutionException {
+  protected Spawn createSpawn(Path execRoot, Map<String, String> clientEnv)
+      throws ActionExecutionException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
     NestedSetBuilder<ActionInput> inputsBuilder =
@@ -1491,7 +1493,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // dependency checking to fail. This was initially fixed by a hack (see
       // https://github.com/bazelbuild/bazel/issues/9172 for more details), but is broken again due
       // to cl/356735700. We require execution service to ignore caches from other workspace.
-      executionInfo.put(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE, "");
+      executionInfo.put(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE,
+          execRoot.getBaseName());
     }
 
     try {

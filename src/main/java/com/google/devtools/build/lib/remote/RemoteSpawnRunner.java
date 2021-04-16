@@ -35,7 +35,6 @@ import build.bazel.remote.execution.v2.ExecutedActionMetadata;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
-import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -229,8 +228,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     maybeWriteParamFilesLocally(spawn);
 
     // Get the remote platform properties.
-    Platform platform = PlatformUtils
-        .getPlatformProto(spawn, remoteOptions, getExtraPlatformProperties(spawn, execRoot));
+    Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
 
     Command command =
         buildCommand(
@@ -698,16 +696,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
         .build();
   }
 
-  static List<Property> getExtraPlatformProperties(Spawn spawn, Path execRoot) {
-    if (Spawns.shouldDifferentiateWorkspaceCache(spawn)) {
-      return ImmutableList
-          .of(Property.newBuilder().setName("bazel-workspace").setValue(execRoot.getBaseName())
-              .build());
-    }
-
-    return ImmutableList.of();
-  }
-
   static Action buildAction(
       Digest command,
       Digest inputRoot,
@@ -740,7 +728,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
     for (ActionInput output : outputs) {
-      String pathString = remotePathResolver.resolveOutputPath(output);
+      String pathString = remotePathResolver.localPathToOutputPath(output);
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         outputDirectories.add(pathString);
       } else {

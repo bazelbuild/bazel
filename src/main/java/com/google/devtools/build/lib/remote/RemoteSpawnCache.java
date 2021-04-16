@@ -139,8 +139,7 @@ final class RemoteSpawnCache implements SpawnCache {
     Digest merkleTreeRoot = merkleTree.getRootDigest();
 
     // Get the remote platform properties.
-    Platform platform = PlatformUtils.getPlatformProto(spawn, options,
-        RemoteSpawnRunner.getExtraPlatformProperties(spawn, execRoot));
+    Platform platform = PlatformUtils.getPlatformProto(spawn, options);
 
     Command command =
         RemoteSpawnRunner.buildCommand(

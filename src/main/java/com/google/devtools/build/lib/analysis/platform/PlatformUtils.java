@@ -20,12 +20,15 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
@@ -62,8 +65,7 @@ public final class PlatformUtils {
   }
 
   @Nullable
-  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions,
-      List<Property> extraProperties)
+  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
       throws UserExecException {
     SortedMap<String, String> defaultExecProperties =
         remoteOptions != null
@@ -103,16 +105,17 @@ public final class PlatformUtils {
       }
     }
 
-    platformBuilder.addAllProperties(extraProperties);
+    String workspace = spawn.getExecutionInfo()
+        .get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
+    if (workspace != null) {
+      platformBuilder.addProperties(
+          Property.newBuilder().setName("bazel-differentiate-workspace-cache")
+              .setValue(workspace)
+              .build());
+    }
 
     sortPlatformProperties(platformBuilder);
     return platformBuilder.build();
-  }
-
-  @Nullable
-  public static Platform getPlatformProto(Spawn spawn, @Nullable RemoteOptions remoteOptions)
-      throws UserExecException {
-    return getPlatformProto(spawn, remoteOptions, ImmutableList.of());
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

@@ -31,7 +31,8 @@ import javax.annotation.Nullable;
 public interface RemotePathResolver {
 
   /**
-   * @return the {@code workingDirectory} for a remote action.
+   * @return the {@code workingDirectory} for a remote action. {@code null} if working directory
+   * is the input root.
    */
   @Nullable
   String getWorkingDirectory();
@@ -46,35 +47,35 @@ public interface RemotePathResolver {
   /**
    * Resolves the output path relative to input root for the given {@link Path}.
    */
-  String resolveOutputPath(Path path);
+  String localPathToOutputPath(Path path);
 
   /**
    * Resolves the output path relative to input root for the given {@link PathFragment}.
    *
    * @param execPath a path fragment relative to {@code execRoot}.
    */
-  String resolveOutputPath(PathFragment execPath);
+  String localPathToOutputPath(PathFragment execPath);
 
   /**
    * Resolves the output path relative to input root for the {@link ActionInput}.
    */
-  default String resolveOutputPath(ActionInput actionInput) {
-    return resolveOutputPath(actionInput.getExecPath());
+  default String localPathToOutputPath(ActionInput actionInput) {
+    return localPathToOutputPath(actionInput.getExecPath());
   }
 
   /**
    * Resolves the local {@link Path} of an output file.
    *
-   * @param outputPath the return value of {@link #resolveOutputPath(PathFragment)}.
+   * @param outputPath the return value of {@link #localPathToOutputPath(PathFragment)}.
    */
-  Path resolveLocalPath(String outputPath);
+  Path outputPathToLocalPath(String outputPath);
 
   /**
    * Resolves the local {@link Path} for the {@link ActionInput}.
    */
-  default Path resolveLocalPath(ActionInput actionInput) {
-    String outputPath = resolveOutputPath(actionInput.getExecPath());
-    return resolveLocalPath(outputPath);
+  default Path outputPathToLocalPath(ActionInput actionInput) {
+    String outputPath = localPathToOutputPath(actionInput.getExecPath());
+    return outputPathToLocalPath(outputPath);
   }
 
   /**
@@ -109,22 +110,22 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public String resolveOutputPath(Path path) {
+    public String localPathToOutputPath(Path path) {
       return path.relativeTo(execRoot).getPathString();
     }
 
     @Override
-    public String resolveOutputPath(PathFragment execPath) {
+    public String localPathToOutputPath(PathFragment execPath) {
       return execPath.getPathString();
     }
 
     @Override
-    public Path resolveLocalPath(String outputPath) {
+    public Path outputPathToLocalPath(String outputPath) {
       return execRoot.getRelative(outputPath);
     }
 
     @Override
-    public Path resolveLocalPath(ActionInput actionInput) {
+    public Path outputPathToLocalPath(ActionInput actionInput) {
       return ActionInputHelper.toInputPath(actionInput, execRoot);
     }
   }
@@ -172,22 +173,22 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public String resolveOutputPath(Path path) {
+    public String localPathToOutputPath(Path path) {
       return path.relativeTo(getBase()).getPathString();
     }
 
     @Override
-    public String resolveOutputPath(PathFragment execPath) {
-      return resolveOutputPath(execRoot.getRelative(execPath));
+    public String localPathToOutputPath(PathFragment execPath) {
+      return localPathToOutputPath(execRoot.getRelative(execPath));
     }
 
     @Override
-    public Path resolveLocalPath(String outputPath) {
+    public Path outputPathToLocalPath(String outputPath) {
       return getBase().getRelative(outputPath);
     }
 
     @Override
-    public Path resolveLocalPath(ActionInput actionInput) {
+    public Path outputPathToLocalPath(ActionInput actionInput) {
       return ActionInputHelper.toInputPath(actionInput, execRoot);
     }
   }

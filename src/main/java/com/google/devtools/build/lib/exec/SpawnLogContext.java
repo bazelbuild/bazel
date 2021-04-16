@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -127,7 +128,7 @@ public class SpawnLogContext implements ActionContext {
     }
     builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
 
-    Platform execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+    Platform execPlatform = PlatformUtils.getPlatformProto(spawn, execRoot, remoteOptions);
     if (execPlatform != null) {
       builder.setPlatform(buildPlatform(execPlatform));
     }

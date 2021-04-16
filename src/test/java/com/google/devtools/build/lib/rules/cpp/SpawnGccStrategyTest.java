@@ -73,10 +73,10 @@ public final class SpawnGccStrategyTest {
     when(action.useInMemoryDotdFiles()).thenReturn(true);
     when(action.estimateResourceConsumptionLocal()).thenReturn(AbstractAction.DEFAULT_RESOURCE_SET);
     when(action.shouldParseShowIncludes()).thenReturn(false);
-    when(action.createSpawn(any())).thenCallRealMethod();
+    when(action.createSpawn(any(), any())).thenCallRealMethod();
 
     // act
-    Spawn spawn = action.createSpawn(ImmutableMap.of());
+    Spawn spawn = action.createSpawn(execRoot, ImmutableMap.of());
 
     ImmutableMap<String, String> execInfo = spawn.getExecutionInfo();
     assertThat(execInfo.get(ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS))
