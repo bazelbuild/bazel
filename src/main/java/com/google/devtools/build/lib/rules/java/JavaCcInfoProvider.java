@@ -14,10 +14,14 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import java.util.Collection;
 
 /** Provides information about C++ libraries to be linked into Java targets. */
 @Immutable
@@ -34,5 +38,18 @@ public class JavaCcInfoProvider implements TransitiveInfoProvider {
   @AutoCodec.VisibleForSerialization
   public JavaCcInfoProvider(CcInfo ccInfo) {
     this.ccInfo = ccInfo;
+  }
+
+  /** Merges several JavaCcInfoProvider providers into one. */
+  public static JavaCcInfoProvider merge(Collection<JavaCcInfoProvider> providers) {
+    ImmutableList<CcInfo> ccInfos =
+        providers.stream().map(JavaCcInfoProvider::getCcInfo).collect(toImmutableList());
+    CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
+    CcInfo filteredCcInfo =
+        CcInfo.builder()
+            .setCcLinkingContext(mergedCcInfo.getCcLinkingContext())
+            .setCcNativeLibraryInfo(mergedCcInfo.getCcNativeLibraryInfo())
+            .build();
+    return new JavaCcInfoProvider(filteredCcInfo);
   }
 }
