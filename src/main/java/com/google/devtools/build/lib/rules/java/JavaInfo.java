@@ -444,24 +444,7 @@ public final class JavaInfo extends NativeInfo
       super(STARLARK_NAME, JavaInfo.class);
     }
 
-    private void checkSequenceOfJavaInfo(Sequence<?> seq, String field) throws EvalException {
-      for (Object v : seq) {
-        if (!(v instanceof JavaInfo)) {
-          throw Starlark.errorf("Expected 'sequence of JavaInfo' for '%s'", field);
-        }
-      }
-    }
-
-    private void checkSequenceOfCcInfo(Sequence<?> seq, String field) throws EvalException {
-      for (Object v : seq) {
-        if (!(v instanceof CcInfo)) {
-          throw Starlark.errorf("Expected 'sequence of CcInfo' for '%s'", field);
-        }
-      }
-    }
-
     @Override
-    @SuppressWarnings({"unchecked"})
     public JavaInfo javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,
@@ -488,10 +471,7 @@ public final class JavaInfo extends NativeInfo
       @Nullable Artifact nativeHeadersJar = nullIfNone(nativeHeadersJarApi, Artifact.class);
       @Nullable Artifact manifestProto = nullIfNone(manifestProtoApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-      checkSequenceOfJavaInfo(deps, "deps");
-      checkSequenceOfJavaInfo(runtimeDeps, "runtime_deps");
-      checkSequenceOfJavaInfo(exports, "exports");
-      checkSequenceOfCcInfo(nativeLibraries, "native_libraries");
+
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
               JavaOutput.builder()
@@ -506,10 +486,10 @@ public final class JavaInfo extends NativeInfo
                   .addSourceJar(sourceJar)
                   .build(),
               neverlink,
-              (Sequence<JavaInfo>) deps,
-              (Sequence<JavaInfo>) runtimeDeps,
-              (Sequence<JavaInfo>) exports,
-              (Sequence<CcInfo>) nativeLibraries,
+              Sequence.cast(deps, JavaInfo.class, "deps"),
+              Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
+              Sequence.cast(exports, JavaInfo.class, "exports"),
+              Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
               thread.getCallerLocation());
     }
   }

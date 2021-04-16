@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -149,6 +150,13 @@ public interface JavaCommonApi<
             defaultValue = "[]",
             doc = "A list of exported plugins. Optional."),
         @Param(
+            name = "native_libraries",
+            positional = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = CcInfoApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "CC native library dependencies that are needed for this library."),
+        @Param(
             name = "annotation_processor_additional_inputs",
             positional = false,
             named = true,
@@ -219,6 +227,7 @@ public interface JavaCommonApi<
       Sequence<?> exports, // <JavaInfoT> expected.
       Sequence<?> plugins, // <JavaInfoT> expected.
       Sequence<?> exportedPlugins, // <JavaInfoT> expected.
+      Sequence<?> nativeLibraries, // <CcInfoT> expected.
       Sequence<?> annotationProcessorAdditionalInputs, // <FileT> expected.
       Sequence<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,

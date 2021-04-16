@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
@@ -76,6 +77,7 @@ public class JavaStarlarkCommon
       Sequence<?> exports, // <JavaInfo> expected
       Sequence<?> plugins, // <JavaInfo> expected
       Sequence<?> exportedPlugins, // <JavaInfo> expected
+      Sequence<?> nativeLibraries, // <CcInfo> expected.
       Sequence<?> annotationProcessorAdditionalInputs, // <Artifact> expected
       Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
       String strictDepsMode,
@@ -127,6 +129,7 @@ public class JavaStarlarkCommon
             exportsLabels,
             Sequence.cast(plugins, JavaInfo.class, "plugins"),
             Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins"),
+            Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
             Sequence.cast(
                 annotationProcessorAdditionalInputs,
                 Artifact.class,
