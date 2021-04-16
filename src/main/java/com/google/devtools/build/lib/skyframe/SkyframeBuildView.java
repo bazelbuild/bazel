@@ -341,6 +341,7 @@ public final class SkyframeBuildView {
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;
     setTopLevelHostConfiguration(configurations.getHostConfiguration());
+    skyframeExecutor.setTopLevelConfiguration(configurations);
   }
 
   @VisibleForTesting
@@ -356,12 +357,10 @@ public final class SkyframeBuildView {
    * fragment-trimmed host configurations from the top-level one.
    */
   private void setTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {
-    if (topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
-      return;
+    if (!topLevelHostConfiguration.equals(this.topLevelHostConfiguration)) {
+      hostConfigurationCache.clear();
+      this.topLevelHostConfiguration = topLevelHostConfiguration;
     }
-    hostConfigurationCache.clear();
-    this.topLevelHostConfiguration = topLevelHostConfiguration;
-    skyframeExecutor.updateTopLevelHostConfiguration(topLevelHostConfiguration);
   }
 
   /**

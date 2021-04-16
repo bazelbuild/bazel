@@ -1509,8 +1509,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     PrecomputedValue.REMOTE_EXECUTION_ENABLED.set(injectable(), enabled);
   }
 
-  /** Called each time there is a new top-level host configuration. */
-  protected void updateTopLevelHostConfiguration(BuildConfiguration topLevelHostConfiguration) {}
+  /** Called when a top-level configuration is determined. */
+  protected void setTopLevelConfiguration(BuildConfigurationCollection topLevelConfiguration) {}
 
   /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
