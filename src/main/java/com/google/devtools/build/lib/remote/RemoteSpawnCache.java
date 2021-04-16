@@ -154,7 +154,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
-            buildRequestId, commandId, actionKey.getDigest().getHash());
+            buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
     RemoteActionExecutionContext remoteActionExecutionContext =
         RemoteActionExecutionContext.create(metadata);
 
