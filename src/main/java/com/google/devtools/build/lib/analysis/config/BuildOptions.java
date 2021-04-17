@@ -1295,12 +1295,12 @@ public final class BuildOptions implements Cloneable, Serializable {
    * BuildOptions.OptionsDiffForReconstruction}. This requires that {@code BuildConfigurationValue}
    * instances must always be serialized.
    */
-  public static class FingerprintingKDiffToByteStringCache
+  public static final class FingerprintingKDiffToByteStringCache
       implements BuildOptions.OptionsDiffCache {
-    private static final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString>
+    private final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString>
         diffToByteStringCache = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
-        byteStringToDiffMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction> byteStringToDiffMap =
+        new ConcurrentHashMap<>();
 
     @Override
     public ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff) {
