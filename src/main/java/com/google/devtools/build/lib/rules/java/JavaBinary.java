@@ -33,10 +33,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.SourceManifestAction;
+import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -423,19 +424,25 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> coverageSupportFiles = NestedSetBuilder.stableOrder();
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
 
-      // Create an artifact that contains the root relative paths of the jars on the runtime
-      // classpath.
+      // Create an artifact that contains the runfiles relative paths of the jars on the runtime
+      // classpath. Using SourceManifestAction is the only reliable way to match the runfiles
+      // creation code.
       Artifact runtimeClasspathArtifact =
           ruleContext.getUniqueDirectoryArtifact(
               "runtime_classpath_for_coverage",
               "runtime_classpath.txt",
               ruleContext.getBinOrGenfilesDirectory());
       ruleContext.registerAction(
-          new LazyWritePathsFileAction(
+          new SourceManifestAction(
+              ManifestType.SOURCES_ONLY,
               ruleContext.getActionOwner(),
               runtimeClasspathArtifact,
-              common.getRuntimeClasspath(),
-              /* filesToIgnore= */ ImmutableSet.of(),
+              new Runfiles.Builder(
+                      ruleContext.getWorkspaceName(),
+                      ruleContext.getConfiguration().legacyExternalRunfiles())
+                  // This matches the code below in collectDefaultRunfiles.
+                  .addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath())
+                  .build(),
               true));
       filesBuilder.add(runtimeClasspathArtifact);
 
