@@ -412,6 +412,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//java/util",
     ],
 )
 
