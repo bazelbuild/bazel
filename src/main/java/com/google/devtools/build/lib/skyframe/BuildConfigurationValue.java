@@ -163,6 +163,10 @@ public class BuildConfigurationValue implements SkyValue {
       return optionsDiff;
     }
 
+    public String checksum() {
+      return optionsDiff.getChecksum();
+    }
+
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.BUILD_CONFIGURATION;
@@ -190,7 +194,7 @@ public class BuildConfigurationValue implements SkyValue {
       // This format is depended on by integration tests.
       // TODO(blaze-configurability-team): This should at least include the length of fragments.
       // to at least remind devs that this Key has TWO key parts.
-      return "BuildConfigurationValue.Key[" + optionsDiff.getChecksum() + "]";
+      return "BuildConfigurationValue.Key[" + checksum() + "]";
     }
 
     /**

@@ -137,7 +137,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     if (label == null) {
       return "null";
     }
-    return label.toString();
+    return String.format("%s (%s)", label, configurationKey == null ? "null" : configurationKey.checksum());
   }
 
   @Override
