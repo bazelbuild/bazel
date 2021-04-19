@@ -1213,9 +1213,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Check that configuration of the target named 'ruleName' in the
-   * specified BUILD file fails with an error message containing
-   * 'expectedErrorMessage'.
+   * Check that configuration of the target named 'ruleName' in the specified BUILD file fails with
+   * an error message matching 'expectedErrorPattern'.
    *
    * @param packageName the package name of the generated BUILD file
    * @param ruleName the rule name for the rule in the generated BUILD file
@@ -1223,16 +1222,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @param lines the text of the rule.
    * @return the found error.
    */
-  protected Event checkError(String packageName,
-      String ruleName,
-      Pattern expectedErrorPattern,
-      String... lines) throws Exception {
+  protected Event checkError(
+      String packageName, String ruleName, Pattern expectedErrorPattern, String... lines)
+      throws Exception {
     eventCollector.clear();
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     if (target != null) {
       assertWithMessage(
-          "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
           .that(view.hasErrors(target))
           .isTrue();
     }

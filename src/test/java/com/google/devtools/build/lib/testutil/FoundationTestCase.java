@@ -115,8 +115,7 @@ public abstract class FoundationTestCase {
   }
 
   protected Event assertContainsEvent(Pattern expectedMessagePattern) {
-    return MoreAsserts.assertContainsEvent(eventCollector,
-        expectedMessagePattern);
+    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessagePattern);
   }
 
   protected Event assertContainsEvent(String expectedMessage, Set<EventKind> kinds) {
