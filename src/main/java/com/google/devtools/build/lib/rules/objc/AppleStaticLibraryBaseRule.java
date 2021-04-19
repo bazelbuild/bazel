@@ -17,39 +17,29 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
-import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
- * Rule definition for apple_static_library.
+ * Abstract rule definition for apple_static_library.
  */
-public class AppleStaticLibraryRule implements RuleDefinition {
+public class AppleStaticLibraryBaseRule implements RuleDefinition {
 
   private final ObjcProtoAspect objcProtoAspect;
 
-  public AppleStaticLibraryRule(ObjcProtoAspect objcProtoAspect) {
+  public AppleStaticLibraryBaseRule(ObjcProtoAspect objcProtoAspect) {
     this.objcProtoAspect = objcProtoAspect;
   }
-
-  /**
-   * Template for the fat archive output (using Apple's "lipo" tool to combine .a archive files of
-   * multiple architectures).
-   */
-  static final SafeImplicitOutputsFunction LIPO_ARCHIVE = fromTemplates("%{name}_lipo.a");
 
   /**
    * Attribute name for dependent libraries which should not be linked into the outputs of this
@@ -64,11 +54,11 @@ public class AppleStaticLibraryRule implements RuleDefinition {
 
     return builder
         .requiresConfigurationFragments(
-            ObjcConfiguration.class,
-            J2ObjcConfiguration.class,
             AppleConfiguration.class,
-            CppConfiguration.class)
-        /* <!-- #BLAZE_RULE(apple_static_library).ATTRIBUTE(avoid_deps) -->
+            CppConfiguration.class,
+            ObjcConfiguration.class,
+            J2ObjcConfiguration.class)
+        /* <!-- #BLAZE_RULE($apple_static_library_base_rule).ATTRIBUTE(avoid_deps) -->
         <p>A list of targets which should not be included (nor their transitive dependencies
         included) in the outputs of this rule -- even if they are otherwise transitively depended
         on via the <code>deps</code> attribute.</p>
@@ -99,18 +89,6 @@ public class AppleStaticLibraryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("defines an aspect of configuration")
                 .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
-        /*<!-- #BLAZE_RULE(apple_static_library).IMPLICIT_OUTPUTS -->
-        <ul>
-          <li><code><var>name</var>_lipo.a</code>: a 'lipo'ed archive file. All transitive
-          dependencies and <code>srcs</code> are linked, minus all transitive dependencies
-          specified in <code>avoid_deps</code>.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(LIPO_ARCHIVE))
-        .cfg(
-            ComposingTransitionFactory.of(
-                (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
-                new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
@@ -119,24 +97,10 @@ public class AppleStaticLibraryRule implements RuleDefinition {
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name("apple_static_library")
-        .factoryClass(AppleStaticLibrary.class)
+        .name("$apple_static_library_base_rule")
+        .type(RuleClassType.ABSTRACT)
         .ancestors(
             BaseRuleClasses.NativeBuildRule.class, ObjcRuleClasses.MultiArchPlatformRule.class)
         .build();
   }
 }
-
-/*<!-- #BLAZE_RULE (NAME = apple_static_library, TYPE = BINARY, FAMILY = Objective-C) -->
-
-<p>This rule produces single- or multi-architecture ("fat") Objective-C statically-linked libraries,
-typically used in creating static Apple Frameworks for distribution and re-use in 
-multiple extensions or applications.</p>
-
-<p>The <code>lipo</code> tool is used to combine files of multiple architectures; a build flag
-controls which architectures are targeted. The build flag examined depends on the
-<code>platform_type</code> attribute for this rule (and is described in its documentation).</p>
-
-${IMPLICIT_OUTPUTS}
-
-<!-- #END_BLAZE_RULE -->*/

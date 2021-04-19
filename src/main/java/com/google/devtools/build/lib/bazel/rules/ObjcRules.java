@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelAppleBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.objc.BazelAppleStaticLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcImportRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcLibraryRule;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -33,7 +34,7 @@ import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.objc.AppleBinaryBaseRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
-import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryRule;
+import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryBaseRule;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
@@ -69,11 +70,12 @@ public class ObjcRules implements RuleSet {
 
     builder.addNativeAspectClass(objcProtoAspect);
     builder.addRuleDefinition(new AppleBinaryBaseRule(objcProtoAspect));
-    builder.addRuleDefinition(new AppleStaticLibraryRule(objcProtoAspect));
+    builder.addRuleDefinition(new AppleStaticLibraryBaseRule(objcProtoAspect));
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
     builder.addRuleDefinition(new BazelAppleBinaryRule());
+    builder.addRuleDefinition(new BazelAppleStaticLibraryRule());
     builder.addRuleDefinition(new BazelObjcImportRule());
     builder.addRuleDefinition(new BazelObjcLibraryRule());
     builder.addRuleDefinition(new ObjcImportBaseRule());

@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
@@ -50,6 +50,17 @@ import java.util.TreeMap;
  * Implementation for the "apple_static_library" rule.
  */
 public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
+  /**
+   * Attribute name for dependent libraries which should not be linked into the outputs of this
+   * rule.
+   */
+  public static final String AVOID_DEPS_ATTR_NAME = "avoid_deps";
+
+  private final CppSemantics cppSemantics;
+
+  protected AppleStaticLibrary(CppSemantics cppSemantics) {
+    this.cppSemantics = cppSemantics;
+  }
 
   /**
    * Set of {@link ObjcProvider} values which are propagated from dependencies to dependers by this
@@ -72,19 +83,14 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<String, ObjcProvider> cpuToObjcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisitesByConfiguration(
-                AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-                ObjcProvider.STARLARK_CONSTRUCTOR));
+                AVOID_DEPS_ATTR_NAME, ObjcProvider.STARLARK_CONSTRUCTOR));
 
     ImmutableListMultimap<String, CcInfo> cpuToCcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisitesByConfiguration(
-                AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-                CcInfo.PROVIDER));
+            ruleContext.getPrerequisitesByConfiguration(AVOID_DEPS_ATTR_NAME, CcInfo.PROVIDER));
 
     Iterable<ObjcProtoProvider> avoidProtoProviders =
-        ruleContext.getPrerequisites(
-            AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
-            ObjcProtoProvider.STARLARK_CONSTRUCTOR);
+        ruleContext.getPrerequisites(AVOID_DEPS_ATTR_NAME, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(avoidProtoProviders);
 
     Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
@@ -130,7 +136,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         ProtobufSupport protoSupport =
             new ProtobufSupport(
                     ruleContext,
-                    ObjcCppSemantics.INSTANCE,
+                    cppSemantics,
                     childToolchainConfig,
                     protosToAvoid,
                     objcProtoProviders,
@@ -166,7 +172,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
 
       CompilationSupport compilationSupport =
-          new CompilationSupport.Builder(ruleContext, ObjcCppSemantics.INSTANCE)
+          new CompilationSupport.Builder(ruleContext, cppSemantics)
               .setConfig(childToolchainConfig)
               .setToolchainProvider(childToolchain)
               .setOutputGroupCollector(outputGroupCollector)
