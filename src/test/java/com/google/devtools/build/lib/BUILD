@@ -19,6 +19,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/blackbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bugreport:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
         "//src/test/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/test/java/com/google/devtools/build/lib/concurrent:srcs",
