@@ -304,25 +304,40 @@ public class MoreAsserts {
    * If {@code eventCollector} does not contain an event which matches {@code expectedEventRegex},
    * fails with an informative assertion.
    */
-  public static void assertContainsEventRegex(
+  public static Event assertContainsEventRegex(
       Iterable<Event> eventCollector, String expectedEventRegex) {
+    return assertContainsEvent(eventCollector, Pattern.compile(expectedEventRegex));
+  }
+
+  /**
+   * If {@code eventCollector} does not contain an event which matches {@code expectedEventPattern},
+   * fails with an informative assertion.
+   */
+  public static Event assertContainsEvent(
+      Iterable<Event> eventCollector, Pattern expectedEventPattern) {
     for (Event event : eventCollector) {
-      if (event.toString().matches(expectedEventRegex)) {
-        return;
+      if (expectedEventPattern.matcher(event.toString()).find()) {
+        return event;
       }
     }
     String eventsString = eventsToString(eventCollector);
-    String failureMessage = "Event matching '" + expectedEventRegex + "' not found";
+    String failureMessage = "Event matching '" + expectedEventPattern + "' not found";
     if (!eventsString.isEmpty()) {
       failureMessage += "; found these though: " + eventsString;
     }
     fail(failureMessage);
+    return null; // unreachable
   }
 
   public static void assertNotContainsEventRegex(
       Iterable<Event> eventCollector, String unexpectedEventRegex) {
+    assertNotContainsEvent(eventCollector, Pattern.compile(unexpectedEventRegex));
+  }
+
+  public static void assertNotContainsEvent(
+      Iterable<Event> eventCollector, Pattern unexpectedEventPattern) {
     for (Event event : eventCollector) {
-      assertThat(event.toString()).doesNotMatch(unexpectedEventRegex);
+      assertThat(event.toString()).doesNotMatch(unexpectedEventPattern);
     }
   }
 
