@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
@@ -238,7 +237,7 @@ public class MultiArchBinarySupport {
         ProtobufSupport protoSupport =
             new ProtobufSupport(
                     ruleContext,
-                    ObjcCppSemantics.INSTANCE,
+                    cppSemantics,
                     childToolchainConfig,
                     protosToAvoid,
                     depProtoProviders,

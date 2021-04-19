@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
-import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
@@ -87,9 +87,11 @@ public class AppleStarlarkCommon
   @Nullable private StructImpl platformType;
   @Nullable private StructImpl platform;
 
-  private ObjcProtoAspect objcProtoAspect;
+  private final CppSemantics cppSemantics;
+  private final ObjcProtoAspect objcProtoAspect;
 
-  public AppleStarlarkCommon(ObjcProtoAspect objcProtoAspect) {
+  public AppleStarlarkCommon(CppSemantics cppSemantics, ObjcProtoAspect objcProtoAspect) {
+    this.cppSemantics = cppSemantics;
     this.objcProtoAspect = objcProtoAspect;
   }
 
@@ -234,7 +236,7 @@ public class AppleStarlarkCommon
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
-              ObjcCppSemantics.INSTANCE,
+              cppSemantics,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
               isStampingEnabled,

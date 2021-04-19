@@ -20,39 +20,35 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRIN
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.rules.objc.AppleBinary.BINARY_TYPE_ATTR;
+import static com.google.devtools.build.lib.rules.objc.AppleBinary.BUNDLE_LOADER_ATTR_NAME;
+import static com.google.devtools.build.lib.rules.objc.AppleBinary.EXTENSION_SAFE_ATTR_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
-import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /**
- * Rule definition for apple_binary.
+ * Abstract rule definition for apple_binary.
  */
-public class AppleBinaryRule implements RuleDefinition {
-
-  public static final String BINARY_TYPE_ATTR = "binary_type";
-  public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
-  public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
-
+public class AppleBinaryBaseRule implements RuleDefinition {
   private final ObjcProtoAspect objcProtoAspect;
 
   /**
-   * Constructor that returns a newly configured AppleBinaryRule object.
+   * Constructor that returns a newly configured AppleBinaryBaseRule object.
    */
-  public AppleBinaryRule(ObjcProtoAspect objcProtoAspect) {
+  public AppleBinaryBaseRule(ObjcProtoAspect objcProtoAspect) {
     this.objcProtoAspect = objcProtoAspect;
   }
 
@@ -94,7 +90,7 @@ public class AppleBinaryRule implements RuleDefinition {
             attr("$is_executable", BOOLEAN)
                 .value(true)
                 .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
-        /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(binary_type) -->
+        /* <!-- #BLAZE_RULE($apple_binary_base_rule).ATTRIBUTE(binary_type) -->
         The type of binary that this target should build.
 
         Options are:
@@ -118,7 +114,7 @@ public class AppleBinaryRule implements RuleDefinition {
             attr(BINARY_TYPE_ATTR, STRING)
                 .value(AppleBinary.BinaryType.EXECUTABLE.toString())
                 .allowedValues(new AllowedValueSet(AppleBinary.BinaryType.getValues())))
-        /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(extension_safe) -->
+        /* <!-- #BLAZE_RULE($apple_binary_base_rule).ATTRIBUTE(extension_safe) -->
         This attribute is deprecated and will be removed soon. It currently has no effect.
         "Extension-safe" link options may be added using the <code>linkopts</code> attribute.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -136,7 +132,7 @@ public class AppleBinaryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .singleArtifact()
                 .aspect(objcProtoAspect))
-        /*<!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(stamp) -->
+        /*<!-- #BLAZE_RULE($apple_binary_base_rule).ATTRIBUTE(stamp) -->
         Enable link stamping.
         Whether to encode build information into the binary. Possible values:
         <ul>
@@ -158,18 +154,6 @@ public class AppleBinaryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("defines an aspect of configuration")
                 .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
-        /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->
-        <ul>
-         <li><code><var>name</var>_lipobin</code>: the 'lipo'ed potentially multi-architecture
-             binary. All transitive dependencies and <code>srcs</code> are linked.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ObjcRuleClasses.LIPOBIN_OUTPUT))
-        .cfg(
-            ComposingTransitionFactory.of(
-                (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
-                new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
@@ -178,8 +162,8 @@ public class AppleBinaryRule implements RuleDefinition {
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name("apple_binary")
-        .factoryClass(AppleBinary.class)
+        .name("$apple_binary_base_rule")
+        .type(RuleClassType.ABSTRACT)
         .ancestors(
             BaseRuleClasses.NativeBuildRule.class,
             ObjcRuleClasses.MultiArchPlatformRule.class,
@@ -187,16 +171,3 @@ public class AppleBinaryRule implements RuleDefinition {
         .build();
   }
 }
-
-/*<!-- #BLAZE_RULE (NAME = apple_binary, TYPE = BINARY, FAMILY = Objective-C) -->
-
-<p>This rule produces single- or multi-architecture ("fat") Objective-C libraries and/or binaries,
-typically used in creating apple bundles, such as frameworks, extensions, or applications.</p>
-
-<p>The <code>lipo</code> tool is used to combine files of multiple architectures. One of several
-flags may control which architectures are included in the output, depending on the value of
-the "platform_type" attribute.</p>
-
-${IMPLICIT_OUTPUTS}
-
-<!-- #END_BLAZE_RULE -->*/

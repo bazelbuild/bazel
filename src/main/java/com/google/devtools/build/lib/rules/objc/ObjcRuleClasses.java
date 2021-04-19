@@ -551,7 +551,7 @@ public class ObjcRuleClasses {
    * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of multiple
    * architectures).
    */
-  static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
+  public static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
 
   /**
    * Common attributes for {@code objc_*} rules that link sources and dependencies.

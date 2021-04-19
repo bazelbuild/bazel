@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.rules.objc.AppleBinaryRule.BUNDLE_LOADER_ATTR_NAME;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
 
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.cpp.ObjcCppSemantics;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
@@ -59,9 +57,18 @@ import java.util.TreeMap;
 
 /** Implementation for the "apple_binary" rule. */
 public class AppleBinary implements RuleConfiguredTargetFactory {
+  public static final String BINARY_TYPE_ATTR = "binary_type";
+  public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
+  public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
+
+  private final CppSemantics cppSemantics;
+
+  protected AppleBinary(CppSemantics cppSemantics) {
+    this.cppSemantics = cppSemantics;
+  }
 
   /** Type of linked binary that apple_binary may create. */
-  enum BinaryType {
+  public enum BinaryType {
 
     /**
      * Binaries that can be loaded by other binaries at runtime, and which can't be directly
@@ -109,7 +116,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     }
 
     /** Returns the enum values as a list of strings for validation. */
-    static Iterable<String> getValues() {
+    public static Iterable<String> getValues() {
       return Iterables.transform(ImmutableList.copyOf(values()), Functions.toStringFunction());
     }
   }
@@ -132,7 +139,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     AppleBinaryOutput appleBinaryOutput =
         linkMultiArchBinary(
             ruleContext,
-            ObjcCppSemantics.INSTANCE,
+            cppSemantics,
             ImmutableList.of(),
             ImmutableList.of(),
             AnalysisUtils.isStampingEnabled(ruleContext),
@@ -357,8 +364,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   }
 
   private static BinaryType getBinaryType(RuleContext ruleContext) {
-    String binaryTypeString =
-        ruleContext.attributes().get(AppleBinaryRule.BINARY_TYPE_ATTR, STRING);
+    String binaryTypeString = ruleContext.attributes().get(BINARY_TYPE_ATTR, STRING);
     return BinaryType.fromString(binaryTypeString);
   }
 
