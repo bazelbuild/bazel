@@ -27,6 +27,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/events:srcs",
         "//src/test/java/com/google/devtools/build/lib/exec:srcs",
         "//src/test/java/com/google/devtools/build/lib/graph:srcs",
+        "//src/test/java/com/google/devtools/build/lib/io:srcs",
         "//src/test/java/com/google/devtools/build/lib/integration/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/test/java/com/google/devtools/build/lib/outputfilter:srcs",
