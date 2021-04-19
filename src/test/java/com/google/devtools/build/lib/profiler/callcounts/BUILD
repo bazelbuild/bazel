@@ -1,16 +1,10 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-package(
-    default_testonly = 1,
-    default_visibility = ["//src/test/java/com/google/devtools/build/lib:__subpackages__"],
-)
-
-licenses(["notice"])  # Apache 2.0
-
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -31,7 +25,6 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -39,5 +32,4 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
