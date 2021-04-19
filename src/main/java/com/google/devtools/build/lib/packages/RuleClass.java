@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -941,7 +942,7 @@ public class RuleClass {
             attr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
                 .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
-        if (BuildType.isLabelType(type)) {
+        if (type.getLabelClass() == LabelClass.DEPENDENCY) {
           defaultAttrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
           defaultAttrBuilder.allowedRuleClasses(ANY_RULE);
         }
