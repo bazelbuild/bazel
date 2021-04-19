@@ -12,30 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.bazel.rules.objc;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.objc.AppleCrosstoolTransition;
+import com.google.devtools.build.lib.rules.objc.ObjcLibraryBaseRule;
 
-/**
- * Rule definition for objc_library.
- */
-public class ObjcLibraryRule implements RuleDefinition {
+/** Rule definition for {@code objc_library}. */
+public class BazelObjcLibraryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(
-            ObjcConfiguration.class, AppleConfiguration.class, CppConfiguration.class)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
-        .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
-        .useToolchainTransition(ToolchainTransitionMode.ENABLED)
         .build();
   }
 
@@ -43,12 +34,8 @@ public class ObjcLibraryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("objc_library")
-        .factoryClass(ObjcLibrary.class)
-        .ancestors(
-            BaseRuleClasses.NativeBuildRule.class,
-            ObjcRuleClasses.CompilingRule.class,
-            ObjcRuleClasses.AlwaysLinkRule.class,
-            BaseRuleClasses.MakeVariableExpandingRule.class)
+        .factoryClass(BazelObjcLibrary.class)
+        .ancestors(ObjcLibraryBaseRule.class)
         .build();
   }
 }
@@ -56,7 +43,5 @@ public class ObjcLibraryRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = objc_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
 <p>This rule produces a static library from the given Objective-C source files.</p>
-
-${IMPLICIT_OUTPUTS}
 
 <!-- #END_BLAZE_RULE -->*/
