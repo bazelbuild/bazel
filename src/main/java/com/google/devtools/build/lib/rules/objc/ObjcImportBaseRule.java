@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -28,18 +29,17 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
- * Rule definition for {@code objc_import}.
+ * Abstract rule definition for {@code objc_import}.
  */
-public class ObjcImportRule implements RuleDefinition {
+public class ObjcImportBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(
-            ObjcConfiguration.class,
             AppleConfiguration.class,
-            AppleConfiguration.class,
-            CppConfiguration.class)
-        /* <!-- #BLAZE_RULE(objc_import).ATTRIBUTE(archives) -->
+            CppConfiguration.class,
+            ObjcConfiguration.class)
+        /* <!-- #BLAZE_RULE($objc_import_base_rule).ATTRIBUTE(archives) -->
         The list of <code>.a</code> files provided to Objective-C targets that
         depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -53,8 +53,8 @@ public class ObjcImportRule implements RuleDefinition {
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name("objc_import")
-        .factoryClass(ObjcImport.class)
+        .name("$objc_import_base_rule")
+        .type(RuleClassType.ABSTRACT)
         .ancestors(
             BaseRuleClasses.NativeBuildRule.class,
             ObjcRuleClasses.CompilingRule.class,
@@ -63,11 +63,3 @@ public class ObjcImportRule implements RuleDefinition {
         .build();
   }
 }
-
-/*<!-- #BLAZE_RULE (NAME = objc_import, TYPE = LIBRARY, FAMILY = Objective-C) -->
-
-<p>This rule encapsulates an already-compiled static library in the form of an
-<code>.a</code> file. It also allows exporting headers and resources using the same
-attributes supported by <code>objc_library</code>.</p>
-
-<!-- #END_BLAZE_RULE -->*/
