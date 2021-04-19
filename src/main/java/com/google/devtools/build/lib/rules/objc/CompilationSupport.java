@@ -167,7 +167,6 @@ public class CompilationSupport {
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
 
-  private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
   private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
@@ -529,9 +528,6 @@ public class CompilationSupport {
             .addAll(OBJC_ACTIONS)
             .add(CppRuleClasses.LANG_OBJC);
 
-    if (!attributes.enableModules()) {
-      activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
-    }
     if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
       activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
     }
