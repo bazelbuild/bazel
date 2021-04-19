@@ -282,7 +282,7 @@ __show_stack() {
 function expect_log() {
     local pattern=$1
     local message=${2:-Expected regexp "$pattern" not found}
-    grep -sq -- "$pattern" $TEST_log && return 0
+    grep -sq -E -- "$pattern" $TEST_log && return 0
 
     fail "$message"
     return 1
