@@ -262,4 +262,8 @@ public class ExecutionRequirements {
    * "requires-xcode-label:unstable" and "requires-xcode:1.0".
    */
   public static final String REQUIRES_XCODE_LABEL = "requires-xcode-label";
+
+  /** Requires the execution service do NOT share caches across different workspace. */
+  public static final String DIFFERENTIATE_WORKSPACE_CACHE =
+      "internal-differentiate-workspace-cache";
 }

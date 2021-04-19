@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -122,6 +123,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final String commandId;
   private final DigestUtil digestUtil;
   private final Path logDir;
+  private final RemotePathResolver remotePathResolver;
 
   /**
    * If {@link RemoteOutputsMode#TOPLEVEL} is specified it contains the artifacts that should be
@@ -145,7 +147,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       ListeningScheduledExecutorService retryService,
       DigestUtil digestUtil,
       Path logDir,
-      ImmutableSet<ActionInput> filesToDownload) {
+      ImmutableSet<ActionInput> filesToDownload,
+      RemotePathResolver remotePathResolver) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
@@ -159,6 +162,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.digestUtil = digestUtil;
     this.logDir = logDir;
     this.filesToDownload = Preconditions.checkNotNull(filesToDownload, "filesToDownload");
+    this.remotePathResolver = remotePathResolver;
   }
 
   @Override
@@ -213,14 +217,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     context.report(ProgressStatus.SCHEDULING, getName());
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    // The "root directory" of the action from the point of view of RBE is the parent directory of
-    // the execroot locally. This is so that paths of artifacts in external repositories don't
-    // start with an uplevel reference...
-    SortedMap<PathFragment, ActionInput> inputMap =
-        context.getInputMapping(PathFragment.create(execRoot.getBaseName()));
 
-    // ...however, MerkleTree.build() uses its execRoot parameter to resolve artifacts based on
-    // ActionInput.getExecPath(), so it needs the execroot and not its parent directory.
+    SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
     final MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     SpawnMetrics.Builder spawnMetrics =
@@ -238,7 +236,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             spawn.getArguments(),
             spawn.getEnvironment(),
             platform,
-            execRoot.getBaseName());
+            remotePathResolver);
     Digest commandHash = digestUtil.compute(command);
     Action action =
         buildAction(
@@ -281,7 +279,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
           try {
             return downloadAndFinalizeSpawnResult(
                 remoteActionExecutionContext,
-                actionKey.getDigest().getHash(),
                 cachedResult,
                 /* cacheHit= */ true,
                 spawn,
@@ -382,7 +379,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
             try {
               return downloadAndFinalizeSpawnResult(
                   remoteActionExecutionContext,
-                  actionKey.getDigest().getHash(),
                   actionResult,
                   reply.getCachedResult(),
                   spawn,
@@ -461,7 +457,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   private SpawnResult downloadAndFinalizeSpawnResult(
       RemoteActionExecutionContext remoteActionExecutionContext,
-      String actionId,
       ActionResult actionResult,
       boolean cacheHit,
       Spawn spawn,
@@ -483,8 +478,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       try (SilentCloseable c = Profiler.instance().profile(REMOTE_DOWNLOAD, "download outputs")) {
         remoteCache.download(
             remoteActionExecutionContext,
+            remotePathResolver,
             actionResult,
-            execRoot,
             context.getFileOutErr(),
             context::lockOutputFiles);
       }
@@ -495,12 +490,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
         inMemoryOutput =
             remoteCache.downloadMinimal(
                 remoteActionExecutionContext,
-                actionId,
+                remotePathResolver,
                 actionResult,
                 spawn.getOutputFiles(),
                 inMemoryOutputPath,
                 context.getFileOutErr(),
-                execRoot,
                 context.getMetadataInjector(),
                 context::lockOutputFiles);
       }
@@ -636,8 +630,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
             // We try to download all (partial) results even on server error, for debuggability.
             remoteCache.download(
                 remoteActionExecutionContext,
+                remotePathResolver,
                 resp.getResult(),
-                execRoot,
                 outErr,
                 context::lockOutputFiles);
           } catch (BulkTransferException bulkTransferEx) {
@@ -726,17 +720,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
       List<String> arguments,
       ImmutableMap<String, String> env,
       @Nullable Platform platform,
-      @Nullable String workingDirectoryString) {
+      RemotePathResolver remotePathResolver) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
-    PathFragment workingDirectoryPathFragment =
-        workingDirectoryString == null
-            ? PathFragment.EMPTY_FRAGMENT
-            : PathFragment.create(workingDirectoryString);
     for (ActionInput output : outputs) {
-      String pathString =
-          workingDirectoryPathFragment.getRelative(output.getExecPath()).getPathString();
+      String pathString = remotePathResolver.localPathToOutputPath(output);
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
         outputDirectories.add(pathString);
       } else {
@@ -758,8 +747,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
       command.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
     }
 
-    if (!Strings.isNullOrEmpty(workingDirectoryString)) {
-      command.setWorkingDirectory(workingDirectoryString);
+    String workingDirectory = remotePathResolver.getWorkingDirectory();
+    if (!Strings.isNullOrEmpty(workingDirectory)) {
+      command.setWorkingDirectory(workingDirectory);
     }
     return command.build();
   }
@@ -815,10 +805,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
     try (SilentCloseable c = Profiler.instance().profile(UPLOAD_TIME, "upload outputs")) {
       remoteCache.upload(
           remoteActionExecutionContext,
+          remotePathResolver,
           actionKey,
           action,
           command,
-          execRoot,
           outputFiles,
           context.getFileOutErr());
     } catch (IOException e) {
