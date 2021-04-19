@@ -301,15 +301,6 @@ public class MoreAsserts {
   }
 
   /**
-   * If {@code eventCollector} does not contain an event which matches {@code expectedEventRegex},
-   * fails with an informative assertion.
-   */
-  public static Event assertContainsEventRegex(
-      Iterable<Event> eventCollector, String expectedEventRegex) {
-    return assertContainsEvent(eventCollector, Pattern.compile(expectedEventRegex));
-  }
-
-  /**
    * If {@code eventCollector} does not contain an event which matches {@code expectedEventPattern},
    * fails with an informative assertion.
    */
@@ -327,11 +318,6 @@ public class MoreAsserts {
     }
     fail(failureMessage);
     return null; // unreachable
-  }
-
-  public static void assertNotContainsEventRegex(
-      Iterable<Event> eventCollector, String unexpectedEventRegex) {
-    assertNotContainsEvent(eventCollector, Pattern.compile(unexpectedEventRegex));
   }
 
   public static void assertNotContainsEvent(

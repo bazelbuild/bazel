@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -353,11 +354,10 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     buildTarget("//hello:hello");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
-    MoreAsserts.assertContainsEventRegex(
-        events.collector(),
+    MoreAsserts.assertContainsEvent(events.collector(), Pattern.compile(
         "^ERROR.*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
             + " artifact: no such package 'hello/subdir': IO errors while looking for BUILD file"
-            + " reading .*hello/subdir/BUILD: nope");
+            + " reading .*hello/subdir/BUILD: nope"));
     assertThat(e.getDetailedExitCode().getFailureDetail())
         .comparingExpectedFieldsOnly()
         .isEqualTo(
@@ -382,12 +382,11 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     customFileSystem.errorInsideStat(buildFile, 0);
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
-    MoreAsserts.assertContainsEventRegex(
-        events.collector(),
+    MoreAsserts.assertContainsEvent(events.collector(), Pattern.compile(
         ".*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
             + " artifact: Inconsistent filesystem operations. 'stat' said .*/hello/subdir/BUILD is"
             + " a file but then we later encountered error 'nope for .*/hello/subdir/BUILD' which"
-            + " indicates that .*/hello/subdir/BUILD is no longer a file.*");
+            + " indicates that .*/hello/subdir/BUILD is no longer a file.*"));
     events.assertContainsError("hello/subdir/BUILD ");
     assertThat(e.getDetailedExitCode().getFailureDetail())
         .comparingExpectedFieldsOnly()
@@ -529,14 +528,12 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
   @Test
   public void ioExceptionInTopLevelSource_noKeepGoing() throws Exception {
     runIoExceptionInTopLevelSource();
-    MoreAsserts.assertContainsEventRegex(
-        events.collector(),
+    MoreAsserts.assertContainsEvent(events.collector(), Pattern.compile(
         ".*foo/BUILD:2:11: //foo:foo: (error reading file '//foo:error.in': nope|missing input file"
-            + " '//foo:missing.in')");
-    MoreAsserts.assertContainsEventRegex(
-        events.collector(),
+            + " '//foo:missing.in')"));
+    MoreAsserts.assertContainsEvent(events.collector(), Pattern.compile(
         ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error or do"
-            + " not exist)");
+            + " not exist)"));
   }
 
   private void runMissingFileAndIoException() throws Exception {
@@ -565,14 +562,12 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
   @Test
   public void missingFileAndIoException_noKeepGoing() throws Exception {
     runMissingFileAndIoException();
-    MoreAsserts.assertContainsEventRegex(
-        events.collector(),
+    MoreAsserts.assertContainsEvent(events.collector(), Pattern.compile(
         ".*foo/BUILD:1:8: Executing genrule //foo:foo failed: (error reading file '//foo:error.in':"
-            + " nope|missing input file '//foo:missing.in')");
-    MoreAsserts.assertContainsEventRegex(
-        events.collector(),
+            + " nope|missing input file '//foo:missing.in')"));
+    MoreAsserts.assertContainsEvent(events.collector(), Pattern.compile(
         ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error or do"
-            + " not exist)");
+            + " not exist)"));
   }
 
   private static class CustomRealFilesystem extends UnixFileSystem {
