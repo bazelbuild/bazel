@@ -246,4 +246,8 @@ public class ExecutionRequirements {
    * followed by a {@code SIGKILL} after a grace period).
    */
   public static final String GRACEFUL_TERMINATION = "supports-graceful-termination";
+
+  /** Requires the execution service do NOT share caches across different workspace. */
+  public static final String DIFFERENTIATE_WORKSPACE_CACHE =
+      "internal-differentiate-workspace-cache";
 }

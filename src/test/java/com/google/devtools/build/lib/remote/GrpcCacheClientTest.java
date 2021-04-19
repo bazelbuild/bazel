@@ -64,6 +64,8 @@ import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -133,6 +135,7 @@ public class GrpcCacheClientTest {
   private final String fakeServerName = "fake server for " + getClass();
   private Server fakeServer;
   private RemoteActionExecutionContext context;
+  private RemotePathResolver remotePathResolver;
   private ListeningScheduledExecutorService retryService;
 
   @Before
@@ -149,6 +152,7 @@ public class GrpcCacheClientTest {
     execRoot = fs.getPath("/execroot/main");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
+    remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
     Path stdout = fs.getPath("/tmp/stdout");
     Path stderr = fs.getPath("/tmp/stderr");
@@ -383,11 +387,36 @@ public class GrpcCacheClientTest {
         new FakeImmutableCacheByteStreamImpl(fooDigest, "foo-contents", barDigest, "bar-contents"));
 
     ActionResult.Builder result = ActionResult.newBuilder();
+    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
+    result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
+    remoteCache.download(
+        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
+    assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
+    assertThat(execRoot.getRelative("a/bar").isExecutable()).isTrue();
+  }
+
+  @Test
+  public void testDownloadAllResultsForSiblingLayoutAndRelativeToInputRoot() throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient client = newClient(remoteOptions);
+    RemoteCache remoteCache = new RemoteCache(client, remoteOptions, DIGEST_UTIL);
+    RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot, true);
+
+    Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
+    Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
+    Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
+    serviceRegistry.addService(
+        new FakeImmutableCacheByteStreamImpl(fooDigest, "foo-contents", barDigest, "bar-contents"));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
     result.addOutputFilesBuilder().setPath("main/b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("main/a/bar").setDigest(barDigest).setIsExecutable(true);
     remoteCache.download(
-        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
@@ -421,10 +450,10 @@ public class GrpcCacheClientTest {
                 quxDigest, "qux-contents")));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
-    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
-        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
@@ -444,9 +473,9 @@ public class GrpcCacheClientTest {
             ImmutableMap.of(barTreeDigest, barTreeMessage.toByteString())));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
-        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
 
     assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
   }
@@ -486,10 +515,10 @@ public class GrpcCacheClientTest {
                 quxDigest, "qux-contents")));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputFilesBuilder().setPath("main/a/foo").setDigest(fooDigest);
-    result.addOutputDirectoriesBuilder().setPath("main/a/bar").setTreeDigest(barTreeDigest);
+    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
-        context, result.build(), execRoot, null, /* outputFilesLocker= */ () -> {});
+        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);
@@ -709,7 +738,7 @@ public class GrpcCacheClientTest {
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    return remoteCache.upload(context, actionKey, action, cmd, execRoot, outputs, outErr);
+    return remoteCache.upload(context, remotePathResolver, actionKey, action, cmd, outputs, outErr);
   }
 
   @Test
@@ -836,10 +865,10 @@ public class GrpcCacheClientTest {
     ActionResult result =
         remoteCache.upload(
             context,
+            remotePathResolver,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
-            execRoot,
             ImmutableList.of(fooFile, barFile),
             outErr);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -899,10 +928,10 @@ public class GrpcCacheClientTest {
     ActionResult result =
         remoteCache.upload(
             context,
+            remotePathResolver,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
-            execRoot,
             ImmutableList.of(fooFile, barFile),
             outErr);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1048,10 +1077,10 @@ public class GrpcCacheClientTest {
         .queryWriteStatus(any(), any());
     remoteCache.upload(
         context,
+        remotePathResolver,
         actionKey,
         Action.getDefaultInstance(),
         Command.getDefaultInstance(),
-        execRoot,
         ImmutableList.<Path>of(fooFile, barFile, bazFile),
         outErr);
     // 4 times for the errors, 3 times for the successful uploads.
