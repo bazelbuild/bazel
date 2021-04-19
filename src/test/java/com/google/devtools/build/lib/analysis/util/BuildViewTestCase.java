@@ -195,6 +195,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -1209,6 +1210,33 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           .isTrue();
     }
     return assertContainsEvent(expectedErrorMessage);
+  }
+
+  /**
+   * Check that configuration of the target named 'ruleName' in the
+   * specified BUILD file fails with an error message containing
+   * 'expectedErrorMessage'.
+   *
+   * @param packageName the package name of the generated BUILD file
+   * @param ruleName the rule name for the rule in the generated BUILD file
+   * @param expectedErrorPattern a regex that matches the expected error.
+   * @param lines the text of the rule.
+   * @return the found error.
+   */
+  protected Event checkError(String packageName,
+      String ruleName,
+      Pattern expectedErrorPattern,
+      String... lines) throws Exception {
+    eventCollector.clear();
+    reporter.removeHandler(failFastHandler); // expect errors
+    ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
+    if (target != null) {
+      assertWithMessage(
+          "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+          .that(view.hasErrors(target))
+          .isTrue();
+    }
+    return assertContainsEvent(expectedErrorPattern);
   }
 
   /**
