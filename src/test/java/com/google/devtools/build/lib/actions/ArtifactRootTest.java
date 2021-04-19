@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
@@ -178,8 +178,8 @@ public class ArtifactRootTest {
     ArtifactRoot derivedRoot =
         ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "first", "second", "third");
     ObjectCodecRegistry registry = AutoRegistry.get();
-    ImmutableMap<Class<?>, Object> dependencies =
-        ImmutableMap.<Class<?>, Object>builder()
+    ImmutableClassToInstanceMap<Object> dependencies =
+        ImmutableClassToInstanceMap.builder()
             .put(FileSystem.class, scratch.getFileSystem())
             .put(
                 Root.RootCodecDependencies.class,

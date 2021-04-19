@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -32,8 +32,9 @@ import javax.annotation.Nullable;
 public class SerializationDepsUtils {
 
   /** Default serialization dependencies for testing. */
-  public static final ImmutableMap<Class<?>, Object> SERIALIZATION_DEPS_FOR_TEST =
-      ImmutableMap.of(ArtifactResolverSupplier.class, new ArtifactResolverSupplierForTest());
+  public static final ImmutableClassToInstanceMap<?> SERIALIZATION_DEPS_FOR_TEST =
+      ImmutableClassToInstanceMap.of(
+          ArtifactResolverSupplier.class, new ArtifactResolverSupplierForTest());
 
   /**
    * An {@link ArtifactResolverSupplier} that calls directly into the {@link SourceArtifact}

@@ -18,8 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
@@ -37,7 +37,7 @@ public class DeserializationContextTest {
     CodedInputStream codedInputStream = Mockito.mock(CodedInputStream.class);
     when(codedInputStream.readSInt32()).thenReturn(0);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableMap.of());
+        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
     assertThat((Object) deserializationContext.deserialize(codedInputStream)).isNull();
     Mockito.verify(codedInputStream).readSInt32();
     Mockito.verifyZeroInteractions(registry);
@@ -51,7 +51,7 @@ public class DeserializationContextTest {
     CodedInputStream codedInputStream = Mockito.mock(CodedInputStream.class);
     when(codedInputStream.readSInt32()).thenReturn(1);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableMap.of());
+        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
     assertThat((Object) deserializationContext.deserialize(codedInputStream))
         .isSameInstanceAs(constant);
     Mockito.verify(codedInputStream).readSInt32();
@@ -67,7 +67,7 @@ public class DeserializationContextTest {
     CodedInputStream codedInputStream = Mockito.mock(CodedInputStream.class);
     when(codedInputStream.readSInt32()).thenReturn(1);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableMap.of());
+        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
     Object returnValue = new Object();
     when(codecDescriptor.deserialize(deserializationContext, codedInputStream))
         .thenReturn(returnValue);
@@ -83,7 +83,7 @@ public class DeserializationContextTest {
     ObjectCodecRegistry registry = Mockito.mock(ObjectCodecRegistry.class);
     CodedInputStream codedInputStream = Mockito.mock(CodedInputStream.class);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableMap.of());
+        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
     when(codedInputStream.readSInt32()).thenReturn(0);
     assertThat((Object) deserializationContext.getMemoizingContext().deserialize(codedInputStream))
         .isEqualTo(null);
@@ -98,7 +98,7 @@ public class DeserializationContextTest {
     when(registry.maybeGetConstantByTag(1)).thenReturn(constant);
     CodedInputStream codedInputStream = Mockito.mock(CodedInputStream.class);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableMap.of());
+        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
     when(codedInputStream.readSInt32()).thenReturn(1);
     assertThat((Object) deserializationContext.getMemoizingContext().deserialize(codedInputStream))
         .isEqualTo(constant);
@@ -121,7 +121,8 @@ public class DeserializationContextTest {
     when(registry.getCodecDescriptorByTag(1)).thenReturn(codecDescriptor);
     CodedInputStream codedInputStream = Mockito.mock(CodedInputStream.class);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableMap.of()).getMemoizingContext();
+        new DeserializationContext(registry, ImmutableClassToInstanceMap.of())
+            .getMemoizingContext();
     when(codec.deserialize(deserializationContext, codedInputStream)).thenReturn(returned);
     when(codedInputStream.readSInt32()).thenReturn(1);
     assertThat((Object) deserializationContext.deserialize(codedInputStream)).isEqualTo(returned);

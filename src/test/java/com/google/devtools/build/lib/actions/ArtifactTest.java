@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -324,7 +324,7 @@ public class ArtifactTest {
                 .addReferenceConstant(scratch.getFileSystem())
                 .setAllowDefaultCodec(true)
                 .build(),
-            ImmutableMap.<Class<?>, Object>builder()
+            ImmutableClassToInstanceMap.builder()
                 .put(FileSystem.class, scratch.getFileSystem())
                 .put(ArtifactResolverSupplier.class, artifactResolverSupplierForTest)
                 .put(

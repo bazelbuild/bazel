@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -36,7 +36,8 @@ public class ThrowingRuleCodecTest extends BuildViewTestCase {
 
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
-            AutoRegistry.get().getBuilder().setAllowDefaultCodec(true).build(), ImmutableMap.of());
+            AutoRegistry.get().getBuilder().setAllowDefaultCodec(true).build(),
+            ImmutableClassToInstanceMap.of());
     try {
       objectCodecs.serialize(rule);
       throw new AssertionError("Should have thrown");
