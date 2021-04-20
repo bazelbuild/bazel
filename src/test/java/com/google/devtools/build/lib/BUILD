@@ -172,6 +172,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",

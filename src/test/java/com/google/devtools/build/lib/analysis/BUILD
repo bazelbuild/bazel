@@ -37,6 +37,7 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -63,8 +64,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/compilation_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_aware_aspect_builder",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_info_modifier",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
