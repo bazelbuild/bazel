@@ -1793,7 +1793,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected void assertContainsSelfEdgeEvent(String label) {
-    assertContainsEvent(label + " [self-edge]");
+    assertContainsEvent(Pattern.compile(label + " \\([a-f0-9]+\\) \\[self-edge\\]"));
   }
 
   protected NestedSet<Artifact> collectRunfiles(ConfiguredTarget target) {
