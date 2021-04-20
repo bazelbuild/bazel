@@ -1861,7 +1861,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertNoEvents();
     Rule testTarget = (Rule) ct.getTarget();
     ConfiguredAttributeMapper attributes =
-        ConfiguredAttributeMapper.of(testTarget, ImmutableMap.of());
+        ConfiguredAttributeMapper.of(
+            testTarget, ImmutableMap.of(), ct.getConfiguration().checksum());
     ConfigurationTransition attrTransition =
         attributes
             .getAttributeDefinition("dep")

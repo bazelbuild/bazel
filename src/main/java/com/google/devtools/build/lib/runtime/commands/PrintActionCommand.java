@@ -410,7 +410,10 @@ public final class PrintActionCommand implements BlazeCommand {
       }
 
       List<Label> hdrs =
-          ConfiguredAttributeMapper.of(rule, configuredTarget.getConfigConditions())
+          ConfiguredAttributeMapper.of(
+                  rule,
+                  configuredTarget.getConfigConditions(),
+                  configuredTarget.getConfigurationChecksum())
               .get("hdrs", BuildType.LABEL_LIST);
       if (hdrs != null) {
         for (Label hdrLabel : hdrs) {

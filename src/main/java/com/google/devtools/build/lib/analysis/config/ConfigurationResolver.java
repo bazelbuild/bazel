@@ -344,7 +344,9 @@ public final class ConfigurationResolver {
           AttributeTransitionData.builder()
               .attributes(
                   ConfiguredAttributeMapper.of(
-                      ctgValue.getTarget().getAssociatedRule(), configConditions))
+                      ctgValue.getTarget().getAssociatedRule(),
+                      configConditions,
+                      ctgValue.getConfiguration().checksum()))
               .build();
       ConfigurationTransition baseTransition = transitionFactory.create(transitionData);
       Map<String, BuildOptions> toOptions;

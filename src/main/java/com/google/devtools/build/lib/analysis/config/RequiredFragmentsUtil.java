@@ -96,7 +96,7 @@ public class RequiredFragmentsUtil {
         universallyRequiredFragments,
         configurationFragmentPolicy,
         configConditions.values(),
-        getTransitions(target, configConditions),
+        getTransitions(target, configConditions, configuration.checksum()),
         prerequisites);
   }
 
@@ -130,7 +130,10 @@ public class RequiredFragmentsUtil {
         universallyRequiredFragments,
         configurationFragmentPolicy,
         configConditions.values(),
-        getTransitions(aspect, ConfiguredAttributeMapper.of(associatedTarget, configConditions)),
+        getTransitions(
+            aspect,
+            ConfiguredAttributeMapper.of(
+                associatedTarget, configConditions, configuration.checksum())),
         prerequisites);
   }
 
@@ -195,7 +198,9 @@ public class RequiredFragmentsUtil {
    * because the child's properties determine that dependency.
    */
   private static ImmutableList<ConfigurationTransition> getTransitions(
-      Rule target, ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
+      Rule target,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash) {
     ImmutableList.Builder<ConfigurationTransition> transitions = ImmutableList.builder();
     if (target.getRuleClassObject().getTransitionFactory() != null) {
       transitions.add(target.getRuleClassObject().getTransitionFactory().create(target));
@@ -205,7 +210,7 @@ public class RequiredFragmentsUtil {
     // RequiredFragmenstUtil's public interface.
     AttributeTransitionData attributeTransitionData =
         AttributeTransitionData.builder()
-            .attributes(ConfiguredAttributeMapper.of(target, configConditions))
+            .attributes(ConfiguredAttributeMapper.of(target, configConditions, configHash))
             .build();
     for (Attribute attribute : target.getRuleClassObject().getAttributes()) {
       if (attribute.getTransitionFactory() != null) {

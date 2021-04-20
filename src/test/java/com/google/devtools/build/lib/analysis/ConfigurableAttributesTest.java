@@ -746,7 +746,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     useConfiguration("");
     assertThat(getConfiguredTarget("//java/hello:hello")).isNull();
-    assertContainsEvent("Configurable attribute \"deps\" doesn't match this configuration");
+    assertContainsEvent(
+        "configurable attribute \"deps\" in //java/hello:hello doesn't match this configuration");
   }
 
   @Test
@@ -772,8 +773,11 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("");
 
     assertThat(getConfiguredTarget("//java/hello:hello_default_no_match_error")).isNull();
-    String commonPrefix = "Configurable attribute \"srcs\" doesn't match this configuration";
-    assertContainsEvent(commonPrefix + " (would a default condition help?).\nConditions checked:");
+    assertContainsEvent(
+        "configurable attribute \"srcs\" in //java/hello:hello_default_no_match_error doesn't"
+            + " match this configuration. Would a default condition help?\n"
+            + "\n"
+            + "Conditions checked:");
     // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
     assertThat(analysisFailureRecorder.causes).hasSize(1);
     AnalysisRootCauseEvent rootCause = analysisFailureRecorder.causes.get(0);
@@ -787,7 +791,9 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     eventCollector.clear();
 
     assertThat(getConfiguredTarget("//java/hello:hello_custom_no_match_error")).isNull();
-    assertContainsEvent(commonPrefix + ": You always have to choose condition a!");
+    assertContainsEvent(
+        "configurable attribute \"srcs\" in //java/hello:hello_custom_no_match_error doesn't match "
+            + "this configuration: You always have to choose condition a!");
     // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
     assertThat(analysisFailureRecorder.causes).hasSize(1);
     rootCause = analysisFailureRecorder.causes.get(0);
@@ -1303,8 +1309,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//a:binary")).isNull();
     assertContainsEvent(
-        "Configurable attribute \"boolean_attr\" doesn't match this configuration (would a default "
-            + "condition help?).\n"
+        "configurable attribute \"boolean_attr\" in //a:binary doesn't match this configuration. "
+            + "Would a default condition help?\n\n"
             + "Conditions checked:\n"
             + " //a:foo\n"
             + " //a:alias_to_foo");

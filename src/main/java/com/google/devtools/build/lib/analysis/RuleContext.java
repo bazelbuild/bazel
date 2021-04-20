@@ -1915,7 +1915,8 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(visibility);
       Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
-          ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions.asProviders());
+          ConfiguredAttributeMapper.of(
+              target.getAssociatedRule(), configConditions.asProviders(), configuration.checksum());
       checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       // This conditionally checks visibility on config_setting rules based on
@@ -2128,8 +2129,9 @@ public final class RuleContext extends TargetContext
           ctMap.put(
               AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget()), prerequisite);
         }
-        List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule, configConditions)
-            .get(attributeName, BuildType.FILESET_ENTRY_LIST);
+        List<FilesetEntry> entries =
+            ConfiguredAttributeMapper.of(rule, configConditions, configuration.checksum())
+                .get(attributeName, BuildType.FILESET_ENTRY_LIST);
         for (FilesetEntry entry : entries) {
           if (entry.getFiles() == null) {
             Label label = entry.getSrcLabel();
