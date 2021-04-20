@@ -388,7 +388,7 @@ def _example_library_impl(ctx):
     args.add("-o", output_file)
 
     ctx.actions.run(
-        mnemonic="ExampleCompile",
+        mnemonic = "ExampleCompile",
         executable = ctx.executable._compiler,
         arguments = [args],
         inputs = inputs,
