@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.Streams.stream;
-import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
@@ -58,7 +57,6 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -941,10 +939,6 @@ public class RuleClass {
             attr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
                 .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
-        if (BuildType.isLabelType(type)) {
-          defaultAttrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
-          defaultAttrBuilder.allowedRuleClasses(ANY_RULE);
-        }
         this.add(defaultAttrBuilder);
 
         this.add(
