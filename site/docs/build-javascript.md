@@ -62,28 +62,28 @@ yarn global add @bazel/ibazel
 
 To use `ibazel`, simply replace `bazel` with `ibazel` in your Bazel commands.
 
-### Configuring the `bazel.rc` file
+### Configuring the `.bazelrc` file
 
 Any Bazel build flag or option that can be placed on the command line can also
-be set in the project's [`bazel.rc` file](guide.html#bazelrc)
+be set in the project's [`.bazelrc` file](guide.html#bazelrc)
 so that it is applied every time Bazel builds or tests the project.
 
 Based on how you want to share Bazel settings across your project and team(s),
 you can use any combination of the following techniques:
 
-*   **To use the same Bazel settings for the project**, create a `tools/bazel.rc`
+*   **To use the same Bazel settings for the project**, create a `.bazelrc`
     file at the root of the Bazel workspace. Adding it to the workspace will
     check the file into version control and propagate it to others working on
     the project as well as the CI system.
 
 *   **To personalize Bazel settings for the project but not share them,**
-    create a `.bazel.rc` file at the root of the project and add the file to
+    create a `.bazelrc` file at the root of the project and add the file to
     your `.gitignore` list.
 
 *   **To personalize Bazel settings for all of your projects on your
-    local machine,** create a `.bazel.rc` file in your home directory.
+    local machine,** create a `.bazelrc` file in your home directory.
 
-Here's an example `tools/bazel.rc` file to share with your team. Modify this
+Here's an example `.bazelrc` file to share with your team. Modify this
 template as needed.
 
 ```
