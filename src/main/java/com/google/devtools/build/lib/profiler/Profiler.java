@@ -725,9 +725,11 @@ public final class Profiler {
 
       if (shouldRecordTask) {
         if (actionCountTimeSeries != null && countAction(data.type, data)) {
-          actionCountTimeSeries.addRange(
-              Duration.ofNanos(data.startTimeNanos).toMillis(),
-              Duration.ofNanos(endTime).toMillis());
+          synchronized (this) {
+            actionCountTimeSeries.addRange(
+                Duration.ofNanos(data.startTimeNanos).toMillis(),
+                Duration.ofNanos(endTime).toMillis());
+          }
         }
         SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
         if (aggregator != null) {
