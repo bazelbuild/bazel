@@ -395,7 +395,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.enableCpuUsageProfiling,
             options.slimProfile,
             options.includePrimaryOutput,
-            options.profileIncludeTargetLabel);
+            options.profileIncludeTargetLabel,
+            options.alwaysProfileSlowOperations);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
