@@ -376,7 +376,7 @@ execution time:
 def _example_library_impl(ctx):
     ...
 
-    transitive_headers = [dep.example_info.headers for dep in ctx.attr.deps]
+    transitive_headers = [dep[ExampleInfo].headers for dep in ctx.attr.deps]
     headers = depset(ctx.files.hdrs, transitive=transitive_headers)
     srcs = ctx.files.srcs
     inputs = depset(srcs, transitive=[headers])
