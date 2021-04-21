@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
@@ -31,12 +33,10 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.trimming.ConfigurationComparer;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -48,7 +48,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -66,6 +65,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -78,7 +78,6 @@ public final class BuildOptions implements Cloneable, Serializable {
   private static final Comparator<Class<? extends FragmentOptions>>
       lexicalFragmentOptionsComparator = Comparator.comparing(Class::getName);
   private static final Comparator<Label> starlarkOptionsComparator = Ordering.natural();
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
     return starlarkOptions.entrySet().stream()
@@ -178,7 +177,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   /** Returns the actual instance of a FragmentOptions class. */
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
     FragmentOptions options = fragmentOptionsMap.get(optionsClass);
-    Preconditions.checkNotNull(options, "fragment options unavailable: %s", optionsClass);
+    checkNotNull(options, "fragment options unavailable: %s", optionsClass);
     return optionsClass.cast(options);
   }
 
@@ -984,7 +983,7 @@ public final class BuildOptions implements Cloneable, Serializable {
         OptionsDiffForReconstruction left, OptionsDiffForReconstruction right) {
       // TODO: Add support for marking Starlark options as known default when trimming
       // (sentinel object?)
-      Preconditions.checkArgument(
+      checkArgument(
           Arrays.equals(left.baseFingerprint, right.baseFingerprint),
           "Can't compare diffs with different bases: %s and %s",
           left,
@@ -1152,7 +1151,7 @@ public final class BuildOptions implements Cloneable, Serializable {
     }
 
     @SuppressWarnings("unused") // Used reflectively.
-    private static class Codec implements ObjectCodec<OptionsDiffForReconstruction> {
+    private static final class Codec implements ObjectCodec<OptionsDiffForReconstruction> {
 
       @Override
       public Class<OptionsDiffForReconstruction> getEncodedClass() {
@@ -1162,182 +1161,65 @@ public final class BuildOptions implements Cloneable, Serializable {
       @Override
       public void serialize(
           SerializationContext context,
-          OptionsDiffForReconstruction diff,
+          OptionsDiffForReconstruction optionsDiff,
           CodedOutputStream codedOut)
-          throws SerializationException, IOException {
-        OptionsDiffCache cache = context.getDependency(OptionsDiffCache.class);
-        ByteString bytes = cache.getBytesFromOptionsDiff(diff);
-        if (bytes == null) {
-          context = context.getNewNonMemoizingContext();
-          ByteString.Output byteStringOut = ByteString.newOutput();
-          CodedOutputStream bytesOut = CodedOutputStream.newInstance(byteStringOut);
-          context.serialize(diff.differingOptions, bytesOut);
-          context.serialize(diff.extraFirstFragmentClasses, bytesOut);
-          context.serialize(diff.extraSecondFragments, bytesOut);
-          bytesOut.writeByteArrayNoTag(diff.baseFingerprint);
-          context.serialize(diff.checksum, bytesOut);
-          context.serialize(diff.differingStarlarkOptions, bytesOut);
-          context.serialize(diff.extraFirstStarlarkOptions, bytesOut);
-          context.serialize(diff.extraSecondStarlarkOptions, bytesOut);
-          bytesOut.flush();
-          byteStringOut.flush();
-          int optionsDiffSize = byteStringOut.size();
-          bytes = byteStringOut.toByteString();
-          cache.putBytesFromOptionsDiff(diff, bytes);
-          logger.atFine().log(
-              "Serialized OptionsDiffForReconstruction %s. Diff took %d bytes.",
-              diff, optionsDiffSize);
-        }
-        codedOut.writeBytesNoTag(bytes);
+          throws IOException {
+        context.getDependency(OptionsChecksumCache.class).prime(optionsDiff);
+        codedOut.writeStringNoTag(optionsDiff.getChecksum());
       }
 
       @Override
       public OptionsDiffForReconstruction deserialize(
-          DeserializationContext context, CodedInputStream codedIn)
-          throws SerializationException, IOException {
-        OptionsDiffCache cache = context.getDependency(OptionsDiffCache.class);
-        ByteString bytes = codedIn.readBytes();
-        OptionsDiffForReconstruction diff = cache.getOptionsDiffFromBytes(bytes);
-        if (diff == null) {
-          CodedInputStream codedInput = bytes.newCodedInput();
-          context = context.getNewNonMemoizingContext();
-          Map<Class<? extends FragmentOptions>, Map<String, Object>> differingOptions =
-              context.deserialize(codedInput);
-          ImmutableSet<Class<? extends FragmentOptions>> extraFirstFragmentClasses =
-              context.deserialize(codedInput);
-          ImmutableList<FragmentOptions> extraSecondFragments = context.deserialize(codedInput);
-          byte[] baseFingerprint = codedInput.readByteArray();
-          String checksum = context.deserialize(codedInput);
-          Map<Label, Object> differingStarlarkOptions = context.deserialize(codedInput);
-          List<Label> extraFirstStarlarkOptions = context.deserialize(codedInput);
-          Map<Label, Object> extraSecondStarlarkOptions = context.deserialize(codedInput);
-          diff =
-              new OptionsDiffForReconstruction(
-                  differingOptions,
-                  extraFirstFragmentClasses,
-                  extraSecondFragments,
-                  baseFingerprint,
-                  checksum,
-                  differingStarlarkOptions,
-                  extraFirstStarlarkOptions,
-                  extraSecondStarlarkOptions,
-                  /*original=*/ null);
-          cache.putBytesFromOptionsDiff(diff, bytes);
-        }
-        return diff;
+          DeserializationContext context, CodedInputStream codedIn) throws IOException {
+        String checksum = codedIn.readString();
+        return checkNotNull(
+            context.getDependency(OptionsChecksumCache.class).getOptionsDiff(checksum),
+            "No options instance for %s",
+            checksum);
       }
     }
   }
 
   /**
-   * Injected cache for {@code Codec}, so that we don't have to repeatedly serialize the same
-   * object. We still incur the over-the-wire cost of the bytes, but we don't use CPU to repeatedly
-   * compute it.
-   *
-   * <p>We provide the cache as an injected dependency so that different serializers' caches are
-   * isolated.
-   *
-   * <p>Used when configured targets are serialized: the more compact {@link
-   * FingerprintingKDiffToByteStringCache} cache below cannot be easily used because a configured
-   * target may have an edge to a configured target in a different configuration, and with only the
-   * checksum there would be no way to compute that configuration (although it is very likely in the
-   * graph already).
+   * Provides {@link OptionsDiffForReconstruction} instances when requested via their {@linkplain
+   * OptionsDiffForReconstruction#getChecksum checksum}.
    */
-  public interface OptionsDiffCache {
-    ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff);
+  public interface OptionsChecksumCache {
 
-    void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes);
+    /**
+     * Called during deserialization to transform a checksum into an {@link
+     * OptionsDiffForReconstruction} instance.
+     */
+    OptionsDiffForReconstruction getOptionsDiff(String checksum);
 
-    OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes);
+    /**
+     * Notifies the cache that it may be necessary to deserialize the given options diff's checksum.
+     *
+     * <p>Called each time an {@link OptionsDiffForReconstruction} instance is serialized.
+     */
+    void prime(OptionsDiffForReconstruction optionsDiff);
   }
 
   /**
-   * Implementation of the {@link OptionsDiffCache} that acts as a {@code BiMap} utilizing two
-   * {@code ConcurrentHashMaps}.
-   */
-  public static final class DiffToByteCache implements OptionsDiffCache {
-    // We expect there to be very few elements so keeping the reverse map as well as the forward
-    // map should be very cheap.
-    private final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString> diffToByteStringMap =
-        new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction> byteStringToDiffMap =
-        new ConcurrentHashMap<>();
-
-    @Override
-    public ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff) {
-      return diffToByteStringMap.get(diff);
-    }
-
-    @Override
-    public void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes) {
-      // We need to insert data into map that will be used for deserialization first in case there
-      // is a race between two threads. If we populated the diffToByteStringMap first, another
-      // thread could get the result above and race ahead, but then get a cache miss on
-      // deserialization.
-      byteStringToDiffMap.put(bytes, diff);
-      diffToByteStringMap.put(diff, bytes);
-    }
-
-    @Override
-    public OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes) {
-      return byteStringToDiffMap.get(bytes);
-    }
-  }
-
-  /**
-   * {@link BuildOptions.OptionsDiffForReconstruction} serialization cache that relies on only
-   * serializing the checksum string instead of the full OptionsDiffForReconstruction.
+   * Simple {@link OptionsChecksumCache} backed by a {@link ConcurrentMap}.
    *
-   * <p>This requires that every {@link BuildOptions.OptionsDiffForReconstruction} instance
-   * encountered is serialized <i>before</i> it is ever deserialized. When not serializing
-   * configured targets, this holds because every configuration present in the build is looked up in
-   * the graph using a {@code BuildConfigurationValue.Key}, which contains its {@link
-   * BuildOptions.OptionsDiffForReconstruction}. This requires that {@code BuildConfigurationValue}
-   * instances must always be serialized.
+   * <p>Checksum mappings are retained indefinitely.
    */
-  public static final class FingerprintingKDiffToByteStringCache
-      implements BuildOptions.OptionsDiffCache {
-    private final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString>
-        diffToByteStringCache = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction> byteStringToDiffMap =
+  public static final class MapBackedChecksumCache implements OptionsChecksumCache {
+    private final ConcurrentMap<String, OptionsDiffForReconstruction> map =
         new ConcurrentHashMap<>();
 
     @Override
-    public ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff) {
-      ByteString checksumString = diffToByteStringCache.get(diff);
-      if (checksumString != null) {
-        // Fast path to avoid ByteString creation churn and unnecessary map insertions.
-        return checksumString;
+    public OptionsDiffForReconstruction getOptionsDiff(String checksum) {
+      return map.get(checksum);
+    }
+
+    @Override
+    public void prime(OptionsDiffForReconstruction optionsDiff) {
+      // Avoid the lock-acquiring overhead of put() if it's already present.
+      if (!map.containsKey(optionsDiff.getChecksum())) {
+        map.put(optionsDiff.getChecksum(), optionsDiff);
       }
-      checksumString = ByteString.copyFromUtf8(diff.getChecksum());
-      // We need to insert data into map that will be used for deserialization first in case there
-      // is a race between two threads. If we populated the diffToByteStringCache first, another
-      // thread could get checksumString above during serialization and race ahead, but then get a
-      // cache miss on deserialization.
-      byteStringToDiffMap.put(checksumString, diff);
-      diffToByteStringCache.put(diff, checksumString);
-      return checksumString;
-    }
-
-    @Override
-    public void putBytesFromOptionsDiff(OptionsDiffForReconstruction diff, ByteString bytes) {
-      throw new UnsupportedOperationException(
-          "diff "
-              + diff
-              + " should have not been serialized: "
-              + diffToByteStringCache
-              + ", "
-              + byteStringToDiffMap);
-    }
-
-    @Override
-    public OptionsDiffForReconstruction getOptionsDiffFromBytes(ByteString bytes) {
-      return Preconditions.checkNotNull(
-          byteStringToDiffMap.get(bytes),
-          "Missing bytes %s: %s %s",
-          bytes,
-          diffToByteStringCache,
-          byteStringToDiffMap);
     }
   }
 }

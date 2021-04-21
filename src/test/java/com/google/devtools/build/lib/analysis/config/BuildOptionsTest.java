@@ -21,7 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.DiffToByteCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -349,8 +350,8 @@ public final class BuildOptionsTest {
     OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
     OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
     assertThat(diff2).isEqualTo(diff1);
-    assertThat(toBytes(diff2, new BuildOptions.DiffToByteCache()))
-        .isEqualTo(toBytes(diff1, new BuildOptions.DiffToByteCache()));
+    assertThat(toBytes(diff2, new MapBackedChecksumCache()))
+        .isEqualTo(toBytes(diff1, new MapBackedChecksumCache()));
   }
 
   @Test
@@ -358,7 +359,7 @@ public final class BuildOptionsTest {
     BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
     BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
     OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(one, two);
-    BuildOptions.OptionsDiffCache cache = new BuildOptions.FingerprintingKDiffToByteStringCache();
+    OptionsChecksumCache cache = new MapBackedChecksumCache();
     assertThat(toBytes(diff, cache)).isEqualTo(toBytes(diff, cache));
   }
 
@@ -565,28 +566,6 @@ public final class BuildOptionsTest {
     assertThat(trimmed).isSameInstanceAs(original);
   }
 
-  @Test
-  public void noSharingBetweenDiffToBytesCacheInstances() {
-    BuildOptions options = BuildOptions.builder().build();
-    OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(options, options);
-    ByteString serialized1 = ByteString.copyFromUtf8("1");
-    ByteString serialized2 = ByteString.copyFromUtf8("2");
-    DiffToByteCache cache1 = new DiffToByteCache();
-    DiffToByteCache cache2 = new DiffToByteCache();
-
-    cache1.putBytesFromOptionsDiff(diff, serialized1);
-    assertThat(cache1.getBytesFromOptionsDiff(diff)).isEqualTo(serialized1);
-    assertThat(cache1.getOptionsDiffFromBytes(serialized1)).isEqualTo(diff);
-    assertThat(cache2.getBytesFromOptionsDiff(diff)).isNull();
-    assertThat(cache2.getOptionsDiffFromBytes(serialized1)).isNull();
-
-    cache2.putBytesFromOptionsDiff(diff, serialized2);
-    assertThat(cache1.getBytesFromOptionsDiff(diff)).isEqualTo(serialized1);
-    assertThat(cache1.getOptionsDiffFromBytes(serialized2)).isNull();
-    assertThat(cache2.getBytesFromOptionsDiff(diff)).isEqualTo(serialized2);
-    assertThat(cache2.getOptionsDiffFromBytes(serialized2)).isEqualTo(diff);
-  }
-
   private static OptionsDiffForReconstruction uncachedDiffForReconstruction(
       BuildOptions first, BuildOptions second) {
     OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(first, second);
@@ -594,12 +573,10 @@ public final class BuildOptionsTest {
     return diff;
   }
 
-  private static ByteString toBytes(
-      OptionsDiffForReconstruction diff, BuildOptions.OptionsDiffCache cache)
+  private static ByteString toBytes(OptionsDiffForReconstruction diff, OptionsChecksumCache cache)
       throws IOException, SerializationException {
     return TestUtils.toBytes(
-        new SerializationContext(
-            ImmutableClassToInstanceMap.of(BuildOptions.OptionsDiffCache.class, cache)),
+        new SerializationContext(ImmutableClassToInstanceMap.of(OptionsChecksumCache.class, cache)),
         diff);
   }
 }
