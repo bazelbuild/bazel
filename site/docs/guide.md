@@ -3,7 +3,7 @@ layout: documentation
 title: User's guide
 ---
 
-# A User's Guide to Bazel
+# User's Guide
 
 To run Bazel, go to your base [workspace](build-ref.html#workspace) directory
 or any of its subdirectories and type `bazel`.
