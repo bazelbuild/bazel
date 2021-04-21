@@ -10,6 +10,9 @@ with Bazel. If you have not done so already, get started with building C++
 projects with Bazel by completing the tutorial
 [Introduction to Bazel: Build a C++ Project](tutorial/cpp.html).
 
+For information on cc_library and hdrs header files, see
+<a href="be/c-cpp.html#cc_library">cc_library</a>.
+
 ## Including multiple files in a target
 
 You can include multiple files in a single target with
