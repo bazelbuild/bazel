@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -41,9 +42,11 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Structure;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -99,7 +102,7 @@ public abstract class Args implements CommandLineArgsApi {
    * Returns a set of directory artifacts which will need to be expanded for evaluating the
    * encapsulated arguments during execution.
    */
-  public abstract ImmutableSet<Artifact> getDirectoryArtifacts();
+  public abstract ImmutableSet<Artifact> getDirectoryArtifacts() throws EvalException;
 
   /** Returns the command line built by this {@link Args} object. */
   public abstract CommandLine build();
@@ -434,13 +437,13 @@ public abstract class Args implements CommandLineArgsApi {
       if (value instanceof Depset) {
         Depset starlarkNestedSet = (Depset) value;
         NestedSet<?> nestedSet = starlarkNestedSet.getSet();
-        if (expandDirectories) {
+        if (expandDirectories || mapEach != null) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
         Sequence<?> starlarkList = (Sequence) value;
-        if (expandDirectories) {
+        if (expandDirectories || mapEach != null) {
           scanForDirectories(starlarkList);
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(starlarkList);
@@ -571,7 +574,7 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
-    public ImmutableSet<Artifact> getDirectoryArtifacts() {
+    public ImmutableSet<Artifact> getDirectoryArtifacts() throws EvalException {
       for (NestedSet<?> collection : potentialDirectoryArtifacts) {
         scanForDirectories(collection.toList());
       }
@@ -579,10 +582,41 @@ public abstract class Args implements CommandLineArgsApi {
       return ImmutableSet.copyOf(directoryArtifacts);
     }
 
-    private void scanForDirectories(Iterable<?> objects) {
+    private void scanForDirectories(Iterable<?> objects) throws EvalException {
       for (Object object : objects) {
-        if (isDirectory(object)) {
-          directoryArtifacts.add((Artifact) object);
+        try {
+          scanForDirectoriesDeeply(object);
+        } catch (StackOverflowError unused) {
+          throw Starlark.errorf("nesting depth limit exceeded");
+        }
+      }
+    }
+
+    /**
+     * Walks recursively through the given object, collecting any component parts that are directory
+     * {@code Artifact}s.
+     *
+     * <p>At this time, the following data types are supported: dictionaries (both keys and values
+     * are checked), lists, tuples, and structs/Starlark providers.
+     */
+    private void scanForDirectoriesDeeply(Object object) throws EvalException {
+      if (isDirectory(object)) {
+        directoryArtifacts.add((Artifact) object);
+      } else if (object instanceof Map) {
+        Map<?, ?> map = (Map) object;
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+          scanForDirectoriesDeeply(entry.getKey());
+          scanForDirectoriesDeeply(entry.getValue());
+        }
+      } else if (object instanceof StarlarkIterable) {
+        StarlarkIterable<?> iterable = (StarlarkIterable) object;
+        for (Object element : iterable) {
+          scanForDirectoriesDeeply(element);
+        }
+      } else if (object instanceof Structure) {
+        Structure struct = (Structure) object;
+        for (String fieldName : struct.getFieldNames()) {
+          scanForDirectoriesDeeply(struct.getValue(fieldName));
         }
       }
     }

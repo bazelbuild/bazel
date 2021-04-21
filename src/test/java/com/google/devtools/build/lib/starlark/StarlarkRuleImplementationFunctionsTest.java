@@ -3219,4 +3219,92 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     CommandLine commandLine = args.build();
     assertThrows(CommandLineExpansionException.class, commandLine::arguments);
   }
+
+  @Test
+  public void addAll_failsWhenExpandingRecursiveDataStructure() throws Exception {
+    setRuleContext(createRuleContext("//foo"));
+    EvalException e =
+        assertThrows(
+            EvalException.class,
+            () ->
+                ev.exec(
+                    "args = ruleContext.actions.args()",
+                    "directory = ruleContext.actions.declare_directory('dir')",
+                    "def _expand_dirs(l, dir_expander):",
+                    "  return [f.short_path for f in dir_expander.expand(l)]",
+                    "l = [0, 1, 2]",
+                    "l[1] = struct(loop = l)",
+                    "args.add_all([l], map_each=_expand_dirs)"));
+
+    assertThat(e).hasMessageThat().contains("nesting depth limit exceeded");
+  }
+
+  @Test
+  public void getDirectoryArtifacts_returnsDirectoryFromNestedList() throws Exception {
+    setRuleContext(createRuleContext("//foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "dir = ruleContext.actions.declare_directory('dir')",
+        "def _get_paths(map_arg, expander): return []",
+        "args.add_all([['foo', dir]], map_each=_get_paths)");
+    Args args = (Args) ev.eval("args");
+    Artifact dir = (Artifact) ev.eval("dir");
+
+    assertThat(args.getDirectoryArtifacts()).containsExactly(dir);
+  }
+
+  @Test
+  public void getDirectoryArtifacts_returnsDirectoryFromDict() throws Exception {
+    setRuleContext(createRuleContext("//foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "dir = ruleContext.actions.declare_directory('dir')",
+        "def _get_paths(map_arg, expander): return []",
+        "args.add_all([{'key': dir}], map_each=_get_paths)");
+    Args args = (Args) ev.eval("args");
+    Artifact dir = (Artifact) ev.eval("dir");
+
+    assertThat(args.getDirectoryArtifacts()).containsExactly(dir);
+  }
+
+  @Test
+  public void getDirectoryArtifacts_returnsDirectoryFromStructField() throws Exception {
+    setRuleContext(createRuleContext("//foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "dir = ruleContext.actions.declare_directory('dir')",
+        "def _get_paths(map_arg, expander): return []",
+        "args.add_all([struct(field=dir)], map_each=_get_paths)");
+    Args args = (Args) ev.eval("args");
+    Artifact dir = (Artifact) ev.eval("dir");
+
+    assertThat(args.getDirectoryArtifacts()).containsExactly(dir);
+  }
+
+  @Test
+  public void getDirectoryArtifacts_returnsDirectoryFromComplexNesting() throws Exception {
+    setRuleContext(createRuleContext("//foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "dir = ruleContext.actions.declare_directory('dir')",
+        "def _get_paths(map_arg, expander): return []",
+        "args.add_all([struct(field=['foo', {'key': struct(field=dir)}])], map_each=_get_paths)");
+    Args args = (Args) ev.eval("args");
+    Artifact dir = (Artifact) ev.eval("dir");
+
+    assertThat(args.getDirectoryArtifacts()).containsExactly(dir);
+  }
+
+  @Test
+  public void getDirectoryArtifacts_doesNotExpandIfNoMapFunctionAndExpandDirectoriesIsFalse()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "dir = ruleContext.actions.declare_directory('dir')",
+        "args.add_all([struct(field=dir)], expand_directories=False)");
+    Args args = (Args) ev.eval("args");
+
+    assertThat(args.getDirectoryArtifacts()).isEmpty();
+  }
 }
