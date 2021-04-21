@@ -2568,6 +2568,7 @@ java_library(
     srcs = ["TopDownActionCache.java"],
     deps = [
         ":action_execution_value",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
         "//third_party:jsr305",
     ],

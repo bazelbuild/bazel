@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
 import javax.annotation.Nullable;
 
@@ -24,9 +25,14 @@ import javax.annotation.Nullable;
  */
 public interface TopDownActionCache {
 
-  /** Retrieves the cached value for the given action sketch, or null. */
+  /**
+   * Retrieves the cached value for the given action sketch, or null.
+   *
+   * <p>The sketch alone is expected to suffice as the cache key, but the {@link ActionLookupData}
+   * is also provided for context.
+   */
   @Nullable
-  ActionExecutionValue get(ActionSketch sketch);
+  ActionExecutionValue get(ActionSketch sketch, ActionLookupData action);
 
   /** Puts the sketch into the top-down cache. May complete asynchronously. */
   void put(ActionSketch sketch, ActionExecutionValue value);
