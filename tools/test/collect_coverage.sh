@@ -140,7 +140,7 @@ if [[ ! -z "${JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE}" ]]; then
   # Append the runfiles prefix to all the relative paths found in
   # JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE, to invoke SingleJar with the
   # absolute paths.
-  RUNFILES_PREFIX="$TEST_SRCDIR/$TEST_WORKSPACE/"
+  RUNFILES_PREFIX="$TEST_SRCDIR/"
   cat "$JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE" | sed "s@^@$RUNFILES_PREFIX@" >> "$single_jar_params_file"
 
   # Invoke SingleJar. This will create JACOCO_METADATA_JAR.
