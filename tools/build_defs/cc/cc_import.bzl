@@ -238,6 +238,7 @@ cc_import = rule(
         "data": attr.label_list(allow_files = True),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
-    toolchains = ["@rules_cc//cc:toolchain_type"],  # copybara-use-repo-external-label
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],  # copybara-use-repo-external-label
     fragments = ["cpp"],
+    incompatible_use_toolchain_transition = True,
 )

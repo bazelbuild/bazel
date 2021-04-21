@@ -140,6 +140,8 @@ def my_macro(name, visibility=None):
 
 If you need to know the package name (i.e. which BUILD file is calling the
 macro), use the function [native.package_name()](lib/native.html#package_name).
+Note that `native` can only be used in `.bzl` files, and not in WORKSPACE or
+BUILD.
 
 ## Debugging
 

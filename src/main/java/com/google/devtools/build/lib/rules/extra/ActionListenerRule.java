@@ -65,9 +65,9 @@ public final class ActionListenerRule implements RuleDefinition {
 /*<!-- #BLAZE_RULE (NAME = action_listener, FAMILY = Extra Actions)[GENERIC_RULE] -->
 
 <p>
-  <b>DISCLAIMER:</b>
-  This is an experimental feature, expect breaking changes when
-  implementing an <code>action_listener</code>/<code>extra_action</code>.
+  <b>WARNING:</b> Extra actions are deprecated. Use
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>
+  instead.
 </p>
 
 <p>

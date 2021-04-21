@@ -28,11 +28,12 @@ import com.google.common.collect.Ordering;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
+import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
-import com.google.devtools.build.lib.graph.LabelSerializer;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
@@ -83,6 +84,16 @@ public abstract class AbstractQueryTest<T> {
   protected QueryHelper<T> helper;
   protected AnalysisMock analysisMock;
 
+  protected ConfiguredRuleClassProvider.Builder setRuleClassProviders(MockRule... mockRules) {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    for (MockRule rule : mockRules) {
+      builder.addRuleDefinition(rule);
+    }
+    builder.addConfigurationFragment(DummyTestFragment.class);
+    return builder;
+  }
+
   @Before
   public final void initializeQueryHelper() throws Exception {
     helper = createQueryHelper();
@@ -90,6 +101,7 @@ public abstract class AbstractQueryTest<T> {
     mockToolsConfig = new MockToolsConfig(helper.getRootDirectory());
     analysisMock = AnalysisMock.get();
     helper.setUniverseScope(getDefaultUniverseScope());
+    helper.useRuleClassProvider(setRuleClassProviders().build());
   }
 
   /**
@@ -470,10 +482,10 @@ public abstract class AbstractQueryTest<T> {
         "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
-        "    values = {'test_arg': 'a'})",
+        "    values = {'foo': 'a'})",
         "config_setting(",
         "    name = 'b',",
-        "    values = {'test_arg': 'b'})");
+        "    values = {'foo': 'b'})");
     writeFile(
         "configurable/BUILD",
         "cc_binary(",
@@ -1284,14 +1296,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   private static <T> DotOutputVisitor<T> createVisitor(PrintWriter writer) {
-    return new DotOutputVisitor<T>(
-        writer,
-        new LabelSerializer<T>() {
-          @Override
-          public String serialize(Node<T> node) {
-            return node.getLabel().toString();
-          }
-        });
+    return new DotOutputVisitor<T>(writer, (Node<T> node) -> node.getLabel().toString());
   }
 
   @Test
@@ -1463,7 +1468,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testSlashSlashDotDotDot() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "sh_library(name = 'a', srcs = ['a.sh'])");
     assertThat(eval("//...")).isEqualTo(eval("//a"));
@@ -1527,73 +1532,63 @@ public abstract class AbstractQueryTest<T> {
   }
 
   private void useExtendedSetOfRules() throws Exception {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    builder.addRuleDefinition(TestAspects.BASE_RULE);
-    builder.addRuleDefinition(TestAspects.ASPECT_REQUIRING_RULE);
-    builder.addRuleDefinition(TestAspects.EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_RULE);
-    builder.addRuleDefinition(TestAspects.HONEST_RULE);
-    builder.addRuleDefinition(TestAspects.SIMPLE_RULE);
-    helper.useRuleClassProvider(builder.build());
+    helper.useRuleClassProvider(
+        setRuleClassProviders(
+                TestAspects.BASE_RULE,
+                TestAspects.ASPECT_REQUIRING_RULE,
+                TestAspects.EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_RULE,
+                TestAspects.HONEST_RULE,
+                TestAspects.SIMPLE_RULE)
+            .build());
+  }
+
+  private void useReducedSetOfRules() throws Exception {
+    helper.clearAllFiles();
+    helper.useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 
   @Test
   public void testHaveDepsOnAspectsAttributes() throws Exception {
-    try {
-      useExtendedSetOfRules();
-      writeFile(
-          "a/BUILD",
-          "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
-          "honest(name='b', foo=[])");
-      writeFile("extra/BUILD", "honest(name='extra', foo=[])");
+    useExtendedSetOfRules();
+    writeFile(
+        "a/BUILD",
+        "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
+        "honest(name='b', foo=[])");
+    writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
-      Truth.assertThat(evalToString("deps(//a:a)")).contains("//extra:extra");
-    } finally {
-      helper.clearAllFiles();
-      helper.useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
-    }
+    Truth.assertThat(evalToString("deps(//a:a)")).contains("//extra:extra");
   }
 
   @Test
   public void testNoDepsOnAspectAttributeWhenAspectMissing() throws Exception {
-    try {
-      useExtendedSetOfRules();
-      writeFile(
-          "a/BUILD",
-          "aspect(name='a', foo=[':b'])",
-          "honest(name='b', foo=[])",
-          "extra_attribute_aspect_requiring_provider(name='c', foo=[':d'])",
-          "simple(name='d', foo=[])");
-      writeFile("extra/BUILD", "honest(name='extra', foo=[])");
+    useExtendedSetOfRules();
+    writeFile(
+        "a/BUILD",
+        "aspect(name='a', foo=[':b'])",
+        "honest(name='b', foo=[])",
+        "extra_attribute_aspect_requiring_provider(name='c', foo=[':d'])",
+        "simple(name='d', foo=[])");
+    writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
-      assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
-      assertThat(evalToString("deps(//a:c)")).doesNotContain("//extra:extra");
-    } finally {
-      helper.clearAllFiles();
-      helper.useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
-    }
+    assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
+    assertThat(evalToString("deps(//a:c)")).doesNotContain("//extra:extra");
   }
 
   @Test
   public void testNoDepsOnAspectAttributeWithNoImpicitDeps() throws Exception {
-    try {
-      useExtendedSetOfRules();
-      helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-      writeFile(
-          "a/BUILD",
-          "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
-          "honest(name='b', foo=[])");
-      writeFile("extra/BUILD", "honest(name='extra', foo=[])");
+    useExtendedSetOfRules();
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    writeFile(
+        "a/BUILD",
+        "extra_attribute_aspect_requiring_provider(name='a', foo=[':b'])",
+        "honest(name='b', foo=[])");
+    writeFile("extra/BUILD", "honest(name='extra', foo=[])");
 
-      Truth.assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
-    } finally {
-      helper.clearAllFiles();
-      helper.useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
-    }
+    Truth.assertThat(evalToString("deps(//a:a)")).doesNotContain("//extra:extra");
   }
 
   public void simpleVisibilityTest(String visibility, boolean expectVisible) throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1633,7 +1628,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_private_same_package() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "a/BUILD",
@@ -1644,7 +1639,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_package_group() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1656,7 +1651,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_package_group_invisible() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1669,7 +1664,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_package_group_include() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
@@ -1683,7 +1678,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_java_javatests() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "java/com/google/a/BUILD",
@@ -1701,7 +1696,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_java_javatests_different_package() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "java/com/google/a/BUILD",
@@ -1720,7 +1715,7 @@ public abstract class AbstractQueryTest<T> {
   // java cannot see javatests
   @Test
   public void testVisible_javatests_java() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile(
         "javatests/com/google/a/BUILD",
@@ -1738,7 +1733,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_default_private() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -1750,7 +1745,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testVisible_default_public() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
@@ -1762,7 +1757,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testPackageGroupAllBeneath() throws Exception {
-    helper.clearAllFiles();
+    useReducedSetOfRules();
     writeFile("WORKSPACE");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(

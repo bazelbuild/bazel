@@ -44,7 +44,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -338,9 +337,9 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public void registerAction(ActionAnalysisMetadata... actions) {
+  public void registerAction(ActionAnalysisMetadata action) {
     Preconditions.checkState(enabled);
-    Collections.addAll(this.actions, actions);
+    this.actions.add(Preconditions.checkNotNull(action, owner));
   }
 
   @Override

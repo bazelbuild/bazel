@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -52,12 +53,14 @@ import javax.annotation.Nullable;
  *   <li>For a directory, the existence is noted.
  *   <li>For a file, the existence is noted, along with metadata about the file (e.g. file digest).
  *       See {@link RegularFileStateValue}.
- *       <ul>
- *         <p>This class is an implementation detail of {@link FileValue} and should not be used by
- *         {@link com.google.devtools.build.skyframe.SkyFunction}s other than {@link FileFunction}.
- *         Instead, {@link FileValue} should be used by {@link
- *         com.google.devtools.build.skyframe.SkyFunction} consumers that care about files.
- *         <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
+ * </ul>
+ *
+ * <p>This class is an implementation detail of {@link FileValue} and should not be used by {@link
+ * com.google.devtools.build.skyframe.SkyFunction}s other than {@link FileFunction}. Instead, {@link
+ * FileValue} should be used by {@link com.google.devtools.build.skyframe.SkyFunction} consumers
+ * that care about files.
+ *
+ * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
 public abstract class FileStateValue implements HasDigest, SkyValue {
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.createNonHermetic("FILE_STATE");
@@ -142,9 +145,10 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     return Key.create(rootedPath);
   }
 
+  /** Key type for FileStateValue. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<RootedPath> {
+  public static class Key extends AbstractSkyKey<RootedPath> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
 
     private Key(RootedPath arg) {

@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -87,7 +90,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
@@ -127,6 +130,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -171,12 +175,12 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -191,6 +195,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -298,7 +303,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
             .setEnvironmentExtensions(getEnvironmentExtensions())
-            .setPackageValidator(getPackageValidator());
+            .setPackageValidator(getPackageValidator())
+            .setPackageOverheadEstimator(getPackageOverheadEstimator());
     if (!doPackageLoadingChecks) {
       pkgFactoryBuilder.disableChecks();
     }
@@ -414,6 +420,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected PackageValidator getPackageValidator() {
     return PackageValidator.NOOP_VALIDATOR;
+  }
+
+  protected PackageOverheadEstimator getPackageOverheadEstimator() {
+    return PackageOverheadEstimator.NOOP_ESTIMATOR;
   }
 
   protected final BuildConfigurationCollection createConfigurations(
@@ -703,17 +713,42 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Asserts that two configurations are the same.
+   * Returns a BuildOptions with options in exclude trimmed away.
    *
-   * <p>Historically this meant they contained the same object reference. But with upcoming dynamic
-   * configurations that may no longer be true (for example, they may have the same values but not
-   * the same {@link Fragment}s. So this method abstracts the "configuration equivalency" checking
-   * into one place, where the implementation logic can evolve as needed.
+   * <p>BuildOptions.trim actually retains the options passed to it so must reverse the logic.
    */
-  protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
+  private static BuildOptions trimConfiguration(
+      BuildOptions input, Set<Class<? extends FragmentOptions>> exclude) {
+    Set<Class<? extends FragmentOptions>> include =
+        input.getFragmentClasses().stream()
+            .filter((x) -> !exclude.contains(x))
+            .collect(toImmutableSet());
+    return input.trim(include);
+  }
+
+  /**
+   * Asserts that two configurations are the same, with exclusions.
+   *
+   * <p>Any fragments options of type specified in excludeFragmentOptions are excluded from the
+   * comparison.
+   *
+   * <p>Generally, this means they share the same checksum, which is computed by iterating over all
+   * the individual @Option annotated values contained within the {@link FragmentOption} classes
+   * contained within the {@link BuildOptions} inside the given configurations.
+   */
+  protected void assertConfigurationsEqual(
+      BuildConfiguration config1,
+      BuildConfiguration config2,
+      Set<Class<? extends FragmentOptions>> excludeFragmentOptions) {
     // BuildOptions and crosstool files determine a configuration's content. Within the context
     // of these tests only the former actually change.
-    assertThat(config2.cloneOptions()).isEqualTo(config1.cloneOptions());
+
+    assertThat(trimConfiguration(config2.cloneOptions(), excludeFragmentOptions))
+        .isEqualTo(trimConfiguration(config1.cloneOptions(), excludeFragmentOptions));
+  }
+
+  protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
+    assertConfigurationsEqual(config1, config2, ImmutableSet.of());
   }
 
   /**
@@ -1178,6 +1213,31 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Check that configuration of the target named 'ruleName' in the specified BUILD file fails with
+   * an error message matching 'expectedErrorPattern'.
+   *
+   * @param packageName the package name of the generated BUILD file
+   * @param ruleName the rule name for the rule in the generated BUILD file
+   * @param expectedErrorPattern a regex that matches the expected error.
+   * @param lines the text of the rule.
+   * @return the found error.
+   */
+  protected Event checkError(
+      String packageName, String ruleName, Pattern expectedErrorPattern, String... lines)
+      throws Exception {
+    eventCollector.clear();
+    reporter.removeHandler(failFastHandler); // expect errors
+    ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
+    if (target != null) {
+      assertWithMessage(
+              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+          .that(view.hasErrors(target))
+          .isTrue();
+    }
+    return assertContainsEvent(expectedErrorPattern);
+  }
+
+  /**
    * Check that configuration of the target named 'label' fails with an error message containing
    * 'expectedErrorMessage'.
    *
@@ -1313,16 +1373,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     if ((owner instanceof ActionLookupKey)) {
-      ActionLookupValue actionLookupValue;
+      SkyValue skyValue;
       try {
-        actionLookupValue =
-            (ActionLookupValue)
-                skyframeExecutor.getEvaluatorForTesting().getExistingValue((SkyKey) owner);
+        skyValue = skyframeExecutor.getEvaluatorForTesting().getExistingValue((SkyKey) owner);
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
-      if (actionLookupValue != null) {
-        for (ActionAnalysisMetadata action : actionLookupValue.getActions()) {
+      if (skyValue instanceof ActionLookupValue) {
+        for (ActionAnalysisMetadata action : ((ActionLookupValue) skyValue).getActions()) {
           for (Artifact output : action.getOutputs()) {
             if (output.getRootRelativePath().equals(rootRelativePath)
                 && output.getRoot().equals(root)) {
@@ -1333,6 +1391,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
     }
     // Fall back: some tests don't actually need an artifact with an owner.
+    // TODO(janakr): the tests that are passing in nonsense here should be changed.
     return view.getArtifactFactory().getDerivedArtifact(rootRelativePath, root, owner);
   }
 
@@ -1475,7 +1534,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildConfiguration config = getConfiguration(owner);
     return getGenfilesArtifact(
         packageRelativePath,
-        ConfiguredTargetKey.builder().setLabel(makeLabel(owner)).setConfiguration(config).build(),
+        ConfiguredTargetKey.builder()
+            .setLabel(Label.parseAbsoluteUnchecked(owner))
+            .setConfiguration(config)
+            .build(),
         config);
   }
 
@@ -1683,20 +1745,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static ConfiguredAttributeMapper getMapperFromConfiguredTargetAndTarget(
       ConfiguredTargetAndData ctad) {
     return ConfiguredAttributeMapper.of(
-        (Rule) ctad.getTarget(), ctad.getConfiguredTarget().getConfigConditions());
-  }
-
-  public static Label makeLabel(String label) {
-    try {
-      return Label.parseAbsolute(label, ImmutableMap.of());
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
+        (Rule) ctad.getTarget(),
+        ctad.getConfiguredTarget().getConfigConditions(),
+        ctad.getConfiguration().checksum());
   }
 
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
     return ConfiguredTargetKey.builder()
-        .setLabel(makeLabel(label))
+        .setLabel(Label.parseAbsoluteUnchecked(label))
         .setConfiguration(getConfiguration(label))
         .build();
   }
@@ -1739,7 +1795,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected void assertContainsSelfEdgeEvent(String label) {
-    assertContainsEvent(label + " [self-edge]");
+    assertContainsEvent(Pattern.compile(label + " \\([a-f0-9]+\\) \\[self-edge\\]"));
   }
 
   protected NestedSet<Artifact> collectRunfiles(ConfiguredTarget target) {
@@ -2077,7 +2133,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected class StubAnalysisEnvironment implements AnalysisEnvironment {
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... action) {
+    public void registerAction(ActionAnalysisMetadata action) {
       throw new UnsupportedOperationException();
     }
 
@@ -2209,7 +2265,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       baselineAction.newDeterministicWriter(ActionsTestUtil.createContext(reporter))
           .writeOutputFile(bytes);
 
-      for (String line : new String(bytes.toByteArray(), StandardCharsets.UTF_8).split("\n")) {
+      for (String line : Splitter.on('\n').split(new String(bytes.toByteArray(), UTF_8))) {
         if (line.startsWith("SF:")) {
           String basename = line.substring(line.lastIndexOf('/') + 1);
           basenames.add(basename);

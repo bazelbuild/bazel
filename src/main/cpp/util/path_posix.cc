@@ -49,7 +49,7 @@ std::pair<std::string, std::string> SplitPath(const std::string &path) {
 }
 
 bool IsDevNull(const char *path) {
-  return path != NULL && *path != 0 && strncmp("/dev/null\0", path, 10) == 0;
+  return path != nullptr && *path != 0 && strncmp("/dev/null\0", path, 10) == 0;
 }
 
 bool IsRootDirectory(const std::string &path) {

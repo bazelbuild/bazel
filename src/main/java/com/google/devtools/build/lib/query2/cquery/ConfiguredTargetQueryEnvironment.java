@@ -174,6 +174,17 @@ public class ConfiguredTargetQueryEnvironment
     return ImmutableList.of(new ConfigFunction());
   }
 
+  /**
+   * Return supplied BuildConfiguration if both are equal else throw exception.
+   *
+   * <p>Noting the background of {@link BuildConfigurationValue.Key::toComparableString}, multiple
+   * BuildConfigurationValue.Key can correspond to the same BuildConfiguration, especially when
+   * trimming is involved.
+   *
+   * <p>Note that, in {@link getTransitiveConfigurations}, only interested in the values and
+   * throwing away the Keys. Thus, intricacies around Key fragments and options diverging not as
+   * relevant anyway.
+   */
   private static BuildConfiguration mergeEqualBuildConfiguration(
       BuildConfiguration left, BuildConfiguration right) {
     if (!left.equals(right)) {
@@ -186,6 +197,8 @@ public class ConfiguredTargetQueryEnvironment
   private static ImmutableMap<String, BuildConfiguration> getTransitiveConfigurations(
       Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
       throws InterruptedException {
+    // mergeEqualBuildConfiguration can only fail if two BuildConfiguration have the same
+    // checksum but are not equal. This would be a black swan event.
     return graph.getSuccessfulValues(transitiveConfigurationKeys).values().stream()
         .map(value -> (BuildConfigurationValue) value)
         .map(BuildConfigurationValue::getConfiguration)

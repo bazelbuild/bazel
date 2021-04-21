@@ -18,11 +18,14 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 
 /** Fake implementation of {@link AndroidStarlarkCommonApi}. */
 public class FakeAndroidStarlarkCommon
-    implements AndroidStarlarkCommonApi<FileApi, JavaInfoApi<FileApi>> {
+    implements AndroidStarlarkCommonApi<
+        FileApi, JavaInfoApi<FileApi, JavaOutputApi<FileApi>, CcInfoApi<FileApi>>> {
 
   @Override
   public AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType) {
@@ -40,8 +43,9 @@ public class FakeAndroidStarlarkCommon
   }
 
   @Override
-  public JavaInfoApi<FileApi> enableImplicitSourcelessDepsExportsCompatibility(
-      JavaInfoApi<FileApi> javaInfo) {
+  public JavaInfoApi<FileApi, JavaOutputApi<FileApi>, CcInfoApi<FileApi>>
+      enableImplicitSourcelessDepsExportsCompatibility(
+          JavaInfoApi<FileApi, JavaOutputApi<FileApi>, CcInfoApi<FileApi>> javaInfo) {
     return null;
   }
 }

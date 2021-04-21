@@ -117,9 +117,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return ruleConfiguredTargetBuilder.build();
   }
 
-  static TemplateVariableInfo createMakeVariableProvider(
-      CcToolchainProvider toolchainProvider,
-      Location location) {
+  public static TemplateVariableInfo createMakeVariableProvider(
+      CcToolchainProvider toolchainProvider, Location location) {
 
     HashMap<String, String> makeVariables =
         new HashMap<>(toolchainProvider.getAdditionalMakeVariables());

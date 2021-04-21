@@ -33,7 +33,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -63,7 +65,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected String defaultPlatformFlag() {
-    return String.format("--platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
+    return String.format("--platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
   }
 
   @Override
@@ -79,7 +81,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();
     fullArgs.add("--incompatible_enable_android_toolchain_resolution");
     // Uncomment the below to get more info when tests fail because of toolchain resolution.
-    //  fullArgs.add("--toolchain_resolution_debug");
+    //  fullArgs.add("--toolchain_resolution_debug=tools/android:.*toolchain_type");
     boolean hasPlatform = false;
     for (String arg : args) {
       if (arg.startsWith("--android_sdk=")) {
@@ -122,14 +124,16 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected void assertNativeLibrariesCopiedNotLinked(
-      ConfiguredTarget target, String... expectedLibNames) {
+      ConfiguredTarget target, BuildConfiguration targetConfiguration, String... expectedLibNames) {
     Iterable<Artifact> copiedLibs = getNativeLibrariesInApk(target);
     for (Artifact copiedLib : copiedLibs) {
       assertWithMessage("Native libraries were linked to produce " + copiedLib)
           .that(getGeneratingLabelForArtifact(copiedLib))
           .isNotEqualTo(target.getLabel());
     }
-    assertThat(artifactsToStrings(copiedLibs))
+    assertThat(
+            AnalysisTestUtil.artifactsToStrings(
+                targetConfiguration, getHostConfiguration(), copiedLibs))
         .containsAtLeastElementsIn(ImmutableSet.copyOf(Arrays.asList(expectedLibNames)));
   }
 
@@ -199,11 +203,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, target.getConfiguredTarget());
     assertThat(jarProvider).isNotNull();
     return Iterables.find(
-            jarProvider.getOutputJars(),
-            outputJar -> {
-              assertThat(outputJar).isNotNull();
-              assertThat(outputJar.getClassJar()).isNotNull();
-              return outputJar
+            jarProvider.getJavaOutputs(),
+            javaOutput -> {
+              assertThat(javaOutput).isNotNull();
+              assertThat(javaOutput.getClassJar()).isNotNull();
+              return javaOutput
                   .getClassJar()
                   .getFilename()
                   .equals(target.getTarget().getName() + "_resources.jar");

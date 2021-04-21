@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -51,6 +50,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
+        .advertiseStarlarkProvider(JavaToolchainProvider.PROVIDER.id())
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(output_licenses) -->
         See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
         </code></a>
@@ -292,8 +292,8 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
             attr("java_runtime", LABEL)
                 .cfg(ExecutionTransitionFactory.create())
                 .mandatory()
-                .mandatoryProviders(ToolchainInfo.PROVIDER.id())
-                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .mandatoryProviders(JavaRuntimeInfo.PROVIDER.id())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .useOutputLicenses())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(android_lint_runner) -->
         Label of the Android Lint runner, if any.

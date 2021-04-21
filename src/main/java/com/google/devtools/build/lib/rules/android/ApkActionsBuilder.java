@@ -49,6 +49,7 @@ public class ApkActionsBuilder {
   private Artifact signingLineage;
   private String artifactLocation;
   private Artifact v4SignatureFile;
+  private boolean deterministicSigning;
 
   private final String apkName;
 
@@ -150,6 +151,11 @@ public class ApkActionsBuilder {
   /** Sets the output APK instead of creating with a static/standard path. */
   public ApkActionsBuilder setArtifactLocationDirectory(String artifactLocation) {
     this.artifactLocation = artifactLocation;
+    return this;
+  }
+
+  public ApkActionsBuilder setDeterministicSigning(boolean deterministicSigning) {
+    this.deterministicSigning = deterministicSigning;
     return this;
   }
 
@@ -341,6 +347,18 @@ public class ApkActionsBuilder {
       actionBuilder.addInput(signingLineage);
       commandLine.add("--lineage").addExecPath(signingLineage);
     }
+
+    if (deterministicSigning) {
+      // Enable deterministic DSA signing to keep the output of apksigner deterministic.
+      // This requires including BouncyCastleProvider as a Security provider, since the standard
+      // JDK Security providers do not include support for deterministic DSA signing.
+      // Since this adds BouncyCastleProvider to the end of the Provider list, any non-DSA signing
+      // algorithms (such as RSA) invoked by apksigner will still use the standard JDK
+      // implementations and not Bouncy Castle.
+      commandLine.add("--deterministic-dsa-signing", "true");
+      commandLine.add("--provider-class", "org.bouncycastle.jce.provider.BouncyCastleProvider");
+    }
+
     for (int i = 0; i < signingKeys.size(); i++) {
       if (i > 0) {
         commandLine.add("--next-signer");

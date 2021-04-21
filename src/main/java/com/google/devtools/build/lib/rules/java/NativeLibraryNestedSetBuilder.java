@@ -14,27 +14,16 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.util.FileType;
 
 /** A builder that helps construct nested sets of native libraries. */
 public final class NativeLibraryNestedSetBuilder {
 
   private final NestedSetBuilder<LibraryToLink> builder = NestedSetBuilder.linkOrder();
-  private final RuleContext ruleContext;
-
-  public NativeLibraryNestedSetBuilder(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
-  }
 
   /** Build a nested set of native libraries. */
   public NestedSet<LibraryToLink> build() {
@@ -64,13 +53,11 @@ public final class NativeLibraryNestedSetBuilder {
       return this;
     }
 
-    CcNativeLibraryProvider ccProvider = dep.get(CcNativeLibraryProvider.PROVIDER);
-    if (ccProvider != null) {
-      builder.addTransitive(ccProvider.getTransitiveCcNativeLibraries());
+    CcInfo ccProvider = dep.get(CcInfo.PROVIDER);
+    if (ccProvider != null && ccProvider.getCcNativeLibraryInfo() != null) {
+      builder.addTransitive(ccProvider.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
       return this;
     }
-
-    addTarget(dep);
 
     return this;
   }
@@ -86,28 +73,9 @@ public final class NativeLibraryNestedSetBuilder {
 
   /** Include native Java libraries of a specified target into the nested set. */
   private void addCcTarget(TransitiveInfoCollection dep) {
-    CcNativeLibraryProvider provider = dep.get(CcNativeLibraryProvider.PROVIDER);
-    if (provider != null) {
-      builder.addTransitive(provider.getTransitiveCcNativeLibraries());
-    } else {
-      addTarget(dep);
-    }
-  }
-
-  /** Include files and genrule artifacts. */
-  private void addTarget(TransitiveInfoCollection dep) {
-    if (ruleContext.getFragment(JavaConfiguration.class).dontCollectSoArtifacts()) {
-      return;
-    }
-    for (Artifact artifact :
-        FileType.filterList(
-            dep.getProvider(FileProvider.class).getFilesToBuild().toList(),
-            CppFileTypes.SHARED_LIBRARY)) {
-      builder.add(
-          LibraryToLink.builder()
-              .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(artifact))
-              .setDynamicLibrary(artifact)
-              .build());
+    CcInfo ccProvider = dep.get(CcInfo.PROVIDER);
+    if (ccProvider != null && ccProvider.getCcNativeLibraryInfo() != null) {
+      builder.addTransitive(ccProvider.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
     }
   }
 }

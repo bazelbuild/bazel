@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -44,10 +43,9 @@ public class SharedConnectionFactory implements ConnectionPool {
   private final ConnectionFactory factory;
 
   @Nullable
-  @GuardedBy("connectionLock")
+  @GuardedBy("this")
   private AsyncSubject<Connection> connectionAsyncSubject = null;
 
-  private final ReentrantLock connectionLock = new ReentrantLock();
   private final AtomicReference<Disposable> connectionCreationDisposable =
       new AtomicReference<>(null);
 
@@ -70,9 +68,7 @@ public class SharedConnectionFactory implements ConnectionPool {
       d.dispose();
     }
 
-    try {
-      connectionLock.lockInterruptibly();
-
+    synchronized (this) {
       if (connectionAsyncSubject != null) {
         Connection connection = connectionAsyncSubject.getValue();
         if (connection != null) {
@@ -83,16 +79,11 @@ public class SharedConnectionFactory implements ConnectionPool {
           connectionAsyncSubject.onError(new IllegalStateException("closed"));
         }
       }
-    } catch (InterruptedException e) {
-      throw new IOException(e);
-    } finally {
-      connectionLock.unlock();
     }
   }
 
-  private AsyncSubject<Connection> createUnderlyingConnectionIfNot() throws InterruptedException {
-    connectionLock.lockInterruptibly();
-    try {
+  private AsyncSubject<Connection> createUnderlyingConnectionIfNot() {
+    synchronized (this) {
       if (connectionAsyncSubject == null || connectionAsyncSubject.hasThrowable()) {
         connectionAsyncSubject =
             factory
@@ -103,14 +94,11 @@ public class SharedConnectionFactory implements ConnectionPool {
       }
 
       return connectionAsyncSubject;
-    } finally {
-      connectionLock.unlock();
     }
   }
 
   private Single<? extends Connection> acquireConnection() {
-    return Single.fromCallable(this::createUnderlyingConnectionIfNot)
-        .flatMap(Single::fromObservable);
+    return Single.fromObservable(createUnderlyingConnectionIfNot());
   }
 
   /**

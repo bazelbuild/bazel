@@ -142,7 +142,7 @@ public final class RepositoryName implements Serializable {
    */
   public static Pair<RepositoryName, PathFragment> fromPathFragment(
       PathFragment path, boolean siblingRepositoryLayout) {
-    if (path.segmentCount() < 2) {
+    if (!path.isMultiSegment()) {
       return null;
     }
 

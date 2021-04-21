@@ -32,7 +32,11 @@ public final class JavaCcLinkParamsProvider
   private final CcInfo ccInfo;
 
   public JavaCcLinkParamsProvider(CcInfo ccInfo) {
-    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
+    this.ccInfo =
+        CcInfo.builder()
+            .setCcLinkingContext(ccInfo.getCcLinkingContext())
+            .setCcNativeLibraryInfo(ccInfo.getCcNativeLibraryInfo())
+            .build();
   }
 
   @Override

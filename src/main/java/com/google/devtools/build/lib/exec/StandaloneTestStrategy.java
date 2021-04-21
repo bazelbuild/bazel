@@ -463,6 +463,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         action.getLcovMergerRunfilesSupplier(),
         /* filesetMappings= */ ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
+            .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
             .add(action.getCollectCoverageScript())
             .add(action.getCoverageDirectoryTreeArtifact())

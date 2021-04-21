@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeClasspathProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -238,11 +239,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(
-                classJar,
-                classJar,
-                outputs.manifestProto(),
-                srcJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(srcJar));
+            .addJavaOutput(
+                JavaOutput.builder()
+                    .fromJavaCompileOutputs(outputs)
+                    .setCompileJar(classJar)
+                    .setCompileJdeps(
+                        javaCommon.getJavaCompilationArtifacts().getCompileTimeDependencyArtifact())
+                    .addSourceJar(srcJar)
+                    .build());
 
     javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
 
@@ -261,7 +265,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     JavaTargetAttributes attributes = attributesBuilder.build();
     addJavaClassJarToArtifactsBuilder(javaArtifactsBuilder, attributes, classJar);
 
-    javaRuleOutputJarsProviderBuilder.setJdeps(outputs.depsProto());
     helper.createCompileAction(outputs);
     helper.createSourceJarAction(srcJar, outputs.genSource());
 

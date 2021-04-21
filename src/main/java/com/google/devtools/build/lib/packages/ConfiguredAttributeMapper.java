@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -52,13 +51,13 @@ import javax.annotation.Nullable;
 public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private final Map<Label, ConfigMatchingProvider> configConditions;
-  private Rule rule;
+  private final String configHash;
 
-  private ConfiguredAttributeMapper(Rule rule,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
+  private ConfiguredAttributeMapper(
+      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
     super(Preconditions.checkNotNull(rule));
     this.configConditions = configConditions;
-    this.rule = rule;
+    this.configHash = configHash;
   }
 
   /**
@@ -69,8 +68,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * constructors.
    */
   public static ConfiguredAttributeMapper of(
-      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
-    return new ConfiguredAttributeMapper(rule, configConditions);
+      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
+    return new ConfiguredAttributeMapper(rule, configConditions, configHash);
   }
 
   /**
@@ -147,7 +146,10 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
       throws ValidationException {
     Map<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
-    Set<Label> conditionLabels = new LinkedHashSet<>();
+    // Use a LinkedHashSet to guarantee deterministic error message ordering. We use a LinkedHashSet
+    // vs. a more general SortedSet because the latter supports insertion-order, which should more
+    // closely match how users see select() structures in BUILD files.
+    LinkedHashSet<Label> conditionLabels = new LinkedHashSet<>();
     ConfigKeyAndValue<T> matchingResult = null;
 
     // Find the matching condition and record its value (checking for duplicates).
@@ -157,8 +159,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         continue;
       }
 
-      ConfigMatchingProvider curCondition = configConditions.get(
-          rule.getLabel().resolveRepositoryRelative(selectorKey));
+      ConfigMatchingProvider curCondition =
+          configConditions.get(getLabel().resolveRepositoryRelative(selectorKey));
       if (curCondition == null) {
         // This can happen if the rule is in error
         continue;
@@ -205,15 +207,13 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     // If nothing matched, choose the default condition.
     if (matchingResult == null) {
       if (!selector.hasDefault()) {
-        String noMatchMessage =
-            "Configurable attribute \"" + attributeName + "\" doesn't match this configuration";
-        if (!selector.getNoMatchError().isEmpty()) {
-          noMatchMessage += ": " + selector.getNoMatchError();
-        } else {
-          noMatchMessage += " (would a default condition help?).\nConditions checked:\n "
-              + Joiner.on("\n ").join(conditionLabels);
-        }
-        throw new ValidationException(noMatchMessage);
+        throw new ValidationException(
+            noMatchError(
+                attributeName,
+                selector.getNoMatchError(),
+                conditionLabels,
+                getLabel(),
+                configHash));
       }
       matchingResult =
           selector.hasDefault()
@@ -223,6 +223,45 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     }
 
     return matchingResult;
+  }
+
+  /**
+   * Constructs a <a href="https://bazel.build/designs/2016/05/23/beautiful-error-messages.html">
+   * beautiful error</a> for when no conditions in a configurable attribute match.
+   */
+  private static String noMatchError(
+      String attribute,
+      String customNoMatchError,
+      LinkedHashSet<Label> conditionLabels,
+      Label targetLabel,
+      String configHash) {
+    String error =
+        String.format(
+            "configurable attribute \"%s\" in %s doesn't match this configuration",
+            attribute, targetLabel);
+    if (!customNoMatchError.isEmpty()) {
+      error += String.format(": %s\n", customNoMatchError);
+    } else {
+      error +=
+          ". Would a default condition help?\n\n"
+              + "Conditions checked:\n "
+              + Joiner.on("\n ").join(conditionLabels)
+              + "\n\n"
+              + "To see a condition's definition, run: bazel query --output=build "
+              + "<condition label>.\n";
+    }
+    // See ConfiguredTargetQueryEnvironment#shortID for the substring rationale.
+    String configShortHash = configHash.substring(0, 7);
+    error +=
+        String.format(
+            "\nThis instance of %s has configuration identifier %s. "
+                + "To inspect its configuration, run: bazel config %s.\n",
+            targetLabel, configShortHash, configShortHash);
+    error +=
+        "\n"
+            + "For more help, see"
+            + " https://docs.bazel.build/configurable-attributes.html#why-doesnt-my-select-choose-what-i-expect.\n\n";
+    return error;
   }
 
   @Override

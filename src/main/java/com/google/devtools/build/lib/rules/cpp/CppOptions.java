@@ -1044,6 +1044,28 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, write CppCompileAction exposed action.args to parameters file.")
   public boolean useArgsParamsFile;
 
+  @Option(
+      name = "experimental_objc_include_scanning",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      help = "Whether to perform include scanning for objective C/C++.")
+  public boolean objcScanIncludes;
+
+  @Option(
+      name = "objc_use_dotd_pruning",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set, .d files emitted by clang will be used to prune the set of inputs passed into "
+              + "objc compiles.")
+  public boolean objcGenerateDotdFiles;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {

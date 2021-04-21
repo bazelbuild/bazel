@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -58,6 +56,7 @@ import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
@@ -391,7 +390,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
       for (String group : execGroupDict.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
-        if (!ExecGroupCollection.isValidGroupName(group)) {
+        if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
           throw Starlark.errorf("Exec group name '%s' is not a valid name.", group);
         }
       }
@@ -478,19 +477,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
    * Parses a sequence of label strings with a repo mapping.
    *
    * @param inputs sequence of input strings
-   * @param mapping repository mapping
+   * @param thread repository mapping
    * @param adjective describes the purpose of the label; used for errors
    * @throws EvalException if the label can't be parsed
    */
   private static ImmutableList<Label> parseLabels(
-      Iterable<String> inputs,
-      ImmutableMap<RepositoryName, RepositoryName> mapping,
-      String adjective)
-      throws EvalException {
+      Iterable<String> inputs, StarlarkThread thread, String adjective) throws EvalException {
     ImmutableList.Builder<Label> parsedLabels = new ImmutableList.Builder<>();
+    BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.from(thread);
+    LabelConversionContext context =
+        new LabelConversionContext(
+            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
+            bazelStarlarkContext.getRepoMapping(),
+            bazelStarlarkContext.getConvertedLabelsInPackage());
     for (String input : inputs) {
       try {
-        Label label = Label.parseAbsolute(input, mapping);
+        Label label = context.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf(
@@ -502,18 +504,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   private static ImmutableList<Label> parseToolchains(Sequence<?> inputs, StarlarkThread thread)
       throws EvalException {
-    return parseLabels(
-        Sequence.cast(inputs, String.class, "toolchains"),
-        BazelStarlarkContext.from(thread).getRepoMapping(),
-        "toolchain");
+    return parseLabels(Sequence.cast(inputs, String.class, "toolchains"), thread, "toolchain");
   }
 
   private static ImmutableList<Label> parseExecCompatibleWith(
       Sequence<?> inputs, StarlarkThread thread) throws EvalException {
     return parseLabels(
-        Sequence.cast(inputs, String.class, "exec_compatible_with"),
-        BazelStarlarkContext.from(thread).getRepoMapping(),
-        "constraint");
+        Sequence.cast(inputs, String.class, "exec_compatible_with"), thread, "constraint");
   }
 
   @Override

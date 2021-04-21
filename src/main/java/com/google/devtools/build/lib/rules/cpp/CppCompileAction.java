@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -101,7 +102,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -384,9 +384,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public boolean discoversInputs() {
-    return shouldScanIncludes
-        || getDotdFile() != null
-        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
+    return shouldScanIncludes || getDotdFile() != null || shouldParseShowIncludes();
   }
 
   @Override
@@ -583,6 +581,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     usedModules = null;
     return additionalInputs;
+  }
+
+  @Override
+  protected final NestedSet<Artifact> getOriginalInputs() {
+    return NestedSetBuilder.fromNestedSet(mandatoryInputs)
+        .addTransitive(inputsForInvalidation)
+        .build();
   }
 
   private Predicate<Artifact> getValidUndeclaredHeaderPredicate(
@@ -836,7 +841,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
     try {
-      return getEnvironment(ImmutableMap.of());
+      return getEffectiveEnvironment(ImmutableMap.of());
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -847,9 +852,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  public ImmutableMap<String, String> getEnvironment(Map<String, String> clientEnv)
+  @Override()
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
-    Map<String, String> environment = new LinkedHashMap<>(env.size());
+    Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(environment, clientEnv);
 
     if (!getExecutionInfo().containsKey(ExecutionRequirements.REQUIRES_DARWIN)) {
@@ -917,7 +923,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEnvironment(/* clientEnv= */ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -936,7 +942,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   /** Returns the compiler options. */
   @VisibleForTesting
   public List<String> getCompilerOptions() throws CommandLineExpansionException {
-    return compileCommandLine.getCompilerOptions(/* overwrittenVariables= */ null);
+    return compileCommandLine.getCompilerOptions(/*overwrittenVariables=*/ null);
   }
 
   @Override
@@ -1399,7 +1405,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ActionExecutionContext spawnContext;
     ShowIncludesFilter showIncludesFilterForStdout;
     ShowIncludesFilter showIncludesFilterForStderr;
-    if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+    if (shouldParseShowIncludes()) {
       showIncludesFilterForStdout = new ShowIncludesFilter(getSourceFile().getFilename());
       showIncludesFilterForStderr = new ShowIncludesFilter(getSourceFile().getFilename());
       FileOutErr originalOutErr = actionExecutionContext.getFileOutErr();
@@ -1413,7 +1419,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     Spawn spawn;
     try {
-      spawn = createSpawn(actionExecutionContext.getClientEnv());
+      spawn =
+          createSpawn(actionExecutionContext.getExecRoot(), actionExecutionContext.getClientEnv());
     } finally {
       clearAdditionalInputs();
     }
@@ -1445,7 +1452,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return null;
   }
 
-  protected Spawn createSpawn(Map<String, String> clientEnv) throws ActionExecutionException {
+  protected boolean shouldParseShowIncludes() {
+    return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
+  }
+
+  protected Spawn createSpawn(Path execRoot, Map<String, String> clientEnv)
+      throws ActionExecutionException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
     NestedSetBuilder<ActionInput> inputsBuilder =
@@ -1458,7 +1470,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     NestedSet<ActionInput> inputs = inputsBuilder.build();
 
-    ImmutableMap<String, String> executionInfo = getExecutionInfo();
+    ImmutableMap.Builder<String, String> executionInfo =
+        ImmutableMap.<String, String>builder().putAll(getExecutionInfo());
     if (getDotdFile() != null && useInMemoryDotdFiles()) {
       /*
        * CppCompileAction does dotd file scanning locally inside the Bazel process and thus
@@ -1468,21 +1481,26 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
        * in-memory. We can do that via
        * {@link ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS}.
        */
-      executionInfo =
-          ImmutableMap.<String, String>builderWithExpectedSize(executionInfo.size() + 1)
-              .putAll(executionInfo)
-              .put(
-                  ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                  getDotdFile().getExecPathString())
-              .build();
+      executionInfo.put(
+          ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS, getDotdFile().getExecPathString());
+    }
+
+    if (shouldParseShowIncludes()) {
+      // Hack on Windows. The included headers dumped by cl.exe in stdout contain absolute paths.
+      // When compiling the file from different workspace, the shared cache will cause header
+      // dependency checking to fail. This was initially fixed by a hack (see
+      // https://github.com/bazelbuild/bazel/issues/9172 for more details), but is broken again due
+      // to cl/356735700. We require execution service to ignore caches from other workspace.
+      executionInfo.put(
+          ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE, execRoot.getBaseName());
     }
 
     try {
       return new SimpleSpawn(
           this,
           ImmutableList.copyOf(getArguments()),
-          getEnvironment(clientEnv),
-          executionInfo,
+          getEffectiveEnvironment(clientEnv),
+          executionInfo.build(),
           inputs,
           getOutputs(),
           estimateResourceConsumptionLocal());
@@ -1750,6 +1768,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private static Map<Artifact, NestedSet<? extends Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Collection<Artifact.DerivedArtifact> usedModules)
       throws InterruptedException {
+    // Because this env.getValues call does not specify any exceptions, it is impossible for input
+    // discovery to recover from exceptions thrown by spurious module deps (for instance, if a
+    // commented-out include references a header file with an error in it). However, we generally
+    // don't try to recover from errors around spurious includes discovered in the current build.
+    // TODO(janakr): Can errors be aggregated here at least?
     Map<SkyKey, SkyValue> actionExecutionValues =
         env.getValues(
             Iterables.transform(usedModules, Artifact.DerivedArtifact::getGeneratingActionKey));
@@ -1835,7 +1858,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .getOptions(BuildLanguageOptions.class)
               .experimentalSiblingRepositoryLayout;
 
-      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      if (shouldParseShowIncludes()) {
         NestedSet<Artifact> discoveredInputs =
             discoverInputsFromShowIncludesFilters(
                 execRoot,
@@ -1875,7 +1898,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     private void copyTempOutErrToActionOutErr() throws ActionExecutionException {
       // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the
       // output of cl.exe caused by /showIncludes option.
-      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
+      if (shouldParseShowIncludes()) {
         try {
           FileOutErr tempOutErr = spawnExecutionContext.getFileOutErr();
           FileOutErr outErr = actionExecutionContext.getFileOutErr();

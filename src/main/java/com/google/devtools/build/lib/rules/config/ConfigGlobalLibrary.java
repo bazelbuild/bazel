@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.HashSet;
@@ -57,14 +56,8 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     StarlarkSemantics semantics = thread.getSemantics();
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
-    validateBuildSettingKeys(
-        inputsList,
-        Settings.INPUTS,
-        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS));
-    validateBuildSettingKeys(
-        outputsList,
-        Settings.OUTPUTS,
-        semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_CONFIG_TRANSITIONS));
+    validateBuildSettingKeys(inputsList, Settings.INPUTS);
+    validateBuildSettingKeys(outputsList, Settings.OUTPUTS);
     Label parentLabel =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
     Location location = thread.getCallerLocation();
@@ -80,7 +73,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       throws EvalException {
     Map<String, Object> changedSettingsMap =
         Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
-    validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS, true);
+    validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS);
     ImmutableMap<RepositoryName, RepositoryName> repoMapping =
         BazelStarlarkContext.from(thread).getRepoMapping();
     Label parentLabel =
@@ -90,10 +83,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         changedSettingsMap, repoMapping, parentLabel, location);
   }
 
-  private void validateBuildSettingKeys(
-      Iterable<String> optionKeys,
-      Settings keyErrorDescriptor,
-      boolean starlarkTransitionsEnabled)
+  private void validateBuildSettingKeys(Iterable<String> optionKeys, Settings keyErrorDescriptor)
       throws EvalException {
 
     HashSet<String> processedOptions = Sets.newHashSet();
@@ -101,13 +91,6 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
     for (String optionKey : optionKeys) {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        if (!starlarkTransitionsEnabled) {
-          throw Starlark.errorf(
-              "transitions on Starlark-defined build settings is experimental and "
-                  + "disabled by default. This API is in development and subject to change at any"
-                  + "time. Use --experimental_starlark_config_transitions to use this experimental "
-                  + "API.");
-        }
         try {
           Label.parseAbsoluteUnchecked(optionKey);
         } catch (IllegalArgumentException e) {

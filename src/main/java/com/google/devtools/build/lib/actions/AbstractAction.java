@@ -15,9 +15,15 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,8 +42,10 @@ import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -56,6 +64,7 @@ import net.starlark.java.eval.Sequence;
 @Immutable
 @ThreadSafe
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Override
   public boolean isImmutable() {
@@ -114,7 +123,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
     this(
         owner,
-        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -200,6 +209,34 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
+  public final void resetDiscoveredInputs() {
+    Preconditions.checkState(discoversInputs(), "Not an input-discovering action: %s", this);
+    if (!inputsDiscovered()) {
+      return;
+    }
+    NestedSet<Artifact> originalInputs = getOriginalInputs();
+    if (originalInputs != null) {
+      synchronized (this) {
+        inputs = originalInputs;
+        inputsDiscovered = false;
+      }
+    }
+  }
+
+  /**
+   * Returns this action's <em>original</em> inputs, prior to {@linkplain #discoverInputs input
+   * discovery}.
+   *
+   * <p>Input-discovering actions which are able to reconstitute their original inputs may override
+   * this, allowing for memory savings.
+   */
+  @Nullable
+  @ForOverride
+  protected NestedSet<Artifact> getOriginalInputs() {
+    return null;
+  }
+
+  @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
@@ -236,6 +273,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   public final ActionEnvironment getEnvironment() {
     return env;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+      throws CommandLineExpansionException {
+    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    env.resolve(effectiveEnvironment, clientEnv);
+    return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   @Override
@@ -356,18 +401,61 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    *
    * @param execRoot the exec root in which this action is executed
    * @param bulkDeleter a helper to bulk delete outputs to avoid delegating to the filesystem
+   * @param outputPrefixForArchivedArtifactsCleanup derived output prefix to construct archived tree
+   *     artifacts to be cleaned up. If null, no cleanup is needed.
    */
-  protected void deleteOutputs(
-      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+  protected final void deleteOutputs(
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
       throws IOException, InterruptedException {
+    Iterable<Artifact> artifactsToDelete =
+        outputPrefixForArchivedArtifactsCleanup != null
+            ? Iterables.concat(
+                outputs, archivedTreeArtifactOutputs(outputPrefixForArchivedArtifactsCleanup))
+            : outputs;
+    Iterable<PathFragment> additionalPathOutputsToDelete = getAdditionalPathOutputsToDelete();
+    Iterable<PathFragment> directoryOutputsToDelete = getDirectoryOutputsToDelete();
     if (bulkDeleter != null) {
-      bulkDeleter.bulkDelete(Artifact.asPathFragments(getOutputs()));
+      bulkDeleter.bulkDelete(
+          Iterables.concat(
+              Artifact.asPathFragments(artifactsToDelete),
+              additionalPathOutputsToDelete,
+              directoryOutputsToDelete));
       return;
     }
 
-    for (Artifact output : getOutputs()) {
+    // TODO(b/185277726): Either we don't need a path resolver for actual deletion of output
+    //  artifacts (likely) or we need to transform the fragments below (and then the resolver should
+    //  be augmented to deal with exec-path PathFragments).
+    for (Artifact output : artifactsToDelete) {
       deleteOutput(output, pathResolver);
     }
+
+    for (PathFragment path : additionalPathOutputsToDelete) {
+      deleteOutput(execRoot.getRelative(path), /*root=*/ null);
+    }
+
+    for (PathFragment path : directoryOutputsToDelete) {
+      execRoot.getRelative(path).deleteTree();
+    }
+  }
+
+  @ForOverride
+  protected Iterable<PathFragment> getAdditionalPathOutputsToDelete() {
+    return ImmutableList.of();
+  }
+
+  @ForOverride
+  protected Iterable<PathFragment> getDirectoryOutputsToDelete() {
+    return ImmutableList.of();
+  }
+
+  private Iterable<Artifact> archivedTreeArtifactOutputs(PathFragment derivedPathPrefix) {
+    return Iterables.transform(
+        Iterables.filter(outputs, Artifact::isTreeArtifact),
+        tree -> ArchivedTreeArtifact.create((SpecialArtifact) tree, derivedPathPrefix));
   }
 
   /**
@@ -454,30 +542,48 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   /** If the action might create directories as outputs this method must be called. */
   protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
+    FileArtifactValue metadata;
     for (Artifact output : getOutputs()) {
-      Path path = actionExecutionContext.getInputPath(output);
-      String ownerString = Label.print(getOwner().getLabel());
-      if (path.isDirectory()) {
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.warn(
-                        getOwner().getLocation(),
-                        "output '"
-                            + output.prettyPrint()
-                            + "' of "
-                            + ownerString
-                            + " is a directory; dependency checking of directories is unsound")
-                    .withTag(ownerString));
+      MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
+      if (metadataHandler.artifactOmitted(output)) {
+        continue;
       }
+      try {
+        metadata = metadataHandler.getMetadata(output);
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
+        metadata = null;
+      }
+      if (metadata != null) {
+        if (!metadata.getType().isDirectory()) {
+          continue;
+        }
+      } else if (!actionExecutionContext.getInputPath(output).isDirectory()) {
+        continue;
+      }
+      String ownerString = Label.print(getOwner().getLabel());
+      actionExecutionContext
+          .getEventHandler()
+          .handle(
+              Event.warn(
+                      getOwner().getLocation(),
+                      "output '"
+                          + output.prettyPrint()
+                          + "' of "
+                          + ownerString
+                          + " is a directory; dependency checking of directories is unsound")
+                  .withTag(ownerString));
     }
   }
 
   @Override
   public void prepare(
-      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
       throws IOException, InterruptedException {
-    deleteOutputs(execRoot, pathResolver, bulkDeleter);
+    deleteOutputs(execRoot, pathResolver, bulkDeleter, outputPrefixForArchivedArtifactsCleanup);
   }
 
   @Override

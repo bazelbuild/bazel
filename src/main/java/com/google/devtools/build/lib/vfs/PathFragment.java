@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -47,10 +48,9 @@ import javax.annotation.Nullable;
  *
  * <p>Mac and Windows path fragments are case insensitive.
  */
+@Immutable
 public final class PathFragment
-    implements Comparable<PathFragment>,
-        FileType.HasFileType,
-        CommandLineItem {
+    implements Comparable<PathFragment>, FileType.HasFileType, CommandLineItem {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   @SerializationConstant public static final PathFragment EMPTY_FRAGMENT = new PathFragment("", 0);
@@ -81,20 +81,9 @@ public final class PathFragment
    * assumes this is the case.
    */
   public static PathFragment createAlreadyNormalized(String normalizedPath) {
-    int driveStrLength = OS.getDriveStrLength(normalizedPath);
-    return createAlreadyNormalized(normalizedPath, driveStrLength);
-  }
-
-  /**
-   * Creates a new path fragment, where the caller promises that the path is normalized.
-   *
-   * <p>Should only be used internally.
-   */
-  static PathFragment createAlreadyNormalized(String normalizedPath, int driveStrLength) {
-    if (normalizedPath.isEmpty()) {
-      return EMPTY_FRAGMENT;
-    }
-    return new PathFragment(normalizedPath, driveStrLength);
+    return normalizedPath.isEmpty()
+        ? EMPTY_FRAGMENT
+        : new PathFragment(normalizedPath, OS.getDriveStrLength(normalizedPath));
   }
 
   /** This method expects path to already be normalized. */
@@ -384,6 +373,28 @@ public final class PathFragment
       ++segmentCount;
     }
     return segmentCount;
+  }
+
+  /**
+   * Determines whether this path consists of a single segment, excluding the drive string for
+   * absolute paths.
+   *
+   * <p>Prefer this method over {@link #segmentCount} when it is not necessary to know the exact
+   * number of segments, as this short-circuits as soon as {@link #SEPARATOR_CHAR} is found.
+   */
+  public boolean isSingleSegment() {
+    return normalizedPath.length() > driveStrLength && !isMultiSegment();
+  }
+
+  /**
+   * Determines whether this path consists of multiple segments, excluding the drive string for
+   * absolute paths.
+   *
+   * <p>Prefer this method over {@link #segmentCount} when it is not necessary to know the exact
+   * number of segments, as this short-circuits as soon as {@link #SEPARATOR_CHAR} is found.
+   */
+  public boolean isMultiSegment() {
+    return normalizedPath.indexOf(SEPARATOR_CHAR, driveStrLength) >= 0;
   }
 
   /**
@@ -773,7 +784,7 @@ public final class PathFragment
     @Override
     public PathFragment deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return PathFragment.createAlreadyNormalized(context.deserialize(codedIn));
+      return createAlreadyNormalized(context.deserialize(codedIn));
     }
   }
 }

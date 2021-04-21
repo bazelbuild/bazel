@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSett
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -394,7 +395,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.enableCpuUsageProfiling,
             options.slimProfile,
             options.includePrimaryOutput,
-            options.profileIncludeTargetLabel);
+            options.profileIncludeTargetLabel,
+            options.alwaysProfileSlowOperations);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
@@ -1482,6 +1484,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               BlazeVersionInfo.instance().getVersion(),
               packageSettings,
               getPackageValidator(blazeModules),
+              getPackageOverheadEstimator(blazeModules),
               getPackageLoadingListener(
                   blazeModules, packageSettings, ruleClassProvider, fileSystem));
 
@@ -1617,6 +1620,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Preconditions.checkState(
           packageValidators.size() <= 1, "more than one module defined a PackageValidator");
       return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
+    }
+
+    private static PackageOverheadEstimator getPackageOverheadEstimator(
+        List<BlazeModule> blazeModules) {
+      List<PackageOverheadEstimator> packageOverheadEstimators =
+          blazeModules.stream()
+              .map(BlazeModule::getPackageOverheadEstimator)
+              .filter(estimator -> estimator != null)
+              .collect(toImmutableList());
+      Preconditions.checkState(
+          packageOverheadEstimators.size() <= 1,
+          "more than one module defined a PackageOverheadEstimator");
+      return Iterables.getFirst(packageOverheadEstimators, PackageOverheadEstimator.NOOP_ESTIMATOR);
     }
   }
 

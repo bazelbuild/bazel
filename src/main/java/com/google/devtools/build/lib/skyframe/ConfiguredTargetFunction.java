@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
@@ -242,7 +240,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // not prepared for it.
       return new NonRuleConfiguredTargetValue(
           new EmptyConfiguredTarget(target.getLabel(), configuredTargetKey.getConfigurationKey()),
-          GeneratingActions.EMPTY,
           transitivePackagesForPackageRootResolution == null
               ? null
               : transitivePackagesForPackageRootResolution.build());
@@ -355,7 +352,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(
-                  target.getPackage().getRepositoryMapping(),
                   unloadedContext.getValue(),
                   targetDescription,
                   toolchainDependencies));
@@ -520,18 +516,31 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
-    ToolchainContextKey toolchainContextKey;
+
+    ToolchainContextKey.Builder toolchainContextKeyBuilder =
+        ToolchainContextKey.key()
+            .configurationKey(toolchainConfig)
+            .requiredToolchainTypeLabels(requiredDefaultToolchains)
+            .execConstraintLabels(defaultExecConstraintLabels)
+            .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively());
+
     if (parentToolchainContextKey != null) {
-      toolchainContextKey = parentToolchainContextKey;
-    } else {
-      toolchainContextKey =
-          ToolchainContextKey.key()
-              .configurationKey(toolchainConfig)
-              .requiredToolchainTypeLabels(requiredDefaultToolchains)
-              .execConstraintLabels(defaultExecConstraintLabels)
-              .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
-              .build();
+      // Find out what execution platform the parent used, and force that.
+      // This key should always be present, but check just in case.
+      ToolchainContext parentToolchainContext =
+          (ToolchainContext)
+              env.getValueOrThrow(parentToolchainContextKey, ToolchainException.class);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      Label execPlatform = parentToolchainContext.executionPlatform().label();
+      if (execPlatform != null) {
+        toolchainContextKeyBuilder.forceExecutionPlatform(execPlatform);
+      }
     }
+
+    ToolchainContextKey toolchainContextKey = toolchainContextKeyBuilder.build();
     toolchainContextKeys.put(targetUnloadedToolchainContext, toolchainContextKey);
     for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
       ExecGroup execGroup = group.getValue();
@@ -558,14 +567,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       if (!valuesMissing) {
         String execGroup = unloadedToolchainContextKey.getKey();
-        if (parentToolchainContextKey != null) {
-          // Since we inherited the toolchain context from the parent of the dependency, the current
-          // target may also be in the resolved toolchains list. We need to clear it out.
-          // TODO(configurability): When updating this for config_setting, only remove the current
-          // target, not everything, because config_setting might want to check the toolchain
-          // dependencies.
-          unloadedToolchainContext = unloadedToolchainContext.withoutResolvedToolchains();
-        }
         if (execGroup.equals(targetUnloadedToolchainContext)) {
           toolchainContexts.addDefaultContext(unloadedToolchainContext);
         } else {
@@ -1055,22 +1056,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ? null
               : transitivePackagesForPackageRootResolution.build());
     } else {
-      GeneratingActions generatingActions;
-      // Check for conflicting actions within this configured target (that indicates a bug in the
-      // rule implementation).
-      try {
-        generatingActions =
-            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                analysisEnvironment.getActionKeyContext(),
-                analysisEnvironment.getRegisteredActions(),
-                configuredTargetKey,
-                /*outputFiles=*/ null);
-      } catch (ActionConflictException e) {
-        throw new ConfiguredTargetFunctionException(e);
-      }
+      Preconditions.checkState(
+          analysisEnvironment.getRegisteredActions().isEmpty(),
+          "Non-rule can't have actions: %s %s %s %s",
+          configuredTargetKey,
+          analysisEnvironment.getRegisteredActions(),
+          configuredTarget);
       return new NonRuleConfiguredTargetValue(
           configuredTarget,
-          generatingActions,
           transitivePackagesForPackageRootResolution == null
               ? null
               : transitivePackagesForPackageRootResolution.build());

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -67,18 +68,19 @@ class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
 
-  public static final class MissingFileArtifactValue implements SkyValue {
+  static final class MissingArtifactValue implements SkyValue {
     private final DetailedExitCode detailedExitCode;
 
-    private MissingFileArtifactValue(DetailedExitCode detailedExitCode) {
-      this.detailedExitCode = detailedExitCode;
+    private MissingArtifactValue(Artifact missingArtifact) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(constructErrorMessage(missingArtifact, "missing input file"))
+              .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
+              .build();
+      this.detailedExitCode = DetailedExitCode.of(failureDetail);
     }
 
-    public String getMessage() {
-      return detailedExitCode.getFailureDetail().getMessage();
-    }
-
-    public DetailedExitCode getDetailedExitCode() {
+    DetailedExitCode getDetailedExitCode() {
       return detailedExitCode;
     }
 
@@ -101,11 +103,7 @@ class ArtifactFunction implements SkyFunction {
     if (!artifact.hasKnownGeneratingAction()) {
       // If the artifact has no known generating action, it is either a source artifact, or a
       // NinjaMysteryArtifact, which undergoes the same handling here.
-      try {
-        return createSourceValue(artifact, env);
-      } catch (IOException e) {
-        throw new ArtifactFunctionException(e);
-      }
+      return createSourceValue(artifact, env);
     }
     Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
 
@@ -255,20 +253,21 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private SkyValue createSourceValue(Artifact artifact, Environment env)
-      throws IOException, InterruptedException {
+      throws InterruptedException, ArtifactFunctionException {
     RootedPath path = RootedPath.toRootedPath(artifact.getRoot().getRoot(), artifact.getPath());
     SkyKey fileSkyKey = FileValue.key(path);
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
     } catch (IOException e) {
-      return makeIOExceptionSourceInputFileValue(artifact, e);
+      throw new ArtifactFunctionException(
+          SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
     }
     if (fileValue == null) {
       return null;
     }
     if (!fileValue.exists()) {
-      return makeMissingSourceInputFileValue(artifact);
+      return new MissingArtifactValue(artifact);
     }
 
     if (!fileValue.isDirectory() || !TrackSourceDirectoriesFlag.trackSourceDirectories()) {
@@ -276,7 +275,8 @@ class ArtifactFunction implements SkyFunction {
       try {
         metadata = FileArtifactValue.createForSourceArtifact(artifact, fileValue);
       } catch (IOException e) {
-        return makeIOExceptionSourceInputFileValue(artifact, e);
+        throw new ArtifactFunctionException(
+            SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
       }
       sourceArtifactsSeen.accumulate(metadata);
       return metadata;
@@ -308,7 +308,25 @@ class ArtifactFunction implements SkyFunction {
           (RecursiveFilesystemTraversalValue)
               env.getValueOrThrow(request, RecursiveFilesystemTraversalException.class);
     } catch (RecursiveFilesystemTraversalException e) {
-      throw new IOException(e);
+      // Use a switch to guarantee that if a new type is added, this stops compiling.
+      switch (e.getType()) {
+        case DANGLING_SYMLINK:
+        case FILE_OPERATION_FAILURE:
+        case SYMLINK_CYCLE_OR_INFINITE_EXPANSION:
+          throw new ArtifactFunctionException(
+              SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
+        case CANNOT_CROSS_PACKAGE_BOUNDARY:
+          throw new IllegalStateException(
+              String.format(
+                  "Package boundary mode was cross: %s %s %s" + artifact, fileValue, request),
+              e);
+        case GENERATED_PATH_CONFLICT:
+          throw new IllegalStateException(
+              String.format(
+                  "Generated conflict in source tree: %s %s %s", artifact, fileValue, request),
+              e);
+      }
+      throw new IllegalStateException("Can't get here", e);
     }
     if (value == null) {
       return null;
@@ -319,29 +337,6 @@ class ArtifactFunction implements SkyFunction {
       fp.addBytes(file.getMetadata().getDigest());
     }
     return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
-  }
-
-  static MissingFileArtifactValue makeMissingSourceInputFileValue(Artifact artifact) {
-    FailureDetail failureDetail =
-        FailureDetail.newBuilder()
-            .setMessage(constructErrorMessage(artifact))
-            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
-            .build();
-    return new MissingFileArtifactValue(DetailedExitCode.of(failureDetail));
-  }
-
-  static MissingFileArtifactValue makeIOExceptionSourceInputFileValue(
-      Artifact artifact, IOException failure) {
-    FailureDetail failureDetail =
-        FailureDetail.newBuilder()
-            .setMessage(makeIOExceptionInputFileMessage(artifact, failure))
-            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_IO_EXCEPTION))
-            .build();
-    return new MissingFileArtifactValue(DetailedExitCode.of(failureDetail));
-  }
-
-  static String makeIOExceptionInputFileMessage(Artifact artifact, IOException failure) {
-    return constructErrorMessage(artifact) + ": " + failure.getMessage();
   }
 
   @Nullable
@@ -437,30 +432,29 @@ class ArtifactFunction implements SkyFunction {
     return value;
   }
 
-  static final class ArtifactFunctionException extends SkyFunctionException {
-    ArtifactFunctionException(IOException e) {
-      super(e, Transience.TRANSIENT);
-    }
-
+  private static final class ArtifactFunctionException extends SkyFunctionException {
     ArtifactFunctionException(ActionExecutionException e) {
       super(e, Transience.TRANSIENT);
     }
+
+    ArtifactFunctionException(SourceArtifactException e, Transience transience) {
+      super(e, transience);
+    }
   }
 
-  private static String constructErrorMessage(Artifact artifact) {
+  private static String constructErrorMessage(Artifact artifact, String error) {
     Label ownerLabel = artifact.getOwner();
     if (ownerLabel == null) {
       // Discovered inputs may not have an owner.
-      return String.format("missing input file '%s'", artifact.getExecPathString());
+      return String.format("%s '%s'", error, artifact.getExecPathString());
     } else if (ownerLabel.toPathFragment().equals(artifact.getExecPath())) {
       // No additional useful information from path.
-      return String.format("missing input file '%s'", ownerLabel);
+      return String.format("%s '%s'", error, ownerLabel);
     } else {
       // TODO(janakr): when is this hit?
       BugReport.sendBugReport(
           new IllegalStateException("Unexpected special owner? " + artifact + ", " + ownerLabel));
-      return String.format(
-          "missing input file '%s', owner: '%s'", artifact.getExecPathString(), ownerLabel);
+      return String.format("%s '%s', owner: '%s'", error, artifact.getExecPathString(), ownerLabel);
     }
   }
 
@@ -523,10 +517,7 @@ class ArtifactFunction implements SkyFunction {
           ActionTemplateExpansionValue.key(
               artifact.getArtifactOwner(), artifact.getGeneratingActionKey().getActionIndex());
       ActionTemplateExpansionValue value = (ActionTemplateExpansionValue) env.getValue(key);
-      if (value == null) {
-        return null;
-      }
-      return new ActionTemplateExpansion(key, value);
+      return value == null ? null : new ActionTemplateExpansion(value);
     }
 
     @Override
@@ -540,18 +531,10 @@ class ArtifactFunction implements SkyFunction {
   }
 
   static class ActionTemplateExpansion {
-    private final ActionTemplateExpansionValue.ActionTemplateExpansionKey key;
     private final ActionTemplateExpansionValue value;
 
-    private ActionTemplateExpansion(
-        ActionTemplateExpansionValue.ActionTemplateExpansionKey key,
-        ActionTemplateExpansionValue value) {
-      this.key = key;
+    private ActionTemplateExpansion(ActionTemplateExpansionValue value) {
       this.value = value;
-    }
-
-    ActionTemplateExpansionValue.ActionTemplateExpansionKey getKey() {
-      return key;
     }
 
     ActionTemplateExpansionValue getValue() {
@@ -567,6 +550,44 @@ class ArtifactFunction implements SkyFunction {
             ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());
       }
       return expandedActionExecutionKeys.build();
+    }
+  }
+
+  static final class SourceArtifactException extends Exception implements DetailedException {
+    private final DetailedExitCode detailedExitCode;
+
+    private SourceArtifactException(DetailedExitCode detailedExitCode, Exception e) {
+      super(detailedExitCode.getFailureDetail().getMessage(), e);
+      this.detailedExitCode = detailedExitCode;
+    }
+
+    private static SourceArtifactException create(Artifact artifact, IOException e) {
+      DetailedExitCode detailedExitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      constructErrorMessage(artifact, "error reading file") + ": " + e.getMessage())
+                  .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_IO_EXCEPTION))
+                  .build());
+      return new SourceArtifactException(detailedExitCode, e);
+    }
+
+    private static SourceArtifactException create(
+        Artifact artifact, RecursiveFilesystemTraversalException e) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(
+                  constructErrorMessage(artifact, "error traversing directory")
+                      + ": "
+                      + e.getMessage())
+              .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_IO_EXCEPTION))
+              .build();
+      return new SourceArtifactException(DetailedExitCode.of(failureDetail), e);
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 }

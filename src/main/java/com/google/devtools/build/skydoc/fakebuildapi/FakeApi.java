@@ -121,6 +121,7 @@ public final class FakeApi {
     env.put("Actions", new FakeActionsInfoProvider());
     env.put("DefaultInfo", new FakeDefaultInfoProvider());
     env.put("JavaWrapCcInfo", new FakeJavaWrapCcInfo()); // needed for Google-internal use
+    env.put("GoStrippedBinary", new FakeGoStrippedBinaryApi()); // needed for Google-internal use
 
     new AndroidBootstrap(
             new FakeAndroidStarlarkCommon(),

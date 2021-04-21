@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -115,11 +116,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private final String toolsRepository;
   private final Label ccToolchainType;
   private final LabelLateBoundDefault<CppConfiguration> ccToolchain;
+  private final CppSemantics cppSemantics;
 
-  public J2ObjcAspect(RuleDefinitionEnvironment env) {
+  public J2ObjcAspect(RuleDefinitionEnvironment env, CppSemantics cppSemantics) {
     this.toolsRepository = checkNotNull(env.getToolsRepository());
     this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
     this.ccToolchain = CppRuleClasses.ccToolchainAttribute(env);
+    this.cppSemantics = cppSemantics;
   }
 
   /** Returns whether this aspect allows proto services to be generated from this proto rule */
@@ -264,8 +267,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         CcToolchainProvider ccToolchain =
             CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
         CompilationSupport compilationSupport =
-            new CompilationSupport.Builder()
-                .setRuleContext(ruleContext)
+            new CompilationSupport.Builder(ruleContext, cppSemantics)
                 .setToolchainProvider(ccToolchain)
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
                 .doNotUsePch()
@@ -277,12 +279,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 ? new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-arc-exceptions")
                 : new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-weak");
 
-        compilationSupport
-            .registerCompileAndArchiveActions(
-                common, extraCompileArgs, ImmutableList.<PathFragment>of())
-            .registerFullyLinkAction(
-                common.getObjcProvider(),
-                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
+        compilationSupport.registerCompileAndArchiveActions(
+            common, extraCompileArgs, ImmutableList.<PathFragment>of());
         ccCompilationContext = compilationSupport.getCcCompilationContext();
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());

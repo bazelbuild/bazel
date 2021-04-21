@@ -900,7 +900,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--cpu=x64_x86_windows', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('x86/cl.exe', ''.join(stderr))
+    self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
   def testBuildArmCppBinaryWithMsvcCL(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
@@ -918,7 +918,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--cpu=x64_arm_windows', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('arm/cl.exe', ''.join(stderr))
+    self.assertIn('arm\\cl.exe', '\n'.join(stderr))
 
   def testBuildArm64CppBinaryWithMsvcCL(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
@@ -936,7 +936,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--cpu=x64_arm64_windows', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('arm64/cl.exe', ''.join(stderr))
+    self.assertIn('arm64\\cl.exe', '\n'.join(stderr))
 
   def testBuildCppBinaryWithMingwGCC(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
@@ -956,7 +956,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--compiler=mingw-gcc', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('mingw64/bin/gcc', ''.join(stderr))
+    self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
     self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections',
                      ''.join(stderr))
@@ -966,7 +966,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--compiler=mingw-gcc', '-c', 'dbg', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('mingw64/bin/gcc', ''.join(stderr))
+    self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertIn('-g -Og', ''.join(stderr))
     self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections',
                      ''.join(stderr))
@@ -976,7 +976,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--compiler=mingw-gcc', '-c', 'opt', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('mingw64/bin/gcc', ''.join(stderr))
+    self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
     self.assertIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections',
                   ''.join(stderr))
@@ -1003,7 +1003,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--compiler=msys-gcc', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('usr/bin/gcc', ''.join(stderr))
+    self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
     self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections',
                      ''.join(stderr))
@@ -1015,7 +1015,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--compiler=msys-gcc', '-c', 'dbg', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('usr/bin/gcc', ''.join(stderr))
+    self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertIn('-g -Og', ''.join(stderr))
     self.assertNotIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections',
                      ''.join(stderr))
@@ -1026,7 +1026,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ['build', '-s', '--compiler=msys-gcc', '-c', 'opt', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('usr/bin/gcc', ''.join(stderr))
+    self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
     self.assertNotIn('-g -Og', ''.join(stderr))
     self.assertIn('-g0 -O3 -DNDEBUG -ffunction-sections -fdata-sections',
                   ''.join(stderr))

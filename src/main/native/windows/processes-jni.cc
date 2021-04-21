@@ -52,8 +52,9 @@ class JavaByteArray {
       : env_(env),
         array_(java_array),
         size_(java_array != nullptr ? env->GetArrayLength(java_array) : 0),
-        ptr_(java_array != nullptr ? env->GetByteArrayElements(java_array, NULL)
-                                   : nullptr) {}
+        ptr_(java_array != nullptr
+                 ? env->GetByteArrayElements(java_array, nullptr)
+                 : nullptr) {}
 
   ~JavaByteArray() {
     if (array_ != nullptr) {
@@ -90,7 +91,7 @@ class NativeOutputStream {
     //
     // Therefore if this process bequested `handle_` to a child process, we
     // cannot cancel I/O in the child process.
-    CancelIoEx(handle_, NULL);
+    CancelIoEx(handle_, nullptr);
     CloseHandle(handle_);
     handle_ = INVALID_HANDLE_VALUE;
   }
@@ -104,7 +105,7 @@ class NativeOutputStream {
     }
 
     DWORD avail = 0;
-    if (!::PeekNamedPipe(handle_, NULL, 0, NULL, &avail, NULL)) {
+    if (!::PeekNamedPipe(handle_, nullptr, 0, nullptr, &avail, nullptr)) {
       // Check if either the other end closed the pipe or we did it with
       // NativeOutputStream.Close() . In the latter case, we'll get a "system
       // call interrupted" error.
@@ -140,7 +141,8 @@ class NativeOutputStream {
     }
 
     DWORD bytes_read;
-    if (!::ReadFile(handle_, bytes.ptr() + offset, length, &bytes_read, NULL)) {
+    if (!::ReadFile(handle_, bytes.ptr() + offset, length, &bytes_read,
+                    nullptr)) {
       // Check if either the other end closed the pipe or we did it with
       // NativeOutputStream.Close() . In the latter case, we'll get a "system
       // call interrupted" error.
@@ -270,7 +272,7 @@ class NativeProcess {
           /* lpSecurityAttributes */ &sa,
           /* dwCreationDisposition */ OPEN_ALWAYS,
           /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-          /* hTemplateFile */ NULL);
+          /* hTemplateFile */ nullptr);
 
       if (!stdout_process.IsValid()) {
         DWORD err_code = GetLastError();
@@ -279,7 +281,7 @@ class NativeProcess {
                                                   stdout_redirect, err_code);
         return false;
       }
-      if (!SetFilePointerEx(stdout_process, {0}, NULL, FILE_END)) {
+      if (!SetFilePointerEx(stdout_process, {0}, nullptr, FILE_END)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"nativeCreateProcess",
@@ -331,7 +333,7 @@ class NativeProcess {
           /* lpSecurityAttributes */ &sa,
           /* dwCreationDisposition */ OPEN_ALWAYS,
           /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-          /* hTemplateFile */ NULL);
+          /* hTemplateFile */ nullptr);
 
       if (!stderr_process.IsValid()) {
         DWORD err_code = GetLastError();
@@ -340,7 +342,7 @@ class NativeProcess {
                                                   stderr_redirect, err_code);
         return false;
       }
-      if (!SetFilePointerEx(stderr_process, {0}, NULL, FILE_END)) {
+      if (!SetFilePointerEx(stderr_process, {0}, nullptr, FILE_END)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                   L"nativeCreateProcess",
@@ -401,7 +403,7 @@ class NativeProcess {
     DWORD bytes_written;
 
     if (!::WriteFile(stdin_, bytes.ptr() + offset, length, &bytes_written,
-                     NULL)) {
+                     nullptr)) {
       DWORD err_code = GetLastError();
       error_ = bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
                                                 L"NativeProcess:WriteStdin",

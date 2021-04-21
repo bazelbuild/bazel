@@ -407,7 +407,7 @@ public class ObjcRuleClasses {
      * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
      * rule.
      */
-    static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
+    public static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
         ImmutableSet.of("cc_library", "cc_inc_library");
 
     @Override
@@ -551,7 +551,7 @@ public class ObjcRuleClasses {
    * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of multiple
    * architectures).
    */
-  static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
+  public static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
 
   /**
    * Common attributes for {@code objc_*} rules that link sources and dependencies.

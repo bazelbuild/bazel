@@ -137,7 +137,8 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     if (label == null) {
       return "null";
     }
-    return label.toString();
+    return String.format(
+        "%s (%s)", label, configurationKey == null ? "null" : configurationKey.checksum());
   }
 
   @Override
@@ -234,7 +235,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
      * Sets the {@link ToolchainContextKey} this configured target should use for toolchain
      * resolution. When present, this overrides the normally determined toolchain context.
      */
-    public Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey) {
+    public Builder setToolchainContextKey(@Nullable ToolchainContextKey toolchainContextKey) {
       this.toolchainContextKey = toolchainContextKey;
       return this;
     }

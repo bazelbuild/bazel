@@ -188,7 +188,6 @@ java_library(
         "DependencyResolver.java",
         "EmptyConfiguredTarget.java",
         "EventHandlingErrorReporter.java",
-        "ExecGroupCollection.java",
         "Expander.java",
         "ExtraActionUtils.java",
         "ExtraActionsVisitor.java",
@@ -314,7 +313,6 @@ java_library(
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
         ":configurations_collector",
-        ":configured_object_value",
         ":configured_target",
         ":constraints/constraint_constants",
         ":constraints/constraint_semantics",
@@ -342,6 +340,7 @@ java_library(
         ":provider_collection",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
+        ":rule_configured_object_value",
         ":rule_definition_context",
         ":rule_definition_environment",
         ":starlark/args",
@@ -349,7 +348,9 @@ java_library(
         ":starlark/function_transition_util",
         ":starlark/starlark_api_provider",
         ":starlark/starlark_command_line",
+        ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
+        ":starlark/starlark_toolchain_context",
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
@@ -450,6 +451,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
@@ -616,6 +618,7 @@ java_library(
         ":top_level_artifact_context",
         ":view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
@@ -688,10 +691,18 @@ java_library(
     srcs = ["ConfiguredObjectValue.java"],
     deps = [
         ":provider_collection",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe",
+    ],
+)
+
+java_library(
+    name = "rule_configured_object_value",
+    srcs = ["RuleConfiguredObjectValue.java"],
+    deps = [
+        ":configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/actions",
     ],
 )
 
@@ -701,7 +712,6 @@ java_library(
     deps = [
         ":config/config_matching_provider",
         ":transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
         "//src/main/java/net/starlark/java/eval",
@@ -1010,8 +1020,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
-        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -1619,6 +1627,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -2186,6 +2195,21 @@ java_library(
 )
 
 java_library(
+    name = "starlark/starlark_exec_group_collection",
+    srcs = ["starlark/StarlarkExecGroupCollection.java"],
+    deps = [
+        ":resolved_toolchain_context",
+        ":starlark/starlark_toolchain_context",
+        ":toolchain_collection",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "starlark/starlark_error_reporter",
     srcs = ["starlark/StarlarkErrorReporter.java"],
     deps = [
@@ -2219,6 +2243,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "starlark/starlark_toolchain_context",
+    srcs = ["starlark/StarlarkToolchainContext.java"],
+    deps = [
+        ":resolved_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:auto_value",
+        "//third_party:jsr305",
     ],
 )
 
@@ -2347,6 +2386,7 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/build_options_cache",
+        ":config/core_options",
         ":config/fragment_options",
         ":config/transitions/no_transition",
         ":config/transitions/patch_transition",

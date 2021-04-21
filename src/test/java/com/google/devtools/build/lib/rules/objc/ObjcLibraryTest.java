@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -102,10 +103,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = [':objc'],",
         ")");
 
-    useConfiguration(
-        "--apple_platform_type=ios",
-        "--cpu=ios_x86_64",
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject = ActionsTestUtil.getFirstArtifactEndingWith(
@@ -502,7 +500,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchivesPrecompiledObjectFiles() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     scratch.file("objc/a.m");
     scratch.file("objc/b.o");
     scratch.file("objc/BUILD", RULE_TYPE.target(scratch, "objc", "x", "srcs", "['a.m', 'b.o']"));
@@ -512,7 +509,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompileWithFrameworkImportsIncludesFlags() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     addBinWithTransitiveDepOnFrameworkImport();
     CommandAction compileAction = compileAction("//lib:lib", "a.o");
 
@@ -522,7 +518,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testPrecompiledHeaders() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     scratch.file("objc/a.m");
     scratch.file("objc/c.pch");
     scratch.file(
@@ -551,9 +546,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcCopts() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--objccopt=-foo");
+    useConfiguration("--objccopt=-foo");
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .write();
@@ -563,9 +556,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcCopts_argumentOrdering() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--objccopt=-foo");
+    useConfiguration("--objccopt=-foo");
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("copts", "-bar")
@@ -614,10 +605,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithNoBitcode() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--ios_multi_cpus=arm64",
-        "--apple_bitcode=none");
+    useConfiguration("--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=none");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -636,9 +624,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActionsWithBitcode_simulator() throws Exception {
     useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--ios_multi_cpus=x86_64",
-        "--apple_bitcode=embedded");
+        "--apple_platform_type=ios", "--ios_multi_cpus=x86_64", "--apple_bitcode=embedded");
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -903,76 +889,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testFullyLinkArchiveAction_simulator() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
-    createLibraryTargetWriter("//objc:lib_dep")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h", "b.h")
-        .write();
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h", "d.h")
-        .setList("deps", "//objc:lib_dep")
-        .write();
-    CommandAction linkAction =
-        (CommandAction) getGeneratingActionForLabel("//objc2:lib_fully_linked.a");
-    assertRequiresDarwin(linkAction);
-    assertThat(linkAction.getArguments())
-        .isEqualTo(
-            ImmutableList.of(
-                "tools/osx/crosstool/iossim/libtool",
-                "-static",
-                "-arch_only",
-                "i386",
-                "-syslibroot",
-                AppleToolchain.sdkDir(),
-                "-o",
-                Iterables.getOnlyElement(linkAction.getOutputs()).getExecPathString(),
-                getBinArtifact("liblib.a", getConfiguredTarget("//objc2:lib")).getExecPathString(),
-                getBinArtifact("liblib_dep.a", getConfiguredTarget("//objc:lib_dep"))
-                    .getExecPathString()));
-    // TODO(hlopko): make containsExactly once crosstools are updated so
-    // link_dynamic_library.sh is not needed anymore
-    assertThat(baseArtifactNames(linkAction.getInputs()))
-        .containsAtLeast("liblib_dep.a", "liblib.a", CROSSTOOL_LINK_MIDDLEMAN);
-  }
-
-  @Test
-  public void testFullyLinkArchiveAction_device() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7", "--ios_cpu=armv7");
-    createLibraryTargetWriter("//objc:lib_dep")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "a.h", "b.h")
-        .write();
-    createLibraryTargetWriter("//objc2:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h", "d.h")
-        .setList("deps", "//objc:lib_dep")
-        .write();
-    CommandAction linkAction =
-        (CommandAction) getGeneratingActionForLabel("//objc2:lib_fully_linked.a");
-    assertRequiresDarwin(linkAction);
-    assertThat(linkAction.getArguments())
-        .isEqualTo(
-            ImmutableList.of(
-                "tools/osx/crosstool/ios/libtool",
-                "-static",
-                "-arch_only",
-                "armv7",
-                "-syslibroot",
-                AppleToolchain.sdkDir(),
-                "-o",
-                Iterables.getOnlyElement(linkAction.getOutputs()).getExecPathString(),
-                getBinArtifact("liblib.a", getConfiguredTarget("//objc2:lib")).getExecPathString(),
-                getBinArtifact("liblib_dep.a", getConfiguredTarget("//objc:lib_dep"))
-                    .getExecPathString()));
-    // TODO(hlopko): make containsExactly once crosstools are updated so
-    // link_dynamic_library.sh is not needed anymore
-    assertThat(baseArtifactNames(linkAction.getInputs()))
-        .containsAtLeast("liblib_dep.a", "liblib.a", CROSSTOOL_LINK_MIDDLEMAN);
-  }
-
-  @Test
   public void checkDoesNotStoreObjcLibsAsCC() throws Exception {
     createLibraryTargetWriter("//objc:lib_dep")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -989,7 +905,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testIncludesDirsGetPassedToCompileAction() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setList("includes", "../third_party/foo", "opensource/bar")
@@ -1038,7 +953,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testDuplicateDefines() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     createLibraryTargetWriter("//lib:lib")
         .setAndCreateFiles("srcs", "a.m")
         .setList("defines", "foo=bar", "foo=bar")
@@ -1061,8 +975,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCppSourceCompilesWithCppFlags() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     createLibraryTargetWriter("//objc:x")
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
@@ -1077,7 +989,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testDoesNotUseCxxUnfilteredFlags() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     createLibraryTargetWriter("//lib:lib")
         .setList("srcs", "a.m")
         .write();
@@ -1087,9 +998,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testDoesNotUseDotdPruning() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--objc_use_dotd_pruning=false");
+    useConfiguration("--objc_use_dotd_pruning=false");
     createLibraryTargetWriter("//lib:lib")
         .setList("srcs", "a.m")
         .write();
@@ -1779,8 +1688,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfigurationWithCustomXcode(
         "--xcode_version=10.2.1",
         "--xcode_version_config=//xcode:my_config",
-        "--objc_use_dotd_pruning",
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
+        "--objc_use_dotd_pruning");
     createLibraryTargetWriter("//lib:lib").setList("srcs", "a.m").write();
     CppCompileAction action = (CppCompileAction) compileAction("//lib:lib", "a.o");
     assertHasRequirement(action, ExecutionRequirements.REQUIREMENTS_SET);
@@ -1790,8 +1698,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testUsesDotdPruning() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL, "--objc_use_dotd_pruning");
+    useConfiguration("--objc_use_dotd_pruning");
     createLibraryTargetWriter("//lib:lib").setList("srcs", "a.m").write();
     CppCompileAction compileAction = (CppCompileAction) compileAction("//lib:lib", "a.o");
     ActionExecutionException expected =
@@ -1863,7 +1770,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testExportsJ2ObjcProviders() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     ConfiguredTarget lib = createLibraryTargetWriter("//a:lib").write();
     assertThat(lib.getProvider(J2ObjcEntryClassProvider.class)).isNotNull();
     assertThat(lib.getProvider(J2ObjcMappingFileProvider.class)).isNotNull();
@@ -1871,7 +1777,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcImportDoesNotCrash() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
     scratch.file(
         "x/BUILD",
         "objc_library(",
@@ -1904,8 +1809,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
   @Test
   public void testCollectCodeCoverageWithGCOVFlags() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL, "--collect_code_coverage");
+    useConfiguration("--collect_code_coverage");
     createLibraryTargetWriter("//objc:x")
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
@@ -1921,10 +1825,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCollectCodeCoverageWithLLVMCOVFlags() throws Exception {
-    useConfiguration(
-        "--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL,
-        "--collect_code_coverage",
-        "--experimental_use_llvm_covmap");
+    useConfiguration("--collect_code_coverage", "--experimental_use_llvm_covmap");
     createLibraryTargetWriter("//objc:x")
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
@@ -2044,8 +1945,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testDirectFields() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-
     scratch.file(
         "x/BUILD",
         "objc_library(",
@@ -2114,16 +2013,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--apple_generate_dsym");
     createLibraryTargetWriter("//objc/lib").setList("srcs", "a.m").write();
     CommandAction compileAction = compileAction("//objc/lib", "a.o");
-    assertThat(compileAction.getArguments()).contains("-DDUMMY_GENERATE_DSYM_FILE");
-  }
-
-  @Test
-  public void testGenerateDsymFlagPropagatesToCcLibraryFeature() throws Exception {
-    useConfiguration("--apple_generate_dsym");
-    ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc/lib")
-        .setList("srcs", "a.cc")
-        .write();
-    CommandAction compileAction = compileAction("//cc/lib", "a.o");
     assertThat(compileAction.getArguments()).contains("-DDUMMY_GENERATE_DSYM_FILE");
   }
 
@@ -2263,9 +2152,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppLink");
-    CppLinkAction fullyArchiveAction =
-        (CppLinkAction) getGeneratingActionForLabel("//foo:x_fully_linked.a");
-    assertThat(fullyArchiveAction.getMnemonic()).isEqualTo("CppLink");
   }
 
   protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
@@ -2275,8 +2161,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testPassesThroughLinkstamps() throws Exception {
-    useConfiguration("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL);
-
     scratch.file(
         "x/BUILD",
         "objc_library(",
@@ -2295,5 +2179,80 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .getCcLinkingContext()
                     .getLinkstamps()))
         .containsExactly("x/bar.cc");
+  }
+
+  @Test
+  public void testCompileLanguageApi() throws Exception {
+    String fragments = "    fragments = ['google_cpp', 'cpp'],";
+    if (AnalysisMock.get().isThisBazel()) {
+      fragments = "    fragments = ['cpp'],";
+    }
+    scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
+    scratch.file("myinfo/BUILD");
+    scratch.overwriteFile("tools/build_defs/foo/BUILD");
+    scratch.file(
+        "tools/build_defs/foo/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _objc_starlark_library_impl(ctx):",
+        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
+        "    features = ['objc-compile']",
+        "    features.extend(ctx.features)",
+        "    feature_configuration = cc_common.configure_features(",
+        "        ctx = ctx,",
+        "        cc_toolchain=toolchain,",
+        "        requested_features = features,",
+        "        unsupported_features = ctx.disabled_features)",
+        "    foo_dict = {'string_variable': 'foo',",
+        "            'string_sequence_variable' : ['foo'],",
+        "            'string_depset_variable': depset(['foo'])}",
+        "    (compilation_context, compilation_outputs) = cc_common.compile(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        cc_toolchain=toolchain,",
+        "        srcs=ctx.files.srcs,",
+        "        name=ctx.label.name + '_suffix',",
+        "        language='objc'",
+        "    )",
+        "    (linking_context,",
+        "     linking_outputs) = cc_common.create_linking_context_from_compilation_outputs(",
+        "        actions=ctx.actions,",
+        "        feature_configuration=feature_configuration,",
+        "        compilation_outputs=compilation_outputs,",
+        "        name = ctx.label.name,",
+        "        cc_toolchain=toolchain,",
+        "        language='objc'",
+        "    )",
+        "    files_to_build = []",
+        "    files_to_build.extend(compilation_outputs.pic_objects)",
+        "    files_to_build.extend(compilation_outputs.objects)",
+        "    library_to_link = None",
+        "    if len(ctx.files.srcs) > 0:",
+        "        library_to_link = linking_outputs.library_to_link",
+        "        if library_to_link.pic_static_library != None:",
+        "            files_to_build.append(library_to_link.pic_static_library)",
+        "        files_to_build.append(library_to_link.dynamic_library)",
+        "    return [MyInfo(libraries=[library_to_link]),",
+        "            DefaultInfo(files=depset(files_to_build)),",
+        "            CcInfo(compilation_context=compilation_context,",
+        "                   linking_context=linking_context)]",
+        "objc_starlark_library = rule(",
+        "    implementation = _objc_starlark_library_impl,",
+        "    attrs = {",
+        "      'srcs': attr.label_list(allow_files=True),",
+        "      '_my_cc_toolchain': attr.label(default =",
+        "          '//a:alias')",
+        "    },",
+        fragments,
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//tools/build_defs/foo:extension.bzl', 'objc_starlark_library')",
+        "objc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.m'],",
+        ")");
+    scratch.file("a/BUILD", "cc_toolchain_alias(name='alias')");
+    getConfiguredTarget("//foo:starlark_lib");
+    assertNoEvents();
   }
 }

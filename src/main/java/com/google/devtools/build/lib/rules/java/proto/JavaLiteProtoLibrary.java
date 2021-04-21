@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -47,8 +49,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
-    if (ruleContext.getFragment(JavaConfiguration.class).isDisallowStrictDepsForJlpl()
-        && ruleContext.attributes().has("strict_deps")
+    if (ruleContext.attributes().has("strict_deps")
         && ruleContext.attributes().isAttributeValueExplicitlySpecified("strict_deps")) {
       ruleContext.attributeError("strict_deps", "The strict_deps attribute has been removed.");
       return null;
@@ -59,9 +60,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         constructJcapFromAspectDeps(
-            ruleContext,
-            javaProtoLibraryAspectProviders,
-            ruleContext.getFragment(JavaConfiguration.class).isJlplStrictDepsEnforced());
+            ruleContext, javaProtoLibraryAspectProviders, /* alwaysStrict= */ true);
 
     // We assume that the runtime jars will not have conflicting artifacts
     // with the same root relative path
@@ -82,6 +81,16 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+
+    JavaCcLinkParamsProvider javaCcLinkParamsProvider =
+        createCcLinkingInfo(ruleContext, ImmutableList.of());
+    if (ruleContext
+        .getFragment(JavaConfiguration.class)
+        .experimentalPublishJavaCcLinkParamsInfo()) {
+      builder.addNativeDeclaredProvider(javaCcLinkParamsProvider);
+    }
+
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
@@ -89,16 +98,18 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         javaInfoBuilder
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
+            .addProvider(
+                JavaCcInfoProvider.class,
+                new JavaCcInfoProvider(javaCcLinkParamsProvider.getCcInfo()))
             .setJavaConstraints(ImmutableList.of("android"))
             .build();
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
+    return builder
         .setFilesToBuild(filesToBuild.build())
         .addProvider(RunfilesProvider.simple(runfiles))
         .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addNativeDeclaredProvider(javaInfo)
-        .addNativeDeclaredProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()))
         .build();
   }
 

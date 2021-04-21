@@ -14,21 +14,23 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCompilationInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaOutputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuleOutputJarsProviderApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
-/**
- * Fake implementation of {@link JavaInfoApi}.
- */
-public class FakeJavaInfo implements JavaInfoApi<FileApi> {
+/** Fake implementation of {@link JavaInfoApi}. */
+public class FakeJavaInfo
+    implements JavaInfoApi<FileApi, JavaOutputApi<FileApi>, CcInfoApi<FileApi>> {
 
   @Override
   public Depset /*<File>*/ getTransitiveRuntimeJars() {
@@ -58,6 +60,11 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   @Override
   public JavaRuleOutputJarsProviderApi<?> getOutputJars() {
     return null;
+  }
+
+  @Override
+  public ImmutableList<JavaOutputApi<FileApi>> getJavaOutputs() {
+    return ImmutableList.of();
   }
 
   @Override
@@ -96,6 +103,16 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   }
 
   @Override
+  public Depset /*<Artifact>*/ getTransitiveNativeLibrariesForStarlark() {
+    return null;
+  }
+
+  @Override
+  public CcInfoApi<FileApi> getCcLinkParamInfo() {
+    return null;
+  }
+
+  @Override
   public String toProto() throws EvalException {
     return "";
   }
@@ -114,15 +131,21 @@ public class FakeJavaInfo implements JavaInfoApi<FileApi> {
   public static class FakeJavaInfoProvider implements JavaInfoProviderApi {
 
     @Override
-    public JavaInfoApi<?> javaInfo(
+    public JavaInfoApi<?, ?, ?> javaInfo(
         FileApi outputJarApi,
         Object compileJarApi,
         Object sourceJarApi,
+        Object compileJdepsApi,
+        Object generatedClassJarApi,
+        Object generatedSourceJarApi,
+        Object nativeHeadersJarApi,
+        Object manifestProtoApi,
         Boolean neverlink,
         Sequence<?> deps,
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
         Object jdepsApi,
+        Sequence<?> nativeLibraries,
         StarlarkThread thread)
         throws EvalException {
       return new FakeJavaInfo();

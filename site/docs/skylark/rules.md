@@ -376,7 +376,7 @@ execution time:
 def _example_library_impl(ctx):
     ...
 
-    transitive_headers = [dep.example_info.headers for dep in ctx.attr.deps]
+    transitive_headers = [dep[ExampleInfo].headers for dep in ctx.attr.deps]
     headers = depset(ctx.files.hdrs, transitive=transitive_headers)
     srcs = ctx.files.srcs
     inputs = depset(srcs, transitive=[headers])
@@ -388,9 +388,9 @@ def _example_library_impl(ctx):
     args.add("-o", output_file)
 
     ctx.actions.run(
-        mnemonic="ExampleCompile",
+        mnemonic = "ExampleCompile",
         executable = ctx.executable._compiler,
-        arguments=args,
+        arguments = [args],
         inputs = inputs,
         outputs = [output_file],
     )
@@ -489,16 +489,20 @@ on the rule context, [`ctx.runfiles`](lib/ctx.html#runfiles) and passed to the
 
 Some rules specify attributes, generally named
 [`data`](../be/common-definitions.html#common.data), whose outputs are added to
-a targets' runfiles. Runfiles should also be merged in from any targets which
-provide runtime dependencies (including `deps` and `data`) or source files
-(which might include `filegroup` targets with associated `data`):
+a targets' runfiles. Runfiles should also be merged in from `data`, as well as
+from any attributes which might provide code for eventual execution, generally
+`srcs` (which might contain `filegroup` targets with associated `data`) and
+`deps`.
 
 ```python
 def _example_library_impl(ctx):
     ...
     runfiles = ctx.runfiles(files = ctx.files.data)
-    for target in ctx.attr.srcs + ctx.attr.hdrs + ctx.attr.deps + ctx.attr.data:
-        runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
+    all_targets = ctx.attr.srcs + ctx.attr.hdrs + ctx.attr.deps + ctx.attr.data
+    runfiles = runfiles.merge_all([
+        target[DefaultInfo].default_runfiles
+        for target in all_targets
+    ])
     return [
         DefaultInfo(..., runfiles = runfiles),
         ...

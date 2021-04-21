@@ -129,8 +129,7 @@ public abstract class DependencyResolver {
 
       abstract Builder setPropagatingAspects(List<Aspect> propagatingAspects);
 
-      @Nullable
-      abstract Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
+      abstract Builder setToolchainContextKey(@Nullable ToolchainContextKey toolchainContextKey);
 
       abstract PartiallyResolvedDependency build();
     }
@@ -261,7 +260,9 @@ public abstract class DependencyResolver {
       visitTargetVisibility(node, outgoingLabels);
     } else if (target instanceof Rule) {
       fromRule = (Rule) target;
-      attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions);
+      attributeMap =
+          ConfiguredAttributeMapper.of(
+              fromRule, configConditions, node.getConfiguration().checksum());
       visitRule(node, hostConfig, aspects, attributeMap, toolchainContexts, outgoingLabels);
     } else if (target instanceof PackageGroup) {
       outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
@@ -277,6 +278,7 @@ public abstract class DependencyResolver {
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
+            config,
             outgoingLabels,
             fromRule,
             attributeMap,
@@ -301,6 +303,7 @@ public abstract class DependencyResolver {
    */
   private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
       partiallyResolveDependencies(
+          BuildConfiguration config,
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
           @Nullable ConfiguredAttributeMapper attributeMap,
@@ -385,7 +388,11 @@ public abstract class DependencyResolver {
       ImmutableList.Builder<Aspect> propagatingAspects = ImmutableList.builder();
       propagatingAspects.addAll(attribute.getAspects(fromRule));
       collectPropagatingAspects(
-          aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
+          aspects,
+          attribute.getName(),
+          config,
+          entry.getKey().getOwningAspect(),
+          propagatingAspects);
 
       Label executionPlatformLabel = null;
       if (toolchainContexts != null) {
@@ -559,13 +566,6 @@ public abstract class DependencyResolver {
       }
     }
 
-    if (!rule.isAttributeValueExplicitlySpecified(RuleClass.APPLICABLE_LICENSES_ATTR)) {
-      addExplicitDeps(
-          outgoingLabels,
-          rule,
-          RuleClass.APPLICABLE_LICENSES_ATTR,
-          rule.getPackage().getDefaultApplicableLicenses());
-    }
   }
 
   private void resolveAttributes(
@@ -704,9 +704,16 @@ public abstract class DependencyResolver {
   private static void collectPropagatingAspects(
       Iterable<Aspect> aspectPath,
       String attributeName,
+      BuildConfiguration config,
       @Nullable AspectClass aspectOwningAttribute,
       ImmutableList.Builder<Aspect> filteredAspectPath) {
     for (Aspect aspect : aspectPath) {
+      if (!aspect.getDefinition().propagateViaAttribute().test(config, attributeName)) {
+        // This condition is only included to support the migration to platform-based Android
+        // toolchain selection. See DexArchiveAspect for details. One that migration is complete,
+        // this logic should be removed on the principle of unnecessary complexity.
+        continue;
+      }
       if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
         // Do not propagate over the aspect's own attributes.
         continue;

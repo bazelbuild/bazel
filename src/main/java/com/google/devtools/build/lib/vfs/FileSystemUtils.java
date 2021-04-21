@@ -457,6 +457,17 @@ public class FileSystemUtils {
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
           copyLargeBuffer(in, out);
+        } catch (FileAccessException e1) {
+          // Rules can accidentally make output non-readable, let's fix that (b/150963503)
+          if (!from.isReadable()) {
+            from.setReadable(true);
+            try (InputStream in = from.getInputStream();
+                OutputStream out = to.getOutputStream()) {
+              copyLargeBuffer(in, out);
+            }
+          } else {
+            throw e1;
+          }
         }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
         if (!from.isWritable()) {
@@ -627,11 +638,12 @@ public class FileSystemUtils {
       return false;
     }
     try {
-      for (; toRemove.segmentCount() > 0; toRemove = toRemove.getParentDirectory()) {
+      while (!toRemove.isEmpty()) {
         Path p = base.getRelative(toRemove);
         if (p.exists()) {
           p.delete();
         }
+        toRemove = toRemove.getParentDirectory();
       }
     } catch (IOException e) {
       return false;
@@ -885,7 +897,7 @@ public class FileSystemUtils {
    * Returns the type of the file system path belongs to.
    */
   public static String getFileSystem(Path path) {
-    return path.getFileSystem().getFileSystemType(path);
+    return path.getFileSystem().getFileSystemType(path.asFragment());
   }
 
   /**

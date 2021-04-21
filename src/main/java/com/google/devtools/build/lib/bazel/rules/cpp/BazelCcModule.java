@@ -46,8 +46,6 @@ import net.starlark.java.eval.Tuple;
 /**
  * A module that contains Starlark utilities for C++ support.
  *
- * <p>This is a work in progress. The API is guarded behind
- * --experimental_cc_skylark_api_enabled_packages. The API is under development and unstable.
  */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<
@@ -72,7 +70,12 @@ public class BazelCcModule extends CcModule
 
   @Override
   public CppSemantics getSemantics() {
-    return BazelCppSemantics.INSTANCE;
+    return BazelCppSemantics.CPP;
+  }
+
+  @Override
+  public CppSemantics getSemantics(Language language) {
+    return (language == Language.CPP) ? BazelCppSemantics.CPP : BazelCppSemantics.OBJC;
   }
 
   @Override

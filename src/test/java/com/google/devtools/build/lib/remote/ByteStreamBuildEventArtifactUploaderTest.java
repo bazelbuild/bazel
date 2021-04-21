@@ -374,10 +374,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     return new ByteStreamBuildEventArtifactUploader(
         uploader,
         missingDigestsFinder,
-        "localhost",
+        "localhost/instance",
         "none",
         "none",
-        "instance",
         /* maxUploadThreads= */ 100);
   }
 

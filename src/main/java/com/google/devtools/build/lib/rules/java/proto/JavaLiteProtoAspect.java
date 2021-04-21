@@ -37,11 +37,14 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -184,11 +187,12 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         // TODO(carmi): Expose to native rules
         JavaRuleOutputJarsProvider ruleOutputJarsProvider =
             JavaRuleOutputJarsProvider.builder()
-                .addOutputJar(
-                    outputJar,
-                    compileTimeJar,
-                    null /* manifestProto */,
-                    ImmutableList.of(sourceJar))
+                .addJavaOutput(
+                    JavaOutput.builder()
+                        .setClassJar(outputJar)
+                        .setCompileJar(compileTimeJar)
+                        .addSourceJar(sourceJar)
+                        .build())
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
             JavaSourceJarsProvider.create(
@@ -212,8 +216,16 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
       aspect.addProvider(generatedCompilationArgsProvider);
       javaInfo.addProvider(JavaCompilationArgsProvider.class, generatedCompilationArgsProvider);
-      aspect.addNativeDeclaredProvider(
-          createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
+
+      JavaCcLinkParamsProvider javaCcLinkParamsProvider =
+          createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps());
+      if (ruleContext
+          .getFragment(JavaConfiguration.class)
+          .experimentalPublishJavaCcLinkParamsInfo()) {
+        aspect.addNativeDeclaredProvider(javaCcLinkParamsProvider);
+      }
+      javaInfo.addProvider(
+          JavaCcInfoProvider.class, new JavaCcInfoProvider(javaCcLinkParamsProvider.getCcInfo()));
 
       aspect
           .addNativeDeclaredProvider(javaInfo.build())

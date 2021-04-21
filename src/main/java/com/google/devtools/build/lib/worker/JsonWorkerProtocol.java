@@ -54,6 +54,17 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
 
   @Override
   public WorkResponse getResponse() throws IOException {
+    boolean interrupted = Thread.interrupted();
+    try {
+      return parseResponse();
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private WorkResponse parseResponse() throws IOException {
     Integer exitCode = null;
     String output = null;
     Integer requestId = null;
@@ -81,10 +92,12 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
             requestId = reader.nextInt();
             break;
           default:
-            throw new IOException(name + " is an incorrect field in work response");
+            // As per https://docs.bazel.build/versions/master/creating-workers.html#work-responses,
+            // unknown fields are ignored.
+            reader.skipValue();
         }
       }
-    reader.endObject();
+      reader.endObject();
     } catch (MalformedJsonException | EOFException | IllegalStateException e) {
       throw new IOException("Could not parse json work request correctly", e);
     }

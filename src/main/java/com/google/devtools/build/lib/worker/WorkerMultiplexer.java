@@ -314,6 +314,8 @@ public class WorkerMultiplexer {
    *
    * <p>This is only called on the readResponses subthread and so cannot be interrupted by dynamic
    * execution cancellation, but only by a call to {@link #destroyProcess()}.
+   *
+   * @return True if the worker is still in a consistent state.
    */
   private boolean readResponse() {
     WorkResponse parsedResponse;

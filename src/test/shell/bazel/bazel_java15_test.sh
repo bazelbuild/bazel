@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Tests that bazel runs projects with Java 14 features.
+# Tests that bazel runs projects with Java 15 features.
 
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
@@ -120,10 +120,6 @@ public class Javac15Example {
   }
 }
 EOF
-  bazel run java/main:Javac15Example --java_language_version=14 --java_runtime_version=14 \
-     --test_output=all --verbose_failures &>"${TEST_log}" \
-     && fail "Running with --java_language_version=14 unexpectedly succeeded."
-
   bazel run java/main:Javac15Example --java_language_version=11 --java_runtime_version=11 \
      --test_output=all --verbose_failures &>"${TEST_log}" \
      && fail "Running with --java_language_version=11 unexpectedly succeeded."

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
 
@@ -65,8 +64,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
   private final boolean enableAppleBinaryNativeProtos;
-  private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
-  private final boolean shouldScanIncludes;
   private final boolean avoidHardcodedCompilationFlags;
   private final boolean disableNativeAppleBinaryRule;
 
@@ -94,11 +91,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
-    this.dotdPruningPlan =
-        objcOptions.useDotdPruning
-            ? HeaderDiscovery.DotdPruningMode.USE
-            : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
-    this.shouldScanIncludes = objcOptions.scanIncludes;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
     this.disableNativeAppleBinaryRule = objcOptions.incompatibleDisableNativeAppleBinaryRule;
@@ -242,16 +234,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean enableAppleBinaryNativeProtos() {
     return enableAppleBinaryNativeProtos;
-  }
-
-  /** Returns the DotdPruningPlan for compiles in this build. */
-  public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
-    return dotdPruningPlan;
-  }
-
-  /** Returns true iff we should do "include scanning" during this build. */
-  public boolean shouldScanIncludes() {
-    return shouldScanIncludes;
   }
 
   /** Returns true iff the native {@code apple_binary} rule should be disabled. */

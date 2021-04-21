@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Optional;
 
 /**
  * {@link SkyKey} implementation used for {@link ToolchainResolutionFunction} to produce {@link
@@ -31,7 +33,8 @@ public abstract class ToolchainContextKey implements SkyKey {
     return new AutoValue_ToolchainContextKey.Builder()
         .requiredToolchainTypeLabels(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
-        .shouldSanityCheckConfiguration(false);
+        .shouldSanityCheckConfiguration(false)
+        .forceExecutionPlatform(Optional.empty());
   }
 
   @Override
@@ -46,6 +49,8 @@ public abstract class ToolchainContextKey implements SkyKey {
   abstract ImmutableSet<Label> execConstraintLabels();
 
   abstract boolean shouldSanityCheckConfiguration();
+
+  abstract Optional<Label> forceExecutionPlatform();
 
   /** Builder for {@link ToolchainContextKey}. */
   @AutoValue.Builder
@@ -63,5 +68,12 @@ public abstract class ToolchainContextKey implements SkyKey {
     Builder shouldSanityCheckConfiguration(boolean shouldSanityCheckConfiguration);
 
     ToolchainContextKey build();
+
+    Builder forceExecutionPlatform(Optional<Label> execPlatform);
+
+    default Builder forceExecutionPlatform(Label execPlatform) {
+      Preconditions.checkNotNull(execPlatform);
+      return forceExecutionPlatform(Optional.of(execPlatform));
+    }
   }
 }

@@ -74,6 +74,17 @@ title: Make Variables
   rule, Bazel fails with an error.
 </p>
 
+
+<p>
+  "Make" variables whose names are non-letter symbols, such as
+  <code>@</code>, can also be referenced using only a dollar sign, without
+  the parentheses. For example:
+</p>
+
+<p>
+<code>my_attr = "prefix $@ suffix"</code>
+</p>
+
 <p>
   To write <code>$</code> as a a string literal (i.e. to prevent variable
   expansion), write <code>$$</code>.
@@ -101,7 +112,7 @@ title: Make Variables
 
 <ul><!--  keep alphabetically sorted  -->
   <li><code>COMPILATION_MODE</code>:
-    "fastbuild", "dbg", or "opt". (<a
+    <code>fastbuild</code>, <code>dbg</code>, or <code>opt</code>. (<a
   href="https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode">more
   details</a>)
   </li>
@@ -139,7 +150,8 @@ title: Make Variables
 <p><strong>Machine architecture variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
-  <li> <code>TARGET_CPU</code>: The target architecture's CPU, e.g. "k8". </li>
+  <li> <code>TARGET_CPU</code>:
+    The target architecture's CPU, e.g. <code>k8</code>. </li>
 </ul>
 
 <h2 id="predefined_genrule_variables">Predefined genrule variables</h2>
@@ -355,7 +367,7 @@ title: Make Variables
 
   <li> <code>AR</code>: The "ar" command from crosstool. </li>
   <li class="harmful"> <code>C_COMPILER</code>:
-    The C/C++ compiler identifier, e.g. "llvm".
+    The C/C++ compiler identifier, e.g. <code>llvm</code>.
   </li>
   <li class="harmful">
     <p><code>CC</code>: The C and C++ compiler command.</p>

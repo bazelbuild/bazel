@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.Streams.stream;
-import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
@@ -58,7 +57,6 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -941,10 +939,6 @@ public class RuleClass {
             attr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, type)
                 .nonconfigurable(BUILD_SETTING_DEFAULT_NONCONFIGURABLE)
                 .mandatory();
-        if (BuildType.isLabelType(type)) {
-          defaultAttrBuilder.allowedFileTypes(FileTypeSet.ANY_FILE);
-          defaultAttrBuilder.allowedRuleClasses(ANY_RULE);
-        }
         this.add(defaultAttrBuilder);
 
         this.add(
@@ -2303,12 +2297,54 @@ public class RuleClass {
       } else if (attr.isLateBound()) {
         rule.setAttributeValue(attr, attr.getLateBoundDefault(), /*explicit=*/ false);
 
-      } else if (attr.getName().equals("applicable_licenses")
-          && attr.getType() == BuildType.LICENSE) {
+      } else if (attr.getName().equals(APPLICABLE_LICENSES_ATTR)
+          && attr.getType() == BuildType.LABEL_LIST) {
         // TODO(b/149505729): Determine the right semantics for someone trying to define their own
         // attribute named applicable_licenses.
-        rule.setAttributeValue(
-            attr, pkgBuilder.getDefaultApplicableLicenses(), /*explicit=*/ false);
+        //
+        // The check here is preventing against an corner case where the license() rule can get
+        // itself as an applicable_license. This breaks the graph because there is now a self-edge.
+        //
+        // There are two ways that I can see to resolve this. The first, what is shown here, simply
+        // prunes the attribute if the source is a new-style license rule, based on what's been
+        // provided publically. This does create a tight coupling to the implementation, but this is
+        // unavoidable since licenses are no longer a first-class type but we want first class
+        // behavior in Bazel core.
+        //
+        // A different approach that would not depend on the implementation of the rule could filter
+        // the list of default_applicable_licenses and not include the license rule if it matches
+        // the name of the current rule. This obviously fixes the self-assignment rule, but the
+        // resulting graph is semantically strange. The interpretation of the graph would be that
+        // the license rule is subject to the licenses of the *other* default licenses, but not
+        // itself. That looks very odd, and it's not semantically accurate. A license rule transmits
+        // no license obligation, so the correct semantics would be to have no
+        // default_applicable_licenses applied. This begs the question, if the self-edge is
+        // detected, why not simply drop all the default_applicable_licenses attributes and avoid
+        // this oddness? That would work and fix the self-edge problem, but for nodes that don't
+        // have the self-edge problem, they would get all default_applicable_licenses and now the
+        // graph is inconsistent in that some license() rules have applicable_licenses while others
+        // do not.
+        //
+        // Another possible workaround is to leverage the fact that license() rules instantiated
+        // before the package() rule will not get default_applicable_licenses applied, and the
+        // self-edge problem cannot occur in that case. The semantics for how package() should
+        // impact rules instantiated prior are not clear and not well understood. If this
+        // modification is distasteful, leveraging the package() behavior and clarifying the
+        // semantics is an option. It's not recommended since BUILD files are not thought to be
+        // order-dependent, but they have always been, so fixing that behavior may be more important
+        // than some unfortunate code here.
+        //
+        // Breaking the encapsulation to recognize license() rules and treat them uniformly results
+        // fixes the self-edge problem and results in the simplest, semantically
+        // correct graph.
+        //
+        // TODO(b/183637322) consider this further
+        if (rule.getRuleClassObject().isBazelLicense()) {
+          // Do nothing
+        } else {
+          rule.setAttributeValue(
+              attr, pkgBuilder.getDefaultApplicableLicenses(), /*explicit=*/ false);
+        }
 
       } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
         rule.setAttributeValue(
@@ -2327,10 +2363,13 @@ public class RuleClass {
     // all test labels, populated later.
     if (this.name.equals("test_suite")) {
       Attribute implicitTests = this.getAttributeByName("$implicit_tests");
-      if (implicitTests != null
-          && NonconfigurableAttributeMapper.of(rule).get("tests", BuildType.LABEL_LIST).isEmpty()) {
+      NonconfigurableAttributeMapper attributeMapper = NonconfigurableAttributeMapper.of(rule);
+      if (implicitTests != null && attributeMapper.get("tests", BuildType.LABEL_LIST).isEmpty()) {
         boolean explicit = true; // so that it appears in query output
-        rule.setAttributeValue(implicitTests, pkgBuilder.testSuiteImplicitTests, explicit);
+        rule.setAttributeValue(
+            implicitTests,
+            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Type.STRING_LIST)),
+            explicit);
       }
     }
 
@@ -2769,18 +2808,15 @@ public class RuleClass {
   }
 
   public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {
-    if (!packageIdentifier.getRepository().isMain()) {
-      return false;
-    }
+    return packageIdentifier.getRepository().isMain()
+        && packageIdentifier.getPackageFragment().startsWith(THIRD_PARTY_PREFIX)
+        && packageIdentifier.getPackageFragment().isMultiSegment();
+  }
 
-    if (!packageIdentifier.getPackageFragment().startsWith(THIRD_PARTY_PREFIX)) {
-      return false;
-    }
-
-    if (packageIdentifier.getPackageFragment().segmentCount() <= 1) {
-      return false;
-    }
-
-    return true;
+  // Returns true if this rule is a license() rule as defined in
+  // https://docs.google.com/document/d/1uwBuhAoBNrw8tmFs-NxlssI6VRolidGYdYqagLqHWt8/edit#
+  // TODO(b/183637322) consider this further
+  public boolean isBazelLicense() {
+    return getName().equals("_license") && hasAttr("license_kinds", BuildType.LABEL_LIST);
   }
 }

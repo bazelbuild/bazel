@@ -31,10 +31,6 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("ACTION_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.createNonHermetic("DIRECTORY_LISTING_STATE");
-  public static final SkyFunctionName FILE_SYMLINK_CYCLE_UNIQUENESS =
-      SkyFunctionName.createHermetic("FILE_SYMLINK_CYCLE_UNIQUENESS");
-  public static final SkyFunctionName FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS =
-      SkyFunctionName.createHermetic("FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS");
   public static final SkyFunctionName DIRECTORY_LISTING =
       SkyFunctionName.createHermetic("DIRECTORY_LISTING");
   // Hermetic even though package lookups secretly access the set of deleted packages, because
@@ -125,7 +121,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName PLATFORM_MAPPING =
       SkyFunctionName.createHermetic("PLATFORM_MAPPING");
   static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.createHermetic("COVERAGE_REPORT");
-  public static final SkyFunctionName REPOSITORY = SkyFunctionName.createHermetic("REPOSITORY");
   public static final SkyFunctionName REPOSITORY_DIRECTORY =
       SkyFunctionName.createNonHermetic("REPOSITORY_DIRECTORY");
   public static final SkyFunctionName WORKSPACE_AST =

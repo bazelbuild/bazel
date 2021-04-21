@@ -244,16 +244,16 @@ ExitCode BinaryLauncherBase::LaunchProcess(const wstring& executable,
   STARTUPINFOW startupInfo = {0};
   startupInfo.cb = sizeof(startupInfo);
   BOOL ok = CreateProcessW(
-      /* lpApplicationName */ NULL,
+      /* lpApplicationName */ nullptr,
       /* lpCommandLine */ cmdline.cmdline,
-      /* lpProcessAttributes */ NULL,
-      /* lpThreadAttributes */ NULL,
+      /* lpProcessAttributes */ nullptr,
+      /* lpThreadAttributes */ nullptr,
       /* bInheritHandles */ FALSE,
       /* dwCreationFlags */
       suppressOutput ? CREATE_NO_WINDOW  // no console window => no output
                      : 0,
-      /* lpEnvironment */ NULL,
-      /* lpCurrentDirectory */ NULL,
+      /* lpEnvironment */ nullptr,
+      /* lpCurrentDirectory */ nullptr,
       /* lpStartupInfo */ &startupInfo,
       /* lpProcessInformation */ &processInfo);
   if (!ok) {

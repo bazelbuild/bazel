@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -865,15 +864,6 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     assertThat(moduleMapContent).contains("umbrella header \"umbrella.h\"");
     assertThat(umbrellaHeaderContent).contains(headers.getExecPathString() + "/children1");
     assertThat(umbrellaHeaderContent).contains(headers.getExecPathString() + "/children2");
-  }
-
-  @Test
-  public void testJ2ObjCFullyLinkAction() throws Exception {
-    AbstractAction linkAction = (AbstractAction) getGeneratingActionForLabel(
-        "//java/com/google/dummy/test:transpile_fully_linked.a");
-    String fullyLinkBinaryPath =
-        Iterables.getOnlyElement(linkAction.getOutputs()).getExecPathString();
-    assertThat(fullyLinkBinaryPath).contains("transpile_fully_linked.a");
   }
 
   @Test

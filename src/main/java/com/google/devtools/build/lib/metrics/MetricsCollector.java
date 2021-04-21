@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
@@ -100,15 +101,16 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logAnalysisGraphStats(AnalysisGraphStatsEvent event) {
-    TotalAndConfiguredTargetOnlyMetric actionLookupValueCount = event.getActionLookupValueCount();
-    TotalAndConfiguredTargetOnlyMetric actionCount = event.getActionCount();
-    buildGraphMetrics
-        .setActionLookupValueCount(actionLookupValueCount.total())
-        .setActionLookupValueCountNotIncludingAspects(
-            actionLookupValueCount.configuredTargetsOnly())
-        .setActionCount(actionCount.total())
-        .setActionCountNotIncludingAspects(actionCount.configuredTargetsOnly())
-        .setOutputArtifactCount(event.getOutputArtifactCount());
+    // Check only one event per build. No proto3 check for presence, so check for not-default value.
+    if (buildGraphMetrics.getActionLookupValueCount() > 0) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "Already initialized build graph metrics builder: "
+                  + buildGraphMetrics
+                  + ", "
+                  + event.getBuildGraphMetrics()));
+    }
+    buildGraphMetrics.mergeFrom(event.getBuildGraphMetrics());
   }
 
   @SuppressWarnings("unused")
@@ -165,15 +167,23 @@ class MetricsCollector {
 
   private MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
+    long usedHeapSizePostBuild = 0;
     if (bepPublishUsedHeapSizePostBuild) {
       System.gc();
       MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-      memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
+      usedHeapSizePostBuild = memBean.getHeapMemoryUsage().getUsed();
+      memoryMetrics.setUsedHeapSizePostBuild(usedHeapSizePostBuild);
     }
     PostGCMemoryUseRecorder.get()
         .getPeakPostGcHeap()
         .map(PeakHeap::bytes)
         .ifPresent(memoryMetrics::setPeakPostGcHeapSize);
+
+    if (memoryMetrics.getPeakPostGcHeapSize() < usedHeapSizePostBuild) {
+      // If we just did a GC and computed the heap size, update the one we got from the GC
+      // notification (which may arrive too late for this specific GC).
+      memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
+    }
     return memoryMetrics.build();
   }
 

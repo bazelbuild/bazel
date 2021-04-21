@@ -78,6 +78,8 @@ function write_test_rule() {
   mkdir -p toolchain
   cat >> toolchain/rule_${rule_name}.bzl <<EOF
 def _impl(ctx):
+  if '//toolchain:${toolchain_name}' not in ctx.toolchains:
+    fail('Toolchain type //toolchain:${toolchain_name} not found')
   toolchain = ctx.toolchains['//toolchain:${toolchain_name}']
   message = ctx.attr.message
   print(
@@ -530,7 +532,7 @@ use_toolchain(
 EOF
 
   bazel build \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     --incompatible_auto_configure_host_platform \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log 'ToolchainResolution:   Type //toolchain:test_toolchain: target platform @local_config_platform//.*: execution @local_config_platform//:host: Selected toolchain //:test_toolchain_impl_1'
@@ -904,14 +906,14 @@ EOF
 
   # When no platform has the constraint, an error
   bazel build \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=.* \
     //demo:target &> $TEST_log && fail "Build failure expected"
   expect_log "While resolving toolchains for target //demo:target: .* from available execution platforms \[\]"
 
   # When the platform exists, it is used.
   bazel build \
     --extra_execution_platforms=//platform:test_platform \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=.* \
     //demo:target &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platform:test_platform"
 }
@@ -964,7 +966,7 @@ EOF
   # Build the target, using debug messages to verify the correct platform was selected.
   bazel build \
     --extra_execution_platforms=//platforms:all \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platforms:platform2"
 }
@@ -1020,7 +1022,7 @@ EOF
   # Build the target, using debug messages to verify the correct platform was selected.
   bazel build \
     --extra_execution_platforms=//platforms:all \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platforms:platform2"
 }
@@ -1090,7 +1092,7 @@ EOF
   # Build the target, using debug messages to verify the correct platform was selected.
   bazel build \
     --extra_execution_platforms=//platforms:all \
-    --toolchain_resolution_debug \
+    --toolchain_resolution_debug=toolchain:test_toolchain \
     //demo:use &> $TEST_log || fail "Build failed"
   expect_log "Selected execution platform //platforms:platform2_4"
 }
@@ -2032,6 +2034,203 @@ EOF
   bazel build //demo &> $TEST_log && fail "Expected build to fail"
   expect_log "target 'toolchain_type' not declared in package 'demo'"
   expect_not_log "does not provide ToolchainTypeInfo"
+}
+
+# Tests for the case where a toolchain requires a different toolchain type.
+# Regression test for https://github.com/bazelbuild/bazel/issues/13243
+function test_toolchain_requires_toolchain() {
+  # Create an inner toolchain.
+  mkdir -p inner
+  cat > inner/toolchain.bzl <<EOF
+InnerToolchain = provider(fields = ["msg"])
+
+def _impl(ctx):
+    inner = InnerToolchain(msg = "Inner toolchain %s" % ctx.label)
+    return [
+        platform_common.ToolchainInfo(inner = inner)
+    ]
+
+inner_toolchain = rule(
+    implementation = _impl,
+)
+EOF
+  cat > inner/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+load(":toolchain.bzl", "inner_toolchain")
+toolchain_type(name = "toolchain_type")
+
+inner_toolchain(name = "impl")
+toolchain(
+    name = "toolchain",
+    toolchain_type = ":toolchain_type",
+    toolchain = ":impl",
+)
+EOF
+
+  # Create an outer toolchain the uses the inner.
+  mkdir -p outer
+  cat > outer/toolchain.bzl <<EOF
+OuterToolchain = provider(fields = ["msg"])
+
+def _impl(ctx):
+    toolchain_info = ctx.toolchains["//inner:toolchain_type"]
+    inner = toolchain_info.inner
+    outer = OuterToolchain(msg = "Outer toolchain %s using inner: %s" % (ctx.label, inner.msg))
+    return [
+        platform_common.ToolchainInfo(outer = outer)
+    ]
+
+outer_toolchain = rule(
+    implementation = _impl,
+    toolchains = ["//inner:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+)
+EOF
+  cat > outer/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+load(":toolchain.bzl", "outer_toolchain")
+toolchain_type(name = "toolchain_type")
+
+outer_toolchain(name = "impl")
+toolchain(
+    name = "toolchain",
+    toolchain_type = ":toolchain_type",
+    toolchain = ":impl",
+)
+EOF
+
+  # Register all the toolchains.
+  cat >>WORKSPACE <<EOF
+register_toolchains("//inner:all")
+register_toolchains("//outer:all")
+EOF
+
+  # Write a rule that uses the outer toolchain.
+  mkdir -p rule
+  cat > rule/rule.bzl <<EOF
+def _impl(ctx):
+    toolchain_info = ctx.toolchains["//outer:toolchain_type"]
+    outer = toolchain_info.outer
+    print("Demo rule: outer toolchain says: %s" % outer.msg)
+    return []
+
+demo_rule = rule(
+    implementation = _impl,
+    toolchains = ["//outer:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+)
+EOF
+  cat > rule/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+exports_files(["rule.bzl"])
+EOF
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//rule:rule.bzl', 'demo_rule')
+demo_rule(name = "demo")
+EOF
+
+  bazel build //demo:demo &> $TEST_log || fail "Build failed"
+  expect_log 'Inner toolchain //inner:impl'
+}
+
+# Test that toolchain type labels are correctly resolved relative to the
+# enclosing file, regardless of the repository name.
+# See http://b/183060658 for details.
+function test_repository_relative_toolchain_type() {
+  # Create a repository that defines a toolchain type and simple rule.
+  # The toolchain type used in the repository is relative to the repository.
+  mkdir -p external/rules_foo
+  touch external/rules_foo/WORKSPACE
+  mkdir -p external/rules_foo/rule
+  touch external/rules_foo/rule/BUILD
+  cat > external/rules_foo/rule/rule.bzl <<EOF
+def _foo_impl(ctx):
+    print(ctx.toolchains["//toolchain:foo_toolchain_type"])
+    return []
+
+foo_rule = rule(
+    implementation = _foo_impl,
+    toolchains = ["//toolchain:foo_toolchain_type"],
+)
+EOF
+  mkdir -p external/rules_foo/toolchain/
+  cat > external/rules_foo/toolchain/BUILD <<EOF
+load(":toolchain.bzl", "foo_toolchain")
+
+toolchain_type(
+  name = "foo_toolchain_type",
+  visibility = ["//visibility:public"],
+)
+
+foo_toolchain(
+    name = "foo_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+toolchain(
+    name = "foo_default_toolchain",
+    toolchain = ":foo_toolchain",
+    toolchain_type = ":foo_toolchain_type",
+)
+EOF
+  cat > external/rules_foo/toolchain/toolchain.bzl <<EOF
+_ATTRS = dict(
+  foo_tool = attr.label(
+      allow_files = True,
+      default = "//foo_tools:foo_tool",
+  ),
+)
+
+def _impl(ctx):
+    return [platform_common.ToolchainInfo(
+        **{name: getattr(ctx.attr, name) for name in _ATTRS.keys()}
+    )]
+
+foo_toolchain = rule(
+    implementation = _impl,
+    attrs = _ATTRS,
+)
+EOF
+  mkdir -p external/rules_foo/foo_tools
+  cat > external/rules_foo/foo_tools/BUILD <<EOF
+sh_binary(
+  name = "foo_tool",
+  srcs = ["foo_tool.sh"],
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat > external/rules_foo/foo_tools/foo_tool.sh <<EOF
+echo creating \$1
+touch \$1
+EOF
+  chmod +x external/rules_foo/foo_tools/foo_tool.sh
+
+  # Create a target that uses the rule.
+  mkdir -p demo
+  cat > demo/BUILD <<EOF
+load("@rules_foo//rule:rule.bzl", "foo_rule")
+
+foo_rule(name = "demo")
+EOF
+
+  # Set up the WORKSPACE.
+  cat >> WORKSPACE <<EOF
+local_repository(
+  name = "rules_foo",
+  path = "external/rules_foo",
+)
+
+register_toolchains(
+  "@rules_foo//toolchain:foo_default_toolchain",
+)
+EOF
+
+  # Test the build.
+  bazel build \
+    //demo:demo &> $TEST_log || fail "Build failed"
+  expect_log "foo_tool = <target @rules_foo//foo_tools:foo_tool>"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.

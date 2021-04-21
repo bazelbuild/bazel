@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TopDownActionCache;
@@ -405,6 +406,19 @@ public abstract class BlazeModule {
    */
   @Nullable
   public PackageValidator getPackageValidator() {
+    return null;
+  }
+
+  /**
+   * Returns a {@link PackageOverheadEstimator} to be used to estimate the cost of loaded packages,
+   * or null if the module does not provide any such functionality.
+   *
+   * <p>Called once during server startup some time after {@link #serverInit}.
+   *
+   * <p>Note that only one instance per Bazel/Blaze runtime is allowed
+   */
+  @Nullable
+  public PackageOverheadEstimator getPackageOverheadEstimator() {
     return null;
   }
 

@@ -118,8 +118,16 @@ class SingleplexWorker extends Worker {
   }
 
   @Override
-  WorkResponse getResponse(int requestId) throws IOException {
+  WorkResponse getResponse(int requestId) throws IOException, InterruptedException {
     recordingInputStream.startRecording(4096);
+    while (recordingInputStream.available() == 0) {
+      Thread.sleep(10);
+      if (!process.isAlive()) {
+        throw new IOException(
+            String.format(
+                "Worker process for %s died while waiting for response", workerKey.getMnemonic()));
+      }
+    }
     return workerProtocol.getResponse();
   }
 

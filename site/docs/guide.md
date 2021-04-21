@@ -139,15 +139,15 @@ workspace.
 </tr>
 <tr>
   <td><code>//foo/bar:all</code></td>
-  <td>All rules in the package <code>foo/bar</code>.</td>
+  <td>All rule targets in the package <code>foo/bar</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...</code></td>
-  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
+  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:all</code></td>
-  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
+  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:*</code></td>
@@ -156,6 +156,16 @@ workspace.
 <tr>
   <td><code>//foo/...:all-targets</code></td>
   <td>All targets (rules and files) in all packages beneath the directory <code>foo</code>.</td>
+</tr>
+<tr>
+  <td><code>//...</code></td>
+  <td>All targets in packages in the workspace. This does not include targets
+  from <a href="external.html">external repositories</a>.</td>
+</tr>
+<tr>
+  <td><code>//:all</code></td>
+  <td>All targets in the top-level package, if there is a BUILD file at the
+  root of the workspace.</td>
 </tr>
 </table>
 
@@ -776,8 +786,17 @@ before the command (`build`, `test`, etc).
 4.  **The user-specified RC file**, if specified with
     <code>--bazelrc=<var>file</var></code>
 
-    This flag is optional. However, if the flag is specified, then the file must
-    exist.
+    This flag is optional but can also be specified multiple times.
+
+    `/dev/null` indicates that all further `--bazelrc`s will be ignored, which
+     is useful to disable the search for a user rc file, e.g. in release builds.
+
+    For example:
+    ```
+    --bazelrc=x.rc --bazelrc=y.rc --bazelrc=/dev/null --bazelrc=z.rc
+    ```
+    1. `x.rc` and `y.rc` are read.
+    2. `z.rc` is ignored due to the prior `/dev/null`.
 
 In addition to this optional configuration file, Bazel looks for a global rc
 file. For more details, see the [global bazelrc section](#global_bazelrc).

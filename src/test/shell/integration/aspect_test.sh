@@ -85,7 +85,7 @@ EOF
   local -r exit_code="$?"
   [[ "$exit_code" == 1 ]] || fail "Unexpected exit code: $exit_code"
   expect_log "cycle in dependency graph"
-  expect_log "//test:cycletarget \[self-edge\]"
+  expect_log "//test:cycletarget \(.*\) \[self-edge\]"
   expect_not_log "IllegalStateException"
 }
 

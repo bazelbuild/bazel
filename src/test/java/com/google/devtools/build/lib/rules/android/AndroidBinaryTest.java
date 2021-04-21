@@ -36,6 +36,7 @@ import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -43,7 +44,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -81,9 +83,51 @@ import org.junit.runners.Suite.SuiteClasses;
 @RunWith(Suite.class)
 @SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
 public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
+
+  /** Allow use of --foo as a dummy flag */
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfigurationFragment(DummyTestFragment.class);
+    return builder.build();
+  }
+
   /** Use legacy toolchain resolution. */
   @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends AndroidBinaryTest {}
+  public static class WithoutPlatforms extends AndroidBinaryTest {
+
+    @Test
+    public void testAndroidSplitTransitionWithInvalidCpu() throws Exception {
+      scratch.file(
+          "test/starlark/my_rule.bzl",
+          "def impl(ctx): ",
+          "  return []",
+          "my_rule = rule(",
+          "  implementation = impl,",
+          "  attrs = {",
+          "    'deps': attr.label_list(cfg = android_common.multi_cpu_configuration),",
+          "    'dep':  attr.label(cfg = android_common.multi_cpu_configuration),",
+          "  })");
+
+      scratch.file(
+          "test/starlark/BUILD",
+          "load('//test/starlark:my_rule.bzl', 'my_rule')",
+          "my_rule(name = 'test', deps = [':main'], dep = ':main')",
+          "cc_binary(name = 'main', srcs = ['main.c'])");
+      BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+
+      // --android_cpu with --android_crosstool_top also triggers the split transition.
+      useConfiguration(
+          "--fat_apk_cpu=doesnotexist", "--android_crosstool_top=//android/crosstool:everything");
+
+      AssertionError noToolchainError =
+          assertThrows(AssertionError.class, () -> getConfiguredTarget("//test/starlark:test"));
+      assertThat(noToolchainError)
+          .hasMessageThat()
+          .contains("does not contain a toolchain for cpu 'doesnotexist'");
+    }
+  }
 
   /** Use platform-based toolchain resolution. */
   @RunWith(JUnit4.class)
@@ -95,7 +139,56 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     @Override
     protected String defaultPlatformFlag() {
-      return String.format("--android_platforms=%s/android", TestConstants.PLATFORM_PACKAGE_ROOT);
+      return String.format(
+          "--android_platforms=%s/android:armeabi-v7a", TestConstants.PLATFORM_PACKAGE_ROOT);
+    }
+
+    @Test
+    public void testFatApk_androidPlatformsFlag() throws Exception {
+      BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+      scratch.file(
+          "java/foo/BUILD",
+          "config_setting(",
+          "    name = 'is_x86',",
+          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
+          ")",
+          "config_setting(",
+          "    name = 'is_arm',",
+          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm'],",
+          ")",
+          "android_library(",
+          "    name = 'lib',",
+          "    srcs = ['MyLibrary.java'])",
+          "cc_library(",
+          "    name = 'arm-native-lib',",
+          "    srcs = ['armnative.so'])",
+          "cc_library(",
+          "    name = 'x86-native-lib',",
+          "    srcs = ['x86native.so'])",
+          "cc_library(",
+          "    name = 'native-lib',",
+          "    deps = select({",
+          "        ':is_x86': [':x86-native-lib'],",
+          "        ':is_arm': [':arm-native-lib'],",
+          "        '//conditions:default': [],",
+          "    }))",
+          "android_binary(",
+          "    name = 'abin',",
+          "    srcs = ['a.java'],",
+          "    proguard_specs = [],",
+          "    deps = ['lib', 'native-lib'],",
+          "    manifest = 'AndroidManifest.xml',",
+          "    resource_files = glob(['res/**']))");
+      useConfiguration(
+          "--android_platforms=//java/android/platforms:x86,//java/android/platforms:armeabi-v7a",
+          "--dynamic_mode=off");
+      ConfiguredTarget apk = getConfiguredTarget("//java/foo:abin");
+      List<String> args = getGeneratingSpawnActionArgs(getCompressedUnsignedApk(apk));
+      assertContainsSublist(
+          args,
+          ImmutableList.of("--resources", "java/foo/armnative.so:lib/armeabi-v7a/armnative.so"));
+      assertContainsSublist(
+          args, ImmutableList.of("--resources", "java/foo/x86native.so:lib/x86/x86native.so"));
     }
   }
 
@@ -117,38 +210,40 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     scratch.file("java/android/A.java", "package android; public class A {};");
+    if (platformBasedToolchains()) {
+      scratch.file(
+          "java/android/platforms/BUILD",
+          "platform(",
+          "    name = 'x86',",
+          "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + "/android:armeabi-v7a'],",
+          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
+          ")",
+          "platform(",
+          "    name = 'armeabi-v7a',",
+          "    parents = ['" + TestConstants.PLATFORM_PACKAGE_ROOT + "/android:armeabi-v7a'],",
+          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm'],",
+          ")");
+      scratch.file(
+          "/workspace/platform_mappings",
+          "platforms:",
+          "  //java/android/platforms:armeabi-v7a",
+          "    --cpu=armeabi-v7a",
+          "    --android_cpu=armeabi-v7a",
+          "    --crosstool_top=//android/crosstool:everything",
+          "  //java/android/platforms:x86",
+          "    --cpu=x86",
+          "    --android_cpu=x86",
+          "    --crosstool_top=//android/crosstool:everything",
+          "flags:",
+          "  --crosstool_top=//android/crosstool:everything",
+          "  --cpu=armeabi-v7a",
+          "    //java/android/platforms:arm",
+          "  --crosstool_top=//android/crosstool:everything",
+          "  --cpu=x86",
+          "    //java/android/platforms:x86");
+      invalidatePackages(false);
+    }
     setBuildLanguageOptions("--experimental_google_legacy_api");
-  }
-
-  @Test
-  public void testAndroidSplitTransitionWithInvalidCpu() throws Exception {
-    scratch.file(
-        "test/starlark/my_rule.bzl",
-        "def impl(ctx): ",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(cfg = android_common.multi_cpu_configuration),",
-        "    'dep':  attr.label(cfg = android_common.multi_cpu_configuration),",
-        "  })");
-
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'test', deps = [':main'], dep = ':main')",
-        "cc_binary(name = 'main', srcs = ['main.c'])");
-    BazelMockAndroidSupport.setupNdk(mockToolsConfig);
-
-    // --android_cpu with --android_crosstool_top also triggers the split transition.
-    useConfiguration(
-        "--fat_apk_cpu=doesnotexist", "--android_crosstool_top=//android/crosstool:everything");
-
-    AssertionError noToolchainError =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test/starlark:test"));
-    assertThat(noToolchainError)
-        .hasMessageThat()
-        .contains("does not contain a toolchain for cpu 'doesnotexist'");
   }
 
   @Test
@@ -725,8 +820,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               deps = [':native_wrapper'],",
         "               manifest = 'AndroidManifest.xml',",
         "              )");
+    ConfiguredTarget app = getConfiguredTarget("//java/android/app:app");
     assertNativeLibrariesCopiedNotLinked(
-        getConfiguredTarget("//java/android/app:app"),
+        app,
+        getConfiguration(getDirectPrerequisite(app, "//java/android/app:native_wrapper")),
         "src java/android/app/dep.so",
         "src java/android/app/native_prebuilt.so");
   }
@@ -742,8 +839,11 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               deps = [':native'],",
         "               manifest = 'AndroidManifest.xml',",
         "              )");
+    ConfiguredTarget app = getConfiguredTarget("//java/android/app:app");
     assertNativeLibrariesCopiedNotLinked(
-        getConfiguredTarget("//java/android/app:app"), "src java/android/app/libnative.so");
+        app,
+        getConfiguration(getDirectPrerequisite(app, "//java/android/app:native")),
+        "src java/android/app/libnative.so");
   }
 
   @Test
@@ -4379,10 +4479,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "conditions/BUILD",
         "config_setting(",
         "    name = 'a',",
-        "    values = {'test_arg': 'a'})",
+        "    values = {'foo': 'a'})",
         "config_setting(",
         "    name = 'b',",
-        "    values = {'test_arg': 'b'})");
+        "    values = {'foo': 'b'})");
     scratchConfiguredTarget(
         "java/foo",
         "abin",
@@ -4500,13 +4600,16 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void androidManifestMergerOrderAlphabetical_MergeesSortedByExecPath() throws Exception {
-    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
-    // This is necessary because the transition would change the configuration directory, causing
-    // the manifest paths in the assertion not to match.
-    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
-    // them.
-    useConfiguration(
-        "--fat_apk_cpu=", "--android_cpu=", "--android_manifest_merger_order=alphabetical");
+    useConfiguration("--android_manifest_merger_order=alphabetical");
+    /*
+     * Dependency hierarchy:
+     * - //java/binary:application
+     *   - //java/binary:library
+     *     - //java/common:theme
+     *     - //java/android:utility
+     *       - //java/common:common
+     *         - //java/android:core
+     */
     scratch.overwriteFile(
         "java/android/BUILD",
         "android_library(",
@@ -4551,22 +4654,23 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    exports_manifest = 1,",
         "    resource_files = ['theme/res/values/values.xml'],",
         ")");
-    ConfiguredTarget application = getConfiguredTarget("//java/binary:application");
-    BuildConfiguration appConfiguration = getConfiguration(application);
-    Artifact androidCoreManifest =
-        getLibraryManifest(getConfiguredTarget("//java/android:core", appConfiguration));
-    Artifact androidUtilityManifest =
-        getLibraryManifest(getConfiguredTarget("//java/android:utility", appConfiguration));
-    Artifact binaryLibraryManifest =
-        getLibraryManifest(getConfiguredTarget("//java/binary:library", appConfiguration));
-    Artifact commonManifest =
-        getLibraryManifest(getConfiguredTarget("//java/common:common", appConfiguration));
-    Artifact commonThemeManifest =
-        getLibraryManifest(getConfiguredTarget("//java/common:theme", appConfiguration));
 
-    assertThat(
-            getBinaryMergeeManifests(
-                getConfiguredTarget("//java/binary:application", appConfiguration)))
+    // These have to be found via the same inheritance hierarchy, because getDirectPrerequsite can
+    // only traverse one level.
+    ConfiguredTarget application = getConfiguredTarget("//java/binary:application");
+    ConfiguredTarget library = getDirectPrerequisite(application, "//java/binary:library");
+    ConfiguredTarget theme = getDirectPrerequisite(library, "//java/common:theme");
+    ConfiguredTarget utility = getDirectPrerequisite(library, "//java/android:utility");
+    ConfiguredTarget common = getDirectPrerequisite(utility, "//java/common:common");
+    ConfiguredTarget core = getDirectPrerequisite(common, "//java/android:core");
+
+    Artifact androidCoreManifest = getLibraryManifest(core);
+    Artifact androidUtilityManifest = getLibraryManifest(utility);
+    Artifact binaryLibraryManifest = getLibraryManifest(library);
+    Artifact commonManifest = getLibraryManifest(common);
+    Artifact commonThemeManifest = getLibraryManifest(theme);
+
+    assertThat(getBinaryMergeeManifests(application))
         .containsExactlyEntriesIn(
             ImmutableMap.of(
                 androidCoreManifest.getExecPath().toString(), "//java/android:core",
@@ -4580,14 +4684,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void androidManifestMergerOrderAlphabeticalByConfiguration_MergeesSortedByPathInBinOrGen()
       throws Exception {
-    // Hack: Avoid the Android split transition by turning off fat_apk_cpu/android_cpu.
-    // This is necessary because the transition would change the configuration directory, causing
-    // the manifest paths in the assertion not to match.
-    // TODO(b/140634666): Get the library manifests in the same configuration as the binary gets
-    // them.
     useConfiguration(
-        "--fat_apk_cpu=",
-        "--android_cpu=",
         "--android_manifest_merger_order=alphabetical_by_configuration");
     scratch.overwriteFile(
         "java/android/BUILD",

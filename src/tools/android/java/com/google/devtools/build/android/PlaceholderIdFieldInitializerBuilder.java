@@ -352,7 +352,9 @@ class PlaceholderIdFieldInitializerBuilder {
               dependencyInfo,
               linkageInfo.visibility(),
               field,
-              ImmutableList.copyOf(arrayInitMap.values())));
+              arrayInitMap.values().stream()
+                  .map(IntArrayFieldInitializer.IntegerValue::new)
+                  .collect(ImmutableList.toImmutableList())));
       int index = 0;
       for (String attr : arrayInitMap.keySet()) {
         initList.add(

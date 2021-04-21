@@ -15,6 +15,11 @@ tools running in parallel until you have fully migrated your development team,
 CI system, and any other relevant systems. You can run Maven and Bazel in the
 same repository.
 
+Note that while Bazel supports downloading and publishing Maven artifacts with
+[rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external), it
+does not directly support Maven-based plugins. Maven plugins can't be directly
+run by Bazel since there's no Maven compatibility layer.
+
 ## Before you begin
 
 *  [Install Bazel](install.md) if it's not yet installed.

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,9 +30,12 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonOptions;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -345,16 +349,8 @@ public final class BuildOptionsTest {
     OptionsDiffForReconstruction diff1 = BuildOptions.diffForReconstruction(one, two);
     OptionsDiffForReconstruction diff2 = BuildOptions.diffForReconstruction(one, two);
     assertThat(diff2).isEqualTo(diff1);
-    assertThat(
-            TestUtils.toBytes(
-                diff2,
-                ImmutableMap.of(
-                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())))
-        .isEqualTo(
-            TestUtils.toBytes(
-                diff1,
-                ImmutableMap.of(
-                    BuildOptions.OptionsDiffCache.class, new BuildOptions.DiffToByteCache())));
+    assertThat(toBytes(diff2, new BuildOptions.DiffToByteCache()))
+        .isEqualTo(toBytes(diff1, new BuildOptions.DiffToByteCache()));
   }
 
   @Test
@@ -363,9 +359,7 @@ public final class BuildOptionsTest {
     BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
     OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(one, two);
     BuildOptions.OptionsDiffCache cache = new BuildOptions.FingerprintingKDiffToByteStringCache();
-    assertThat(TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)))
-        .isEqualTo(
-            TestUtils.toBytes(diff, ImmutableMap.of(BuildOptions.OptionsDiffCache.class, cache)));
+    assertThat(toBytes(diff, cache)).isEqualTo(toBytes(diff, cache));
   }
 
   @Test
@@ -598,5 +592,14 @@ public final class BuildOptionsTest {
     OptionsDiffForReconstruction diff = BuildOptions.diffForReconstruction(first, second);
     diff.clearCachedReconstructedForTesting();
     return diff;
+  }
+
+  private static ByteString toBytes(
+      OptionsDiffForReconstruction diff, BuildOptions.OptionsDiffCache cache)
+      throws IOException, SerializationException {
+    return TestUtils.toBytes(
+        new SerializationContext(
+            ImmutableClassToInstanceMap.of(BuildOptions.OptionsDiffCache.class, cache)),
+        diff);
   }
 }

@@ -308,7 +308,8 @@ public class BlazeRuntimeWrapper {
               /*enabledCpuUsageProfiling=*/ false,
               /*slimProfile=*/ false,
               /*includePrimaryOutput=*/ false,
-              /*includeTargetLabel=*/ false);
+              /*includeTargetLabel=*/ false,
+              /*collectTaskHistograms=*/ true);
 
       // This cannot go into newCommand, because we hook up the EventCollectionApparatus as a
       // module, and after that ran, further changes to the apparatus aren't reflected on the

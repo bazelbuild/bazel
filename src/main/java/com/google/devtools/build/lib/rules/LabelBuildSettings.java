@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -56,7 +57,7 @@ public class LabelBuildSettings {
           null,
           (rule, attributes, configuration) -> {
             if (rule == null || configuration == null) {
-              return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL);
+              return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL);
             }
             Object commandLineValue =
                 configuration.getOptions().getStarlarkOptions().get(rule.getLabel());
@@ -64,7 +65,7 @@ public class LabelBuildSettings {
             try {
               asLabel =
                   commandLineValue == null
-                      ? attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)
+                      ? attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL)
                       : LABEL.convert(commandLineValue, "label_flag value resolution");
             } catch (ConversionException e) {
               throw new IllegalStateException(
@@ -81,7 +82,7 @@ public class LabelBuildSettings {
         .removeAttribute("licenses")
         .removeAttribute("distribs")
         .add(attr(":alias", LABEL).value(ACTUAL))
-        .setBuildSetting(BuildSetting.create(flag, LABEL))
+        .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .build();

@@ -132,6 +132,11 @@ message Visibility {
 
   // The comment associated with the <public> tag.
   string comment = 3;
+
+  // Indicates that the resource id may change across builds and that the public R.java identifier
+  // for this resource should not be final. This is set to `true` for resources in `staging-group`
+  // tags.
+  bool staged_api = 4;
 }
 
 // Whether a resource comes from a compile-time overlay and is explicitly allowed to not overlay an
@@ -167,6 +172,8 @@ message OverlayableItem {
     SIGNATURE = 5;
     ODM = 6;
     OEM = 7;
+    ACTOR = 8;
+    CONFIG_SIGNATURE = 9;
   }
 
   // The location of the <item> declaration in source.
@@ -269,6 +276,11 @@ message CompoundValue {
   }
 }
 
+// Message holding a boolean, so it can be optionally encoded.
+message Boolean {
+  bool value = 1;
+}
+
 // A value that is a reference to another resource. This reference can be by name or resource ID.
 message Reference {
   enum Type {
@@ -289,6 +301,9 @@ message Reference {
 
   // Whether this reference is referencing a private resource (@*package:type/entry).
   bool private = 4;
+
+  // Whether this reference is dynamic.
+  Boolean is_dynamic = 5;
 }
 
 // A value that represents an ID. This is just a placeholder, as ID values are used to occupy a

@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
@@ -268,7 +269,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(
               graph,
-              getTargetPatternsForUniverseKey(universeKey),
+              UniverseTargetPattern.of(getTargetPatternsForUniverseKey(universeKey)),
               pkgPath,
               new TraversalInfoRootPackageExtractor());
     }
@@ -376,12 +377,20 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       return QueryExpressionMapper.identity();
     }
     TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
-    String universeScopePattern = Iterables.getOnlyElement(constantUniverseScopeList);
+    String universeScopePatternString = Iterables.getOnlyElement(constantUniverseScopeList);
+    TargetPattern absoluteUniverseScopePattern = null;
+    try {
+      absoluteUniverseScopePattern =
+          targetPatternParser.parse(targetPatternParser.absolutize(universeScopePatternString));
+    } catch (TargetParsingException e) {
+      return QueryExpressionMapper.identity();
+    }
     return QueryExpressionMapper.compose(
         ImmutableList.of(
-            new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern),
+            new RdepsToAllRdepsQueryExpressionMapper(
+                targetPatternParser, absoluteUniverseScopePattern),
             new FilteredDirectRdepsInUniverseExpressionMapper(
-                targetPatternParser, universeScopePattern)));
+                targetPatternParser, absoluteUniverseScopePattern)));
   }
 
   @Override

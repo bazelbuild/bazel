@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.io.InputStream;
@@ -54,7 +55,7 @@ public class SingleBuildFileCacheTest {
     fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          protected InputStream getInputStream(Path path) throws IOException {
+          protected InputStream getInputStream(PathFragment path) throws IOException {
             int c = calls.containsKey(path.toString()) ? calls.get(path.toString()) : 0;
             c++;
             calls.put(path.toString(), c);
@@ -62,13 +63,13 @@ public class SingleBuildFileCacheTest {
           }
 
           @Override
-          protected byte[] getDigest(Path path) throws IOException {
+          protected byte[] getDigest(PathFragment path) throws IOException {
             byte[] override = digestOverrides.get(path.getPathString());
             return override != null ? override : super.getDigest(path);
           }
 
           @Override
-          protected byte[] getFastDigest(Path path) throws IOException {
+          protected byte[] getFastDigest(PathFragment path) throws IOException {
             return null;
           }
         };

@@ -142,4 +142,12 @@ public interface AndroidSemantics {
 
   /** Executes a ruleContext.attributeError when the check for the migration tag fails. */
   void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException;
+
+  /**
+   * Whether invoking apksigner, whether or not to pass it flags to make DSA signing be
+   * deterministic.
+   */
+  default boolean deterministicSigning() {
+    return false;
+  }
 }

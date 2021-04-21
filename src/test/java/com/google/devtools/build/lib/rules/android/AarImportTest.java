@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import java.util.Collection;
@@ -496,11 +496,11 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
   public void testClassesJarProvided() throws Exception {
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:foo");
 
-    Iterable<OutputJar> outputJars =
-        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, aarImportTarget).getOutputJars();
-    assertThat(outputJars).hasSize(1);
+    Iterable<JavaOutput> javaOutputs =
+        JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, aarImportTarget).getJavaOutputs();
+    assertThat(javaOutputs).hasSize(1);
 
-    Artifact classesJar = outputJars.iterator().next().getClassJar();
+    Artifact classesJar = javaOutputs.iterator().next().getClassJar();
     assertThat(classesJar.getFilename()).isEqualTo("classes_and_libs_merged.jar");
 
     SpawnAction jarMergingAction = ((SpawnAction) getGeneratingAction(classesJar));

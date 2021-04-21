@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -188,16 +188,14 @@ public class ArtifactTest {
     MiddlemanAction.create(
         new ActionRegistry() {
           @Override
-          public void registerAction(ActionAnalysisMetadata... actions) {
-            for (ActionAnalysisMetadata action : actions) {
-              try {
-                actionGraph.registerAction(action);
-              } catch (ActionConflictException e) {
-                throw new IllegalStateException(e);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Didn't expect interrupt in test", e);
-              }
+          public void registerAction(ActionAnalysisMetadata action) {
+            try {
+              actionGraph.registerAction(action);
+            } catch (ActionConflictException e) {
+              throw new IllegalStateException(e);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw new IllegalStateException("Didn't expect interrupt in test", e);
             }
           }
 
@@ -326,7 +324,7 @@ public class ArtifactTest {
                 .addReferenceConstant(scratch.getFileSystem())
                 .setAllowDefaultCodec(true)
                 .build(),
-            ImmutableMap.<Class<?>, Object>builder()
+            ImmutableClassToInstanceMap.builder()
                 .put(FileSystem.class, scratch.getFileSystem())
                 .put(ArtifactResolverSupplier.class, artifactResolverSupplierForTest)
                 .put(

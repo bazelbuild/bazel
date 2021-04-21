@@ -30,7 +30,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.TriState;
 import java.util.List;
 import java.util.Map;
 
@@ -427,32 +426,14 @@ public class JavaOptions extends FragmentOptions {
               + " *.pgcfg file extension.")
   public boolean enforceProguardFileExtension;
 
-  @Option(
-      name = "translations",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Translate Java messages; bundle all translations into the jar "
-              + "for each affected rule.")
-  public TriState bundleTranslations;
-
-  @Option(
-      name = "message_translations",
-      defaultValue = "null",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The message translations used for translating messages in Java targets.")
-  public List<String> translationTargets;
-
+  @Deprecated
   @Option(
       name = "check_constraint",
       allowMultiple = true,
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Check the listed constraint.")
+      help = "No-op. Kept here for backwards compatibility.")
   public List<String> checkedConstraints;
 
   @Option(
@@ -492,20 +473,6 @@ public class JavaOptions extends FragmentOptions {
           "If set, any java_proto_library or java_mutable_proto_library which sets the "
               + "strict_deps attribute explicitly will fail to build.")
   public boolean isDisallowStrictDepsForJpl;
-
-  @Option(
-      name = "incompatible_disallow_strict_deps_for_jlpl",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set, any java_lite_proto_library which sets the strict_deps attribute explicitly will"
-              + "fail to build.")
-  public boolean isDisallowStrictDepsForJlpl;
 
   @Option(
       name = "experimental_one_version_enforcement",
@@ -588,17 +555,6 @@ public class JavaOptions extends FragmentOptions {
       help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE.")
   public boolean jplPropagateCcLinkParamsStore;
 
-  @Option(
-      name = "experimental_jlpl_enforce_strict_deps",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help =
-          "Turns on strict deps for all java_lite_proto_libraries even if they set strict_deps=0"
-              + " unless the java_library package disables the feature jpl_strict_deps."
-              + " Used for java_lite_proto_library.strict_deps migration.")
-  public boolean isJlplStrictDepsEnforced;
-
   // Plugins are built using the host config. To avoid cycles we just don't propagate
   // this option to the host config. If one day we decide to use plugins when building
   // host tools, we can improve this by (for example) creating a compiler configuration that is
@@ -612,20 +568,6 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Plugins to use in the build. Currently works with java_plugin.")
   public List<Label> pluginList;
-
-  @Option(
-      name = "incompatible_require_java_toolchain_header_compiler_direct",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If enabled, java_toolchains.header_compilation_direct must be set when "
-              + "--java_header_compilation is enabled.")
-  public boolean requireJavaToolchainHeaderCompilerDirect;
 
   @Option(
       name = "incompatible_disallow_resource_jars",
@@ -688,6 +630,7 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  // TODO(b/180107817): delete flag after removing from global .blazerc
   @Option(
       name = "incompatible_dont_collect_so_artifacts",
       defaultValue = "false",
@@ -697,10 +640,16 @@ public class JavaOptions extends FragmentOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "Disables collection of .so libraries as artifact (produced by filegroup or genrule); "
-              + " depend on cc_binary or cc_library directly.")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean dontCollectSoArtifacts;
+
+  @Option(
+      name = "experimental_publish_javacclinkparamsinfo",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, JavaCcLinkParamsInfo is published as part of JavaInfo.")
+  public boolean experimentalPublishJavaCcLinkParamsInfo;
 
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
@@ -760,10 +709,6 @@ public class JavaOptions extends FragmentOptions {
 
     host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
-    host.isJlplStrictDepsEnforced = isJlplStrictDepsEnforced;
-
-    host.requireJavaToolchainHeaderCompilerDirect = requireJavaToolchainHeaderCompilerDirect;
-
     host.disallowResourceJars = disallowResourceJars;
 
     host.javaRuntimeVersion = hostJavaRuntimeVersion;
@@ -787,8 +732,8 @@ public class JavaOptions extends FragmentOptions {
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     host.dontCollectSoArtifacts = dontCollectSoArtifacts;
+    host.experimentalPublishJavaCcLinkParamsInfo = experimentalPublishJavaCcLinkParamsInfo;
 
     return host;
   }
-
 }

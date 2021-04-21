@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -996,7 +995,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     SpawnAction.Builder spawnAction = new SpawnAction.Builder();
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
 
-    Action[] build(RuleContext context) {
+    SpawnAction build(RuleContext context) {
       spawnAction.addCommandLine(
           commandLine.build(), ParamFileInfo.builder(ParameterFileType.UNQUOTED).build());
       return spawnAction.build(context);
@@ -1165,7 +1164,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
               Compression.DISALLOW));
       additionalMetadata = ImmutableList.of(runtimeObjectsList);
     }
-    ruleContext.registerAction();
     InstrumentedFilesInfo instrumentedFilesProvider =
         common.getInstrumentedFilesProvider(
             instrumentedObjectFiles,
@@ -1192,9 +1190,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(
-            CcInfo.builder().setCcCompilationContext(ccCompilationContext).build())
-        .addNativeDeclaredProvider(
-            new CcNativeLibraryProvider(collectTransitiveCcNativeLibraries(ruleContext, libraries)))
+            CcInfo.builder()
+                .setCcCompilationContext(ccCompilationContext)
+                .setCcNativeLibraryInfo(
+                    new CcNativeLibraryInfo(
+                        collectTransitiveCcNativeLibraries(ruleContext, libraries)))
+                .build())
         .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addOutputGroup(OutputGroupInfo.VALIDATION, headerTokens)
         .addOutputGroups(outputGroups);
@@ -1206,9 +1207,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, List<LibraryToLink> libraries) {
     NestedSetBuilder<LibraryToLink> builder = NestedSetBuilder.linkOrder();
     builder.addAll(libraries);
-    for (CcNativeLibraryProvider dep :
-        ruleContext.getPrerequisites("deps", CcNativeLibraryProvider.PROVIDER)) {
-      builder.addTransitive(dep.getTransitiveCcNativeLibraries());
+    for (CcInfo dep : ruleContext.getPrerequisites("deps", CcInfo.PROVIDER)) {
+      builder.addTransitive(dep.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
     }
     return builder.build();
   }

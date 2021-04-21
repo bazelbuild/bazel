@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformConfigurationApi;
 import com.google.devtools.build.lib.util.RegexFilter;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +37,7 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   private final Label targetPlatform;
   private final ImmutableList<String> extraToolchains;
   private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
+  private final RegexFilter toolchainResolutionDebugRegexFilter;
 
   public PlatformConfiguration(BuildOptions buildOptions) {
     PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
@@ -46,6 +48,7 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
     this.extraToolchains = ImmutableList.copyOf(platformOptions.extraToolchains);
     this.targetFilterToAdditionalExecConstraints =
         platformOptions.targetFilterToAdditionalExecConstraints;
+    this.toolchainResolutionDebugRegexFilter = platformOptions.toolchainResolutionDebug;
   }
 
   @Override
@@ -110,5 +113,24 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
       }
     }
     return constraints.build();
+  }
+
+  /** Returns true if toolchain resolution debug info should be printed for this toolchain type. */
+  public boolean debugToolchainResolution(Label toolchainType) {
+    return debugToolchainResolution(ImmutableList.of(toolchainType));
+  }
+
+  /**
+   * Returns true if toolchain resolution debug info should be printed for any of these toolchain
+   * types.
+   */
+  public boolean debugToolchainResolution(Collection<Label> toolchainTypes) {
+    if (toolchainTypes.isEmpty()) {
+      // Check an empty string, in case the filter is .*
+      return this.toolchainResolutionDebugRegexFilter.test("");
+    }
+    return toolchainTypes.stream()
+        .map(Label::getCanonicalForm)
+        .anyMatch(toolchainType -> this.toolchainResolutionDebugRegexFilter.test(toolchainType));
   }
 }

@@ -203,11 +203,11 @@ DIST_DEPS = {
         "strip_prefix": "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
     },
     "rules_pkg": {
-        "archive": "rules_pkg-0.2.4.tar.gz",
-        "sha256": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
+        "archive": "rules_pkg-0.4.0.tar.gz",
+        "sha256": "038f1caa773a7e35b3663865ffb003169c6a71dc995e39bf4815792f385d837d",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.2.4/rules_pkg-0.2.4.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.4.0/rules_pkg-0.4.0.tar.gz",
+            "https://github.com/bazelbuild/rules_pkg/releases/download/0.4.0/rules_pkg-0.4.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -239,13 +239,13 @@ DIST_DEPS = {
         ],
     },
     "desugar_jdk_libs": {
-        # Commit b102111a91ee5910e680bc9e32146da3e081055e of 2020-08-01
-        "archive": "b102111a91ee5910e680bc9e32146da3e081055e.zip",
-        "sha256": "2a043b861779ad382a75a6e3705c00a8168d433db07d09a883ae85912aa5009e",
-        "strip_prefix": "desugar_jdk_libs-b102111a91ee5910e680bc9e32146da3e081055e",
+        # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
+        "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
+        "sha256": "299452e6f4a4981b2e6d22357f7332713382a63e4c137f5fd6b89579f6d610cb",
+        "strip_prefix": "desugar_jdk_libs-5847d6a06302136d95a14b4cbd4b55a9c9f1436e",
         "urls": [
-            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
-            "https://github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
+            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
+            "https://github.com/google/desugar_jdk_libs/archive/5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -267,11 +267,11 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v11.1.zip",
-        "sha256": "12cffbb7c87622a6bd6e9231e81ecb9efdb118afbdd6e047ef06eeb3d72a7dc3",
+        "archive": "java_tools-v11.3.zip",
+        "sha256": "52b66d8df456f2ce057d8e435904789463df8414af8110aa13af68ce32d8c4cc",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools-v11.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools-v11.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.3/java_tools-v11.3.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.3/java_tools-v11.3.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -283,11 +283,11 @@ DIST_DEPS = {
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v11.1.zip",
-        "sha256": "a0dea21d348c8be94d06fde5a6c18d7691aa659cd56c3f1f932f0a28ae943a23",
+        "archive": "java_tools_linux-v11.3.zip",
+        "sha256": "014fe7305bb0cf2430ca7fc61a2939d4a547d10a1ad47ce909c16235f8f49f46",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_linux-v11.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools_linux-v11.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.3/java_tools_linux-v11.3.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.3/java_tools_linux-v11.3.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -299,11 +299,11 @@ DIST_DEPS = {
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v11.1.zip",
-        "sha256": "ac4d22ce9b10a1d5e46cbae0beb63221d96043d1f3543a729482005481e3e51a",
+        "archive": "java_tools_windows-v11.3.zip",
+        "sha256": "ebb885cc75bfb72ab509de68883ed31638ba2c1a22181636e75c9c731f73fee3",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_windows-v11.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools_windows-v11.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.3/java_tools_windows-v11.3.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.3/java_tools_windows-v11.3.zip",
         ],
         "used_in": [
             "additional_distfiles",
@@ -315,11 +315,11 @@ DIST_DEPS = {
             "remote_java_tools_test_darwin",
             "remote_java_tools_darwin_for_testing",
         ],
-        "archive": "java_tools_darwin-v11.1.zip",
-        "sha256": "72a2f34806e7f83b111601495c3bd401b96ea1794daa259608481fd4f6a60629",
+        "archive": "java_tools_darwin-v11.3.zip",
+        "sha256": "d09141a35e2c7950f6b7ea344ebd67868146fd2d1ee2b7509cdc36a42786cca4",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.1/java_tools_darwin-v11.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.1/java_tools_darwin-v11.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.3/java_tools_darwin-v11.3.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.3/java_tools_darwin-v11.3.zip",
         ],
         "used_in": [
             "additional_distfiles",

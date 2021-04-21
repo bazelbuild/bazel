@@ -71,9 +71,6 @@ class SomePathFunction implements QueryFunction {
             public Void call() throws QueryException, InterruptedException {
               ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
               ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
-
-              env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
-
               ((CustomFunctionQueryEnvironment<T>) env)
                   .somePath(fromValue, toValue, expression, callback);
               return null;

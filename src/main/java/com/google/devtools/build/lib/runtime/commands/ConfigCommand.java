@@ -382,7 +382,7 @@ public class ConfigCommand implements BlazeCommand {
         .filter(e -> SkyFunctions.BUILD_CONFIGURATION.equals(e.getKey().functionName()))
         .collect(
             toImmutableSortedMap(
-                comparing(BuildConfigurationValue.Key::toString),
+                comparing(BuildConfigurationValue.Key::toComparableString),
                 e -> (BuildConfigurationValue.Key) e.getKey(),
                 e -> ((BuildConfigurationValue) e.getValue()).getConfiguration()));
   }

@@ -104,8 +104,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
     FilesToRunProvider jacocoRunner = ruleContext.getExecutablePrerequisite("jacocorunner");
 
-    JavaRuntimeInfo javaRuntime =
-        (JavaRuntimeInfo) ruleContext.getPrerequisite("java_runtime").get(ToolchainInfo.PROVIDER);
+    JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext, "java_runtime");
 
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(
@@ -136,10 +135,13 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             proguardAllowlister,
             semantics,
             javaRuntime);
+    ToolchainInfo toolchainInfo =
+        new ToolchainInfo(ImmutableMap.<String, Object>builder().put("java", provider).build());
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)
             .addNativeDeclaredProvider(provider)
+            .addNativeDeclaredProvider(toolchainInfo)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build());
 

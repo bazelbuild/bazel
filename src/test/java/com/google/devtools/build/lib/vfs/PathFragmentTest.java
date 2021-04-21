@@ -19,28 +19,28 @@ import static com.google.devtools.build.lib.vfs.PathFragment.EMPTY_FRAGMENT;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * This class tests the functionality of the PathFragment.
- */
-@RunWith(JUnit4.class)
-public class PathFragmentTest {
+/** Tests for {@link PathFragment}. */
+@RunWith(TestParameterInjector.class)
+public final class PathFragmentTest {
 
   @Test
   public void testEqualsAndHashCode() {
@@ -254,6 +254,27 @@ public class PathFragmentTest {
     assertThat(create("").segmentCount()).isEqualTo(0);
   }
 
+  @Test
+  public void isSingleSegment_true(@TestParameter({"/foo", "foo"}) String path) {
+    assertThat(create(path).isSingleSegment()).isTrue();
+  }
+
+  @Test
+  public void isSingleSegment_false(
+      @TestParameter({"/", "", "/foo/bar", "foo/bar", "/foo/bar/baz", "foo/bar/baz"}) String path) {
+    assertThat(create(path).isSingleSegment()).isFalse();
+  }
+
+  @Test
+  public void isMultiSegment_true(
+      @TestParameter({"/foo/bar", "foo/bar", "/foo/bar/baz", "foo/bar/baz"}) String path) {
+    assertThat(create(path).isMultiSegment()).isTrue();
+  }
+
+  @Test
+  public void isMultiSegment_false(@TestParameter({"/", "", "/foo", "foo"}) String path) {
+    assertThat(create(path).isMultiSegment()).isFalse();
+  }
 
   @Test
   public void testGetSegment() {
@@ -275,7 +296,7 @@ public class PathFragmentTest {
   }
 
   @Test
-  public void testBasename() throws Exception {
+  public void testBasename() {
     assertThat(create("foo/bar").getBaseName()).isEqualTo("bar");
     assertThat(create("/foo/bar").getBaseName()).isEqualTo("bar");
     assertThat(create("foo/").getBaseName()).isEqualTo("foo");
@@ -287,7 +308,7 @@ public class PathFragmentTest {
   }
 
   @Test
-  public void testFileExtension() throws Exception {
+  public void testFileExtension() {
     assertThat(create("foo.bar").getFileExtension()).isEqualTo("bar");
     assertThat(create("foo.barr").getFileExtension()).isEqualTo("barr");
     assertThat(create("foo.b").getFileExtension()).isEqualTo("b");
@@ -301,7 +322,7 @@ public class PathFragmentTest {
   }
 
   @Test
-  public void testReplaceName() throws Exception {
+  public void testReplaceName() {
     assertThat(create("foo/bar").replaceName("baz").getPathString()).isEqualTo("foo/baz");
     assertThat(create("/foo/bar").replaceName("baz").getPathString()).isEqualTo("/foo/baz");
     assertThat(create("foo/bar").replaceName("").getPathString()).isEqualTo("foo");
@@ -321,8 +342,9 @@ public class PathFragmentTest {
     assertThat(create("foo/bar").replaceName("/absolute").getPathString()).isEqualTo("/absolute");
     assertThat(create("foo/bar").replaceName("/").getPathString()).isEqualTo("/");
   }
+
   @Test
-  public void testSubFragment() throws Exception {
+  public void testSubFragment() {
     assertThat(create("/foo/bar/baz").subFragment(0, 3).getPathString()).isEqualTo("/foo/bar/baz");
     assertThat(create("foo/bar/baz").subFragment(0, 3).getPathString()).isEqualTo("foo/bar/baz");
     assertThat(create("/foo/bar/baz").subFragment(0, 2).getPathString()).isEqualTo("/foo/bar");
@@ -383,7 +405,7 @@ public class PathFragmentTest {
     PathFragment.checkAllPathsAreUnder(toPathsSet("a/b", "a/c"), create("a"));
 
     // Check trivially passes:
-    PathFragment.checkAllPathsAreUnder(ImmutableList.<PathFragment>of(), create("a"));
+    PathFragment.checkAllPathsAreUnder(ImmutableList.of(), create("a"));
 
     // Check fails when some path does not start with startingWithPath:
     assertThrows(
@@ -447,7 +469,7 @@ public class PathFragmentTest {
     assertThrows(IllegalArgumentException.class, () -> create("foo").getDriveStr());
   }
 
-  static List<PathFragment> toPaths(List<String> strs) {
+  private static List<PathFragment> toPaths(List<String> strs) {
     List<PathFragment> paths = Lists.newArrayList();
     for (String s : strs) {
       paths.add(create(s));
@@ -455,7 +477,7 @@ public class PathFragmentTest {
     return paths;
   }
 
-  static ImmutableSet<PathFragment> toPathsSet(String... strs) {
+  private static ImmutableSet<PathFragment> toPathsSet(String... strs) {
     ImmutableSet.Builder<PathFragment> builder = ImmutableSet.builder();
     for (String str : strs) {
       builder.add(create(str));
@@ -464,7 +486,7 @@ public class PathFragmentTest {
   }
 
   @Test
-  public void testCompareTo() throws Exception {
+  public void testCompareTo() {
     List<String> pathStrs =
         ImmutableList.of(
             "",
@@ -599,13 +621,16 @@ public class PathFragmentTest {
     checkSerialization("foo/bar/baz", 16);
   }
 
-  private void checkSerialization(String pathFragmentString, int expectedSize) throws Exception {
+  private static void checkSerialization(String pathFragmentString, int expectedSize)
+      throws Exception {
     PathFragment a = create(pathFragmentString);
-    ByteString sa = TestUtils.toBytes(a, ImmutableMap.of());
+    ByteString sa =
+        TestUtils.toBytes(new SerializationContext(ImmutableClassToInstanceMap.of()), a);
     assertThat(sa.size()).isEqualTo(expectedSize);
 
     PathFragment a2 =
-        (PathFragment) TestUtils.fromBytes(new DeserializationContext(ImmutableMap.of()), sa);
+        (PathFragment)
+            TestUtils.fromBytes(new DeserializationContext(ImmutableClassToInstanceMap.of()), sa);
     assertThat(a2).isEqualTo(a);
   }
 

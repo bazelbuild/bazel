@@ -67,6 +67,9 @@ public class TestConstants {
   /** Location of the bazel repo relative to the workspace root */
   public static final String BAZEL_REPO_PATH = "";
 
+  /** The file path in which to create files so that they end up under Bazel main repository. */
+  public static final String BAZEL_REPO_SCRATCH = "../io_bazel/";
+
   /** Relative path to the {@code process-wrapper} tool. */
   public static final String PROCESS_WRAPPER_PATH =
       "io_bazel/src/main/tools/process-wrapper";

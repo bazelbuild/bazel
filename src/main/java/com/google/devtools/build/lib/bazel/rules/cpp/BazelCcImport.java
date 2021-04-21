@@ -19,6 +19,6 @@ import com.google.devtools.build.lib.rules.cpp.CcImport;
 /** {@code cc_import} rule with Bazel semantics. */
 public class BazelCcImport extends CcImport {
   public BazelCcImport() {
-    super(BazelCppSemantics.INSTANCE);
+    super(BazelCppSemantics.CPP);
   }
 }

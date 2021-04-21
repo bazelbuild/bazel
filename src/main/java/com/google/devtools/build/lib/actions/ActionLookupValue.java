@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /** Base interface for all values which can provide the generating action of an artifact. */
 public interface ActionLookupValue extends SkyValue {
@@ -52,11 +50,4 @@ public interface ActionLookupValue extends SkyValue {
   default int getNumActions() {
     return getActions().size();
   }
-
-  /** Returns a source artifact if the underlying configured target is an input file. */
-  @Nullable
-  default SourceArtifact getSourceArtifact() {
-    return null;
-  }
-
 }

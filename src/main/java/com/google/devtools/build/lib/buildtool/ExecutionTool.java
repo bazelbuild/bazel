@@ -791,7 +791,8 @@ public class ExecutionTool {
             ? modifiedOutputFiles
             : ModifiedFileSet.NOTHING_MODIFIED,
         env.getFileCache(),
-        prefetcher);
+        prefetcher,
+        env.getRuntime().getBugReporter());
   }
 
   @VisibleForTesting

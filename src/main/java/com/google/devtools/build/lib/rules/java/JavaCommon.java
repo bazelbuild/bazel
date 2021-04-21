@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -40,6 +44,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
@@ -53,6 +59,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** A helper class to create configured targets for Java rules. */
@@ -135,24 +142,6 @@ public class JavaCommon {
 
   public JavaSemantics getJavaSemantics() {
     return semantics;
-  }
-
-  /**
-   * Validates that the packages listed under "deps" all have the given constraint. If a package
-   * does not have this attribute, an error is generated.
-   */
-  public static final void validateConstraint(
-      RuleContext ruleContext,
-      String constraint,
-      Iterable<? extends TransitiveInfoCollection> targets) {
-    for (TransitiveInfoCollection target : targets) {
-      JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-      if (javaInfo != null && !javaInfo.getJavaConstraints().contains(constraint)) {
-        ruleContext.attributeError(
-            "deps",
-            String.format("%s: does not have constraint '%s'", target.getLabel(), constraint));
-      }
-    }
   }
 
   /**
@@ -325,7 +314,7 @@ public class JavaCommon {
    * @see JavaNativeLibraryInfo
    */
   protected NestedSet<LibraryToLink> collectTransitiveJavaNativeLibraries() {
-    NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder(ruleContext);
+    NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder();
     builder.addJavaTargets(targetsTreatedAsDeps(ClasspathType.BOTH));
 
     if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
@@ -707,6 +696,62 @@ public class JavaCommon {
 
     javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
+
+    addCcRelatedProviders(builder, javaInfoBuilder);
+  }
+
+  /** Adds Cc related providers to a Java target. */
+  private void addCcRelatedProviders(
+      RuleConfiguredTargetBuilder ruleBuilder, JavaInfo.Builder javaInfoBuilder) {
+    Iterable<? extends TransitiveInfoCollection> deps = targetsTreatedAsDeps(ClasspathType.BOTH);
+
+
+    ImmutableList<CcInfo> ccInfos =
+        Streams.concat(
+                AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream(),
+                AnalysisUtils.getProviders(deps, JavaCcLinkParamsProvider.PROVIDER).stream()
+                    .map(JavaCcLinkParamsProvider::getCcInfo),
+                JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps).stream()
+                    .map(JavaCcInfoProvider::getCcInfo))
+            .collect(toImmutableList());
+
+    CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
+
+    // Collect library paths from all attributes (including data)
+    Iterable<? extends TransitiveInfoCollection> data;
+    if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
+      data = ruleContext.getPrerequisites("data");
+    } else {
+      data = ImmutableList.of();
+    }
+    CcNativeLibraryInfo mergedCcNativeLibraryInfo =
+        CcNativeLibraryInfo.merge(
+            Streams.concat(
+                    Stream.of(mergedCcInfo.getCcNativeLibraryInfo()),
+                    AnalysisUtils.getProviders(
+                            Iterables.concat(deps, data), JavaNativeLibraryInfo.PROVIDER)
+                        .stream()
+                        .map(JavaNativeLibraryInfo::getTransitiveJavaNativeLibraries)
+                        .map(CcNativeLibraryInfo::new),
+                    JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, data).stream()
+                        .map(JavaCcInfoProvider::getCcInfo)
+                        .map(CcInfo::getCcNativeLibraryInfo),
+                    AnalysisUtils.getProviders(data, CcInfo.PROVIDER).stream()
+                        .map(CcInfo::getCcNativeLibraryInfo))
+                .collect(toImmutableList()));
+
+    CcInfo filteredCcInfo =
+        CcInfo.builder()
+            .setCcLinkingContext(mergedCcInfo.getCcLinkingContext())
+            .setCcNativeLibraryInfo(mergedCcNativeLibraryInfo)
+            .build();
+
+    if (ruleContext
+        .getFragment(JavaConfiguration.class)
+        .experimentalPublishJavaCcLinkParamsInfo()) {
+      ruleBuilder.addNativeDeclaredProvider(new JavaCcLinkParamsProvider(filteredCcInfo));
+    }
+    javaInfoBuilder.addProvider(JavaCcInfoProvider.class, new JavaCcInfoProvider(filteredCcInfo));
   }
 
   private InstrumentedFilesInfo getInstrumentationFilesProvider(

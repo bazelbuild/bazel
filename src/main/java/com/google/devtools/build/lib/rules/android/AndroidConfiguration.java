@@ -985,6 +985,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.androidCrosstoolTop = androidCrosstoolTop;
       host.sdk = sdk;
       host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
+      host.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
 
       host.desugarJava8 = desugarJava8;
       host.desugarJava8Libs = desugarJava8Libs;

@@ -455,9 +455,9 @@ For more direct support, use one of the following:
 ### <a name="selects-with-or"></a>`selects.with_or`
 
 The
-[with_or](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectswith_or)
+[with_or](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectswith_or)
 macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
-[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md)
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md)
 module supports `OR`ing conditions directly inside a `select`:
 
 ```python
@@ -479,9 +479,9 @@ sh_binary(
 
 
 The
-[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group)
+[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectsconfig_setting_group)
 macro in [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
-[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md)
+[`selects`](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md)
 module supports `OR`ing multiple `config_setting`s:
 
 ```python
@@ -522,7 +522,7 @@ It's an error for multiple conditions to match unless one is an unambiguous
 
 If you need a `select` branch to match when multiple conditions match, use the
 [Skylib](https://github.com/bazelbuild/bazel-skylib) macro
-[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/master/docs/selects_doc.md#selectsconfig_setting_group):
+[config_setting_group](https://github.com/bazelbuild/bazel-skylib/blob/main/docs/selects_doc.md#selectsconfig_setting_group):
 
 ```python
 config_setting(
@@ -640,7 +640,7 @@ flags aren't evaluated until later in the build (in the
 [analysis phase](https://docs.bazel.build/versions/master/glossary.html#analysis-phase)).
 So it can't determine which `select()` branches are chosen.
 
-Bazel [`cquery`](cquery.html) opeates after Bazel's analysis phase, so it has
+Bazel [`cquery`](cquery.html) operates after Bazel's analysis phase, so it has
 all this information and can accurately resolve `select()`s.
 
 Consider:

@@ -118,7 +118,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       if (pathFragment.isEmpty()) {
         throw Starlark.errorf("Empty path can not be passed to toplevel_output_directories.");
       }
-      if (pathFragment.containsUplevelReferences() || pathFragment.segmentCount() > 1) {
+      if (pathFragment.containsUplevelReferences() || pathFragment.isMultiSegment()) {
         throw Starlark.errorf(
             "toplevel_output_directories can only accept top level directories under"
                 + " workspace, \"%s\" can not be specified as an attribute.",

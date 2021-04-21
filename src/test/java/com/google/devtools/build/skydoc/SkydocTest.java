@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
 import com.google.devtools.build.skydoc.rendering.FunctionUtil;
@@ -77,7 +78,7 @@ public final class SkydocTest extends BuildViewTestCase {
                 if (!pathString.startsWith("/")) {
                   pathString = "/execroot/io_bazel/" + pathString;
                 }
-                return fileSystem.exists(fileSystem.getPath(pathString));
+                return fileSystem.exists(PathFragment.create(pathString));
               }
             },
             "io_bazel",

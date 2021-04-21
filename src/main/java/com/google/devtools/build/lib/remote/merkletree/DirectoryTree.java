@@ -74,7 +74,23 @@ final class DirectoryTree {
     private final Digest digest;
     private final boolean isExecutable;
 
-    FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable) {
+    /**
+     * Create a FileNode with its executable bit set.
+     *
+     * <p>We always treat files as executable since Bazel will `chmod 555` on the output files of an
+     * action within ActionMetadataHandler#getMetadata after action execution if no metadata was
+     * injected. We can't use real executable bit of the file until this behaviour is changed. See
+     * https://github.com/bazelbuild/bazel/issues/13262 for more details.
+     */
+    static FileNode createExecutable(String pathSegment, Path path, Digest digest) {
+      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true);
+    }
+
+    static FileNode createExecutable(String pathSegment, ByteString data, Digest digest) {
+      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true);
+    }
+
+    private FileNode(String pathSegment, Path path, Digest digest, boolean isExecutable) {
       super(pathSegment);
       this.path = Preconditions.checkNotNull(path, "path");
       this.data = null;
@@ -82,12 +98,12 @@ final class DirectoryTree {
       this.isExecutable = isExecutable;
     }
 
-    FileNode(String pathSegment, ByteString data, Digest digest) {
+    private FileNode(String pathSegment, ByteString data, Digest digest, boolean isExecutable) {
       super(pathSegment);
       this.path = null;
       this.data = Preconditions.checkNotNull(data, "data");
       this.digest = Preconditions.checkNotNull(digest, "digest");
-      this.isExecutable = false;
+      this.isExecutable = isExecutable;
     }
 
     Digest getDigest() {

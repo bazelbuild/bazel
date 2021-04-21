@@ -320,7 +320,8 @@ EOF
   assert_equals "1" $work_count
 }
 
-function test_build_succeeds_even_if_worker_exits() {
+# Disabled for being flaky, see b/182373389
+function DISABLED_test_build_succeeds_even_if_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<EOF
 [work(

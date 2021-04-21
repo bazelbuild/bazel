@@ -35,11 +35,9 @@ import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
-import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -76,6 +74,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -701,9 +700,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public ResolvedToolchainContext toolchains() throws EvalException {
+  public ToolchainContextApi toolchains() throws EvalException {
     checkMutable("toolchains");
-    return ruleContext.getToolchainContext();
+    return StarlarkToolchainContext.create(ruleContext.getToolchainContext());
   }
 
   @Override
@@ -712,9 +711,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public ExecGroupCollection execGroups() {
+  public StarlarkExecGroupCollection execGroups() {
     // Create a thin wrapper around the toolchain collection, to expose the Starlark API.
-    return ExecGroupCollection.create(ruleContext.getToolchainContexts());
+    return StarlarkExecGroupCollection.create(ruleContext.getToolchainContexts());
   }
 
   @Override

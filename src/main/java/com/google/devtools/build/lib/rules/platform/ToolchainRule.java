@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link Toolchain}. */
 public class ToolchainRule implements RuleDefinition {
@@ -58,7 +59,7 @@ public class ToolchainRule implements RuleDefinition {
         .add(
             attr(TOOLCHAIN_TYPE_ATTR, BuildType.LABEL)
                 .mandatory()
-                .allowedFileTypes()
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .allowedRuleClasses("toolchain_type")
                 .mandatoryProviders(ToolchainTypeInfo.PROVIDER.id())
                 .nonconfigurable("part of toolchain configuration"))
@@ -69,7 +70,7 @@ public class ToolchainRule implements RuleDefinition {
         .override(
             attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                .allowedFileTypes()
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_compatible_with) -->
         A list of <code>constraint_value</code>s that must be satisfied by the target platform in
@@ -78,7 +79,7 @@ public class ToolchainRule implements RuleDefinition {
         .add(
             attr(TARGET_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                .allowedFileTypes()
+                .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_settings) -->
         A list of <code>config_setting</code>s that must be satisfied by the target configuration
@@ -87,7 +88,7 @@ public class ToolchainRule implements RuleDefinition {
         .add(
             attr(TARGET_SETTING_ATTR, BuildType.LABEL_LIST)
                 .allowedRuleClasses("config_setting")
-                .allowedFileTypes())
+                .allowedFileTypes(FileTypeSet.NO_FILE))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain) -->
         The target representing the actual tool or tool suite that is made available when this
         toolchain is selected.

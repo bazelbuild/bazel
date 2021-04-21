@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -265,9 +266,12 @@ final class ExecutionServer extends ExecutionImplBase {
       throw StatusUtils.notFoundError(e.getMissingDigest());
     }
 
+    Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
+    FileSystemUtils.createDirectoryAndParents(workingDirectory);
+
     List<Path> outputs = new ArrayList<>(command.getOutputFilesList().size());
     for (String output : command.getOutputFilesList()) {
-      Path file = execRoot.getRelative(output);
+      Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
         throw new FileAlreadyExistsException("Output file already exists: " + file);
       }
@@ -275,16 +279,13 @@ final class ExecutionServer extends ExecutionImplBase {
       outputs.add(file);
     }
     for (String output : command.getOutputDirectoriesList()) {
-      Path file = execRoot.getRelative(output);
+      Path file = workingDirectory.getRelative(output);
       if (file.exists()) {
         throw new FileAlreadyExistsException("Output directory/file already exists: " + file);
       }
       FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
       outputs.add(file);
     }
-
-    Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
-    FileSystemUtils.createDirectoryAndParents(workingDirectory);
 
     // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
     // implementation instead of copying it.
@@ -344,7 +345,15 @@ final class ExecutionServer extends ExecutionImplBase {
       ActionResult result = null;
       try {
         result =
-            cache.upload(context, actionKey, action, command, execRoot, outputs, outErr, exitCode);
+            cache.upload(
+                context,
+                RemotePathResolver.createDefault(workingDirectory),
+                actionKey,
+                action,
+                command,
+                outputs,
+                outErr,
+                exitCode);
       } catch (ExecException e) {
         if (errStatus == null) {
           errStatus =

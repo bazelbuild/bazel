@@ -144,7 +144,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
       }
 
       @Override
-      public void renameTo(Path source, Path target) throws IOException {
+      public void renameTo(PathFragment source, PathFragment target) throws IOException {
         throw new IOException("EXDEV");
       }
     }

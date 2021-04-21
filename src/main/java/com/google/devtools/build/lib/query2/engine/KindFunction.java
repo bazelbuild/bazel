@@ -20,12 +20,13 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQue
 import java.util.List;
 
 /**
- * A kind(pattern, argument) filter expression, which computes the set of subset
- * of nodes in 'argument' whose kind matches the unanchored regexp 'pattern'.
+ * A kind(pattern, argument) filter expression, which computes the set of subset of nodes in
+ * 'argument' whose kind matches the unanchored regexp 'pattern'.
  *
  * <pre>expr ::= KIND '(' WORD ',' expr ')'</pre>
  *
  * Example patterns:
+ *
  * <pre>
  * ' file'              Match all file targets.
  * 'source file'        Match all test source file targets.
@@ -35,11 +36,11 @@ import java.util.List;
  * 'test'               Match all test (rule) targets.
  * </pre>
  *
- * Note, the space before "file" is needed to prevent unwanted matches against
- * (e.g.) "filegroup rule".
+ * Note, the space before "file" is needed to prevent unwanted matches against (e.g.) "filegroup
+ * rule".
  */
-class KindFunction extends RegexFilterExpression {
-  KindFunction() {
+public class KindFunction extends RegexFilterExpression {
+  public KindFunction() {
     super(/*invert=*/ false);
   }
 

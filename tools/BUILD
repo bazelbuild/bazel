@@ -49,6 +49,7 @@ filegroup(
         "//tools/cpp:embedded_tools",
         "//tools/genrule:srcs",
         "//tools/java:embedded_tools",
+        "//tools/java:java_stub_template.txt",
         "//tools/j2objc:srcs",
         "//tools/jdk:package-srcs",
         "//tools/jdk:srcs",

@@ -27,6 +27,7 @@ java_library(
         ],
         exclude = [
             "ActionInput.java",
+            "ActionLookupData.java",
             "ActionLookupKey.java",
             "AnalysisGraphStatsEvent.java",
             "Artifact.java",
@@ -46,7 +47,6 @@ java_library(
             "FileStateValue.java",
             "FileValue.java",
             "FilesetOutputSymlink.java",
-            "InconsistentFilesystemException.java",
             "LocalHostCapacity.java",
             "LocalHostResourceManagerLinux.java",
             "LocalHostResourceManagerDarwin.java",
@@ -59,6 +59,7 @@ java_library(
         ],
     ),
     deps = [
+        ":action_lookup_data",
         ":action_lookup_key",
         ":artifact_owner",
         ":artifacts",
@@ -87,7 +88,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -156,7 +156,7 @@ java_library(
 java_library(
     name = "analysis_graph_stats_event",
     srcs = ["AnalysisGraphStatsEvent.java"],
-    deps = [":total_and_configured_target_only_metric"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto"],
 )
 
 java_library(
@@ -240,13 +240,13 @@ java_library(
         "FileStateType.java",
         "FileStateValue.java",
         "FileValue.java",
-        "InconsistentFilesystemException.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [
         ":artifacts",
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
@@ -298,9 +298,14 @@ java_library(
         "PackageRoots.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

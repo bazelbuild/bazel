@@ -80,7 +80,7 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
     return Label.print(((ConfiguredTargetKey) skyKey.argument()).getLabel());
   }
 
-  private static class ActionConflictFunctionException extends SkyFunctionException {
+  static class ActionConflictFunctionException extends SkyFunctionException {
     ActionConflictFunctionException(ConflictException e) {
       super(e, Transience.PERSISTENT);
     }

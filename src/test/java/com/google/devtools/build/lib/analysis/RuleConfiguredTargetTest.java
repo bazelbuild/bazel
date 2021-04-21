@@ -381,7 +381,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             getConfiguredTarget("//a:config")
                 .getProvider(ConfigMatchingProvider.class)
-                .getRequiredFragmentOptions())
+                .requiredFragmentOptions())
         .isEmpty();
   }
 }

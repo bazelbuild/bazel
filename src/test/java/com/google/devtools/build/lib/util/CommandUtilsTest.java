@@ -43,14 +43,14 @@ public class CommandUtilsTest {
         assertThrows(CommandException.class, () -> new Command(args, env, directory).execute());
     String message = CommandUtils.describeCommandError(false, exception.getCommand());
       String verboseMessage = CommandUtils.describeCommandError(true, exception.getCommand());
-      assertThat(message)
-          .isEqualTo(
-              "error executing command this_command_will_not_be_found arg1 "
-                  + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
-                  + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-                  + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-                  + "arg27 arg28 arg29 arg30 "
-                  + "... (remaining 9 argument(s) skipped)");
+    assertThat(message)
+        .isEqualTo(
+            "error executing command this_command_will_not_be_found arg1 "
+                + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
+                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
+                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
+                + "arg27 arg28 arg29 arg30 "
+                + "... (remaining 9 arguments skipped)");
     assertThat(verboseMessage)
         .isEqualTo(
             "error executing command \n"

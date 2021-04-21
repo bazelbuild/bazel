@@ -7,10 +7,9 @@ category: extending
 # Configurations
 
 
-This page covers the benefits and basic usage of Starlark configurations. It
-includes how to define build settings and provides examples.
-
-Starlark configuration is Bazel's API for customizing how your project builds.
+This page covers the benefits and basic usage of Starlark configurations,
+Bazel's API for customizing how your project builds. It includes how to define
+build settings and provides examples.
 
 This makes it possible to:
 
@@ -145,8 +144,8 @@ $ bazel build //my/target --//example:roasts=blonde \
     --//example:roasts=medium,dark
 ```
 
-The above will be parsed to {//example:roasts:["blonde", "medium,dark"]} and
-`ctx.build_setting_value` will return a list ["blonde", "medium,dark"].
+The above is parsed to `{"//example:roasts": ["blonde", "medium,dark"]}` and
+`ctx.build_setting_value` returns the list `["blonde", "medium,dark"]`.
 
 #### Instantiating build settings
 
@@ -198,7 +197,7 @@ string_flag(
 ```
 
 For a complete list, see
-[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
+[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/common_settings.bzl).
 
 ### Using build settings
 
@@ -665,13 +664,7 @@ Access to the value of a single branch of a 1:2+
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
 toolchain resolution. In the future, explicit transitions on these types of
 flags will likely be replaced by transitioning on the
-[target platform](../platforms.html)
-
-## Also see
-
- * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
- * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
- * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples
+[target platform](../platforms.html).
 
 ## Memory and performance considerations
 
@@ -724,3 +717,11 @@ This makes the build graph exponentially larger than the target graph, with
 corresponding memory and performance consequences.
 
 TODO: Add strategies for measurement and mitigation of these issues.
+
+## Further reading
+
+For more details on modifying build configurations, see:
+
+ * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
+ * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
+ * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples

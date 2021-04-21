@@ -331,9 +331,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "runfiles that are automatically made available to the action."),
         @Param(
             name = "arguments",
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = String.class),
-            },
+            // TODO(#13365): improve the @ParamType annotation once it can support multiple
+            // contained types.
+            allowedTypes = {@ParamType(type = Sequence.class)},
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -433,9 +433,10 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_SHADOWED_ACTION,
             valueWhenDisabled = "None",
             doc =
-                "(Experimental) runs the action using the given shadowed action's discovered inputs"
-                    + " added to the action's inputs list. If none, uses only the action's"
-                    + " inputs."),
+                "(Experimental) runs the action using the given shadowed action's inputs and"
+                    + " environment added to the action's inputs list and environment. The action"
+                    + " environment can overwrite any of the shadowed action's environment"
+                    + " variables. If none, uses only the action's inputs and given environment."),
       })
   void run(
       Sequence<?> outputs,
@@ -443,7 +444,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object unusedInputsList,
       Object executableUnchecked,
       Object toolsUnchecked,
-      Object arguments,
+      Sequence<?> arguments,
       Object mnemonicUnchecked,
       Object progressMessage,
       Boolean useDefaultShellEnv,
@@ -492,6 +493,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "The list can contain Files or FilesToRunProvider instances."),
         @Param(
             name = "arguments",
+            // TODO(#13365): improve the @ParamType annotation once it can support multiple
+            // contained types.
+            allowedTypes = {@ParamType(type = Sequence.class)},
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -643,7 +647,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Sequence<?> outputs,
       Object inputs,
       Object toolsUnchecked,
-      Object arguments,
+      Sequence<?> arguments,
       Object mnemonicUnchecked,
       Object commandUnchecked,
       Object progressMessage,

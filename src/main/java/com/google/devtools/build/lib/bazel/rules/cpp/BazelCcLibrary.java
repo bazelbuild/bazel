@@ -21,6 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLibrary;
  */
 public class BazelCcLibrary extends CcLibrary {
   public BazelCcLibrary() {
-    super(BazelCppSemantics.INSTANCE);
+    super(BazelCppSemantics.CPP);
   }
 }

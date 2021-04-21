@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -83,7 +82,6 @@ public class IncrementalLoadingTest {
   protected PackageLoadingTester tester;
 
   private Path throwOnReaddir = null;
-  private Path throwOnStat = null;
 
   @Before
   public final void createTester() throws Exception {
@@ -91,20 +89,12 @@ public class IncrementalLoadingTest {
     FileSystem fs =
         new InMemoryFileSystem(clock, DigestHashFunction.SHA256) {
           @Override
-          public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {
-            if (path.equals(throwOnReaddir)) {
+          public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+              throws IOException {
+            if (throwOnReaddir != null && throwOnReaddir.asFragment().equals(path)) {
               throw new FileNotFoundException(path.getPathString());
             }
             return super.readdir(path, followSymlinks);
-          }
-
-          @Nullable
-          @Override
-          public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
-            if (path.equals(throwOnStat)) {
-              throw new IOException("bork " + path.getPathString());
-            }
-            return super.stat(path, followSymlinks);
           }
         };
     tester = createTester(fs, clock);

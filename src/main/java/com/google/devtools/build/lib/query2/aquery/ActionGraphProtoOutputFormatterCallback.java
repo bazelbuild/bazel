@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
+import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -92,12 +92,15 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       options.includeCommandline |= options.includeParamFiles;
 
       for (ConfiguredTargetValue configuredTargetValue : partialResult) {
-        actionGraphDump.dumpConfiguredTarget(configuredTargetValue);
+        if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
+          // We have to include non-rule values in the graph to visit their dependencies, but they
+          // don't have any actions to print out.
+          continue;
+        }
+        actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) configuredTargetValue);
         if (options.useAspects) {
-          if (configuredTargetValue.getConfiguredTarget() instanceof RuleConfiguredTarget) {
-            for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
-              actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
-            }
+          for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
+            actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
           }
         }
       }

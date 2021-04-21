@@ -79,6 +79,9 @@ public final class JavaCompileActionBuilder {
     /** The list of bootclasspath entries to specify to javac. */
     private final NestedSet<Artifact> bootclasspathEntries;
 
+    /** An argument to the javac >= 9 {@code --system} flag. */
+    @Nullable private final Artifact system;
+
     /** The list of classpath entries to search for annotation processors. */
     private final NestedSet<Artifact> processorPath;
 
@@ -98,6 +101,7 @@ public final class JavaCompileActionBuilder {
         Artifact outputJar,
         NestedSet<Artifact> classpathEntries,
         NestedSet<Artifact> bootclasspathEntries,
+        @Nullable Artifact system,
         NestedSet<Artifact> processorPath,
         NestedSet<String> processorNames,
         ImmutableList<Artifact> sourceJars,
@@ -106,6 +110,7 @@ public final class JavaCompileActionBuilder {
       this.outputJar = outputJar;
       this.classpathEntries = classpathEntries;
       this.bootclasspathEntries = bootclasspathEntries;
+      this.system = system;
       this.processorPath = processorPath;
       this.processorNames = processorNames;
       this.sourceJars = sourceJars;
@@ -125,6 +130,9 @@ public final class JavaCompileActionBuilder {
               .addAllProcessor(processorNames.toList())
               .addAllProcessorpath(Artifact.toExecPaths(processorPath.toList()))
               .setOutputjar(outputJar.getExecPathString());
+      if (system != null) {
+        info.setSystem(system.getExecPathString());
+      }
       info.addAllArgument(arguments);
       builder.setExtension(JavaCompileInfo.javaCompileInfo, info.build());
     }
@@ -218,6 +226,7 @@ public final class JavaCompileActionBuilder {
             outputs.output(),
             classpathEntries,
             bootClassPath.bootclasspath(),
+            bootClassPath.system(),
             plugins.processorClasspath(),
             plugins.processorClasses(),
             sourceJars,

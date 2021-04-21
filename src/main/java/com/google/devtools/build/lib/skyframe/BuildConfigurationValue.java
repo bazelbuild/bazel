@@ -138,9 +138,8 @@ public class BuildConfigurationValue implements SkyValue {
     private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
     private final FragmentClassSet fragments;
-    final BuildOptions.OptionsDiffForReconstruction optionsDiff;
-    // If hashCode really is -1, we'll recompute it from scratch each time. Oh well.
-    private volatile int hashCode = -1;
+    private final BuildOptions.OptionsDiffForReconstruction optionsDiff;
+    private final int hashCode;
 
     @AutoCodec.Instantiator
     @VisibleForSerialization
@@ -152,6 +151,7 @@ public class BuildConfigurationValue implements SkyValue {
     private Key(FragmentClassSet fragments, BuildOptions.OptionsDiffForReconstruction optionsDiff) {
       this.fragments = Preconditions.checkNotNull(fragments);
       this.optionsDiff = Preconditions.checkNotNull(optionsDiff);
+      this.hashCode = Objects.hash(fragments, optionsDiff);
     }
 
     @VisibleForTesting
@@ -161,6 +161,10 @@ public class BuildConfigurationValue implements SkyValue {
 
     public BuildOptions.OptionsDiffForReconstruction getOptionsDiff() {
       return optionsDiff;
+    }
+
+    public String checksum() {
+      return optionsDiff.getChecksum();
     }
 
     @Override
@@ -182,16 +186,43 @@ public class BuildConfigurationValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      if (hashCode == -1) {
-        hashCode = Objects.hash(fragments, optionsDiff);
-      }
       return hashCode;
     }
 
     @Override
     public String toString() {
       // This format is depended on by integration tests.
-      return "BuildConfigurationValue.Key[" + optionsDiff.getChecksum() + "]";
+      // TODO(blaze-configurability-team): This should at least include the length of fragments.
+      // to at least remind devs that this Key has TWO key parts.
+      return "BuildConfigurationValue.Key[" + checksum() + "]";
+    }
+
+    /**
+     * Return a string representation that can be safely used for comparison purposes.
+     *
+     * <p>Unlike toString, which is short and good for printing in debug contexts, this is long
+     * because it includes sufficient information in optionsDiff and fragments. toString alone is
+     * insufficient because multiple Keys can have the same options checksum (and thus same
+     * toString) but different fragments.
+     *
+     * <p>This function is meant to address two potential, trimming-related scenarios: 1. If
+     * trimming by only trimming BuildOptions (e.g. --trim_test_configuration), then after the
+     * initial trimming, fragments has extra classes (corresponding to those trimmed). Notably,
+     * dependencies of trimmed targets will create Keys with a properly trimmed set of fragments.
+     * Thus, will easily have two Keys with the same (trimmed) BuildOptions but different fragments
+     * yet corresponding to the same (trimmed) BuildConfigurationValue.
+     *
+     * <p>2. If trimming by only trimming fragments (at time of this comment, unsure whether this is
+     * ever done in active code), then BuildOptions has extra classes. The returned
+     * BuildConfigurationValue is properly trimmed (with the extra classes BuildOptions removed)
+     * although notably with a different checksum compared to the Key checksum. Note that given a
+     * target that is doing trimming like this, the reverse dependency of the target (i.e. without
+     * trimming) could easily involve a Key with the same (untrimmed!) BuildOptions but different
+     * fragments. However, unlike in case 1, they will correspond to different
+     * BuildConfigurationValue.
+     */
+    public String toComparableString() {
+      return "BuildConfigurationValue.Key[" + optionsDiff.getChecksum() + ", " + fragments + "]";
     }
   }
 }

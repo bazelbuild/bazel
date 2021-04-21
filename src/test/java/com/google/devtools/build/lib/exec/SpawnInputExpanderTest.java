@@ -461,15 +461,17 @@ public class SpawnInputExpanderTest {
   }
 
   @Test
-  public void testManifestWithErrorOnRelativeSymlink() throws Exception {
+  public void testManifestWithErrorOnRelativeSymlink() {
     expander = new SpawnInputExpander(execRoot, /*strict=*/ true, ERROR);
-    IOException e =
+    // Because BugReport throws in tests, we catch the wrapped exception.
+    IllegalStateException e =
         assertThrows(
-            IOException.class,
+            IllegalStateException.class,
             () ->
                 expander.addFilesetManifests(
                     simpleFilesetManifest(), inputMappings, PathFragment.EMPTY_FRAGMENT));
-    assertThat(e).hasMessageThat().contains("runfiles target is not absolute: foo");
+    assertThat(e).hasCauseThat().isInstanceOf(IOException.class);
+    assertThat(e).hasCauseThat().hasMessageThat().contains("runfiles target is not absolute: foo");
   }
 
   @Test

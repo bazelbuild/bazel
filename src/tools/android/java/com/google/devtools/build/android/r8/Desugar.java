@@ -15,6 +15,7 @@ package com.google.devtools.build.android.r8;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
+import static java.util.stream.Collectors.joining;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
 import com.android.tools.r8.ArchiveProgramResourceProvider;
@@ -347,6 +348,7 @@ public class Desugar {
     @Option(
         name = "desugared_lib_config",
         defaultValue = "null",
+        allowMultiple = true,
         category = "input",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -354,7 +356,7 @@ public class Desugar {
         help =
             "Specify desugared library configuration. "
                 + "The input file is a desugared library configuration (json)")
-    public Path desugaredLibConfig;
+    public List<Path> desugaredLibConfig;
   }
 
   private final DesugarOptions options;
@@ -526,7 +528,7 @@ public class Desugar {
           classpathProvider,
           options.inputJars.get(i),
           options.outputJars.get(i),
-          options.desugarCoreLibs ? options.desugaredLibConfig : null);
+          options.desugarCoreLibs ? options.desugaredLibConfig.get(0) : null);
     }
   }
 
@@ -558,10 +560,15 @@ public class Desugar {
       throw new AssertionError("--rewrite_calls_to_long_compare has no effect");
     }
     if (options.desugarCoreLibs) {
-      if (options.desugaredLibConfig == null) {
+      if (options.desugaredLibConfig.isEmpty()) {
         throw new AssertionError(
             "If --desugar_supported_core_libs is set --desugared_lib_config "
                 + " must also be set.");
+      }
+      if (options.desugaredLibConfig.size() > 1) {
+        throw new AssertionError(
+            "Only one --desugared_lib_config options must be passed. Configurations passed: "
+                + options.desugaredLibConfig.stream().map(Path::toString).collect(joining(", ")));
       }
     }
     if (!options.desugarInterfaceMethodBodiesIfNeeded) {

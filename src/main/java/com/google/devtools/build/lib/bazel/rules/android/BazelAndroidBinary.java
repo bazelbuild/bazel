@@ -36,6 +36,6 @@ public class BazelAndroidBinary extends AndroidBinary {
 
   @Override
   protected CppSemantics createCppSemantics() {
-    return BazelCppSemantics.INSTANCE;
+    return BazelCppSemantics.CPP;
   }
 }

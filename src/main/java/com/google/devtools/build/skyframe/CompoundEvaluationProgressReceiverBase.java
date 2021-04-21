@@ -60,11 +60,12 @@ public class CompoundEvaluationProgressReceiverBase implements EvaluationProgres
   @Override
   public void evaluated(
       SkyKey skyKey,
-      @Nullable SkyValue value,
+      @Nullable SkyValue newValue,
+      @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state) {
     for (EvaluationProgressReceiver receiver : receivers) {
-      receiver.evaluated(skyKey, value, evaluationSuccessState, state);
+      receiver.evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
     }
   }
 }

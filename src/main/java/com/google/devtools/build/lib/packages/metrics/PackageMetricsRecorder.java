@@ -54,6 +54,9 @@ public interface PackageMetricsRecorder {
    */
   Map<PackageIdentifier, Long> getNumTransitiveLoads();
 
+  /** Returns map of package overhead. This may contain only a subset of all packages loaded. */
+  Map<PackageIdentifier, Long> getPackageOverhead();
+
   /** Clears the contents of the PackageMetricsRecorder. */
   void clear();
 

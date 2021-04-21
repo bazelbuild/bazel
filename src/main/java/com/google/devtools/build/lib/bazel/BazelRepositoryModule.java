@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
@@ -193,7 +192,6 @@ public class BazelRepositoryModule extends BlazeModule {
             directories.getWorkspace(), managedDirectoriesKnowledge);
     builder.addCustomDirtinessChecker(customDirtinessChecker);
     // Create the repository function everything flows through.
-    builder.addSkyFunction(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
     RepositoryDelegatorFunction repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
