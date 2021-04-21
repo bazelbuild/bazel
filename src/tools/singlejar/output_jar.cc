@@ -203,16 +203,16 @@ int OutputJar::Doit(Options *options) {
   // Ready to write zip entries. Decide whether created entries should be
   // compressed.
   bool compress = options_->force_compression || options_->preserve_compression;
-  // First, write a directory entry for the META-INF, followed by the manifest
-  // file, followed by the build properties file.
+
+  // Write a directory entry for the META-INF
   WriteMetaInf();
-  manifest_.Append("\r\n");
-  WriteEntry(manifest_.OutputEntry(compress));
+
+  // Write the build properties file.
   if (!options_->exclude_build_data) {
     WriteEntry(build_properties_.OutputEntry(compress));
   }
 
-  // Then classpath resources.
+  // Write classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
     bool do_compress = compress;
     if (do_compress && !options_->nocompress_suffixes.empty()) {
@@ -240,12 +240,15 @@ int OutputJar::Doit(Options *options) {
     WriteEntry(classpath_resource->OutputEntry(do_compress));
   }
 
-  // Then copy source files' contents.
+  // Copy source files' contents.
   for (size_t ix = 0; ix < options_->input_jars.size(); ++ix) {
     if (!AddJar(ix)) {
       exit(1);
     }
   }
+
+  // Write the manifest file
+  WriteEntry(manifest_.OutputEntry(compress));
 
   // All entries written, write Central Directory and close.
   Close();
