@@ -12,16 +12,22 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 [genrule(
     name = "install_base_key-file" + suffix,
     srcs = [
+        # Ensure we haven't forgotten any package-zip items,
+        # otherwise bazel won't correctly reextract modified files.
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        # TODO(brandjon): ensure we haven't forgotten any package-zip items,
-        # otherwise bazel won't correctly reextract modified files.
         "//src/main/cpp:client",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-    ] + embedded_tools_target,
+        ":platforms_archive",
+    ] + select({
+        "//src/conditions:windows": [],
+        "//conditions:default": [
+            "//src/main/tools:daemonize",
+        ],
+    }) + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
         "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
@@ -338,6 +344,9 @@ filegroup(
     #   3) the install base key
     #   4) the platforms archive
     #   5) everything else to be bundled
+    # Ensure we haven't forgotten to add all package-zip items as dependencies
+    # of :install_base_key-file, otherwise bazel won't correctly reextract
+    # modified files.
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
