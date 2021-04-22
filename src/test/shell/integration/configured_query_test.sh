@@ -106,6 +106,32 @@ EOF
  assert_contains "source file //$pkg:japanese.cc" output
 }
 
+function test_config_checksum_determinism() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_library(name = 'lib')
+EOF
+
+  bazel cquery "$pkg:lib" > out1 2>"$TEST_log" || fail "Expected success"
+  bazel shutdown >& "$TEST_log" || fail "Failed to shutdown"
+  bazel cquery "$pkg:lib" > out2 2>"$TEST_log" || fail "Expected success"
+
+  output1="$(cat out1)"
+  output2="$(cat out2)"
+  if [[ "$output1" != "$output2" ]]
+  then
+    fail "$(cat<<EOF
+Nondeterminism in cquery:
+${output1}
+!=
+${output2}
+You may have added an option without a meaningful toString() implementation
+EOF
+)"
+  fi
+}
+
 function test_respects_selects() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
