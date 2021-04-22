@@ -169,12 +169,6 @@ public interface JavaInfoApi<
   Depset /*<FileT>*/ getTransitiveSourceJars();
 
   @StarlarkMethod(
-      name = "transitive_exports",
-      structField = true,
-      doc = "Returns a set of labels that are being exported from this rule transitively.")
-  Depset /*<Label>*/ getTransitiveExports();
-
-  @StarlarkMethod(
       name = "transitive_native_libraries",
       structField = true,
       doc = "Returns the transitive set of CC native libraries required by the target.")

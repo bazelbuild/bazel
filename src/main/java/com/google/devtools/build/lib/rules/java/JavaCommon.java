@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -353,24 +352,6 @@ public class JavaCommon {
     return builder.build();
   }
 
-  /** Collects labels of targets and artifacts reached transitively via the "exports" attribute. */
-  protected JavaExportsProvider collectTransitiveExports() {
-    NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
-    List<TransitiveInfoCollection> currentRuleExports = getExports(ruleContext);
-
-    builder.addAll(Iterables.transform(currentRuleExports, TransitiveInfoCollection::getLabel));
-
-    for (TransitiveInfoCollection dep : currentRuleExports) {
-      JavaExportsProvider exportsProvider = JavaInfo.getProvider(JavaExportsProvider.class, dep);
-
-      if (exportsProvider != null) {
-        builder.addTransitive(exportsProvider.getTransitiveExports());
-      }
-    }
-
-    return new JavaExportsProvider(builder.build());
-  }
-
   public final void initializeJavacOpts() {
     Preconditions.checkState(javacOpts == null);
     javacOpts = computeJavacOpts(getCompatibleJavacOptions());
@@ -682,7 +663,6 @@ public class JavaCommon {
       NestedSet<Artifact> coverageSupportFiles) {
 
     JavaCompilationInfoProvider compilationInfoProvider = createCompilationInfoProvider();
-    JavaExportsProvider exportsProvider = collectTransitiveExports();
 
     builder
         .addNativeDeclaredProvider(
@@ -694,7 +674,6 @@ public class JavaCommon {
                 coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
-    javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
 
     addCcRelatedProviders(builder, javaInfoBuilder);
@@ -704,7 +683,6 @@ public class JavaCommon {
   private void addCcRelatedProviders(
       RuleConfiguredTargetBuilder ruleBuilder, JavaInfo.Builder javaInfoBuilder) {
     Iterable<? extends TransitiveInfoCollection> deps = targetsTreatedAsDeps(ClasspathType.BOTH);
-
 
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(

@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1485,38 +1484,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             "foo/libmy_java_lib_a.jar", "foo/libmy_java_lib_b.jar", "foo/libmy_java_lib_c.jar");
   }
 
-  @Test
-  public void testJavaInfoGetTransitiveExports() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_exports)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
-
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
-        "             deps = [':my_java_lib_b', ':my_java_lib_c'], ",
-        "             exports = [':my_java_lib_b']) ",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
-
-    Depset exports = (Depset) info.getValue("property");
-
-    assertThat(exports.getSet(Label.class).toList())
-        .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
-  }
-
   /** Tests that JavaInfo provides information about transitive native libraries in Starlark. */
   @Test
   public void javaInfo_getTransitiveNativeLibraries() throws Exception {
@@ -1778,62 +1745,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  },",
         "  fragments = ['java']",
         ")");
-  }
-
-  @Test
-  public void javaCompile_transitiveExportsWithLabels() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
-    writeJavaCustomLibraryWithLabels("tools/build_defs/java/java_library.bzl");
-    scratch.file(
-        "foo/BUILD",
-        "load('//tools/build_defs/java:java_library.bzl', 'java_custom_library')",
-        "load(':extension.bzl', 'my_rule')",
-        "java_custom_library(name = 'lib',",
-        "    srcs = ['Lib.java'],",
-        "    exports = [ ':export' ])",
-        "java_custom_library(name = 'export',",
-        "    srcs = ['Export.java'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
-    scratch.file("tools/build_defs/java/BUILD");
-    scratch.file(
-        "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_exports)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
-
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute(
-                        "//foo:extension.bzl", /* repositoryMapping = */ ImmutableMap.of()),
-                    "result"));
-
-    Depset exports = (Depset) info.getValue("property");
-
-    assertThat(exports.getSet(Label.class).toList())
-        .containsExactly(Label.parseAbsolute("//foo:export", ImmutableMap.of()));
-  }
-
-  @Test
-  public void javaCompileTransitiveExportsWithLabels_limitedToBuiltins() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
-    writeJavaCustomLibraryWithLabels("foo/java_library.bzl");
-    scratch.file(
-        "foo/BUILD",
-        "load('//foo:java_library.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'lib',",
-        "    srcs = ['Lib.java'],",
-        "    exports = [ ':export' ])",
-        "java_custom_library(name = 'export',",
-        "    srcs = ['Export.java'])");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lib"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test

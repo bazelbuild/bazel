@@ -132,7 +132,6 @@ java_library(
         "JavaCompileActionContext.java",
         "JavaCompileOutputs.java",
         "JavaConfiguration.java",
-        "JavaExportsProvider.java",
         "JavaGenJarsProvider.java",
         "JavaHeaderCompileActionBuilder.java",
         "JavaHelper.java",

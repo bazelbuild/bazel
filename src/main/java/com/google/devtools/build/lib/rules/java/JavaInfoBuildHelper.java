@@ -121,10 +121,6 @@ final class JavaInfoBuildHelper {
     javaInfoBuilder.addProvider(
         JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build());
 
-    javaInfoBuilder.addProvider(
-        JavaExportsProvider.class,
-        createJavaExportsProvider(exports, /* labels = */ ImmutableList.of()));
-
     javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exports));
 
     javaInfoBuilder.addProvider(
@@ -224,14 +220,6 @@ final class JavaInfoBuildHelper {
     return concat(transitiveSourceJars, sourceJars);
   }
 
-  private JavaExportsProvider createJavaExportsProvider(
-      Iterable<JavaInfo> exports, Iterable<Label> labels) {
-    ImmutableList.Builder<JavaExportsProvider> builder = new ImmutableList.Builder<>();
-    builder.addAll(JavaInfo.fetchProvidersFromList(exports, JavaExportsProvider.class));
-    builder.add(new JavaExportsProvider(NestedSetBuilder.wrap(Order.STABLE_ORDER, labels)));
-    return JavaExportsProvider.merge(builder.build());
-  }
-
   private JavaPluginInfo mergeExportedJavaPluginInfo(Iterable<JavaInfo> javaInfos) {
     return JavaPluginInfo.merge(
         stream(javaInfos)
@@ -251,7 +239,6 @@ final class JavaInfoBuildHelper {
       List<JavaInfo> runtimeDeps,
       List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
-      List<Label> exportLabels,
       List<JavaInfo> plugins,
       List<JavaInfo> exportedPlugins,
       List<CcInfo> nativeLibraries,
@@ -348,7 +335,6 @@ final class JavaInfoBuildHelper {
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(concat(exportedPlugins, exports)))
-        .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports, exportLabels))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)
         .addTransitiveOnlyRuntimeJarsToJavaInfo(exports)
