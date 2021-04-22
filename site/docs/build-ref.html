@@ -182,7 +182,9 @@ src/my/app/tests/test.cc
 
   The second part of the label is the un-qualified package name
   <code>my/app/main</code>, the path to the package
-  relative to the repository root.  When the label refers to the same
+  relative to the repository root.  Together, the repository name and the
+  un-qualfied package name form the fully-qualified package name
+  <code>@myrepo//my/app/main</code>. When the label refers to the same
   package it is used in, the package name (and optionally, the colon)
   may be omitted.  So, inside <code>@myrepo//my/app/main</code>,
   this label may be written either of the following ways:
