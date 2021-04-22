@@ -13,25 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -47,11 +41,6 @@ public class JavaStarlarkCommon
         StarlarkRuleContext,
         StarlarkActionFactory> {
   private final JavaSemantics javaSemantics;
-
-  private static final ImmutableSet<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
-      ImmutableSet.of(
-          "@_builtins//bazel_internal/test_rules/java:java_library.bzl",
-          "//tools/build_defs/java:java_library.bzl");
 
   public JavaStarlarkCommon(JavaSemantics javaSemantics) {
     this.javaSemantics = javaSemantics;
@@ -87,29 +76,6 @@ public class JavaStarlarkCommon
       Boolean neverlink,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-
-    Sequence<JavaInfo> exportsJavaInfo;
-    Sequence<Label> exportsLabels;
-    if (exports.isEmpty() || exports.get(0) instanceof JavaInfo) {
-      exportsLabels = StarlarkList.empty();
-      exportsJavaInfo = Sequence.cast(exports, JavaInfo.class, "exports");
-    } else {
-      Label label =
-          ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-              .label();
-      if (!PRIVATE_STARLARKIFICATION_ALLOWLIST.contains(label.toString())) {
-        throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
-      }
-      Sequence<TransitiveInfoCollection> e =
-          Sequence.cast(exports, TransitiveInfoCollection.class, "exports");
-      exportsLabels =
-          StarlarkList.immutableCopyOf(
-              e.stream().map(TransitiveInfoCollection::getLabel).collect(toImmutableList()));
-      exportsJavaInfo =
-          StarlarkList.immutableCopyOf(
-              e.stream().map(JavaInfo::getJavaInfo).collect(toImmutableList()));
-    }
-
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
             starlarkRuleContext,
@@ -124,8 +90,7 @@ public class JavaStarlarkCommon
                 experimentalLocalCompileTimeDeps,
                 JavaInfo.class,
                 "experimental_local_compile_time_deps"),
-            exportsJavaInfo,
-            exportsLabels,
+            Sequence.cast(exports, JavaInfo.class, "exports"),
             Sequence.cast(plugins, JavaInfo.class, "plugins"),
             Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins"),
             Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),

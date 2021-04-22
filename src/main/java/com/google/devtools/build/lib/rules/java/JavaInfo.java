@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -79,7 +78,6 @@ public final class JavaInfo extends NativeInfo
           JavaSourceJarsProvider.class,
           JavaRuleOutputJarsProvider.class,
           JavaGenJarsProvider.class,
-          JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
           JavaCcInfoProvider.class);
 
@@ -135,8 +133,6 @@ public final class JavaInfo extends NativeInfo
             .map(JavaInfo::getJavaPluginInfo)
             .filter(Objects::nonNull)
             .collect(toImmutableList());
-    List<JavaExportsProvider> javaExportsProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
     List<JavaCcInfoProvider> javaCcInfoProviders =
@@ -159,7 +155,6 @@ public final class JavaInfo extends NativeInfo
             JavaRuleOutputJarsProvider.class,
             JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
         .javaPluginInfo(JavaPluginInfo.merge(javaPluginInfos))
-        .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
         // TODO(iirina): merge or remove JavaCompilationInfoProvider
@@ -370,14 +365,6 @@ public final class JavaInfo extends NativeInfo
         Artifact.TYPE,
         getProviderAsNestedSet(
             JavaSourceJarsProvider.class, JavaSourceJarsProvider::getTransitiveSourceJars));
-  }
-
-  @Override
-  public Depset /*<Label>*/ getTransitiveExports() {
-    return Depset.of(
-        Depset.ElementType.of(Label.class),
-        getProviderAsNestedSet(
-            JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
   }
 
   /** Returns the transitive set of CC native libraries required by the target. */

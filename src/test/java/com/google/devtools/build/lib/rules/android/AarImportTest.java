@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.stream.Collectors.toList;
 
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AarImportTest.WithPlatforms;
 import com.google.devtools.build.lib.rules.android.AarImportTest.WithoutPlatforms;
@@ -647,18 +645,6 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
         .get(0)
         .getManifest()
         .getRootRelativePathString();
-  }
-
-  @Test
-  public void testTransitiveExports() throws Exception {
-    assertThat(
-            getConfiguredTarget("//a:bar")
-                .get(JavaInfo.PROVIDER)
-                .getTransitiveExports()
-                .toList(Label.class))
-        .containsExactly(
-            Label.parseAbsolute("//a:foo", ImmutableMap.of()),
-            Label.parseAbsolute("//java:baz", ImmutableMap.of()));
   }
 
   @Test
