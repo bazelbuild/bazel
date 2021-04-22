@@ -305,7 +305,6 @@ separating startup options from command options. It also includes the
       "--nofatal_event_bus_exceptions",
       "--nowindows_enable_symlinks",
       "--noclient_debug",
-      "--noincompatible_enable_execution_transition"
     ],
     "cmdLine": [
       "--enable_platform_specific_config",

@@ -275,11 +275,6 @@ class StartupOptions {
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
 
-  // Whether the execution transition is enabled, or behaves like a host
-  // transition. This must be set before rule classes are constructed.
-  // See https://github.com/bazelbuild/bazel/issues/7935
-  bool incompatible_enable_execution_transition;
-
   // Whether to create symbolic links on Windows for files. Requires
   // developer mode to be enabled.
   bool windows_enable_symlinks;
