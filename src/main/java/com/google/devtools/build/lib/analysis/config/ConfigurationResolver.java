@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
@@ -58,7 +57,6 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -216,24 +214,7 @@ public final class ConfigurationResolver {
   }
 
   private Dependency resolveHostTransition(
-      Dependency.Builder dependencyBuilder, DependencyKey dependencyKey)
-      throws DependencyEvaluationException {
-    // The current rule's host configuration can also be used for the dep. We short-circuit
-    // the standard transition logic for host transitions because these transitions are
-    // uniquely frequent. It's possible, e.g., for every node in the configured target graph
-    // to incur multiple host transitions. So we aggressively optimize to avoid hurting
-    // analysis time.
-    if (hostConfiguration.trimConfigurationsRetroactively()
-        && !dependencyKey.getAspects().isEmpty()) {
-      String message =
-          ctgValue.getLabel()
-              + " has aspects attached, but these are not supported in retroactive"
-              + " trimming mode.";
-      env.getListener()
-          .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
-      throw new DependencyEvaluationException(new InvalidConfigurationException(message));
-    }
-
+      Dependency.Builder dependencyBuilder, DependencyKey dependencyKey) {
     return dependencyBuilder
         .setConfiguration(hostConfiguration)
         .setAspects(dependencyKey.getAspects())
@@ -332,8 +313,7 @@ public final class ConfigurationResolver {
       throw new DependencyEvaluationException(e);
     }
 
-    Collections.sort(dependencies, SPLIT_DEP_ORDERING);
-    return ImmutableList.copyOf(dependencies);
+    return ImmutableList.sortedCopyOf(SPLIT_DEP_ORDERING, dependencies);
   }
 
   private ImmutableList<String> collectTransitionKeys(Attribute attribute)
@@ -566,13 +546,8 @@ public final class ConfigurationResolver {
 
     LinkedHashSet<TargetAndConfiguration> result = new LinkedHashSet<>();
     for (TargetAndConfiguration originalInput : defaultContext) {
-      if (successfullyEvaluatedTargets.containsKey(originalInput)) {
-        // The configuration was successfully evaluated.
-        result.add(successfullyEvaluatedTargets.get(originalInput));
-      } else {
-        // Either the configuration couldn't be determined (e.g. loading phase error) or it's null.
-        result.add(originalInput);
-      }
+      // If the configuration couldn't be determined (e.g. loading phase error), use the original.
+      result.add(successfullyEvaluatedTargets.getOrDefault(originalInput, originalInput));
     }
     return new TopLevelTargetsAndConfigsResult(result, hasError);
   }

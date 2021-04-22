@@ -1479,10 +1479,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(userLinkFlags.getImmutableList())
         .containsExactly("-la", "-lc2", "-DEP2_LINKOPT", "-lc1", "-lc2", "-DEP1_LINKOPT");
     Depset additionalInputs = info.getValue("additional_inputs", Depset.class);
-    assertThat(
-            additionalInputs.toList(Artifact.class).stream()
-                .map(x -> x.getFilename())
-                .collect(ImmutableList.toImmutableList()))
+    assertThat(additionalInputs.toList(Artifact.class).stream().map(Artifact::getFilename))
         .containsExactly("b.lds", "d.lds");
     Collection<LibraryToLink> librariesToLink =
         info.getValue("libraries_to_link", Depset.class).toList(LibraryToLink.class);
@@ -4661,11 +4658,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
     ImmutableSet<String> featureNames =
         ccToolchainConfigInfo.getFeatures().stream()
-            .map(feature -> feature.getName())
+            .map(Feature::getName)
             .collect(ImmutableSet.toImmutableSet());
     ImmutableSet<String> actionConfigNames =
         ccToolchainConfigInfo.getActionConfigs().stream()
-            .map(actionConfig -> actionConfig.getActionName())
+            .map(ActionConfig::getActionName)
             .collect(ImmutableSet.toImmutableSet());
     assertThat(featureNames).containsExactly("no_legacy_features", "custom_feature");
     assertThat(actionConfigNames).containsExactly("custom_action");
@@ -4730,11 +4727,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (CcToolchainConfigInfo) target.get(CcToolchainConfigInfo.PROVIDER.getKey());
     ImmutableList<String> featureNames =
         ccToolchainConfigInfo.getFeatures().stream()
-            .map(feature -> feature.getName())
+            .map(Feature::getName)
             .collect(ImmutableList.toImmutableList());
     ImmutableSet<String> actionConfigNames =
         ccToolchainConfigInfo.getActionConfigs().stream()
-            .map(actionConfig -> actionConfig.getActionName())
+            .map(ActionConfig::getActionName)
             .collect(ImmutableSet.toImmutableSet());
     // fdo_optimize should not be re-added to the list of features by legacy behavior
     assertThat(featureNames).containsNoDuplicates();
@@ -4882,7 +4879,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(toolchain.getCcTargetOs()).isEqualTo("os");
     assertThat(
             toolchain.getFeatureList().stream()
-                .map(feature -> feature.getName())
+                .map(CToolchain.Feature::getName)
                 .collect(ImmutableList.toImmutableList()))
         .containsAtLeast("featureone", "sysroot")
         .inOrder();
@@ -4925,7 +4922,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     assertThat(
             toolchain.getActionConfigList().stream()
-                .map(actionConfig -> actionConfig.getActionName())
+                .map(CToolchain.ActionConfig::getActionName)
                 .collect(ImmutableList.toImmutableList()))
         .containsAtLeast("action_one", "action_two")
         .inOrder();
@@ -5318,7 +5315,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(
             getFilesToBuild(target).toList().stream()
-                .map(x -> x.getFilename())
+                .map(Artifact::getFilename)
                 .collect(ImmutableList.toImmutableList()))
         .contains("libstarlark_lib.a");
   }
@@ -5330,12 +5327,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(
             getFilesToBuild(target).toList().stream()
-                .map(x -> x.getFilename())
+                .map(Artifact::getFilename)
                 .collect(ImmutableList.toImmutableList()))
         .doesNotContain("libstarlark_lib.a");
   }
 
-  private List<String> getFilenamesToBuild(ConfiguredTarget target) {
+  private static ImmutableList<String> getFilenamesToBuild(ConfiguredTarget target) {
     return getFilesToBuild(target).toList().stream()
         .map(Artifact::getFilename)
         .collect(ImmutableList.toImmutableList());

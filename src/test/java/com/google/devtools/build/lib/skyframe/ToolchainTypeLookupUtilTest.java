@@ -182,8 +182,8 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
     }
   }
 
-  EvaluationResult<GetToolchainTypeInfoValue> getToolchainTypeInfo(GetToolchainTypeInfoKey key)
-      throws InterruptedException {
+  private EvaluationResult<GetToolchainTypeInfoValue> getToolchainTypeInfo(
+      GetToolchainTypeInfoKey key) throws InterruptedException {
     try {
       // Must re-enable analysis for Skyframe functions that create configured targets.
       skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
@@ -212,7 +212,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
       GetToolchainTypeInfoKey key = (GetToolchainTypeInfoKey) skyKey;
       try {
         Map<Label, ToolchainTypeInfo> toolchainTypes =
-            ToolchainTypeLookupUtil.resolveToolchainTypes(env, key.toolchainTypeKeys(), false);
+            ToolchainTypeLookupUtil.resolveToolchainTypes(env, key.toolchainTypeKeys());
         if (env.valuesMissing()) {
           return null;
         }
@@ -229,8 +229,8 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
     }
   }
 
-  private static class GetToolchainTypeInfoFunctionException extends SkyFunctionException {
-    public GetToolchainTypeInfoFunctionException(InvalidToolchainTypeException e) {
+  private static final class GetToolchainTypeInfoFunctionException extends SkyFunctionException {
+    GetToolchainTypeInfoFunctionException(InvalidToolchainTypeException e) {
       super(e, Transience.PERSISTENT);
     }
   }

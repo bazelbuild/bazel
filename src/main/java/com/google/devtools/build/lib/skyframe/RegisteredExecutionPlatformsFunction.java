@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
@@ -97,8 +95,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     // Load the configured target for each, and get the declared execution platforms providers.
     ImmutableList<ConfiguredTargetKey> registeredExecutionPlatformKeys =
-        configureRegisteredExecutionPlatforms(
-            env, configuration, configuration.trimConfigurationsRetroactively(), platformLabels);
+        configureRegisteredExecutionPlatforms(env, configuration, platformLabels);
     if (env.valuesMissing()) {
       return null;
     }
@@ -125,13 +122,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     return externalPackage.getRegisteredExecutionPlatforms();
   }
 
-  private ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
-      Environment env,
-      BuildConfiguration configuration,
-      boolean sanityCheckConfiguration,
-      List<Label> labels)
+  private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
+      Environment env, BuildConfiguration configuration, List<Label> labels)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
-
     ImmutableList<ConfiguredTargetKey> keys =
         labels.stream()
             .map(
@@ -157,22 +150,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
         }
         ConfiguredTarget target =
             ((ConfiguredTargetValue) valueOrException.get()).getConfiguredTarget();
-        // This check is necessary because trimming for other rules assumes that platform resolution
-        // uses the platform fragment and _only_ the platform fragment. Without this check, it's
-        // possible another fragment could slip in without us realizing, and thus break this
-        // assumption.
-        if (sanityCheckConfiguration
-            && target.getConfigurationKey().getFragments().stream()
-                .anyMatch(not(equalTo(PlatformConfiguration.class)))) {
-          // Only the PlatformConfiguration fragment may be present on a platform rule in
-          // retroactive trimming mode.
-          throw new RegisteredExecutionPlatformsFunctionException(
-              new InvalidPlatformException(
-                  target.getLabel(),
-                  "has fragments other than PlatformConfiguration, "
-                      + "which is forbidden in retroactive trimming mode"),
-              Transience.PERSISTENT);
-        }
         PlatformInfo platformInfo = PlatformProviderUtils.platform(target);
         if (platformInfo == null) {
           throw new RegisteredExecutionPlatformsFunctionException(

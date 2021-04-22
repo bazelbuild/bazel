@@ -33,7 +33,6 @@ public abstract class ToolchainContextKey implements SkyKey {
     return new AutoValue_ToolchainContextKey.Builder()
         .requiredToolchainTypeLabels(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
-        .shouldSanityCheckConfiguration(false)
         .forceExecutionPlatform(Optional.empty());
   }
 
@@ -47,8 +46,6 @@ public abstract class ToolchainContextKey implements SkyKey {
   abstract ImmutableSet<Label> requiredToolchainTypeLabels();
 
   abstract ImmutableSet<Label> execConstraintLabels();
-
-  abstract boolean shouldSanityCheckConfiguration();
 
   abstract Optional<Label> forceExecutionPlatform();
 
@@ -64,8 +61,6 @@ public abstract class ToolchainContextKey implements SkyKey {
     Builder execConstraintLabels(ImmutableSet<Label> execConstraintLabels);
 
     Builder execConstraintLabels(Label... execConstraintLabels);
-
-    Builder shouldSanityCheckConfiguration(boolean shouldSanityCheckConfiguration);
 
     ToolchainContextKey build();
 

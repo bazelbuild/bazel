@@ -8,7 +8,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -78,7 +77,6 @@ java_library(
         "TopLevelActionLookupConflictFindingFunction.java",
         "ToplevelStarlarkAspectFunction.java",
         "TransitiveTargetFunction.java",
-        "TrimmedConfigurationProgressReceiver.java",
         "WorkspaceFileFunction.java",
         "actiongraph/ActionGraphDump.java",
         "actiongraph/v2/ActionGraphDump.java",
@@ -299,7 +297,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:cpp_interface",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

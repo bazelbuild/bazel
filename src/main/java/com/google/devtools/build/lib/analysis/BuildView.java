@@ -100,49 +100,44 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
- * The BuildView presents a semantically-consistent and transitively-closed
- * dependency graph for some set of packages.
+ * The BuildView presents a semantically-consistent and transitively-closed dependency graph for
+ * some set of packages.
  *
  * <h2>Package design</h2>
  *
- * <p>This package contains the Blaze dependency analysis framework (aka
- * "analysis phase").  The goal of this code is to perform semantic analysis of
- * all of the build targets required for a given build, to report
- * errors/warnings for any problems in the input, and to construct an "action
- * graph" (see {@code lib.actions} package) correctly representing the work to
- * be done during the execution phase of the build.
+ * <p>This package contains the Blaze dependency analysis framework (aka "analysis phase"). The goal
+ * of this code is to perform semantic analysis of all of the build targets required for a given
+ * build, to report errors/warnings for any problems in the input, and to construct an "action
+ * graph" (see {@code lib.actions} package) correctly representing the work to be done during the
+ * execution phase of the build.
  *
- * <p><b>Configurations</b> the inputs to a build come from two sources: the
- * intrinsic inputs, specified in the BUILD file, are called <em>targets</em>.
- * The environmental inputs, coming from the build tool, the command-line, or
- * configuration files, are called the <em>configuration</em>.  Only when a
- * target and a configuration are combined is there sufficient information to
- * perform a build. </p>
+ * <p><b>Configurations</b> the inputs to a build come from two sources: the intrinsic inputs,
+ * specified in the BUILD file, are called <em>targets</em>. The environmental inputs, coming from
+ * the build tool, the command-line, or configuration files, are called the <em>configuration</em>.
+ * Only when a target and a configuration are combined is there sufficient information to perform a
+ * build.
  *
- * <p>Targets are implemented by the {@link Target} hierarchy in the {@code
- * lib.packages} code.  Configurations are implemented by {@link
- * BuildConfiguration}.  The pair of these together is represented by an
- * instance of class {@link ConfiguredTarget}; this is the root of a hierarchy
- * with different implementations for each kind of target: source file, derived
- * file, rules, etc.
+ * <p>Targets are implemented by the {@link Target} hierarchy in the {@code lib.packages} code.
+ * Configurations are implemented by {@link BuildConfiguration}. The pair of these together is
+ * represented by an instance of class {@link ConfiguredTarget}; this is the root of a hierarchy
+ * with different implementations for each kind of target: source file, derived file, rules, etc.
  *
- * <p>The framework code in this package (as opposed to its subpackages) is
- * responsible for constructing the {@code ConfiguredTarget} graph for a given
- * target and configuration, taking care of such issues as:
+ * <p>The framework code in this package (as opposed to its subpackages) is responsible for
+ * constructing the {@code ConfiguredTarget} graph for a given target and configuration, taking care
+ * of such issues as:
+ *
  * <ul>
  *   <li>caching common subgraphs.
  *   <li>detecting and reporting cycles.
  *   <li>correct propagation of errors through the graph.
- *   <li>reporting universal errors, such as dependencies from production code
- *       to tests, or to experimental branches.
+ *   <li>reporting universal errors, such as dependencies from production code to tests, or to
+ *       experimental branches.
  *   <li>capturing and replaying errors.
- *   <li>maintaining the graph from one build to the next to
- *       avoid unnecessary recomputation.
+ *   <li>maintaining the graph from one build to the next to avoid unnecessary recomputation.
  *   <li>checking software licenses.
  * </ul>
  *
- * <p>See also {@link ConfiguredTarget} which documents some important
- * invariants.
+ * <p>See also {@link ConfiguredTarget} which documents some important invariants.
  */
 public class BuildView {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -154,12 +149,11 @@ public class BuildView {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  /**
-   * A factory class to create the coverage report action. May be null.
-   */
+  /** A factory class to create the coverage report action. May be null. */
   @Nullable private final CoverageReportActionFactory coverageReportActionFactory;
 
-  public BuildView(BlazeDirectories directories,
+  public BuildView(
+      BlazeDirectories directories,
       ConfiguredRuleClassProvider ruleClassProvider,
       SkyframeExecutor skyframeExecutor,
       CoverageReportActionFactory coverageReportActionFactory) {
@@ -191,8 +185,7 @@ public class BuildView {
   @VisibleForTesting
   static LinkedHashSet<ConfiguredTarget> filterTestsByTargets(
       Collection<ConfiguredTarget> targets, Set<Label> allowedTargetLabels) {
-    return targets
-        .stream()
+    return targets.stream()
         .filter(ct -> allowedTargetLabels.contains(ct.getLabel()))
         .collect(Collectors.toCollection(LinkedHashSet::new));
   }
@@ -228,8 +221,9 @@ public class BuildView {
     if (viewOptions.skyframePrepareAnalysis) {
       PrepareAnalysisPhaseValue prepareAnalysisPhaseValue;
       try (SilentCloseable c = Profiler.instance().profile("Prepare analysis phase")) {
-        prepareAnalysisPhaseValue = skyframeExecutor.prepareAnalysisPhase(
-            eventHandler, targetOptions, multiCpu, loadingResult.getTargetLabels());
+        prepareAnalysisPhaseValue =
+            skyframeExecutor.prepareAnalysisPhase(
+                eventHandler, targetOptions, multiCpu, loadingResult.getTargetLabels());
 
         // Determine the configurations
         configurations =
@@ -243,12 +237,7 @@ public class BuildView {
       // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
       try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
         configurations =
-            skyframeExecutor
-                .createConfigurations(
-                    eventHandler,
-                    targetOptions,
-                    multiCpu,
-                    keepGoing);
+            skyframeExecutor.createConfigurations(eventHandler, targetOptions, multiCpu, keepGoing);
       }
       try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
         topLevelTargetsWithConfigsResult =
@@ -261,10 +250,9 @@ public class BuildView {
         eventHandler, configurations, viewOptions.maxConfigChangesToShow);
 
     if (configurations.getTargetConfigurations().size() == 1) {
-      eventBus
-          .post(
-              new MakeEnvironmentEvent(
-                  configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
+      eventBus.post(
+          new MakeEnvironmentEvent(
+              configurations.getTargetConfigurations().get(0).getMakeEnvironment()));
     }
     for (BuildConfiguration targetConfig : configurations.getTargetConfigurations()) {
       eventBus.post(targetConfig.toBuildEvent());
@@ -274,8 +262,7 @@ public class BuildView {
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
 
     // Report the generated association of targets to configurations
-    Multimap<Label, BuildConfiguration> byLabel =
-        ArrayListMultimap.<Label, BuildConfiguration>create();
+    Multimap<Label, BuildConfiguration> byLabel = ArrayListMultimap.create();
     for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
       byLabel.put(pair.getLabel(), pair.getConfiguration());
     }
@@ -334,13 +321,6 @@ public class BuildView {
 
         String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-          if (targetSpec.getConfiguration() != null
-              && targetSpec.getConfiguration().trimConfigurationsRetroactively()) {
-            String errorMessage =
-                "Aspects were requested, but are not supported in retroactive trimming mode.";
-            throw new ViewCreationFailedException(
-                errorMessage, createFailureDetail(errorMessage, Analysis.Code.ASPECT_PREREQ_UNMET));
-          }
           aspectConfigurations.put(
               Pair.of(targetSpec.getLabel(), aspect), targetSpec.getConfiguration());
           aspectKeys.add(
@@ -359,14 +339,6 @@ public class BuildView {
 
         if (aspectFactoryClass != null) {
           for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-            if (targetSpec.getConfiguration() != null
-                && targetSpec.getConfiguration().trimConfigurationsRetroactively()) {
-              String errorMessage =
-                  "Aspects were requested, but are not supported in retroactive trimming mode.";
-              throw new ViewCreationFailedException(
-                  errorMessage,
-                  createFailureDetail(errorMessage, Analysis.Code.ASPECT_PREREQ_UNMET));
-            }
             // For invoking top-level aspects, use the top-level configuration for both the
             // aspect and the base target while the top-level configuration is untrimmed.
             BuildConfiguration configuration = targetSpec.getConfiguration();
@@ -445,8 +417,10 @@ public class BuildView {
     int numTargetsToAnalyze = topLevelTargetsWithConfigs.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
-      String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
-                                    numSuccessful, numTargetsToAnalyze);
+      String msg =
+          String.format(
+              "Analysis succeeded for only %d of %d top-level targets",
+              numSuccessful, numTargetsToAnalyze);
       eventHandler.handle(Event.info(msg));
       logger.atInfo().log(msg);
     }
@@ -765,7 +739,7 @@ public class BuildView {
       ImmutableSet.Builder<ConfiguredTarget> targetsToTest = ImmutableSet.builder();
       ImmutableSet.Builder<ConfiguredTarget> targetsToTestExclusive = ImmutableSet.builder();
       for (ConfiguredTarget configuredTarget : allTestTargets) {
-        Target target = null;
+        Target target;
         try {
           target = packageManager.getTarget(eventHandler, configuredTarget.getLabel());
         } catch (NoSuchTargetException | NoSuchPackageException e) {
@@ -795,10 +769,10 @@ public class BuildView {
   }
 
   /**
-   * Tests and clears the current thread's pending "interrupted" status, and
-   * throws InterruptedException iff it was set.
+   * Tests and clears the current thread's pending "interrupted" status, and throws
+   * InterruptedException iff it was set.
    */
-  private final void pollInterruptedStatus() throws InterruptedException {
+  private static void pollInterruptedStatus() throws InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }

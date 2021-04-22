@@ -317,7 +317,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               env,
               resolver,
               ctgValue,
-              ImmutableList.<Aspect>of(),
+              ImmutableList.of(),
               configConditions.asProviders(),
               unloadedToolchainContexts == null
                   ? null
@@ -521,8 +521,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         ToolchainContextKey.key()
             .configurationKey(toolchainConfig)
             .requiredToolchainTypeLabels(requiredDefaultToolchains)
-            .execConstraintLabels(defaultExecConstraintLabels)
-            .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively());
+            .execConstraintLabels(defaultExecConstraintLabels);
 
     if (parentToolchainContextKey != null) {
       // Find out what execution platform the parent used, and force that.
@@ -550,7 +549,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               .configurationKey(toolchainConfig)
               .requiredToolchainTypeLabels(execGroup.requiredToolchains())
               .execConstraintLabels(execGroup.execCompatibleWith())
-              .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
               .build());
     }
 
@@ -610,7 +608,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * @param env the Skyframe environment
    * @param resolver the dependency resolver
    * @param ctgValue the label and the configuration of the node
-   * @param aspects
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param toolchainContexts the toolchain context for this target
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
@@ -739,15 +736,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .collect(Collectors.toList());
     if (configLabels.isEmpty()) {
       return ConfigConditions.EMPTY;
-    } else if (ctgValue.getConfiguration().trimConfigurationsRetroactively()) {
-      String message =
-          target.getLabel()
-              + " has configurable attributes, but these are not supported in retroactive trimming "
-              + "mode.";
-      env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(target), message));
-      throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(
-              message, ctgValue.getLabel(), ctgValue.getConfiguration()));
     }
 
     // Collect the actual deps without a configuration transition (since by definition config
@@ -905,20 +893,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               BuildConfiguration depConfiguration = dep.getConfiguration();
               BuildConfigurationValue.Key depKey =
                   depValue.getConfiguredTarget().getConfigurationKey();
-              // Retroactive trimming may change the configuration associated with the dependency.
-              // If it does, we need to get that instance.
-              // TODO(b/140632978): doing these individually instead of doing them all at once may
-              // end up being wasteful use of Skyframe. Although these configurations are guaranteed
-              // to be in the Skyframe cache (because the dependency would have had to retrieve them
-              // to be created in the first place), looking them up repeatedly may be slower than
-              // just keeping a local cache and assigning the same configuration to all the CTs
-              // which need it. Profile this and see if there's a better way.
               if (depKey != null && !depKey.equals(BuildConfigurationValue.key(depConfiguration))) {
-                if (!depConfiguration.trimConfigurationsRetroactively()) {
-                  throw new AssertionError(
-                      "Loading configurations mid-dependency resolution should ONLY happen when "
-                          + "retroactive trimming is enabled.");
-                }
                 depConfiguration =
                     ((BuildConfigurationValue) env.getValue(depKey)).getConfiguration();
               }
@@ -973,7 +948,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   @Nullable
-  private ConfiguredTargetValue createConfiguredTarget(
+  private static ConfiguredTargetValue createConfiguredTarget(
       SkyframeBuildView view,
       Environment env,
       Target target,
@@ -994,7 +969,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
         view.createAnalysisEnvironment(
-            configuredTargetKey, false, events, env, configuration, starlarkBuiltinsValue);
+            configuredTargetKey, events, env, configuration, starlarkBuiltinsValue);
 
     Preconditions.checkNotNull(depValueMap);
     ConfiguredTarget configuredTarget;
@@ -1032,8 +1007,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                               configuration == null
                                   ? null
                                   : configuration.getEventId().getConfiguration(),
-                              createDetailedExitCode(
-                                  event.getMessage(), Code.CONFIGURED_VALUE_CREATION_FAILED)))
+                              createDetailedExitCode(event.getMessage())))
                   .collect(Collectors.toList()));
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(
@@ -1070,11 +1044,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
   }
 
-  private static DetailedExitCode createDetailedExitCode(String message, Code code) {
+  private static DetailedExitCode createDetailedExitCode(String message) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(message)
-            .setAnalysis(Analysis.newBuilder().setCode(code))
+            .setAnalysis(Analysis.newBuilder().setCode(Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
   }
 
@@ -1093,16 +1067,16 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
    * ConfiguredTargetFunction#compute}.
    */
-  static final class ConfiguredTargetFunctionException extends SkyFunctionException {
-    private ConfiguredTargetFunctionException(ConfiguredValueCreationException e) {
+  private static final class ConfiguredTargetFunctionException extends SkyFunctionException {
+    ConfiguredTargetFunctionException(ConfiguredValueCreationException e) {
       super(e, Transience.PERSISTENT);
     }
 
-    private ConfiguredTargetFunctionException(ActionConflictException e) {
+    ConfiguredTargetFunctionException(ActionConflictException e) {
       super(e, Transience.PERSISTENT);
     }
 
-    private ConfiguredTargetFunctionException(InvalidExecGroupException e) {
+    ConfiguredTargetFunctionException(InvalidExecGroupException e) {
       super(e, Transience.PERSISTENT);
     }
   }

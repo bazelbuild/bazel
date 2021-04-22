@@ -128,7 +128,7 @@ public final class AspectFunction implements SkyFunction {
    * @throws AspectCreationException if the value loaded is not a {@link StarlarkDefinedAspect}.
    */
   @Nullable
-  static StarlarkDefinedAspect loadStarlarkDefinedAspect(
+  private static StarlarkDefinedAspect loadStarlarkDefinedAspect(
       Environment env, StarlarkAspectClass starlarkAspectClass)
       throws AspectCreationException, InterruptedException {
     Label extensionLabel = starlarkAspectClass.getExtensionLabel();
@@ -269,9 +269,6 @@ public final class AspectFunction implements SkyFunction {
         throw new IllegalStateException("Unexpected exception from BuildConfigurationFunction when "
             + "computing " + key.getAspectConfigurationKey(), e);
       }
-      if (aspectConfiguration.trimConfigurationsRetroactively()) {
-        throw new AssertionError("Aspects should NEVER be evaluated in retroactive trimming mode.");
-      }
     }
 
     ConfiguredTarget associatedTarget = baseConfiguredTargetValue.getConfiguredTarget();
@@ -301,9 +298,6 @@ public final class AspectFunction implements SkyFunction {
       configuration =
           ((BuildConfigurationValue) result.get(associatedTarget.getConfigurationKey()))
               .getConfiguration();
-      if (configuration.trimConfigurationsRetroactively()) {
-        throw new AssertionError("Aspects should NEVER be evaluated in retroactive trimming mode.");
-      }
     }
     try {
       associatedConfiguredTargetAndData =
@@ -389,8 +383,6 @@ public final class AspectFunction implements SkyFunction {
                       ToolchainContextKey.key()
                           .configurationKey(BuildConfigurationValue.key(configuration))
                           .requiredToolchainTypeLabels(requiredToolchains)
-                          .shouldSanityCheckConfiguration(
-                              configuration.trimConfigurationsRetroactively())
                           .build(),
                       ToolchainException.class);
         } catch (ToolchainException e) {
@@ -553,14 +545,13 @@ public final class AspectFunction implements SkyFunction {
   }
 
   /**
-   *  Collect all SkyKeys that are needed for a given list of AspectKeys,
-   *  including transitive dependencies.
+   * Collect all SkyKeys that are needed for a given list of AspectKeys, including transitive
+   * dependencies.
    *
-   *  Also collects all propagating aspects in correct order.
+   * <p>Also collects all propagating aspects in correct order.
    */
-  private ImmutableMap<AspectDescriptor, SkyKey> getSkyKeysForAspectsAndCollectAspectPath(
-      ImmutableList<AspectKey> keys,
-      ImmutableList.Builder<SkyKey> aspectPathBuilder) {
+  private static ImmutableMap<AspectDescriptor, SkyKey> getSkyKeysForAspectsAndCollectAspectPath(
+      ImmutableList<AspectKey> keys, ImmutableList.Builder<SkyKey> aspectPathBuilder) {
     HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
     for (AspectKey key : keys) {
       buildSkyKeys(key, result, aspectPathBuilder);
@@ -568,7 +559,9 @@ public final class AspectFunction implements SkyFunction {
     return ImmutableMap.copyOf(result);
   }
 
-  private void buildSkyKeys(AspectKey key, HashMap<AspectDescriptor, SkyKey> result,
+  private static void buildSkyKeys(
+      AspectKey key,
+      HashMap<AspectDescriptor, SkyKey> result,
       ImmutableList.Builder<SkyKey> aspectPathBuilder) {
     if (result.containsKey(key.getAspectDescriptor())) {
       return;
@@ -657,7 +650,7 @@ public final class AspectFunction implements SkyFunction {
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
         view.createAnalysisEnvironment(
-            key, false, events, env, aspectConfiguration, starlarkBuiltinsValue);
+            key, events, env, aspectConfiguration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
     if (aspect.getDefinition().applyToGeneratingRules()

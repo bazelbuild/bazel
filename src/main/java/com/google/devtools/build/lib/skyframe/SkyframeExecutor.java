@@ -87,7 +87,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -171,7 +170,6 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.LoadedPackageCache
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
-import com.google.devtools.build.lib.skyframe.trimming.TrimmedConfigurationCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -374,11 +372,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
   @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
-
-  private final TrimmedConfigurationCache<SkyKey, Label, OptionsDiffForReconstruction>
-      trimmingCache = TrimmedConfigurationProgressReceiver.buildCache();
-  private final TrimmedConfigurationProgressReceiver trimmingListener =
-      new TrimmedConfigurationProgressReceiver(trimmingCache);
 
   private boolean siblingRepositoryLayout = false;
 
@@ -855,7 +848,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void resetEvaluator() {
     init();
     emittedEventState.clear();
-    clearTrimmingCache();
     skyframeBuildView.reset();
   }
 
@@ -885,24 +877,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public void handleAnalysisInvalidatingChange() {
     logger.atInfo().log("Dropping configured target data");
     analysisCacheDiscarded = true;
-    clearTrimmingCache();
     skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
     ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
-  }
-
-  /** Activates retroactive trimming (idempotently, so has no effect if already active). */
-  void activateRetroactiveTrimming() {
-    trimmingListener.activate();
-  }
-
-  /** Deactivates retroactive trimming (idempotently, so has no effect if already inactive). */
-  void deactivateRetroactiveTrimming() {
-    trimmingListener.deactivate();
-  }
-
-  protected void clearTrimmingCache() {
-    trimmingCache.clear();
   }
 
   /** Used with dump --rules. */
@@ -1901,19 +1878,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               // when depConfig is non-null, so we need to explicitly override it in that case.
               resolvedConfig = null;
             } else if (!configKey.equals(BuildConfigurationValue.key(depConfig))) {
-              // Retroactive trimming may change the configuration associated with the dependency.
-              // If it does, we need to get that instance.
-              // TODO(b/140632978): doing these individually instead of doing them all at once may
-              // end up being wasteful use of Skyframe. Although these configurations are guaranteed
-              // to be in the Skyframe cache (because the dependency would have had to retrieve
-              // them to be created in the first place), looking them up repeatedly may be slower
-              // than just keeping a local cache and assigning the same configuration to all the
-              // CTs which need it. Profile this and see if there's a better way.
-              if (!depConfig.trimConfigurationsRetroactively()) {
-                throw new AssertionError(
-                    "Loading configurations mid-dependency resolution should ONLY happen when "
-                        + "retroactive trimming is enabled.");
-              }
               resolvedConfig = getConfiguration(eventHandler, mergedTarget.getConfigurationKey());
             }
             cts.put(
@@ -1923,7 +1887,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                     packageValue.getPackage().getTarget(configuredTarget.getLabel().getName()),
                     resolvedConfig,
                     null));
-
           } catch (DuplicateException | NoSuchTargetException e) {
             throw new IllegalStateException(
                 String.format("Error creating %s", configuredTarget.getLabel()), e);
@@ -3104,7 +3067,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     /** This receiver is only needed for loading, so it is null otherwise. */
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
-      trimmingListener.invalidated(skyKey, state);
       if (ignoreInvalidations) {
         return;
       }
@@ -3113,7 +3075,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     @Override
     public void enqueueing(SkyKey skyKey) {
-      trimmingListener.enqueueing(skyKey);
       if (ignoreInvalidations) {
         return;
       }
@@ -3130,7 +3091,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
-      trimmingListener.evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
       if (ignoreInvalidations) {
         return;
       }

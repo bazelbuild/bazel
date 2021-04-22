@@ -622,13 +622,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
      */
     ON,
     /** Default mode: Each configured target is evaluated with all fragments known to Blaze. */
-    NOTRIM,
-    /**
-     * Experimental mode: Each configured target is evaluated with only the configuration fragments
-     * it needs by visiting them with a full configuration to begin with and collapsing the
-     * configuration down to the fragments which were actually used.
-     */
-    RETROACTIVE;
+    NOTRIM
   }
 
   /** Converter for --experimental_dynamic_configs. */

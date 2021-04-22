@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
@@ -32,7 +31,6 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -160,7 +158,6 @@ public class BuildViewForTesting {
     this.skyframeBuildView = skyframeExecutor.getSkyframeBuildView();
   }
 
-  @VisibleForTesting
   public Set<ActionLookupKey> getSkyframeEvaluatedActionLookupKeyCountForTesting() {
     Set<ActionLookupKey> actionLookupKeys = populateActionLookupKeyMapAndGetDiff();
     Preconditions.checkState(
@@ -188,7 +185,6 @@ public class BuildViewForTesting {
   /**
    * Returns whether the given configured target has errors.
    */
-  @VisibleForTesting
   public boolean hasErrors(ConfiguredTarget configuredTarget) {
     return configuredTarget == null;
   }
@@ -223,8 +219,7 @@ public class BuildViewForTesting {
         eventBus);
   }
 
-  /** Sets the configurations. Not thread-safe. DO NOT CALL except from tests! */
-  @VisibleForTesting
+  /** Sets the configurations. Not thread-safe. */
   public void setConfigurationsForTesting(
       EventHandler eventHandler, BuildConfigurationCollection configurations) {
     skyframeBuildView.setConfigurations(
@@ -242,7 +237,6 @@ public class BuildViewForTesting {
    * the fragments needed by the fragment and its transitive closure. Else unconditionally includes
    * all fragments.
    */
-  @VisibleForTesting
   public BuildConfiguration getConfigurationForTesting(
       Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
@@ -262,22 +256,19 @@ public class BuildViewForTesting {
    * Sets the possible artifact roots in the artifact factory. This allows the factory to resolve
    * paths with unknown roots to artifacts.
    */
-  @VisibleForTesting // for BuildViewTestCase
   public void setArtifactRoots(PackageRoots packageRoots) {
     getArtifactFactory().setPackageRoots(packageRoots.getPackageRootLookup());
   }
 
-  @VisibleForTesting
   // TODO(janakr): pass the configuration in as a parameter here.
   public Collection<ConfiguredTarget> getDirectPrerequisitesForTesting(
       ExtendedEventHandler eventHandler,
       ConfiguredTarget ct,
       BuildConfigurationCollection configurations)
-      throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
+      throws DependencyResolver.Failure, InvalidConfigurationException,
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
     return Collections2.transform(
-        getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-            eventHandler, ct, ct.getConfigurationKey(), configurations),
+        getConfiguredTargetAndDataDirectPrerequisitesForTesting(eventHandler, ct, configurations),
         ConfiguredTargetAndData::getConfiguredTarget);
   }
 
@@ -285,9 +276,8 @@ public class BuildViewForTesting {
       getConfiguredTargetAndDataDirectPrerequisitesForTesting(
           ExtendedEventHandler eventHandler,
           ConfiguredTarget ct,
-          BuildConfigurationValue.Key configuration,
           BuildConfigurationCollection configurations)
-          throws DependencyResolver.Failure, InvalidConfigurationException, InterruptedException,
+          throws DependencyResolver.Failure, InvalidConfigurationException,
               InconsistentAspectOrderException, StarlarkTransition.TransitionException {
 
     SkyframeExecutorWrappingWalkableGraph walkableGraph =
@@ -313,23 +303,18 @@ public class BuildViewForTesting {
           walkableGraph.getDirectDeps(
               ConfiguredTargetKey.builder().setConfiguredTarget(ct).build());
 
-      // Turn the keys back into ConfiguredTarget instances, possibly merging in aspects that
-      // were propagated from the original target.
-      Collection<ConfiguredTargetAndData> cts =
-          Streams.stream(directPrerequisites)
-              .filter(dep -> dep instanceof ConfiguredTargetKey)
-              .map(dep -> (ConfiguredTargetKey) dep)
-              .map(configuredTargetKey -> getConfiguredTarget(walkableGraph, configuredTargetKey))
-              // For each configured target, add in any aspects from depNodeNames.
-              .map(
-                  configuredTarget ->
-                      mergeAspects(
-                          walkableGraph,
-                          configuredTarget,
-                          findDependencyKey(dependencyKeys, configuredTarget)))
-              .collect(toImmutableList());
-
-      return cts;
+      // Turn the keys back into ConfiguredTarget instances, possibly merging in aspects that were
+      // propagated from the original target.
+      return stream(Iterables.filter(directPrerequisites, ConfiguredTargetKey.class))
+          .map(configuredTargetKey -> getConfiguredTarget(walkableGraph, configuredTargetKey))
+          // For each configured target, add in any aspects from depNodeNames.
+          .map(
+              configuredTarget ->
+                  mergeAspects(
+                      walkableGraph,
+                      configuredTarget,
+                      findDependencyKey(dependencyKeys, configuredTarget)))
+          .collect(toImmutableList());
     } catch (InterruptedException e) {
       return ImmutableList.of();
     }
@@ -363,7 +348,7 @@ public class BuildViewForTesting {
   }
 
   @Nullable
-  private DependencyKey findDependencyKey(
+  private static DependencyKey findDependencyKey(
       Multimap<Label, DependencyKey> dependencyKeys, ConfiguredTargetAndData configuredTarget) {
     // TODO(blaze-configurability): Figure out how to map the ConfiguredTarget back to the correct
     // DependencyKey when there are more than one.
@@ -371,7 +356,7 @@ public class BuildViewForTesting {
   }
 
   // Helper method to find the aspects needed for a target and merge them.
-  protected ConfiguredTargetAndData mergeAspects(
+  protected static ConfiguredTargetAndData mergeAspects(
       WalkableGraph graph, ConfiguredTargetAndData ctd, @Nullable DependencyKey dependencyKey) {
     if (dependencyKey == null || dependencyKey.getAspects().getUsedAspects().isEmpty()) {
       return ctd;
@@ -400,7 +385,6 @@ public class BuildViewForTesting {
     }
   }
 
-  @VisibleForTesting
   public OrderedSetMultimap<DependencyKind, DependencyKey>
       getDirectPrerequisiteDependenciesForTesting(
           final ExtendedEventHandler eventHandler,
@@ -410,7 +394,7 @@ public class BuildViewForTesting {
           throws DependencyResolver.Failure, InterruptedException, InconsistentAspectOrderException,
               StarlarkTransition.TransitionException, InvalidConfigurationException {
 
-    Target target = null;
+    Target target;
     try {
       target = skyframeExecutor.getPackageManager().getTarget(eventHandler, ct.getLabel());
     } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
@@ -558,7 +542,6 @@ public class BuildViewForTesting {
    *
    * <p>Returns {@code null} if something goes wrong.
    */
-  @VisibleForTesting
   public ConfiguredTarget getConfiguredTargetForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
       throws StarlarkTransition.TransitionException, InvalidConfigurationException,
@@ -571,7 +554,6 @@ public class BuildViewForTesting {
     return skyframeExecutor.getConfiguredTargetForTesting(eventHandler, label, config, transition);
   }
 
-  @VisibleForTesting
   ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfiguration config)
       throws StarlarkTransition.TransitionException, InvalidConfigurationException,
@@ -588,7 +570,6 @@ public class BuildViewForTesting {
   /**
    * Returns a RuleContext which is the same as the original RuleContext of the target parameter.
    */
-  @VisibleForTesting
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target,
       StoredEventHandler eventHandler,
@@ -611,7 +592,6 @@ public class BuildViewForTesting {
                 .setLabel(target.getLabel())
                 .setConfiguration(targetConfig)
                 .build(),
-            /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),
             eventHandler,
@@ -624,7 +604,6 @@ public class BuildViewForTesting {
    * Creates and returns a rule context that is equivalent to the one that was used to create the
    * given configured target.
    */
-  @VisibleForTesting
   public RuleContext getRuleContextForTesting(
       ExtendedEventHandler eventHandler,
       ConfiguredTarget configuredTarget,
@@ -635,7 +614,7 @@ public class BuildViewForTesting {
           StarlarkTransition.TransitionException, InvalidExecGroupException {
     BuildConfiguration targetConfig =
         skyframeExecutor.getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
-    Target target = null;
+    Target target;
     try {
       target =
           skyframeExecutor.getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
@@ -740,7 +719,6 @@ public class BuildViewForTesting {
   }
 
   /** Clears the analysis cache as in --discard_analysis_cache. */
-  @VisibleForTesting
   void clearAnalysisCache(
       Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     skyframeBuildView.clearAnalysisCache(topLevelTargets, topLevelAspects);

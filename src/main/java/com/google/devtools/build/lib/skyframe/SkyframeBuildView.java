@@ -332,12 +332,7 @@ public final class SkyframeBuildView {
         skyframeExecutor.handleAnalysisInvalidatingChange();
       }
     }
-    if (configurations.getTargetConfigurations().stream()
-        .anyMatch(BuildConfiguration::trimConfigurationsRetroactively)) {
-      skyframeExecutor.activateRetroactiveTrimming();
-    } else {
-      skyframeExecutor.deactivateRetroactiveTrimming();
-    }
+
     skyframeAnalysisWasDiscarded = false;
     this.configurations = configurations;
     setTopLevelHostConfiguration(configurations.getHostConfiguration());
@@ -981,7 +976,6 @@ public final class SkyframeBuildView {
 
   CachingAnalysisEnvironment createAnalysisEnvironment(
       ActionLookupKey owner,
-      boolean isSystemEnv,
       ExtendedEventHandler eventHandler,
       Environment env,
       BuildConfiguration config,
@@ -992,7 +986,6 @@ public final class SkyframeBuildView {
         artifactFactory,
         skyframeExecutor.getActionKeyContext(),
         owner,
-        isSystemEnv,
         extendedSanityChecks,
         allowAnalysisFailures,
         eventHandler,
