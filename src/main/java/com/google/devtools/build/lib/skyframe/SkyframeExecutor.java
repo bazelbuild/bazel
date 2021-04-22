@@ -2857,7 +2857,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         directories.getOutputBase(),
         packagePaths,
         eventHandler,
-        directories.getWorkspace(),
+        directories.getWorkspace().asFragment(),
         workingDirectory,
         buildFilesByPriority);
   }

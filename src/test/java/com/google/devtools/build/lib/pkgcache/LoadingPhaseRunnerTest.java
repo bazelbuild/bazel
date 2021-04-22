@@ -1420,10 +1420,10 @@ public final class LoadingPhaseRunnerTest {
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
-              null,
+              /*outputBase=*/ null,
               options.packagePath,
               storedErrors,
-              workspace,
+              workspace.asFragment(),
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
