@@ -16,17 +16,13 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
-import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.causes.Cause;
@@ -158,31 +154,20 @@ public class AspectCompleteEvent
 
   @Override
   public ReportedArtifacts reportedArtifacts() {
-    ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
-    if (artifactOutputGroups != null) {
-      for (ArtifactsInOutputGroup artifactsInGroup : artifactOutputGroups.values()) {
-        builder.add(artifactsInGroup.getArtifacts());
-      }
-    }
-    return new ReportedArtifacts(builder.build(), completionContext);
+    return TargetCompleteEvent.toReportedArtifacts(
+        artifactOutputGroups, completionContext, /*baselineCoverageArtifacts=*/ null);
   }
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
-    ArtifactGroupNamer namer = converters.artifactGroupNamer();
-
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();
     builder.setSuccess(!failed());
-    if (artifactOutputGroups != null) {
-      artifactOutputGroups.forEach(
-          (outputGroup, artifactsInGroup) ->
-              builder.addOutputGroup(
-                  OutputGroup.newBuilder()
-                      .setName(outputGroup)
-                      .setIncomplete(artifactsInGroup.isIncomplete())
-                      .addFileSets(namer.apply(artifactsInGroup.getArtifacts().toNode()))));
-    }
+    builder.addAllOutputGroup(
+        TargetCompleteEvent.toOutputGroupProtos(
+            artifactOutputGroups,
+            converters.artifactGroupNamer(),
+            /*baselineCoverageArtifacts=*/ null));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 }

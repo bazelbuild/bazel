@@ -293,6 +293,12 @@ def _my_rule_impl(ctx):
         )
         group_kwargs[name + "_outputs"] = depset(
             [outfile], transitive=[group_kwargs[name + "_outputs"]])
+    valid = ctx.actions.declare_file(ctx.label.name + "-valid")
+    ctx.actions.run_shell(
+        outputs = [valid],
+        command = "printf valid > %s && exit %d" % (valid.path, 0),
+    )
+    group_kwargs["_validation"] = depset([valid])
     return [OutputGroupInfo(**group_kwargs)]
 
 my_rule = rule(implementation = _my_rule_impl, attrs = {
@@ -666,6 +672,7 @@ function test_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
   # We request the first three output groups and expect foo_outputs and
   # bar_outputs to appear in BEP, because both groups have at least one
@@ -675,6 +682,7 @@ function test_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
    --output_groups=foo_outputs,bar_outputs,baz_outputs \
     && fail "expected failure" || true
 
@@ -700,6 +708,7 @@ function test_bep_output_groups() {
     expect_not_log "\"name\":\"${name}_outputs\""
     expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
+  expect_not_log "-valid\""  # validation outputs shouldn't appear in BEP
 }
 
 function test_aspect_artifacts() {
@@ -766,6 +775,7 @@ function test_failing_aspect_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
   # We request the first two output groups and expect only bar_outputs to
   # appear in BEP, because all actions contributing to bar_outputs succeeded.
@@ -778,6 +788,8 @@ function test_failing_aspect_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
+   --experimental_use_validation_aspect \
    --aspects=semifailingaspect.bzl%semifailing_aspect \
    --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out,mixed-aspect-out \
     && fail "expected failure" || true
@@ -804,6 +816,10 @@ function test_failing_aspect_bep_output_groups() {
   expect_log "\"name\":\"semifailingpkg/out2.txt.aspect.good\",\"uri\":"
   expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.mixed\",\"uri\":"
   expect_not_log "\"name\":\"semifailingpkg/out2.txt.aspect.mixed\",\"uri\":"
+
+  # Validation outputs shouldn't appear in BEP (incl. no output group)
+  expect_not_log "-valid\""
+  expect_log_n '^{"id":{"targetCompleted":{.*"aspect":"ValidateTarget".*}},"completed":{"success":true}}$' 2
 }
 
 function test_build_only() {

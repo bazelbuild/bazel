@@ -161,6 +161,14 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean runValidationActions;
 
   @Option(
+      name = "experimental_use_validation_aspect",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to run validation actions using aspect (for parallelism with tests).")
+  public boolean useValidationAspect;
+
+  @Option(
       name = "show_result",
       defaultValue = "1",
       documentationCategory = OptionDocumentationCategory.LOGGING,

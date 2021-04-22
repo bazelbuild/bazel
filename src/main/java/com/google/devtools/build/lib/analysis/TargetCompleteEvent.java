@@ -470,6 +470,13 @@ public final class TargetCompleteEvent
 
   @Override
   public ReportedArtifacts reportedArtifacts() {
+    return toReportedArtifacts(outputs, completionContext, baselineCoverageArtifacts);
+  }
+
+  static ReportedArtifacts toReportedArtifacts(
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      CompletionContext completionContext,
+      @Nullable NestedSet<Artifact> baselineCoverageArtifacts) {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     for (ArtifactsInOutputGroup artifactsInGroup : outputs.values()) {
       if (artifactsInGroup.areImportant()) {
@@ -492,6 +499,14 @@ public final class TargetCompleteEvent
   }
 
   private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
+    return toOutputGroupProtos(outputs, namer, baselineCoverageArtifacts);
+  }
+
+  /** Returns {@link OutputGroup} protos for given output groups and optional coverage artifacts. */
+  static ImmutableList<OutputGroup> toOutputGroupProtos(
+      ImmutableMap<String, ArtifactsInOutputGroup> outputs,
+      ArtifactGroupNamer namer,
+      @Nullable NestedSet<Artifact> baselineCoverageArtifacts) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
     outputs.forEach(
         (outputGroup, artifactsInOutputGroup) -> {

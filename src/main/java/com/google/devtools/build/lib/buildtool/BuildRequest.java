@@ -50,6 +50,8 @@ import java.util.concurrent.ExecutionException;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsProvider {
+  static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
+
   private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
       ImmutableList.of(
           BuildRequestOptions.class,
@@ -371,8 +373,7 @@ public class BuildRequest implements OptionsProvider {
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
         getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
-        OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, buildOptions.runValidationActions));
+        OutputGroupInfo.determineOutputGroups(buildOptions.outputGroups, validationMode()));
   }
 
   public ImmutableSortedSet<String> getMultiCpus() {
@@ -380,7 +381,27 @@ public class BuildRequest implements OptionsProvider {
   }
 
   public ImmutableList<String> getAspects() {
-    return ImmutableList.copyOf(getBuildOptions().aspects);
+    ImmutableList.Builder<String> result =
+        ImmutableList.<String>builder().addAll(getBuildOptions().aspects);
+    if (useValidationAspect()) {
+      result.add(VALIDATION_ASPECT_NAME);
+    }
+    return result.build();
+  }
+
+  /** Whether {@value #VALIDATION_ASPECT_NAME} is in use. */
+  boolean useValidationAspect() {
+    return validationMode() == OutputGroupInfo.ValidationMode.ASPECT;
+  }
+
+  private OutputGroupInfo.ValidationMode validationMode() {
+    BuildRequestOptions buildOptions = getBuildOptions();
+    if (!buildOptions.runValidationActions) {
+      return OutputGroupInfo.ValidationMode.OFF;
+    }
+    return buildOptions.useValidationAspect
+        ? OutputGroupInfo.ValidationMode.ASPECT
+        : OutputGroupInfo.ValidationMode.OUTPUT_GROUP;
   }
 
   public boolean getCheckForActionConflicts() {
