@@ -62,6 +62,7 @@ public class AndroidResourcesProcessorBuilder {
   private boolean throwOnResourceConflict;
   private String packageUnderTest;
   private boolean isTestWithResources = false;
+  private boolean includeProguardLocationReferences = false;
 
   /**
    * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
@@ -119,6 +120,12 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setMainDexProguardOut(Artifact mainDexProguardCfg) {
     this.mainDexProguardOut = mainDexProguardCfg;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setIncludeProguardLocationReferences(
+      boolean includeProguardLocationReferences) {
+    this.includeProguardLocationReferences = includeProguardLocationReferences;
     return this;
   }
 
@@ -314,7 +321,7 @@ public class AndroidResourcesProcessorBuilder {
     }
 
     builder.maybeAddFlag("--conditionalKeepRules", conditionalKeepRules);
-
+    builder.maybeAddFlag("--includeProguardLocationReferences", includeProguardLocationReferences);
     configureCommonFlags(
             dataContext,
             primaryResources,
