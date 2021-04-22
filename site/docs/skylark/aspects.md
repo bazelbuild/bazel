@@ -256,11 +256,11 @@ file_count_aspect = aspect(
 )
 ```
 
-In this example, we are again propagating the aspect via the ``deps`` attribute.
+This example shows how the aspect propagates through the ``deps`` attribute.
 
 ``attrs`` defines a set of attributes for an aspect. Public aspect attributes
 are of type ``string`` and are called parameters. Parameters must have a``values``
-attribute specified on them. In this case we have a parameter called ``extension``
+attribute specified on them. This example has a parameter called ``extension``
 that is allowed to have '``*``', '``h``', or '``cc``' as a value.
 
 Parameter values for the aspect are taken from the string attribute with the same
@@ -325,7 +325,7 @@ a rule implementation propagates are created and frozen before aspects are
 applied and cannot be modified from an aspect.
 
 The parameters and private attributes are passed in the attributes of the
-``ctx``. In this example, we reference the ``extension`` parameter to decide
+``ctx``. This example references the ``extension`` parameter and determines
 what files to count.
 
 For returning providers, the values of attributes along which
