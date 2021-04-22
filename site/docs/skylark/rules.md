@@ -25,12 +25,11 @@ inputs to a rule, but also all of the tools and libraries required to execute
 the actions.
 
 Before creating or modifying any rule, ensure you are familiar with Bazel's
-[build phases](concepts.md). It will be important to understand the three phases
-of a build (loading, analysis and execution). It will also be useful to learn
-about [macros](macros.md) to understand the difference between rules and macros.
-To get started, we recommend that you first follow the
-[Rules Tutorial](rules-tutorial.md). The current page can be used as a
-reference.
+[build phases](concepts.md). It is important to understand the three
+phases of a build (loading, analysis, and execution). It is also useful to
+learn about [macros](macros.md) to understand the difference between rules and
+macros. To get started, first review the [Rules Tutorial](rules-tutorial.md).
+Then, use this page as a reference.
 
 A few rules are built into Bazel itself. These *native rules*, such as
 `cc_library` and `java_binary`, provide some core support for certain languages.
@@ -201,16 +200,16 @@ example_library = rule(
 )
 ```
 
-In this example, every target of type `example_library` will have an implicit
+In this example, every target of type `example_library` has an implicit
 dependency on the compiler `//tools:example_compiler`. This allows
 `example_library`'s implementation function to generate actions that invoke the
 compiler, even though the user did not pass its label as an input. Since
-`_compiler` is a private attribute, we know for sure that `ctx.attr._compiler`
+`_compiler` is a private attribute, it follows that `ctx.attr._compiler`
 will always point to `//tools:example_compiler` in all targets of this rule
-type. Alternatively, we could have named the attribute `compiler` without the
-underscore and kept the default value. That would let users substitute a
+type. Alternatively, you can name the attribute `compiler` without the
+underscore and keep the default value. This allows users to substitute a
 different compiler if necessary, but it requires no awareness of the compiler's
-label otherwise.
+label.
 
 Implicit dependencies are generally used for tools that reside in the same
 repository as the rule implementation. If the tool comes from the
@@ -819,7 +818,7 @@ order to avoid access errors:
 
 ```python
 def _impl(ctx):
-    # Using ctx.fragments.cpp would lead to an error since it was not declared.
+    # Using ctx.fragments.cpp leads to an error since it was not declared.
     x = ctx.fragments.java
     ...
 
@@ -928,7 +927,7 @@ There are two **deprecated** ways of using predeclared outputs:
 
 [`ctx.runfiles`](lib/ctx.html#runfiles) and the [`runfiles`](lib/runfiles.html)
 type have a complex set of features, many of which are kept for legacy reasons.
-We make the following recommendations to reduce complexity:
+The following recommendations help reduce complexity:
 
 *   **Avoid** use of the `collect_data` and `collect_default` modes of
     [`ctx.runfiles`](lib/ctx.html#runfiles). These modes implicitly collect
