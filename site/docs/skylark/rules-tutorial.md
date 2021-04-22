@@ -34,13 +34,14 @@ foo_binary = rule(
 )
 ```
 
-As you can see, when you call the [`rule`](lib/globals.html#rule)
-function, you must define a callback function. The logic will go there, but we
+When you call the [`rule`](lib/globals.html#rule) function, you
+must define a callback function. The logic will go there, but you
 can leave the function empty for now. The [`ctx`](lib/ctx.html) argument
 provides information about the target.
 
-You can load the rule and use it from a BUILD file. Create a BUILD file in the
-same directory:
+You can load the rule and use it from a BUILD file.
+
+Create a BUILD file in the same directory:
 
 ```python
 load(":foo.bzl", "foo_binary")
@@ -64,7 +65,8 @@ mandatory name, it supports common attributes like `visibility`, `testonly`, and
 ## Evaluation model
 
 Before going further, it's important to understand how the code is evaluated.
-Let's update `foo.bzl` with some print statements:
+
+Update `foo.bzl` with some print statements:
 
 ```python
 def _foo_binary_impl(ctx):
@@ -88,38 +90,38 @@ foo_binary(name = "bin2")
 ```
 
 [`ctx.label`](lib/ctx.html#label)
-corresponds to the label of the target being analyzed. The `ctx` object has many
-useful fields and methods; you can find an exhaustive list in the
+corresponds to the label of the target being analyzed. The `ctx` object has
+many useful fields and methods; you can find an exhaustive list in the
 [API reference](lib/ctx.html).
 
-Let's query the code:
+Query the code:
 
 ```
 $ bazel query :all
-DEBUG: /usr/home/laurentlb/bazel-codelab/foo.bzl:8:1: bzl file evaluation
-DEBUG: /usr/home/laurentlb/bazel-codelab/BUILD:2:1: BUILD file
+DEBUG: /usr/home/bazel-codelab/foo.bzl:8:1: bzl file evaluation
+DEBUG: /usr/home/bazel-codelab/BUILD:2:1: BUILD file
 //:bin2
 //:bin1
 ```
 
-We can make a few observations:
+Make a few observations:
 
 * "bzl file evaluation" is printed first. Before evaluating the BUILD file,
   Bazel evaluates all the files it loads. If multiple BUILD files are loading
-  foo.bzl, we would see only one occurrence of "bzl file evaluation" because
+  foo.bzl, you would see only one occurrence of "bzl file evaluation" because
   Bazel caches the result of the evaluation.
 * The callback function `_foo_binary_impl` is not called. Bazel query loads
   BUILD files, but doesn't analyze targets.
 
-To analyze the targets, we can use the [`cquery`](../cquery.html) ("configured
+To analyze the targets, use the [`cquery`](../cquery.html) ("configured
 query") or the `build` command:
 
 ```
 $ bazel build :all
-DEBUG: /usr/home/laurentlb/bazel-codelab/foo.bzl:8:1: bzl file evaluation
-DEBUG: /usr/home/laurentlb/bazel-codelab/BUILD:2:1: BUILD file
-DEBUG: /usr/home/laurentlb/bazel-codelab/foo.bzl:2:5: analyzing //:bin1
-DEBUG: /usr/home/laurentlb/bazel-codelab/foo.bzl:2:5: analyzing //:bin2
+DEBUG: /usr/home/bazel-codelab/foo.bzl:8:1: bzl file evaluation
+DEBUG: /usr/home/bazel-codelab/BUILD:2:1: BUILD file
+DEBUG: /usr/home/bazel-codelab/foo.bzl:2:5: analyzing //:bin1
+DEBUG: /usr/home/bazel-codelab/foo.bzl:2:5: analyzing //:bin2
 INFO: Analyzed 2 targets (0 packages loaded, 0 targets configured).
 INFO: Found 2 targets...
 ```
@@ -133,9 +135,9 @@ the cache state, you get the same output.
 
 ## Creating a file
 
-To make our rule more useful, we will update it to generate a file. We first
-need to declare the file and give it a name. In this example, we create a file
-with the same name as the target:
+To make your rule more useful, update it to generate a file. First, declare the
+file and give it a name. In this example, create a file with the same name as
+the target:
 
 ```python
 ctx.actions.declare_file(ctx.label.name)
@@ -148,9 +150,9 @@ The following files have no generating action:
 bin2
 ```
 
-Whenever you declare a file, you have to tell Bazel how to generate it. You must
-create an action for that. Let's use [`ctx.actions.write`](lib/actions.html#write),
-which will create a file with the given content.
+Whenever you declare a file, you have to tell Bazel how to generate it by
+creating an action. Use [`ctx.actions.write`](lib/actions.html#write),
+to create a file with the given content.
 
 ```python
 def _foo_binary_impl(ctx):
@@ -168,10 +170,11 @@ $ bazel build bin1
 Target //:bin1 up-to-date (nothing to build)
 ```
 
-We registered an action. This means that we taught Bazel how to generate the
-file. But Bazel won't create the file until it is actually requested. So the
-last thing to do is tell Bazel that the file is an output of the rule, and not a
-temporary file used within the rule implementation.
+The `ctx.actions.write` function registered an action, which taught Bazel
+how to generate the file. But Bazel won't create the file until it is
+actually requested. So the last thing to do is tell Bazel that the file
+is an output of the rule, and not a temporary file used within the rule
+implementation.
 
 ```python
 def _foo_binary_impl(ctx):
@@ -183,9 +186,10 @@ def _foo_binary_impl(ctx):
     return [DefaultInfo(files = depset([out]))]
 ```
 
-We'll look at the `DefaultInfo` and `depset` functions later. For now, just
-assume that the last line is the way to choose the outputs of a rule. Let's run
-Bazel:
+Look at the `DefaultInfo` and `depset` functions later. For now,
+assume that the last line is the way to choose the outputs of a rule.
+
+Now, run Bazel:
 
 ```
 $ bazel build bin1
@@ -197,13 +201,14 @@ $ cat bazel-bin/bin1
 Hello!
 ```
 
-We've successfully generated a file!
+You have successfully generated a file!
 
 ## Attributes
 
-To make the rule more useful, we can add new attributes using
+To make the rule more useful, add new attributes using
 [the `attr` module](lib/attr.html) and update the rule definition.
-Here, we add a string attribute called `username`:
+
+Add a string attribute called `username`:
 
 ```python
 foo_binary = rule(
@@ -214,7 +219,7 @@ foo_binary = rule(
 )
 ```
 
-and we can set it in the BUILD file:
+Next, set it in the BUILD file:
 
 ```python
 foo_binary(
@@ -223,7 +228,7 @@ foo_binary(
 )
 ```
 
-To access the value in the callback function, we use `ctx.attr.username`. For
+To access the value in the callback function, use `ctx.attr.username`. For
 example:
 
 ```python
@@ -251,7 +256,7 @@ of the target graph.
 
 In the BUILD file, the target label appears as a string object, such as
 `//pkg:name`. In the implementation function, the target will be accessible as a
-[`Target`](lib/Target.html) object. For example you can view the files returned
+[`Target`](lib/Target.html) object. For example, view the files returned
 by the target using [`Target.files`](lib/Target.html#modules.Target.files).
 
 ### Multiple files
@@ -289,16 +294,16 @@ ctx.file.src
 
 ## Create a file with a template
 
-Let's create a rule that generates a .cc file based on a template. We could
-use `ctx.actions.write` to output a string constructed in the rule
+You can create a rule that generates a .cc file based on a template. Also, you
+can use `ctx.actions.write` to output a string constructed in the rule
 implementation function, but this has two problems. First, as the template gets
 bigger, it becomes more memory efficient to put it in a separate file and avoid
 constructing large strings during the analysis phase. Second, using a separate
-file is more convenient for the user. Instead, we use
+file is more convenient for the user. Instead, use
 [`ctx.actions.expand_template`](lib/actions.html#expand_template),
 which performs substitutions on a template file.
 
-We create a `template` attribute to declare a dependency on the template
+Create a `template` attribute to declare a dependency on the template
 file:
 
 ```python
@@ -338,8 +343,8 @@ cc_binary(
 )
 ```
 
-If we don't want to expose the template to the end-user and always use the
-same, we can set a default value and make the attribute private:
+If you don't want to expose the template to the end-user and always use the
+same one, you can set a default value and make the attribute private:
 
 ```python
     "_template": attr.label(

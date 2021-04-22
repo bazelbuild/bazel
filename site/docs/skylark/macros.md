@@ -18,10 +18,10 @@ and Bazel sees only the concrete set of instantiated rules.
 
 ## Usage
 
-The typical use-case for a macro is when you want to reuse a rule.
+The typical use case for a macro is when you want to reuse a rule.
 
-For example, we have a genrule in a BUILD file that generates a file
-using `//:generator` with a `some_arg` argument hardcoded in the command:
+For example, genrule in a BUILD file generates a file using
+`//:generator` with a `some_arg` argument hardcoded in the command:
 
 ```python
 genrule(
@@ -59,13 +59,13 @@ file_generator(
 )
 ```
 
-Here, we are loading the `file_generator` symbol from a `.bzl` file located
+Here, you load the `file_generator` symbol from a `.bzl` file located
 in the `//path` package. By putting macro function definitions in a separate
-`.bzl` file, we can keep our BUILD files clean and declarative, The `.bzl`
+`.bzl` file, you keep your BUILD files clean and declarative, The `.bzl`
 file can be loaded from any package in the workspace.
 
-Finally, in `path/generator.bzl`, let's write the definition of the macro to
-encapsulate and parameterize our original genrule definition:
+Finally, in `path/generator.bzl`, write the definition of the macro to
+encapsulate and parameterize the original genrule definition:
 
 ```python
 def file_generator(name, arg, visibility=None):
