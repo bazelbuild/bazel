@@ -199,7 +199,7 @@ For example, you could create a test `./test/hello-test.cc`, such as:
 
 ```cpp
 #include "gtest/gtest.h"
-#include "lib/hello-greet.h"
+#include "main/hello-greet.h"
 
 TEST(HelloTest, GetGreet) {
   EXPECT_EQ(get_greet("Bazel"), "Hello Bazel");
