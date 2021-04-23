@@ -296,15 +296,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(Status.SUCCESS);
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
-        .execLocallyAndUpload(
-            any(),
-            eq(spawn),
-            eq(policy),
-            any(),
-            any(),
-            any(),
-            any(),
-            /* uploadLocalResults= */ eq(true));
+        .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
     verify(cache).upload(any(), any(), any(), any(), any(), any(), any());
   }
 
@@ -336,15 +328,7 @@ public class RemoteSpawnRunnerTest {
 
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
-        .execLocallyAndUpload(
-            any(),
-            eq(spawn),
-            eq(policy),
-            any(),
-            any(),
-            any(),
-            any(),
-            /* uploadLocalResults= */ eq(true));
+        .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
     verify(cache, never()).upload(any(), any(), any(), any(), any(), any(), any());
   }
 
@@ -386,15 +370,7 @@ public class RemoteSpawnRunnerTest {
 
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
-        .execLocallyAndUpload(
-            any(),
-            eq(spawn),
-            eq(policy),
-            any(),
-            any(),
-            any(),
-            any(),
-            /* uploadLocalResults= */ eq(true));
+        .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
     verify(cache).upload(any(), any(), any(), any(), any(), any(), any());
     verify(cache, never())
         .download(
@@ -1100,24 +1076,30 @@ public class RemoteSpawnRunnerTest {
   }
 
   private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     ExecutionOptions executionOptions = Options.parse(ExecutionOptions.class, flag).getOptions();
     executionOptions.materializeParamFiles = true;
+    RemoteExecutionService remoteExecutionService =
+        new RemoteExecutionService(
+            execRoot,
+            RemotePathResolver.createDefault(execRoot),
+            "build-req-id",
+            "command-id",
+            digestUtil,
+            remoteOptions,
+            cache,
+            executor,
+            ImmutableSet.of());
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
-            Options.getDefaults(RemoteOptions.class),
+            remoteOptions,
             executionOptions,
             true,
             /*cmdlineReporter=*/ null,
-            "build-req-id",
-            "command-id",
-            cache,
-            executor,
             retryService,
-            digestUtil,
             logDir,
-            /* filesToDownload= */ ImmutableSet.of(),
-            RemotePathResolver.createDefault(execRoot));
+            remoteExecutionService);
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()
@@ -1640,20 +1622,25 @@ public class RemoteSpawnRunnerTest {
       @Nullable Reporter reporter,
       ImmutableSet<ActionInput> topLevelOutputs,
       RemotePathResolver remotePathResolver) {
+    RemoteExecutionService remoteExecutionService =
+        new RemoteExecutionService(
+            execRoot,
+            remotePathResolver,
+            "build-req-id",
+            "command-id",
+            digestUtil,
+            remoteOptions,
+            cache,
+            executor,
+            topLevelOutputs);
     return new RemoteSpawnRunner(
         execRoot,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
         verboseFailures,
         reporter,
-        "build-req-id",
-        "command-id",
-        cache,
-        executor,
         retryService,
-        digestUtil,
         logDir,
-        topLevelOutputs,
-        remotePathResolver);
+        remoteExecutionService);
   }
 }

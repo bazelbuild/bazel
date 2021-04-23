@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.buildAction;
+
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
@@ -129,8 +131,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     Digest commandHash = digestUtil.compute(command);
     MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
     Action action =
-        RemoteSpawnRunner.buildAction(
-            commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
+        buildAction(commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     ActionResult actionResult;

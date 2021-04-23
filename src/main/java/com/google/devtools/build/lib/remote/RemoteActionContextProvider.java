@@ -48,6 +48,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
   private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
+  private RemoteExecutionService remoteExecutionService;
 
   private RemoteActionContextProvider(
       CommandEnvironment env,
@@ -100,6 +101,24 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
     return remotePathResolver;
   }
 
+  RemoteExecutionService getRemoteExecutionService() {
+    if (remoteExecutionService == null) {
+      remoteExecutionService =
+          new RemoteExecutionService(
+              env.getExecRoot(),
+              createRemotePathResolver(),
+              env.getBuildRequestId(),
+              env.getCommandId().toString(),
+              digestUtil,
+              checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
+              cache,
+              executor,
+              filesToDownload);
+    }
+
+    return remoteExecutionService;
+  }
+
   /**
    * Registers a remote spawn strategy if this instance was created with an executor, otherwise does
    * nothing.
@@ -121,15 +140,9 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             env.getOptions().getOptions(ExecutionOptions.class),
             verboseFailures,
             env.getReporter(),
-            env.getBuildRequestId(),
-            env.getCommandId().toString(),
-            (RemoteExecutionCache) cache,
-            executor,
             retryScheduler,
-            digestUtil,
             logDir,
-            filesToDownload,
-            createRemotePathResolver());
+            getRemoteExecutionService());
     registryBuilder.registerStrategy(
         new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, verboseFailures), "remote");
   }
@@ -145,13 +158,8 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
-            cache,
-            env.getBuildRequestId(),
-            env.getCommandId().toString(),
             env.getReporter(),
-            digestUtil,
-            filesToDownload,
-            createRemotePathResolver());
+            getRemoteExecutionService());
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");
   }
 
