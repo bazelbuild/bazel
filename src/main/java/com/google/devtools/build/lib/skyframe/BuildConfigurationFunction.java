@@ -42,16 +42,14 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import net.starlark.java.eval.StarlarkSemantics;
 
-/**
- * A builder for {@link BuildConfigurationValue} instances.
- */
-public class BuildConfigurationFunction implements SkyFunction {
+/** A builder for {@link BuildConfigurationValue} instances. */
+public final class BuildConfigurationFunction implements SkyFunction {
+
   /** Cache with weak values can't have null values. */
   private static final Fragment NULL_MARKER = new Fragment() {};
 
   private final BlazeDirectories directories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final BuildOptions defaultBuildOptions;
   private final LoadingCache<FragmentKey, Fragment> fragmentCache =
       CacheBuilder.newBuilder()
           .weakValues()
@@ -64,12 +62,9 @@ public class BuildConfigurationFunction implements SkyFunction {
               });
 
   public BuildConfigurationFunction(
-      BlazeDirectories directories,
-      RuleClassProvider ruleClassProvider,
-      BuildOptions defaultBuildOptions) {
+      BlazeDirectories directories, RuleClassProvider ruleClassProvider) {
     this.directories = directories;
     this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
-    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   @Override
@@ -102,17 +97,15 @@ public class BuildConfigurationFunction implements SkyFunction {
       fragmentsMap.put(fragment.getClass(), fragment);
     }
 
-    BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
     ActionEnvironment actionEnvironment =
-      ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(options);
+        ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(key.getOptions());
 
     try {
       return new BuildConfigurationValue(
           new BuildConfiguration(
               directories,
               fragmentsMap,
-              options,
-              key.getOptionsDiff(),
+              key.getOptions(),
               ruleClassProvider.getReservedActionMnemonics(),
               actionEnvironment,
               workspaceNameValue.getName(),
@@ -125,15 +118,15 @@ public class BuildConfigurationFunction implements SkyFunction {
 
   private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key)
       throws InvalidConfigurationException {
-    BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
     ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses = key.getFragments();
     ImmutableSet.Builder<Fragment> fragments =
         ImmutableSet.builderWithExpectedSize(fragmentClasses.size());
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
       BuildOptions trimmedOptions =
-          options.trim(
-              BuildConfiguration.getOptionsClasses(
-                  ImmutableList.of(fragmentClass), ruleClassProvider));
+          key.getOptions()
+              .trim(
+                  BuildConfiguration.getOptionsClasses(
+                      ImmutableList.of(fragmentClass), ruleClassProvider));
       Fragment fragment;
       FragmentKey fragmentKey = FragmentKey.create(trimmedOptions, fragmentClass);
       try {
@@ -165,7 +158,8 @@ public class BuildConfigurationFunction implements SkyFunction {
     }
   }
 
-  private Fragment makeFragment(FragmentKey fragmentKey) throws InvalidConfigurationException {
+  private static Fragment makeFragment(FragmentKey fragmentKey)
+      throws InvalidConfigurationException {
     BuildOptions buildOptions = fragmentKey.getBuildOptions();
     Class<? extends Fragment> fragmentClass = fragmentKey.getFragmentClass();
     String noConstructorPattern = "%s lacks constructor(BuildOptions)";
@@ -189,7 +183,7 @@ public class BuildConfigurationFunction implements SkyFunction {
   }
 
   private static final class BuildConfigurationFunctionException extends SkyFunctionException {
-    public BuildConfigurationFunctionException(InvalidConfigurationException e) {
+    BuildConfigurationFunctionException(InvalidConfigurationException e) {
       super(e, Transience.PERSISTENT);
     }
   }

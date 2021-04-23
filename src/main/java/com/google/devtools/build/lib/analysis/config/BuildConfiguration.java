@@ -107,7 +107,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
-  private CommandLineLimits commandLineLimits;
+  private final CommandLineLimits commandLineLimits;
 
   /**
    * The global "make variables" such as "$(TARGET_CPU)"; these get applied to all rules analyzed in
@@ -119,12 +119,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final ActionEnvironment testEnv;
 
   private final BuildOptions buildOptions;
-  private final BuildOptions.OptionsDiffForReconstruction buildOptionsDiff;
   private final CoreOptions options;
 
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
-  private final String checksum;
   private final int hashCode; // We can precompute the hash code as all its inputs are immutable.
 
   /** Data for introspecting the options used by this configuration. */
@@ -227,7 +225,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
       BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
-      BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
       String repositoryName,
@@ -237,7 +234,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
         directories,
         fragmentsMap,
         buildOptions,
-        buildOptionsDiff,
         reservedActionMnemonics,
         actionEnvironment,
         RepositoryName.createFromValidStrippedName(repositoryName),
@@ -250,18 +246,15 @@ public class BuildConfiguration implements BuildConfigurationApi {
       BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
-      BuildOptions.OptionsDiffForReconstruction buildOptionsDiff,
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
       RepositoryName mainRepositoryName,
       boolean siblingRepositoryLayout)
       throws InvalidMnemonicException {
-    // this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
     this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
-    this.buildOptions = buildOptions.clone();
-    this.buildOptionsDiff = buildOptionsDiff;
+    this.buildOptions = buildOptions;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
         new OutputDirectories(
@@ -302,7 +295,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
         "GENDIR", getGenfilesDirectory(RepositoryName.MAIN).getExecPath().getPathString());
     globalMakeEnv = globalMakeEnvBuilder.build();
 
-    checksum = buildOptions.computeChecksum();
     hashCode = computeHashCode();
 
     this.reservedActionMnemonics = reservedActionMnemonics;
@@ -315,10 +307,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
    * configuration is assumed to have).
    */
   public BuildConfiguration clone(
-      FragmentClassSet fragmentClasses,
-      RuleClassProvider ruleClassProvider,
-      BuildOptions defaultBuildOptions) {
-
+      FragmentClassSet fragmentClasses, RuleClassProvider ruleClassProvider) {
     ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
     for (Fragment fragment : fragments.values()) {
       if (fragmentClasses.fragmentClasses().contains(fragment.getClass())) {
@@ -332,7 +321,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
           getDirectories(),
           fragmentsMap,
           options,
-          BuildOptions.diffForReconstruction(defaultBuildOptions, options),
           reservedActionMnemonics,
           actionEnv,
           mainRepositoryName.strippedName(),
@@ -794,13 +782,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   /** Returns the cache key of the build options used to create this configuration. */
   public String checksum() {
-    return checksum;
+    return buildOptions.checksum();
   }
 
   /** Returns a copy of the build configuration options for this configuration. */
   public BuildOptions cloneOptions() {
-    BuildOptions clone = buildOptions.clone();
-    return clone;
+    return buildOptions.clone();
   }
 
   /**
@@ -815,10 +802,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public BuildOptions getOptions() {
     return buildOptions;
-  }
-
-  public BuildOptions.OptionsDiffForReconstruction getBuildOptionsDiff() {
-    return buildOptionsDiff;
   }
 
   public String getCpu() {

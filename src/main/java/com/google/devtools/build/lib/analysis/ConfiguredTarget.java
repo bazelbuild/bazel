@@ -41,9 +41,7 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   String FILES_FIELD = "files";
 
   default String getConfigurationChecksum() {
-    return getConfigurationKey() == null
-        ? null
-        : getConfigurationKey().getOptionsDiff().getChecksum();
+    return getConfigurationKey() == null ? null : getConfigurationKey().getOptions().checksum();
   }
 
   /**

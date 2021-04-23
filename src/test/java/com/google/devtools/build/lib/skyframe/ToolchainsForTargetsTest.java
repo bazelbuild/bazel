@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,7 +35,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.function.Supplier;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -104,13 +102,9 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
             "CONFIGURED_TARGET_FUNCTION_COMPUTE_UNLOADED_TOOLCHAIN_CONTEXTS");
 
     private final LateBoundStateProvider stateProvider;
-    private final Supplier<BuildOptions> buildOptionsSupplier;
 
-    ComputeUnloadedToolchainContextsFunction(
-        LateBoundStateProvider lateBoundStateProvider,
-        Supplier<BuildOptions> buildOptionsSupplier) {
+    ComputeUnloadedToolchainContextsFunction(LateBoundStateProvider lateBoundStateProvider) {
       this.stateProvider = lateBoundStateProvider;
-      this.buildOptionsSupplier = buildOptionsSupplier;
     }
 
     @Override
@@ -122,7 +116,6 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
             ConfiguredTargetFunction.computeUnloadedToolchainContexts(
                 env,
                 stateProvider.lateBoundRuleClassProvider(),
-                buildOptionsSupplier.get(),
                 key.targetAndConfiguration(),
                 key.configuredTargetKey().getToolchainContextKey());
         return env.valuesMissing() ? null : Value.create(toolchainCollection);
@@ -162,15 +155,10 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
    */
   private static final class AnalysisMockWithComputeDepsFunction extends AnalysisMock.Delegate {
     private final LateBoundStateProvider stateProvider;
-    private final Supplier<BuildOptions> defaultBuildOptions;
 
-    AnalysisMockWithComputeDepsFunction(
-        AnalysisMock parent,
-        LateBoundStateProvider stateProvider,
-        Supplier<BuildOptions> defaultBuildOptions) {
+    AnalysisMockWithComputeDepsFunction(AnalysisMock parent, LateBoundStateProvider stateProvider) {
       super(parent);
       this.stateProvider = stateProvider;
-      this.defaultBuildOptions = defaultBuildOptions;
     }
 
     @Override
@@ -180,7 +168,7 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
           .putAll(super.getSkyFunctions(directories))
           .put(
               ComputeUnloadedToolchainContextsFunction.SKYFUNCTION_NAME,
-              new ComputeUnloadedToolchainContextsFunction(stateProvider, defaultBuildOptions))
+              new ComputeUnloadedToolchainContextsFunction(stateProvider))
           .build();
     }
   }
@@ -188,9 +176,7 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
   @Override
   protected AnalysisMock getAnalysisMock() {
     return new AnalysisMockWithComputeDepsFunction(
-        super.getAnalysisMock(),
-        new LateBoundStateProvider(),
-        () -> skyframeExecutor.getDefaultBuildOptions());
+        super.getAnalysisMock(), new LateBoundStateProvider());
   }
 
   public ToolchainCollection<UnloadedToolchainContext> getToolchainCollection(
@@ -204,13 +190,11 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
     // Analysis phase ended after the update() call in getToolchainCollection. We must re-enable
     // analysis so we can call ConfiguredTargetFunction again without raising an error.
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(true);
-    Object evalResult =
+    EvaluationResult<Value> evalResult =
         SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
     // Test call has finished, to reset the state.
     skyframeExecutor.getSkyframeBuildView().enableAnalysis(false);
-    @SuppressWarnings("unchecked")
-    SkyValue value = ((EvaluationResult<Value>) evalResult).get(key);
-    return ((Value) value).getToolchainCollection();
+    return evalResult.get(key).getToolchainCollection();
   }
 
   public ToolchainCollection<UnloadedToolchainContext> getToolchainCollection(String targetLabel)

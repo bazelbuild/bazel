@@ -211,8 +211,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
                 ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter)
                     .add(CppConfiguration.class)
                     .build()),
-            analysisMock.createRuleClassProvider(),
-            skyframeExecutor.getDefaultBuildOptions());
+            analysisMock.createRuleClassProvider());
     BuildConfiguration hostConfig = createHost();
 
     assertThat(config.equalsOrIsSupersetOf(trimmedConfig)).isTrue();

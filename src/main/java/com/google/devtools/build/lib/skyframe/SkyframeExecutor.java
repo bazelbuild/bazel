@@ -321,7 +321,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS);
   protected final AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>();
   protected final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
-      new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
+      new AtomicReference<>(ImmutableSet.of());
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   protected final AtomicReference<TimestampGranularityMonitor> tsgm = new AtomicReference<>();
   protected final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
@@ -365,6 +365,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
+  // TODO(b/185778053): This isn't needed anymore. Just use the fragments from ruleClassProvider.
   private final BuildOptions defaultBuildOptions;
 
   private PerBuildSyscallCache perBuildSyscallCache;
@@ -592,7 +593,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new TopLevelActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
-        new BuildConfigurationFunction(directories, ruleClassProvider, defaultBuildOptions));
+        new BuildConfigurationFunction(directories, ruleClassProvider));
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     map.put(
         WorkspaceFileValue.WORKSPACE_FILE,
@@ -2175,10 +2176,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throws InvalidConfigurationException {
     try {
       return BuildConfigurationValue.keyWithPlatformMapping(
-          platformMappingValue,
-          defaultBuildOptions,
-          depFragments,
-          BuildOptions.diffForReconstruction(defaultBuildOptions, toOption));
+          platformMappingValue, defaultBuildOptions, depFragments, toOption);
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
@@ -2287,7 +2285,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             getPlatformMappingValue(eventHandler, options),
             defaultBuildOptions,
             fragments,
-            BuildOptions.diffForReconstruction(defaultBuildOptions, options));
+            options);
     BuildConfigurationValue result =
         (BuildConfigurationValue)
             evaluate(
@@ -3017,12 +3015,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 .collect(
                     ImmutableSortedSet.toImmutableSortedSet(
                         BuildConfiguration.lexicalFragmentSorter)));
-    SkyKey key =
-        PrepareAnalysisPhaseValue.key(
-            allFragments,
-            BuildOptions.diffForReconstruction(defaultBuildOptions, buildOptions),
-            multiCpu,
-            labels);
+    SkyKey key = PrepareAnalysisPhaseValue.key(allFragments, buildOptions, multiCpu, labels);
     EvaluationResult<PrepareAnalysisPhaseValue> evalResult =
         evaluate(
             ImmutableList.of(key),

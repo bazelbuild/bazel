@@ -271,10 +271,7 @@ public final class ConfigurationResolver {
         String transitionKey = optionsEntry.getKey();
         BuildConfigurationValue.Key buildConfigurationValueKey =
             BuildConfigurationValue.keyWithPlatformMapping(
-                platformMappingValue,
-                defaultBuildOptions,
-                depFragments,
-                BuildOptions.diffForReconstruction(defaultBuildOptions, optionsEntry.getValue()));
+                platformMappingValue, defaultBuildOptions, depFragments, optionsEntry.getValue());
         configurationKeys.put(transitionKey, buildConfigurationValueKey);
       }
     } catch (OptionsParsingException e) {

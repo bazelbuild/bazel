@@ -1077,8 +1077,7 @@ public final class SkyframeBuildView {
     // case. So further optimization is necessary to make that viable (proto_library in particular
     // contributes to much of the difference).
     BuildConfiguration trimmedConfig =
-        topLevelHostConfiguration.clone(
-            fragmentClasses, ruleClassProvider, skyframeExecutor.getDefaultBuildOptions());
+        topLevelHostConfiguration.clone(fragmentClasses, ruleClassProvider);
     hostConfigurationCache.put(config, trimmedConfig);
     return trimmedConfig;
   }

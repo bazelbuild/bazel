@@ -44,7 +44,7 @@ import org.junit.runners.JUnit4;
  * <p>Note that all parsing tests are located in {@link PlatformMappingFunctionParserTest}.
  */
 @RunWith(JUnit4.class)
-public class PlatformMappingFunctionTest extends BuildViewTestCase {
+public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   // We don't actually care about the contents of this set other than that it is passed intact
   // through the mapping logic. The platform fragment in it is purely an example, it could be any
@@ -59,14 +59,11 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   private static final BuildOptions DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS =
       getDefaultBuildConfigPlatformOptions();
-  private static final BuildOptions.OptionsDiffForReconstruction EMPTY_DIFF =
-      BuildOptions.diffForReconstruction(
-          DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
   private static final Label DEFAULT_TARGET_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
 
   @Test
-  public void testMappingFileDoesNotExist() throws Exception {
+  public void testMappingFileDoesNotExist() {
     MissingInputFileException exception =
         assertThrows(
             MissingInputFileException.class,
@@ -82,12 +79,13 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         executeFunction(PlatformMappingValue.Key.create(null));
 
     BuildConfigurationValue.Key key =
-        BuildConfigurationValue.keyWithoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, EMPTY_DIFF);
+        BuildConfigurationValue.keyWithoutPlatformMapping(
+            PLATFORM_FRAGMENT_CLASS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildConfigurationValue.Key mapped =
         platformMappingValue.map(key, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(PlatformOptions.class).platforms)
+    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
@@ -120,7 +118,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         platformMappingValue.map(
             keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -144,7 +142,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         platformMappingValue.map(
             keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -166,7 +164,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         platformMappingValue.map(
             keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -189,7 +187,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         platformMappingValue.map(
             keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -217,7 +215,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         platformMappingValue.map(
             keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   // Internal flags, such as "output directory name", cannot be set from the command-line, but
@@ -240,7 +238,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         platformMappingValue.map(
             keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(CoreOptions.class).outputDirectoryName)
+    assertThat(mapped.getOptions().get(CoreOptions.class).outputDirectoryName)
         .isEqualTo("updated_output_dir");
   }
 
@@ -258,10 +256,6 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
     return result.get(key);
   }
 
-  private static BuildOptions toMappedOptions(BuildConfigurationValue.Key mapped) {
-    return DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.applyDiff(mapped.getOptionsDiff());
-  }
-
   private static BuildOptions getDefaultBuildConfigPlatformOptions() {
     try {
       return BuildOptions.of(BUILD_CONFIG_PLATFORM_OPTIONS);
@@ -271,9 +265,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
   }
 
   private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
-    BuildOptions.OptionsDiffForReconstruction diff =
-        BuildOptions.diffForReconstruction(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, modifiedOptions);
-
-    return BuildConfigurationValue.keyWithoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, diff);
+    return BuildConfigurationValue.keyWithoutPlatformMapping(
+        PLATFORM_FRAGMENT_CLASS, modifiedOptions);
   }
 }

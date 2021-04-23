@@ -944,15 +944,14 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
                 rootDirectory,
-                /* defaultSystemJavabase= */ null,
+                /*defaultSystemJavabase=*/ null,
                 "productName"),
-            /* fragmentsMap= */ ImmutableMap.of(),
+            /*fragmentsMap=*/ ImmutableMap.of(),
             defaultBuildOptions,
-            BuildOptions.diffForReconstruction(defaultBuildOptions, defaultBuildOptions),
-            /* reservedActionMnemonics= */ ImmutableSet.of(),
+            /*reservedActionMnemonics=*/ ImmutableSet.of(),
             ActionEnvironment.EMPTY,
             "workspace",
-            /* siblingRepositoryLayout= */ false);
+            /*siblingRepositoryLayout=*/ false);
     BuildEvent firstWithConfiguration =
         new GenericConfigurationEvent(testId("first"), configuration.toBuildEvent());
     BuildEvent secondWithConfiguration =

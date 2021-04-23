@@ -50,7 +50,7 @@ public class BuildConfigurationValue implements SkyValue {
   }
 
   /**
-   * Creates a new configuration key based on the given diff, after applying a platform mapping
+   * Creates a new configuration key based on the given options, after applying a platform mapping
    * transformation.
    *
    * @param platformMappingValue sky value that can transform a configuration key based on a
@@ -58,21 +58,21 @@ public class BuildConfigurationValue implements SkyValue {
    * @param defaultBuildOptions set of native build options without modifications based on parsing
    *     flags
    * @param fragments set of options fragments this configuration should cover
-   * @param optionsDiff diff between the default options and the desired configuration
+   * @param options the desired configuration
    * @throws OptionsParsingException if the platform mapping cannot be parsed
    */
   public static Key keyWithPlatformMapping(
       PlatformMappingValue platformMappingValue,
       BuildOptions defaultBuildOptions,
       FragmentClassSet fragments,
-      BuildOptions.OptionsDiffForReconstruction optionsDiff)
+      BuildOptions options)
       throws OptionsParsingException {
     return platformMappingValue.map(
-        keyWithoutPlatformMapping(fragments, optionsDiff), defaultBuildOptions);
+        keyWithoutPlatformMapping(fragments, options), defaultBuildOptions);
   }
 
   /**
-   * Creates a new configuration key based on the given diff, after applying a platform mapping
+   * Creates a new configuration key based on the given options, after applying a platform mapping
    * transformation.
    *
    * @param platformMappingValue sky value that can transform a configuration key based on a
@@ -80,17 +80,17 @@ public class BuildConfigurationValue implements SkyValue {
    * @param defaultBuildOptions set of native build options without modifications based on parsing
    *     flags
    * @param fragments set of options fragments this configuration should cover
-   * @param optionsDiff diff between the default options and the desired configuration
+   * @param options the desired configuration
    * @throws OptionsParsingException if the platform mapping cannot be parsed
    */
   public static Key keyWithPlatformMapping(
       PlatformMappingValue platformMappingValue,
       BuildOptions defaultBuildOptions,
       Set<Class<? extends Fragment>> fragments,
-      BuildOptions.OptionsDiffForReconstruction optionsDiff)
+      BuildOptions options)
       throws OptionsParsingException {
     return platformMappingValue.map(
-        keyWithoutPlatformMapping(fragments, optionsDiff), defaultBuildOptions);
+        keyWithoutPlatformMapping(fragments, options), defaultBuildOptions);
   }
 
   /**
@@ -100,22 +100,20 @@ public class BuildConfigurationValue implements SkyValue {
    * mapping is not required.
    *
    * @param fragments the fragments the configuration should contain
-   * @param optionsDiff the {@link BuildOptions.OptionsDiffForReconstruction} object the {@link
-   *     BuildOptions} should be rebuilt from
+   * @param options the {@link BuildOptions} object the {@link BuildOptions} should be rebuilt from
    */
   @ThreadSafe
   static Key keyWithoutPlatformMapping(
-      Set<Class<? extends Fragment>> fragments,
-      BuildOptions.OptionsDiffForReconstruction optionsDiff) {
+      Set<Class<? extends Fragment>> fragments, BuildOptions options) {
     return Key.create(
         FragmentClassSet.of(
             ImmutableSortedSet.copyOf(BuildConfiguration.lexicalFragmentSorter, fragments)),
-        optionsDiff);
+        options);
   }
 
   private static Key keyWithoutPlatformMapping(
-      FragmentClassSet fragmentClassSet, BuildOptions.OptionsDiffForReconstruction optionsDiff) {
-    return Key.create(fragmentClassSet, optionsDiff);
+      FragmentClassSet fragmentClassSet, BuildOptions options) {
+    return Key.create(fragmentClassSet, options);
   }
 
   /**
@@ -129,7 +127,7 @@ public class BuildConfigurationValue implements SkyValue {
    */
   public static Key key(BuildConfiguration buildConfiguration) {
     return keyWithoutPlatformMapping(
-        buildConfiguration.fragmentClasses(), buildConfiguration.getBuildOptionsDiff());
+        buildConfiguration.fragmentClasses(), buildConfiguration.getOptions());
   }
 
   /** {@link SkyKey} for {@link BuildConfigurationValue}. */
@@ -138,20 +136,19 @@ public class BuildConfigurationValue implements SkyValue {
     private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
     private final FragmentClassSet fragments;
-    private final BuildOptions.OptionsDiffForReconstruction optionsDiff;
+    private final BuildOptions options;
     private final int hashCode;
 
     @AutoCodec.Instantiator
     @VisibleForSerialization
-    static Key create(
-        FragmentClassSet fragments, BuildOptions.OptionsDiffForReconstruction optionsDiff) {
-      return keyInterner.intern(new Key(fragments, optionsDiff));
+    static Key create(FragmentClassSet fragments, BuildOptions options) {
+      return keyInterner.intern(new Key(fragments, options));
     }
 
-    private Key(FragmentClassSet fragments, BuildOptions.OptionsDiffForReconstruction optionsDiff) {
+    private Key(FragmentClassSet fragments, BuildOptions options) {
       this.fragments = Preconditions.checkNotNull(fragments);
-      this.optionsDiff = Preconditions.checkNotNull(optionsDiff);
-      this.hashCode = Objects.hash(fragments, optionsDiff);
+      this.options = Preconditions.checkNotNull(options);
+      this.hashCode = Objects.hash(fragments, options);
     }
 
     @VisibleForTesting
@@ -159,12 +156,8 @@ public class BuildConfigurationValue implements SkyValue {
       return fragments.fragmentClasses();
     }
 
-    public BuildOptions.OptionsDiffForReconstruction getOptionsDiff() {
-      return optionsDiff;
-    }
-
-    public String checksum() {
-      return optionsDiff.getChecksum();
+    public BuildOptions getOptions() {
+      return options;
     }
 
     @Override
@@ -181,7 +174,7 @@ public class BuildConfigurationValue implements SkyValue {
         return false;
       }
       Key otherConfig = (Key) o;
-      return optionsDiff.equals(otherConfig.optionsDiff) && fragments.equals(otherConfig.fragments);
+      return options.equals(otherConfig.options) && fragments.equals(otherConfig.fragments);
     }
 
     @Override
@@ -194,14 +187,14 @@ public class BuildConfigurationValue implements SkyValue {
       // This format is depended on by integration tests.
       // TODO(blaze-configurability-team): This should at least include the length of fragments.
       // to at least remind devs that this Key has TWO key parts.
-      return "BuildConfigurationValue.Key[" + checksum() + "]";
+      return "BuildConfigurationValue.Key[" + options.checksum() + "]";
     }
 
     /**
      * Return a string representation that can be safely used for comparison purposes.
      *
      * <p>Unlike toString, which is short and good for printing in debug contexts, this is long
-     * because it includes sufficient information in optionsDiff and fragments. toString alone is
+     * because it includes sufficient information in options and fragments. toString alone is
      * insufficient because multiple Keys can have the same options checksum (and thus same
      * toString) but different fragments.
      *
@@ -222,7 +215,7 @@ public class BuildConfigurationValue implements SkyValue {
      * BuildConfigurationValue.
      */
     public String toComparableString() {
-      return "BuildConfigurationValue.Key[" + optionsDiff.getChecksum() + ", " + fragments + "]";
+      return "BuildConfigurationValue.Key[" + options.checksum() + ", " + fragments + "]";
     }
   }
 }

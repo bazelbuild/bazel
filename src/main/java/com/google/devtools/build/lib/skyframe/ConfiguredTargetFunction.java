@@ -273,7 +273,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           computeUnloadedToolchainContexts(
               env,
               ruleClassProvider,
-              defaultBuildOptions,
               ctgValue,
               configuredTargetKey.getToolchainContextKey());
       if (env.valuesMissing()) {
@@ -457,7 +456,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   static ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
       Environment env,
       RuleClassProvider ruleClassProvider,
-      BuildOptions defaultBuildOptions,
       TargetAndConfiguration targetAndConfig,
       @Nullable ToolchainContextKey parentToolchainContextKey)
       throws InterruptedException, ToolchainException {
@@ -511,8 +509,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     BuildConfigurationValue.Key toolchainConfig =
         BuildConfigurationValue.keyWithoutPlatformMapping(
-            configuration.getFragmentsMap().keySet(),
-            BuildOptions.diffForReconstruction(defaultBuildOptions, toolchainOptions));
+            configuration.getFragmentsMap().keySet(), toolchainOptions);
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";

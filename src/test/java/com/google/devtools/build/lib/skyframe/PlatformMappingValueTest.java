@@ -36,7 +36,7 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link PlatformMappingValue}. */
 @RunWith(JUnit4.class)
-public class PlatformMappingValueTest {
+public final class PlatformMappingValueTest {
 
   // We don't actually care about the contents of this set other than that it is passed intact
   // through the mapping logic. The platform fragment in it is purely an example, it could be any
@@ -52,9 +52,6 @@ public class PlatformMappingValueTest {
 
   private static final BuildOptions DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS =
       getDefaultBuildConfigPlatformOptions();
-  private static final BuildOptions.OptionsDiffForReconstruction EMPTY_DIFF =
-      BuildOptions.diffForReconstruction(
-          DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
   private static final Label DEFAULT_TARGET_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
 
@@ -64,12 +61,13 @@ public class PlatformMappingValueTest {
         new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of());
 
     BuildConfigurationValue.Key key =
-        BuildConfigurationValue.keyWithoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, EMPTY_DIFF);
+        BuildConfigurationValue.keyWithoutPlatformMapping(
+            PLATFORM_FRAGMENT_CLASS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildConfigurationValue.Key mapped =
         mappingValue.map(key, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(PlatformOptions.class).platforms)
+    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
@@ -89,7 +87,7 @@ public class PlatformMappingValueTest {
 
     assertThat(mapped.getFragments()).isEqualTo(PLATFORM_FRAGMENT_CLASS);
 
-    assertThat(toMappedOptions(mapped).get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -109,8 +107,7 @@ public class PlatformMappingValueTest {
 
     assertThat(mapped.getFragments()).isEqualTo(PLATFORM_FRAGMENT_CLASS);
 
-    assertThat(toMappedOptions(mapped).get(PlatformOptions.class).platforms)
-        .containsExactly(PLATFORM1);
+    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }
 
   @Test
@@ -129,8 +126,7 @@ public class PlatformMappingValueTest {
     BuildConfigurationValue.Key mapped =
         mappingValue.map(keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(PlatformOptions.class).platforms)
-        .containsExactly(PLATFORM2);
+    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms).containsExactly(PLATFORM2);
   }
 
   @Test
@@ -147,7 +143,7 @@ public class PlatformMappingValueTest {
     BuildConfigurationValue.Key mapped =
         mappingValue.map(keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    assertThat(toMappedOptions(mapped).get(PlatformOptions.class).platforms)
+    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
@@ -221,10 +217,6 @@ public class PlatformMappingValueTest {
     assertThat(key.wasExplicitlySetByUser()).isTrue();
   }
 
-  private static BuildOptions toMappedOptions(BuildConfigurationValue.Key mapped) {
-    return DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.applyDiff(mapped.getOptionsDiff());
-  }
-
   private static BuildOptions getDefaultBuildConfigPlatformOptions() {
     try {
       return BuildOptions.of(BUILD_CONFIG_PLATFORM_OPTIONS);
@@ -234,9 +226,7 @@ public class PlatformMappingValueTest {
   }
 
   private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
-    BuildOptions.OptionsDiffForReconstruction diff =
-        BuildOptions.diffForReconstruction(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, modifiedOptions);
-
-    return BuildConfigurationValue.keyWithoutPlatformMapping(PLATFORM_FRAGMENT_CLASS, diff);
+    return BuildConfigurationValue.keyWithoutPlatformMapping(
+        PLATFORM_FRAGMENT_CLASS, modifiedOptions);
   }
 }
