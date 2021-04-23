@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -484,13 +484,18 @@ public class ActionExecutionFunction implements SkyFunction {
       ImmutableSet<SkyKey> failedActionDeps;
       if (e.isFromInputDiscovery()) {
         // Lost inputs found during input discovery are necessarily ordinary derived artifacts.
-        // Their keys may not be direct deps yet, but the next time this Skyframe node is evaluated
-        // they will be. See SkyframeActionExecutor's lostDiscoveredInputsMap.
-        failedActionDeps =
+        // Their keys may not be direct deps yet, so to ensure that when this action is restarted
+        // the lost inputs' generating actions are requested, they're added to
+        // SkyframeActionExecutor's lostDiscoveredInputsMap. Also, lost inputs from input discovery
+        // may come from nested sets, which may be directly represented in skyframe. To ensure that
+        // applicable nested set nodes are rewound, this action's deps are also considered when
+        // computing the rewind plan.
+        lostDiscoveredInputs =
             e.getLostInputs().values().stream()
                 .map(input -> Artifact.key((Artifact) input))
-                .collect(toImmutableSet());
-        lostDiscoveredInputs = failedActionDeps.asList();
+                .collect(toImmutableList());
+        failedActionDeps =
+            ImmutableSet.<SkyKey>builder().addAll(depKeys).addAll(lostDiscoveredInputs).build();
       } else if (state.discoveredInputs != null) {
         failedActionDeps =
             ImmutableSet.<SkyKey>builder()
