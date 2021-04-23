@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.remote.util;
 
 import static java.util.stream.Collectors.joining;
 
+import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -395,6 +397,27 @@ public final class Utils {
               expected.getHash(), expected.getSizeBytes(), actual.getHash(), actual.getSizeBytes());
       throw new IOException(msg);
     }
+  }
+
+  public static Action buildAction(
+      Digest command,
+      Digest inputRoot,
+      @Nullable Platform platform,
+      java.time.Duration timeout,
+      boolean cacheable) {
+    Action.Builder action = Action.newBuilder();
+    action.setCommandDigest(command);
+    action.setInputRootDigest(inputRoot);
+    if (!timeout.isZero()) {
+      action.setTimeout(Duration.newBuilder().setSeconds(timeout.getSeconds()));
+    }
+    if (!cacheable) {
+      action.setDoNotCache(true);
+    }
+    if (platform != null) {
+      action.setPlatform(platform);
+    }
+    return action.build();
   }
 
   /** An in-memory output file. */

@@ -104,6 +104,7 @@ public class RemoteSpawnCacheTest {
   private FileSystem fs;
   private DigestUtil digestUtil;
   private Path execRoot;
+  private RemotePathResolver remotePathResolver;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
   @Mock private RemoteCache remoteCache;
@@ -200,17 +201,19 @@ public class RemoteSpawnCacheTest {
   }
 
   private RemoteSpawnCache remoteSpawnCacheWithOptions(RemoteOptions options) {
+    RemoteExecutionService remoteExecutionService =
+        new RemoteExecutionService(
+            execRoot,
+            remotePathResolver,
+            BUILD_REQUEST_ID,
+            COMMAND_ID,
+            digestUtil,
+            options,
+            remoteCache,
+            null,
+            ImmutableSet.of());
     return new RemoteSpawnCache(
-        execRoot,
-        options,
-        /* verboseFailures=*/ true,
-        remoteCache,
-        BUILD_REQUEST_ID,
-        COMMAND_ID,
-        reporter,
-        digestUtil,
-        /* filesToDownload= */ ImmutableSet.of(),
-        RemotePathResolver.createDefault(execRoot));
+        execRoot, options, /* verboseFailures=*/ true, reporter, remoteExecutionService);
   }
 
   @Before
@@ -219,6 +222,7 @@ public class RemoteSpawnCacheTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     digestUtil = new DigestUtil(DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
+    remotePathResolver = RemotePathResolver.createDefault(execRoot);
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn = simpleSpawnWithExecutionInfo(ImmutableMap.of());

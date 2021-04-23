@@ -296,6 +296,17 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             uploader);
     RemoteExecutionCache remoteCache =
         new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
+    RemoteExecutionService remoteExecutionService =
+        new RemoteExecutionService(
+            execRoot,
+            RemotePathResolver.createDefault(execRoot),
+            "build-req-id",
+            "command-id",
+            DIGEST_UTIL,
+            remoteOptions,
+            remoteCache,
+            executor,
+            /* filesToDownload= */ ImmutableSet.of());
     client =
         new RemoteSpawnRunner(
             execRoot,
@@ -303,15 +314,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             Options.getDefaults(ExecutionOptions.class),
             /* verboseFailures= */ true,
             /*cmdlineReporter=*/ null,
-            "build-req-id",
-            "command-id",
-            remoteCache,
-            executor,
             retryService,
-            DIGEST_UTIL,
             logDir,
-            /* filesToDownload= */ ImmutableSet.of(),
-            RemotePathResolver.createDefault(execRoot));
+            remoteExecutionService);
 
     inputDigest =
         fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
