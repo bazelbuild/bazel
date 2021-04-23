@@ -14,7 +14,7 @@ page gathers the current best practices and frameworks by use case.
 ## For testing rules
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib) has a test framework called
-[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/unittest.bzl)
+[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/main/lib/unittest.bzl)
 for checking the analysis-time behavior of rules, such as their actions and
 providers. Such tests are called "analysis tests" and are currently the best
 option for testing the inner workings of rules.
@@ -428,7 +428,7 @@ analysis phase using the `str.format` method or `%`-formatting.
 ## For testing Starlark utilities
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
-[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/unittest.bzl)
+[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/main/lib/unittest.bzl)
 framework can be used to test utility functions (that is, functions that are
 neither macros nor rule implementations). Instead of using `unittest.bzl`'s
 `analysistest` library, `unittest` may be used. For such test suites, the
@@ -475,4 +475,4 @@ load(":myhelpers_test.bzl", "myhelpers_test_suite")
 myhelpers_test_suite(name = "myhelpers_tests")
 ```
 
-For more examples, see Skylib's own [tests](https://github.com/bazelbuild/bazel-skylib/blob/master/tests/BUILD).
+For more examples, see Skylib's own [tests](https://github.com/bazelbuild/bazel-skylib/blob/main/tests/BUILD).
