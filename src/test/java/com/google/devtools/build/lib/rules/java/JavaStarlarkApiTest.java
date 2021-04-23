@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1585,6 +1586,67 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("foo/libnative", "foo/libccl")
         .inOrder();
+  }
+
+  /** Tests that java_binary propagates direct native library information from JavaInfo provider. */
+  @Test
+  public void javaBinary_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
+        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
+        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
+        "    compile_jar = None,",
+        "    native_libraries = [cc_dep_params])",
+        "  return [java_common.merge([dep_params, java_info])]",
+        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
+        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
+        "java_binary(name = 'binary', main_class = 'C', srcs = ['java/C.java'], deps = [':r'])");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
+
+    TemplateExpansionAction action =
+        (TemplateExpansionAction) getGeneratingAction(getExecutable(testTarget));
+    // Check that the directory name is on the java.library.path
+    assertThat(action.getFileContents())
+        .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
+  }
+
+  /** Tests that java_test propagates direct native library information from JavaInfo provider. */
+  @Test
+  public void javaTest_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
+        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
+        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
+        "    compile_jar = None,",
+        "    native_libraries = [cc_dep_params])",
+        "  return [java_common.merge([dep_params, java_info])]",
+        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
+        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
+        "java_test(name = 'test', test_class='test', srcs = ['Test.java'], deps = [':r'])");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//foo:test");
+    TemplateExpansionAction action =
+        (TemplateExpansionAction) getGeneratingAction(getExecutable(testTarget));
+    // Check that the directory name is on the java.library.path
+    assertThat(action.getFileContents())
+        .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
   }
 
   /** Tests that java_library exposes native library info to Starlark. */

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
@@ -22,8 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -46,6 +49,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -675,14 +680,27 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   /**
    * Collects the native libraries in the transitive closure of the deps.
    *
-   * @param ruleContext rule context
    * @param deps the dependencies to be included as roots of the transitive closure.
    * @return the native libraries found in the transitive closure of the deps.
    */
   public static Collection<Artifact> collectNativeLibraries(
       Iterable<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
-        new NativeLibraryNestedSetBuilder().addJavaTargets(deps).build();
+        NestedSetBuilder.fromNestedSets(
+                Streams.concat(
+                        AnalysisUtils.getProviders(deps, JavaNativeLibraryInfo.PROVIDER).stream()
+                            .map(JavaNativeLibraryInfo::getTransitiveJavaNativeLibraries),
+                        JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps)
+                            .stream()
+                            .map(JavaCcInfoProvider::getCcInfo)
+                            .map(CcInfo::getCcNativeLibraryInfo)
+                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries),
+                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
+                            .map(CcInfo::getCcNativeLibraryInfo)
+                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries))
+                    .collect(toImmutableList()))
+            .build();
+
     return LibraryToLink.getDynamicLibrariesForLinking(linkerInputs);
   }
 
