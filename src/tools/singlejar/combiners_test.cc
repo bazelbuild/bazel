@@ -272,6 +272,10 @@ TEST_F(CombinersTest, ManifestCombiner) {
     }
   }
 
+  // check that Multi-Release is de-duped, e.g. if present both in deps and
+  // deploy_manifest_lines
+  manifest_combiner.AppendLine("Multi-Release: true");
+
   // Create output, verify Local Header contents.
   LH *entry = reinterpret_cast<LH *>(manifest_combiner.OutputEntry(true));
   EXPECT_TRUE(entry->is());

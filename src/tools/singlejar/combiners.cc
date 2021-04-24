@@ -185,6 +185,17 @@ ManifestCombiner::~ManifestCombiner() {}
 static const char *MULTI_RELEASE = "Multi-Release: true";
 static const size_t MULTI_RELEASE_LENGTH = strlen(MULTI_RELEASE);
 
+void ManifestCombiner::AppendLine(const std::string &line) {
+  if (line.find(MULTI_RELEASE, 0, MULTI_RELEASE_LENGTH) != std::string::npos) {
+    multi_release_ = true;
+    return;
+  }
+  concatenator_->Append(line);
+  if (line[line.size() - 1] != '\n') {
+    concatenator_->Append("\r\n");
+  }
+}
+
 bool ManifestCombiner::Merge(const CDH *cdh, const LH *lh) {
   TransientBytes bytes_;
   if (Z_NO_COMPRESSION == lh->compression_method()) {
@@ -221,8 +232,8 @@ bool ManifestCombiner::Merge(const CDH *cdh, const LH *lh) {
 
 void *ManifestCombiner::OutputEntry(bool compress) {
   if (multi_release_) {
-    Append(MULTI_RELEASE);
+    concatenator_->Append(MULTI_RELEASE);
   }
-  Append("\r\n");
-  return Concatenator::OutputEntry(compress);
+  concatenator_->Append("\r\n");
+  return concatenator_->OutputEntry(compress);
 }
