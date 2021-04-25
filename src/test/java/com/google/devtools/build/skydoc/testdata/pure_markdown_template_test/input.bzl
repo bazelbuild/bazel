@@ -33,9 +33,17 @@ def _rule_impl(ctx):
 
 example_rule = rule(
     implementation = _rule_impl,
-    doc = "Small example of rule using a markdown template.",
+    doc = """Small example of rule using a markdown template.
+
+    This paragraph should not have extra indent, as that would make it a code block.""",
     attrs = {
-        "first": attr.string(doc = "This is the first attribute"),
+        "first": attr.string(
+            doc = """\
+            This is the first attribute
+
+            This paragraph also should not have extra indent.
+            """,
+        ),
         "second": attr.string(default = "2"),
     },
 )

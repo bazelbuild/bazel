@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi.Desc
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
+import com.google.devtools.starlark.common.DocstringUtils;
 import java.util.List;
 import net.starlark.java.eval.Printer;
 
@@ -51,7 +52,7 @@ public class FakeDescriptor implements Descriptor {
     AttributeInfo.Builder attrInfo =
         AttributeInfo.newBuilder()
             .setName(attributeName)
-            .setDocString(docString)
+            .setDocString(DocstringUtils.dedentDocstring(docString))
             .setType(type)
             .setMandatory(mandatory)
             .setDefaultValue(mandatory ? "" : defaultRepresentation);

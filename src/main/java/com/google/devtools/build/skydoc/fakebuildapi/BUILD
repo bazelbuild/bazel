@@ -37,6 +37,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//src/tools/starlark/java/com/google/devtools/starlark/common",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
