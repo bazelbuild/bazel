@@ -324,9 +324,39 @@ separating startup options from command options. It also includes the
 `PatternExpanded` events indicate the set of all targets that match the patterns
 supplied on the commandline. For successful commands, a single event is present
 with all patterns in the `PatternExpandedId` and all targets in the
-`PatternExpanded` event. For each pattern that fails to resolve, BEP contains
-an additional [`Aborted`](#aborted) event with a `PatternExpandedId` identifying
-the pattern.
+`PatternExpanded` event's *children*. If the pattern expands to any
+`test_suite`s the set of test targets included by the `test_suite`. For each
+pattern that fails to resolve, BEP contains an additional [`Aborted`](#aborted)
+event with a `PatternExpandedId` identifying the pattern.
+
+<p>
+  <button class="btn btn-primary" type="button" data-toggle="collapse"
+      data-target="#collapsePatternExpandedJson" aria-expanded="false"
+      aria-controls="collapsePatternExpandedJson">
+    Show/Hide BEP JSON
+  </button>
+</p>
+
+```json
+{
+  "id": {
+    "pattern": {
+      "pattern":["//base:all"]
+    }
+  },
+  "children": [
+    {"targetConfigured":{"label":"//base:foo"}},
+    {"targetConfigured":{"label":"//base:foobar"}}
+  ],
+  "expanded": {
+    "testSuiteExpansions": {
+      "suiteLabel": "//base:suite",
+      "testLabels": "//base:foo_test"
+    }
+  }
+}
+```
+{: .collapse #collapsePatternExpandedJson}
 
 ## Progress
 
