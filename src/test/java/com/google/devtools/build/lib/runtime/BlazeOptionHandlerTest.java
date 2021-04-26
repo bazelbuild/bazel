@@ -313,6 +313,87 @@ public class BlazeOptionHandlerTest {
   }
 
   @Test
+  public void testExpandConfigOptions_withNoconfigAfterAndPlatformSpecificConfigEnabled()
+      throws Exception {
+    parser.parse("--enable_platform_specific_config");
+    switch (OS.getCurrent()) {
+      case LINUX:
+        parser.parse("--noconfig=linux");
+        break;
+      case DARWIN:
+        parser.parse("--noconfig=macos");
+        break;
+      case WINDOWS:
+        parser.parse("--noconfig=windows");
+        break;
+      case FREEBSD:
+        parser.parse("--noconfig=freebsd");
+        break;
+      case OPENBSD:
+        parser.parse("--noconfig=openbsd");
+        break;
+      default:
+        parser.parse("--noconfig=" + OS.getCurrent().getCanonicalName());
+    }
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
+  public void testExpandConfigOptions_withNoconfigBeforeAndPlatformSpecificConfigEnabled()
+      throws Exception {
+    switch (OS.getCurrent()) {
+      case LINUX:
+        parser.parse("--noconfig=linux");
+        break;
+      case DARWIN:
+        parser.parse("--noconfig=macos");
+        break;
+      case WINDOWS:
+        parser.parse("--noconfig=windows");
+        break;
+      case FREEBSD:
+        parser.parse("--noconfig=freebsd");
+        break;
+      case OPENBSD:
+        parser.parse("--noconfig=openbsd");
+        break;
+      default:
+        parser.parse("--noconfig=" + OS.getCurrent().getCanonicalName());
+    }
+    parser.parse("--enable_platform_specific_config");
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
+  public void testExpandConfigOptions_withNoconfigAndPlatformSpecificConfigEnabledInConfig()
+      throws Exception {
+    parser.parse("--config=platform_config");
+    switch (OS.getCurrent()) {
+      case LINUX:
+        parser.parse("--noconfig=linux");
+        break;
+      case DARWIN:
+        parser.parse("--noconfig=macos");
+        break;
+      case WINDOWS:
+        parser.parse("--noconfig=windows");
+        break;
+      case FREEBSD:
+        parser.parse("--noconfig=freebsd");
+        break;
+      case OPENBSD:
+        parser.parse("--noconfig=openbsd");
+        break;
+      default:
+        parser.parse("--noconfig=" + OS.getCurrent().getCanonicalName());
+    }
+    optionHandler.expandConfigOptions(eventHandler, structuredArgsForDifferentPlatforms());
+    assertThat(parser.getResidue()).isEmpty();
+  }
+
+  @Test
   public void testExpandConfigOptions_withPlatformSpecificConfigEnabledWhenNothingSpecified()
       throws Exception {
     parser.parse("--enable_platform_specific_config");
@@ -642,7 +723,7 @@ public class BlazeOptionHandlerTest {
         .containsExactly(
             Event.error(
                 "In file /somewhere/.blazerc, the definition of config conf expands to another "
-                    + "config that either has no value or is not in the form --config=value. For "
+                    + "--config that either has no value or is not in the form --config=value. For "
                     + "recursive config definitions, please do not provide the value in a "
                     + "separate token, such as in the form '--config value'."));
   }
@@ -1083,5 +1164,44 @@ public class BlazeOptionHandlerTest {
         .containsExactly(
             "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
                 + "--test_string=fromConf");
+  }
+
+  @Test
+  public void testNoconfigConfigDefaults() throws Exception {
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--default_override=0:c0:a=--test_multiple_string=a",
+            "--default_override=0:c0:b=--test_multiple_string=b",
+            "--default_override=0:c0:b=--noconfig=a",
+            "--default_override=0:c0:c=--test_multiple_string=c",
+            "--default_override=0:c0=--config=a",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    assertThat(eventHandler.getEvents()).isEmpty();
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testMultipleString).containsExactly("a");
+  }
+
+  @Test
+  public void testNoconfigConfigDefaultsCanBeReplaced() throws Exception {
+    optionHandler.parseOptions(
+        ImmutableList.of(
+            "c0",
+            "--default_override=0:c0:a=--test_multiple_string=a",
+            "--default_override=0:c0:b=--test_multiple_string=b",
+            "--default_override=0:c0:b=--noconfig=a",
+            "--default_override=0:c0:c=--test_multiple_string=c",
+            "--default_override=0:c0=--config=a",
+            "--config=b",
+            "--config=c",
+            "--rc_source=/somewhere/.blazerc"),
+        eventHandler);
+    assertThat(eventHandler.getEvents()).containsExactly(
+        Event.info("Ignoring --config=a due to --noconfig"));
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testMultipleString).containsExactly("b", "c");
   }
 }

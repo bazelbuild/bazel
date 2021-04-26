@@ -927,6 +927,22 @@ This syntax does not extend to the use of `startup` to set
 [startup options](#option-defaults), e.g. setting
 `startup:config-name --some_startup_option` in the .bazelrc will be ignored.
 
+#### `--noconfig`
+
+Some Bazel flags accumulate values and cannot be completely overridden, yet it
+may be useful to set defaults for them in a `.bazelrc` file. To override these
+values, use `--noconfig`. `--noconfig=foo` prevents the expansion of the `foo`
+config, allowing certain config groups to exclude others.
+
+`--noconfig` options are processed before configs are actually applied, so
+setting `--noconfig=foo` as a default (even through some config group that is
+applied by default) would prevent `--config=foo` from ever being applied. In
+particular, whereas alternative configs might exclude the default, the default
+shouldn't exclude the alternatives.
+
+For clarity, it is best to keep any usage of `--noconfig` close to toplevel
+configs.
+
 #### Example
 
 Here's an example `~/.bazelrc` file:

@@ -83,6 +83,19 @@ public class CommonCommandOptions extends OptionsBase {
   public List<String> configs;
 
   @Option(
+      name = "noconfig",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Config sections to avoid selecting from the rc files. Values are collected from config "
+              + "sections before they are actually applied, so noconfig takes precedence. In "
+              + "particular, setting --noconfig=<config> as a default prevents --config=<config> "
+              + "from ever being applied, so use this carefully.")
+  public List<String> noconfigs;
+
+  @Option(
       name = "logging",
       defaultValue = "3", // Level.INFO
       documentationCategory = OptionDocumentationCategory.LOGGING,
