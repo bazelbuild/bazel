@@ -422,11 +422,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc =
                 "This attribute allows this aspect to inspect other aspects. The value must be a "
-                    + "list of providers, or a list of lists of providers. For example, "
+                    + "list containing individual providers or lists of providers. For example, "
                     + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> is a "
                     + "valid value."
                     + ""
-                    + "<p>A single list of providers will automatically be converted to a list "
+                    + "<p>An unnested list of providers will automatically be converted to a list "
                     + "containing one list of providers. That is, "
                     + "<code>[FooInfo, BarInfo]</code> will automatically be converted to "
                     + "<code>[[FooInfo, BarInfo]]</code>. "
