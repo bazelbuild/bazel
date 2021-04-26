@@ -611,41 +611,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "target_environment values.")
   public Label autoCpuEnvironmentGroup;
 
-  /** Values for --experimental_dynamic_configs. */
-  public enum ConfigsMode {
-    /**
-     * Deprecated mode: Each configured target is evaluated with only the configuration fragments it
-     * needs by loading the target graph and examining the transitive requirements for each target
-     * before analysis begins.
-     *
-     * <p>To become a no-op soon: b/129289764
-     */
-    ON,
-    /** Default mode: Each configured target is evaluated with all fragments known to Blaze. */
-    NOTRIM
-  }
-
-  /** Converter for --experimental_dynamic_configs. */
-  public static class ConfigsModeConverter extends EnumConverter<ConfigsMode> {
-    public ConfigsModeConverter() {
-      super(ConfigsMode.class, "configurations mode");
-    }
-  }
-
-  @Option(
-      name = "experimental_dynamic_configs",
-      defaultValue = "notrim",
-      converter = ConfigsModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Instantiates build configurations with the specified properties")
-  public ConfigsMode configsMode;
-
   /** Values for --experimental_output_paths. */
   public enum OutputPathsMode {
     /** Use the production output path model. */
@@ -875,7 +840,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     /** Provide the fragments required <em>directly</em> by this rule. */
     DIRECT,
     /** Provide the fragments required by this rule and its transitive dependencies. */
-    TRANSITIVE;
+    TRANSITIVE
   }
 
   /** Enum converter for --include_config_fragments_provider. */
@@ -896,7 +861,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
-    host.configsMode = configsMode;
     host.outputPathsMode = outputPathsMode;
     host.enableRunfiles = enableRunfiles;
     host.executionInfoModifier = executionInfoModifier;

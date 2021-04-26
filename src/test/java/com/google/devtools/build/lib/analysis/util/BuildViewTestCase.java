@@ -1637,18 +1637,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getGeneratingAction(getFileConfiguredTarget(label).getArtifact());
   }
 
-  /**
-   * Strips the C++-contributed prefix out of an output path when tests are run with trimmed
-   * configurations. e.g. turns "bazel-out/gcc-X-glibc-Y-k8-fastbuild/ to "bazel-out/fastbuild/".
-   *
-   * <p>This should be used for targets use configurations with C++ fragments.
-   */
-  protected String stripCppPrefixForTrimmedConfigs(String outputPath) {
-    return targetConfig.trimConfigurations()
-        ? AnalysisTestUtil.OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(outputPath).replaceFirst("")
-        : outputPath;
-  }
-
   protected static String fileName(Artifact artifact) {
     return artifact.getExecPathString();
   }

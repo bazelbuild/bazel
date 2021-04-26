@@ -355,7 +355,7 @@ public final class AspectFunction implements SkyFunction {
         associatedConfiguredTargetAndData.fromConfiguredTarget(associatedTarget);
     aspectPathBuilder.add(aspect);
 
-    SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
+    SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
     NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution ? NestedSetBuilder.stableOrder() : null;
 

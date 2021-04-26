@@ -749,14 +749,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
   }
 
   /**
-   * Returns whether we should trim configurations to only include the fragments needed to correctly
-   * analyze a rule.
-   */
-  public boolean trimConfigurations() {
-    return options.configsMode == CoreOptions.ConfigsMode.ON;
-  }
-
-  /**
    * <b>>Experimental feature:</b> if true, qualifying outputs use path prefixes based on their
    * content instead of the traditional <code>blaze-out/$CPU-$COMPILATION_MODE</code>.
    *

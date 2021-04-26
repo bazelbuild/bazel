@@ -114,8 +114,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   public enum Flag {
     // The --keep_going flag.
     KEEP_GOING,
-    // Configurations that only include the fragments a target needs to properly analyze.
-    TRIMMED_CONFIGURATIONS,
     // The --skyframe_prepare_analysis flag.
     SKYFRAME_PREPARE_ANALYSIS,
     // Flags for visibility to default to public.
@@ -290,9 +288,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
     optionsParser.parse(args);
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      optionsParser.parse("--experimental_dynamic_configs=on");
-    }
 
     buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
   }

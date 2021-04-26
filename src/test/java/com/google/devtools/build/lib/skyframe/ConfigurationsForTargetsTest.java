@@ -301,11 +301,6 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   @Test
   public void splitDeps() throws Exception {
-    // This test does not pass with trimming because android_binary applies an aspect and aspects
-    // are not yet correctly supported with trimming.
-    if (defaultFlags().contains(Flag.TRIMMED_CONFIGURATIONS)) {
-      return;
-    }
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
         "java/a/BUILD",

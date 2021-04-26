@@ -245,20 +245,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               : transitivePackagesForPackageRootResolution.build());
     }
 
-    // This line is only needed for accurate error messaging. Say this target has a circular
-    // dependency with one of its deps. With this line, loading this target fails so Bazel
-    // associates the corresponding error with this target, as expected. Without this line,
-    // the first TransitiveTargetValue call happens on its dep (in trimConfigurations), so Bazel
-    // associates the error with the dep, which is misleading.
-    if (configuration != null
-        && configuration.trimConfigurations()
-        && env.getValue(TransitiveTargetKey.of(label)) == null) {
-      return null;
-    }
-
     TargetAndConfiguration ctgValue = new TargetAndConfiguration(target, configuration);
 
-    SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
+    SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
 
     ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
 
