@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -401,6 +402,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Artifact unstrippedDeployJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_UNSTRIPPED_BINARY_DEPLOY_JAR);
     if (stripAsDefault) {
+      requireNonNull(unstrippedDeployArchiveBuilder); // guarded by stripAsDefault
       unstrippedDeployArchiveBuilder
           .setOutputJar(unstrippedDeployJar)
           .setJavaStartClass(mainClass)
