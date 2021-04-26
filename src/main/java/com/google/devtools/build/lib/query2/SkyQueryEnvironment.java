@@ -625,10 +625,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Iterable<Target> targets, QueryExpressionContext<Target> context)
       throws InterruptedException {
     return processRawReverseDeps(
-        getReverseDepsOfLabels(Iterables.transform(targets, Target::getLabel)));
+        getReverseDepsOfLabels(Iterables.transform(targets, Target::getLabel), context));
   }
 
-  protected Map<SkyKey, Collection<Target>> getReverseDepsOfLabels(Iterable<Label> targetLabels)
+  protected Map<SkyKey, Collection<Target>> getReverseDepsOfLabels(
+      Iterable<Label> targetLabels, QueryExpressionContext<Target> context)
       throws InterruptedException {
     return getRawReverseDeps(Iterables.transform(targetLabels, label -> label));
   }
