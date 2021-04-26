@@ -116,7 +116,6 @@ java_library(
         ":print_action_visitor",
         ":provider_collection",
         ":required_config_fragments_provider",
-        ":rule_definition_context",
         ":rule_definition_environment",
         ":server_directories",
         ":starlark/args",
@@ -341,7 +340,6 @@ java_library(
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
         ":rule_configured_object_value",
-        ":rule_definition_context",
         ":rule_definition_environment",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
@@ -1028,15 +1026,9 @@ java_library(
 )
 
 java_library(
-    name = "rule_definition_context",
-    srcs = ["RuleDefinitionContext.java"],
-)
-
-java_library(
     name = "rule_definition_environment",
     srcs = ["RuleDefinitionEnvironment.java"],
     deps = [
-        ":rule_definition_context",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
 )

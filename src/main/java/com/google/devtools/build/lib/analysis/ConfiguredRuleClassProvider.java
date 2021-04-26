@@ -170,7 +170,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
-    private boolean enableExecutionTransition = false;
 
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -408,16 +407,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       return this;
     }
 
-    @Override
-    public boolean enableExecutionTransition() {
-      return enableExecutionTransition;
-    }
-
-    public Builder enableExecutionTransition(boolean flag) {
-      this.enableExecutionTransition = flag;
-      return this;
-    }
-
     /**
      * Overrides the predicate which determines whether the analysis cache should be invalidated for
      * the given options diff.
@@ -579,11 +568,6 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           actionEnvironmentProvider,
           constraintSemantics,
           thirdPartyLicenseExistencePolicy);
-    }
-
-    @Override
-    public Label getToolsLabel(String labelValue) {
-      return Label.parseAbsoluteUnchecked(toolsRepository + labelValue);
     }
 
     @Override

@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -164,7 +164,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   /** Parent rule class for test Starlark rules. */
-  public static final RuleClass getTestBaseRule(RuleDefinitionContext env) {
+  public static final RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
     String toolsRepository = env.getToolsRepository();
     return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
         .requiresConfigurationFragments(TestConfiguration.class)

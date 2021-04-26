@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.HashMap;
@@ -27,7 +27,7 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
 // TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
-public final class BazelStarlarkContext implements RuleDefinitionContext, Label.HasRepoMapping {
+public final class BazelStarlarkContext implements RuleDefinitionEnvironment, Label.HasRepoMapping {
 
   /** The phase to which this Starlark thread belongs. */
   public enum Phase {
