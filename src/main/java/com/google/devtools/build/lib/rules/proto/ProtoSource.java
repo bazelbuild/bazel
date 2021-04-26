@@ -14,15 +14,21 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoSourceApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.Printer;
 
 /** Represents a single {@code .proto} source file. */
 @Immutable
 @AutoCodec
-class ProtoSource {
+class ProtoSource implements ProtoSourceApi<Artifact> {
+  public static final Depset.ElementType TYPE = Depset.ElementType.of(ProtoSource.class);
+
   private final Artifact sourceFile;
   private final Artifact originalSourceFile;
   private final PathFragment sourceRoot;
@@ -38,6 +44,7 @@ class ProtoSource {
     this.sourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(sourceRoot);
   }
 
+  @Override
   public Artifact getSourceFile() {
     return sourceFile;
   }
@@ -48,12 +55,23 @@ class ProtoSource {
     return originalSourceFile;
   }
 
-  public PathFragment getSourceRoot() {
+  @VisibleForTesting
+  PathFragment getSourceRoot() {
     return sourceRoot;
   }
 
   public PathFragment getImportPath() {
     return sourceFile.getExecPath().relativeTo(sourceRoot);
+  }
+
+  @Override
+  public String getImportPathForStarlark() {
+    return getImportPath().getSafePathString();
+  }
+
+  @Override
+  public void repr(Printer printer) {
+    printer.append(toString());
   }
 
   @Override

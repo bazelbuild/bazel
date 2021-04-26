@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoInfoApi.ProtoInfoProviderApi;
 import net.starlark.java.eval.FlagGuardedValue;
 
 /** A {@link Bootstrap} for Starlark objects related to protocol buffers. */

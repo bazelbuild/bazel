@@ -17,12 +17,22 @@ package com.google.devtools.build.skydoc.fakebuildapi.proto;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoSourceApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link ProtoInfoApi}. */
-public class FakeProtoInfo implements ProtoInfoApi<FileApi> {
+public class FakeProtoInfo implements ProtoInfoApi<FileApi, ProtoSourceApi<FileApi>> {
+  @Override
+  public ImmutableList<ProtoSourceApi<FileApi>> getDirectSources() {
+    return null;
+  }
+
+  @Override
+  public Depset getTransitiveSourcesForStarlark() {
+    return null;
+  }
 
   @Override
   public Depset getTransitiveImports() {
