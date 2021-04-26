@@ -52,7 +52,7 @@ public interface JavaNativeLibraryInfoApi<
       structField = true,
       doc = "Returns the set of transitive LibraryToLink objects.",
       documented = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO)
   Depset /*<LibraryToLinkT>*/ getTransitiveJavaNativeLibrariesForStarlark();
 
   /** The provider implementing this can construct the JavaNativeLibraryInfo provider. */
@@ -72,7 +72,7 @@ public interface JavaNativeLibraryInfoApi<
         name = NAME,
         doc = "The <code>JavaNativeLibraryInfo</code> constructor.",
         documented = true,
-        enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
+        enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO,
         parameters = {
           @Param(
               name = "transitive_libraries",

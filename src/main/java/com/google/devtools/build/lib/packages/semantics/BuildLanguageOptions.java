@@ -148,6 +148,14 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean experimentalEnableAndroidMigrationApis;
 
   @Option(
+      name = "experimental_enable_javanativelibraryinfo",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      help = "If set to false, disables the APIs for JavaNativeLibraryInfo.")
+  public boolean experimentalEnableJavaNativeLibraryInfo;
+
+  @Option(
       name = "experimental_enable_javacclinkparamsprovider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -654,6 +662,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(
+                EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO, experimentalEnableJavaNativeLibraryInfo)
+            .setBool(
                 EXPERIMENTAL_ENABLE_JAVACCLINKPARAMSINFO,
                 experimentalEnableJavaCcLinkParamsProvider)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
@@ -724,6 +734,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
+  public static final String EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO =
+      "+experimental_enable_javanativelibraryinfo";
   public static final String EXPERIMENTAL_ENABLE_JAVACCLINKPARAMSINFO =
       "+experimental_enable_cclinkparamsinfo";
   public static final String EXPERIMENTAL_EXEC_GROUPS = "-experimental_exec_groups";
