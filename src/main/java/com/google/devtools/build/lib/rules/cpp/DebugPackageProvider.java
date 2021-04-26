@@ -94,13 +94,13 @@ public final class DebugPackageProvider extends NativeInfo
     @Override
     public DebugPackageProvider createDebugPackageInfo(
         Label starlarkTargetLabel,
-        Artifact starlarkStrippedArtifact,
+        Object starlarkStrippedArtifact,
         Artifact starlarkUnstrippedArtifact,
         Object starlarkDwpArtifact)
         throws EvalException {
       return new DebugPackageProvider(
           starlarkTargetLabel,
-          starlarkStrippedArtifact,
+          nullIfNone(starlarkStrippedArtifact, Artifact.class),
           starlarkUnstrippedArtifact,
           nullIfNone(starlarkDwpArtifact, Artifact.class));
     }

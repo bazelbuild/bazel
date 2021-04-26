@@ -82,7 +82,9 @@ public interface DebugPackageInfoApi<FileT extends FileApi> extends StructApi {
               name = "stripped_file",
               doc = "The stripped file (the explicit \".stripped\" target)",
               positional = false,
-              named = true),
+              named = true,
+              defaultValue = "None",
+              allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
           @Param(
               name = "unstripped_file",
               doc = "The unstripped file (the default executable target).",
@@ -99,7 +101,7 @@ public interface DebugPackageInfoApi<FileT extends FileApi> extends StructApi {
         selfCall = true)
     @StarlarkConstructor
     DebugPackageInfoApi<FileT> createDebugPackageInfo(
-        Label targetLabel, FileT strippedFile, FileT unstrippedFile, Object dwpFile)
+        Label targetLabel, Object strippedFile, FileT unstrippedFile, Object dwpFile)
         throws EvalException;
   }
 }

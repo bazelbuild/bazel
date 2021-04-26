@@ -62,7 +62,7 @@ public class FakeDebugPackageInfo implements DebugPackageInfoApi<FileApi> {
 
     @Override
     public DebugPackageInfoApi<FileApi> createDebugPackageInfo(
-        Label targetLabel, FileApi strippedArtifact, FileApi unstrippedArtifact, Object dwpArtifact)
+        Label targetLabel, Object strippedArtifact, FileApi unstrippedArtifact, Object dwpArtifact)
         throws EvalException {
       return new FakeDebugPackageInfo();
     }
