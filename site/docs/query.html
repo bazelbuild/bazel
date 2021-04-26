@@ -185,7 +185,8 @@ describes the output formats <code>bazel query</code> supports.
 <p>
   Per default <code>bazel query</code> takes implicit dependencies into account
   when computing the query result. This behavior can be changed with
-  the <code>--[no]implicit_deps</code> option.
+  the <code>--[no]implicit_deps</code> option. Note that, as query does not consider
+  configurations, potential toolchains are never considered.
 </p>
 
 <h3 id='soundness'>Soundness</h3>

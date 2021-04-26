@@ -332,7 +332,8 @@ cc_library(
 
 <p>
   Setting this flag to false filters out all results that aren't explicitly set in
-  the BUILD file and instead set elsewhere by Bazel.
+  the BUILD file and instead set elsewhere by Bazel. This includes filtering resolved
+  toolchains.
 </p>
 
 <h4><code>--tool_deps</code> (boolean, default=True)</h4>
@@ -345,7 +346,8 @@ cc_library(
   If the queried target is in the target configuration, setting <code>--notool_deps</code> will
   only return targets that also are in the target configuration. If the queried
   target is in a non-target configuration, setting <code>--notool_deps</code> will only return
-  targets also in non-target configurations.
+  targets also in non-target configurations. This setting generally does not affect filtering
+  of resolved toolchains.
 </p>
 
 <h4><code>--include_aspects</code> (boolean, default=False)</h4>
