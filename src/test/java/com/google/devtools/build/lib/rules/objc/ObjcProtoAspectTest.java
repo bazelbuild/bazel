@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -99,8 +100,10 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/" + includePath);
 
-    assertThat(objcProtoProvider.getProtobufHeaderSearchPaths().toList())
-        .containsExactly(includePath, genIncludePath);
+    assertThat(
+            objcProtoProvider.getProtobufHeaderSearchPaths().toList().stream()
+                .map(x -> removeConfigFragment(x.toString())))
+        .containsExactly(includePath.toString(), removeConfigFragment(genIncludePath.toString()));
   }
 
   @Test
