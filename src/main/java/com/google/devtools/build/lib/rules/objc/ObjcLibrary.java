@@ -89,10 +89,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
-            ruleContext.getPrerequisites("deps", J2ObjcMappingFileProvider.class));
+            ruleContext.getPrerequisites("deps", J2ObjcMappingFileProvider.PROVIDER));
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
         new J2ObjcEntryClassProvider.Builder()
-            .addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.class))
+            .addTransitive(ruleContext.getPrerequisites("deps", J2ObjcEntryClassProvider.PROVIDER))
             .build();
     ObjcProvider objcProvider = common.getObjcProvider();
     CcCompilationContext ccCompilationContext = compilationSupport.getCcCompilationContext();
@@ -103,8 +103,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(objcProvider)
         .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
-        .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
-        .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
+        .addNativeDeclaredProvider(j2ObjcEntryClassProvider)
+        .addNativeDeclaredProvider(j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(
             compilationSupport.getInstrumentedFilesProvider(objectFilesCollector.build()))
         .addNativeDeclaredProvider(

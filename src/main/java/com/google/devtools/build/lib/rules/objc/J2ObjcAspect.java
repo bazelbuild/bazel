@@ -299,7 +299,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     }
 
     return builder
-        .addProvider(
+        .addNativeDeclaredProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addNativeDeclaredProvider(common.getObjcProvider())
         .addProvider(
@@ -674,7 +674,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     if (context.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection dependencyInfoDatum : context.getPrerequisites(attributeName)) {
         J2ObjcMappingFileProvider provider =
-            dependencyInfoDatum.getProvider(J2ObjcMappingFileProvider.class);
+            dependencyInfoDatum.get(J2ObjcMappingFileProvider.PROVIDER);
         if (provider != null) {
           builder.add(provider);
         }
