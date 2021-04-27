@@ -197,6 +197,7 @@ public class FakeCcModule
           Object librariesToLinkObject,
           Object userLinkFlagsObject,
           Object nonCodeInputs,
+          Object linkstamps,
           StarlarkThread thread) {
     return null;
   }

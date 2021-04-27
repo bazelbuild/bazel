@@ -684,12 +684,20 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+        @Param(
+            name = "linkstamps",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
       })
   LinkerInputT createLinkerInput(
       Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
+      Object linkstamps,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

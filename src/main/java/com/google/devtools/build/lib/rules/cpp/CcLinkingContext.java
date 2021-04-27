@@ -109,6 +109,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * <p>This object is required because linkstamp files may include other headers which will have to
    * be provided during compilation.
    */
+  @Immutable
   public static final class Linkstamp implements LinkstampApi<Artifact> {
     private final Artifact artifact;
     private final NestedSet<Artifact> declaredIncludeSrcs;
@@ -159,6 +160,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     public int hashCode() {
       // Artifact should be enough to disambiguate basically all the time.
       return artifact.hashCode();
+    }
+
+    @Override
+    public final boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
     }
 
     @Override
