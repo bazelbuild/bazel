@@ -134,12 +134,6 @@ int OutputJar::Doit(Options *options) {
     AppendCDSArchive(options->cds_archive);
   }
 
-  for (auto &manifest_line : options_->manifest_lines) {
-    if (!manifest_line.empty()) {
-      manifest_.AppendLine(manifest_line);
-    }
-  }
-
   for (auto &build_info_line : options_->build_info_lines) {
     build_properties_.Append(build_info_line);
     build_properties_.Append("\n");
@@ -238,6 +232,12 @@ int OutputJar::Doit(Options *options) {
   for (size_t ix = 0; ix < options_->input_jars.size(); ++ix) {
     if (!AddJar(ix)) {
       exit(1);
+    }
+  }
+
+  for (auto &manifest_line : options_->manifest_lines) {
+    if (!manifest_line.empty()) {
+      manifest_.AppendLine(manifest_line);
     }
   }
 
