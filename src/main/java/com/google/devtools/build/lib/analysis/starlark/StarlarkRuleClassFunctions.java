@@ -792,7 +792,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       // TODO(b/121385274): remove when we stop allowlisting starlark transitions
       if (hasStarlarkDefinedTransition) {
-        if (!hasFunctionTransitionAllowlist) {
+        if (!starlarkLabel.getRepository().getName().equals("@_builtins")
+            && !hasFunctionTransitionAllowlist) {
           errorf(
               handler,
               "Use of Starlark transition without allowlist attribute"
