@@ -45,14 +45,15 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   /**
-   * Given a {@code py_binary} or {@code py_test} target, returns the path of the Python interpreter
-   * used by the generated stub script.
+   * Given a {@code py_binary} or {@code py_test} target and substitution key, returns the
+   * corresponding substitution value used by the generated stub script.
    *
    * <p>This works by casting the stub script's generating action to a template expansion action and
-   * looking for the expansion key for the Python interpreter. It's therefore linked to the
-   * implementation of the rule, but that's the cost we pay for avoiding an execution-time test.
+   * looking for the requested substitution key. It's therefore linked to the implementation of the
+   * rule, but that's the cost we pay for avoiding an execution-time test.
    */
-  private String getInterpreterPathFromStub(ConfiguredTarget pyExecutableTarget) {
+  private String getSubstitutionValueFromStub(
+      ConfiguredTarget pyExecutableTarget, String substitutionKey) {
     // First find the stub script. Normally this is just the executable associated with the target.
     // But for Windows the executable is a separate launcher with an ".exe" extension, and the stub
     // script artifact has the same base name with the extension ".temp" instead. (At least, when
@@ -75,12 +76,23 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(generatingAction).isInstanceOf(TemplateExpansionAction.class);
     TemplateExpansionAction templateAction = (TemplateExpansionAction) generatingAction;
     for (Substitution sub : templateAction.getSubstitutions()) {
-      if (sub.getKey().equals("%python_binary%")) {
+      if (sub.getKey().equals(substitutionKey)) {
         return sub.getValue();
       }
     }
     throw new AssertionError(
-        "Failed to find the '%python_binary%' key in the stub script's template expansion action");
+        "Failed to find the '"
+            + substitutionKey
+            + "' key in the stub script's template "
+            + "expansion action");
+  }
+
+  private String getInterpreterPathFromStub(ConfiguredTarget pyExecutableTarget) {
+    return getSubstitutionValueFromStub(pyExecutableTarget, "%python_binary%");
+  }
+
+  private String getShebangFromStub(ConfiguredTarget pyExecutableTarget) {
+    return getSubstitutionValueFromStub(pyExecutableTarget, "%shebang%");
   }
 
   // TODO(#8169): Delete tests of the legacy --python_top / --python_path behavior.
@@ -168,11 +180,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'py2_runtime',",
         "    interpreter_path = '/system/python2',",
         "    python_version = 'PY2',",
+        "    stub_shebang = '#!/usr/bin/env python',",
         ")",
         "py_runtime(",
         "    name = 'py3_runtime',",
         "    interpreter_path = '/system/python3',",
         "    python_version = 'PY3',",
+        "    stub_shebang = '#!/usr/bin/env python3',",
         ")",
         "py_runtime_pair(",
         "    name = 'py_runtime_pair',",
@@ -214,10 +228,18 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain");
 
-    String py2Path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py2_bin"));
-    String py3Path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:py3_bin"));
+    ConfiguredTarget py2 = getConfiguredTarget("//pkg:py2_bin");
+    ConfiguredTarget py3 = getConfiguredTarget("//pkg:py3_bin");
+
+    String py2Path = getInterpreterPathFromStub(py2);
+    String py3Path = getInterpreterPathFromStub(py3);
     assertThat(py2Path).isEqualTo("/system/python2");
     assertThat(py3Path).isEqualTo("/system/python3");
+
+    String py2Shebang = getShebangFromStub(py2);
+    String py3Shebang = getShebangFromStub(py3);
+    assertThat(py2Shebang).isEqualTo("#!/usr/bin/env python");
+    assertThat(py3Shebang).isEqualTo("#!/usr/bin/env python3");
   }
 
   @Test

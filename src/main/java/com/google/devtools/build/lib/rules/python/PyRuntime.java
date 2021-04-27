@@ -42,6 +42,7 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
     PythonVersion pythonVersion =
         PythonVersion.parseTargetOrSentinelValue(
             ruleContext.attributes().get("python_version", Type.STRING));
+    String stubShebang = ruleContext.attributes().get("stub_shebang", Type.STRING);
 
     // Determine whether we're pointing to an in-build target (hermetic) or absolute system path
     // (non-hermetic).
@@ -80,8 +81,8 @@ public final class PyRuntime implements RuleConfiguredTargetFactory {
 
     PyRuntimeInfo provider =
         hermetic
-            ? PyRuntimeInfo.createForInBuildRuntime(interpreter, files, pythonVersion)
-            : PyRuntimeInfo.createForPlatformRuntime(interpreterPath, pythonVersion);
+            ? PyRuntimeInfo.createForInBuildRuntime(interpreter, files, pythonVersion, stubShebang)
+            : PyRuntimeInfo.createForPlatformRuntime(interpreterPath, pythonVersion, stubShebang);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(files)
