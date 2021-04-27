@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
+import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
@@ -438,6 +439,7 @@ public class AndroidCommon {
       boolean addCoverageSupport,
       boolean collectJavaCompilationArgs,
       boolean isBinary,
+      boolean shouldCompileJavaSrcs,
       NestedSet<Artifact> excludedRuntimeArtifacts,
       boolean generateExtensionRegistry)
       throws InterruptedException, RuleErrorException {
@@ -462,22 +464,26 @@ public class AndroidCommon {
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));
 
-    resourceApk
-        .asDataBindingContext()
-        .supplyJavaCoptsUsing(ruleContext, isBinary, javacopts::addAll);
+    if (shouldCompileJavaSrcs) {
+      resourceApk
+          .asDataBindingContext()
+          .supplyJavaCoptsUsing(ruleContext, isBinary, javacopts::addAll);
+    }
     JavaTargetAttributes.Builder attributesBuilder =
         javaCommon
             .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
             .setBootClassPath(bootClassPathInfo);
 
-    resourceApk
-        .asDataBindingContext()
-        .supplyAnnotationProcessor(
-            ruleContext,
-            (plugin, additionalOutputs) -> {
-              attributesBuilder.addPlugin(plugin);
-              attributesBuilder.addAdditionalOutputs(additionalOutputs);
-            });
+    if (shouldCompileJavaSrcs) {
+      resourceApk
+          .asDataBindingContext()
+          .supplyAnnotationProcessor(
+              ruleContext,
+              (plugin, additionalOutputs) -> {
+                attributesBuilder.addPlugin(plugin);
+                attributesBuilder.addAdditionalOutputs(additionalOutputs);
+              });
+    }
 
     if (excludedRuntimeArtifacts != null) {
       attributesBuilder.addExcludedArtifacts(excludedRuntimeArtifacts);
@@ -505,9 +511,19 @@ public class AndroidCommon {
       jarsProducedForRuntime.add(resourceApk.getResourceJavaClassJar());
     }
 
-    // Databinding metadata that the databinding annotation processor reads.
-    ImmutableList<Artifact> additionalJavaInputsFromDatabinding =
-        resourceApk.asDataBindingContext().processDeps(ruleContext, isBinary);
+    ImmutableList<Artifact> additionalJavaInputsFromDatabinding = null;
+    if (shouldCompileJavaSrcs) {
+      // Databinding metadata that the databinding annotation processor reads.
+      additionalJavaInputsFromDatabinding =
+          resourceApk.asDataBindingContext().processDeps(ruleContext, isBinary);
+    } else {
+      ImmutableList.Builder<Artifact> outputs = ImmutableList.<Artifact>builder();
+      DataBindingV2Provider p =
+          ruleContext.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
+      outputs.addAll(p.getSetterStores());
+      outputs.addAll(p.getTransitiveBRFiles().toList());
+      additionalJavaInputsFromDatabinding = outputs.build();
+    }
 
     JavaCompilationHelper helper =
         initAttributes(attributesBuilder, javaSemantics, additionalJavaInputsFromDatabinding);

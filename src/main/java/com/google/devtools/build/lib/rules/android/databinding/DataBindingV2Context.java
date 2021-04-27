@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataBindingProcessorBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
@@ -334,7 +335,14 @@ class DataBindingV2Context implements DataBindingContext {
 
   @Override
   public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
-
+    if (shouldGetDatabindingArtifactsFromApplicationResources(ruleContext)) {
+      DataBindingV2Provider p =
+          ruleContext.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
+      if (p != null) {
+        builder.addNativeDeclaredProvider(p);
+        return;
+      }
+    }
     Artifact setterStoreFile =
         DataBinding.getMetadataOutput(ruleContext, useUpdatedArgs, setterStoreName);
 
@@ -395,7 +403,7 @@ class DataBindingV2Context implements DataBindingContext {
     return useAndroidX;
   }
 
-  private static Artifact getClassInfoFile(ActionConstructionContext context) {
+  private static Artifact getClassInfoFile(RuleContext context) {
     return context.getUniqueDirectoryArtifact("databinding", "class-info.zip");
   }
 
@@ -404,5 +412,15 @@ class DataBindingV2Context implements DataBindingContext {
       return DataBinding.getLayoutInfoFile(actionContext);
     }
     return injectedLayoutInfoZip;
+  }
+
+  private static boolean shouldGetDatabindingArtifactsFromApplicationResources(
+      RuleContext context) {
+    if (!context.attributes().isAttributeValueExplicitlySpecified("application_resources")) {
+      return false;
+    }
+    AndroidApplicationResourceInfo androidApplicationResourceInfo =
+        context.getPrerequisite("application_resources", AndroidApplicationResourceInfo.PROVIDER);
+    return !androidApplicationResourceInfo.shouldCompileJavaSrcs();
   }
 }
