@@ -12,7 +12,6 @@ filegroup(
         "BUILD.android_tools",
         "BUILD.bazel",
         "WORKSPACE.android_tools",
-        "upload_android_tools.sh",
     ],
     visibility = [
         "//tools/android:__pkg__",
@@ -87,10 +86,4 @@ pkg_tar(
     ],
     extension = "tar.gz",
     visibility = ["//src/test/shell/bazel:__subpackages__"],
-)
-
-sh_binary(
-    name = "upload_android_tools",
-    srcs = ["upload_android_tools.sh"],
-    data = ["android_tools.tar.gz"],
 )
