@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.net.InetAddresses;
@@ -456,8 +457,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       serverInfoTmpFile.renameTo(serverInfoFile);
       shutdownHooks.deleteAtExit(serverInfoFile);
     } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Failed to write server info file: " + e.getMessage(), e);
+      throw createFilesystemFailureException("Failed to write server info file", e);
     }
   }
 
@@ -466,9 +466,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     try {
       FileSystemUtils.writeContentAsLatin1(file, contents);
     } catch (IOException e) {
-      throw createFilesystemFailureException(
-          "Server file (" + file + ") write failed: " + e.getMessage(),
-          e);
+      throw createFilesystemFailureException("Server file (" + file + ") write failed", e);
     }
     shutdownHooks.deleteAtExit(file);
   }
@@ -668,7 +666,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     return new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setMessage(message)
+                .setMessage(
+                    message + (Strings.isNullOrEmpty(e.getMessage()) ? "" : ": " + e.getMessage()))
                 .setFilesystem(Filesystem.newBuilder().setCode(Code.SERVER_FILE_WRITE_FAILURE))
                 .build()),
         e);

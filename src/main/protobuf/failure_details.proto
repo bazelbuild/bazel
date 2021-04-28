@@ -468,8 +468,8 @@ message Filesystem {
     reserved 1;
     reserved 2;
     EMBEDDED_BINARIES_ENUMERATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
-    SERVER_PID_TXT_FILE_READ_FAILURE = 4 [(metadata) = { exit_code: 1 }];
-    SERVER_FILE_WRITE_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    SERVER_PID_TXT_FILE_READ_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    SERVER_FILE_WRITE_FAILURE = 5 [(metadata) = { exit_code: 36 }];
     DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE = 6
         [(metadata) = { exit_code: 2 }];
 
