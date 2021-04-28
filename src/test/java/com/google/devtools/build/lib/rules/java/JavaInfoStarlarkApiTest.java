@@ -648,8 +648,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         ")");
     assertNoEvents();
 
-    assertThat(
-            fetchJavaInfo().getProvider(JavaPluginInfo.class).plugins().processorClasses().toList())
+    assertThat(fetchJavaInfo().getJavaPluginInfo().plugins().processorClasses().toList())
         .containsExactly("com.google.process.stuff");
   }
 

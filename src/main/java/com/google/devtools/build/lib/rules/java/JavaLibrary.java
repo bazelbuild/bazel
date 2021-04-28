@@ -187,7 +187,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             // TODO(bazel-team): this should only happen for java_plugin
-            .addProvider(JavaPluginInfo.class, javaPluginInfo)
+            .javaPluginInfo(javaPluginInfo)
             .addTransitiveOnlyRuntimeJars(common.getDependencies())
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))

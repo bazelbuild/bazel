@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -123,7 +125,7 @@ final class JavaInfoBuildHelper {
         JavaExportsProvider.class,
         createJavaExportsProvider(exports, /* labels = */ ImmutableList.of()));
 
-    javaInfoBuilder.addProvider(JavaPluginInfo.class, mergeExportedJavaPluginInfo(exports));
+    javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exports));
 
     javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
@@ -231,7 +233,11 @@ final class JavaInfoBuildHelper {
   }
 
   private JavaPluginInfo mergeExportedJavaPluginInfo(Iterable<JavaInfo> javaInfos) {
-    return JavaPluginInfo.merge(JavaInfo.fetchProvidersFromList(javaInfos, JavaPluginInfo.class));
+    return JavaPluginInfo.merge(
+        stream(javaInfos)
+            .map(JavaInfo::getJavaPluginInfo)
+            .filter(Objects::nonNull)
+            .collect(toImmutableList()));
   }
 
   public JavaInfo createJavaCompileAction(
@@ -341,8 +347,7 @@ final class JavaInfoBuildHelper {
             JavaSourceJarsProvider.class,
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
-        .addProvider(
-            JavaPluginInfo.class, mergeExportedJavaPluginInfo(concat(exportedPlugins, exports)))
+        .javaPluginInfo(mergeExportedJavaPluginInfo(concat(exportedPlugins, exports)))
         .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports, exportLabels))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)

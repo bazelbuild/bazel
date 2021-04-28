@@ -136,9 +136,9 @@ class DataBindingV2Context implements DataBindingContext {
       RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {
 
     JavaPluginInfo javaPluginInfo =
-        JavaInfo.getProvider(
-            JavaPluginInfo.class,
-            ruleContext.getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR));
+        JavaInfo.getJavaInfo(
+                ruleContext.getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR))
+            .getJavaPluginInfo();
 
     ImmutableList<Artifact> annotationProcessorOutputs =
         DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);

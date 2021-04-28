@@ -841,8 +841,12 @@ public class JavaCommon {
   private static Iterable<JavaPluginInfo> getJavaPluginInfoForAttribute(
       RuleContext ruleContext, String attribute) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-      return JavaInfo.getProvidersFromListOfTargets(
-          JavaPluginInfo.class, ruleContext.getPrerequisites(attribute));
+      return ruleContext.getPrerequisites(attribute).stream()
+          .map(JavaInfo::getJavaInfo)
+          .filter(Objects::nonNull)
+          .map(JavaInfo::getJavaPluginInfo)
+          .filter(Objects::nonNull)
+          .collect(toImmutableList());
     }
     return ImmutableList.of();
   }

@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +31,21 @@ import java.util.List;
 @AutoCodec
 @Immutable
 @AutoValue
-public abstract class JavaPluginInfo implements TransitiveInfoProvider {
+public abstract class JavaPluginInfo extends NativeInfo {
+  public static final String PROVIDER_NAME = "JavaPluginInfo";
+  public static final Provider PROVIDER = new Provider();
+
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  /** Provider class for {@link JavaPluginInfo} objects. */
+  public static class Provider extends BuiltinProvider<JavaPluginInfo> {
+    private Provider() {
+      super(PROVIDER_NAME, JavaPluginInfo.class);
+    }
+  }
 
   /** Information about a Java plugin, except for whether it generates API. */
   @AutoCodec
