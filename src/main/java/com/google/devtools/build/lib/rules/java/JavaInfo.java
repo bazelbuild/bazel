@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
@@ -76,7 +76,7 @@ public final class JavaInfo extends NativeInfo
           JavaCompilationArgsProvider.class,
           JavaSourceJarsProvider.class,
           JavaRuleOutputJarsProvider.class,
-          JavaPluginInfoProvider.class,
+          JavaPluginInfo.class,
           JavaGenJarsProvider.class,
           JavaExportsProvider.class,
           JavaCompilationInfoProvider.class,
@@ -124,8 +124,8 @@ public final class JavaInfo extends NativeInfo
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
-    List<JavaPluginInfoProvider> javaPluginInfoProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
+    List<JavaPluginInfo> javaPluginInfos =
+        JavaInfo.fetchProvidersFromList(providers, JavaPluginInfo.class);
     List<JavaExportsProvider> javaExportsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
@@ -149,8 +149,7 @@ public final class JavaInfo extends NativeInfo
         .addProvider(
             JavaRuleOutputJarsProvider.class,
             JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-        .addProvider(
-            JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
+        .addProvider(JavaPluginInfo.class, JavaPluginInfo.merge(javaPluginInfos))
         .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
         // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
@@ -562,13 +561,13 @@ public final class JavaInfo extends NativeInfo
     }
 
     public Builder experimentalDisableAnnotationProcessing() {
-      JavaPluginInfoProvider provider = providerMap.getProvider(JavaPluginInfoProvider.class);
+      JavaPluginInfo provider = providerMap.getProvider(JavaPluginInfo.class);
       if (provider != null) {
-        JavaPluginInfo plugins = provider.plugins();
+        JavaPluginData plugins = provider.plugins();
         providerMap.put(
-            JavaPluginInfoProvider.class,
-            JavaPluginInfoProvider.create(
-                JavaPluginInfo.create(
+            JavaPluginInfo.class,
+            JavaPluginInfo.create(
+                JavaPluginData.create(
                     /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
                     // Preserve the processor path, since it may contain Error Prone plugins which
                     // will be service-loaded by JavaBuilder.

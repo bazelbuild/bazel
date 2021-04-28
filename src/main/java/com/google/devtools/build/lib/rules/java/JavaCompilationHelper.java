@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -201,7 +201,7 @@ public final class JavaCompilationHelper {
 
     JavaTargetAttributes attributes = getAttributes();
     ImmutableList<Artifact> sourceJars = attributes.getSourceJars();
-    JavaPluginInfo plugins = attributes.plugins().plugins();
+    JavaPluginData plugins = attributes.plugins().plugins();
     List<Artifact> resourceJars = new ArrayList<>();
 
     boolean turbineAnnotationProcessing =
@@ -288,7 +288,7 @@ public final class JavaCompilationHelper {
       // Don't do annotation processing, but pass the processorpath through to allow service-loading
       // Error Prone plugins.
       builder.setPlugins(
-          JavaPluginInfo.create(
+          JavaPluginData.create(
               /* processorClasses= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               plugins.processorClasspath(),
               plugins.data()));
@@ -464,7 +464,7 @@ public final class JavaCompilationHelper {
     JavaTargetAttributes attributes = getAttributes();
 
     // only run API-generating annotation processors during header compilation
-    JavaPluginInfo plugins = attributes.plugins().apiGeneratingPlugins();
+    JavaPluginData plugins = attributes.plugins().apiGeneratingPlugins();
 
     JavaHeaderCompileActionBuilder builder = getJavaHeaderCompileActionBuilder();
     builder.setOutputJar(headerJar);

@@ -123,7 +123,7 @@ final class JavaInfoBuildHelper {
         JavaExportsProvider.class,
         createJavaExportsProvider(exports, /* labels = */ ImmutableList.of()));
 
-    javaInfoBuilder.addProvider(JavaPluginInfoProvider.class, createJavaPluginsProvider(exports));
+    javaInfoBuilder.addProvider(JavaPluginInfo.class, mergeExportedJavaPluginInfo(exports));
 
     javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
@@ -136,7 +136,7 @@ final class JavaInfoBuildHelper {
             false,
             javaOutput.getGeneratedClassJar(),
             javaOutput.getGeneratedSourceJar(),
-            JavaPluginInfoProvider.empty(),
+            JavaPluginInfo.empty(),
             JavaInfo.fetchProvidersFromList(
                 concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
 
@@ -230,9 +230,8 @@ final class JavaInfoBuildHelper {
     return JavaExportsProvider.merge(builder.build());
   }
 
-  private JavaPluginInfoProvider createJavaPluginsProvider(Iterable<JavaInfo> javaInfos) {
-    return JavaPluginInfoProvider.merge(
-        JavaInfo.fetchProvidersFromList(javaInfos, JavaPluginInfoProvider.class));
+  private JavaPluginInfo mergeExportedJavaPluginInfo(Iterable<JavaInfo> javaInfos) {
+    return JavaPluginInfo.merge(JavaInfo.fetchProvidersFromList(javaInfos, JavaPluginInfo.class));
   }
 
   public JavaInfo createJavaCompileAction(
@@ -287,7 +286,7 @@ final class JavaInfoBuildHelper {
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-    helper.setPlugins(createJavaPluginsProvider(concat(plugins, deps)));
+    helper.setPlugins(mergeExportedJavaPluginInfo(concat(plugins, deps)));
     helper.setNeverlink(neverlink);
 
     NestedSet<Artifact> localCompileTimeDeps =
@@ -343,8 +342,7 @@ final class JavaInfoBuildHelper {
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .addProvider(
-            JavaPluginInfoProvider.class,
-            createJavaPluginsProvider(concat(exportedPlugins, exports)))
+            JavaPluginInfo.class, mergeExportedJavaPluginInfo(concat(exportedPlugins, exports)))
         .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports, exportLabels))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)

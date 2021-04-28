@@ -66,7 +66,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.JavaCompile;
 import com.google.devtools.build.lib.server.FailureDetails.JavaCompile.Code;
@@ -383,14 +383,14 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     private final Artifact output;
     private final ImmutableSet<Artifact> sourceFiles;
     private final ImmutableList<Artifact> sourceJars;
-    private final JavaPluginInfo plugins;
+    private final JavaPluginData plugins;
 
     ProgressMessage(
         String prefix,
         Artifact output,
         ImmutableSet<Artifact> sourceFiles,
         ImmutableList<Artifact> sourceJars,
-        JavaPluginInfo plugins) {
+        JavaPluginData plugins) {
       this.prefix = prefix;
       this.output = output;
       this.sourceFiles = sourceFiles;

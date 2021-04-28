@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.Collections;
@@ -157,7 +157,7 @@ public final class JavaCompileActionBuilder {
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private JavaToolchainTool javaBuilder;
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-  private JavaPluginInfo plugins = JavaPluginInfo.empty();
+  private JavaPluginData plugins = JavaPluginData.empty();
   private ImmutableSet<String> builtinProcessorNames = ImmutableSet.of();
   private NestedSet<Artifact> extraData = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
   private Label targetLabel;
@@ -420,7 +420,7 @@ public final class JavaCompileActionBuilder {
     return this;
   }
 
-  public JavaCompileActionBuilder setPlugins(JavaPluginInfo plugins) {
+  public JavaCompileActionBuilder setPlugins(JavaPluginData plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
     this.plugins = plugins;

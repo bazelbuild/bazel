@@ -30,35 +30,35 @@ import java.util.List;
 @AutoCodec
 @Immutable
 @AutoValue
-public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
+public abstract class JavaPluginInfo implements TransitiveInfoProvider {
 
   /** Information about a Java plugin, except for whether it generates API. */
   @AutoCodec
   @Immutable
   @AutoValue
-  public abstract static class JavaPluginInfo {
+  public abstract static class JavaPluginData {
 
-    public static JavaPluginInfo create(
+    public static JavaPluginData create(
         NestedSet<String> processorClasses,
         NestedSet<Artifact> processorClasspath,
         NestedSet<Artifact> data) {
-      return new AutoValue_JavaPluginInfoProvider_JavaPluginInfo(
+      return new AutoValue_JavaPluginInfo_JavaPluginData(
           processorClasses, processorClasspath, data);
     }
 
     @AutoCodec.Instantiator
-    public static JavaPluginInfo empty() {
+    public static JavaPluginData empty() {
       return create(
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
     }
 
-    public static JavaPluginInfo merge(Iterable<JavaPluginInfo> plugins) {
+    public static JavaPluginData merge(Iterable<JavaPluginData> plugins) {
       NestedSetBuilder<String> processorClasses = NestedSetBuilder.naiveLinkOrder();
       NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
       NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
-      for (JavaPluginInfo plugin : plugins) {
+      for (JavaPluginData plugin : plugins) {
         processorClasses.addTransitive(plugin.processorClasses());
         processorClasspath.addTransitive(plugin.processorClasspath());
         data.addTransitive(plugin.data());
@@ -82,34 +82,34 @@ public abstract class JavaPluginInfoProvider implements TransitiveInfoProvider {
     }
   }
 
-  public static JavaPluginInfoProvider merge(JavaPluginInfoProvider a, JavaPluginInfoProvider b) {
+  public static JavaPluginInfo merge(JavaPluginInfo a, JavaPluginInfo b) {
     return a.isEmpty() ? b : b.isEmpty() ? a : merge(ImmutableList.of(a, b));
   }
 
-  public static JavaPluginInfoProvider merge(Iterable<JavaPluginInfoProvider> providers) {
-    List<JavaPluginInfo> plugins = new ArrayList<>();
-    List<JavaPluginInfo> apiGeneratingPlugins = new ArrayList<>();
-    for (JavaPluginInfoProvider provider : providers) {
+  public static JavaPluginInfo merge(Iterable<JavaPluginInfo> providers) {
+    List<JavaPluginData> plugins = new ArrayList<>();
+    List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
+    for (JavaPluginInfo provider : providers) {
       plugins.add(provider.plugins());
       apiGeneratingPlugins.add(provider.apiGeneratingPlugins());
     }
-    return new AutoValue_JavaPluginInfoProvider(
-        JavaPluginInfo.merge(plugins), JavaPluginInfo.merge(apiGeneratingPlugins));
+    return new AutoValue_JavaPluginInfo(
+        JavaPluginData.merge(plugins), JavaPluginData.merge(apiGeneratingPlugins));
   }
 
-  public static JavaPluginInfoProvider create(JavaPluginInfo javaPluginInfo, Boolean generatesApi) {
-    return new AutoValue_JavaPluginInfoProvider(
-        javaPluginInfo, generatesApi ? javaPluginInfo : JavaPluginInfo.empty());
+  public static JavaPluginInfo create(JavaPluginData javaPluginData, boolean generatesApi) {
+    return new AutoValue_JavaPluginInfo(
+        javaPluginData, generatesApi ? javaPluginData : JavaPluginData.empty());
   }
 
   @AutoCodec.Instantiator
-  public static JavaPluginInfoProvider empty() {
-    return new AutoValue_JavaPluginInfoProvider(JavaPluginInfo.empty(), JavaPluginInfo.empty());
+  public static JavaPluginInfo empty() {
+    return new AutoValue_JavaPluginInfo(JavaPluginData.empty(), JavaPluginData.empty());
   }
 
-  public abstract JavaPluginInfo plugins();
+  public abstract JavaPluginData plugins();
 
-  public abstract JavaPluginInfo apiGeneratingPlugins();
+  public abstract JavaPluginData apiGeneratingPlugins();
 
   /** Returns true if the provider has no associated data. */
   public boolean isEmpty() {

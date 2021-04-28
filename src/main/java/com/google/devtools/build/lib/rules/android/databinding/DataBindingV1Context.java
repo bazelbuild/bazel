@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -74,18 +74,17 @@ final class DataBindingV1Context implements DataBindingContext {
 
   @Override
   public void supplyAnnotationProcessor(
-      RuleContext ruleContext,
-      BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer) {
+      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {
 
-    JavaPluginInfoProvider javaPluginInfoProvider =
+    JavaPluginInfo javaPluginInfo =
         JavaInfo.getProvider(
-            JavaPluginInfoProvider.class,
+            JavaPluginInfo.class,
             ruleContext.getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR));
 
     ImmutableList<Artifact> annotationProcessorOutputs =
         DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);
 
-    consumer.accept(javaPluginInfoProvider, annotationProcessorOutputs);
+    consumer.accept(javaPluginInfo, annotationProcessorOutputs);
   }
 
   @Override
