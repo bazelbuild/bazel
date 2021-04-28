@@ -28,11 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDex2OatInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.javascript.JsModuleInfoApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDeepStructure;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
@@ -485,8 +480,6 @@ public class SkydocMain {
   }
 
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {
-    addNonBootstrapGlobals(env);
-
     // Add dummy declarations that would come from packages.StarlarkLibrary.COMMON
     // were Skydoc allowed to depend on it. See hack for select below.
     env.put("json", Json.INSTANCE);
@@ -529,19 +522,6 @@ public class SkydocMain {
         });
   }
 
-  // TODO(cparsons): Remove this constant by migrating the contained symbols to bootstraps.
-  private static final String[] nonBootstrapGlobals = {
-    "android_data",
-    AndroidDex2OatInfoApi.NAME,
-    UsesDataBindingProviderApi.NAME,
-    GeneratedExtensionRegistryProviderApi.NAME,
-    JavaNativeLibraryInfoApi.NAME,
-    JsModuleInfoApi.NAME,
-    "JsInfo",
-    "js_common",
-    "pkg_common",
-  };
-
   @StarlarkBuiltin(name = "ProtoModule", doc = "")
   private static final class ProtoModule implements StarlarkValue {
     @StarlarkMethod(
@@ -550,17 +530,6 @@ public class SkydocMain {
         parameters = {@Param(name = "x")})
     public String encodeText(Object x) {
       return "";
-    }
-  }
-
-  /**
-   * A hack to add a number of global symbols which are part of the build API but are otherwise
-   * added by Bazel.
-   */
-  // TODO(cparsons): Remove this method by migrating the contained symbols to bootstraps.
-  private static void addNonBootstrapGlobals(ImmutableMap.Builder<String, Object> envBuilder) {
-    for (String global : nonBootstrapGlobals) {
-      envBuilder.put(global, global);
     }
   }
 
