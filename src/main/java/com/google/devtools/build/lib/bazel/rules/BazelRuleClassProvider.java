@@ -100,6 +100,8 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
+import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
+import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
@@ -268,6 +270,11 @@ public class BazelRuleClassProvider {
               .addConfigurationFragment(StrictActionEnvConfiguration.class)
               .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
+
+          builder.addStarlarkBuiltinsInternal(
+              ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
+          builder.addStarlarkBuiltinsInternal(
+              BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
         }
 
         @Override

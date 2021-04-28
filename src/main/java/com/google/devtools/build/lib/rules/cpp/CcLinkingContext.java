@@ -115,7 +115,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final NestedSet<Artifact> declaredIncludeSrcs;
     private final byte[] nestedDigest;
 
-    private static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
+    public static final Depset.ElementType TYPE = Depset.ElementType.of(Linkstamp.class);
 
     // TODO(janakr): if action key context is not available, the digest can be computed lazily,
     // only if we are doing an equality comparison and artifacts are equal. That should never

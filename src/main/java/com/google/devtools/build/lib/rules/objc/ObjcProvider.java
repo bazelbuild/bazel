@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.BuiltinProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
@@ -802,6 +803,16 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       paths.add(getFrameworkPath(frameworkDir));
     }
     return paths.build();
+  }
+
+  @Override
+  public Depset /*<LibraryToLink>*/ ccLibrariesForStarlark() {
+    return Depset.of(Artifact.TYPE, get(ObjcProvider.CC_LIBRARY));
+  }
+
+  @Override
+  public Depset /*<Linkstamp>*/ linkstampForstarlark() {
+    return Depset.of(Linkstamp.TYPE, get(ObjcProvider.LINKSTAMP));
   }
 
   @Override

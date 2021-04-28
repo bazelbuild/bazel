@@ -29,13 +29,12 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.StarlarkValue;
 
-/**
- * Provides a way to access attributes that are common to all compilation rules.
- */
+/** Provides a way to access attributes that are common to all compilation rules. */
 // TODO(bazel-team): Delete and move into support-specific attributes classes once ObjcCommon is
 // gone.
-final class CompilationAttributes {
+final class CompilationAttributes implements StarlarkValue {
   static class Builder {
     private final NestedSetBuilder<Artifact> hdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> textualHdrs = NestedSetBuilder.stableOrder();

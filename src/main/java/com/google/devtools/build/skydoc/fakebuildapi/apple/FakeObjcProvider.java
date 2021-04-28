@@ -24,6 +24,15 @@ import net.starlark.java.eval.Sequence;
  * Fake implementation of {@link ObjcProviderApi}.
  */
 public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
+  @Override
+  public Depset /*<LibraryToLink>*/ ccLibrariesForStarlark() {
+    return null;
+  }
+
+  @Override
+  public Depset /*<Linkstamp>*/ linkstampForstarlark() {
+    return null;
+  }
 
   @Override
   public Depset /*<FileApi>*/ dynamicFrameworkFileForStarlark() {

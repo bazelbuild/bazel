@@ -63,7 +63,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -72,7 +75,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 // TODO(bazel-team): Decompose and subsume area-specific logic and data into the various *Support
 // classes. Make sure to distinguish rule output (providers, runfiles, ...) from intermediate,
 // rule-internal information. Any provider created by a rule should not be read, only published.
-public final class ObjcCommon {
+public final class ObjcCommon implements StarlarkValue {
 
   /** Filters fileset artifacts out of a group of artifacts. */
   public static ImmutableList<Artifact> filterFileset(Iterable<Artifact> artifacts) {
@@ -192,16 +195,14 @@ public final class ObjcCommon {
       return this;
     }
 
-    /** Add the providers for the build dependencies. */
-    Builder addDeps(List<ConfiguredTargetAndData> deps) {
+    Builder addDepsCT(List<ConfiguredTarget> deps) {
       ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfosForDirectFields = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkStampContexts = ImmutableList.builder();
 
-      for (ConfiguredTargetAndData dep : deps) {
-        ConfiguredTarget depCT = dep.getConfiguredTarget();
+      for (ConfiguredTarget depCT : deps) {
         if (depCT.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
           addAnyProviders(objcProviders, depCT, ObjcProvider.STARLARK_CONSTRUCTOR);
         } else {
@@ -224,6 +225,14 @@ public final class ObjcCommon {
           Iterables.concat(this.ccLinkStampContexts, ccLinkStampContexts.build());
 
       return this;
+    }
+
+    /** Add the providers for the build dependencies. */
+    Builder addDeps(List<ConfiguredTargetAndData> deps) {
+      return addDepsCT(
+          deps.stream()
+              .map(ConfiguredTargetAndData::getConfiguredTarget)
+              .collect(ImmutableList.toImmutableList()));
     }
 
     /**
@@ -485,6 +494,7 @@ public final class ObjcCommon {
     return purpose;
   }
 
+  @StarlarkMethod(name = "objc_provider", documented = false, structField = true)
   public ObjcProvider getObjcProvider() {
     return objcProvider;
   }
@@ -511,6 +521,23 @@ public final class ObjcCommon {
       return compilationArtifacts.get().getArchive();
     }
     return Optional.absent();
+  }
+
+  /**
+   * Returns the compiled {@code .a} file, or null if this object contains no {@link
+   * CompilationArtifacts} or the compilation information has no sources.
+   */
+  @StarlarkMethod(
+      name = "compiled_archive",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  public Artifact getCompiledArchiveForStarlark() {
+    if (compilationArtifacts.isPresent() && compilationArtifacts.get().getArchive().isPresent()) {
+      return compilationArtifacts.get().getArchive().get();
+    }
+    return null;
   }
 
   /**

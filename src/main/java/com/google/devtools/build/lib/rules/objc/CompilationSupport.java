@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -96,6 +97,7 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FdoContext;
+import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
@@ -114,6 +116,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -127,7 +133,7 @@ import java.util.stream.Stream;
  *
  * <p>Methods on this class can be called in any order without impacting the result.
  */
-public class CompilationSupport {
+public class CompilationSupport implements StarlarkValue {
 
   @VisibleForTesting static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
 
@@ -516,6 +522,24 @@ public class CompilationSupport {
         ImmutableMap.copyOf(mergedOutputGroups));
   }
 
+  @StarlarkMethod(name = "feature_configuration", documented = false, structField = true)
+  public FeatureConfigurationForStarlark getFeatureConfigurationForStarlark() {
+    return FeatureConfigurationForStarlark.from(
+        getFeatureConfiguration(ruleContext, toolchain, buildConfiguration, cppSemantics),
+        ruleContext.getFragment(CppConfiguration.class),
+        buildConfiguration.getOptions());
+  }
+
+  @StarlarkMethod(name = "cc_toolchain", documented = false, structField = true)
+  public CcToolchainProvider getToolchain() {
+    return toolchain;
+  }
+
+  @StarlarkMethod(name = "output_group_info", documented = false, structField = true)
+  public OutputGroupInfo getOutputGroupInfo() {
+    return new OutputGroupInfo(ImmutableMap.copyOf(outputGroupCollector));
+  }
+
   private FeatureConfiguration getFeatureConfiguration(
       RuleContext ruleContext,
       CcToolchainProvider ccToolchain,
@@ -683,6 +707,7 @@ public class CompilationSupport {
     this.ccCompilationContext = Optional.of(ccCompilationContext);
   }
 
+  @StarlarkMethod(name = "compilation_context", documented = false, structField = true)
   public CcCompilationContext getCcCompilationContext() {
     checkState(ccCompilationContext.isPresent());
     return ccCompilationContext.get();
@@ -728,9 +753,14 @@ public class CompilationSupport {
     this.disableLayeringCheck = disableLayeringCheck;
     this.disableParseHeaders = disableParseHeaders;
     if (toolchain == null
-        && ruleContext
-            .attributes()
-            .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
+        && (ruleContext
+                .attributes()
+                .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)
+            || ruleContext
+                .attributes()
+                .has(
+                    CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK,
+                    BuildType.LABEL))) {
       toolchain = CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
     }
 
@@ -868,6 +898,11 @@ public class CompilationSupport {
     }
   }
 
+  @StarlarkMethod(name = "instrumented_files_info", documented = false, structField = true)
+  public InstrumentedFilesInfo getInstrumentedFilesProviderForStarlark() {
+    return getInstrumentedFilesProvider(objectFilesCollector.build());
+  }
+
   /**
    * Returns a provider that collects this target's instrumented sources as well as those of its
    * dependencies.
@@ -930,6 +965,29 @@ public class CompilationSupport {
 
     ruleContext.assertNoErrors();
     return this;
+  }
+
+  @StarlarkMethod(name = "validate_attributes", documented = false)
+  public void validateAttributesForStarlark() throws EvalException {
+    try {
+      validateAttributes();
+    } catch (RuleErrorException ruleErrorException) {
+      throw new EvalException(ruleErrorException);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "register_compile_and_archive_actions",
+      documented = false,
+      parameters = {@Param(name = "common", positional = false, named = true)})
+  public void registerCompileAndArchiveActionsForStarlark(ObjcCommon common)
+      throws EvalException, InterruptedException {
+    try {
+      registerCompileAndArchiveActions(
+          common, ExtraCompileArgs.NONE, ImmutableList.<PathFragment>of());
+    } catch (RuleErrorException ruleErrorException) {
+      throw new EvalException(ruleErrorException);
+    }
   }
 
   /**

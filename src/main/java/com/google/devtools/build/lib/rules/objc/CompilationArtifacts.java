@@ -21,12 +21,13 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Artifacts related to compilation. Any rule containing compilable sources will create an instance
  * of this class.
  */
-final class CompilationArtifacts {
+final class CompilationArtifacts implements StarlarkValue {
   static class Builder {
     // TODO(bazel-team): Should these be sets instead of just iterables?
     private Iterable<Artifact> srcs = ImmutableList.of();

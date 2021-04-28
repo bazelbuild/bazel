@@ -32,6 +32,12 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "A provider for compilation and linking of objc.")
 public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
 
+  @StarlarkMethod(name = "cc_library", documented = false, structField = true)
+  Depset /*<LibraryToLink>*/ ccLibrariesForStarlark();
+
+  @StarlarkMethod(name = "linkstamp", documented = false, structField = true)
+  Depset /*<Linkstamp>*/ linkstampForstarlark();
+
   @StarlarkMethod(
       name = "dynamic_framework_file",
       structField = true,

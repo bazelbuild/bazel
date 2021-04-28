@@ -38,6 +38,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
@@ -495,7 +496,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * Value used to avoid multiple configurations from conflicting. No two instances of this
    * transition may exist with the same value in a single Bazel invocation.
    */
-  public enum ConfigurationDistinguisher {
+  public enum ConfigurationDistinguisher implements StarlarkValue {
     UNKNOWN("unknown"),
     /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
     APPLEBIN_IOS("applebin_ios"),
