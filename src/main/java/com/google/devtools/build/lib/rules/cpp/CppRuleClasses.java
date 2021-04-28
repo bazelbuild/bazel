@@ -446,6 +446,17 @@ public class CppRuleClasses {
    */
   public static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
+  /**
+   * A feature which indicates that this target is a test (rather than a binary). This can be used
+   * to select test-only options.
+   */
+  public static final String IS_CC_TEST_FEATURE_NAME = "is_cc_test";
+
+  /**
+   * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
+   */
+  public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
+
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     @Override

@@ -142,10 +142,12 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
 
-    if (useTestOnlyFlags) {
-      buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-    } else {
-      buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
+    if (!cppConfiguration.useCcTestFeature()) {
+      if (useTestOnlyFlags) {
+        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
+      } else {
+        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
+      }
     }
 
     if (runtimeLibrarySearchDirectories != null) {
