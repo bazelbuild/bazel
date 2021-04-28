@@ -832,13 +832,24 @@ public class JavaCommon {
 
   private JavaPluginInfo collectPlugins() {
     List<JavaPluginInfo> result = new ArrayList<>();
-    Iterables.addAll(result, getJavaPluginInfoForAttribute(ruleContext, ":java_plugins"));
-    Iterables.addAll(result, getJavaPluginInfoForAttribute(ruleContext, "plugins"));
-    Iterables.addAll(result, getJavaPluginInfoForAttribute(ruleContext, "deps"));
+    Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, ":java_plugins"));
+    Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, "plugins"));
+    Iterables.addAll(result, getExportedJavaPluginInfoForAttribute(ruleContext, "deps"));
     return JavaPluginInfo.merge(result);
   }
 
-  private static Iterable<JavaPluginInfo> getJavaPluginInfoForAttribute(
+  private static Iterable<JavaPluginInfo> getDirectJavaPluginInfoForAttribute(
+      RuleContext ruleContext, String attribute) {
+    if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
+      return ruleContext.getPrerequisites(attribute).stream()
+          .map(target -> target.get(JavaPluginInfo.PROVIDER))
+          .filter(Objects::nonNull)
+          .collect(toImmutableList());
+    }
+    return ImmutableList.of();
+  }
+
+  private static Iterable<JavaPluginInfo> getExportedJavaPluginInfoForAttribute(
       RuleContext ruleContext, String attribute) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
       return ruleContext.getPrerequisites(attribute).stream()
@@ -878,8 +889,8 @@ public class JavaCommon {
   public static JavaPluginInfo getTransitivePlugins(RuleContext ruleContext) {
     return JavaPluginInfo.merge(
         Iterables.concat(
-            getJavaPluginInfoForAttribute(ruleContext, "exported_plugins"),
-            getJavaPluginInfoForAttribute(ruleContext, "exports")));
+            getDirectJavaPluginInfoForAttribute(ruleContext, "exported_plugins"),
+            getExportedJavaPluginInfoForAttribute(ruleContext, "exports")));
   }
 
   public static Runfiles getRunfiles(
