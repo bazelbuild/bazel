@@ -603,12 +603,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/test",
         "lib",
         // error:
-        getErrorMsgMisplacedRules(
-            "plugins",
-            "android_binary",
-            "//java/test:lib",
-            "java_library",
-            "//java/test:not_a_plugin"),
+        getErrorMsgMandatoryProviderMissing("//java/test:not_a_plugin", "JavaPluginInfo"),
         // BUILD file:
         "java_library(name = 'not_a_plugin',",
         "    srcs = [ 'NotAPlugin.java'])",

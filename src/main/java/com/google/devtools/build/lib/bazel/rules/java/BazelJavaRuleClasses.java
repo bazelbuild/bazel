@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcBinary.CcLauncherInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -239,12 +240,12 @@ public class BazelJavaRuleClasses {
           .add(
               attr("plugins", LABEL_LIST)
                   .cfg(ExecutionTransitionFactory.create())
-                  .allowedRuleClasses("java_plugin")
+                  .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
                   .cfg(ExecutionTransitionFactory.create())
-                  .allowedRuleClasses("java_plugin")
+                  .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(javacopts) -->
