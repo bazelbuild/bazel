@@ -105,6 +105,13 @@ skydoc_test(
 )
 
 skydoc_test(
+    name = "unknown_predefines_test",
+    golden_file = "testdata/unknown_predefines_test/golden.txt",
+    input_file = "testdata/unknown_predefines_test/input.bzl",
+    symbol_names = ["my_rule"],
+)
+
+skydoc_test(
     name = "apple_basic_test",
     golden_file = "testdata/apple_basic_test/golden.txt",
     input_file = "testdata/apple_basic_test/input.bzl",

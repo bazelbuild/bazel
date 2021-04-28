@@ -35,6 +35,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
