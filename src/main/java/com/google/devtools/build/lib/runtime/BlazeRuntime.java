@@ -582,6 +582,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                   @Override
                   public void handle(Event event) {}
                 });
+        eventBus.post(new CrashEvent());
         eventBus.post(new CommandCompleteEvent(exitCode));
       }
     }
