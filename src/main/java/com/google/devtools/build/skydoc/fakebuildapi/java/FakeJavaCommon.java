@@ -16,7 +16,6 @@ package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -162,17 +161,6 @@ public class FakeJavaCommon
       Object processorClasspath,
       Object classJar,
       Object sourceJar) {
-    return new FakeJavaInfo();
-  }
-
-  @Override
-  public Depset /*<FileApi>*/ getCompileTimeJavaDependencyArtifacts(FakeJavaInfo javaInfo) {
-    return null;
-  }
-
-  @Override
-  public FakeJavaInfo addCompileTimeJavaDependencyArtifacts(
-      FakeJavaInfo javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts) {
     return new FakeJavaInfo();
   }
 

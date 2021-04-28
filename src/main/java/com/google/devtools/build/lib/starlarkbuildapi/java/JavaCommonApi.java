@@ -577,41 +577,6 @@ public interface JavaCommonApi<
       throws EvalException;
 
   @StarlarkMethod(
-      name = "compile_time_jdeps",
-      doc = "Returns a depset of the given JavaInfo's compile-time jdeps files.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to query."),
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Depset /*<FileT>*/ getCompileTimeJavaDependencyArtifacts(JavaInfoT javaInfo);
-
-  @StarlarkMethod(
-      name = "add_compile_time_jdeps",
-      doc = "Returns a copy of the given JavaInfo with the given compile-time jdeps files added.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to clone."),
-        @Param(
-            name = "compile_time_jdeps",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
-            named = true,
-            positional = false,
-            defaultValue = "[]",
-            doc = "Compile-time jdeps files to add.")
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT addCompileTimeJavaDependencyArtifacts(
-      JavaInfoT javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "java_toolchain_label",
       doc = "Returns the toolchain's label.",
       parameters = {
