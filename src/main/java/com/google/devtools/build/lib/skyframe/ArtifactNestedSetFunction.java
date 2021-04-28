@@ -131,11 +131,9 @@ class ArtifactNestedSetFunction implements SkyFunction {
         }
         artifactSkyKeyToSkyValue.put(key, value);
       } catch (SourceArtifactException e) {
-        removeStaleKeyBecauseOfException(key);
         // SourceArtifactException is never catastrophic.
         transitiveExceptionsBuilder.add(Pair.of(key, e));
       } catch (ActionExecutionException e) {
-        removeStaleKeyBecauseOfException(key);
         transitiveExceptionsBuilder.add(Pair.of(key, e));
         catastrophic |= e.isCatastrophe();
       } catch (ArtifactNestedSetEvalException e) {
@@ -205,10 +203,6 @@ class ArtifactNestedSetFunction implements SkyFunction {
 
   void updateValueForKey(SkyKey skyKey, SkyValue skyValue) {
     artifactSkyKeyToSkyValue.put(skyKey, skyValue);
-  }
-
-  void removeStaleKeyBecauseOfException(SkyKey skyKey) {
-    artifactSkyKeyToSkyValue.remove(skyKey);
   }
 
   @Override

@@ -562,10 +562,6 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     events.assertContainsError(
         "foo/BUILD:1:8: Executing genrule //foo:foo failed: error reading file '//foo:error.in':"
             + " nope");
-    events.assertContainsError(
-        "foo/BUILD:1:8: Executing genrule //foo:foo failed: missing input file '//foo:missing.in'");
-    events.assertContainsError(
-        "Executing genrule //foo:foo failed: 2 input file(s) are in error or do not exist");
   }
 
   @Test

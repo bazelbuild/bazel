@@ -172,9 +172,13 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
     this.outErr = outErr;
     addOptions("--keep_going");
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
-    assertThat(outErr.errAsLatin1())
-        .contains("Executing genrule //foo:foo failed: missing input file '//foo:in'");
+    if (nestedSetOnSkyframe == 0) {
+      assertThat(outErr.errAsLatin1())
+          .contains("Executing genrule //foo:foo failed: missing input file '//foo:in'");
+      assertThat(targetCompleteEventRef.get().getRootCauses().toList()).hasSize(2);
+    } else {
+      assertThat(targetCompleteEventRef.get().getRootCauses().toList()).hasSize(1);
+    }
     assertThat(outErr.errAsLatin1()).contains("Executing genrule //foo:gen failed");
-    assertThat(targetCompleteEventRef.get().getRootCauses().toList()).hasSize(2);
   }
 }

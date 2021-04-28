@@ -1374,10 +1374,9 @@ public class ActionExecutionFunction implements SkyFunction {
             requestedSkyKeys,
             env.valuesMissing());
 
-    boolean errorFree = actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
+    actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
 
-    // No exceptions from dependencies, it's now safe to check for missing values.
-    if (allowValuesMissingEarlyReturn && errorFree && env.valuesMissing()) {
+    if (env.valuesMissing() && allowValuesMissingEarlyReturn) {
       return null;
     }
 
@@ -1398,7 +1397,7 @@ public class ActionExecutionFunction implements SkyFunction {
     for (Artifact input : allInputsList) {
       SkyValue value = ArtifactNestedSetFunction.getInstance().getValueForKey(Artifact.key(input));
       if (value == null) {
-        if (errorFree && (mandatoryInputs == null || mandatoryInputs.contains(input))) {
+        if (mandatoryInputs == null || mandatoryInputs.contains(input)) {
           BugReport.sendBugReport(
               new IllegalStateException(
                   String.format(
@@ -1429,7 +1428,6 @@ public class ActionExecutionFunction implements SkyFunction {
     // After accumulating the inputs, we might find some mandatory artifact with
     // SourceFileInErrorArtifactValue.
     actionExecutionFunctionExceptionHandler.maybeThrowException();
-    Preconditions.checkState(errorFree, "Accumulated error but never threw: %s", action);
 
     return accumulateInputResultsFactory.create(
         inputArtifactData,
@@ -1647,18 +1645,20 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     /**
-     * Go through the list of evaluated SkyKeys and handle any exception that arises, taking into
+     * Goes through the list of evaluated SkyKeys and handles any exception that arises, taking into
      * account whether the corresponding artifact(s) is a mandatory input.
      *
-     * <p>This also updates ArtifactNestedSetFunction#skyKeyToSkyValue if an Artifact's value is
+     * <p>Also updates ArtifactNestedSetFunction#skyKeyToSkyValue if an Artifact's value is
      * non-null.
      *
-     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception and
-     *     there {@link #valuesMissing}. If there were no values missing, returns false, indicating
-     *     that there were errors, allowing the caller to discover any further errors before calling
-     *     {@link #maybeThrowException} to throw the fully accumulated exception.
+     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception.
+     *     This may not be the most complete exception because it may lack missing input file causes
+     *     that did not throw exceptions, but were present as "missing file artifact values" in the
+     *     global {@link ArtifactNestedSetFunction#artifactSkyKeyToSkyValue} map. Unfortunately,
+     *     that map is not trustworthy in the exceptional case, since it may not have been populated
+     *     with all data from this build before an exception shut the build down.
      */
-    boolean accumulateAndMaybeThrowExceptions() throws ActionExecutionException {
+    void accumulateAndMaybeThrowExceptions() throws ActionExecutionException {
       int i = 0;
       for (SkyKey key : requestedSkyKeys) {
         try {
@@ -1673,7 +1673,6 @@ public class ActionExecutionFunction implements SkyFunction {
           }
           ArtifactNestedSetFunction.getInstance().updateValueForKey(key, value);
         } catch (SourceArtifactException e) {
-          ArtifactNestedSetFunction.getInstance().removeStaleKeyBecauseOfException(key);
           handleSourceArtifactExceptionFromSkykey(key, e);
         } catch (ActionExecutionException e) {
           handleActionExecutionExceptionFromSkykey(key, e);
@@ -1697,16 +1696,7 @@ public class ActionExecutionFunction implements SkyFunction {
           }
         }
       }
-      if (missingArtifactCauses.isEmpty() && firstActionExecutionException == null) {
-        return true;
-      }
-      if (valuesMissing) {
-        // If values are missing, maybe our last chance to throw.
-        maybeThrowException();
-        throw new IllegalStateException(
-            "Can't get here: " + missingArtifactCauses + ", " + firstActionExecutionException);
-      }
-      return false;
+      maybeThrowException();
     }
 
     private void handleActionExecutionExceptionFromSkykey(SkyKey key, ActionExecutionException e) {
