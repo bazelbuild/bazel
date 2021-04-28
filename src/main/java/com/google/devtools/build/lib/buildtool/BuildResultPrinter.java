@@ -76,8 +76,7 @@ class BuildResultPrinter {
             env.getWorkspace(),
             request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
                 ? env.getWorkingDirectory()
-                : env.getWorkspace(),
-            request.getBuildOptions().experimentalNoProductNameOutSymlink);
+                : env.getWorkspace());
     OutErr outErr = request.getOutErr();
 
     // Produce output as if validation aspect didn't exist; instead we'll consult validation aspect

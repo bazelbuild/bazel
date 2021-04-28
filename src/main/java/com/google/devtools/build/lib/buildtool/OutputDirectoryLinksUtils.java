@@ -19,11 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks;
-import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.OutputSymlink;
-import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
+import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink.Action;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
@@ -55,34 +54,22 @@ public final class OutputDirectoryLinksUtils {
    *
    * <p>The order of the result indicates precedence for {@link PathPrettyPrinter}.
    */
-  private static final ImmutableList<SymlinkDefinition> getAllLinkDefinitions(
-      Iterable<SymlinkDefinition> symlinkDefinitions, boolean includeProductOut) {
-    // TODO(mitchellhyang): Remove the boolean parameter "includeProductOut" after the flag
-    //  "--experimental_no_product_name_out_symlink" has been removed. We should avoid adding new
-    //  parameters to this method. However, in this case, without the "includeProductOut", callers
-    //  such as the pretty printer may print out false information.
+  private static ImmutableList<SymlinkDefinition> getAllLinkDefinitions(
+      Iterable<SymlinkDefinition> symlinkDefinitions) {
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
-    builder.addAll(ConvenienceSymlinks.getStandardLinkDefinitions(includeProductOut));
+    builder.addAll(STANDARD_LINK_DEFINITIONS);
     builder.addAll(symlinkDefinitions);
     return builder.build();
   }
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
-  public static Iterable<String> getOutputSymlinkNames(String productName, String symlinkPrefix) {
-    ImmutableSet.Builder<String> builder = ImmutableSet.<String>builder();
-    for (OutputSymlink definition : OutputSymlink.values()) {
-      builder.add(definition.getLinkName(symlinkPrefix, productName, null));
-    }
-    return builder.build();
-  }
-
   /**
    * Attempts to create or delete convenience symlinks in the workspace to the various output
    * directories, and generates associated log events.
    *
-   * <p>If {@code --symlink_prefix} is {@link NO_CREATE_SYMLINKS_PREFIX}, or {@code
-   * --experimental_convenience_symlinks} is {@link ConvenienceSymlinksMode.IGNORE}, this method is
+   * <p>If {@code --symlink_prefix} is {@link #NO_CREATE_SYMLINKS_PREFIX}, or {@code
+   * --experimental_convenience_symlinks} is {@link ConvenienceSymlinksMode#IGNORE}, this method is
    * a no-op.
    *
    * <p>Otherwise, for each symlink type, we decide whether the symlink should exist or not. If it
@@ -93,10 +80,10 @@ public final class OutputDirectoryLinksUtils {
    * has changed, we have no way to cleanup old symlink names leftover from a previous invocation.)
    *
    * <p>If {@code --experimental_convenience_symlinks} is set to {@link
-   * ConvenienceSymlinksMode.CLEAN}, all symlinks are set to be deleted. If it's set to {@link
-   * ConvenienceSymlinksMode.NORMAL}, each symlink type decides whether it should be created or
+   * ConvenienceSymlinksMode#CLEAN}, all symlinks are set to be deleted. If it's set to {@link
+   * ConvenienceSymlinksMode#NORMAL}, each symlink type decides whether it should be created or
    * deleted. (A symlink may decide to be deleted if e.g. it is disabled by a flag, or would want to
-   * point to more than one destination.) If it's set to {@link ConvenienceSymlinksMode.LOG_ONLY},
+   * point to more than one destination.) If it's set to {@link ConvenienceSymlinksMode#LOG_ONLY},
    * the same logic is run as in the {@code NORMAL} case, but the result is only emitting log
    * messages, with no actual filesystem mutations.
    *
@@ -133,9 +120,7 @@ public final class OutputDirectoryLinksUtils {
     RepositoryName repositoryName = RepositoryName.MAIN;
     boolean logOnly = mode == ConvenienceSymlinksMode.LOG_ONLY;
 
-    for (SymlinkDefinition symlink :
-        getAllLinkDefinitions(
-            symlinkDefinitions, !buildRequestOptions.experimentalNoProductNameOutSymlink)) {
+    for (SymlinkDefinition symlink : getAllLinkDefinitions(symlinkDefinitions)) {
       String linkName = symlink.getLinkName(symlinkPrefix, productName, workspaceBaseName);
       if (!createdLinks.add(linkName)) {
         // already created a link by this name
@@ -193,10 +178,9 @@ public final class OutputDirectoryLinksUtils {
       String symlinkPrefix,
       String productName,
       Path workspaceDirectory,
-      Path workingDirectory,
-      boolean omitProductOut) {
+      Path workingDirectory) {
     return new PathPrettyPrinter(
-        getAllLinkDefinitions(symlinkDefinitions, !omitProductOut),
+        getAllLinkDefinitions(symlinkDefinitions),
         symlinkPrefix,
         productName,
         workspaceDirectory,
@@ -217,7 +201,6 @@ public final class OutputDirectoryLinksUtils {
    */
   public static void removeOutputDirectoryLinks(
       Iterable<SymlinkDefinition> symlinkDefinitions,
-      String workspaceName,
       Path workspace,
       EventHandler eventHandler,
       String symlinkPrefix,
@@ -228,9 +211,7 @@ public final class OutputDirectoryLinksUtils {
     List<String> failures = new ArrayList<>();
 
     String workspaceBaseName = workspace.getBaseName();
-    // Defaulting includeProductOut here to true since we want to remove all possible symlinks.
-    for (SymlinkDefinition link :
-        getAllLinkDefinitions(symlinkDefinitions, /*includeProductOut=*/ true)) {
+    for (SymlinkDefinition link : getAllLinkDefinitions(symlinkDefinitions)) {
       removeLink(
           workspace,
           link.getLinkName(symlinkPrefix, productName, workspaceBaseName),
@@ -258,10 +239,8 @@ public final class OutputDirectoryLinksUtils {
    *
    * <p>If {@code logOnly} is true, the {@code ConvenienceSymlink} entry is added but no actual
    * filesystem operations are performed.
-   *
-   * @return true iff there were no filesystem errors.
    */
-  private static boolean createLink(
+  private static void createLink(
       Path base,
       String name,
       Path outputBase,
@@ -283,25 +262,22 @@ public final class OutputDirectoryLinksUtils {
             .setAction(Action.CREATE)
             .build());
     if (logOnly) {
-      return true;
+      return;
     }
     Path link = base.getRelative(name);
     try {
-      FileSystemUtils.createDirectoryAndParents(target);
+      target.createDirectoryAndParents();
     } catch (IOException e) {
       failures.add(String.format("cannot create directory %s: %s",
           target.getPathString(), e.getMessage()));
-      return false;
+      return;
     }
     try {
       FileSystemUtils.ensureSymbolicLink(link, target);
     } catch (IOException e) {
       failures.add(String.format("cannot create symbolic link %s -> %s:  %s",
           name, target.getPathString(), e.getMessage()));
-      return false;
     }
-
-    return true;
   }
 
   /**
@@ -315,10 +291,8 @@ public final class OutputDirectoryLinksUtils {
    *
    * <p>If {@code logOnly} is true, the {@code ConvenienceSymlink} entry is added but no actual
    * filesystem operations are performed.
-   *
-   * @return true iff there were no filesystem errors.
    */
-  private static boolean removeLink(
+  private static void removeLink(
       Path base,
       String name,
       List<String> failures,
@@ -327,7 +301,7 @@ public final class OutputDirectoryLinksUtils {
     symlinksBuilder.add(
         ConvenienceSymlink.newBuilder().setPath(name).setAction(Action.DELETE).build());
     if (logOnly) {
-      return true;
+      return;
     }
     Path link = base.getRelative(name);
     try {
@@ -338,10 +312,73 @@ public final class OutputDirectoryLinksUtils {
         logger.atFinest().log("Removing %s", link);
         link.delete();
       }
-      return true;
     } catch (IOException e) {
       failures.add(String.format("%s: %s", name, e.getMessage()));
-      return false;
     }
   }
+
+  @SuppressWarnings("deprecation") // RuleContext#get*Directory not available here.
+  private static final ImmutableList<SymlinkDefinition> STANDARD_LINK_DEFINITIONS =
+      ImmutableList.of(
+          new ConfigSymlink("bin", BuildConfiguration::getBinDirectory),
+          new ConfigSymlink("testlogs", BuildConfiguration::getTestLogsDirectory),
+          new ConfigSymlink("genfiles", BuildConfiguration::getGenfilesDirectory) {
+            @Override
+            public ImmutableSet<Path> getLinkPaths(
+                BuildRequestOptions buildRequestOptions,
+                Set<BuildConfiguration> targetConfigs,
+                Function<BuildOptions, BuildConfiguration> configGetter,
+                RepositoryName repositoryName,
+                Path outputPath,
+                Path execRoot) {
+              if (buildRequestOptions.incompatibleSkipGenfilesSymlink) {
+                return ImmutableSet.of();
+              }
+              return super.getLinkPaths(
+                  buildRequestOptions,
+                  targetConfigs,
+                  configGetter,
+                  repositoryName,
+                  outputPath,
+                  execRoot);
+            }
+          },
+          // output directory (bazel-out)
+          new SymlinkDefinition() {
+            @Override
+            public String getLinkName(
+                String symlinkPrefix, String productName, String workspaceBaseName) {
+              return symlinkPrefix + "out";
+            }
+
+            @Override
+            public ImmutableSet<Path> getLinkPaths(
+                BuildRequestOptions buildRequestOptions,
+                Set<BuildConfiguration> targetConfigs,
+                Function<BuildOptions, BuildConfiguration> configGetter,
+                RepositoryName repositoryName,
+                Path outputPath,
+                Path execRoot) {
+              return ImmutableSet.of(outputPath);
+            }
+          },
+          // execroot
+          new SymlinkDefinition() {
+            @Override
+            public String getLinkName(
+                String symlinkPrefix, String productName, String workspaceBaseName) {
+              return symlinkPrefix + workspaceBaseName;
+            }
+
+            @Override
+            public ImmutableSet<Path> getLinkPaths(
+                BuildRequestOptions buildRequestOptions,
+                Set<BuildConfiguration> targetConfigs,
+                Function<BuildOptions, BuildConfiguration> configGetter,
+                RepositoryName repositoryName,
+                Path outputPath,
+                Path execRoot) {
+              return ImmutableSet.of(execRoot);
+            }
+          });
 }

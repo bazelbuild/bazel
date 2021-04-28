@@ -214,8 +214,7 @@ public class RunCommand implements BlazeCommand  {
             env.getWorkspace(),
             requestOptions.printWorkspaceInOutputPathsIfNeeded
                 ? env.getWorkingDirectory()
-                : env.getWorkspace(),
-            requestOptions.experimentalNoProductNameOutSymlink);
+                : env.getWorkspace());
     PathFragment prettyExecutablePath = prettyPrinter.getPrettyPath(executable.getPath());
 
     RunUnder runUnder = env.getOptions().getOptions(CoreOptions.class).runUnder;

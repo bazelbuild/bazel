@@ -229,7 +229,6 @@ public final class CleanCommand implements BlazeCommand {
       CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
-    String workspaceDirectory = env.getWorkspace().getBaseName();
     if (env.getOutputService() != null) {
       try {
         env.getOutputService().clean();
@@ -272,7 +271,7 @@ public final class CleanCommand implements BlazeCommand {
       } catch (IOException e) {
         throw new CleanException(Code.OUTPUT_BASE_DELETE_FAILURE, e);
       }
-    } else if (expunge && async) {
+    } else if (expunge) {
       logger.atInfo().log("Expunging asynchronously...");
       runtime.prepareForAbruptShutdown();
       try {
@@ -308,7 +307,6 @@ public final class CleanCommand implements BlazeCommand {
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
         runtime.getRuleClassProvider().getSymlinkDefinitions(),
-        workspaceDirectory,
         env.getWorkspace(),
         env.getReporter(),
         symlinkPrefix,
