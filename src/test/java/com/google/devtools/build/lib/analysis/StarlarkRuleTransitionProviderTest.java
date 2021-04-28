@@ -1329,7 +1329,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void successfulTypeConversionOfNativeListOptionNone() throws Exception {
+  public void failedTypeConversionOfNativeListOptionNone() throws Exception {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -1355,9 +1355,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "load('//test:rules.bzl', 'my_rule')",
         "my_rule(name = 'test')");
 
-    ConfiguredTarget ct = getConfiguredTarget("//test");
-    assertNoEvents();
-    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).coptList).isEmpty();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("'None' value not allowed for List-type option 'copt'. Please use '[]' instead if trying to set option to empty value.");
   }
 
   @Test
