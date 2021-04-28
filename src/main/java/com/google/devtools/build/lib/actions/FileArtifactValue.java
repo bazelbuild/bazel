@@ -23,7 +23,6 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.BigIntegerFingerprint;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -93,13 +91,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   public abstract FileContentsProxy getContentsProxy();
 
   @Nullable
-  public BigInteger getValueFingerprint() {
-    byte[] digest = getDigest();
-    if (digest != null) {
-      return new BigIntegerFingerprint().addDigestedBytes(digest).getFingerprint();
-    }
+  public byte[] getValueFingerprint() {
     // TODO(janakr): return fingerprint in other cases: symlink, directory.
-    return null;
+    return getDigest();
   }
 
   /**
@@ -359,11 +353,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public BigInteger getValueFingerprint() {
-      BigIntegerFingerprint fp = new BigIntegerFingerprint();
-      fp.addString(getClass().getCanonicalName());
-      fp.addLong(mtime);
-      return fp.getFingerprint();
+    public byte[] getValueFingerprint() {
+      return new Fingerprint()
+          .addString(getClass().getCanonicalName())
+          .addLong(mtime)
+          .digestAndReset();
     }
 
     @Override
@@ -838,6 +832,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   private static final class SingletonMarkerValue extends FileArtifactValue implements Singleton {
+    private static final byte[] FINGERPRINT = new byte[] {0x10};
+
     @Override
     public FileStateType getType() {
       return FileStateType.NONEXISTENT;
@@ -869,10 +865,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return false;
     }
 
-    @Nullable
     @Override
-    public BigInteger getValueFingerprint() {
-      return BigInteger.TEN;
+    public byte[] getValueFingerprint() {
+      return FINGERPRINT;
     }
 
     @Override
@@ -908,7 +903,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+    public boolean wasModifiedSinceDigest(Path path) {
       return false;
     }
 

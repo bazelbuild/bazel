@@ -113,7 +113,6 @@ java_library(
     srcs = [
         "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
-        "BigIntegerFingerprint.java",
         "BigIntegerFingerprintUtils.java",
         "BinaryPredicate.java",
         "CPU.java",
