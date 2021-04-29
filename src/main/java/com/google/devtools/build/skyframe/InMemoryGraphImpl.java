@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
 
-  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap = new ConcurrentHashMap<>(1024);
+  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap;
   private final boolean keepEdges;
 
   @VisibleForTesting
@@ -43,7 +43,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   public InMemoryGraphImpl(boolean keepEdges) {
+    this(keepEdges, /*initialCapacity=*/ 1 << 10);
+  }
+
+  protected InMemoryGraphImpl(boolean keepEdges, int initialCapacity) {
     this.keepEdges = keepEdges;
+    this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
   }
 
   @Override
@@ -118,11 +123,6 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
-    return nodeMap;
-  }
-
-  @VisibleForTesting
-  protected ConcurrentMap<SkyKey, ? extends NodeEntry> getNodeMap() {
     return nodeMap;
   }
 }
