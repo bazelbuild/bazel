@@ -91,8 +91,10 @@ public class WorkRequestHandler implements AutoCloseable {
    * @param messageProcessor Object responsible for parsing {@code WorkRequest}s from the server and
    *     writing {@code WorkResponses} to the server.
    * @param cpuUsageBeforeGc The minimum amount of CPU time between explicit garbage collection
-   *     calls.
+   *     calls. Pass Duration.ZERO to not do explicit garbage collection.
+   * @deprecated Use WorkRequestHandlerBuilder instead.
    */
+  @Deprecated()
   public WorkRequestHandler(
       BiFunction<List<String>, PrintWriter, Integer> callback,
       PrintStream stderr,
@@ -102,6 +104,48 @@ public class WorkRequestHandler implements AutoCloseable {
     this.stderr = stderr;
     this.messageProcessor = messageProcessor;
     this.gcScheduler = new CpuTimeBasedGcScheduler(cpuUsageBeforeGc);
+  }
+
+  /** Builder class for WorkRequestHandler. Required parameters are passed to the constructor. */
+  public static class WorkRequestHandlerBuilder {
+    private final BiFunction<List<String>, PrintWriter, Integer> callback;
+    private final PrintStream stderr;
+    private final WorkerMessageProcessor messageProcessor;
+    private Duration cpuUsageBeforeGc = Duration.ZERO;
+
+    /**
+     * Creates a {@code WorkRequestHandlerBuilder}.
+     *
+     * @param callback Callback method for executing a single WorkRequest in a thread. The first
+     *     argument to {@code callback} is the set of command-line arguments, the second is where
+     *     all error messages and other user-oriented messages should be written to. The callback
+     *     must return an exit code indicating success (zero) or failure (nonzero).
+     * @param stderr Stream that log messages should be written to, typically the process' stderr.
+     * @param messageProcessor Object responsible for parsing {@code WorkRequest}s from the server
+     *     and writing {@code WorkResponses} to the server.
+     */
+    public WorkRequestHandlerBuilder(
+        BiFunction<List<String>, PrintWriter, Integer> callback,
+        PrintStream stderr,
+        WorkerMessageProcessor messageProcessor) {
+      this.callback = callback;
+      this.stderr = stderr;
+      this.messageProcessor = messageProcessor;
+    }
+
+    /**
+     * Sets the minimum amount of CPU time between explicit garbage collection calls. Pass
+     * Duration.ZERO to not do explicit garbage collection (the default).
+     */
+    public WorkRequestHandlerBuilder setCpuUsageBeforeGc(Duration cpuUsageBeforeGc) {
+      this.cpuUsageBeforeGc = cpuUsageBeforeGc;
+      return this;
+    }
+
+    /** Returns a WorkRequestHandler instance with the values in this Builder. */
+    public WorkRequestHandler build() {
+      return new WorkRequestHandler(callback, stderr, messageProcessor, cpuUsageBeforeGc);
+    }
   }
 
   /**
