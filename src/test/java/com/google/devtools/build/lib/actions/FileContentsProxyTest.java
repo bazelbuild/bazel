@@ -11,13 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,17 +27,24 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class FileContentsProxyTest {
   /** A simple implementation of FileStatus for testing. */
-  public static final class InjectedStat implements FileStatus {
+  private static final class InjectedStat implements FileStatus {
     private final long mtime;
     private final long ctime;
     private final long size;
     private final long nodeId;
 
-    public InjectedStat(long mtime, long ctime, long size, long nodeId) {
+    InjectedStat(long mtime, long ctime, long size, long nodeId) {
       this.mtime = mtime;
       this.ctime = ctime;
       this.size = size;
       this.nodeId = nodeId;
+    }
+
+    InjectedStat(long ctime, long nodeId) {
+      this.ctime = ctime;
+      this.nodeId = nodeId;
+      this.mtime = 0;
+      this.size = 0;
     }
 
     @Override
@@ -81,21 +89,25 @@ public class FileContentsProxyTest {
   }
 
   @Test
-  public void equalsAndHashCode() {
+  public void equalsAndHashCode() throws IOException {
     new EqualsTester()
-        .addEqualityGroup(new FileContentsProxy(1L, 2L), new FileContentsProxy(1L, 2L))
-        .addEqualityGroup(new FileContentsProxy(1L, 4L))
-        .addEqualityGroup(new FileContentsProxy(3L, 4L))
-        .addEqualityGroup(new FileContentsProxy(-1L, -1L))
+        .addEqualityGroup(
+            FileContentsProxy.create(new InjectedStat(1L, 2L)),
+            FileContentsProxy.create(new InjectedStat(1L, 2L)))
+        .addEqualityGroup(FileContentsProxy.create(new InjectedStat(1L, 4L)))
+        .addEqualityGroup(FileContentsProxy.create(new InjectedStat(3L, 4L)))
+        .addEqualityGroup(FileContentsProxy.create(new InjectedStat(-1L, -1L)))
         .testEquals();
   }
 
   @Test
-  public void fromStat() throws Exception {
+  public void fingerprint() throws Exception {
     FileContentsProxy p1 =
         FileContentsProxy.create(
             new InjectedStat(/*mtime=*/1, /*ctime=*/2, /*size=*/3, /*nodeId=*/4));
-    assertThat(p1.getCTime()).isEqualTo(2);
-    assertThat(p1.getNodeId()).isEqualTo(4);
+    Fingerprint fingerprint = new Fingerprint();
+    p1.addToFingerprint(fingerprint);
+    assertThat(fingerprint.digestAndReset())
+        .isEqualTo(new Fingerprint().addLong(2L).addLong(4L).digestAndReset());
   }
 }
