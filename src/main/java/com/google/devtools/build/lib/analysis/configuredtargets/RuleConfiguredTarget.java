@@ -240,16 +240,17 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /**
-   * Provide an artifact by its corresponding output label, for use by output file configured
+   * Provides an artifact by its corresponding output label, for use by output file configured
    * targets.
    */
   public Artifact getArtifactByOutputLabel(Label outputLabel) {
     return Preconditions.checkNotNull(
         artifactsByOutputLabel.get(outputLabel),
-        "%s %s %s",
+        "%s %s %s %s",
         outputLabel,
         this,
-        this.artifactsByOutputLabel);
+        this.artifactsByOutputLabel,
+        this.actions);
   }
 
   @Override
