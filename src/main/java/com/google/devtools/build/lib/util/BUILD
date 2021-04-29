@@ -109,6 +109,30 @@ java_library(
 )
 
 java_library(
+    name = "cpu_resource_converter",
+    srcs = [
+        "CpuResourceConverter.java",
+    ],
+    deps = [
+        ":resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "ram_resource_converter",
+    srcs = [
+        "RamResourceConverter.java",
+    ],
+    deps = [
+        ":resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = [
         "AbstractIndexer.java",

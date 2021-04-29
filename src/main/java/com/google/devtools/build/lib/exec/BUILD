@@ -91,9 +91,10 @@ java_library(
     deps = [
         ":regex_filter_assignment_converter",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/per_label_options",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:cpu_resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/util:ram_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
