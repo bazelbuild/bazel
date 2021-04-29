@@ -117,7 +117,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -196,7 +195,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         defaultBuildOptions,
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
-        /*nonexistentFileReceiver=*/ null,
         managedDirectoriesKnowledge,
         bugReporter);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
@@ -892,18 +890,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     try {
       progressReceiver.ignoreInvalidations = true;
       Uninterruptibles.callUninterruptibly(
-          new Callable<Void>() {
-            @Override
-            public Void call() throws InterruptedException {
-              EvaluationContext evaluationContext =
-                  EvaluationContext.newBuilder()
-                      .setKeepGoing(false)
-                      .setNumThreads(ResourceUsage.getAvailableProcessors())
-                      .setEventHandler(eventHandler)
-                      .build();
-              getDriver().evaluate(ImmutableList.of(), evaluationContext);
-              return null;
-            }
+          () -> {
+            EvaluationContext evaluationContext =
+                EvaluationContext.newBuilder()
+                    .setKeepGoing(false)
+                    .setNumThreads(ResourceUsage.getAvailableProcessors())
+                    .setEventHandler(eventHandler)
+                    .build();
+            getDriver().evaluate(ImmutableList.of(), evaluationContext);
+            return null;
           });
     } catch (Exception e) {
       throw new IllegalStateException(e);

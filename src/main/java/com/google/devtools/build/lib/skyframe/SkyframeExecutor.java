@@ -162,7 +162,6 @@ import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictExc
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.FileFunction.NonexistentFileReceiver;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.IncrementalityIntent;
@@ -371,7 +370,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private int lastConcurrencyLevel = -1;
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
-  @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
 
   private boolean siblingRepositoryLayout = false;
 
@@ -423,7 +421,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       BuildOptions defaultBuildOptions,
       @Nullable PackageProgressReceiver packageProgress,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
-      @Nullable NonexistentFileReceiver nonexistentFileReceiver,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
       BugReporter bugReporter) {
     // Strictly speaking, these arguments are not required for initialization, but all current
@@ -433,7 +430,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.pkgFactory = pkgFactory;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
-    this.nonexistentFileReceiver = nonexistentFileReceiver;
     this.bugReporter = bugReporter;
     this.pkgFactory.setSyscalls(syscalls);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -507,7 +503,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
-    map.put(FileValue.FILE, new FileFunction(pkgLocator, nonexistentFileReceiver));
+    map.put(FileValue.FILE, new FileFunction(pkgLocator));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,

@@ -49,26 +49,9 @@ import javax.annotation.Nullable;
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
-  @Nullable private final NonexistentFileReceiver nonexistentFileReceiver;
-
-  /** Temporary interface to help track down why files are missing in some cases. */
-  public interface NonexistentFileReceiver {
-    void accept(
-        RootedPath rootedPath,
-        RootedPath realRootedPath,
-        RootedPath parentRootedPath,
-        FileValue parentFileValue);
-  }
 
   public FileFunction(AtomicReference<PathPackageLocator> pkgLocator) {
-    this(pkgLocator, null);
-  }
-
-  FileFunction(
-      AtomicReference<PathPackageLocator> pkgLocator,
-      @Nullable NonexistentFileReceiver nonexistentFileReceiver) {
     this.pkgLocator = pkgLocator;
-    this.nonexistentFileReceiver = nonexistentFileReceiver;
   }
 
   private static class SymlinkResolutionState {
@@ -168,7 +151,7 @@ public class FileFunction implements SkyFunction {
    * {@code null} if there was a missing dep.
    */
   @Nullable
-  private PartialResolutionResult resolveFromAncestors(
+  private static PartialResolutionResult resolveFromAncestors(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws InterruptedException, FileFunctionException {
     RootedPath parentRootedPath = rootedPath.getParentDirectory();
@@ -178,7 +161,7 @@ public class FileFunction implements SkyFunction {
   }
 
   @Nullable
-  private PartialResolutionResult resolveFromAncestorsWithParent(
+  private static PartialResolutionResult resolveFromAncestorsWithParent(
       RootedPath rootedPath,
       RootedPath parentRootedPath,
       SymlinkResolutionState symlinkResolutionState,
@@ -195,10 +178,6 @@ public class FileFunction implements SkyFunction {
     rootedPathFromAncestors = getChild(parentFileValue.realRootedPath(), baseName);
 
     if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
-      if (nonexistentFileReceiver != null) {
-        nonexistentFileReceiver.accept(
-            rootedPath, rootedPathFromAncestors, parentRootedPath, parentFileValue);
-      }
       return new PartialResolutionResult(
           rootedPathFromAncestors, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
     }
@@ -221,7 +200,7 @@ public class FileFunction implements SkyFunction {
   }
 
   @Nullable
-  private PartialResolutionResult resolveFromAncestorsNoParent(
+  private static PartialResolutionResult resolveFromAncestorsNoParent(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws InterruptedException, FileFunctionException {
     checkAndNotePathSeenDuringPartialResolution(rootedPath, symlinkResolutionState, env);
@@ -278,7 +257,7 @@ public class FileFunction implements SkyFunction {
     return resolveFromAncestors(symlinkTargetRootedPath, symlinkResolutionState, env);
   }
 
-  private void checkAndNotePathSeenDuringPartialResolution(
+  private static void checkAndNotePathSeenDuringPartialResolution(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws FileFunctionException, InterruptedException {
     Path path = rootedPath.asPath();
@@ -287,14 +266,14 @@ public class FileFunction implements SkyFunction {
     symlinkResolutionState.logicalChain.add(rootedPath);
   }
 
-  private void checkPathSeenDuringPartialResolution(
+  private static void checkPathSeenDuringPartialResolution(
       RootedPath rootedPath, SymlinkResolutionState symlinkResolutionState, Environment env)
       throws FileFunctionException, InterruptedException {
     checkPathSeenDuringPartialResolutionInternal(
         rootedPath, rootedPath.asPath(), symlinkResolutionState, env);
   }
 
-  private void checkPathSeenDuringPartialResolutionInternal(
+  private static void checkPathSeenDuringPartialResolutionInternal(
       RootedPath rootedPath,
       Path path,
       SymlinkResolutionState symlinkResolutionState,
@@ -345,8 +324,9 @@ public class FileFunction implements SkyFunction {
                   Iterables.concat(
                       symlinkResolutionState.logicalChain, ImmutableList.of(rootedPath))));
       uniquenessKey = FileSymlinkInfiniteExpansionUniquenessFunction.key(pathAndChain.getSecond());
-      fse = new FileSymlinkInfiniteExpansionException(
-          pathAndChain.getFirst(), pathAndChain.getSecond());
+      fse =
+          new FileSymlinkInfiniteExpansionException(
+              pathAndChain.getFirst(), pathAndChain.getSecond());
     } else if (seenCeilingPath != null && seenCeilingPath.startsWith(path)) {
       // 'rootedPath' is [transitively] a symlink to an ancestor of a previous element in the
       // symlink chain (iii).
@@ -374,13 +354,8 @@ public class FileFunction implements SkyFunction {
     }
   }
 
-  private static final Predicate<RootedPath> isPathPredicate(final Path path) {
-    return new Predicate<RootedPath>() {
-      @Override
-      public boolean apply(RootedPath rootedPath) {
-        return rootedPath.asPath().equals(path);
-      }
-    };
+  private static Predicate<RootedPath> isPathPredicate(Path path) {
+    return rootedPath -> rootedPath.asPath().equals(path);
   }
 
   @Nullable
@@ -390,11 +365,11 @@ public class FileFunction implements SkyFunction {
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link FileFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * FileFunction#compute}.
    */
   private static final class FileFunctionException extends SkyFunctionException {
-    public FileFunctionException(IOException e, Transience transience) {
+    FileFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }
   }
