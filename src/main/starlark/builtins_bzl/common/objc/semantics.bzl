@@ -12,19 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Exported builtins symbols that are not specific to OSS Bazel."""
+"""Semantics for Bazel Objc rules"""
 
-load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
-load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
+def _get_semantics():
+    return _builtins.internal.bazel_objc_internal.semantics
 
-exported_toplevels = {
-    # This dummy symbol is not part of the public API; it is only used to test
-    # that builtins injection is working properly. Its built-in value is
-    # "original value".
-    "_builtins_dummy": "overridden value",
-}
-exported_rules = {
-    "-objc_import": objc_import,
-    "-objc_library": objc_library,
-}
-exported_to_java = {}
+def _get_repo():
+    return "bazel_tools"
+
+semantics = struct(
+    get_semantics = _get_semantics,
+    get_repo = _get_repo,
+)
