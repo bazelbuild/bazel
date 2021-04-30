@@ -291,11 +291,17 @@ Package path elements may be specified in three formats:
   which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel. Also be
   aware that setting Bazel's <code class='flag'>--strip</code> flag will override
   <code class='flag'>--linkopt=-Wl,--strip-all</code>, so you should only set one or the other.
+
+  If you are only building a single binary and want all symbols stripped, you could also
+  pass <code class='flag'>--stripopt=--strip-all</code> and explicitly build the
+  <code>//foo:bar.stripped</code> version of the target. As described in the section on
+  <code class='flag'>--stripopt</code>, this applies a strip action after the final binary is
+  linked rather than including stripping in all of the build's link actions.
 </p>
 
 <h4 id='flag--stripopt'><code class='flag'>--stripopt=<var>strip-option</var></code></h4>
 <p>
-  An additional option to pass to the <code>strip</code> command when generating
+  This is an additional option to pass to the <code>strip</code> command when generating
   a <a href="be/c-cpp.html#cc_binary_implicit_outputs"><code>*.stripped</code>
   binary</a>. The default is <code>-S -p</code>. This option can be used
   multiple times.
