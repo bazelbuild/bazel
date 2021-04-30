@@ -21,7 +21,6 @@ from __future__ import print_function
 import gzip
 import io
 import os
-import subprocess
 import tarfile
 import six
 
@@ -46,7 +45,7 @@ class TarFileWriter(object):
 
     Args:
       name: the tar file name.
-      compression: compression type: bzip2, bz2, gz, tgz, xz, lzma.
+      compression: compression type: bzip2, bz2, gz, tgz.
       root_directory: virtual root to prepend to elements in the archive.
       default_mtime: default mtime to use for elements in the archive.
           May be an integer or the value 'portable' to use the date
@@ -58,8 +57,6 @@ class TarFileWriter(object):
     else:
       mode = 'w:'
     self.gz = compression in ['tgz', 'gz']
-    # Support xz compression through xz... until we can use Py3
-    self.xz = compression in ['xz', 'lzma']
     self.name = name
     self.root_directory = six.ensure_str(root_directory).rstrip('/')
 
@@ -283,36 +280,16 @@ class TarFileWriter(object):
       compression = 'gz'
     elif compression == 'bzip2':
       compression = 'bz2'
-    elif compression == 'lzma':
-      compression = 'xz'
-    elif compression not in ['gz', 'bz2', 'xz']:
+    elif compression not in ['gz', 'bz2']:
       compression = ''
-    if compression == 'xz':
-      # Python 2 does not support lzma, our py3 support is terrible so let's
-      # just hack around.
-      # Note that we buffer the file in memory and it can have an important
-      # memory footprint but it's probably fine as we don't use them for really
-      # large files.
-      # TODO(dmarting): once our py3 support gets better, compile this tools
-      # with py3 for proper lzma support.
-      if subprocess.call('which xzcat', shell=True, stdout=subprocess.PIPE):
-        raise self.Error('Cannot handle .xz and .lzma compression: '
-                         'xzcat not found.')
-      p = subprocess.Popen('cat %s | xzcat' % tar,
-                           shell=True,
-                           stdout=subprocess.PIPE)
-      f = io.BytesIO(p.stdout.read())
-      p.wait()
-      intar = tarfile.open(fileobj=f, mode='r:')
+    if compression in ['gz', 'bz2']:
+      # prevent performance issues due to accidentally-introduced seeks
+      # during intar traversal by opening in "streaming" mode. gz, bz2
+      # are supported natively by python 2.7 and 3.x
+      inmode = 'r|' + six.ensure_str(compression)
     else:
-      if compression in ['gz', 'bz2']:
-        # prevent performance issues due to accidentally-introduced seeks
-        # during intar traversal by opening in "streaming" mode. gz, bz2
-        # are supported natively by python 2.7 and 3.x
-        inmode = 'r|' + six.ensure_str(compression)
-      else:
-        inmode = 'r:' + six.ensure_str(compression)
-      intar = tarfile.open(name=tar, mode=inmode)
+      inmode = 'r:' + six.ensure_str(compression)
+    intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if name_filter is None or name_filter(tarinfo.name):
         if not self.preserve_mtime:
@@ -370,12 +347,3 @@ class TarFileWriter(object):
     # Close the gzip file object if necessary.
     if self.fileobj:
       self.fileobj.close()
-    if self.xz:
-      # Support xz compression through xz... until we can use Py3
-      if subprocess.call('which xz', shell=True, stdout=subprocess.PIPE):
-        raise self.Error('Cannot handle .xz and .lzma compression: '
-                         'xz not found.')
-      subprocess.call(
-          'mv {0} {0}.d && xz -z {0}.d && mv {0}.d.xz {0}'.format(self.name),
-          shell=True,
-          stdout=subprocess.PIPE)

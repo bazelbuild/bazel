@@ -23,9 +23,6 @@ import os.path
 import tarfile
 import unittest
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
-import six
-
 from tools.build_defs.pkg import archive
 from tools.build_defs.pkg import testenv
 
@@ -83,13 +80,13 @@ class TarFileWriterTest(unittest.TestCase):
   def assertSimpleFileContent(self, names):
     with archive.TarFileWriter(self.tempfile) as f:
       for n in names:
-        f.add_file(n, content=n)
+        f.add_file(n, content=n.encode("utf-8"))
     content = ([{
         "name": "."
     }] + [{
         "name": n,
-        "size": len(six.ensure_binary(n, "utf-8")),
-        "data": six.ensure_binary(n, "utf-8")
+        "size": len(n.encode("utf-8")),
+        "data": n.encode("utf-8")
     } for n in names])
     self.assertTarFileContent(self.tempfile, content)
 
@@ -170,7 +167,7 @@ class TarFileWriterTest(unittest.TestCase):
         {"name": "./a", "data": b"a"},
         {"name": "./ab", "data": b"ab"},
         ]
-    for ext in ["", ".gz", ".bz2", ".xz"]:
+    for ext in ["", ".gz", ".bz2"]:
       with archive.TarFileWriter(self.tempfile) as f:
         f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar" + ext),
                   name_filter=lambda n: n != "./b")

@@ -42,10 +42,8 @@ py_test(
     ],
     data = [":archive_testdata"],
     python_version = "PY3",
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     tags = [
-        # archive.py requires xzcat, which is not available by default on Mac
-        "noci",
         # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
         "no_windows",
     ],
@@ -56,7 +54,8 @@ py_test(
     name = "path_test",
     srcs = ["path_test.py"],
     data = ["path.bzl"],
-    srcs_version = "PY2AND3",
+    python_version = "PY3",
+    srcs_version = "PY3",
 )
 
 py_binary(
@@ -103,7 +102,6 @@ genrule(
     "",
     ".gz",
     ".bz2",
-    ".xz",  # This will breaks if xzcat is not installed
 ]]
 
 [pkg_tar(
@@ -114,7 +112,6 @@ genrule(
     "",
     "gz",
     "bz2",
-    "xz",
 ]]
 
 pkg_tar(
@@ -207,18 +204,13 @@ sh_test(
         ":test-tar-inclusion-.tar",
         ":test-tar-inclusion-bz2.tar",
         ":test-tar-inclusion-gz.tar",
-        ":test-tar-inclusion-xz.tar",
         ":test-tar-mtime.tar",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",
         ":test-tar-strip_prefix-none.tar",
-        ":test-tar-xz.tar.xz",
-        ":titi_test_all.changes",
     ],
     tags = [
-        # archive.py requires xzcat, which is not available by default on Mac
-        "noci",
         # TODO(laszlocsomor): fix on Windows or describe why it cannot pass.
         "no_windows",
     ],
