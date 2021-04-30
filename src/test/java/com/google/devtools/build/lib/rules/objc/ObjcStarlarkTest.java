@@ -687,14 +687,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   ios_simulator_device = ctx.fragments.objc.ios_simulator_device",
         "   ios_simulator_version = ctx.fragments.objc.ios_simulator_version",
         "   signing_certificate_name = ctx.fragments.objc.signing_certificate_name",
-        "   generate_dsym = ctx.fragments.objc.generate_dsym",
         "   return MyInfo(",
         "      copts=copts,",
         "      compilation_mode_copts=compilation_mode_copts,",
         "      ios_simulator_device=ios_simulator_device,",
         "      ios_simulator_version=str(ios_simulator_version),",
         "      signing_certificate_name=signing_certificate_name,",
-        "      generate_dsym=generate_dsym,",
         "   )",
         "swift_binary = rule(",
         "implementation = swift_binary_impl,",
@@ -715,8 +713,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "--objccopt=-DTestObjcCopt",
         "--ios_simulator_device='iPhone 6'",
         "--ios_simulator_version=8.4",
-        "--ios_signing_cert_name='Apple Developer'",
-        "--apple_generate_dsym");
+        "--ios_signing_cert_name='Apple Developer'");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
@@ -727,14 +724,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     Object iosSimulatorDevice = myInfo.getValue("ios_simulator_device");
     Object iosSimulatorVersion = myInfo.getValue("ios_simulator_version");
     Object signingCertificateName = myInfo.getValue("signing_certificate_name");
-    Boolean generateDsym = (Boolean) myInfo.getValue("generate_dsym");
 
     assertThat(copts).contains("-DTestObjcCopt");
     assertThat(compilationModeCopts).containsExactlyElementsIn(ObjcConfiguration.OPT_COPTS);
     assertThat(iosSimulatorDevice).isEqualTo("'iPhone 6'");
     assertThat(iosSimulatorVersion).isEqualTo("8.4");
     assertThat(signingCertificateName).isEqualTo("'Apple Developer'");
-    assertThat(generateDsym).isTrue();
   }
 
   @Test

@@ -53,7 +53,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final String watchosSimulatorDevice;
   private final DottedVersion tvosSimulatorVersion;
   private final String tvosSimulatorDevice;
-  private final boolean generateDsym;
   private final boolean generateLinkmap;
   private final boolean runMemleaks;
   private final ImmutableList<String> copts;
@@ -69,7 +68,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
-    CppOptions cppOptions = buildOptions.get(CppOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
@@ -82,9 +80,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
-    this.generateDsym =
-        cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && this.compilationMode == CompilationMode.DBG);
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.signingCertName = objcOptions.iosSigningCertName;
@@ -139,14 +134,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
         throw new IllegalArgumentException(
             "ApplePlatform type " + platformType + " does not support " + "simulators.");
     }
-  }
-
-  /**
-   * Returns whether dSYM generation is enabled.
-   */
-  @Override
-  public boolean generateDsym() {
-    return generateDsym;
   }
 
   /**
