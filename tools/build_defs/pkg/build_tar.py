@@ -16,9 +16,7 @@
 
 import json
 import os
-import os.path
 import tarfile
-import tempfile
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
@@ -31,9 +29,6 @@ flags.mark_flag_as_required('output')
 
 flags.DEFINE_multi_string('file', [], 'A file to add to the layer')
 
-flags.DEFINE_string('manifest', None,
-                    'JSON manifest of contents to add to the layer')
-
 flags.DEFINE_string('mode', None,
                     'Force the mode on the added files (in octal).')
 
@@ -42,16 +37,10 @@ flags.DEFINE_string(
     ' value "portable", to get the value 2000-01-01, which is'
     ' is usable with non *nix OSes')
 
-flags.DEFINE_multi_string('empty_file', [], 'An empty file to add to the layer')
-
-flags.DEFINE_multi_string('empty_dir', [], 'An empty dir to add to the layer')
-
 flags.DEFINE_multi_string('empty_root_dir', [],
                           'An empty dir to add to the layer')
 
 flags.DEFINE_multi_string('tar', [], 'A tar file to add to the layer')
-
-flags.DEFINE_multi_string('deb', [], 'A debian package to add to the layer')
 
 flags.DEFINE_multi_string(
     'link', [],
@@ -238,31 +227,6 @@ class TarFile(object):
     symlink = os.path.normpath(symlink)
     self.tarfile.add_file(symlink, tarfile.SYMTYPE, link=destination)
 
-  def add_deb(self, deb):
-    """Extract a debian package in the output tar.
-
-    All files presents in that debian package will be added to the
-    output tar under the same paths. No user name nor group names will
-    be added to the output.
-
-    Args:
-      deb: the tar file to add
-
-    Raises:
-      DebError: if the format of the deb archive is incorrect.
-    """
-    with archive.SimpleArFile(deb) as arfile:
-      current = arfile.next()
-      while current and not current.filename.startswith('data.'):
-        current = arfile.next()
-      if not current:
-        raise self.DebError(deb + ' does not contains a data file!')
-      tmpfile = tempfile.mkstemp(suffix=os.path.splitext(current.filename)[-1])
-      with open(tmpfile[1], 'wb') as f:
-        f.write(current.data)
-      self.add_tar(tmpfile[1])
-      os.remove(tmpfile[1])
-
 
 def unquote_and_split(arg, c):
   """Split a string at the first unquoted occurrence of a character.
@@ -350,37 +314,13 @@ def main(unused_argv):
           'names': names_map.get(filename, default_ownername),
       }
 
-    if FLAGS.manifest:
-      with open(FLAGS.manifest, 'r') as manifest_fp:
-        manifest = json.load(manifest_fp)
-        for f in manifest.get('files', []):
-          output.add_file(f['src'], f['dst'], **file_attributes(f['dst']))
-        for f in manifest.get('empty_files', []):
-          output.add_empty_file(f, **file_attributes(f))
-        for d in manifest.get('empty_dirs', []):
-          output.add_empty_dir(d, **file_attributes(d))
-        for d in manifest.get('empty_root_dirs', []):
-          output.add_empty_root_dir(d, **file_attributes(d))
-        for f in manifest.get('symlinks', []):
-          output.add_link(f['linkname'], f['target'])
-        for tar in manifest.get('tars', []):
-          output.add_tar(tar)
-        for deb in manifest.get('debs', []):
-          output.add_deb(deb)
-
     for f in FLAGS.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof, **file_attributes(tof))
-    for f in FLAGS.empty_file:
-      output.add_empty_file(f, **file_attributes(f))
-    for f in FLAGS.empty_dir:
-      output.add_empty_dir(f, **file_attributes(f))
     for f in FLAGS.empty_root_dir:
       output.add_empty_root_dir(f, **file_attributes(f))
     for tar in FLAGS.tar:
       output.add_tar(tar)
-    for deb in FLAGS.deb:
-      output.add_deb(deb)
     for link in FLAGS.link:
       l = unquote_and_split(link, ':')
       output.add_link(l[0], l[1])

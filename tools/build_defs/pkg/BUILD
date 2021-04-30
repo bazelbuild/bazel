@@ -25,7 +25,7 @@ exports_files(
 py_library(
     name = "archive",
     srcs = ["archive.py"],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
 )
 
@@ -62,7 +62,7 @@ py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
     python_version = "PY3",
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
@@ -158,26 +158,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "test-tar-empty_files",
-    build_tar = ":build_tar",
-    empty_files = [
-        "/a",
-        "/b",
-    ],
-    mode = "0o777",
-)
-
-pkg_tar(
-    name = "test-tar-empty_dirs",
-    build_tar = ":build_tar",
-    empty_dirs = [
-        "/tmp",
-        "/pmt",
-    ],
-    mode = "0o777",
-)
-
-pkg_tar(
     name = "test-tar-mtime",
     srcs = [
         ":etc/nsswitch.conf",
@@ -197,8 +177,6 @@ sh_test(
         "testenv.sh",
         ":test-tar-.tar",
         ":test-tar-bz2.tar.bz2",
-        ":test-tar-empty_dirs.tar",
-        ":test-tar-empty_files.tar",
         ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
         ":test-tar-inclusion-.tar",
