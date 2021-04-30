@@ -1,6 +1,0 @@
-Template: titi/test
-Type: string
-Default:
-Description: test question
- test question to check that templates are included into
- debian directory
