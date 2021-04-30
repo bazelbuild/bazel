@@ -82,40 +82,39 @@ public abstract class AspectValueKey implements ActionLookupKey {
       @Nullable BuildConfiguration targetConfiguration,
       Label starlarkFileLabel,
       String starlarkExportName) {
-    StarlarkAspectLoadingKey key =
-        new StarlarkAspectLoadingKey(
-            targetLabel,
-            aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration),
-            ConfiguredTargetKey.builder()
-                .setLabel(targetLabel)
-                .setConfiguration(targetConfiguration)
-                .build(),
-            starlarkFileLabel,
-            starlarkExportName);
-
-    return starlarkAspectKeyInterner.intern(key);
+    return StarlarkAspectLoadingKey.createInternal(
+        targetLabel,
+        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration),
+        ConfiguredTargetKey.builder()
+            .setLabel(targetLabel)
+            .setConfiguration(targetConfiguration)
+            .build(),
+        starlarkFileLabel,
+        starlarkExportName);
   }
 
   // Specific subtypes of aspect keys.
 
-  /** A base class for a key representing an aspect applied to a particular target. */
+  /** Represents an aspect applied to a particular target. */
   @AutoCodec
-  public static class AspectKey extends AspectValueKey {
+  public static final class AspectKey extends AspectValueKey {
+    private final ConfiguredTargetKey baseConfiguredTargetKey;
     private final ImmutableList<AspectKey> baseKeys;
     @Nullable private final BuildConfigurationValue.Key aspectConfigurationKey;
-    private final ConfiguredTargetKey baseConfiguredTargetKey;
     private final AspectDescriptor aspectDescriptor;
-    private int hashCode;
+    private final int hashCode;
 
     private AspectKey(
-        @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
         ConfiguredTargetKey baseConfiguredTargetKey,
         ImmutableList<AspectKey> baseKeys,
-        AspectDescriptor aspectDescriptor) {
+        AspectDescriptor aspectDescriptor,
+        @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
+        int hashCode) {
       this.baseKeys = baseKeys;
       this.aspectConfigurationKey = aspectConfigurationKey;
       this.baseConfiguredTargetKey = baseConfiguredTargetKey;
       this.aspectDescriptor = aspectDescriptor;
+      this.hashCode = hashCode;
     }
 
     @AutoCodec.VisibleForSerialization
@@ -127,7 +126,12 @@ public abstract class AspectValueKey implements ActionLookupKey {
         @Nullable BuildConfigurationValue.Key aspectConfigurationKey) {
       return aspectKeyInterner.intern(
           new AspectKey(
-              aspectConfigurationKey, baseConfiguredTargetKey, baseKeys, aspectDescriptor));
+              baseConfiguredTargetKey,
+              baseKeys,
+              aspectDescriptor,
+              aspectConfigurationKey,
+              Objects.hashCode(
+                  baseConfiguredTargetKey, baseKeys, aspectDescriptor, aspectConfigurationKey)));
     }
 
     @Override
@@ -169,8 +173,8 @@ public abstract class AspectValueKey implements ActionLookupKey {
         return String.format("%s of %s",
             aspectDescriptor.getAspectClass().getName(), getLabel());
       } else {
-        return String.format("%s on top of %s",
-            aspectDescriptor.getAspectClass().getName(), baseKeys.toString());
+        return String.format(
+            "%s on top of %s", aspectDescriptor.getAspectClass().getName(), baseKeys);
       }
     }
 
@@ -205,33 +209,7 @@ public abstract class AspectValueKey implements ActionLookupKey {
 
     @Override
     public int hashCode() {
-      // We use the hash code caching strategy employed by java.lang.String. There are three subtle
-      // things going on here:
-      //
-      // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
-      // Yes, this means that if the hash code is really 0 then we will "recompute" it each time.
-      // But this isn't a problem in practice since a hash code of 0 should be rare.
-      //
-      // (2) Since we have no synchronization, multiple threads can race here thinking there are the
-      // first one to compute and cache the hash code.
-      //
-      // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
-      // thread may not be visible by another.
-      //
-      // All three of these issues are benign from a correctness perspective; in the end we have no
-      // overhead from synchronization, at the cost of potentially computing the hash code more than
-      // once.
-      int h = hashCode;
-      if (h == 0) {
-        h = computeHashCode();
-        hashCode = h;
-      }
-      return h;
-    }
-
-    private int computeHashCode() {
-      return Objects.hashCode(
-          baseKeys, aspectConfigurationKey, baseConfiguredTargetKey, aspectDescriptor);
+      return hashCode;
     }
 
     @Override
@@ -239,13 +217,12 @@ public abstract class AspectValueKey implements ActionLookupKey {
       if (this == other) {
         return true;
       }
-
       if (!(other instanceof AspectKey)) {
         return false;
       }
-
       AspectKey that = (AspectKey) other;
-      return Objects.equal(baseKeys, that.baseKeys)
+      return hashCode == that.hashCode
+          && Objects.equal(baseKeys, that.baseKeys)
           && Objects.equal(aspectConfigurationKey, that.aspectConfigurationKey)
           && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
           && Objects.equal(aspectDescriptor, that.aspectDescriptor);
@@ -256,10 +233,7 @@ public abstract class AspectValueKey implements ActionLookupKey {
         return "null";
       }
 
-      String baseKeysString =
-          baseKeys.isEmpty()
-          ? ""
-          : String.format(" (over %s)", baseKeys.toString());
+      String baseKeysString = baseKeys.isEmpty() ? "" : String.format(" (over %s)", baseKeys);
       return String.format(
           "%s with aspect %s%s",
           getLabel(), aspectDescriptor.getAspectClass().getName(), baseKeysString);
@@ -296,26 +270,51 @@ public abstract class AspectValueKey implements ActionLookupKey {
   }
 
   /** The key for a Starlark aspect. */
-  public static class StarlarkAspectLoadingKey extends AspectValueKey {
-
+  @AutoCodec
+  public static final class StarlarkAspectLoadingKey extends AspectValueKey {
     private final Label targetLabel;
     private final BuildConfigurationValue.Key aspectConfigurationKey;
     private final ConfiguredTargetKey baseConfiguredTargetKey;
     private final Label starlarkFileLabel;
     private final String starlarkValueName;
-    private int hashCode;
+    private final int hashCode;
+
+    @AutoCodec.Instantiator
+    @AutoCodec.VisibleForSerialization
+    static StarlarkAspectLoadingKey createInternal(
+        Label targetLabel,
+        BuildConfigurationValue.Key aspectConfigurationKey,
+        ConfiguredTargetKey baseConfiguredTargetKey,
+        Label starlarkFileLabel,
+        String starlarkValueName) {
+      return starlarkAspectKeyInterner.intern(
+          new StarlarkAspectLoadingKey(
+              targetLabel,
+              aspectConfigurationKey,
+              baseConfiguredTargetKey,
+              starlarkFileLabel,
+              starlarkValueName,
+              Objects.hashCode(
+                  targetLabel,
+                  aspectConfigurationKey,
+                  baseConfiguredTargetKey,
+                  starlarkFileLabel,
+                  starlarkValueName)));
+    }
 
     private StarlarkAspectLoadingKey(
         Label targetLabel,
         BuildConfigurationValue.Key aspectConfigurationKey,
         ConfiguredTargetKey baseConfiguredTargetKey,
         Label starlarkFileLabel,
-        String starlarkFunctionName) {
+        String starlarkValueName,
+        int hashCode) {
       this.targetLabel = targetLabel;
       this.aspectConfigurationKey = aspectConfigurationKey;
       this.baseConfiguredTargetKey = baseConfiguredTargetKey;
       this.starlarkFileLabel = starlarkFileLabel;
-      this.starlarkValueName = starlarkFunctionName;
+      this.starlarkValueName = starlarkValueName;
+      this.hashCode = hashCode;
     }
 
     @Override
@@ -361,37 +360,7 @@ public abstract class AspectValueKey implements ActionLookupKey {
 
     @Override
     public int hashCode() {
-      // We use the hash code caching strategy employed by java.lang.String. There are three subtle
-      // things going on here:
-      //
-      // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
-      // Yes, this means that if the hash code is really 0 then we will "recompute" it each time.
-      // But this isn't a problem in practice since a hash code of 0 should be rare.
-      //
-      // (2) Since we have no synchronization, multiple threads can race here thinking there are the
-      // first one to compute and cache the hash code.
-      //
-      // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
-      // thread may not be visible by another.
-      //
-      // All three of these issues are benign from a correctness perspective; in the end we have no
-      // overhead from synchronization, at the cost of potentially computing the hash code more than
-      // once.
-      int h = hashCode;
-      if (h == 0) {
-        h = computeHashCode();
-        hashCode = h;
-      }
-      return h;
-    }
-
-    private int computeHashCode() {
-      return Objects.hashCode(
-          targetLabel,
-          aspectConfigurationKey,
-          baseConfiguredTargetKey,
-          starlarkFileLabel,
-          starlarkValueName);
+      return hashCode;
     }
 
     @Override
@@ -399,12 +368,12 @@ public abstract class AspectValueKey implements ActionLookupKey {
       if (o == this) {
         return true;
       }
-
       if (!(o instanceof StarlarkAspectLoadingKey)) {
         return false;
       }
       StarlarkAspectLoadingKey that = (StarlarkAspectLoadingKey) o;
-      return Objects.equal(targetLabel, that.targetLabel)
+      return hashCode == that.hashCode
+          && Objects.equal(targetLabel, that.targetLabel)
           && Objects.equal(aspectConfigurationKey, that.aspectConfigurationKey)
           && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
           && Objects.equal(starlarkFileLabel, that.starlarkFileLabel)
