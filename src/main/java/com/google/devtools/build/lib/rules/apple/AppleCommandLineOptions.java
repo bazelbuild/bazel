@@ -480,6 +480,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // be needed.
     host.applePlatformType = PlatformType.MACOS;
     host.configurationDistinguisher = ConfigurationDistinguisher.UNKNOWN;
+    // Preseve Xcode selection preferences so that the same Xcode version is used throughout the
+    // build.
+    host.preferMutualXcode = preferMutualXcode;
 
     return host;
   }
