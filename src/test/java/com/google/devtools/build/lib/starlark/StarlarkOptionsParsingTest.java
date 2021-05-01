@@ -214,6 +214,18 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getResidue()).isEmpty();
   }
 
+  // test --no@main_workspace//:bool_flag
+  @Test
+  public void testNoPrefixedBooleanFlag_withWorkspace() throws Exception {
+    writeBasicBoolFlag();
+
+    OptionsParsingResult result = parseStarlarkOptions("--no@//test:my_bool_setting");
+
+    assertThat(result.getStarlarkOptions()).hasSize(1);
+    assertThat(result.getStarlarkOptions().get("//test:my_bool_setting")).isEqualTo(false);
+    assertThat(result.getResidue()).isEmpty();
+  }
+
   // test --noint_flag
   @Test
   public void testNoPrefixedNonBooleanFlag() throws Exception {
