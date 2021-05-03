@@ -389,7 +389,8 @@ public class BuildView {
               keepGoing,
               loadingPhaseThreads,
               viewOptions.strictConflictChecks,
-              checkForActionConflicts);
+              checkForActionConflicts,
+              viewOptions.cpuHeavySkyKeysThreadPoolSize);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedActionLookupKeys();

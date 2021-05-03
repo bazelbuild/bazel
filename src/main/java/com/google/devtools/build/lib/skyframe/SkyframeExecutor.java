@@ -2317,7 +2317,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       List<ConfiguredTargetKey> values,
       List<AspectValueKey> aspectKeys,
       boolean keepGoing,
-      int numThreads)
+      int numThreads,
+      int cpuHeavySkyKeysThreadPoolSize)
       throws InterruptedException {
     checkActive();
 
@@ -2328,6 +2329,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setNumThreads(numThreads)
             .setExecutorServiceSupplier(
                 () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
+            .setCPUHeavySkyKeysThreadPoolSize(cpuHeavySkyKeysThreadPoolSize)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<ActionLookupValue> result =

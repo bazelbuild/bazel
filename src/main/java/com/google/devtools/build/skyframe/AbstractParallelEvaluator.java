@@ -28,6 +28,8 @@ import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.DualExecutorQueueVisitor;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -90,8 +92,56 @@ abstract class AbstractParallelEvaluator {
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
       EvaluationVersionBehavior evaluationVersionBehavior) {
+    this(
+        graph,
+        graphVersion,
+        skyFunctions,
+        reporter,
+        emittedEventState,
+        storedEventFilter,
+        errorInfoManager,
+        keepGoing,
+        progressReceiver,
+        graphInconsistencyReceiver,
+        executorService,
+        cycleDetector,
+        evaluationVersionBehavior,
+        /*cpuHeavySkyKeysThreadPoolSize=*/ 0);
+  }
+
+  AbstractParallelEvaluator(
+      ProcessableGraph graph,
+      Version graphVersion,
+      ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
+      final ExtendedEventHandler reporter,
+      EmittedEventState emittedEventState,
+      EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
+      boolean keepGoing,
+      DirtyTrackingProgressReceiver progressReceiver,
+      GraphInconsistencyReceiver graphInconsistencyReceiver,
+      Supplier<ExecutorService> executorService,
+      CycleDetector cycleDetector,
+      EvaluationVersionBehavior evaluationVersionBehavior,
+      int cpuHeavySkyKeysThreadPoolSize) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
+    Supplier<QuiescingExecutor> quiescingExecutorSupplier =
+        cpuHeavySkyKeysThreadPoolSize > 0
+            ? () ->
+                DualExecutorQueueVisitor.createWithExecutorServices(
+                    executorService.get(),
+                    AbstractQueueVisitor.createExecutorService(
+                        /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
+                        "skyframe-evaluator-cpu-heavy",
+                        /*useForkJoinPool=*/ false), // FJP resulted in a small regression.
+                    /*failFastOnException=*/ true,
+                    NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER)
+            : () ->
+                AbstractQueueVisitor.createWithExecutorService(
+                    executorService.get(),
+                    /*failFastOnException=*/ true,
+                    NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
     evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
@@ -106,10 +156,7 @@ abstract class AbstractParallelEvaluator {
             graphInconsistencyReceiver,
             () ->
                 new NodeEntryVisitor(
-                    AbstractQueueVisitor.createWithExecutorService(
-                        executorService.get(),
-                        /*failFastOnException=*/ true,
-                        NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER),
+                    quiescingExecutorSupplier.get(),
                     progressReceiver,
                     (skyKey, evaluationPriority) -> new Evaluate(evaluationPriority, skyKey)),
             evaluationVersionBehavior);

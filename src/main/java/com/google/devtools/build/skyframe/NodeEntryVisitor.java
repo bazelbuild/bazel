@@ -19,6 +19,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.RunnableMaker;
 import java.util.Collection;
@@ -97,7 +99,14 @@ class NodeEntryVisitor {
       return;
     }
     progressReceiver.enqueueing(key);
-    quiescingExecutor.execute(runnableMaker.make(key, evaluationPriority));
+    if (quiescingExecutor instanceof MultiThreadPoolsQuiescingExecutor) {
+      ThreadPoolType threadPoolType =
+          key instanceof CPUHeavySkyKey ? ThreadPoolType.CPU_HEAVY : ThreadPoolType.REGULAR;
+      ((MultiThreadPoolsQuiescingExecutor) quiescingExecutor)
+          .execute(runnableMaker.make(key, evaluationPriority), threadPoolType);
+    } else {
+      quiescingExecutor.execute(runnableMaker.make(key, evaluationPriority));
+    }
   }
 
   /**

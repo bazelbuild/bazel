@@ -243,7 +243,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         /*usingPriorityQueue=*/ false);
   }
 
-  private AbstractQueueVisitor(
+  protected AbstractQueueVisitor(
       ExecutorService executorService,
       boolean shutdownOnCompletion,
       boolean failFastOnException,
@@ -278,6 +278,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   /** Schedules a call. Called in a worker thread. */
   @Override
   public final void execute(Runnable runnable) {
+    executeWithExecutorService(runnable, executorService);
+  }
+
+  protected void executeWithExecutorService(Runnable runnable, ExecutorService executorService) {
     if (usingPriorityQueue) {
       Preconditions.checkState(runnable instanceof Comparable);
     }
@@ -290,7 +294,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       Preconditions.checkState(
           tasks > 0,
           "Incrementing remaining tasks counter resulted in impossible non-positive number.");
-      executeRunnable(wrappedRunnable);
+      executeWrappedRunnable(wrappedRunnable, executorService);
     } catch (Throwable e) {
       if (!wrappedRunnable.ran) {
         // Note that keeping track of ranTask is necessary to disambiguate the case where
@@ -302,7 +306,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  protected void executeRunnable(WrappedRunnable runnable) {
+  protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
     executorService.execute(runnable);
   }
 
@@ -476,6 +480,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     return remainingTasks.get();
   }
 
+  protected ExecutorService getExecutorService() {
+    return executorService;
+  }
+
   @Override
   public void dependOnFuture(ListenableFuture<?> future) throws InterruptedException {
     outstandingFuturesLock.readLock().lock();
@@ -575,6 +583,11 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
 
     if (ownExecutorService) {
+      shutdownExecutorService(catastrophe);
+    }
+  }
+
+  protected void shutdownExecutorService(Throwable catastrophe) {
       executorService.shutdown();
       for (; ; ) {
         try {
@@ -585,7 +598,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
           setInterrupted();
         }
       }
-    }
   }
 
   private void interruptInFlightTasks() {

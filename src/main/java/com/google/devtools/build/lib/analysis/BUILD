@@ -471,6 +471,7 @@ java_library(
     srcs = ["AnalysisOptions.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:cpu_resource_converter",
         "//src/main/java/com/google/devtools/common/options",
     ],
 )

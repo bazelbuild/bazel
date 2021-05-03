@@ -32,6 +32,7 @@ java_library(
         exclude = SKYFRAME_OBJECT_SRCS + ["CPUHeavySkyKey.java"],
     ),
     deps = [
+        ":cpu_heavy_skykey",
         ":graph_inconsistency_java_proto",
         ":skyframe-objects",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -67,6 +68,7 @@ java_library(
     name = "cpu_heavy_skykey",
     srcs = ["CPUHeavySkyKey.java"],
     visibility = ["//visibility:public"],
+    deps = ["skyframe-objects"],
 )
 
 proto_library(

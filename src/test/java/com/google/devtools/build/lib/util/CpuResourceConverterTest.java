@@ -11,12 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
+package com.google.devtools.build.lib.util;
 
-/**
- * An empty interface used to annotate whether the evaluation of a SkyKey contributes significantly
- * to the CPU footprint of Skyframe.
- *
- * <p>This is currently only applicable to the loading/analysis phase of Skyframe.
- */
-public interface CPUHeavySkyKey extends SkyKey {}
+import static com.google.common.truth.Truth.assertThat;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Tests for {@link CpuResourceConverter}. */
+@RunWith(JUnit4.class)
+public class CpuResourceConverterTest {
+  @Test
+  public void testConstructor_correctMinAndMaxValues() {
+    CpuResourceConverter cpuResourceConverter = new CpuResourceConverter();
+
+    assertThat(cpuResourceConverter.minValue).isEqualTo(0);
+    assertThat(cpuResourceConverter.maxValue).isEqualTo(Integer.MAX_VALUE);
+  }
+}

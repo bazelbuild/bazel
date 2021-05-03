@@ -386,14 +386,20 @@ public final class SkyframeBuildView {
       boolean keepGoing,
       int numThreads,
       boolean strictConflictChecks,
-      boolean checkForActionConflicts)
+      boolean checkForActionConflicts,
+      int cpuHeavySkyKeysThreadPoolSize)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ActionLookupValue> result;
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
       result =
           skyframeExecutor.configureTargets(
-              eventHandler, ctKeys, aspectKeys, keepGoing, numThreads);
+              eventHandler,
+              ctKeys,
+              aspectKeys,
+              keepGoing,
+              numThreads,
+              cpuHeavySkyKeysThreadPoolSize);
     } finally {
       enableAnalysis(false);
     }

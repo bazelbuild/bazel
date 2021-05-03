@@ -787,6 +787,14 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "skyframe_multiple_thread_pools",
+    srcs = ["skyframe_multiple_thread_pools_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
 ########################################################################
 # Test suites.
 

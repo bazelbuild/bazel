@@ -11,12 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.skyframe;
+package com.google.devtools.build.lib.concurrent;
 
-/**
- * An empty interface used to annotate whether the evaluation of a SkyKey contributes significantly
- * to the CPU footprint of Skyframe.
- *
- * <p>This is currently only applicable to the loading/analysis phase of Skyframe.
- */
-public interface CPUHeavySkyKey extends SkyKey {}
+/** An Executor that can execute tasks in multiple independent thread pools. */
+public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
+  /** The types of thread pools to use. */
+  enum ThreadPoolType {
+    // Suitable for CPU-heavy tasks. Ideally the number of threads is close to the machine's number
+    // of cores.
+    CPU_HEAVY,
+    REGULAR
+  }
+
+  /** Execute the runnable, taking into consideration the preferred thread pool type. */
+  void execute(Runnable runnable, ThreadPoolType threadPoolType);
+}

@@ -28,4 +28,4 @@ import com.google.devtools.build.skyframe.SkyKey;
  * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,
  * while remaining agnostic to what action lookup values actually exist.
  */
-public interface ActionLookupKey extends ArtifactOwner, SkyKey, CPUHeavySkyKey {}
+public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {}
