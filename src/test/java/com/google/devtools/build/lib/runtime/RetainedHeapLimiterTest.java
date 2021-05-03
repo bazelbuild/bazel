@@ -35,11 +35,13 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.common.options.Options;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.MemoryUsage;
 import java.lang.ref.WeakReference;
+import java.util.UUID;
 import javax.management.ListenerNotFoundException;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
@@ -57,6 +59,7 @@ public final class RetainedHeapLimiterTest {
   private final NotificationBean mockBean = mock(NotificationBean.class);
   private final GarbageCollectorMXBean mockUselessBean = mock(GarbageCollectorMXBean.class);
 
+  private final CommonCommandOptions options = Options.getDefaults(CommonCommandOptions.class);
   private final EventCollector events = new EventCollector(EventKind.ALL_EVENTS);
 
   @Before
@@ -79,20 +82,24 @@ public final class RetainedHeapLimiterTest {
         RetainedHeapLimiter.createFromBeans(
             ImmutableList.of(mockUselessBean, mockBean), BugReporter.defaultInstance());
 
-    underTest.update(100, "", events);
+    options.oomMoreEagerlyThreshold = 100;
+    underTest.update(options, UUID.randomUUID(), events);
     verify(mockBean, never()).addNotificationListener(underTest, null, null);
     verify(mockBean, never()).removeNotificationListener(underTest, null, null);
 
-    underTest.update(90, "", events);
+    options.oomMoreEagerlyThreshold = 90;
+    underTest.update(options, UUID.randomUUID(), events);
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockBean, never()).removeNotificationListener(underTest, null, null);
 
-    underTest.update(80, "", events);
+    options.oomMoreEagerlyThreshold = 80;
+    underTest.update(options, UUID.randomUUID(), events);
     // No additional calls.
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockBean, never()).removeNotificationListener(underTest, null, null);
 
-    underTest.update(100, "", events);
+    options.oomMoreEagerlyThreshold = 100;
+    underTest.update(options, UUID.randomUUID(), events);
     verify(mockBean).addNotificationListener(underTest, null, null);
     verify(mockBean).removeNotificationListener(underTest, null, null);
 
@@ -106,11 +113,14 @@ public final class RetainedHeapLimiterTest {
             ImmutableList.of(mockUselessBean), BugReporter.defaultInstance());
     verify(mockUselessBean, times(2)).getMemoryPoolNames();
 
-    underTest.update(100, "", events);
+    options.oomMoreEagerlyThreshold = 100;
+    underTest.update(options, UUID.randomUUID(), events);
     verifyNoMoreInteractions(mockUselessBean);
 
+    options.oomMoreEagerlyThreshold = 80;
     AbruptExitException e =
-        assertThrows(AbruptExitException.class, () -> underTest.update(80, "", events));
+        assertThrows(
+            AbruptExitException.class, () -> underTest.update(options, UUID.randomUUID(), events));
     FailureDetails.FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
     assertThat(failureDetail.getMessage())
         .contains("unable to watch for GC events to exit JVM when 80% of heap is used");
@@ -126,7 +136,8 @@ public final class RetainedHeapLimiterTest {
     RetainedHeapLimiter underTest =
         RetainedHeapLimiter.createFromBeans(
             ImmutableList.of(mockBean), BugReporter.defaultInstance());
-    underTest.update(90, "", events);
+    options.oomMoreEagerlyThreshold = 100;
+    underTest.update(options, UUID.randomUUID(), events);
 
     underTest.handleNotification(percentUsedAfterForcedGc(89), null);
 
@@ -138,7 +149,9 @@ public final class RetainedHeapLimiterTest {
     RetainedHeapLimiter underTest =
         RetainedHeapLimiter.createFromBeans(
             ImmutableList.of(mockBean), BugReporter.defaultInstance());
-    underTest.update(90, "Build fewer targets!", events);
+    options.oomMoreEagerlyThreshold = 90;
+    options.oomMessage = "Build fewer targets!";
+    underTest.update(options, UUID.randomUUID(), events);
 
     assertThrows(
         SecurityException.class, // From attempt to halt jvm in test.
@@ -162,7 +175,8 @@ public final class RetainedHeapLimiterTest {
     RetainedHeapLimiter underTest =
         RetainedHeapLimiter.createFromBeans(
             ImmutableList.of(mockBean), BugReporter.defaultInstance());
-    underTest.update(90, "", dummyEventHandler);
+    options.oomMoreEagerlyThreshold = 90;
+    underTest.update(options, UUID.randomUUID(), dummyEventHandler);
 
     underTest.resetEventHandler();
 

@@ -360,6 +360,17 @@ public class CommonCommandOptions extends OptionsBase {
   public int oomMoreEagerlyThreshold;
 
   @Option(
+      name = "heap_dump_on_eager_oom",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Whether to manually output a heap dump if an OOM is thrown due to"
+              + " --experimental_oom_more_eagerly_threshold. The dump will be written to"
+              + " <invocation_id>.heapdump.hprof")
+  public boolean heapDumpOnEagerOom;
+
+  @Option(
       name = "startup_time",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
