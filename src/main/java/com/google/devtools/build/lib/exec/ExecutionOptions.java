@@ -443,18 +443,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean splitXmlGeneration;
 
   @Option(
-      name = "archived_tree_artifact_mnemonics_filter",
-      defaultValue = "-.*", // disabled by default
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      converter = RegexFilter.RegexFilterConverter.class,
-      help =
-          "Regex filter for mnemonics of actions for which we should create archived tree"
-              + " artifacts. This option is a no-op for actions which do not generate tree"
-              + " artifacts.")
-  public RegexFilter archivedArtifactsMnemonicsFilter;
-
-  @Option(
       name = "experimental_send_archived_tree_artifact_inputs",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

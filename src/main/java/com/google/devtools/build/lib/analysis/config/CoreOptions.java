@@ -825,6 +825,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " \"<key>=<value>\" as an argument.")
   public List<Map.Entry<String, String>> commandLineFlagAliases;
 
+  @Option(
+      name = "archived_tree_artifact_mnemonics_filter",
+      defaultValue = "-.*", // disabled by default
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      converter = RegexFilter.RegexFilterConverter.class,
+      help =
+          "Regex filter for mnemonics of actions for which we should create archived tree"
+              + " artifacts. This option is a no-op for actions which do not generate tree"
+              + " artifacts.")
+  public RegexFilter archivedArtifactsMnemonicsFilter;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -903,6 +915,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Pass host action environment variables
     host.actionEnvironment = hostActionEnvironment;
     host.hostActionEnvironment = hostActionEnvironment;
+
+    // Pass archived tree artifacts filter.
+    host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
     return host;
   }

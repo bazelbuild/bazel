@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
@@ -71,7 +72,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -156,8 +156,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   public final void initialize() throws Exception  {
     options =
         OptionsParser.builder()
-            .optionsClasses(
-                KeepGoingOption.class, BuildRequestOptions.class, ExecutionOptions.class)
+            .optionsClasses(KeepGoingOption.class, BuildRequestOptions.class, CoreOptions.class)
             .build();
     options.parse();
     inMemoryCache = new InMemoryActionCache();
