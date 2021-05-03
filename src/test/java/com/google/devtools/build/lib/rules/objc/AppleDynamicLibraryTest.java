@@ -18,12 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.Set;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,12 +39,6 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
     }
   };
 
-  @Before
-  public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
-    invalidatePackages();
-  }
-
   @Test
   public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
     checkCcDependencyLinkoptsArePropagatedToLinkAction(RULE_TYPE);
@@ -60,16 +52,6 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
         String.format(MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
             "meow_meow_os"),
         "apple_binary(name = 'test', binary_type = 'dylib', platform_type = 'meow_meow_os')");
-  }
-
-  @Test
-  public void testProtoBundlingAndLinking() throws Exception {
-    checkProtoBundlingAndLinking(RULE_TYPE);
-  }
-
-  @Test
-  public void testProtoBundlingWithTargetsWithNoDeps() throws Exception {
-    checkProtoBundlingWithTargetsWithNoDeps(RULE_TYPE);
   }
 
   @Test

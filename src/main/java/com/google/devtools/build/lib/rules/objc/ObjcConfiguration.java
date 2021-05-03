@@ -62,7 +62,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
-  private final boolean enableAppleBinaryNativeProtos;
   private final boolean avoidHardcodedCompilationFlags;
   private final boolean disableNativeAppleBinaryRule;
 
@@ -85,7 +84,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
-    this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
     this.disableNativeAppleBinaryRule = objcOptions.incompatibleDisableNativeAppleBinaryRule;
@@ -216,12 +214,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
-  }
-
-  /** Returns true if apple_binary targets should generate and link Objc protos. */
-  @Override
-  public boolean enableAppleBinaryNativeProtos() {
-    return enableAppleBinaryNativeProtos;
   }
 
   /** Returns true iff the native {@code apple_binary} rule should be disabled. */

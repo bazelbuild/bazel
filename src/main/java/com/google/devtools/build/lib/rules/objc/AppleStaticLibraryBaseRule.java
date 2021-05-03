@@ -34,13 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
  * Abstract rule definition for apple_static_library.
  */
 public class AppleStaticLibraryBaseRule implements RuleDefinition {
-
-  private final ObjcProtoAspect objcProtoAspect;
-
-  public AppleStaticLibraryBaseRule(ObjcProtoAspect objcProtoAspect) {
-    this.objcProtoAspect = objcProtoAspect;
-  }
-
   /**
    * Attribute name for dependent libraries which should not be linked into the outputs of this
    * rule.
@@ -80,8 +73,7 @@ public class AppleStaticLibraryBaseRule implements RuleDefinition {
                 .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES)
                 .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
                 .cfg(splitTransitionProvider)
-                .allowedFileTypes()
-                .aspect(objcProtoAspect))
+                .allowedFileTypes())
         .add(
             attr("feature_flags", LABEL_KEYED_STRING_DICT)
                 .undocumented("the feature flag feature has not yet been launched")

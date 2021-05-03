@@ -43,15 +43,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
  * Abstract rule definition for apple_binary.
  */
 public class AppleBinaryBaseRule implements RuleDefinition {
-  private final ObjcProtoAspect objcProtoAspect;
-
-  /**
-   * Constructor that returns a newly configured AppleBinaryBaseRule object.
-   */
-  public AppleBinaryBaseRule(ObjcProtoAspect objcProtoAspect) {
-    this.objcProtoAspect = objcProtoAspect;
-  }
-
   /**
    * There are 3 classes of fully linked binaries in Mach: executable, dynamic library, and loadable
    * bundle.
@@ -130,8 +121,7 @@ public class AppleBinaryBaseRule implements RuleDefinition {
                         StarlarkProviderIdentifier.forKey(
                             AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR.getKey())))
                 .allowedFileTypes()
-                .singleArtifact()
-                .aspect(objcProtoAspect))
+                .singleArtifact())
         /*<!-- #BLAZE_RULE($apple_binary_base_rule).ATTRIBUTE(stamp) -->
         Enable link stamping.
         Whether to encode build information into the binary. Possible values:

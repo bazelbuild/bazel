@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcImportBaseRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryBaseRule;
-import com.google.devtools.build.lib.rules.objc.ObjcProtoAspect;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
 
@@ -56,10 +55,6 @@ public class ObjcRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     String toolsRepository = checkNotNull(builder.getToolsRepository());
 
-    // objc_proto_library should go into a separate RuleSet!
-    // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
-    ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
-
     builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
 
     builder.addConfigurationFragment(ObjcConfiguration.class);
@@ -68,9 +63,8 @@ public class ObjcRules implements RuleSet {
     // j2objc shouldn't be here!
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
 
-    builder.addNativeAspectClass(objcProtoAspect);
-    builder.addRuleDefinition(new AppleBinaryBaseRule(objcProtoAspect));
-    builder.addRuleDefinition(new AppleStaticLibraryBaseRule(objcProtoAspect));
+    builder.addRuleDefinition(new AppleBinaryBaseRule());
+    builder.addRuleDefinition(new AppleStaticLibraryBaseRule());
 
     builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
@@ -81,11 +75,11 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new ObjcImportBaseRule());
     builder.addRuleDefinition(new ObjcLibraryBaseRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.DylibDependingRule(objcProtoAspect));
+    builder.addRuleDefinition(new ObjcRuleClasses.DylibDependingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
+    builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.PlatformRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule(objcProtoAspect));
+    builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule());
     builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
     builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
@@ -97,7 +91,7 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new XcodeVersionRule());
 
     builder.addStarlarkBootstrap(
-        new AppleBootstrap(new AppleStarlarkCommon(BazelCppSemantics.OBJC, objcProtoAspect)));
+        new AppleBootstrap(new AppleStarlarkCommon(BazelCppSemantics.OBJC)));
   }
 
   @Override

@@ -14,14 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -41,7 +38,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -89,10 +85,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         MultiArchBinarySupport.transformMap(
             ruleContext.getPrerequisitesByConfiguration(AVOID_DEPS_ATTR_NAME, CcInfo.PROVIDER));
 
-    Iterable<ObjcProtoProvider> avoidProtoProviders =
-        ruleContext.getPrerequisites(AVOID_DEPS_ATTR_NAME, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
-    NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(avoidProtoProviders);
-
     Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
     IntermediateArtifacts ruleIntermediateArtifacts =
@@ -107,48 +99,12 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
 
-    ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersByConfig =
-        ruleContext.getPrerequisiteConfiguredTargets("deps").stream()
-            .filter(
-                prerequisite ->
-                    prerequisite.getConfiguredTarget().get(ObjcProtoProvider.STARLARK_CONSTRUCTOR)
-                        != null)
-            .collect(
-                toImmutableListMultimap(
-                    ConfiguredTargetAndData::getConfiguration,
-                    prerequisite ->
-                        prerequisite
-                            .getConfiguredTarget()
-                            .get(ObjcProtoProvider.STARLARK_CONSTRUCTOR)));
-    Multimap<String, ObjcProtoProvider> objcProtoProvidersMap =
-        MultiArchBinarySupport.transformMap(objcProtoProvidersByConfig);
-
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     for (Map.Entry<BuildConfiguration, CcToolchainProvider> entry :
         childConfigurationsAndToolchains.entrySet()) {
       BuildConfiguration childToolchainConfig = entry.getKey();
       String childCpu = entry.getKey().getCpu();
       CcToolchainProvider childToolchain = entry.getValue();
-
-      Optional<ObjcProvider> protosObjcProvider;
-      if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
-        Collection<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childCpu);
-        ProtobufSupport protoSupport =
-            new ProtobufSupport(
-                    ruleContext,
-                    cppSemantics,
-                    childToolchainConfig,
-                    protosToAvoid,
-                    objcProtoProviders,
-                    ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
-                    childToolchain)
-                .registerGenerationAction()
-                .registerCompilationAction();
-
-        protosObjcProvider = protoSupport.getObjcProvider();
-      } else {
-        protosObjcProvider = Optional.absent();
-      }
 
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
@@ -158,8 +114,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               ruleContext,
               childToolchainConfig,
               intermediateArtifacts,
-              nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)),
-              protosObjcProvider);
+              nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)));
       ObjcProvider objcProvider =
           common
               .getObjcProvider()
@@ -245,8 +200,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      List<ConfiguredTargetAndData> propagatedConfigredTargetAndTargetDeps,
-      Optional<ObjcProvider> protosObjcProvider) throws InterruptedException {
+      List<ConfiguredTargetAndData> propagatedConfigredTargetAndTargetDeps)
+      throws InterruptedException {
 
     CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder().build();
 
@@ -255,7 +210,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(compilationArtifacts)
         .addDeps(propagatedConfigredTargetAndTargetDeps)
-        .addObjcProviders(protosObjcProvider.asSet())
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)
         .build();
@@ -263,14 +217,5 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
   private <T> List<T> nullToEmptyList(List<T> inputList) {
     return inputList != null ? inputList : ImmutableList.<T>of();
-  }
-
-  private static NestedSet<Artifact> protoArtifactsToAvoid(
-      Iterable<ObjcProtoProvider> avoidedProviders) {
-    NestedSetBuilder<Artifact> avoidArtifacts = NestedSetBuilder.stableOrder();
-    for (ObjcProtoProvider avoidProvider : avoidedProviders) {
-      avoidArtifacts.addTransitive(avoidProvider.getProtoFiles());
-    }
-    return avoidArtifacts.build();
   }
 }
