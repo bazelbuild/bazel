@@ -218,13 +218,16 @@ public final class OutputGroupInfo extends StructImpl
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(
-      List<String> outputGroups, ValidationMode validationMode) {
-    return determineOutputGroups(DEFAULT_GROUPS, outputGroups, validationMode);
+      List<String> outputGroups, ValidationMode validationMode, boolean shouldRunTests) {
+    return determineOutputGroups(DEFAULT_GROUPS, outputGroups, validationMode, shouldRunTests);
   }
 
   @VisibleForTesting
   static ImmutableSortedSet<String> determineOutputGroups(
-      Set<String> defaultOutputGroups, List<String> outputGroups, ValidationMode validationMode) {
+      Set<String> defaultOutputGroups,
+      List<String> outputGroups,
+      ValidationMode validationMode,
+      boolean shouldRunTests) {
 
     Set<String> current = Sets.newHashSet();
 
@@ -262,6 +265,13 @@ public final class OutputGroupInfo extends StructImpl
         current.add(VALIDATION_TOP_LEVEL);
         break;
       case OFF: // fall out
+    }
+
+    // The `test` command ultimately requests artifacts from the `default` output group in order to
+    // execute the tests, so we should ensure these artifacts are requested by the targets for
+    // proper failure reporting.
+    if (shouldRunTests) {
+      current.add(DEFAULT);
     }
 
     return ImmutableSortedSet.copyOf(current);

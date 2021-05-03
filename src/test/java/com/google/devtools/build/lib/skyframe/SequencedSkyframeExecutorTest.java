@@ -1877,7 +1877,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                         false,
                         false,
                         OutputGroupInfo.determineOutputGroups(
-                            ImmutableList.of(), OutputGroupInfo.ValidationMode.OUTPUT_GROUP)),
+                            ImmutableList.of(),
+                            OutputGroupInfo.ValidationMode.OUTPUT_GROUP,
+                            /*shouldRunTests=*/ false)),
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.

@@ -1089,6 +1089,21 @@ function test_test_fails_to_build() {
   expect_log_once '^build_tool_logs'
 }
 
+function test_test_fails_to_build_without_default_output_group() {
+  (bazel test --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
+         --output_groups=extra \
+         pkg:test_that_fails_to_build && fail "test failure expected") || true
+  expect_not_log 'test_summary'  # no test_summary events or references to them
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success'
+  expect_log 'last_message: true'
+  expect_log 'BUILD_FAILURE'
+  expect_log 'last_message: true'
+  expect_log 'command_line:.*This build will fail'
+  expect_log_once '^build_tool_logs'
+}
+
 function test_no_tests_found() {
   (bazel test --experimental_bep_target_summary \
          --build_event_text_file=$TEST_log \
