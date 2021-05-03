@@ -19,7 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
@@ -207,10 +207,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     BuildConfiguration config = create();
     BuildConfiguration trimmedConfig =
         config.clone(
-            FragmentClassSet.of(
-                ImmutableSortedSet.orderedBy(BuildConfiguration.lexicalFragmentSorter)
-                    .add(CppConfiguration.class)
-                    .build()),
+            FragmentClassSet.of(ImmutableSet.of(CppConfiguration.class)),
             analysisMock.createRuleClassProvider());
     BuildConfiguration hostConfig = createHost();
 

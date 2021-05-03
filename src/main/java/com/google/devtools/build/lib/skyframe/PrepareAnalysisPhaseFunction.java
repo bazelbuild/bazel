@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -28,7 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -85,8 +84,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
             ? HostTransition.INSTANCE.patch(hostTransitionOptionsView, env.getListener())
             : targetOptions;
 
-    ImmutableSortedSet<Class<? extends Fragment>> allFragments =
-        options.getFragments().fragmentClasses();
+    FragmentClassSet allFragments = options.getFragments();
 
     PathFragment platformMappingPath = targetOptions.get(PlatformOptions.class).platformMappings;
     PlatformMappingValue platformMappingValue =
@@ -253,8 +251,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       throws InterruptedException, TransitionException, OptionsParsingException {
     Multimap<DependencyKey, BuildConfiguration> builder = ArrayListMultimap.create();
 
-    ImmutableSortedSet<Class<? extends Fragment>> allFragments =
-        ruleClassProvider.getAllFragments();
+    FragmentClassSet allFragments = ruleClassProvider.getAllFragments();
 
     // Now get the configurations.
     PathFragment platformMappingPath = fromOptions.get(PlatformOptions.class).platformMappings;

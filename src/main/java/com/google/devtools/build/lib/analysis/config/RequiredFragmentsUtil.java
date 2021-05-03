@@ -86,7 +86,7 @@ public class RequiredFragmentsUtil {
   public static ImmutableSortedSet<String> getRequiredFragments(
       Rule target,
       BuildConfiguration configuration,
-      Collection<Class<? extends Fragment>> universallyRequiredFragments,
+      FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
@@ -120,7 +120,7 @@ public class RequiredFragmentsUtil {
       Aspect aspect,
       Rule associatedTarget,
       BuildConfiguration configuration,
-      Collection<Class<? extends Fragment>> universallyRequiredFragments,
+      FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
@@ -141,7 +141,7 @@ public class RequiredFragmentsUtil {
   private static ImmutableSortedSet<String> getRequiredFragments(
       Optional<Label> buildSettingLabel,
       BuildConfiguration configuration,
-      Collection<Class<? extends Fragment>> universallyRequiredFragments,
+      FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
       Collection<ConfigurationTransition> associatedTransitions,
@@ -162,11 +162,10 @@ public class RequiredFragmentsUtil {
     configurationFragmentPolicy
         .getRequiredStarlarkFragments()
         .forEach(
-            starlarkName -> {
-              requiredFragments.add(
-                  ClassName.getSimpleNameWithOuter(
-                      configuration.getStarlarkFragmentByName(starlarkName)));
-            });
+            starlarkName ->
+                requiredFragments.add(
+                    ClassName.getSimpleNameWithOuter(
+                        configuration.getStarlarkFragmentByName(starlarkName))));
     // Fragments universally required by everything:
     universallyRequiredFragments.forEach(
         fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));

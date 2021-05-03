@@ -57,7 +57,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -175,7 +174,7 @@ public final class ConfigurationResolver {
     }
 
     return resolveGenericTransition(
-        getCurrentConfiguration().getFragmentsMap().keySet(), dependencyBuilder, dependencyKey);
+        getCurrentConfiguration().fragmentClasses(), dependencyBuilder, dependencyKey);
   }
 
   private Dependency resolveNullTransition(
@@ -201,7 +200,7 @@ public final class ConfigurationResolver {
   }
 
   private ImmutableList<Dependency> resolveGenericTransition(
-      Set<Class<? extends Fragment>> depFragments,
+      FragmentClassSet depFragments,
       Dependency.Builder dependencyBuilder,
       DependencyKey dependencyKey)
       throws DependencyEvaluationException, InterruptedException, ValueMissingException {
@@ -222,7 +221,7 @@ public final class ConfigurationResolver {
       throw new DependencyEvaluationException(e);
     }
 
-    if (depFragments.equals(getCurrentConfiguration().fragmentClasses().fragmentClasses())
+    if (depFragments.equals(getCurrentConfiguration().fragmentClasses())
         && SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
       // The dep uses the same exact configuration. Let's re-use the current configuration and
       // skip adding a Skyframe dependency edge on it.

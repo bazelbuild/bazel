@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStrea
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -946,11 +948,12 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                 rootDirectory,
                 /*defaultSystemJavabase=*/ null,
                 "productName"),
-            /*fragmentsMap=*/ ImmutableMap.of(),
+            /*fragments=*/ ImmutableMap.of(),
+            /*fragmentClassSet=*/ FragmentClassSet.of(ImmutableSet.of()),
             defaultBuildOptions,
             /*reservedActionMnemonics=*/ ImmutableSet.of(),
             ActionEnvironment.EMPTY,
-            "workspace",
+            RepositoryName.createFromValidStrippedName("workspace"),
             /*siblingRepositoryLayout=*/ false);
     BuildEvent firstWithConfiguration =
         new GenericConfigurationEvent(testId("first"), configuration.toBuildEvent());

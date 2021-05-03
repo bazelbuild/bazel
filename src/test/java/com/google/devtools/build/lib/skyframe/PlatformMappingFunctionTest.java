@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,8 +49,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   // We don't actually care about the contents of this set other than that it is passed intact
   // through the mapping logic. The platform fragment in it is purely an example, it could be any
   // set of fragments.
-  private static final ImmutableSet<Class<? extends Fragment>> PLATFORM_FRAGMENT_CLASS =
-      ImmutableSet.of(PlatformConfiguration.class);
+  private static final FragmentClassSet PLATFORM_FRAGMENT_CLASS =
+      FragmentClassSet.of(ImmutableSet.of(PlatformConfiguration.class));
 
   private static final ImmutableList<Class<? extends FragmentOptions>>
       BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableList.of(CoreOptions.class, PlatformOptions.class);

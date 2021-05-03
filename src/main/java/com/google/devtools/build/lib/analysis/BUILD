@@ -295,6 +295,7 @@ java_library(
         ":config/core_options",
         ":config/execution_transition_factory",
         ":config/fragment",
+        ":config/fragment_class_set",
         ":config/fragment_options",
         ":config/fragment_provider",
         ":config/host_transition",
@@ -1514,10 +1515,22 @@ java_library(
 )
 
 java_library(
+    name = "config/fragment_class_set",
+    srcs = ["config/FragmentClassSet.java"],
+    deps = [
+        ":config/fragment",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "config/build_configuration",
     srcs = [
         "config/BuildConfiguration.java",
-        "config/FragmentClassSet.java",
         "config/OutputDirectories.java",
     ],
     deps = [
@@ -1526,13 +1539,14 @@ java_library(
         ":config/compilation_mode",
         ":config/core_options",
         ":config/fragment",
+        ":config/fragment_class_set",
         ":config/fragment_options",
         ":config/fragment_provider",
+        ":config/invalid_configuration_exception",
         ":config/run_under",
         ":config/transitive_option_details",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1548,7 +1562,6 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -1729,9 +1742,8 @@ java_library(
         "config/FragmentProvider.java",
     ],
     deps = [
-        ":config/fragment",
+        ":config/fragment_class_set",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:guava",
     ],
 )
 

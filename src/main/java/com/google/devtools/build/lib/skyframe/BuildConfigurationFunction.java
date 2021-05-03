@@ -18,19 +18,18 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -38,7 +37,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -77,24 +75,22 @@ public final class BuildConfigurationFunction implements SkyFunction {
     }
 
     BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
-    Set<Fragment> fragments;
+    ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
     try {
       fragments = getConfigurationFragments(key);
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
     }
-    if (fragments == null) {
-      return null;
+
+    // If nothing was trimmed, reuse the same FragmentClassSet.
+    FragmentClassSet fragmentClasses = key.getFragments();
+    if (fragments.size() != fragmentClasses.size()) {
+      fragmentClasses = FragmentClassSet.of(fragments.keySet());
     }
 
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
-    }
-
-    ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
-    for (Fragment fragment : fragments) {
-      fragmentsMap.put(fragment.getClass(), fragment);
     }
 
     ActionEnvironment actionEnvironment =
@@ -104,11 +100,12 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return new BuildConfigurationValue(
           new BuildConfiguration(
               directories,
-              fragmentsMap,
+              fragments,
+              fragmentClasses,
               key.getOptions(),
               ruleClassProvider.getReservedActionMnemonics(),
               actionEnvironment,
-              workspaceNameValue.getName(),
+              RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
               starlarkSemantics.getBool(
                   BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
     } catch (InvalidMnemonicException e) {
@@ -116,11 +113,11 @@ public final class BuildConfigurationFunction implements SkyFunction {
     }
   }
 
-  private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key)
-      throws InvalidConfigurationException {
-    ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses = key.getFragments();
-    ImmutableSet.Builder<Fragment> fragments =
-        ImmutableSet.builderWithExpectedSize(fragmentClasses.size());
+  private ImmutableSortedMap<Class<? extends Fragment>, Fragment> getConfigurationFragments(
+      BuildConfigurationValue.Key key) throws InvalidConfigurationException {
+    FragmentClassSet fragmentClasses = key.getFragments();
+    ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
+        ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
       BuildOptions trimmedOptions =
           key.getOptions()
@@ -136,7 +133,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
         throw new IllegalStateException(e);
       }
       if (fragment != NULL_MARKER) {
-        fragments.add(fragment);
+        fragments.put(fragmentClass, fragment);
       } else {
         // NULL_MARKER is never GC'ed, so this entry will stay in cache forever unless we delete it
         // ourselves. Since it's a cheap computation we don't care about recomputing it.

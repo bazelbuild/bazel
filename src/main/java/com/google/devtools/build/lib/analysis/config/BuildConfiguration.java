@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,6 +52,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -80,13 +80,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 // fragments and gets names from them.
 @AutoCodec
 public class BuildConfiguration implements BuildConfigurationApi {
-  /**
-   * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
-   * output from buildMnemonic.
-   */
-  @AutoCodec
-  public static final Comparator<Class<? extends Fragment>> lexicalFragmentSorter =
-      Comparator.comparing(Class::getName);
 
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
@@ -180,11 +173,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return hashCode;
   }
 
-  /** Returns map of all the fragments for this configuration. */
-  public ImmutableMap<Class<? extends Fragment>, Fragment> getFragmentsMap() {
-    return fragments;
-  }
-
   /**
    * Validates the options for this BuildConfiguration. Issues warnings for the use of deprecated
    * options, and warnings or errors for any option settings that conflict.
@@ -215,50 +203,26 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return ActionEnvironment.split(testEnv);
   }
 
-  private static ImmutableSortedMap<Class<? extends Fragment>, Fragment> makeFragmentsMap(
-      Map<Class<? extends Fragment>, Fragment> fragmentsMap) {
-    return fragmentsInterner.intern(ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter));
-  }
-
-  /** Constructs a new BuildConfiguration instance. */
   public BuildConfiguration(
       BlazeDirectories directories,
-      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
-      BuildOptions buildOptions,
-      ImmutableSet<String> reservedActionMnemonics,
-      ActionEnvironment actionEnvironment,
-      String repositoryName,
-      boolean siblingRepositoryLayout)
-      throws InvalidMnemonicException {
-    this(
-        directories,
-        fragmentsMap,
-        buildOptions,
-        reservedActionMnemonics,
-        actionEnvironment,
-        RepositoryName.createFromValidStrippedName(repositoryName),
-        siblingRepositoryLayout);
-  }
-
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec.Instantiator
-  BuildConfiguration(
-      BlazeDirectories directories,
-      Map<Class<? extends Fragment>, Fragment> fragmentsMap,
+      ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
+      FragmentClassSet fragmentClassSet,
       BuildOptions buildOptions,
       ImmutableSet<String> reservedActionMnemonics,
       ActionEnvironment actionEnvironment,
       RepositoryName mainRepositoryName,
       boolean siblingRepositoryLayout)
       throws InvalidMnemonicException {
-    this.fragments = makeFragmentsMap(fragmentsMap);
-    this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
+    this.fragments =
+        fragmentsInterner.intern(
+            ImmutableSortedMap.copyOf(fragments, FragmentClassSet.LEXICAL_FRAGMENT_SORTER));
+    this.fragmentClassSet = fragmentClassSet;
     this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions;
     this.options = buildOptions.get(CoreOptions.class);
     this.outputDirectories =
         new OutputDirectories(
-            directories, options, fragments, mainRepositoryName, siblingRepositoryLayout);
+            directories, options, this.fragments, mainRepositoryName, siblingRepositoryLayout);
     this.mainRepositoryName = mainRepositoryName;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
 
@@ -308,22 +272,25 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public BuildConfiguration clone(
       FragmentClassSet fragmentClasses, RuleClassProvider ruleClassProvider) {
-    ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
-    for (Fragment fragment : fragments.values()) {
-      if (fragmentClasses.fragmentClasses().contains(fragment.getClass())) {
-        fragmentsMap.put(fragment.getClass(), fragment);
-      }
-    }
+    ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragmentsMap =
+        fragments.values().stream()
+            .filter(fragment -> fragmentClasses.contains(fragment.getClass()))
+            .collect(
+                toImmutableSortedMap(
+                    FragmentClassSet.LEXICAL_FRAGMENT_SORTER,
+                    Fragment::getClass,
+                    Function.identity()));
     BuildOptions options =
         buildOptions.trim(getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
     try {
       return new BuildConfiguration(
           getDirectories(),
           fragmentsMap,
+          fragmentClasses,
           options,
           reservedActionMnemonics,
           actionEnv,
-          mainRepositoryName.strippedName(),
+          mainRepositoryName,
           siblingRepositoryLayout);
     } catch (InvalidMnemonicException e) {
       throw new IllegalStateException(

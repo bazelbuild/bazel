@@ -1062,7 +1062,7 @@ public final class SkyframeBuildView {
     // trims a host configuration to the same scope as a target configuration. Since their options
     // are different, the host instance may actually be able to produce the fragment. So it's
     // wrong and potentially dangerous to unilaterally exclude it.
-    FragmentClassSet fragmentClasses = FragmentClassSet.of(ruleClassProvider.getAllFragments());
+    FragmentClassSet fragmentClasses = ruleClassProvider.getAllFragments();
     // TODO(bazel-team): investigate getting the trimmed config from Skyframe instead of cloning.
     // This is the only place we instantiate BuildConfigurations outside of Skyframe, This can
     // produce surprising effects, such as requesting a configuration that's in the Skyframe cache

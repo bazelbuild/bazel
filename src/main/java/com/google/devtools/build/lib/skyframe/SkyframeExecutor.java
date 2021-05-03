@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Range;
@@ -90,7 +89,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -1963,10 +1961,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     // Prepare the Skyframe inputs.
     // TODO(gregce): support trimmed configs.
-    ImmutableSortedSet<Class<? extends Fragment>> allFragments =
-        ruleClassProvider.getConfigurationFragments().stream()
-            .collect(
-                ImmutableSortedSet.toImmutableSortedSet(BuildConfiguration.lexicalFragmentSorter));
+    FragmentClassSet allFragments = ruleClassProvider.getConfigurationFragments();
 
     PlatformMappingValue platformMappingValue =
         getPlatformMappingValue(eventHandler, referenceBuildOptions);
@@ -2018,9 +2013,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throws InvalidConfigurationException, InterruptedException {
     ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
 
-    ImmutableSortedSet<Class<? extends Fragment>> allFragments =
-        ruleClassProvider.getAllFragments();
-
+    FragmentClassSet allFragments = ruleClassProvider.getAllFragments();
     PlatformMappingValue platformMappingValue = getPlatformMappingValue(eventHandler, fromOptions);
 
     // Now get the configurations.
@@ -2118,7 +2111,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private BuildConfigurationValue.Key toConfigurationKey(
       PlatformMappingValue platformMappingValue,
-      ImmutableSortedSet<Class<? extends Fragment>> depFragments,
+      FragmentClassSet depFragments,
       BuildOptions toOption)
       throws InvalidConfigurationException {
     try {
@@ -2948,12 +2941,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<String> multiCpu,
       Collection<Label> labels)
       throws InvalidConfigurationException, InterruptedException {
-    FragmentClassSet allFragments =
-        FragmentClassSet.of(
-            ruleClassProvider.getConfigurationFragments().stream()
-                .collect(
-                    ImmutableSortedSet.toImmutableSortedSet(
-                        BuildConfiguration.lexicalFragmentSorter)));
+    FragmentClassSet allFragments = ruleClassProvider.getConfigurationFragments();
     SkyKey key = PrepareAnalysisPhaseValue.key(allFragments, buildOptions, multiCpu, labels);
     EvaluationResult<PrepareAnalysisPhaseValue> evalResult =
         evaluate(

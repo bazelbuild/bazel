@@ -15,11 +15,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -31,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.Set;
 
 /** A Skyframe value representing a {@link BuildConfiguration}. */
 // TODO(bazel-team): mark this immutable when BuildConfiguration is immutable.
@@ -72,28 +69,6 @@ public class BuildConfigurationValue implements SkyValue {
   }
 
   /**
-   * Creates a new configuration key based on the given options, after applying a platform mapping
-   * transformation.
-   *
-   * @param platformMappingValue sky value that can transform a configuration key based on a
-   *     platform mapping
-   * @param defaultBuildOptions set of native build options without modifications based on parsing
-   *     flags
-   * @param fragments set of options fragments this configuration should cover
-   * @param options the desired configuration
-   * @throws OptionsParsingException if the platform mapping cannot be parsed
-   */
-  public static Key keyWithPlatformMapping(
-      PlatformMappingValue platformMappingValue,
-      BuildOptions defaultBuildOptions,
-      Set<Class<? extends Fragment>> fragments,
-      BuildOptions options)
-      throws OptionsParsingException {
-    return platformMappingValue.map(
-        keyWithoutPlatformMapping(fragments, options), defaultBuildOptions);
-  }
-
-  /**
    * Returns the key for a requested configuration.
    *
    * <p>Callers are responsible for applying the platform mapping or ascertaining that a platform
@@ -102,18 +77,8 @@ public class BuildConfigurationValue implements SkyValue {
    * @param fragments the fragments the configuration should contain
    * @param options the {@link BuildOptions} object the {@link BuildOptions} should be rebuilt from
    */
-  @ThreadSafe
-  static Key keyWithoutPlatformMapping(
-      Set<Class<? extends Fragment>> fragments, BuildOptions options) {
-    return Key.create(
-        FragmentClassSet.of(
-            ImmutableSortedSet.copyOf(BuildConfiguration.lexicalFragmentSorter, fragments)),
-        options);
-  }
-
-  private static Key keyWithoutPlatformMapping(
-      FragmentClassSet fragmentClassSet, BuildOptions options) {
-    return Key.create(fragmentClassSet, options);
+  static Key keyWithoutPlatformMapping(FragmentClassSet fragments, BuildOptions options) {
+    return Key.create(fragments, options);
   }
 
   /**
@@ -152,8 +117,8 @@ public class BuildConfigurationValue implements SkyValue {
     }
 
     @VisibleForTesting
-    public ImmutableSortedSet<Class<? extends Fragment>> getFragments() {
-      return fragments.fragmentClasses();
+    public FragmentClassSet getFragments() {
+      return fragments;
     }
 
     public BuildOptions getOptions() {
