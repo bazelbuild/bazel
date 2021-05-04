@@ -121,7 +121,6 @@ java_library(
         "ImportDepsCheckActionBuilder.java",
         "JavaBuildInfoFactory.java",
         "JavaCcInfoProvider.java",
-        "JavaCcLinkParamsProvider.java",
         "JavaCommon.java",
         "JavaCompilationArgsProvider.java",
         "JavaCompilationArtifacts.java",

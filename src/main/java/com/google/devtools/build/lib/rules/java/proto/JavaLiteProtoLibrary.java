@@ -33,9 +33,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
-import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -83,24 +81,13 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 
-    JavaCcLinkParamsProvider javaCcLinkParamsProvider =
-        createCcLinkingInfo(ruleContext, ImmutableList.of());
-    if (ruleContext
-        .getFragment(JavaConfiguration.class)
-        .experimentalPublishJavaCcLinkParamsInfo()) {
-      builder.addNativeDeclaredProvider(javaCcLinkParamsProvider);
-    }
-
-    JavaInfo.Builder javaInfoBuilder =
-        JavaInfo.Builder.create()
-            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
     JavaInfo javaInfo =
-        javaInfoBuilder
+        JavaInfo.Builder.create()
+            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(
-                JavaCcInfoProvider.class,
-                new JavaCcInfoProvider(javaCcLinkParamsProvider.getCcInfo()))
+                JavaCcInfoProvider.class, createCcLinkingInfo(ruleContext, ImmutableList.of()))
             .setJavaConstraints(ImmutableList.of("android"))
             .build();
 

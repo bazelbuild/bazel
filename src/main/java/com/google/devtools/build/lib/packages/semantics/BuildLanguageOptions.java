@@ -126,7 +126,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " key.")
   public List<String> experimentalBuiltinsInjectionOverride;
 
-
   @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
       converter = CommaSeparatedOptionListConverter.class,
@@ -154,14 +153,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       help = "If set to false, disables the APIs for JavaNativeLibraryInfo.")
   public boolean experimentalEnableJavaNativeLibraryInfo;
-
-  @Option(
-      name = "experimental_enable_javacclinkparamsprovider",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "If set to false, disables the APIs for JavaCcLinkParamsInfo.")
-  public boolean experimentalEnableJavaCcLinkParamsProvider;
 
   @Option(
       name = "experimental_google_legacy_api",
@@ -663,9 +654,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(
                 EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO, experimentalEnableJavaNativeLibraryInfo)
-            .setBool(
-                EXPERIMENTAL_ENABLE_JAVACCLINKPARAMSINFO,
-                experimentalEnableJavaCcLinkParamsProvider)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_JAVAWRAPCC_API, experimentalJavaWrapCcApi)
             .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
@@ -736,8 +724,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-experimental_enable_android_migration_apis";
   public static final String EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO =
       "+experimental_enable_javanativelibraryinfo";
-  public static final String EXPERIMENTAL_ENABLE_JAVACCLINKPARAMSINFO =
-      "+experimental_enable_cclinkparamsinfo";
   public static final String EXPERIMENTAL_EXEC_GROUPS = "-experimental_exec_groups";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_JAVAWRAPCC_API = "+experimental_javawrapcc_api";

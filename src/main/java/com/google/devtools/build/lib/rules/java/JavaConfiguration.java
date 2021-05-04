@@ -105,7 +105,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean disallowResourceJars;
   private final boolean disallowLegacyJavaToolchainFlags;
   private final boolean experimentalTurbineAnnotationProcessing;
-  private final boolean experimentalPublishJavaCcLinkParamsInfo;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -164,8 +163,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
     this.experimentalTurbineAnnotationProcessing =
         javaOptions.experimentalTurbineAnnotationProcessing;
-    this.experimentalPublishJavaCcLinkParamsInfo =
-        javaOptions.experimentalPublishJavaCcLinkParamsInfo;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
       checkLegacyToolchainFlagIsUnset(
@@ -389,9 +386,5 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean experimentalTurbineAnnotationProcessing() {
     return experimentalTurbineAnnotationProcessing;
-  }
-
-  public boolean experimentalPublishJavaCcLinkParamsInfo() {
-    return experimentalPublishJavaCcLinkParamsInfo;
   }
 }
