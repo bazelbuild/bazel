@@ -269,6 +269,11 @@ public interface SpawnRunner {
   /** Returns whether this SpawnRunner supports executing the given Spawn. */
   boolean canExec(Spawn spawn);
 
+  /** Returns whether this SpawnRunner supports executing the given Spawn using legacy fallbacks. */
+  default boolean canExecWithLegacyFallback(Spawn spawn) {
+    return false;
+  }
+
   /** Returns whether this SpawnRunner handles caching of actions internally. */
   boolean handlesCaching();
 
