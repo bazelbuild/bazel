@@ -51,7 +51,8 @@ public class JavaStarlarkCommon
   private static final ImmutableSet<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableSet.of(
           "@_builtins//bazel_internal/test_rules/java:java_library.bzl",
-          "//tools/build_defs/java:java_library.bzl");
+          "//tools/build_defs/java:java_library.bzl",
+          "//tools/build_defs/java:java_common.bzl");
 
   public JavaStarlarkCommon(JavaSemantics javaSemantics) {
     this.javaSemantics = javaSemantics;
