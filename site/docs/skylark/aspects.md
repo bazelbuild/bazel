@@ -318,11 +318,14 @@ field ``count``. It is best practice to explicitly define the fields of a
 provider using the ``fields`` attribute.
 
 The set of providers for an aspect application A(X) is the union of providers
-that come from the implementation of a rule for target X and from
-the implementation of aspect A. It is an error if a target and an aspect that
-is applied to it each provide a provider with the same name. The providers that
-a rule implementation propagates are created and frozen before aspects are
-applied and cannot be modified from an aspect.
+that come from the implementation of a rule for target X and from the
+implementation of aspect A. The providers that a rule implementation propagates
+are created and frozen before aspects are applied and cannot be modified from an
+aspect. It is an error if a target and an aspect that is applied to it each
+provide a provider with the same type, so aspects should not return
+[`DefaultInfo`](lib/DefaultInfo.html),
+[`InstrumentedFilesInfo`](lib/InstrumentedFilesInfo.html), or any other
+provider that might be returned by the underlying rule target.
 
 The parameters and private attributes are passed in the attributes of the
 ``ctx``. This example references the ``extension`` parameter and determines
