@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -41,8 +42,8 @@ import net.starlark.java.eval.StarlarkThread;
 public interface JavaInfoApi<
         FileT extends FileApi,
         JavaOutputT extends JavaOutputApi<FileT>,
-        CcInfoT extends CcInfoApi<FileT>>
-    extends StructApi {
+        JavaPluginDataT extends JavaPluginDataApi>
+    extends StructApi, JavaPluginInfoApi<JavaPluginDataT> {
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",

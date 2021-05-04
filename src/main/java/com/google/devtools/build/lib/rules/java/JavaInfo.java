@@ -60,7 +60,7 @@ import net.starlark.java.syntax.Location;
 @Immutable
 @AutoCodec
 public final class JavaInfo extends NativeInfo
-    implements JavaInfoApi<Artifact, JavaOutput, CcInfo> {
+    implements JavaInfoApi<Artifact, JavaOutput, JavaPluginData> {
 
   public static final String STARLARK_NAME = "JavaInfo";
 
@@ -396,6 +396,18 @@ public final class JavaInfo extends NativeInfo
   public CcInfoApi<Artifact> getCcLinkParamInfo() {
     JavaCcInfoProvider javaCcInfoProvider = getProvider(JavaCcInfoProvider.class);
     return javaCcInfoProvider != null ? javaCcInfoProvider.getCcInfo() : CcInfo.EMPTY;
+  }
+
+  @Override
+  public JavaPluginData plugins() {
+    JavaPluginInfo javaPluginInfo = getJavaPluginInfo();
+    return javaPluginInfo == null ? JavaPluginData.empty() : javaPluginInfo.plugins();
+  }
+
+  @Override
+  public JavaPluginData apiGeneratingPlugins() {
+    JavaPluginInfo javaPluginInfo = getJavaPluginInfo();
+    return javaPluginInfo == null ? JavaPluginData.empty() : javaPluginInfo.apiGeneratingPlugins();
   }
 
   /** Returns all constraints set on the associated target. */

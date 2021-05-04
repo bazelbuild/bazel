@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,7 +53,7 @@ public abstract class JavaPluginInfo extends NativeInfo {
   @AutoCodec
   @Immutable
   @AutoValue
-  public abstract static class JavaPluginData {
+  public abstract static class JavaPluginData implements JavaPluginDataApi {
 
     public static JavaPluginData create(
         NestedSet<String> processorClasses,
@@ -91,6 +93,21 @@ public abstract class JavaPluginInfo extends NativeInfo {
     public abstract NestedSet<Artifact> processorClasspath();
 
     public abstract NestedSet<Artifact> data();
+
+    @Override
+    public Depset /*<FileApi>*/ getProcessorJarsForStarlark() {
+      return Depset.of(Artifact.TYPE, processorClasspath());
+    }
+
+    @Override
+    public Depset /*<String>*/ getProcessorClassesForStarlark() {
+      return Depset.of(Depset.ElementType.STRING, processorClasses());
+    }
+
+    @Override
+    public Depset /*<FileApi>*/ getProcessorDataForStarlark() {
+      return Depset.of(Artifact.TYPE, data());
+    }
 
     public boolean isEmpty() {
       return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
