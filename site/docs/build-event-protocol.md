@@ -5,6 +5,7 @@ title: Build Event Protocol
 
 # Build Event Protocol
 
+
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
 (BEP) allows third party programs to gain insight into a Bazel invocation. For
@@ -80,12 +81,12 @@ human-readable formats, such as text and JSON:
 
 ## Build Event Service
 
+
 The [Build Event
 Service](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)
-Protocol is a generic [gRPC](https://www.grpc.io) service for publishing build
-events. The Build Event Service protocol is independent of the BEP and treats
-BEP events as opaque bytes. Bazel ships
-with a gRPC client implementation of the Build Event Service protocol that
+Protocol is a generic [gRPC](https://www.grpc.io) service for publishing build events. The Build Event
+Service protocol is independent of the BEP and treats BEP events as opaque bytes.
+Bazel ships with a gRPC client implementation of the Build Event Service protocol that
 publishes Build Event Protocol events. One can specify the endpoint to send the
 events to using the `--bes_backend=HOST:PORT` flag. Bazel’s implementation also
 supports TLS which can be enabled by specifying the `--tls_enabled` flag.
@@ -138,3 +139,5 @@ from the cache.
 
 See [GitHub issue 3689](https://github.com/bazelbuild/bazel/issues/3689) for
 more details.
+
+

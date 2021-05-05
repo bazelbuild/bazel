@@ -5,6 +5,7 @@ title: Build Event Protocol Examples
 
 # Build Event Protocol Examples
 
+
 The full specification of the Build Event Protocol can be found in its protocol
 buffer definition. However, it might be helpful to build up some intuition
 before looking at the specification.
@@ -176,54 +177,6 @@ process the outputs for a subset of built targets/aspects:
     Show/Hide BEP JSON
   </button>
 </p>
-
-```json
-{
-  "id": { "namedSet": { "id": "3" } },
-  "namedSetOfFiles": {
-    "files": [ { "name": "examples/py/beplib.py", "uri": "file:///tmp/bazel/examples/py/beplib.py" } ]
-  }
-}
-{
-  "id": { "namedSet": { "id": "2" } },
-  "namedSetOfFiles": { "fileSets": [ { "id": "3" } ] }
-}
-{
-  "id": { "namedSet": { "id": "1" } },
-  "namedSetOfFiles": {
-    "files": [ { "name": "examples/py/util.py", "uri": "file:///tmp/bazel/examples/py/util.py" } ],
-    "fileSets": [ { "id": "3" } ]
-  }
-}
-{
-  "id": { "namedSet": { "id": "0" } },
-  "namedSetOfFiles": {
-    "files": [
-      { "name": "examples/py/bep.py", "uri": "file:///tmp/bazel/examples/py/bep.py" },
-      {
-        "name": "examples/py/bep",
-        "uri": "file:///tmp/.cache/bazel/_bazel_foo/a61fd0fbee3f9d6c1e30d54b68655d35/execroot/io_bazel/bazel-out/k8-fastbuild/bin/examples/py/bep",
-        "pathPrefix": ["bazel-out", "k8-fastbuild", "bin"]
-      }
-    ],
-    "fileSets": [ { "id": "1" }, { "id": "2" } ]
-  }
-}
-{
-  "id": {
-    "targetCompleted": {
-      "label": "//examples/py:bep",
-      "configuration": {
-        "id": "a5d130b0966b4a9ca2d32725aa5baf40e215bcfc4d5cdcdc60f5cc5b4918903b"
-      }
-    }
-  },
-  "completed": {
-    "success": true,
-    "outputGroup": [ { "name": "default", "fileSets": [ { "id": "0" } ] } ]
-  }
-}
-```
 {: .collapse #collapseNamedSetJson}
 
 ```python
