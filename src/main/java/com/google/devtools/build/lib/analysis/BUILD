@@ -38,7 +38,6 @@ java_library(
         ":analysis_options",
         ":analysis_phase_complete_event",
         ":analysis_phase_started_event",
-        ":artifacts_to_owner_labels",
         ":aspect_aware_attribute_mapper",
         ":aspect_collection",
         ":aspect_configured_event",
@@ -282,7 +281,6 @@ java_library(
         ":actions/symlink_action",
         ":actions/template_expansion_action",
         ":actions_provider",
-        ":artifacts_to_owner_labels",
         ":aspect_aware_attribute_mapper",
         ":aspect_collection",
         ":build_setting_provider",
@@ -498,16 +496,6 @@ java_library(
 )
 
 java_library(
-    name = "artifacts_to_owner_labels",
-    srcs = ["ArtifactsToOwnerLabels.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "aspect_aware_attribute_mapper",
     srcs = ["AspectAwareAttributeMapper.java"],
     deps = [
@@ -599,7 +587,6 @@ java_library(
         ":analysis_cluster",
         ":analysis_options",
         ":analysis_phase_started_event",
-        ":artifacts_to_owner_labels",
         ":aspect_configured_event",
         ":blaze_directories",
         ":config/build_configuration",

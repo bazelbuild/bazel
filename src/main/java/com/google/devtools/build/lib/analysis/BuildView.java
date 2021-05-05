@@ -470,8 +470,7 @@ public class BuildView {
       allTargetsToTest = filterTestsByTargets(configuredTargets, testsToRun);
     }
 
-    ArtifactsToOwnerLabels.Builder artifactsToOwnerLabelsBuilder =
-        new ArtifactsToOwnerLabels.Builder();
+    ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
 
     // build-info and build-changelist.
     Collection<Artifact> buildInfoArtifacts =
@@ -480,11 +479,11 @@ public class BuildView {
 
     // Extra actions
     addExtraActionsIfRequested(
-        viewOptions, configuredTargets, aspects, artifactsToOwnerLabelsBuilder, eventHandler);
+        viewOptions, configuredTargets, aspects, artifactsToBuild, eventHandler);
 
     // Coverage
     NestedSet<Artifact> baselineCoverageArtifacts =
-        getBaselineCoverageArtifacts(configuredTargets, artifactsToOwnerLabelsBuilder);
+        getBaselineCoverageArtifacts(configuredTargets, artifactsToBuild);
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper;
       actionsWrapper =
@@ -501,23 +500,24 @@ public class BuildView {
       if (actionsWrapper != null) {
         Actions.GeneratingActions actions = actionsWrapper.getActions();
         skyframeExecutor.injectCoverageReportData(actions);
-        actionsWrapper.getCoverageOutputs().forEach(artifactsToOwnerLabelsBuilder::addArtifact);
+        actionsWrapper.getCoverageOutputs().forEach(artifactsToBuild::add);
       }
     }
     // TODO(cparsons): If extra actions are ever removed, this filtering step can probably be
     //  removed as well: the only concern would be action conflicts involving coverage artifacts,
     //  which seems far-fetched.
     if (skyframeAnalysisResult.hasActionConflicts()) {
-      ArtifactsToOwnerLabels tempOwners = artifactsToOwnerLabelsBuilder.build();
       // We don't remove the (hopefully unnecessary) guard in SkyframeBuildView that enables/
       // disables analysis, since no new targets should actually be analyzed.
-      Set<Artifact> artifacts = tempOwners.getArtifacts();
+      ImmutableSet<Artifact> artifacts = artifactsToBuild.build();
       Predicate<Artifact> errorFreeArtifacts =
           skyframeExecutor.filterActionConflictsForTopLevelArtifacts(eventHandler, artifacts);
-      artifactsToOwnerLabelsBuilder = tempOwners.toBuilder().filterArtifacts(errorFreeArtifacts);
+
+      artifactsToBuild = ImmutableSet.builder();
+      artifacts.stream().filter(errorFreeArtifacts).forEach(artifactsToBuild::add);
     }
     // Build-info artifacts are always conflict-free, and can't be checked easily.
-    buildInfoArtifacts.forEach(artifactsToOwnerLabelsBuilder::addArtifact);
+    buildInfoArtifacts.forEach(artifactsToBuild::add);
 
     // Tests.
     Pair<ImmutableSet<ConfiguredTarget>, ImmutableSet<ConfiguredTarget>> testsPair =
@@ -529,8 +529,8 @@ public class BuildView {
     FailureDetail failureDetail =
         createFailureDetail(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
 
-    final WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
-    final ActionGraph actionGraph =
+    WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
+    ActionGraph actionGraph =
         new ActionGraph() {
           @Nullable
           @Override
@@ -563,7 +563,7 @@ public class BuildView {
         ImmutableSet.copyOf(targetsToSkip),
         failureDetail,
         actionGraph,
-        artifactsToOwnerLabelsBuilder.build(),
+        artifactsToBuild.build(),
         parallelTests,
         exclusiveTests,
         topLevelOptions,
@@ -623,16 +623,12 @@ public class BuildView {
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
       Collection<ConfiguredTarget> configuredTargets,
-      ArtifactsToOwnerLabels.Builder topLevelArtifactsToOwnerLabels) {
+      ImmutableSet.Builder<Artifact> artifactsToBuild) {
     NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
       if (provider != null) {
-        TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
-            provider.getBaselineCoverageArtifacts(),
-            null,
-            target.getLabel(),
-            topLevelArtifactsToOwnerLabels);
+        artifactsToBuild.addAll(provider.getBaselineCoverageArtifacts().toList());
         baselineCoverageArtifacts.addTransitive(provider.getBaselineCoverageArtifacts());
       }
     }
@@ -643,7 +639,7 @@ public class BuildView {
       AnalysisOptions viewOptions,
       Collection<ConfiguredTarget> configuredTargets,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
-      ArtifactsToOwnerLabels.Builder artifactsToTopLevelLabelsMap,
+      ImmutableSet.Builder<Artifact> artifactsToBuild,
       ExtendedEventHandler eventHandler) {
     RegexFilter filter = viewOptions.extraActionFilter;
     for (ConfiguredTarget target : configuredTargets) {
@@ -663,24 +659,15 @@ public class BuildView {
           for (Attribute attr : actualTarget.getAssociatedRule().getAttributes()) {
             aspectClasses.addAll(attr.getAspectClasses());
           }
-          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
-              provider.getExtraActionArtifacts(),
-              filter,
-              target.getLabel(),
-              artifactsToTopLevelLabelsMap);
+          addArtifactsToBuilder(
+              provider.getExtraActionArtifacts().toList(), artifactsToBuild, filter);
           if (!aspectClasses.isEmpty()) {
-            TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
-                filterTransitiveExtraActions(provider, aspectClasses),
-                filter,
-                target.getLabel(),
-                artifactsToTopLevelLabelsMap);
+            addArtifactsToBuilder(
+                filterTransitiveExtraActions(provider, aspectClasses), artifactsToBuild, filter);
           }
         } else {
-          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
-              provider.getTransitiveExtraActionArtifacts(),
-              filter,
-              target.getLabel(),
-              artifactsToTopLevelLabelsMap);
+          addArtifactsToBuilder(
+              provider.getTransitiveExtraActionArtifacts().toList(), artifactsToBuild, filter);
         }
       }
     }
@@ -689,18 +676,23 @@ public class BuildView {
           aspectEntry.getValue().getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
-          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
-              provider.getExtraActionArtifacts(),
-              filter,
-              aspectEntry.getKey().getLabel(),
-              artifactsToTopLevelLabelsMap);
+          addArtifactsToBuilder(
+              provider.getExtraActionArtifacts().toList(), artifactsToBuild, filter);
         } else {
-          TopLevelArtifactHelper.addArtifactsWithOwnerLabel(
-              provider.getTransitiveExtraActionArtifacts(),
-              filter,
-              aspectEntry.getKey().getLabel(),
-              artifactsToTopLevelLabelsMap);
+          addArtifactsToBuilder(
+              provider.getTransitiveExtraActionArtifacts().toList(), artifactsToBuild, filter);
         }
+      }
+    }
+  }
+
+  private static void addArtifactsToBuilder(
+      List<? extends Artifact> artifacts,
+      ImmutableSet.Builder<Artifact> builder,
+      RegexFilter filter) {
+    for (Artifact artifact : artifacts) {
+      if (filter.isIncluded(artifact.getOwnerLabel().toString())) {
+        builder.add(artifact);
       }
     }
   }

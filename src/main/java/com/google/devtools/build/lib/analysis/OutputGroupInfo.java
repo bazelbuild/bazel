@@ -151,7 +151,7 @@ public final class OutputGroupInfo extends StructImpl
      * Validation outputs built by {@code ValidateTarget} aspect "promoting" {@link #VALIDATION}
      * output group Blaze core collects to {@link #VALIDATION_TOP_LEVEL} and requesting the latter.
      */
-    ASPECT;
+    ASPECT
   }
 
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
@@ -182,9 +182,8 @@ public final class OutputGroupInfo extends StructImpl
    *     If the specified output group is not present, the empty set is returned.
    */
   public NestedSet<Artifact> getOutputGroup(String outputGroupName) {
-    return outputGroups.containsKey(outputGroupName)
-        ? outputGroups.get(outputGroupName)
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+    return outputGroups.getOrDefault(
+        outputGroupName, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   /**
@@ -195,7 +194,7 @@ public final class OutputGroupInfo extends StructImpl
   @Nullable
   public static OutputGroupInfo merge(List<OutputGroupInfo> providers)
       throws DuplicateException {
-    if (providers.size() == 0) {
+    if (providers.isEmpty()) {
       return null;
     }
     if (providers.size() == 1) {
@@ -293,7 +292,7 @@ public final class OutputGroupInfo extends StructImpl
   }
 
   @Override
-  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
+  public boolean containsKey(StarlarkSemantics semantics, Object key) {
     return outputGroups.containsKey(key);
   }
 

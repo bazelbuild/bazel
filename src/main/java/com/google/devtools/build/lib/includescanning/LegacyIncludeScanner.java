@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -55,6 +54,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 /**
  * C include scanner. Quickly scans C/C++ source files to determine the bounding set of transitively
@@ -254,7 +254,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         }
 
         // Look for header in path/to/foo.framework/Headers/
-        PathFragment foundHeaderPath = null;
+        PathFragment foundHeaderPath;
         PathFragment fullHeaderPath =
             fullFrameworkPath.getRelative("Headers").getRelative(relHeaderPath);
 
@@ -938,10 +938,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  private static class ExecRuntimeException extends RuntimeException {
+  private static final class ExecRuntimeException extends RuntimeException {
     private final ExecException cause;
 
-    public ExecRuntimeException(ExecException e) {
+    ExecRuntimeException(ExecException e) {
       super(e);
       this.cause = e;
     }
@@ -951,10 +951,10 @@ public class LegacyIncludeScanner implements IncludeScanner {
     }
   }
 
-  private static class InterruptedRuntimeException extends RuntimeException {
+  private static final class InterruptedRuntimeException extends RuntimeException {
     private final InterruptedException cause;
 
-    public InterruptedRuntimeException(InterruptedException e) {
+    InterruptedRuntimeException(InterruptedException e) {
       super(e);
       this.cause = e;
     }

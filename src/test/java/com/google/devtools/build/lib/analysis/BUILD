@@ -55,7 +55,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:artifacts_to_owner_labels",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_aware_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",

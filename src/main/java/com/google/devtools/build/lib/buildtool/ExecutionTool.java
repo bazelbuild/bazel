@@ -103,6 +103,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -192,9 +193,7 @@ public class ExecutionTool {
     actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
     actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
 
-    ModuleActionContextRegistry moduleActionContextRegistry = actionContextRegistryBuilder.build();
-
-    this.actionContextRegistry = moduleActionContextRegistry;
+    this.actionContextRegistry = actionContextRegistryBuilder.build();
     this.spawnStrategyRegistry = spawnStrategyRegistry;
   }
 
@@ -336,7 +335,7 @@ public class ExecutionTool {
               actionGraph,
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
-              () -> TopLevelArtifactHelper.makeTopLevelArtifactsToOwnerLabels(analysisResult));
+              () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult));
         }
       }
       skyframeExecutor.drainChangedFiles();
@@ -347,12 +346,10 @@ public class ExecutionTool {
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
       boolean shouldTrustRemoteArtifacts =
-          env.getOutputService() == null
-              ? false
-              : env.getOutputService().shouldTrustRemoteArtifacts();
+          env.getOutputService() != null && env.getOutputService().shouldTrustRemoteArtifacts();
       builder.buildArtifacts(
           env.getReporter(),
-          analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
+          analysisResult.getArtifactsToBuild(),
           analysisResult.getParallelTests(),
           analysisResult.getExclusiveTests(),
           analysisResult.getTargetsToBuild(),
@@ -598,7 +595,7 @@ public class ExecutionTool {
         buildRequestOptions.useTopLevelTargetsForSymlinks()
             ? analysisResult.getTargetsToBuild().stream()
                 .map(ConfiguredTarget::getConfigurationKey)
-                .filter(configuration -> configuration != null)
+                .filter(Objects::nonNull)
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
@@ -713,7 +710,7 @@ public class ExecutionTool {
    *
    * @param configuredTargets The configured targets whose artifacts are to be built.
    */
-  private Collection<ConfiguredTarget> determineSuccessfulTargets(
+  private static Collection<ConfiguredTarget> determineSuccessfulTargets(
       Collection<ConfiguredTarget> configuredTargets, Set<ConfiguredTargetKey> builtTargets) {
     // Maintain the ordering by copying builtTargets into a LinkedHashSet in the same iteration
     // order as configuredTargets.

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -37,7 +38,7 @@ public final class AnalysisResult {
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
   @Nullable private final FailureDetail failureDetail;
   private final ActionGraph actionGraph;
-  private final ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels;
+  private final ImmutableSet<Artifact> artifactsToBuild;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
   private final ImmutableSet<ConfiguredTarget> exclusiveTests;
   @Nullable private final TopLevelArtifactContext topLevelContext;
@@ -55,7 +56,7 @@ public final class AnalysisResult {
       ImmutableSet<ConfiguredTarget> targetsToSkip,
       @Nullable FailureDetail failureDetail,
       ActionGraph actionGraph,
-      ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels,
+      ImmutableSet<Artifact> artifactsToBuild,
       ImmutableSet<ConfiguredTarget> parallelTests,
       ImmutableSet<ConfiguredTarget> exclusiveTests,
       TopLevelArtifactContext topLevelContext,
@@ -70,7 +71,7 @@ public final class AnalysisResult {
     this.targetsToSkip = targetsToSkip;
     this.failureDetail = failureDetail;
     this.actionGraph = actionGraph;
-    this.topLevelArtifactsToOwnerLabels = topLevelArtifactsToOwnerLabels;
+    this.artifactsToBuild = artifactsToBuild;
     this.parallelTests = parallelTests;
     this.exclusiveTests = exclusiveTests;
     this.topLevelContext = topLevelContext;
@@ -120,8 +121,8 @@ public final class AnalysisResult {
     return targetsToSkip;
   }
 
-  public ArtifactsToOwnerLabels getTopLevelArtifactsToOwnerLabels() {
-    return topLevelArtifactsToOwnerLabels;
+  public ImmutableSet<Artifact> getArtifactsToBuild() {
+    return artifactsToBuild;
   }
 
   public ImmutableSet<ConfiguredTarget> getExclusiveTests() {
@@ -178,7 +179,7 @@ public final class AnalysisResult {
         targetsToSkip,
         failureDetail,
         actionGraph,
-        topLevelArtifactsToOwnerLabels,
+        artifactsToBuild,
         Sets.union(parallelTests, exclusiveTests).immutableCopy(),
         /*exclusiveTests=*/ ImmutableSet.of(),
         topLevelContext,

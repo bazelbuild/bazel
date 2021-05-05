@@ -166,7 +166,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
   }
 
-  private Iterable<String> getAspectDescriptions(AnalysisResult analysisResult) {
+  private static Iterable<String> getAspectDescriptions(AnalysisResult analysisResult) {
     return Iterables.transform(
         analysisResult.getAspectsMap().keySet(),
         aspectKey ->
@@ -214,7 +214,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         .containsExactly("@local//:aspect.bzl%MyAspect(//test:xxx)");
   }
 
-  private Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {
+  private static Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {
     return Iterables.transform(
         analysisResult.getTargetsToBuild(),
         configuredTarget -> configuredTarget.getLabel().toString());
@@ -1219,7 +1219,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1252,7 +1252,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1287,7 +1287,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1319,7 +1319,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1357,7 +1357,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1390,7 +1390,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "load('//test:aspect.bzl', 'my_rule')",
         "my_rule(name = 'xxx', my_attr = 'aaa')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1413,7 +1413,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1466,7 +1466,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1494,7 +1494,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "load('//test:aspect.bzl', 'my_rule')",
         "my_rule(name = 'xxx', my_attr = 'b')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1519,35 +1519,35 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "foo/BUILD",
         "load(':extension.bzl',  'my_rule')",
         "my_rule(name = 'main', exe1 = ':tool.sh', exe2 = ':tool.sh')");
-    AnalysisResult analysisResultOfRule = update(ImmutableList.<String>of(), "//foo:main");
+    AnalysisResult analysisResultOfRule = update(ImmutableList.of(), "//foo:main");
     assertThat(analysisResultOfRule.hasError()).isFalse();
 
     AnalysisResult analysisResultOfAspect =
-        update(ImmutableList.<String>of("/foo/extension.bzl%my_aspect"), "//foo:main");
+        update(ImmutableList.of("/foo/extension.bzl%my_aspect"), "//foo:main");
     assertThat(analysisResultOfAspect.hasError()).isFalse();
   }
 
   @Test
   public void aspectFragmentAccessSuccess() throws Exception {
-    getConfiguredTargetForAspectFragment(
+    analyzeConfiguredTargetForAspectFragment(
         "ctx.fragments.java.strict_java_deps", "'java'", "", "", "");
     assertNoEvents();
   }
 
   @Test
   public void aspectHostFragmentAccessSuccess() throws Exception {
-    getConfiguredTargetForAspectFragment(
+    analyzeConfiguredTargetForAspectFragment(
         "ctx.host_fragments.java.strict_java_deps", "", "'java'", "", "");
     assertNoEvents();
   }
 
   @Test
-  public void aspectFragmentAccessError() throws Exception {
+  public void aspectFragmentAccessError() {
     reporter.removeHandler(failFastHandler);
     assertThrows(
         ViewCreationFailedException.class,
         () ->
-            getConfiguredTargetForAspectFragment(
+            analyzeConfiguredTargetForAspectFragment(
                 "ctx.fragments.java.strict_java_deps", "'cpp'", "'java'", "'java'", ""));
     assertContainsEvent(
         "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
@@ -1557,12 +1557,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectHostFragmentAccessError() throws Exception {
+  public void aspectHostFragmentAccessError() {
     reporter.removeHandler(failFastHandler);
     assertThrows(
         ViewCreationFailedException.class,
         () ->
-            getConfiguredTargetForAspectFragment(
+            analyzeConfiguredTargetForAspectFragment(
                 "ctx.host_fragments.java.java_strict_deps", "'java'", "'cpp'", "", "'java'"));
     assertContainsEvent(
         "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
@@ -1571,7 +1571,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             + "(for example: host_fragments = [\"java\"])");
   }
 
-  private ConfiguredTarget getConfiguredTargetForAspectFragment(
+  private void analyzeConfiguredTargetForAspectFragment(
       String fullFieldName,
       String fragments,
       String hostFragments,
@@ -1624,7 +1624,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
               .build());
     }
 
-    return getConfiguredTarget("//test:xxx");
+    assertThat(getConfiguredTarget("//test:xxx")).isNotNull();
   }
 
   @Test
@@ -1646,14 +1646,14 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:r2");
+    AnalysisResult result = update(ImmutableList.of(), "//test:r2");
     ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
     Depset ruleInfoValue = (Depset) configuredTarget.get("rule_info");
     assertThat(ruleInfoValue.getSet(String.class).toList())
         .containsExactlyElementsIn(expectedLabels);
   }
 
-  private String[] aspectBzlFile(String attrAspects) {
+  private static String[] aspectBzlFile(String attrAspects) {
     return new String[] {
       "def _repro_aspect_impl(target, ctx):",
       "    s = depset([str(target.label)], transitive =",
@@ -1718,7 +1718,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "rule_bin_out(name = 'rbin')",
         "rule_gen_out(name = 'rgen')",
         "main_rule(name = 'main', deps = [':rbin', ':rgen'])");
-    AnalysisResult analysisResult = update(ImmutableList.<String>of(), "//foo:main");
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//foo:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     NestedSet<Artifact> aspectFiles = ((Depset) target.get("aspect_files")).getSet(Artifact.class);
     assertThat(Iterables.transform(aspectFiles.toList(), Artifact::getFilename))
@@ -1823,11 +1823,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "java_library(name = 'xxx')");
     useConfiguration("--experimental_action_listener=//test:al");
     AnalysisResult analysisResult =
-        update(ImmutableList.<String>of("test/aspect.bzl%my_aspect"), "//test:xxx");
-    assertThat(
-            Iterables.transform(
-                analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
-                Artifact::getFilename))
+        update(ImmutableList.of("test/aspect.bzl%my_aspect"), "//test:xxx");
+    assertThat(Iterables.transform(analysisResult.getArtifactsToBuild(), Artifact::getFilename))
         .contains("file.xa");
   }
 
@@ -1950,7 +1947,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2014,7 +2011,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "rcollect(name = 'rcollect', deps = [':r1', ':r2'])");
     AnalysisResult analysisResult = update("//test:rcollect");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
     assertThat(result)
         .containsExactly(
             "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
@@ -2064,7 +2061,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
