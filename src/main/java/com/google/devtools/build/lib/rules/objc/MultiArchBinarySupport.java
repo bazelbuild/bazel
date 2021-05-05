@@ -128,8 +128,6 @@ public class MultiArchBinarySupport {
    *     collections which are propagated from the dependencies of that configuration
    * @param outputMapCollector a map to which output groups created by compile action generation are
    *     added
-   * @param platform the current configuration from {@link
-   *     AppleConfiguration#getMultiArchPlatform(PlatformType)}
    * @return a map containing all single-architecture binaries that are linked from this call
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
@@ -139,8 +137,7 @@ public class MultiArchBinarySupport {
       Iterable<Artifact> extraLinkInputs,
       boolean isStampingEnabled,
       ListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
-      Map<String, NestedSet<Artifact>> outputMapCollector,
-      ApplePlatform platform)
+      Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
 
     ImmutableMap.Builder<String, Artifact> platformToBinariesMap = ImmutableMap.builder();
@@ -163,8 +160,11 @@ public class MultiArchBinarySupport {
               .map(CcInfo::getCcLinkingContext)
               .collect(toImmutableList());
 
+      // TODO(b/177442911): Use the target platform from platform info coming from split
+      // transition outputs instead of inferring this based on the target CPU.
+      ApplePlatform cpuPlatform = ApplePlatform.forTargetCpu(configCpu);
       platformToBinariesMap.put(
-          platform.cpuStringWithTargetEnvironmentForTargetCpu(configCpu),
+          cpuPlatform.cpuStringWithTargetEnvironmentForTargetCpu(configCpu),
           intermediateArtifacts.strippedSingleArchitectureBinary());
 
       ObjcProvider objcProvider = dependencySpecificConfiguration.objcLinkProvider();

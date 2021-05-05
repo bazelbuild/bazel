@@ -171,16 +171,19 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       boolean isStampingEnabled,
       boolean shouldLipo)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
-    PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
-
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
     ApplePlatform platform = null;
-    try {
-      platform = appleConfiguration.getMultiArchPlatform(platformType);
-    } catch (IllegalArgumentException e) {
-      ruleContext.throwWithRuleError(e);
+
+    if (shouldLipo) {
+      MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
+      PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
+
+      AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+
+      try {
+        platform = appleConfiguration.getMultiArchPlatform(platformType);
+      } catch (IllegalArgumentException e) {
+        ruleContext.throwWithRuleError(e);
+      }
     }
     ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
         MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
@@ -220,8 +223,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             allLinkInputs,
             isStampingEnabled,
             cpuToDepsCollectionMap,
-            outputGroupCollector,
-            platform);
+            outputGroupCollector);
 
     if (shouldLipo) {
       NestedSetBuilder<Artifact> binariesToLipo = NestedSetBuilder.stableOrder();
