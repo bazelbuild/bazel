@@ -98,7 +98,7 @@ public final class ExampleWorker {
           Thread t = createResponseThread(request);
           t.start();
         } else {
-          respondToRequest(request);
+          respondToRequest(request, new RequestInfo());
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);
