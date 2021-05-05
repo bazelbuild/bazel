@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.worker.WorkRequestHandler.RequestInfo;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.ByteArrayInputStream;
@@ -50,7 +51,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    handler.respondToRequest(request);
+    handler.respondToRequest(request, new RequestInfo());
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -70,7 +71,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).setRequestId(42).build();
-    handler.respondToRequest(request);
+    handler.respondToRequest(request, new RequestInfo());
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -93,7 +94,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    handler.respondToRequest(request);
+    handler.respondToRequest(request, new RequestInfo());
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
@@ -115,7 +116,7 @@ public class WorkRequestHandlerTest {
 
     List<String> args = Arrays.asList("--sources", "A.java");
     WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
-    handler.respondToRequest(request);
+    handler.respondToRequest(request, new RequestInfo());
 
     WorkResponse response =
         WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
