@@ -478,9 +478,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.configuredTargetProgress = configuredTargetProgress;
   }
 
-  private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(PackageFactory pkgFactory) {
-    ConfiguredRuleClassProvider ruleClassProvider =
-        (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
+  private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
     // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
@@ -539,8 +537,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction(externalPackageHelper));
     map.put(
-        SkyFunctions.PREPARE_ANALYSIS_PHASE,
-        new PrepareAnalysisPhaseFunction(ruleClassProvider, defaultBuildOptions));
+        SkyFunctions.PREPARE_ANALYSIS_PHASE, new PrepareAnalysisPhaseFunction(ruleClassProvider));
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
@@ -570,15 +567,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             cpuBoundSemaphore,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
-            defaultBuildOptions,
             configuredTargetProgress));
     map.put(
         SkyFunctions.ASPECT,
         new AspectFunction(
             new BuildViewProvider(),
             ruleClassProvider,
-            shouldStoreTransitivePackagesInLoadingAndAnalysis(),
-            defaultBuildOptions));
+            shouldStoreTransitivePackagesInLoadingAndAnalysis()));
     map.put(SkyFunctions.LOAD_STARLARK_ASPECT, new ToplevelStarlarkAspectFunction());
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
@@ -637,7 +632,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction());
     map.put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction());
     map.put(SkyFunctions.RESOLVED_FILE, new ResolvedFileFunction());
-    map.put(SkyFunctions.PLATFORM_MAPPING, new PlatformMappingFunction());
+    map.put(
+        SkyFunctions.PLATFORM_MAPPING,
+        new PlatformMappingFunction(ruleClassProvider.getConfigurationOptions()));
     map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
@@ -787,10 +784,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   protected void init() {
     progressReceiver = newSkyframeProgressReceiver();
-    ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions = skyFunctions(pkgFactory);
     memoizingEvaluator =
         evaluatorSupplier.create(
-            skyFunctions,
+            skyFunctions(),
             evaluatorDiffer(),
             progressReceiver,
             graphInconsistencyReceiver,
@@ -2116,7 +2112,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       throws InvalidConfigurationException {
     try {
       return BuildConfigurationValue.keyWithPlatformMapping(
-          platformMappingValue, defaultBuildOptions, depFragments, toOption);
+          platformMappingValue, depFragments, toOption);
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
@@ -2215,7 +2211,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     SkyKey key =
         BuildConfigurationValue.keyWithPlatformMapping(
             getPlatformMappingValue(eventHandler, options),
-            defaultBuildOptions,
             fragments,
             options);
     BuildConfigurationValue result =

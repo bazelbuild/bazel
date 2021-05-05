@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupExcept
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -83,25 +82,23 @@ import javax.annotation.Nullable;
 /**
  * The Skyframe function that generates aspects.
  *
- * This class, together with {@link ConfiguredTargetFunction} drives the analysis phase. For more
+ * <p>This class, together with {@link ConfiguredTargetFunction} drives the analysis phase. For more
  * information, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  *
- * {@link AspectFunction} takes a SkyKey containing an {@link AspectKey} [a tuple of
- * (target label, configurations, aspect class and aspect parameters)],
- * loads an {@link Aspect} from aspect class and aspect parameters,
- * gets a {@link ConfiguredTarget} for label and configurations, and then creates
- * a {@link ConfiguredAspect} for a given {@link AspectKey}.
+ * <p>{@link AspectFunction} takes a SkyKey containing an {@link AspectKey} [a tuple of (target
+ * label, configurations, aspect class and aspect parameters)], loads an {@link Aspect} from aspect
+ * class and aspect parameters, gets a {@link ConfiguredTarget} for label and configurations, and
+ * then creates a {@link ConfiguredAspect} for a given {@link AspectKey}.
  *
- * See {@link com.google.devtools.build.lib.packages.AspectClass} documentation
- * for an overview of aspect-related classes
+ * <p>See {@link com.google.devtools.build.lib.packages.AspectClass} documentation for an overview
+ * of aspect-related classes
  *
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
-public final class AspectFunction implements SkyFunction {
+final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
-  private final BuildOptions defaultBuildOptions;
   /**
    * Indicates whether the set of packages transitively loaded for a given {@link AspectValue} will
    * be needed for package root resolution later in the build. If not, they are not collected and
@@ -112,13 +109,11 @@ public final class AspectFunction implements SkyFunction {
   AspectFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
-      boolean storeTransitivePackagesForPackageRootResolution,
-      BuildOptions defaultBuildOptions) {
+      boolean storeTransitivePackagesForPackageRootResolution) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
-    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   /**
@@ -426,8 +421,7 @@ public final class AspectFunction implements SkyFunction {
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
-                transitiveRootCauses,
-                defaultBuildOptions);
+                transitiveRootCauses);
       } catch (ConfiguredValueCreationException e) {
         throw new AspectCreationException(
             e.getMessage(), key.getLabel(), aspectConfiguration, e.getDetailedExitCode());

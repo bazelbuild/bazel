@@ -25,15 +25,14 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Optional;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,15 +51,19 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   private static final FragmentClassSet PLATFORM_FRAGMENT_CLASS =
       FragmentClassSet.of(ImmutableSet.of(PlatformConfiguration.class));
 
-  private static final ImmutableList<Class<? extends FragmentOptions>>
-      BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableList.of(CoreOptions.class, PlatformOptions.class);
-
   private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
 
-  private static final BuildOptions DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS =
-      getDefaultBuildConfigPlatformOptions();
   private static final Label DEFAULT_TARGET_PLATFORM =
       Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+
+  private BuildOptions defaultBuildOptions;
+
+  @Before
+  public void setDefaultBuildOptions() {
+    defaultBuildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getConfigurationOptions());
+  }
 
   @Test
   public void testMappingFileDoesNotExist() {
@@ -80,10 +83,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildConfigurationValue.Key key =
         BuildConfigurationValue.keyWithoutPlatformMapping(
-            PLATFORM_FRAGMENT_CLASS, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+            PLATFORM_FRAGMENT_CLASS, defaultBuildOptions);
 
-    BuildConfigurationValue.Key mapped =
-        platformMappingValue.map(key, DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationValue.Key mapped = platformMappingValue.map(key);
 
     assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -111,12 +113,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped =
-        platformMappingValue.map(
-            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -135,12 +135,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped =
-        platformMappingValue.map(
-            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -157,12 +155,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
-    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped =
-        platformMappingValue.map(
-            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -180,12 +176,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped =
-        platformMappingValue.map(
-            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -208,12 +202,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped =
-        platformMappingValue.map(
-            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
   }
@@ -231,12 +223,10 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationValue.Key mapped =
-        platformMappingValue.map(
-            keyForOptions(modifiedOptions), DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildConfigurationValue.Key mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
 
     assertThat(mapped.getOptions().get(CoreOptions.class).outputDirectoryName)
         .isEqualTo("updated_output_dir");
@@ -254,14 +244,6 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
       throw result.getError(key).getException();
     }
     return result.get(key);
-  }
-
-  private static BuildOptions getDefaultBuildConfigPlatformOptions() {
-    try {
-      return BuildOptions.of(BUILD_CONFIG_PLATFORM_OPTIONS);
-    } catch (OptionsParsingException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {

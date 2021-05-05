@@ -63,12 +63,9 @@ import javax.annotation.Nullable;
  */
 final class PrepareAnalysisPhaseFunction implements SkyFunction {
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final BuildOptions defaultBuildOptions;
 
-  PrepareAnalysisPhaseFunction(
-      ConfiguredRuleClassProvider ruleClassProvider, BuildOptions defaultBuildOptions) {
+  PrepareAnalysisPhaseFunction(ConfiguredRuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = ruleClassProvider;
-    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   @Override
@@ -102,12 +99,12 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
     try {
       hostConfigurationKey =
           BuildConfigurationValue.keyWithPlatformMapping(
-              platformMappingValue, defaultBuildOptions, allFragments, hostOptions);
+              platformMappingValue, allFragments, hostOptions);
       for (BuildOptions buildOptions :
           getTopLevelBuildOptions(targetOptions, options.getMultiCpu())) {
         targetConfigurationKeysBuilder.add(
             BuildConfigurationValue.keyWithPlatformMapping(
-                platformMappingValue, defaultBuildOptions, allFragments, buildOptions));
+                platformMappingValue, allFragments, buildOptions));
       }
     } catch (OptionsParsingException e) {
       throw new PrepareAnalysisPhaseFunctionException(new InvalidConfigurationException(e));
@@ -280,7 +277,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       for (BuildOptions toOption : toOptions) {
         configSkyKeys.add(
             BuildConfigurationValue.keyWithPlatformMapping(
-                platformMappingValue, defaultBuildOptions, allFragments, toOption));
+                platformMappingValue, allFragments, toOption));
       }
     }
 
@@ -306,7 +303,7 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       for (BuildOptions toOption : toOptions) {
         SkyKey configKey =
             BuildConfigurationValue.keyWithPlatformMapping(
-                platformMappingValue, defaultBuildOptions, allFragments, toOption);
+                platformMappingValue, allFragments, toOption);
         BuildConfigurationValue configValue =
             ((BuildConfigurationValue) configsResult.get(configKey));
         // configValue will be null here if there was an exception thrown during configuration

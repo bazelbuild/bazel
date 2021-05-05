@@ -95,19 +95,16 @@ public final class ConfigurationResolver {
   private final SkyFunction.Environment env;
   private final TargetAndConfiguration ctgValue;
   private final BuildConfiguration hostConfiguration;
-  private final BuildOptions defaultBuildOptions;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
   public ConfigurationResolver(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
       BuildConfiguration hostConfiguration,
-      BuildOptions defaultBuildOptions,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
     this.env = env;
     this.ctgValue = ctgValue;
     this.hostConfiguration = hostConfiguration;
-    this.defaultBuildOptions = defaultBuildOptions;
     this.configConditions = configConditions;
   }
 
@@ -249,7 +246,7 @@ public final class ConfigurationResolver {
         String transitionKey = optionsEntry.getKey();
         BuildConfigurationValue.Key buildConfigurationValueKey =
             BuildConfigurationValue.keyWithPlatformMapping(
-                platformMappingValue, defaultBuildOptions, depFragments, optionsEntry.getValue());
+                platformMappingValue, depFragments, optionsEntry.getValue());
         configurationKeys.put(transitionKey, buildConfigurationValueKey);
       }
     } catch (OptionsParsingException e) {

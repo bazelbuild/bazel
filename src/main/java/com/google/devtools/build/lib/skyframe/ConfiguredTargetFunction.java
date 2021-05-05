@@ -136,7 +136,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
   private final Semaphore cpuBoundSemaphore;
-  private final BuildOptions defaultBuildOptions;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
 
   /**
@@ -154,7 +153,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Semaphore cpuBoundSemaphore,
       boolean storeTransitivePackagesForPackageRootResolution,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
-      BuildOptions defaultBuildOptions,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
@@ -162,7 +160,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.storeTransitivePackagesForPackageRootResolution =
         storeTransitivePackagesForPackageRootResolution;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
-    this.defaultBuildOptions = defaultBuildOptions;
     this.configuredTargetProgress = configuredTargetProgress;
   }
 
@@ -314,8 +311,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ruleClassProvider,
               view.getHostConfiguration(configuration),
               transitivePackagesForPackageRootResolution,
-              transitiveRootCauses,
-              defaultBuildOptions);
+              transitiveRootCauses);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         throw new ConfiguredTargetFunctionException(
@@ -601,9 +597,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * @param hostConfiguration the host configuration. There's a noticeable performance hit from
    *     instantiating this on demand for every dependency that wants it, so it's best to compute
    *     the host configuration as early as possible and pass this reference to all consumers
-   * @param defaultBuildOptions the default build options provided by the server; these are used to
-   *     create diffs for {@link BuildConfigurationValue.Key}s to prevent storing the entire
-   *     BuildOptions object.
    */
   @Nullable
   static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
@@ -617,8 +610,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
-      NestedSetBuilder<Cause> transitiveRootCauses,
-      BuildOptions defaultBuildOptions)
+      NestedSetBuilder<Cause> transitiveRootCauses)
       throws DependencyEvaluationException, ConfiguredValueCreationException,
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, transition) pairs.
@@ -648,8 +640,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
     ConfigurationResolver configResolver =
-        new ConfigurationResolver(
-            env, ctgValue, hostConfiguration, defaultBuildOptions, configConditions);
+        new ConfigurationResolver(env, ctgValue, hostConfiguration, configConditions);
     OrderedSetMultimap<DependencyKind, Dependency> depValueNames =
         configResolver.resolveConfigurations(initialDependencies);
 

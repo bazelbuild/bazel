@@ -52,20 +52,16 @@ public class BuildConfigurationValue implements SkyValue {
    *
    * @param platformMappingValue sky value that can transform a configuration key based on a
    *     platform mapping
-   * @param defaultBuildOptions set of native build options without modifications based on parsing
-   *     flags
    * @param fragments set of options fragments this configuration should cover
    * @param options the desired configuration
    * @throws OptionsParsingException if the platform mapping cannot be parsed
    */
   public static Key keyWithPlatformMapping(
       PlatformMappingValue platformMappingValue,
-      BuildOptions defaultBuildOptions,
       FragmentClassSet fragments,
       BuildOptions options)
       throws OptionsParsingException {
-    return platformMappingValue.map(
-        keyWithoutPlatformMapping(fragments, options), defaultBuildOptions);
+    return platformMappingValue.map(keyWithoutPlatformMapping(fragments, options));
   }
 
   /**
