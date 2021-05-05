@@ -1140,6 +1140,74 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(apiPluginData).isEqualTo(pluginData);
   }
 
+  /** Tests that java_plugin exposes plugin information to Starlark. */
+  @Test
+  public void javaPlugin_exposesPluginsToStarlark() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "java_library(",
+        "    name = 'plugin_dep',",
+        "    srcs = ['ProcessorDep.java'],",
+        "    data = ['depfile.dat'],",
+        ")",
+        "java_plugin(",
+        "    name = 'plugin',",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep'],",
+        "    data = ['pluginfile.dat'],",
+        ")");
+
+    JavaPluginData pluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+    JavaPluginData apiPluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+
+    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("libplugin.jar", "libplugin_dep.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile.dat");
+    assertThat(apiPluginData).isEqualTo(JavaPluginData.empty());
+  }
+
+  /** Tests that api generating java_plugin exposes plugin information to Starlark. */
+  @Test
+  public void apiGeneratingjavaPlugin_exposesPluginsToStarlark() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "java_library(",
+        "    name = 'plugin_dep',",
+        "    srcs = ['ProcessorDep.java'],",
+        "    data = ['depfile.dat'],",
+        ")",
+        "java_plugin(",
+        "    name = 'plugin',",
+        "    generates_api = True,",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep'],",
+        "    data = ['pluginfile.dat'],",
+        ")");
+
+    JavaPluginData pluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+    JavaPluginData apiPluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+
+    assertThat(apiPluginData.processorClasses().toList())
+        .containsExactly("com.google.process.stuff");
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("libplugin.jar", "libplugin_dep.jar");
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile.dat");
+    assertThat(apiPluginData).isEqualTo(pluginData);
+  }
+
   /** Tests that java_library exposes exported plugin information to Starlark. */
   @Test
   public void javaLibrary_exposesPluginsToStarlark() throws Exception {
@@ -1187,6 +1255,192 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("libapiplugin.jar", "libplugin_dep2.jar");
     assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
         .containsExactly("pluginfile2.dat");
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor. */
+  @Test
+  public void javaPluginInfo_create() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = ctx.attr.processor_class,",
+        "    data = ctx.files.data,",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'processor_class': attr.string(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData.processorClasses().toList()).isEmpty();
+    assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
+    assertThat(apiPluginData.data().toList()).isEmpty();
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor for api generating plugin. */
+  @Test
+  public void javaPluginInfo_createApiPlugin() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = ctx.attr.processor_class,",
+        "    data = ctx.files.data,",
+        "    generates_api = True,",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'processor_class': attr.string(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(apiPluginData.processorClasses().toList())
+        .containsExactly("com.google.process.stuff");
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData).isEqualTo(pluginData);
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor without processor class. */
+  @Test
+  public void javaPluginInfo_createWithoutProcessorClass() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = None,",
+        "    data = ctx.files.data,",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(pluginData.processorClasses().toList()).isEmpty();
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData.processorClasses().toList()).isEmpty();
+    assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
+    assertThat(apiPluginData.data().toList()).isEmpty();
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor with data given as depset. */
+  @Test
+  public void javaPluginInfo_createWithDataDepset() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = ctx.attr.processor_class,",
+        "    data = depset(ctx.files.data),",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'processor_class': attr.string(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData.processorClasses().toList()).isEmpty();
+    assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
+    assertThat(apiPluginData.data().toList()).isEmpty();
   }
 
   @Test

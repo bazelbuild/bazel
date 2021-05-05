@@ -14,11 +14,19 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Info object encapsulating information about Java plugins. */
@@ -71,5 +79,62 @@ public interface JavaPluginInfoApi<JavaPluginDataT extends JavaPluginDataApi> ex
             "Returns the files needed during execution by the encapsulated annotation processors.",
         structField = true)
     Depset /*<FileApi>*/ getProcessorDataForStarlark();
+  }
+
+  /** Provider class for {@link JavaPluginInfoApi} objects. */
+  @StarlarkBuiltin(name = "Provider", documented = false)
+  interface Provider<JavaInfoT extends JavaInfoApi<?, ?, ?>> extends ProviderApi {
+
+    @StarlarkMethod(
+        name = "JavaPluginInfo",
+        doc = "The <code>JavaPluginInfo</code> constructor.",
+        parameters = {
+          @Param(
+              name = "runtime_deps",
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class),
+              },
+              named = true,
+              doc = "The library containing an annotation processor."),
+          @Param(
+              name = "processor_class",
+              named = true,
+              positional = false,
+              allowedTypes = {
+                @ParamType(type = String.class),
+                @ParamType(type = NoneType.class),
+              },
+              doc =
+                  "The fully qualified class name that the Java compiler uses as "
+                      + "an entry point to the annotation processor."),
+          @Param(
+              name = "data",
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = FileApi.class),
+                @ParamType(type = Depset.class, generic1 = FileApi.class),
+              },
+              named = true,
+              positional = false,
+              defaultValue = "[]",
+              doc = "The files needed by this annotation processor during execution."),
+          @Param(
+              name = "generates_api",
+              named = true,
+              positional = false,
+              defaultValue = "False",
+              doc =
+                  "Set to true when this annotation processor generates API code. "
+                      + "<p>Such annotation processor is applied to a Java target before producing "
+                      + "its header jars (which contains method signatures). When no API plugins "
+                      + "are present, header jars are generated from the sources, reducing the "
+                      + "critical path. "
+                      + "<p><em class=\"harmful\">WARNING: This parameter affects build "
+                      + "performance, use it only if necessary.</em>"),
+        },
+        selfCall = true)
+    @StarlarkConstructor
+    JavaPluginInfoApi<?> javaPluginInfo(
+        Sequence<?> runtimeDeps, Object processorClass, Object processorData, Boolean generatesApi)
+        throws EvalException;
   }
 }
