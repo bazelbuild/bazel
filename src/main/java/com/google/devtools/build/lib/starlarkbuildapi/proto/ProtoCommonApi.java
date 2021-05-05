@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
+import com.google.common.collect.ImmutableList;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -31,4 +33,16 @@ import net.starlark.java.eval.StarlarkValue;
             + "to load this symbol from <a href=\"https://github.com/bazelbuild/rules_proto\">"
             + "rules_proto</a>"
             + "</p>")
-public interface ProtoCommonApi extends StarlarkValue {}
+public interface ProtoCommonApi extends StarlarkValue {
+  @Deprecated
+  @StarlarkMethod(
+      name = "available_configuration_fields",
+      doc =
+          "Indicates that this version exposes fields on this configuration fragment. Do not use "
+              + "this field, its only purpose is to help with migration.",
+      documented = false,
+      structField = true)
+  default ImmutableList<String> availableConfigurationFields() {
+    return ImmutableList.of("protoc", "protoc_options");
+  }
+}
