@@ -113,6 +113,11 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
+    if ctx.attr.cpu == "armeabi-v7a":
+        arch = "<architecture>"
+    else:
+        arch = ctx.attr.cpu.split("_", 1)[-1]
+
     if (ctx.attr.cpu == "armeabi-v7a"):
         target_libc = "armeabi-v7a"
     elif (ctx.attr.cpu == "ios_arm64" or
@@ -309,304 +314,38 @@ def _impl(ctx):
     else:
         cpp_header_parsing_action = None
 
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "<architecture>"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_arm64_32"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "arm64_32"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "darwin_arm64"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "arm64"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "darwin_arm64e"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "arm64e"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "armv7"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "armv7k"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "watchos_i386"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "i386"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-                "apply_simulator_compiler_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "x86_64"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-                "apply_simulator_compiler_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        objc_compile_action = action_config(
-            action_name = ACTION_NAMES.objc_compile,
-            flag_sets = [
-                flag_set(
-                    flag_groups = [flag_group(flags = ["-arch", "x86_64"])],
-                ),
-            ],
-            implies = [
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "objc_actions",
-                "apply_default_compiler_flags",
-                "apply_default_warnings",
-                "framework_paths",
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    else:
-        objc_compile_action = None
+    objc_compile_action = action_config(
+        action_name = ACTION_NAMES.objc_compile,
+        flag_sets = [
+            flag_set(
+                flag_groups = [flag_group(flags = ["-arch", arch])],
+            ),
+        ],
+        implies = [
+            "compiler_input_flags",
+            "compiler_output_flags",
+            "objc_actions",
+            "apply_default_compiler_flags",
+            "apply_default_warnings",
+            "framework_paths",
+            "preprocessor_defines",
+            "include_system_dirs",
+            "version_min",
+            "objc_arc",
+            "no_objc_arc",
+            "apple_env",
+            "user_compile_flags",
+            "sysroot",
+            "unfiltered_compile_flags",
+            "apply_simulator_compiler_flags",
+        ],
+        tools = [
+            tool(
+                path = "wrapped_clang",
+                execution_requirements = xcode_execution_requirements,
+            ),
+        ],
+    )
 
     if (ctx.attr.cpu == "armeabi-v7a"):
         objcpp_executable_action = action_config(
