@@ -796,6 +796,16 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
 )
+
+sh_test(
+    name = "exec_group_test",
+    srcs = ["exec_group_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 ########################################################################
 # Test suites.
 
