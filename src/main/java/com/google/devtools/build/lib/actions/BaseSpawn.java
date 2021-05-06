@@ -142,4 +142,9 @@ public class BaseSpawn implements Spawn {
   public PlatformInfo getExecutionPlatform() {
     return action.getExecutionPlatform();
   }
+
+  @Override
+  public String toString() {
+    return Spawns.prettyPrint(this);
+  }
 }
