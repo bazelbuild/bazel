@@ -55,39 +55,6 @@ def _deterministic_libtool_flags(ctx):
     return []
 
 def _impl(ctx):
-    if (ctx.attr.cpu == "darwin_x86_64"):
-        toolchain_identifier = "darwin_x86_64"
-    elif (ctx.attr.cpu == "darwin_arm64"):
-        toolchain_identifier = "darwin_arm64"
-    elif (ctx.attr.cpu == "darwin_arm64e"):
-        toolchain_identifier = "darwin_arm64e"
-    elif (ctx.attr.cpu == "ios_arm64"):
-        toolchain_identifier = "ios_arm64"
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        toolchain_identifier = "ios_arm64e"
-    elif (ctx.attr.cpu == "ios_armv7"):
-        toolchain_identifier = "ios_armv7"
-    elif (ctx.attr.cpu == "ios_i386"):
-        toolchain_identifier = "ios_i386"
-    elif (ctx.attr.cpu == "ios_x86_64"):
-        toolchain_identifier = "ios_x86_64"
-    elif (ctx.attr.cpu == "armeabi-v7a"):
-        toolchain_identifier = "stub_armeabi-v7a"
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        toolchain_identifier = "tvos_arm64"
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        toolchain_identifier = "tvos_x86_64"
-    elif (ctx.attr.cpu == "watchos_arm64_32"):
-        toolchain_identifier = "watchos_arm64_32"
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        toolchain_identifier = "watchos_armv7k"
-    elif (ctx.attr.cpu == "watchos_i386"):
-        toolchain_identifier = "watchos_i386"
-    elif (ctx.attr.cpu == "watchos_x86_64"):
-        toolchain_identifier = "watchos_x86_64"
-    else:
-        fail("Unreachable")
-
     if (ctx.attr.cpu == "armeabi-v7a"):
         host_system_name = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin_x86_64" or
@@ -107,6 +74,11 @@ def _impl(ctx):
         host_system_name = "x86_64-apple-macosx"
     else:
         fail("Unreachable")
+
+    if ctx.attr.cpu == "armeabi-v7a":
+        toolchain_identifier = "stub_armeabi-v7a"
+    else:
+        toolchain_identifier = ctx.attr.cpu
 
     if (ctx.attr.cpu == "ios_arm64"):
         target_system_name = "arm64-apple-ios"
@@ -142,39 +114,6 @@ def _impl(ctx):
         fail("Unreachable")
 
     if (ctx.attr.cpu == "armeabi-v7a"):
-        target_cpu = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        target_cpu = "darwin_x86_64"
-    elif (ctx.attr.cpu == "darwin_arm64"):
-        target_cpu = "darwin_arm64"
-    elif (ctx.attr.cpu == "darwin_arm64e"):
-        target_cpu = "darwin_arm64e"
-    elif (ctx.attr.cpu == "ios_arm64"):
-        target_cpu = "ios_arm64"
-    elif (ctx.attr.cpu == "ios_arm64e"):
-        target_cpu = "ios_arm64e"
-    elif (ctx.attr.cpu == "ios_armv7"):
-        target_cpu = "ios_armv7"
-    elif (ctx.attr.cpu == "ios_i386"):
-        target_cpu = "ios_i386"
-    elif (ctx.attr.cpu == "ios_x86_64"):
-        target_cpu = "ios_x86_64"
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        target_cpu = "tvos_arm64"
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        target_cpu = "tvos_x86_64"
-    elif (ctx.attr.cpu == "watchos_arm64_32"):
-        target_cpu = "watchos_arm64_32"
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        target_cpu = "watchos_armv7k"
-    elif (ctx.attr.cpu == "watchos_i386"):
-        target_cpu = "watchos_i386"
-    elif (ctx.attr.cpu == "watchos_x86_64"):
-        target_cpu = "watchos_x86_64"
-    else:
-        fail("Unreachable")
-
-    if (ctx.attr.cpu == "armeabi-v7a"):
         target_libc = "armeabi-v7a"
     elif (ctx.attr.cpu == "ios_arm64" or
           ctx.attr.cpu == "ios_arm64e" or
@@ -196,8 +135,6 @@ def _impl(ctx):
         target_libc = "watchos"
     else:
         fail("Unreachable")
-
-    compiler = "compiler"
 
     if (ctx.attr.cpu == "armeabi-v7a"):
         abi_version = "armeabi-v7a"
@@ -240,10 +177,6 @@ def _impl(ctx):
         abi_libc_version = "local"
     else:
         fail("Unreachable")
-
-    cc_target_os = "apple"
-
-    builtin_sysroot = None
 
     all_compile_actions = [
         ACTION_NAMES.c_compile,
@@ -6595,15 +6528,15 @@ def _impl(ctx):
             toolchain_identifier = toolchain_identifier,
             host_system_name = host_system_name,
             target_system_name = target_system_name,
-            target_cpu = target_cpu,
+            target_cpu = ctx.attr.cpu,
             target_libc = target_libc,
-            compiler = compiler,
+            compiler = "compiler",
             abi_version = abi_version,
             abi_libc_version = abi_libc_version,
             tool_paths = [tool_path(name = name, path = path) for (name, path) in tool_paths.items()],
             make_variables = make_variables,
-            builtin_sysroot = builtin_sysroot,
-            cc_target_os = cc_target_os,
+            builtin_sysroot = None,
+            cc_target_os = "apple",
         ),
         DefaultInfo(
             executable = out,
