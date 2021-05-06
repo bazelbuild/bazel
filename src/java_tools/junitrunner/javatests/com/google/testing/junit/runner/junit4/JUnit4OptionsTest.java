@@ -14,16 +14,17 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
-
 import com.google.common.collect.ImmutableList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 /**
  * Tests for {@link JUnit4Options}
@@ -36,6 +37,8 @@ public class JUnit4OptionsTest {
   @Test
   public void testParse_noArgs() throws Exception {
     JUnit4Options options = JUnit4Options.parse(EMPTY_ENV, ImmutableList.<String>of());
+    assertThat(options.getTestIncludeCategories()).isNull();
+    assertThat(options.getTestExcludeCategories()).isNull();
     assertThat(options.getTestIncludeFilter()).isNull();
     assertThat(options.getUnparsedArgs()).isEmpty();
   }
@@ -45,6 +48,18 @@ public class JUnit4OptionsTest {
     JUnit4Options options = JUnit4Options.parse(EMPTY_ENV, ImmutableList.of("--bar", "baz"));
     assertThat(options.getTestIncludeFilter()).isNull();
     assertThat(options.getUnparsedArgs()).isEqualTo(new String[] {"--bar", "baz"});
+  }
+
+  @Test
+  public void testParse_includeCategories() {
+    JUnit4Options options = JUnit4Options.parse(EMPTY_ENV, ImmutableList.of("--test_categories", "java.lang.Object"));
+    assertThat(options.getTestIncludeCategories()).isNotNull();
+  }
+
+  @Test
+  public void testParse_excludeCategories() {
+    JUnit4Options options = JUnit4Options.parse(EMPTY_ENV, ImmutableList.of("--test_exclude_categories", "java.lang.Object"));
+    assertThat(options.getTestExcludeCategories()).isNotNull();
   }
 
   @Test

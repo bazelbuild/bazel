@@ -14,10 +14,18 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import com.google.testing.junit.junit4.runner.CategoryFilter;
+import org.junit.runner.manipulation.Filter;
+
+import javax.annotation.Nullable;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Properties;
-import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * Configuration for the JUnit4 test runner.
@@ -33,6 +41,7 @@ class JUnit4Config {
   private final boolean testRunnerFailFast;
   private final String testIncludeFilterRegexp;
   private final String testExcludeFilterRegexp;
+  private final Filter categoriesFilter;
   @Nullable private final Path xmlOutputPath;
   private final String junitApiVersion;
   private final boolean shouldInstallSecurityManager;
@@ -40,49 +49,101 @@ class JUnit4Config {
   private static final String XML_OUTPUT_FILE_ENV_VAR = "XML_OUTPUT_FILE";
 
   public JUnit4Config(
-      String testIncludeFilterRegexp,
-      String testExcludeFilterRegexp,
-      @Nullable Path outputXmlFilePath) {
+          String testIncludeFilterRegexp,
+          String testExcludeFilterRegexp,
+          @Nullable String testIncludeCategories,
+          @Nullable String testExcludeCategories,
+          @Nullable Path outputXmlFilePath) {
     this(
         false,
         testIncludeFilterRegexp,
         testExcludeFilterRegexp,
+        testIncludeCategories,
+        testExcludeCategories,
         outputXmlFilePath,
         System.getProperties());
   }
 
   public JUnit4Config(
-      boolean testRunnerFailFast, String testIncludeFilterRegexp, String testExcludeFilterRegexp) {
+          boolean testRunnerFailFast,
+          String testIncludeFilterRegexp,
+          String testExcludeFilterRegexp,
+          @Nullable String testIncludeCategories,
+          @Nullable String testExcludeCategories) {
     this(
         testRunnerFailFast,
         testIncludeFilterRegexp,
         testExcludeFilterRegexp,
+        testIncludeCategories,
+        testExcludeCategories,
         null,
         System.getProperties());
   }
 
   // VisibleForTesting
   JUnit4Config(
-      String testIncludeFilterRegexp,
-      String testExcludeFilterRegexp,
-      @Nullable Path xmlOutputPath,
-      Properties systemProperties) {
-    this(false, testIncludeFilterRegexp, testExcludeFilterRegexp, xmlOutputPath, systemProperties);
+          String testIncludeFilterRegexp,
+          String testExcludeFilterRegexp,
+          @Nullable String testIncludeCategories,
+          @Nullable String testExcludeCategories,
+          @Nullable Path xmlOutputPath,
+          Properties systemProperties) {
+    this(false, testIncludeFilterRegexp, testExcludeFilterRegexp, testIncludeCategories, testExcludeCategories, xmlOutputPath, systemProperties);
   }
 
   private JUnit4Config(
-      boolean testRunnerFailFast,
-      String testIncludeFilterRegexp,
-      String testExcludeFilterRegexp,
-      @Nullable Path xmlOutputPath,
-      Properties systemProperties) {
+          boolean testRunnerFailFast,
+          String testIncludeFilterRegexp,
+          String testExcludeFilterRegexp,
+          @Nullable String testIncludeCategories,
+          @Nullable String testExcludeCategories,
+          @Nullable Path xmlOutputPath,
+          Properties systemProperties) {
     this.testRunnerFailFast = testRunnerFailFast;
     this.testIncludeFilterRegexp = testIncludeFilterRegexp;
     this.testExcludeFilterRegexp = testExcludeFilterRegexp;
+    try {
+      this.categoriesFilter = parseCategoriesFilter(
+              testIncludeCategories,
+              testExcludeCategories
+      );
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
     this.xmlOutputPath = xmlOutputPath;
     junitApiVersion = systemProperties.getProperty(JUNIT_API_VERSION_PROPERTY, "1").trim();
     shouldInstallSecurityManager = installSecurityManager(systemProperties);
   }
+
+  private static Filter parseCategoriesFilter(@Nullable String includesValue, @Nullable String excludesValue) throws ClassNotFoundException {
+    Set<Class<?>> includes = resolveClassList(includesValue);
+    Set<Class<?>> excludes = resolveClassList(excludesValue);
+    if (includes.isEmpty() && excludes.isEmpty()) {
+      return Filter.ALL;
+    }
+    return new CategoryFilter(includes, excludes);
+  }
+
+  private static Set<Class<?>> resolveClassList(@Nullable String listValue) throws ClassNotFoundException {
+    if (listValue == null || "".equals(listValue)) {
+      return Collections.emptySet();
+    }
+    String[] parts = listValue.split(",");
+    Set<Class<?>> classes = new HashSet<>();
+    List<String> missingClasses = new ArrayList<>();
+    for (String className : parts) {
+      try {
+        classes.add(Class.forName(className));
+      } catch (ClassNotFoundException e) {
+        missingClasses.add(className);
+      }
+    }
+    if (!missingClasses.isEmpty()) {
+      throw new ClassNotFoundException("The following category classes could not be found: " + String.join(",", missingClasses));
+    }
+    return classes;
+  }
+
 
   private static boolean installSecurityManager(Properties systemProperties) {
     String securityManager = systemProperties.getProperty("java.security.manager");
@@ -159,4 +220,12 @@ class JUnit4Config {
   public String getTestExcludeFilterRegexp() {
     return testExcludeFilterRegexp;
   }
+
+  /**
+   * Returns the category filter, or Filter.ALL if the options were not specified.
+   */
+  public Filter getCategoriesFilter() {
+    return categoriesFilter;
+  }
+
 }

@@ -14,12 +14,12 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * Simple options parser for JUnit 4.
@@ -32,6 +32,8 @@ class JUnit4Options {
 
   public static final String TEST_INCLUDE_FILTER_OPTION = "--test_filter";
   public static final String TEST_EXCLUDE_FILTER_OPTION = "--test_exclude_filter";
+  public static final String TEST_INCLUDE_CATEGORIES_FILTER_OPTION = "--test_categories";
+  public static final String TEST_EXCLUDE_CATEGORIES_FILTER_OPTION = "--test_exclude_categories";
 
   // This gets passed in by the build system.
   private static final String TESTBRIDGE_TEST_ONLY = "TESTBRIDGE_TEST_ONLY";
@@ -49,6 +51,8 @@ class JUnit4Options {
 
     optionsMap.put(TEST_INCLUDE_FILTER_OPTION, null);
     optionsMap.put(TEST_EXCLUDE_FILTER_OPTION, null);
+    optionsMap.put(TEST_INCLUDE_CATEGORIES_FILTER_OPTION, null);
+    optionsMap.put(TEST_EXCLUDE_CATEGORIES_FILTER_OPTION, null);
 
     for (Iterator<String> it = args.iterator(); it.hasNext();) {
       String arg = it.next();
@@ -63,7 +67,7 @@ class JUnit4Options {
       } else if (optionsMap.containsKey(arg)) {
         // next argument is the regexp
         if (!it.hasNext()) {
-          throw new RuntimeException("No filter expression specified after " + arg);
+          throw new RuntimeException("No argument given after " + arg);
         }
         optionsMap.put(arg, it.next());
         continue;
@@ -77,16 +81,22 @@ class JUnit4Options {
       optionsMap.put(TEST_INCLUDE_FILTER_OPTION, testFilter);
     }
     boolean testRunnerFailFast = "1".equals(envVars.get(TESTBRIDGE_TEST_RUNNER_FAIL_FAST));
+
     return new JUnit4Options(
         testRunnerFailFast,
         optionsMap.get(TEST_INCLUDE_FILTER_OPTION),
         optionsMap.get(TEST_EXCLUDE_FILTER_OPTION),
+        optionsMap.get(TEST_INCLUDE_CATEGORIES_FILTER_OPTION),
+        optionsMap.get(TEST_EXCLUDE_CATEGORIES_FILTER_OPTION),
         unparsedArgs.toArray(new String[0]));
   }
+
 
   private final boolean testRunnerFailFast;
   private final String testIncludeFilter;
   private final String testExcludeFilter;
+  private final String testIncludeCategories;
+  private final String testExcludeCategories;
   private final String[] unparsedArgs;
 
   // VisibleForTesting
@@ -94,10 +104,14 @@ class JUnit4Options {
       boolean testRunnerFailFast,
       @Nullable String testIncludeFilter,
       @Nullable String testExcludeFilter,
+      @Nullable String testIncludeCategories,
+      @Nullable String testExcludeCategories,
       String[] unparsedArgs) {
     this.testRunnerFailFast = testRunnerFailFast;
     this.testIncludeFilter = testIncludeFilter;
     this.testExcludeFilter = testExcludeFilter;
+    this.testIncludeCategories = testIncludeCategories;
+    this.testExcludeCategories = testExcludeCategories;
     this.unparsedArgs = unparsedArgs;
   }
 
@@ -115,6 +129,22 @@ class JUnit4Options {
    */
   String getTestIncludeFilter() {
     return testIncludeFilter;
+  }
+
+  /**
+   * Returns the value of the test_categories option, or <code>null</code> if
+   * it was not specified.
+   */
+  String getTestIncludeCategories() {
+    return testIncludeCategories;
+  }
+
+  /**
+   * Returns the value of the test_exclude_categories option, or <code>null</code> if
+   * it was not specified.
+   */
+  String getTestExcludeCategories() {
+    return testExcludeCategories;
   }
 
   /**
