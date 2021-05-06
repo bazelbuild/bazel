@@ -1279,7 +1279,7 @@ public final class RuleContext extends TargetContext
       return ImmutableTable.of();
     } else {
       return parseExecProperties(
-          execProperties, toolchainContexts == null ? null : toolchainContexts.getExecGroups());
+          execProperties, toolchainContexts == null ? null : toolchainContexts.getExecGroupNames());
     }
   }
 
