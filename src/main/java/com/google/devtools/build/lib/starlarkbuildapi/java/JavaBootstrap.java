@@ -27,7 +27,6 @@ public class JavaBootstrap implements Bootstrap {
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
   private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
-  private final JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
 
   public JavaBootstrap(
@@ -35,13 +34,11 @@ public class JavaBootstrap implements Bootstrap {
       JavaInfoProviderApi javaInfoProviderApi,
       JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi,
       JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
-      JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider,
       ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
     this.javaCommonApi = javaCommonApi;
     this.javaInfoProviderApi = javaInfoProviderApi;
     this.javaPluginInfoProviderApi = javaPluginInfoProviderApi;
     this.javaProtoCommonApi = javaProtoCommonApi;
-    this.javaCcLinkParamsProviderApiProvider = javaCcLinkParamsProviderApiProvider;
     this.proguardSpecProvider = proguardSpecProvider;
   }
 
@@ -51,7 +48,6 @@ public class JavaBootstrap implements Bootstrap {
     builder.put("JavaInfo", javaInfoProviderApi);
     builder.put("JavaPluginInfo", javaPluginInfoProviderApi);
     builder.put("java_proto_common", javaProtoCommonApi);
-    builder.put("JavaCcLinkParamsInfo", javaCcLinkParamsProviderApiProvider);
 
     builder.put(
         ProguardSpecProviderApi.NAME,

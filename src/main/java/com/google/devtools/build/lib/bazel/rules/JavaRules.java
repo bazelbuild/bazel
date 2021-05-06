@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaToolchain;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
-import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -50,9 +49,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
-/**
- * Rules for Java support in Bazel.
- */
+/** Rules for Java support in Bazel. */
 public class JavaRules implements RuleSet {
   public static final JavaRules INSTANCE = new JavaRules();
 
@@ -95,7 +92,6 @@ public class JavaRules implements RuleSet {
             JavaInfo.PROVIDER,
             JavaPluginInfo.PROVIDER,
             new JavaProtoStarlarkCommon(),
-            JavaCcLinkParamsProvider.PROVIDER,
             ProguardSpecProvider.PROVIDER));
 
     try {

@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
-import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -250,15 +249,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       aspect.addProvider(generatedCompilationArgsProvider);
       javaInfo.addProvider(JavaCompilationArgsProvider.class, generatedCompilationArgsProvider);
 
-      JavaCcLinkParamsProvider javaCcLinkParamsProvider =
-          createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps());
-      if (ruleContext
-          .getFragment(JavaConfiguration.class)
-          .experimentalPublishJavaCcLinkParamsInfo()) {
-        aspect.addNativeDeclaredProvider(javaCcLinkParamsProvider);
-      }
       javaInfo.addProvider(
-          JavaCcInfoProvider.class, new JavaCcInfoProvider(javaCcLinkParamsProvider.getCcInfo()));
+          JavaCcInfoProvider.class,
+          createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
 
       aspect
           .addNativeDeclaredProvider(javaInfo.build())

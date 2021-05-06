@@ -647,8 +647,8 @@ public class JavaOptions extends FragmentOptions {
       name = "experimental_publish_javacclinkparamsinfo",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, JavaCcLinkParamsInfo is published as part of JavaInfo.")
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "Deprecated no-op.")
   public boolean experimentalPublishJavaCcLinkParamsInfo;
 
   Label defaultJavaBase() {
@@ -732,7 +732,6 @@ public class JavaOptions extends FragmentOptions {
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     host.dontCollectSoArtifacts = dontCollectSoArtifacts;
-    host.experimentalPublishJavaCcLinkParamsInfo = experimentalPublishJavaCcLinkParamsInfo;
 
     return host;
   }

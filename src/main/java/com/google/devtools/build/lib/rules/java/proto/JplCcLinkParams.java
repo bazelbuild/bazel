@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
-import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,16 +36,10 @@ public class JplCcLinkParams {
    *     dependency's aspect node.
    * @param protoRuntimes a list of java_library.
    */
-  public static JavaCcLinkParamsProvider createCcLinkingInfo(
+  public static JavaCcInfoProvider createCcLinkingInfo(
       final RuleContext ruleContext, final ImmutableList<TransitiveInfoCollection> protoRuntimes) {
     List<CcInfo> providers = new ArrayList<>();
     for (TransitiveInfoCollection t : ruleContext.getPrerequisites("deps")) {
-      JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
-      if (javaCcLinkParamsProvider != null) {
-        providers.add(javaCcLinkParamsProvider.getCcInfo());
-        continue;
-      }
-
       JavaCcInfoProvider javaCcInfoProvider = JavaInfo.getProvider(JavaCcInfoProvider.class, t);
       if (javaCcInfoProvider != null) {
         providers.add(javaCcInfoProvider.getCcInfo());
@@ -59,18 +52,12 @@ public class JplCcLinkParams {
         providers.add(ccInfo);
       }
 
-      JavaCcLinkParamsProvider javaCcLinkParamsProvider = t.get(JavaCcLinkParamsProvider.PROVIDER);
-      if (javaCcLinkParamsProvider != null) {
-        providers.add(javaCcLinkParamsProvider.getCcInfo());
-        continue;
-      }
-
       JavaCcInfoProvider javaCcInfoProvider = JavaInfo.getProvider(JavaCcInfoProvider.class, t);
       if (javaCcInfoProvider != null) {
         providers.add(javaCcInfoProvider.getCcInfo());
       }
     }
 
-    return new JavaCcLinkParamsProvider(CcInfo.merge(providers));
+    return new JavaCcInfoProvider(CcInfo.merge(providers));
   }
 }
