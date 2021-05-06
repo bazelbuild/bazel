@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.analysis.util.DefaultBuildOptionsForTesting;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
@@ -90,8 +89,6 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
-            .setDefaultBuildOptions(
-                DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
@@ -106,7 +103,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         Options.getDefaults(PackageOptions.class),
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(

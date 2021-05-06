@@ -149,7 +149,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util:test-build-options",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:SkyframeExecutorTestHelper",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",

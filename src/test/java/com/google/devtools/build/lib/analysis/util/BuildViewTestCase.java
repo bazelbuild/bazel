@@ -316,8 +316,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setDefaultBuildOptions(
-                DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setManagedDirectoriesKnowledge(getManagedDirectoriesKnowledge())

@@ -73,7 +73,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -147,7 +146,6 @@ java_test(
     name = "PythonVersionSelectTest",
     srcs = ["PythonVersionSelectTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -194,7 +192,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",

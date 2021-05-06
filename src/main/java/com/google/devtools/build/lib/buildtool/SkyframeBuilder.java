@@ -211,7 +211,6 @@ public class SkyframeBuilder implements Builder {
                 options,
                 actionCacheChecker,
                 topDownActionCache,
-                null,
                 topLevelArtifactContext);
         detailedExitCode =
             processResult(
@@ -253,7 +252,7 @@ public class SkyframeBuilder implements Builder {
    *   <li>{@code null}, if {@code result} had no errors
    *   <li>{@code e} if result had errors and one of them specified a {@link DetailedExitCode} value
    *       {@code e}
-   *   <li>a {@link DetailedExitCode} with {@link Code.NON_ACTION_EXECUTION_FAILURE} if result had
+   *   <li>a {@link DetailedExitCode} with {@link Code#NON_ACTION_EXECUTION_FAILURE} if result had
    *       errors but none specified a {@link DetailedExitCode} value
    * </ol>
    *

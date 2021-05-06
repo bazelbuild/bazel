@@ -259,15 +259,6 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns an instance of BuildOptions to be used to create {@link
-   * BuildOptions.OptionsDiffForReconstruction} with. Only one installed Module should override
-   * this.
-   */
-  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-    return null;
-  }
-
-  /**
    * Called after Bazel analyzes the build's top-level targets. This is called once per build if
    * --analyze is enabled. Modules can override this to perform extra checks on analysis results.
    *

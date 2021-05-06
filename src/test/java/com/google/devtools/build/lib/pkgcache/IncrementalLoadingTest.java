@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.util.DefaultBuildOptionsForTesting;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
@@ -100,7 +99,8 @@ public class IncrementalLoadingTest {
     tester = createTester(fs, clock);
   }
 
-  protected PackageLoadingTester createTester(FileSystem fs, ManualClock clock) throws Exception {
+  protected static PackageLoadingTester createTester(FileSystem fs, ManualClock clock)
+      throws Exception {
     return new PackageLoadingTester(fs, clock);
   }
 
@@ -423,9 +423,8 @@ public class IncrementalLoadingTest {
     private final List<Path> changes = new ArrayList<>();
     private boolean everythingModified = false;
     private ModifiedFileSet modifiedFileSet;
-    private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-    public PackageLoadingTester(FileSystem fs, ManualClock clock) throws IOException {
+    PackageLoadingTester(FileSystem fs, ManualClock clock) throws IOException {
       this.clock = clock;
       workspace = fs.getPath("/workspace");
       workspace.createDirectory();
@@ -449,9 +448,7 @@ public class IncrementalLoadingTest {
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)
-              .setActionKeyContext(actionKeyContext)
-              .setDefaultBuildOptions(
-                  DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
+              .setActionKeyContext(new ActionKeyContext())
               .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
@@ -472,9 +469,9 @@ public class IncrementalLoadingTest {
           packageOptions,
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
-          ImmutableMap.<String, String>of(),
+          ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
-      skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+      skyframeExecutor.setActionEnv(ImmutableMap.of());
     }
 
     Path addFile(String fileName, String... content) throws IOException {
@@ -489,7 +486,7 @@ public class IncrementalLoadingTest {
         currentPath = currentPath.getParentDirectory();
       }
 
-      FileSystemUtils.createDirectoryAndParents(buildFile.getParentDirectory());
+      buildFile.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.writeContentAsLatin1(buildFile, Joiner.on('\n').join(content));
       return buildFile;
     }
@@ -497,7 +494,7 @@ public class IncrementalLoadingTest {
     void addSymlink(String fileName, String target) throws IOException {
       Path path = workspace.getRelative(fileName);
       Preconditions.checkState(!path.exists());
-      FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+      path.getParentDirectory().createDirectoryAndParents();
       path.createSymbolicLink(PathFragment.create(target));
       changes.add(path);
     }
@@ -562,9 +559,9 @@ public class IncrementalLoadingTest {
           packageOptions,
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
-          ImmutableMap.<String, String>of(),
+          ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
-      skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+      skyframeExecutor.setActionEnv(ImmutableMap.of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor)

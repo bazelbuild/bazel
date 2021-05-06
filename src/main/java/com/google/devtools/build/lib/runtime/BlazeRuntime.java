@@ -128,6 +128,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Future;
@@ -237,7 +238,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     retainedHeapLimiter = RetainedHeapLimiter.create(bugReporter);
 
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
-        new CommandNameCacheImpl(getCommandMap()));
+        new CommandNameCacheImpl(commandMap));
     this.productName = productName;
     this.buildEventArtifactUploaderFactoryMap = buildEventArtifactUploaderFactoryMap;
     this.authHeadersProviderMap =
@@ -253,8 +254,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     for (BlazeModule module : blazeModules) {
       module.workspaceInit(this, directories, builder);
     }
-    this.workspace =
-        builder.build(this, packageFactory, ruleClassProvider, eventBusExceptionHandler);
+    this.workspace = builder.build(this, packageFactory, eventBusExceptionHandler);
     return workspace;
   }
 
@@ -287,7 +287,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   @VisibleForTesting
-  public final void overrideCommands(Iterable<BlazeCommand> commands) {
+  public void overrideCommands(Iterable<BlazeCommand> commands) {
     commandMap.clear();
     for (BlazeCommand command : commands) {
       addCommand(command);
@@ -301,7 +301,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private BuildEventArtifactUploader newUploader(
       CommandEnvironment env, String buildEventUploadStrategy) throws IOException {
-    return getBuildEventArtifactUploaderFactoryMap().select(buildEventUploadStrategy).create(env);
+    return buildEventArtifactUploaderFactoryMap.select(buildEventUploadStrategy).create(env);
   }
 
   /** Configure profiling based on the provided options. */
@@ -452,7 +452,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   /** The directory in which blaze stores the server state - that is, the socket file and a log. */
   private Path getServerDirectory() {
-    return getWorkspace().getDirectories().getOutputBase().getChild("server");
+    return workspace.getDirectories().getOutputBase().getChild("server");
   }
 
   /**
@@ -488,25 +488,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public Iterable<BlazeModule> getBlazeModules() {
     return blazeModules;
-  }
-
-  public BuildOptions getDefaultBuildOptions() {
-    BuildOptions options = null;
-    for (BlazeModule module : blazeModules) {
-      BuildOptions optionsFromModule = module.getDefaultBuildOptions(this);
-      if (optionsFromModule != null) {
-        if (options == null) {
-          options = optionsFromModule;
-        } else {
-          throw new IllegalArgumentException(
-              "Two or more bazel modules contained default build options.");
-        }
-      }
-    }
-    if (options == null) {
-      throw new IllegalArgumentException("No default build options specified in any Bazel module");
-    }
-    return options;
   }
 
   /**
@@ -860,10 +841,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   private static InterruptSignalHandler captureSigint() {
-    final Thread mainThread = Thread.currentThread();
-    final AtomicInteger numInterrupts = new AtomicInteger();
+    Thread mainThread = Thread.currentThread();
+    AtomicInteger numInterrupts = new AtomicInteger();
 
-    final Runnable interruptWatcher =
+    Runnable interruptWatcher =
         () -> {
           int count = 0;
           // Not an actual infinite loop because it's run in a daemon thread.
@@ -912,9 +893,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       runtime = newRuntime(modules, commandLineOptions.getStartupArgs(), null);
       policy =
           InvocationPolicyParser.parsePolicy(
-              runtime
-                  .getStartupOptionsProvider()
-                  .getOptions(BlazeServerStartupOptions.class)
+              runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class)
                   .invocationPolicy);
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
@@ -944,7 +923,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               OutErr.SYSTEM_OUT_ERR,
               LockingMode.ERROR_OUT,
               "batch client",
-              runtime.getClock().currentTimeMillis(),
+              runtime.clock.currentTimeMillis(),
               Optional.of(startupOptionsFromCommandLine.build()),
               /*commandExtensions=*/ ImmutableList.of());
       if (result.getExecRequest() == null) {
@@ -1024,13 +1003,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
-          runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class);
+          runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
       RPCServer rpcServer =
           GrpcServerImpl.create(
               dispatcher,
               shutdownHooks,
               pidFileWatcher,
-              runtime.getClock(),
+              runtime.clock,
               startupOptions.commandPort,
               runtime.getServerDirectory(),
               serverPid,
@@ -1598,8 +1577,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private static PackageSettings getPackageSettings(List<BlazeModule> blazeModules) {
       List<PackageSettings> packageSettingss =
           blazeModules.stream()
-              .map(module -> module.getPackageSettings())
-              .filter(settings -> settings != null)
+              .map(BlazeModule::getPackageSettings)
+              .filter(Objects::nonNull)
               .collect(toImmutableList());
       Preconditions.checkState(
           packageSettingss.size() <= 1, "more than one module defines a PackageSettings");
@@ -1609,8 +1588,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     private static PackageValidator getPackageValidator(List<BlazeModule> blazeModules) {
       List<PackageValidator> packageValidators =
           blazeModules.stream()
-              .map(module -> module.getPackageValidator())
-              .filter(validator -> validator != null)
+              .map(BlazeModule::getPackageValidator)
+              .filter(Objects::nonNull)
               .collect(toImmutableList());
       Preconditions.checkState(
           packageValidators.size() <= 1, "more than one module defined a PackageValidator");
@@ -1622,7 +1601,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       List<PackageOverheadEstimator> packageOverheadEstimators =
           blazeModules.stream()
               .map(BlazeModule::getPackageOverheadEstimator)
-              .filter(estimator -> estimator != null)
+              .filter(Objects::nonNull)
               .collect(toImmutableList());
       Preconditions.checkState(
           packageOverheadEstimators.size() <= 1,
@@ -1641,7 +1620,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .map(
                 module ->
                     module.getPackageLoadingListener(packageBuilderHelper, ruleClassProvider, fs))
-            .filter(validator -> validator != null)
+            .filter(Objects::nonNull)
             .collect(toImmutableList());
     return PackageLoadingListener.create(listeners);
   }

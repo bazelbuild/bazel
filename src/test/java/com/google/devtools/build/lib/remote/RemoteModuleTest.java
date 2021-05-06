@@ -33,7 +33,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.BasicHttpAuthenticationEncoder;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
@@ -110,14 +108,6 @@ public final class RemoteModuleTest {
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.getDefaultBuildOptionsForFragments(
-                        runtime.getRuleClassProvider().getConfigurationOptions());
-                  }
-                })
             .build();
 
     BlazeDirectories directories =
