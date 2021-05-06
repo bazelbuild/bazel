@@ -138,4 +138,20 @@ public class AnalysisOptions extends OptionsBase {
               + " thread pool (whose size is controlled by --loading_phase_threads) for the rest.",
       converter = CpuResourceConverter.class)
   public int cpuHeavySkyKeysThreadPoolSize;
+
+  @Option(
+      name = "experimental_oom_sensitive_skyfunctions_semaphore_size",
+      defaultValue = "HOST_CPUS",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      help =
+          "Sets the size of the semaphore used to prevent SkyFunctions with large peak memory"
+              + " requirement from OOM-ing blaze. A value of 0 indicates that no semaphore should"
+              + " be used. Example value: \"HOST_CPUS*0.5\".",
+      converter = CpuResourceConverter.class)
+  public int oomSensitiveSkyFunctionsSemaphoreSize;
 }

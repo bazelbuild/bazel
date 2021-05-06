@@ -100,6 +100,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -135,7 +136,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
-  private final Semaphore cpuBoundSemaphore;
+  // TODO(b/185987566): Remove this semaphore.
+  private final AtomicReference<Semaphore> cpuBoundSemaphore;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
 
   /**
@@ -150,7 +152,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
-      Semaphore cpuBoundSemaphore,
+      AtomicReference<Semaphore> cpuBoundSemaphore,
       boolean storeTransitivePackagesForPackageRootResolution,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress) {
@@ -163,13 +165,22 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     this.configuredTargetProgress = configuredTargetProgress;
   }
 
-  private void acquireWithLogging(SkyKey key) throws InterruptedException {
+  private void maybeAcquireSemaphoreWithLogging(SkyKey key) throws InterruptedException {
+    if (cpuBoundSemaphore.get() == null) {
+      return;
+    }
     Stopwatch stopwatch = Stopwatch.createStarted();
-    cpuBoundSemaphore.acquire();
+    cpuBoundSemaphore.get().acquire();
     long elapsedTime = stopwatch.elapsed().toMillis();
     if (elapsedTime > 5) {
       logger.atInfo().atMostEvery(10, TimeUnit.SECONDS).log(
           "Spent %s milliseconds waiting for lock acquisition for %s", elapsedTime, key);
+    }
+  }
+
+  private void maybeReleaseSemaphore() {
+    if (cpuBoundSemaphore.get() != null) {
+      cpuBoundSemaphore.get().release();
     }
   }
 
@@ -180,8 +191,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       env =
           new StateInformingSkyFunctionEnvironment(
               env,
-              /*preFetch=*/ cpuBoundSemaphore::release,
-              /*postFetch=*/ () -> acquireWithLogging(key));
+              /*preFetch=*/ this::maybeReleaseSemaphore,
+              /*postFetch=*/ () -> maybeAcquireSemaphoreWithLogging(key));
     }
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     NestedSetBuilder<Package> transitivePackagesForPackageRootResolution =
@@ -252,7 +263,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
     //  with #processors threads, but ideally we would call #tryAcquire here, and if we failed,
     //  would exit this SkyFunction and restart it when permits were available.
-    acquireWithLogging(key);
+    maybeAcquireSemaphoreWithLogging(key);
     try {
       // Determine what toolchains are needed by this target.
       unloadedToolchainContexts =
@@ -425,7 +436,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (ConfiguredValueCreationException e) {
       throw new ConfiguredTargetFunctionException(e);
     } finally {
-      cpuBoundSemaphore.release();
+      maybeReleaseSemaphore();
     }
   }
 

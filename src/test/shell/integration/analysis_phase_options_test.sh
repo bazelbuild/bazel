@@ -71,8 +71,31 @@ function set_up() {
 }
 
 #### TESTS #############################################################
+function test_oom_sensitive_skyfunctions_semaphore_size_values_changed() {
+  cat > foo/BUILD <<EOF
+genrule(
+  name = "foo",
+  srcs = ["foo.in"],
+  outs = ["foo.out"],
+  cmd = "cat \$(location foo.in) >\$@",
+)
+EOF
+  touch foo/foo.in
 
-function test_options_changed() {
+  # Semaphore disabled.
+  bazel build --experimental_oom_sensitive_skyfunctions_semaphore_size=0 //foo:foo \
+    &> "$TEST_log" || fail "build failed"
+
+  # Default semaphore size.
+  bazel build --experimental_oom_sensitive_skyfunctions_semaphore_size="HOST_CPUS" //foo:foo \
+    &> "$TEST_log" || fail "build failed"
+
+  # Non-standard semaphore size.
+  bazel build --experimental_oom_sensitive_skyfunctions_semaphore_size="HOST_CPUS*1.5" //foo:foo \
+    &> "$TEST_log" || fail "build failed"
+}
+
+function test_skyframe_cpu_heavy_skykeys_thread_pool_size_values_changed() {
   cat > foo/BUILD <<EOF
 genrule(
   name = "foo",
@@ -90,4 +113,4 @@ EOF
     &> "$TEST_log" || fail "build failed"
 }
 
-run_suite "Integration tests of ${PRODUCT_NAME} with --experimental_skyframe_multiple_thread_pools."
+run_suite "Integration tests for the options for Skyframe's analysis phase."

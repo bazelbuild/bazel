@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -371,6 +372,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private boolean siblingRepositoryLayout = false;
 
+  // A Semaphore to limit the number of in-flight execution of certain SkyFunctions to prevent OOM.
+  // TODO(b/185987566): Remove this semaphore.
+  private static final int DEFAULT_SEMAPHORE_SIZE = ResourceUsage.getAvailableProcessors();
+  private final AtomicReference<Semaphore> oomSensitiveSkyFunctionsSemaphore =
+      new AtomicReference<>(new Semaphore(DEFAULT_SEMAPHORE_SIZE));
+
   private Map<String, String> lastRemoteDefaultExecProperties;
   private RemoteOutputsMode lastRemoteOutputsMode;
 
@@ -481,9 +488,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
-    // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
-    // ConfiguredTargetFunction that may have a large temporary memory blow-up.
-    Semaphore cpuBoundSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
 
     // We don't check for duplicates in order to allow extraSkyfunctions to override existing
     // entries.
@@ -564,7 +568,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new ConfiguredTargetFunction(
             new BuildViewProvider(),
             ruleClassProvider,
-            cpuBoundSemaphore,
+            oomSensitiveSkyFunctionsSemaphore,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             shouldUnblockCpuWorkWhenFetchingDeps,
             configuredTargetProgress));
@@ -2658,6 +2662,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     PrecomputedValue.REPO_ENV.set(injectable(), new LinkedHashMap<>(repoEnvOption));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
+    updateSkyFunctionsSemaphoreSize(options);
     syncPackageLoading(
         packageOptions,
         pathPackageLocator,
@@ -2672,6 +2677,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       lastAnalysisDiscarded = false;
     }
     return null;
+  }
+
+  /**
+   * Updates the size of {@link #oomSensitiveSkyFunctionsSemaphore} based on the provided flag
+   * option. If the provided value is 0, remove the semaphore.
+   */
+  private void updateSkyFunctionsSemaphoreSize(OptionsProvider options) {
+    AnalysisOptions analysisOptions = options.getOptions(AnalysisOptions.class);
+    if (analysisOptions == null) {
+      return;
+    }
+    Semaphore newSemaphore =
+        analysisOptions.oomSensitiveSkyFunctionsSemaphoreSize == 0
+            ? null
+            : new Semaphore(analysisOptions.oomSensitiveSkyFunctionsSemaphoreSize);
+    oomSensitiveSkyFunctionsSemaphore.set(newSemaphore);
   }
 
   /**
