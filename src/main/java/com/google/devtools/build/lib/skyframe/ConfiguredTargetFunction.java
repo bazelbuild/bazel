@@ -462,7 +462,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    */
   @VisibleForTesting
   @Nullable
-  static ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
+  public static ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
       Environment env,
       RuleClassProvider ruleClassProvider,
       BuildOptions defaultBuildOptions,
