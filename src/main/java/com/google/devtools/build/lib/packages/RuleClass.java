@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
@@ -855,8 +854,8 @@ public class RuleClass {
           // we need to clear out whatever toolchains and constraints have been copied from the rule
           // in order to prevent clashing and fill with the the child's toolchain and constraints.
           for (Map.Entry<String, ExecGroup> execGroup : parent.getExecGroups().entrySet()) {
-            if (execGroup.getValue().copyFromRule()) {
-              cleanedExecGroups.put(execGroup.getKey(), COPY_FROM_RULE_EXEC_GROUP);
+            if (execGroup.getValue().isCopiedFromDefault()) {
+              cleanedExecGroups.put(execGroup.getKey(), ExecGroup.copyFromDefault());
             } else {
               cleanedExecGroups.put(execGroup);
             }
@@ -958,7 +957,7 @@ public class RuleClass {
       ExecGroup copiedFromRule = null;
       for (Map.Entry<String, ExecGroup> groupEntry : execGroups.entrySet()) {
         ExecGroup group = groupEntry.getValue();
-        if (group.copyFromRule()) {
+        if (group.isCopiedFromDefault()) {
           if (copiedFromRule == null) {
             copiedFromRule =
                 ExecGroup.createCopied(requiredToolchains, executionPlatformConstraints);
@@ -1572,7 +1571,7 @@ public class RuleClass {
 
     /** Adds an exec group that copies its toolchains and constraints from the rule. */
     public Builder addExecGroup(String name) {
-      return addExecGroups(ImmutableMap.of(name, COPY_FROM_RULE_EXEC_GROUP));
+      return addExecGroups(ImmutableMap.of(name, ExecGroup.copyFromDefault()));
     }
 
     /** An error to help report {@link ExecGroup}s with the same name */

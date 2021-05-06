@@ -945,7 +945,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         throw Starlark.errorf(
             "An exec group cannot set copy_from_rule=True and declare toolchains or constraints.");
       }
-      return ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
+      return ExecGroup.copyFromDefault();
     }
 
     ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));

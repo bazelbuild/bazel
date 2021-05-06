@@ -16,6 +16,7 @@ java_library(
     name = "testing",
     testonly = 1,
     srcs = [
+        "ExecGroupSubject.java",
         "ResolvedToolchainContextSubject.java",
         "ToolchainCollectionSubject.java",
         "ToolchainContextSubject.java",
