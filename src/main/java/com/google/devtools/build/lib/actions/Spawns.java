@@ -193,4 +193,21 @@ public final class Spawns {
         environment,
         workingDirectory.getPathString());
   }
+
+  /**
+   * Returns a (somewhat) human-readable string for the given {@code Spawn}. Meant to be used in
+   * {@code toString()} of Spawns.
+   */
+  public static String prettyPrint(Spawn spawn) {
+    if (spawn.getResourceOwner() != null && spawn.getResourceOwner().getPrimaryOutput() != null) {
+      return spawn.getClass().getSimpleName()
+          + " for "
+          + spawn.getResourceOwner().getPrimaryOutput().prettyPrint();
+    } else {
+      return spawn.getClass().getSimpleName()
+          + " for "
+          + spawn.getMnemonic()
+          + " action without primary output";
+    }
+  }
 }

@@ -152,4 +152,9 @@ public final class SimpleSpawn implements Spawn {
   public PlatformInfo getExecutionPlatform() {
     return owner.getExecutionPlatform();
   }
+
+  @Override
+  public String toString() {
+    return Spawns.prettyPrint(this);
+  }
 }
