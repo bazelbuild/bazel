@@ -56,7 +56,7 @@ public abstract class ExecGroupCollection implements ExecGroupCollectionApi {
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     String group = castGroupName(key);
     return !DEFAULT_EXEC_GROUP_NAME.equals(group)
-        && toolchainCollection().getExecGroups().contains(group);
+        && toolchainCollection().getExecGroupNames().contains(group);
   }
 
   /**
@@ -95,7 +95,7 @@ public abstract class ExecGroupCollection implements ExecGroupCollectionApi {
   }
 
   private List<String> getScrubbedExecGroups() {
-    return toolchainCollection().getExecGroups().stream()
+    return toolchainCollection().getExecGroupNames().stream()
         .filter(group -> !DEFAULT_EXEC_GROUP_NAME.equals(group))
         .sorted()
         .collect(Collectors.toList());
