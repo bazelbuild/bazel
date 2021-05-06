@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
@@ -27,6 +28,10 @@ public abstract class ExecGroup implements ExecGroupApi {
   // An exec group that inherits requirements from the rule.
   public static final ExecGroup COPY_FROM_RULE_EXEC_GROUP =
       createCopied(ImmutableSet.of(), ImmutableSet.of());
+
+  // This is intentionally a string that would fail {@code Identifier.isValid} so that
+  // users can't create a group with the same name.
+  @VisibleForTesting public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
 
   // Create an exec group that is marked as copying from the rule.
   public static ExecGroup createCopied(
