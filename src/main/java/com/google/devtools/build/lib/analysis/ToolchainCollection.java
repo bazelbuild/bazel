@@ -55,7 +55,7 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
         .collect(toImmutableSet());
   }
 
-  public ImmutableSet<String> getExecGroups() {
+  public ImmutableSet<String> getExecGroupNames() {
     return getContextMap().keySet();
   }
 
