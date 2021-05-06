@@ -685,24 +685,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLinkCocoaFeatureWithCrosstoolMacos() throws Exception {
-    useConfiguration(
-        "--macos_cpus=x86_64",
-        "--macos_sdk_version=10.11",
-        "--macos_minimum_os=10.11");
-    getRuleType().scratchTarget(
-        scratch, "platform_type", "'macos'", "features", "['link_cocoa']");
-
-    Action lipoAction = actionProducingArtifact("//x:x", "_lipobin");
-    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "x/x_bin");
-    CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
-
-    assertThat(linkAction.getArguments()).containsAtLeastElementsIn(IMPLICIT_MAC_FRAMEWORK_FLAGS);
-    assertThat(linkAction.getArguments()).containsAtLeastElementsIn(COCOA_FEATURE_FLAGS);
-    assertThat(linkAction.getArguments()).doesNotContain(UIKIT_FRAMEWORK_FLAG);
-  }
-
-  @Test
   public void testAliasedLinkoptsThroughObjcLibrary() throws Exception {
     checkAliasedLinkoptsThroughObjcLibrary(getRuleType());
   }

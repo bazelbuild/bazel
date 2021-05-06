@@ -5955,34 +5955,6 @@ def _impl(ctx):
         provides = ["profile"],
     )
 
-    if (ctx.attr.cpu == "darwin_x86_64" or
-        ctx.attr.cpu == "darwin_arm64" or
-        ctx.attr.cpu == "darwin_arm64e"):
-        link_cocoa_feature = feature(
-            name = "link_cocoa",
-            flag_sets = [
-                flag_set(
-                    actions = ["objc-executable", "objc++-executable"],
-                    flag_groups = [flag_group(flags = ["-framework", "Cocoa"])],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        link_cocoa_feature = feature(name = "link_cocoa")
-    else:
-        link_cocoa_feature = None
-
     user_compile_flags_feature = feature(
         name = "user_compile_flags",
         flag_sets = [
@@ -6349,7 +6321,6 @@ def _impl(ctx):
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
-            link_cocoa_feature,
             apply_simulator_compiler_flags_feature,
             unfiltered_cxx_flags_feature,
             user_compile_flags_feature,
@@ -6429,7 +6400,6 @@ def _impl(ctx):
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
-            link_cocoa_feature,
             apply_simulator_compiler_flags_feature,
             unfiltered_cxx_flags_feature,
             user_compile_flags_feature,
@@ -6508,7 +6478,6 @@ def _impl(ctx):
             dead_strip_feature,
             cpp_linker_flags_feature,
             apply_implicit_frameworks_feature,
-            link_cocoa_feature,
             apply_simulator_compiler_flags_feature,
             unfiltered_cxx_flags_feature,
             user_compile_flags_feature,

@@ -6855,29 +6855,6 @@ def _impl(ctx):
         provides = ["profile"],
     )
 
-    if (ctx.attr.cpu == "darwin_x86_64"):
-        link_cocoa_feature = feature(
-            name = "link_cocoa",
-            flag_sets = [
-                flag_set(
-                    actions = _OBJC_LINK_ACTIONS,
-                    flag_groups = [flag_group(flags = ["-framework Cocoa"])],
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "x64_windows"):
-        link_cocoa_feature = feature(name = "link_cocoa")
-    else:
-        link_cocoa_feature = None
-
     objc_actions_feature = feature(
         name = "objc_actions",
         implies = [
@@ -7907,7 +7884,6 @@ def _impl(ctx):
         gcc_coverage_map_format_feature,
         cpp_linker_flags_feature,
         apply_implicit_frameworks_feature,
-        link_cocoa_feature,
         apply_simulator_compiler_flags_feature,
         unfiltered_cxx_flags_feature,
         bitcode_embedded_markers_feature,
