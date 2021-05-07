@@ -37,19 +37,17 @@ public class JavaCcInfoProvider implements TransitiveInfoProvider {
 
   @AutoCodec.VisibleForSerialization
   public JavaCcInfoProvider(CcInfo ccInfo) {
-    this.ccInfo = ccInfo;
+    this.ccInfo =
+        CcInfo.builder()
+            .setCcLinkingContext(ccInfo.getCcLinkingContext())
+            .setCcNativeLibraryInfo(ccInfo.getCcNativeLibraryInfo())
+            .build();
   }
 
   /** Merges several JavaCcInfoProvider providers into one. */
   public static JavaCcInfoProvider merge(Collection<JavaCcInfoProvider> providers) {
     ImmutableList<CcInfo> ccInfos =
         providers.stream().map(JavaCcInfoProvider::getCcInfo).collect(toImmutableList());
-    CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
-    CcInfo filteredCcInfo =
-        CcInfo.builder()
-            .setCcLinkingContext(mergedCcInfo.getCcLinkingContext())
-            .setCcNativeLibraryInfo(mergedCcInfo.getCcNativeLibraryInfo())
-            .build();
-    return new JavaCcInfoProvider(filteredCcInfo);
+    return new JavaCcInfoProvider(CcInfo.merge(ccInfos));
   }
 }
