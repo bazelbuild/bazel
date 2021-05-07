@@ -980,6 +980,15 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " transition` with changed options to avoid potential action conflicts.")
     public boolean androidPlatformsTransitionsUpdateAffected;
 
+    @Option(
+        name = "merge_android_manifest_permissions",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "If enabled, the manifest merger will merge uses-permission and "
+                + "uses-permission-sdk-23 attributes.")
+    public boolean mergeAndroidManifestPermissions;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1065,6 +1074,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
   private final boolean includeProguardLocationReferences;
+  private final boolean mergeAndroidManifestPermissions;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1126,6 +1136,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
     this.includeProguardLocationReferences = options.includeProguardLocationReferences;
+    this.mergeAndroidManifestPermissions = options.mergeAndroidManifestPermissions;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1409,6 +1420,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean includeProguardLocationReferences() {
     return includeProguardLocationReferences;
+  }
+
+  public boolean mergeAndroidManifestPermissions() {
+    return mergeAndroidManifestPermissions;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */
