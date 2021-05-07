@@ -283,12 +283,13 @@ public class FunctionTransitionUtil {
           // TODO(bazel-team): Figure out if we need to create a whole new build options every
           // time. Can we just keep track of the running changes and actually build a new build
           // options after this loop?
+          Label optionLabel = Label.parseAbsoluteUnchecked(optionName);
           buildOptions =
               BuildOptions.builder()
                   .merge(buildOptions)
-                  .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
+                  .addStarlarkOption(optionLabel, optionValue)
                   .build();
-          convertedNewValues.add(optionName);
+          convertedNewValues.add(optionLabel.toString());
         }
       } else {
         optionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
@@ -384,7 +385,8 @@ public class FunctionTransitionUtil {
   /**
    * Compute the output directory name fragment corresponding to the new BuildOptions based on (1)
    * the names and values of all native options previously transitioned anywhere in the build by
-   * starlark options, (2) names and values of all entries in the starlark options map.
+   * starlark options, (2) names and values of entries in the starlark options map previously
+   * transitioned anywhere in the build and not only set on command line.
    *
    * @param changedOptions the names of all options changed by this transition in label form e.g.
    *     "//command_line_option:cpu" for native options and "//myapp:foo" for starlark options.
@@ -407,36 +409,42 @@ public class FunctionTransitionUtil {
     CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
     Set<String> updatedAffectedByStarlarkTransition =
         new TreeSet<>(buildConfigOptions.affectedByStarlarkTransition);
-    // Add newly changed native options to overall list of changed native options
+    // Add newly changed options to overall list of changed options
     for (String option : changedOptions) {
-      if (option.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        updatedAffectedByStarlarkTransition.add(
-            option.substring(COMMAND_LINE_OPTION_PREFIX.length()));
-      }
+      updatedAffectedByStarlarkTransition.add(option);
     }
     buildConfigOptions.affectedByStarlarkTransition =
         ImmutableList.sortedCopyOf(updatedAffectedByStarlarkTransition);
-
-    // hash all relevant native option values;
     TreeMap<String, Object> toHash = new TreeMap<>();
-    for (String nativeOption : updatedAffectedByStarlarkTransition) {
-      Object value;
-      try {
-        value =
-            optionInfoMap
-                .get(nativeOption)
-                .getDefinition()
-                .getField()
-                .get(toOptions.get(optionInfoMap.get(nativeOption).getOptionClass()));
-      } catch (IllegalAccessException e) {
-        throw new RuntimeException(
-            "IllegalAccess for option " + nativeOption + ": " + e.getMessage());
+
+    // Hash all affected native options.
+    for (String optionName : buildConfigOptions.affectedByStarlarkTransition) {
+      if (optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        String nativeOptionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        Object value;
+        try {
+          value =
+                  optionInfoMap
+                          .get(nativeOptionName)
+                          .getDefinition()
+                          .getField()
+                          .get(toOptions.get(optionInfoMap.get(nativeOptionName).getOptionClass()));
+        } catch (IllegalAccessException e) {
+          throw new RuntimeException(
+                  "IllegalAccess for option " + nativeOptionName + ": " + e.getMessage());
+        }
+        toHash.put(optionName, value);
       }
-      toHash.put(nativeOption, value);
     }
 
-    // hash all starlark options in map.
-    toOptions.getStarlarkOptions().forEach((opt, value) -> toHash.put(opt.toString(), value));
+    // Hash all affected starlark options.
+    for (Map.Entry<Label, Object> opt : toOptions.getStarlarkOptions().entrySet()) {
+      String optionName = opt.getKey().toString();
+      if (updatedAffectedByStarlarkTransition.contains(optionName)) {
+        toHash.put(optionName, opt.getValue());
+      }
+    }
+
     ImmutableList.Builder<String> hashStrs = ImmutableList.builderWithExpectedSize(toHash.size());
     for (Map.Entry<String, Object> singleOptionAndValue : toHash.entrySet()) {
       String toAdd = singleOptionAndValue.getKey() + "=" + singleOptionAndValue.getValue();
