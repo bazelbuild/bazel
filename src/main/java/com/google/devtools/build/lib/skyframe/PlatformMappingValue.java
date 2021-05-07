@@ -59,9 +59,6 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class PlatformMappingValue implements SkyValue {
 
-  public static final PlatformMappingValue EMPTY =
-      new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
-
   /** Key for {@link PlatformMappingValue} based on the location of the mapping file. */
   @ThreadSafety.Immutable
   @AutoCodec

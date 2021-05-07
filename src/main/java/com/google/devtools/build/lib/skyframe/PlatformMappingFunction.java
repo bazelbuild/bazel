@@ -109,7 +109,7 @@ final class PlatformMappingFunction implements SkyFunction {
     if (!platformMappingKey.wasExplicitlySetByUser()) {
       // If no flag was passed and the default mapping file does not exist treat this as if the
       // mapping file was empty rather than an error.
-      return PlatformMappingValue.EMPTY;
+      return new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
     throw new PlatformMappingException(
         new MissingInputFileException(
