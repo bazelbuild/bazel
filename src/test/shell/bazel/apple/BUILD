@@ -16,15 +16,10 @@ filegroup(
     testonly = 1,
     srcs = select({
         ":darwin": [
-            "//src/tools/xcode/realpath",
-            "//src/tools/xcode/stdredirect:StdRedirect.dylib",
             "//tools/osx:xcode-locator",
         ],
         "//conditions:default": [],
     }),
-    visibility = [
-        "//src/test/shell/bazel:__pkg__",
-    ],
 )
 
 sh_test(

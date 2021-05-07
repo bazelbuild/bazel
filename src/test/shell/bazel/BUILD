@@ -90,7 +90,6 @@ sh_test(
     args = ["$(JAVABASE)"],
     data = [
         ":test-deps",
-        "//src/test/shell/bazel/apple:objc-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
