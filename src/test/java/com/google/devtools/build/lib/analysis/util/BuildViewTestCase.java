@@ -1053,6 +1053,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Returns the Artifact for the specified label, configured for the "build" (aka "target")
+   * configuration.
+   */
+  protected Artifact getArtifact(String label) throws LabelSyntaxException {
+    ConfiguredTarget target = getConfiguredTarget(label, targetConfig);
+    if (target instanceof FileConfiguredTarget) {
+      return ((FileConfiguredTarget) target).getArtifact();
+    } else {
+      return getFilesToBuild(target).getSingleton();
+    }
+  }
+
+  /**
    * Returns the ConfiguredTarget for the specified label, configured for the "host" configuration.
    */
   protected ConfiguredTarget getHostConfiguredTarget(String label) throws LabelSyntaxException {
@@ -1632,7 +1645,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {
-    return getGeneratingAction(getFileConfiguredTarget(label).getArtifact());
+    return getGeneratingAction(getArtifact(label));
   }
 
   protected static String fileName(Artifact artifact) {
