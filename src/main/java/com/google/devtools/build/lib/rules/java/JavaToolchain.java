@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -36,6 +39,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider.JspecifyInfo;
 import java.util.List;
 import java.util.Map;
 
@@ -94,6 +99,33 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         JavaToolchainTool.fromFilesToRunProvider(
             ruleContext.getExecutablePrerequisite("header_compiler_direct"));
 
+    JspecifyInfo jspecifyInfo;
+    String jspecifyProcessorClass =
+        ruleContext.attributes().get("jspecify_processor_class", STRING);
+    if (jspecifyProcessorClass.isEmpty()) {
+      jspecifyInfo = null;
+    } else {
+      JavaPluginData jspecifyProcessor =
+          JavaPluginData.create(
+              NestedSetBuilder.create(STABLE_ORDER, jspecifyProcessorClass),
+              NestedSetBuilder.create(
+                  STABLE_ORDER, ruleContext.getPrerequisiteArtifact("jspecify_processor")),
+              PrerequisiteArtifacts.nestedSet(ruleContext, "jspecify_stubs"));
+      NestedSet<Artifact> jspecifyImplicitDeps =
+          NestedSetBuilder.create(
+              STABLE_ORDER, ruleContext.getPrerequisiteArtifact("jspecify_implicit_deps"));
+      ImmutableList<String> jspecifyJavacopts =
+          ImmutableList.copyOf(
+              ruleContext.attributes().get("jspecify_javacopts", Type.STRING_LIST));
+      ImmutableList<PackageSpecificationProvider> jspecifyPackages =
+          ImmutableList.copyOf(
+              ruleContext.getPrerequisites(
+                  "jspecify_packages", PackageSpecificationProvider.class));
+      jspecifyInfo =
+          JspecifyInfo.create(
+              jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts, jspecifyPackages);
+    }
+
     AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
 
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
@@ -119,6 +151,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             headerCompiler,
             headerCompilerDirect,
             androidLint,
+            jspecifyInfo,
             headerCompilerBuiltinProcessors,
             reducedClasspathIncompatibleProcessors,
             forciblyDisableHeaderCompilation,

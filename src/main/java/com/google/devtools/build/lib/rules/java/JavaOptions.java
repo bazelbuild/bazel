@@ -651,6 +651,14 @@ public class JavaOptions extends FragmentOptions {
       help = "Deprecated no-op.")
   public boolean experimentalPublishJavaCcLinkParamsInfo;
 
+  @Option(
+      name = "experimental_enable_jspecify",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Enable experimental jspecify integration.")
+  public boolean experimentalEnableJspecify;
+
   Label defaultJavaBase() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
   }
