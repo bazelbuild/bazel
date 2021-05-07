@@ -249,7 +249,8 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
     }
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
+    if (fdoContext != null
+        && featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
         && fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
       buildVariables.addStringVariable(
