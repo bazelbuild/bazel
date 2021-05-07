@@ -167,7 +167,6 @@ public class ProtoApk implements Closeable {
           .forEach(
               entry -> {
                 try {
-                  createDirectories(dstZip, apkFileSystem.getPath(entry.getName()).getParent());
                   try (InputStream srcEntryInputStream = srcZip.getInputStream(entry)) {
                     byte[] content = ByteStreams.toByteArray(srcEntryInputStream);
                     dstZip.addEntry(entry, content);
@@ -179,19 +178,6 @@ public class ProtoApk implements Closeable {
     }
 
     return readFrom(URI.create("jar:" + destination.toUri()));
-  }
-
-  /**
-   * Recursively creates all parent directories in {@code zip} before creating {@code directory},
-   * similar to {@link Files#createDirectories}.
-   */
-  private static void createDirectories(UniqueZipBuilder zip, @Nullable Path directory)
-      throws IOException {
-    if (directory == null) {
-      return;
-    }
-    createDirectories(zip, directory.getParent());
-    zip.addDirEntry(directory.toString());
   }
 
   private Package copyPackage(
