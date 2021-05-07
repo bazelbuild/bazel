@@ -20,9 +20,6 @@ filegroup(
         ],
         "//conditions:default": [],
     }),
-    visibility = [
-        "//src/test/shell/bazel:__pkg__",
-    ],
 )
 
 sh_test(
