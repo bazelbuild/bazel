@@ -73,7 +73,7 @@ public class BuildConfigurationValue implements SkyValue {
    * @param fragments the fragments the configuration should contain
    * @param options the {@link BuildOptions} object the {@link BuildOptions} should be rebuilt from
    */
-  static Key keyWithoutPlatformMapping(FragmentClassSet fragments, BuildOptions options) {
+  public static Key keyWithoutPlatformMapping(FragmentClassSet fragments, BuildOptions options) {
     return Key.create(fragments, options);
   }
 
