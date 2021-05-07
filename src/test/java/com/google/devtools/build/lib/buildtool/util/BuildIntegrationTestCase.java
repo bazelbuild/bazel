@@ -859,7 +859,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** {@link BugReporter} that stores bug reports for later inspection. */
-  protected static final class RecordingBugReporter implements BugReporter {
+  protected static class RecordingBugReporter implements BugReporter {
     @GuardedBy("this")
     private final List<Throwable> exceptions = new ArrayList<>();
 
