@@ -824,6 +824,49 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     assertThat(getAnalysisResult().getTargetsToBuild()).hasSize(2);
   }
 
+  @Test
+  public void flagOnNonTestTargetWithTestDependencies_isTrimmed() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':test.bzl', 'starlark_test')",
+        "load(':lib.bzl', 'starlark_lib')",
+        "starlark_lib(",
+        "    name = 'starlark_dep',",
+        "    deps = [':starlark_test'],",
+        "    testonly = 1,",
+        ")",
+        "starlark_test(",
+        "    name = 'starlark_test',",
+        ")");
+    useConfiguration(
+        "--trim_test_configuration", "--noexperimental_retain_test_configuration_across_testonly");
+    update("//test:starlark_dep");
+    ConfiguredTarget top = getConfiguredTarget("//test:starlark_dep");
+    assertThat(getConfiguration(top).hasFragment(TestConfiguration.class)).isFalse();
+  }
+
+  @Test
+  public void flagOnNonTestTargetWithTestDependencies_isNotTrimmedWithExperimentalFlag()
+      throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':test.bzl', 'starlark_test')",
+        "load(':lib.bzl', 'starlark_lib')",
+        "starlark_lib(",
+        "    name = 'starlark_dep',",
+        "    deps = [':starlark_test'],",
+        "    testonly = 1,",
+        ")",
+        "starlark_test(",
+        "    name = 'starlark_test',",
+        ")");
+    useConfiguration(
+        "--trim_test_configuration", "--experimental_retain_test_configuration_across_testonly");
+    update("//test:starlark_dep");
+    ConfiguredTarget top = getConfiguredTarget("//test:starlark_dep");
+    assertThat(getConfiguration(top).hasFragment(TestConfiguration.class)).isTrue();
+  }
+
   // Test Starlark API of AnalysisFailure{,Info}.
   @Test
   public void testAnalysisFailureInfo() throws Exception {
