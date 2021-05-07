@@ -147,14 +147,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean experimentalEnableAndroidMigrationApis;
 
   @Option(
-      name = "experimental_enable_javanativelibraryinfo",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "If set to false, disables the APIs for JavaNativeLibraryInfo.")
-  public boolean experimentalEnableJavaNativeLibraryInfo;
-
-  @Option(
       name = "experimental_google_legacy_api",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -643,8 +635,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
-            .setBool(
-                EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO, experimentalEnableJavaNativeLibraryInfo)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_NINJA_ACTIONS, experimentalNinjaActions)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
@@ -712,8 +702,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
-  public static final String EXPERIMENTAL_ENABLE_JAVANATIVELIBRARYINFO =
-      "+experimental_enable_javanativelibraryinfo";
   public static final String EXPERIMENTAL_EXEC_GROUPS = "-experimental_exec_groups";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_NINJA_ACTIONS = "-experimental_ninja_actions";

@@ -690,8 +690,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     NestedSet<LibraryToLink> linkerInputs =
         NestedSetBuilder.fromNestedSets(
                 Streams.concat(
-                        AnalysisUtils.getProviders(deps, JavaNativeLibraryInfo.PROVIDER).stream()
-                            .map(JavaNativeLibraryInfo::getTransitiveJavaNativeLibraries),
                         JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps)
                             .stream()
                             .map(JavaCcInfoProvider::getCcInfo)
