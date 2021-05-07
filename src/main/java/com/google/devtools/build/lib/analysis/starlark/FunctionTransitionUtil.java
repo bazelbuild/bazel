@@ -289,13 +289,14 @@ public class FunctionTransitionUtil {
 
       if (!optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         // The transition changes a Starlark option.
+        Label optionLabel = Label.parseAbsoluteUnchecked(optionName);
         Object oldValue =
-            fromOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
+            fromOptions.getStarlarkOptions().get(optionLabel);
         if ((oldValue == null && optionValue != null)
             || (oldValue != null && optionValue == null)
             || (oldValue != null && !oldValue.equals(optionValue))) {
-          changedStarlarkOptions.put(Label.parseAbsoluteUnchecked(optionName), optionValue);
-          convertedNewValues.add(optionName);
+          changedStarlarkOptions.put(optionLabel, optionValue);
+          convertedNewValues.add(optionLabel.toString());
         }
       } else {
         // The transition changes a native option.
@@ -398,9 +399,10 @@ public class FunctionTransitionUtil {
   }
 
   /**
-   * Compute the output directory name fragment corresponding to the new BuildOptions based on (1)
-   * the names and values of all native options previously transitioned anywhere in the build by
-   * starlark transitions, (2) names and values of all entries in the starlark options map.
+   * Compute the output directory name fragment corresponding to the new BuildOptions based on
+   * the names and values of all options (both native and Starlark) previously transitioned
+   * anywhere in the build by Starlark transitions. Options only set on command line are
+   * not affecting the computation.
    *
    * @param changedOptions the names of all options changed by this transition in label form e.g.
    *     "//command_line_option:cpu" for native options and "//myapp:foo" for starlark options.
@@ -421,38 +423,34 @@ public class FunctionTransitionUtil {
     }
 
     CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);
-    Set<String> updatedAffectedByStarlarkTransition =
-        new TreeSet<>(buildConfigOptions.affectedByStarlarkTransition);
-    // Add newly changed native options to overall list of changed native options
-    for (String option : changedOptions) {
-      if (option.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        updatedAffectedByStarlarkTransition.add(
-            option.substring(COMMAND_LINE_OPTION_PREFIX.length()));
-      }
-    }
-    buildConfigOptions.affectedByStarlarkTransition =
-        ImmutableList.sortedCopyOf(updatedAffectedByStarlarkTransition);
 
-    // hash all relevant native option values;
+    updateAffectedByStarlarkTransition(buildConfigOptions, changedOptions);
+
     TreeMap<String, Object> toHash = new TreeMap<>();
-    for (String nativeOption : updatedAffectedByStarlarkTransition) {
-      Object value;
-      try {
-        value =
-            optionInfoMap
-                .get(nativeOption)
-                .getDefinition()
-                .getField()
-                .get(toOptions.get(optionInfoMap.get(nativeOption).getOptionClass()));
-      } catch (IllegalAccessException e) {
-        throw new RuntimeException(
-            "IllegalAccess for option " + nativeOption + ": " + e.getMessage());
+    for (String optionName : buildConfigOptions.affectedByStarlarkTransition) {
+      if (optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        String nativeOptionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
+        Object value;
+        try {
+          value =
+              optionInfoMap
+                      .get(nativeOptionName)
+                      .getDefinition()
+                      .getField()
+                      .get(toOptions.get(optionInfoMap.get(nativeOptionName).getOptionClass()));
+        } catch (IllegalAccessException e) {
+          throw new RuntimeException(
+                  "IllegalAccess for option " + nativeOptionName + ": " + e.getMessage());
+        }
+        toHash.put(optionName, value);
+      } else {
+        Object value = toOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
+        if (value != null) {
+          toHash.put(optionName, value);
+        }
       }
-      toHash.put(nativeOption, value);
     }
 
-    // hash all starlark options in map.
-    toOptions.getStarlarkOptions().forEach((opt, value) -> toHash.put(opt.toString(), value));
     ImmutableList.Builder<String> hashStrs = ImmutableList.builderWithExpectedSize(toHash.size());
     for (Map.Entry<String, Object> singleOptionAndValue : toHash.entrySet()) {
       String toAdd = singleOptionAndValue.getKey() + "=" + singleOptionAndValue.getValue();
@@ -460,6 +458,18 @@ public class FunctionTransitionUtil {
     }
     buildConfigOptions.transitionDirectoryNameFragment =
         transitionDirectoryNameFragment(hashStrs.build());
+  }
+
+  /**
+   * Extend the global build config affectedByStarlarkTransition, by adding any new option names
+   * from changedOptions
+   */
+  private static void updateAffectedByStarlarkTransition(CoreOptions buildConfigOptions, Set<String> changedOptions) {
+    Set<String> mutableCopyToUpdate = new TreeSet<>(buildConfigOptions.affectedByStarlarkTransition);
+    for (String option : changedOptions) {
+      mutableCopyToUpdate.add(option);
+    }
+    buildConfigOptions.affectedByStarlarkTransition = ImmutableList.sortedCopyOf(mutableCopyToUpdate);
   }
 
   public static String transitionDirectoryNameFragment(Iterable<String> opts) {
