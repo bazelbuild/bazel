@@ -693,68 +693,29 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "tvos_arm64" or
-        ctx.attr.cpu == "tvos_x86_64"):
-        cpp_module_compile_action = action_config(
-            action_name = ACTION_NAMES.cpp_module_compile,
-            implies = [
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-                "compiler_input_flags",
-                "compiler_output_flags",
-                "unfiltered_cxx_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        cpp_module_compile_action = action_config(
-            action_name = ACTION_NAMES.cpp_module_compile,
-            implies = [
-                "preprocessor_defines",
-                "include_system_dirs",
-                "version_min",
-                "objc_arc",
-                "no_objc_arc",
-                "apple_env",
-                "user_compile_flags",
-                "sysroot",
-                "unfiltered_compile_flags",
-                "compiler_input_flags",
-                "compiler_output_flags",
-            ],
-            tools = [
-                tool(
-                    path = "wrapped_clang",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    else:
-        cpp_module_compile_action = None
+    cpp_module_compile_action = action_config(
+        action_name = ACTION_NAMES.cpp_module_compile,
+        implies = [
+            "preprocessor_defines",
+            "include_system_dirs",
+            "version_min",
+            "objc_arc",
+            "no_objc_arc",
+            "apple_env",
+            "user_compile_flags",
+            "sysroot",
+            "unfiltered_compile_flags",
+            "compiler_input_flags",
+            "compiler_output_flags",
+            "unfiltered_cxx_flags",
+        ],
+        tools = [
+            tool(
+                path = "wrapped_clang",
+                execution_requirements = xcode_execution_requirements,
+            ),
+        ],
+    )
 
     cpp_link_nodeps_dynamic_library_action = action_config(
         action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
