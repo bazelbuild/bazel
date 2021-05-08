@@ -55,31 +55,6 @@ def _deterministic_libtool_flags(ctx):
     return []
 
 def _impl(ctx):
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        host_system_name = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        host_system_name = "x86_64-apple-macosx"
-    else:
-        fail("Unreachable")
-
-    if ctx.attr.cpu == "armeabi-v7a":
-        toolchain_identifier = "stub_armeabi-v7a"
-    else:
-        toolchain_identifier = ctx.attr.cpu
-
     if (ctx.attr.cpu == "ios_arm64"):
         target_system_name = "arm64-apple-ios"
     elif (ctx.attr.cpu == "tvos_arm64"):
@@ -88,8 +63,6 @@ def _impl(ctx):
         target_system_name = "arm64_32-apple-watchos"
     elif (ctx.attr.cpu == "ios_arm64e"):
         target_system_name = "arm64e-apple-ios"
-    elif (ctx.attr.cpu == "armeabi-v7a"):
-        target_system_name = "armeabi-v7a"
     elif (ctx.attr.cpu == "ios_armv7"):
         target_system_name = "armv7-apple-ios"
     elif (ctx.attr.cpu == "watchos_armv7k"):
@@ -113,75 +86,20 @@ def _impl(ctx):
     else:
         fail("Unreachable")
 
-    if ctx.attr.cpu == "armeabi-v7a":
-        arch = "<architecture>"
-    else:
-        arch = ctx.attr.cpu.split("_", 1)[-1]
-
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        target_libc = "armeabi-v7a"
-    elif (ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64"):
-        target_libc = "ios"
-    elif (ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e"):
+    if ctx.attr.cpu.startswith("darwin_"):
         target_libc = "macosx"
-    elif (ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64"):
-        target_libc = "tvos"
-    elif (ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        target_libc = "watchos"
     else:
-        fail("Unreachable")
+        target_libc = ctx.attr.cpu.split("_")[0]
 
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        abi_version = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        abi_version = "darwin_x86_64"
-    elif (ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        abi_version = "local"
-    else:
-        fail("Unreachable")
-
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        abi_libc_version = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64"):
+    if ctx.attr.cpu == "darwin_x86_64":
         abi_libc_version = "darwin_x86_64"
-    elif (ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        abi_libc_version = "local"
+        abi_version = "darwin_x86_64"
     else:
-        fail("Unreachable")
+        abi_libc_version = "local"
+        abi_version = "local"
+
+    host_system_name = "x86_64-apple-macosx"
+    arch = ctx.attr.cpu.split("_", 1)[-1]
 
     all_compile_actions = [
         ACTION_NAMES.c_compile,
@@ -784,33 +702,11 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        objcopy_embed_data_action = action_config(
-            action_name = "objcopy_embed_data",
-            enabled = True,
-            tools = [tool(path = "/bin/false")],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        objcopy_embed_data_action = action_config(
-            action_name = "objcopy_embed_data",
-            enabled = True,
-            tools = [tool(path = "/usr/bin/objcopy")],
-        )
-    else:
-        objcopy_embed_data_action = None
+    objcopy_embed_data_action = action_config(
+        action_name = "objcopy_embed_data",
+        enabled = True,
+        tools = [tool(path = "/usr/bin/objcopy")],
+    )
 
     action_configs = [
         strip_action,
@@ -834,8 +730,7 @@ def _impl(ctx):
         objcopy_embed_data_action,
     ]
 
-    if (ctx.attr.cpu == "armeabi-v7a" or
-        ctx.attr.cpu == "ios_arm64" or
+    if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
@@ -968,22 +863,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        unfiltered_cxx_flags_feature = feature(name = "unfiltered_cxx_flags")
     else:
-        unfiltered_cxx_flags_feature = None
+        unfiltered_cxx_flags_feature = feature(name = "unfiltered_cxx_flags")
 
     compiler_input_flags_feature = feature(
         name = "compiler_input_flags",
@@ -1063,19 +944,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k"):
-        apply_simulator_compiler_flags_feature = feature(name = "apply_simulator_compiler_flags")
     else:
-        apply_simulator_compiler_flags_feature = None
+        apply_simulator_compiler_flags_feature = feature(name = "apply_simulator_compiler_flags")
 
     supports_pic_feature = feature(name = "supports_pic", enabled = True)
 
@@ -1116,8 +986,7 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a" or
-        ctx.attr.cpu == "ios_arm64" or
+    if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
@@ -1263,8 +1132,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "watchos_arm64_32" or
+    elif (ctx.attr.cpu == "watchos_arm64_32" or
           ctx.attr.cpu == "watchos_x86_64"):
         default_link_flags_feature = feature(
             name = "default_link_flags",
@@ -1372,11 +1240,8 @@ def _impl(ctx):
         ],
     )
 
-    if ctx.attr.cpu == "armeabi-v7a":
-        # This stub doesn't have a sensible value for this feature
-        version_min_feature = feature(name = "version_min")
-    elif (ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64"):
+    if (ctx.attr.cpu == "ios_i386" or
+        ctx.attr.cpu == "ios_x86_64"):
         version_min_feature = feature(
             name = "version_min",
             flag_sets = [
@@ -1898,8 +1763,7 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "armeabi-v7a" or
-        ctx.attr.cpu == "ios_arm64" or
+    if (ctx.attr.cpu == "ios_arm64" or
         ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
@@ -2094,66 +1958,36 @@ def _impl(ctx):
 
     module_maps_feature = feature(name = "module_maps", enabled = True)
 
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
-    else:
-        unfiltered_compile_flags_feature = feature(
-            name = "unfiltered_compile_flags",
-            flag_sets = [
-                flag_set(
-                    actions = [
-                        ACTION_NAMES.assemble,
-                        ACTION_NAMES.preprocess_assemble,
-                        ACTION_NAMES.c_compile,
-                        ACTION_NAMES.cpp_compile,
-                        ACTION_NAMES.cpp_header_parsing,
-                        ACTION_NAMES.cpp_module_compile,
-                        ACTION_NAMES.cpp_module_codegen,
-                        ACTION_NAMES.linkstamp_compile,
-                    ],
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-no-canonical-prefixes",
-                                "-Wno-builtin-macro-redefined",
-                                "-D__DATE__=\"redacted\"",
-                                "-D__TIMESTAMP__=\"redacted\"",
-                                "-D__TIME__=\"redacted\"",
-                                "-target",
-                                target_system_name,
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-        )
+    unfiltered_compile_flags_feature = feature(
+        name = "unfiltered_compile_flags",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_module_codegen,
+                    ACTION_NAMES.linkstamp_compile,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = [
+                            "-no-canonical-prefixes",
+                            "-Wno-builtin-macro-redefined",
+                            "-D__DATE__=\"redacted\"",
+                            "-D__TIMESTAMP__=\"redacted\"",
+                            "-D__TIME__=\"redacted\"",
+                            "-target",
+                            target_system_name,
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
 
     linker_param_file_feature = feature(
         name = "linker_param_file",
@@ -2293,22 +2127,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        cpp_linker_flags_feature = feature(name = "cpp_linker_flags")
     else:
-        cpp_linker_flags_feature = None
+        cpp_linker_flags_feature = feature(name = "cpp_linker_flags")
 
     exclude_private_headers_in_module_maps_feature = feature(name = "exclude_private_headers_in_module_maps")
 
@@ -2631,22 +2451,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        kernel_extension_feature = feature(name = "kernel_extension")
     else:
-        kernel_extension_feature = None
+        kernel_extension_feature = feature(name = "kernel_extension")
 
     apply_default_warnings_feature = feature(
         name = "apply_default_warnings",
@@ -2763,21 +2569,8 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        link_cocoa_feature = feature(name = "link_cocoa")
     else:
-        link_cocoa_feature = None
+        link_cocoa_feature = feature(name = "link_cocoa")
 
     user_compile_flags_feature = feature(
         name = "user_compile_flags",
@@ -3241,85 +3034,6 @@ def _impl(ctx):
             ubsan_feature,
             default_sanitizer_flags_feature,
         ]
-    elif (ctx.attr.cpu == "armeabi-v7a"):
-        features = [
-            fastbuild_feature,
-            no_legacy_features_feature,
-            opt_feature,
-            dbg_feature,
-            link_libcpp_feature,
-            compile_all_modules_feature,
-            exclude_private_headers_in_module_maps_feature,
-            has_configured_linker_path_feature,
-            only_doth_headers_in_module_maps_feature,
-            default_compile_flags_feature,
-            debug_prefix_map_pwd_is_dot_feature,
-            remap_xcode_path_feature,
-            generate_dsym_file_feature,
-            generate_linkmap_feature,
-            oso_prefix_feature,
-            contains_objc_source_feature,
-            objc_actions_feature,
-            strip_debug_symbols_feature,
-            symbol_counts_feature,
-            shared_flag_feature,
-            kernel_extension_feature,
-            linkstamps_feature,
-            output_execpath_flags_feature,
-            archiver_flags_feature,
-            runtime_root_flags_feature,
-            input_param_flags_feature,
-            force_pic_flags_feature,
-            pch_feature,
-            module_maps_feature,
-            apply_default_warnings_feature,
-            includes_feature,
-            include_paths_feature,
-            sysroot_feature,
-            dependency_file_feature,
-            pic_feature,
-            per_object_debug_info_feature,
-            preprocessor_defines_feature,
-            framework_paths_feature,
-            random_seed_feature,
-            fdo_instrument_feature,
-            fdo_optimize_feature,
-            autofdo_feature,
-            lipo_feature,
-            coverage_feature,
-            llvm_coverage_map_format_feature,
-            gcc_coverage_map_format_feature,
-            apply_default_compiler_flags_feature,
-            include_system_dirs_feature,
-            headerpad_feature,
-            bitcode_embedded_feature,
-            bitcode_embedded_markers_feature,
-            objc_arc_feature,
-            no_objc_arc_feature,
-            apple_env_feature,
-            relative_ast_path_feature,
-            user_link_flags_feature,
-            default_link_flags_feature,
-            version_min_feature,
-            dead_strip_feature,
-            cpp_linker_flags_feature,
-            apply_implicit_frameworks_feature,
-            link_cocoa_feature,
-            apply_simulator_compiler_flags_feature,
-            unfiltered_cxx_flags_feature,
-            user_compile_flags_feature,
-            unfiltered_compile_flags_feature,
-            linker_param_file_feature,
-            compiler_input_flags_feature,
-            compiler_output_flags_feature,
-            supports_pic_feature,
-            objcopy_embed_flags_feature,
-            set_install_name,
-            asan_feature,
-            tsan_feature,
-            ubsan_feature,
-            default_sanitizer_flags_feature,
-        ]
     else:
         fail("Unreachable")
 
@@ -3332,50 +3046,19 @@ def _impl(ctx):
         ),
     ]
 
-    tool_paths = dict()
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        tool_paths = {
-            "ar": "/bin/false",
-            "compat-ld": "/bin/false",
-            "cpp": "/bin/false",
-            "dwp": "/bin/false",
-            "gcc": "/bin/false",
-            "gcov": "/bin/false",
-            "ld": "/bin/false",
-            "nm": "/bin/false",
-            "objcopy": "/bin/false",
-            "objdump": "/bin/false",
-            "strip": "/bin/false",
-        }
-    elif (ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        tool_paths = {
-            "ar": "libtool",
-            "compat-ld": "/usr/bin/ld",
-            "cpp": "/usr/bin/cpp",
-            "dwp": "/usr/bin/dwp",
-            "gcc": "cc_wrapper.sh",
-            "gcov": "/usr/bin/gcov",
-            "ld": "/usr/bin/ld",
-            "nm": "/usr/bin/nm",
-            "objcopy": "/usr/bin/objcopy",
-            "objdump": "/usr/bin/objdump",
-            "strip": "/usr/bin/strip",
-        }
-    else:
-        fail("Unreachable")
+    tool_paths = {
+        "ar": "libtool",
+        "compat-ld": "/usr/bin/ld",
+        "cpp": "/usr/bin/cpp",
+        "dwp": "/usr/bin/dwp",
+        "gcc": "cc_wrapper.sh",
+        "gcov": "/usr/bin/gcov",
+        "ld": "/usr/bin/ld",
+        "nm": "/usr/bin/nm",
+        "objcopy": "/usr/bin/objcopy",
+        "objdump": "/usr/bin/objdump",
+        "strip": "/usr/bin/strip",
+    }
 
     tool_paths.update(ctx.attr.tool_paths_overrides)
 
@@ -3388,7 +3071,7 @@ def _impl(ctx):
             action_configs = action_configs,
             artifact_name_patterns = artifact_name_patterns,
             cxx_builtin_include_directories = ctx.attr.cxx_builtin_include_directories,
-            toolchain_identifier = toolchain_identifier,
+            toolchain_identifier = ctx.attr.cpu,
             host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = ctx.attr.cpu,
