@@ -645,70 +645,30 @@ def _impl(ctx):
         ],
     )
 
-    if (ctx.attr.cpu == "tvos_arm64" or
-        ctx.attr.cpu == "tvos_x86_64"):
-        cpp_link_executable_action = action_config(
-            action_name = ACTION_NAMES.cpp_link_executable,
-            implies = [
-                "contains_objc_source",
-                "symbol_counts",
-                "linkstamps",
-                "output_execpath_flags",
-                "runtime_root_flags",
-                "input_param_flags",
-                "force_pic_flags",
-                "strip_debug_symbols",
-                "linker_param_file",
-                "version_min",
-                "apple_env",
-                "sysroot",
-                "cpp_linker_flags",
-            ],
-            tools = [
-                tool(
-                    path = "cc_wrapper.sh",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "armeabi-v7a" or
-          ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        cpp_link_executable_action = action_config(
-            action_name = ACTION_NAMES.cpp_link_executable,
-            implies = [
-                "contains_objc_source",
-                "symbol_counts",
-                "linkstamps",
-                "output_execpath_flags",
-                "runtime_root_flags",
-                "input_param_flags",
-                "force_pic_flags",
-                "strip_debug_symbols",
-                "linker_param_file",
-                "version_min",
-                "apple_env",
-                "sysroot",
-            ],
-            tools = [
-                tool(
-                    path = "cc_wrapper.sh",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    else:
-        cpp_link_executable_action = None
+    cpp_link_executable_action = action_config(
+        action_name = ACTION_NAMES.cpp_link_executable,
+        implies = [
+            "contains_objc_source",
+            "symbol_counts",
+            "linkstamps",
+            "output_execpath_flags",
+            "runtime_root_flags",
+            "input_param_flags",
+            "force_pic_flags",
+            "strip_debug_symbols",
+            "linker_param_file",
+            "version_min",
+            "apple_env",
+            "sysroot",
+            "cpp_linker_flags",
+        ],
+        tools = [
+            tool(
+                path = "cc_wrapper.sh",
+                execution_requirements = xcode_execution_requirements,
+            ),
+        ],
+    )
 
     linkstamp_compile_action = action_config(
         action_name = ACTION_NAMES.linkstamp_compile,
