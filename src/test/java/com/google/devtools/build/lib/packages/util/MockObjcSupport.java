@@ -94,7 +94,6 @@ public final class MockObjcSupport {
         ImmutableSet.of(
             "objc_dummy.mm",
             "gcov",
-            "realpath",
             "testrunner",
             "xcrunwrapper.sh",
             "mcov",

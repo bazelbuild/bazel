@@ -45,7 +45,6 @@ output_paths = [
      lambda x: 'tools/objc/precomp_' + os.path.basename(x)),
     ('*xcode*make_hashed_objlist.py',
      lambda x: 'tools/objc/make_hashed_objlist.py'),
-    ('*xcode*realpath', lambda x: 'tools/objc/realpath'),
     ('*xcode*xcode-locator', lambda x: 'tools/objc/xcode-locator'),
     ('*src/tools/xcode/*', lambda x: 'tools/objc/' + os.path.basename(x)),
     # --experimental_sibling_repository_layout=false
