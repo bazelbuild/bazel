@@ -17,7 +17,6 @@ filegroup(
     srcs = select({
         ":darwin": [
             "//src/tools/xcode/realpath",
-            "//src/tools/xcode/stdredirect:StdRedirect.dylib",
             "//tools/osx:xcode-locator",
         ],
         "//conditions:default": [],

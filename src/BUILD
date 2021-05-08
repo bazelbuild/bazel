@@ -59,7 +59,6 @@ genquery(
 # Linux.
 OSX_DUMMY_TARGETS = [
     "src/tools/xcode/realpath/realpath",
-    "src/tools/xcode/stdredirect/StdRedirect.dylib",
 ]
 
 [
@@ -75,12 +74,9 @@ OSX_DUMMY_TARGETS = [
 filegroup(
     name = "darwin_tools",
     srcs = [
-        "//src/tools/xcode/realpath:realpath",
+        "//src/tools/xcode/realpath",
         "//tools/osx:xcode_locator.m",
-    ] + select({
-        "//src/conditions:iphonesdk": ["//src/tools/xcode/stdredirect:StdRedirect.dylib"],
-        "//conditions:default": [":dummy_darwin_tool_src_tools_xcode_stdredirect_StdRedirect.dylib"],
-    }),
+    ],
 )
 
 filegroup(
@@ -495,7 +491,6 @@ filegroup(
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
         "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",
-        "//src/tools/xcode/stdredirect:srcs",
         "//src/tools/remote:srcs",
         "//tools/osx:srcs",
     ],
