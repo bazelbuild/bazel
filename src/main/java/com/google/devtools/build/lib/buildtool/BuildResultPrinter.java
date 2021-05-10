@@ -162,7 +162,8 @@ class BuildResultPrinter {
           for (Artifact temp :
               topLevelProvider.getOutputGroup(OutputGroupInfo.TEMP_FILES).toList()) {
             if (temp.getPath().exists()) {
-              outErr.printErrLn("  See temp at " + prettyPrinter.getPrettyPath(temp.getPath()));
+              outErr.printErrLn(
+                  "  See temp at " + prettyPrinter.getPrettyPath(temp.getPath().asFragment()));
             }
           }
         }
@@ -220,7 +221,7 @@ class BuildResultPrinter {
   }
 
   private String formatArtifactForShowResults(PathPrettyPrinter prettyPrinter, Artifact artifact) {
-    return "  " + prettyPrinter.getPrettyPath(artifact.getPath());
+    return "  " + prettyPrinter.getPrettyPath(artifact.getPath().asFragment());
   }
 
   /**

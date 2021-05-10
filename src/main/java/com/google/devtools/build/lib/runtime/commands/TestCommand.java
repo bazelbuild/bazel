@@ -254,6 +254,6 @@ public class TestCommand implements BlazeCommand {
             productName,
             env.getWorkspace(),
             env.getWorkspace());
-    return path -> pathPrettyPrinter.getPrettyPath(path).getPathString();
+    return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
   }
 }
