@@ -322,6 +322,16 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public List<String> macosCpus;
 
   @Option(
+          name = "host_macos_cpus",
+          allowMultiple = true,
+          converter = CommaSeparatedOptionListConverter.class,
+          defaultValue = "null",
+          documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+          effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+          help = "Comma-separated list of architectures for which to build host Apple macOS binaries.")
+  public List<String> hostMacosCpus;
+
+  @Option(
       name = "catalyst_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
@@ -483,6 +493,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // Preseve Xcode selection preferences so that the same Xcode version is used throughout the
     // build.
     host.preferMutualXcode = preferMutualXcode;
+    host.macosCpus = hostMacosCpus;
 
     return host;
   }
