@@ -1119,6 +1119,10 @@ public final class CcCommon {
 
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
+    if (label.getRepository().getName().equals("@_builtins")) {
+      // always permit builtins
+      return true;
+    }
     if (label != null) {
       return whitelistedPackages.stream()
           .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
