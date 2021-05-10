@@ -66,7 +66,13 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     // leading to significant performance degradation. (Notably, the transition itself is somewhat
     // fast; however, the post-processing of the BuildOptions into the actual BuildConfiguration
     // takes a significant amount of time).
-    private static final BuildOptionsCache<Integer> cache = new BuildOptionsCache<>();
+    //
+    // Test any caching changes for performance impact in a longwide scenario with
+    // --trim_test_configuration on versus off.
+    private static final BuildOptionsCache<Boolean> cache =
+        new BuildOptionsCache<>(
+            (options, unused) ->
+                options.underlying().toBuilder().removeFragmentOptions(TestOptions.class).build());
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
@@ -90,14 +96,8 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
         // dependency on CoreOptions above.
         return originalOptions.underlying();
       }
-      return cache.applyTransition(
-          originalOptions,
-          // The transition uses no non-BuildOptions arguments
-          0,
-          () ->
-              originalOptions.underlying().toBuilder()
-                  .removeFragmentOptions(TestOptions.class)
-                  .build());
+      // No context needed, use the constant Boolean.TRUE.
+      return cache.applyTransition(originalOptions, Boolean.TRUE);
     }
   }
 

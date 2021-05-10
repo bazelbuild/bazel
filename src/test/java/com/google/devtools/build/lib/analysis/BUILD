@@ -61,6 +61,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/compilation_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_aware_aspect_builder",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
