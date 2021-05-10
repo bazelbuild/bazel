@@ -2592,7 +2592,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   @VisibleForTesting
-  public RuleClassProvider getRuleClassProviderForTesting() {
+  public ConfiguredRuleClassProvider getRuleClassProviderForTesting() {
     return ruleClassProvider;
   }
 

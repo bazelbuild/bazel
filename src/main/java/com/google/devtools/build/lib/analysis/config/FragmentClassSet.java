@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.base.Predicates.not;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -89,6 +91,14 @@ public final class FragmentClassSet implements Iterable<Class<? extends Fragment
 
   public boolean contains(Class<? extends Fragment> fragment) {
     return fragments.contains(fragment);
+  }
+
+  /** Returns a set of fragment classes identical to this one but without the given fragment. */
+  public FragmentClassSet trim(Class<? extends Fragment> fragment) {
+    if (!contains(fragment)) {
+      return this;
+    }
+    return of(Sets.filter(fragments, not(fragment::equals)));
   }
 
   @Override
