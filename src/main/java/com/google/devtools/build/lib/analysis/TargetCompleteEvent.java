@@ -296,7 +296,7 @@ public final class TargetCompleteEvent
       childrenBuilder.add(BuildEventIdUtil.testSummary(label, configEventId));
     }
     if (announceTargetSummary) {
-      childrenBuilder.add(BuildEventIdUtil.targetSummary(label, configEventId));
+      childrenBuilder.add(BuildEventIdUtil.targetSummary(aliasLabel, configEventId));
     }
     return childrenBuilder.build();
   }
