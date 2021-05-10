@@ -73,6 +73,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
             "register_toolchains('@bazel_tools//tools/cpp:all')",
             "register_toolchains('@bazel_tools//tools/jdk:all')",
             "register_toolchains('@bazel_tools//tools/android:all')",
+            // Note this path is created inside the test infrastructure in
+            // createAndroidBuildContents() below. It may not reflect a real depot path.
             "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
             "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
             "local_repository(name = 'local_config_platform', path = '"
