@@ -85,11 +85,15 @@ def _static_library(
         feature_configuration,
         cc_toolchain,
         library):
+    alwayslink = False
+    if library.extension == "lo":
+        alwayslink = True
     return cc_common.create_library_to_link(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         static_library = library,
+        alwayslink = True,
     )
 
 def _to_static_library(
