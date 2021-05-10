@@ -93,7 +93,7 @@ def _static_library(
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         static_library = library,
-        alwayslink = True,
+        alwayslink = alwayslink,
     )
 
 def _to_static_library(
