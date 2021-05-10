@@ -699,7 +699,8 @@ public class JavaCommon {
 
     // Collect library paths from all attributes (including data)
     Iterable<? extends TransitiveInfoCollection> data;
-    if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
+    if (ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)
+        && !ruleContext.getFragment(JavaConfiguration.class).dontCollectDataLibraries()) {
       data = ruleContext.getPrerequisites("data");
     } else {
       data = ImmutableList.of();

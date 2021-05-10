@@ -644,6 +644,18 @@ public class JavaOptions extends FragmentOptions {
   public boolean dontCollectSoArtifacts;
 
   @Option(
+      name = "incompatible_dont_collect_native_libraries_in_data",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "When enabled the native libraries in the data attribute are not collected.")
+  public boolean dontCollectDataLibraries;
+
+  @Option(
       name = "experimental_publish_javacclinkparamsinfo",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -740,6 +752,7 @@ public class JavaOptions extends FragmentOptions {
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
     host.dontCollectSoArtifacts = dontCollectSoArtifacts;
+    host.dontCollectDataLibraries = dontCollectDataLibraries;
 
     return host;
   }
