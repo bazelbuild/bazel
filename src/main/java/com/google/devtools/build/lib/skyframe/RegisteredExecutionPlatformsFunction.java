@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Toolchain;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -178,7 +179,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
    * not a valid {@link PlatformInfo} provider.
    */
-  private static final class InvalidExecutionPlatformLabelException extends Exception
+  static final class InvalidExecutionPlatformLabelException extends ToolchainException
       implements SaneAnalysisException {
 
     InvalidExecutionPlatformLabelException(TargetPatternUtil.InvalidTargetPatternException e) {
@@ -190,6 +191,11 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
           String.format(
               "invalid registered execution platform '%s': %s", invalidPattern, e.getMessage()),
           e);
+    }
+
+    @Override
+    protected Toolchain.Code getDetailedCode() {
+      return Toolchain.Code.INVALID_PLATFORM_VALUE;
     }
 
     @Override
