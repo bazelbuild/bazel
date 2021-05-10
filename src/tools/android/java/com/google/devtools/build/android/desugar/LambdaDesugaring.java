@@ -16,11 +16,14 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.android.desugar.langmodel.ClassName.IN_PROCESS_LABEL_STRIPPER;
 import static java.lang.invoke.MethodHandles.publicLookup;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
+import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -33,9 +36,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -60,6 +65,7 @@ class LambdaDesugaring extends ClassVisitor {
   private final ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods;
   private final Map<Handle, MethodReferenceBridgeInfo> bridgeMethods = new LinkedHashMap<>();
   private final ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic;
+  private final ClassAttributeRecord classAttributeRecord;
   private final boolean allowDefaultMethods;
 
   private String internalName;
@@ -72,12 +78,14 @@ class LambdaDesugaring extends ClassVisitor {
       LambdaClassMaker lambdas,
       ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods,
       ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic,
+      ClassAttributeRecord classAttributeRecord,
       boolean allowDefaultMethods) {
     super(Opcodes.ASM8, dest);
     this.targetLoader = targetLoader;
     this.lambdas = lambdas;
     this.aggregateInterfaceLambdaMethods = aggregateInterfaceLambdaMethods;
     this.lambdaMethodsUsedInInvokeDyanmic = lambdaMethodsUsedInInvokeDyanmic;
+    this.classAttributeRecord = classAttributeRecord;
     this.allowDefaultMethods = allowDefaultMethods;
   }
 
@@ -374,6 +382,8 @@ class LambdaDesugaring extends ClassVisitor {
 
     private final MethodVisitor dest;
 
+    private int lastLabeledLineNumber;
+
     public InvokedynamicRewriter(
         MethodVisitor dest,
         int access,
@@ -388,6 +398,12 @@ class LambdaDesugaring extends ClassVisitor {
     @Override
     public void visitEnd() {
       accept(dest);
+    }
+
+    @Override
+    public void visitLineNumber(int line, Label start) {
+      lastLabeledLineNumber = line;
+      super.visitLineNumber(line, start);
     }
 
     @Override
@@ -425,6 +441,9 @@ class LambdaDesugaring extends ClassVisitor {
         boolean needFactory =
             capturedTypes.length != 0
                 && !attemptAllocationBeforeArgumentLoads(lambdaClassName, capturedTypes);
+        Optional<String> sourceFileName =
+            classAttributeRecord.getSourceFileName(
+                ClassName.create(internalName).acceptTypeMapper(IN_PROCESS_LABEL_STRIPPER));
         lambdas.generateLambdaClass(
             internalName,
             LambdaInfo.create(
@@ -432,7 +451,9 @@ class LambdaDesugaring extends ClassVisitor {
                 desc,
                 needFactory,
                 bridgeInfo.methodReference(),
-                bridgeInfo.bridgeMethod()),
+                bridgeInfo.bridgeMethod(),
+                sourceFileName,
+                lastLabeledLineNumber),
             bsmMethod,
             args);
         if (desc.startsWith("()")) {
