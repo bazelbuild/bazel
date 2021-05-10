@@ -919,9 +919,10 @@ different rc files. In order to avoid name conflicts, we suggest that configs
 defined in personal rc files start with an underscore (`_`) to avoid
 unintentional name sharing.
 
-`--config=foo` expands to the options defined in the rc files "in-place" so that
-the options specified for the config have the same precedence that the
-`--config=foo` option had.
+`--config=foo` expands to the options defined in
+[the rc files](#where-are-the-bazelrc-files) "in-place" so that the options
+specified for the config have the same precedence that the `--config=foo` option
+had.
 
 This syntax does not extend to the use of `startup` to set
 [startup options](#option-defaults), e.g. setting
