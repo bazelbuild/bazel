@@ -69,11 +69,11 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "watchos_armv7k"):
         target_system_name = "armv7k-apple-watchos"
     elif (ctx.attr.cpu == "ios_i386"):
-        target_system_name = "i386-apple-ios"
+        target_system_name = "i386-apple-ios-simulator"
     elif (ctx.attr.cpu == "watchos_i386"):
-        target_system_name = "i386-apple-watchos"
+        target_system_name = "i386-apple-watchos-simulator"
     elif (ctx.attr.cpu == "ios_x86_64"):
-        target_system_name = "x86_64-apple-ios"
+        target_system_name = "x86_64-apple-ios-simulator"
     elif (ctx.attr.cpu == "ios_sim_arm64"):
         target_system_name = "arm64-apple-ios-simulator"
     elif (ctx.attr.cpu == "tvos_sim_arm64"):
@@ -87,9 +87,9 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "darwin_arm64e"):
         target_system_name = "arm64e-apple-macosx"
     elif (ctx.attr.cpu == "tvos_x86_64"):
-        target_system_name = "x86_64-apple-tvos"
+        target_system_name = "x86_64-apple-tvos-simulator"
     elif (ctx.attr.cpu == "watchos_x86_64"):
-        target_system_name = "x86_64-apple-watchos"
+        target_system_name = "x86_64-apple-watchos-simulator"
     else:
         fail("Unreachable")
 
@@ -206,7 +206,7 @@ def _impl(ctx):
         action_name = ACTION_NAMES.objc_compile,
         flag_sets = [
             flag_set(
-                flag_groups = [flag_group(flags = ["-arch", arch])],
+                flag_groups = [flag_group(flags = ["-target", target_system_name])],
             ),
         ],
         implies = [
@@ -241,7 +241,7 @@ def _impl(ctx):
             flag_set(
                 flag_groups = [
                     flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                    flag_group(flags = ["-arch", arch]),
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = [
                             "-Xlinker",
@@ -395,8 +395,8 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-arch",
-                            arch,
+                            "-target",
+                            target_system_name,
                             "-stdlib=libc++",
                             "-std=gnu++11",
                         ],
@@ -526,7 +526,7 @@ def _impl(ctx):
             ),
             flag_set(
                 flag_groups = [
-                    flag_group(flags = ["-arch", arch]),
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = ["-framework", "%{framework_names}"],
                         iterate_over = "framework_names",
