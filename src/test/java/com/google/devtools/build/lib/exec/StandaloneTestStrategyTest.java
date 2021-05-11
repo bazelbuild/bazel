@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.Options;
@@ -148,7 +149,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           /*artifactExpander=*/ null,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult=*/ null,
-          NestedSetExpander.DEFAULT);
+          NestedSetExpander.DEFAULT,
+          UnixGlob.DEFAULT_SYSCALLS);
       this.actionContextRegistry = actionContextRegistry;
     }
 

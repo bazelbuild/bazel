@@ -86,11 +86,13 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -1152,7 +1154,21 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       if (declaredIncludeDirs.contains(root.relativize(dir))) {
         for (Path dirOrPackage : packagesToCheckForBuildFiles) {
-          if (dirOrPackage.getRelative(BUILD_PATH_FRAGMENT).exists()) {
+          FileStatus fileStatus = null;
+          try {
+            // This file system access shouldn't exist at all and has to go away when this is
+            // rewritten in Starlark.
+            // TODO(b/187366935): Consider globbing everything eagerly instead.
+            fileStatus =
+                actionExecutionContext
+                    .getSyscalls()
+                    .statIfFound(dirOrPackage.getRelative(BUILD_PATH_FRAGMENT), Symlinks.FOLLOW);
+          } catch (IOException e) {
+            // Previously, we used Path.exists() to check whether the BUILD file exists. This did
+            // return false on any error. So by ignoring the exception are maintaining current
+            // behaviour.
+          }
+          if (fileStatus != null && fileStatus.isFile()) {
             return false; // Bad: this is a sub-package, not a subdir of a declared package.
           }
         }

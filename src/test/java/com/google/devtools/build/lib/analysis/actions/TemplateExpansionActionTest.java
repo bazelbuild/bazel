@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.Before;
@@ -206,7 +207,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT);
+        NestedSetExpander.DEFAULT,
+        UnixGlob.DEFAULT_SYSCALLS);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {

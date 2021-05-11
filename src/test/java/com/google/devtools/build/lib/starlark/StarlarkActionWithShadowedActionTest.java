@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -118,7 +119,8 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
             /*artifactExpander=*/ null,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.DEFAULT);
+            NestedSetExpander.DEFAULT,
+            UnixGlob.DEFAULT_SYSCALLS);
   }
 
   @Test

@@ -169,6 +169,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -2450,7 +2451,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           artifactExpander,
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult*/ null,
-          NestedSetExpander.DEFAULT);
+          NestedSetExpander.DEFAULT,
+          UnixGlob.DEFAULT_SYSCALLS);
     }
   }
 }

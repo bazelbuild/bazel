@@ -245,7 +245,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             MetadataConsumerForMetrics.NO_OP,
             new AtomicReference<>(statusReporter),
             /*sourceRootSupplier=*/ ImmutableList::of,
-            PathFragment.create(directories.getRelativeOutputPath()));
+            PathFragment.create(directories.getRelativeOutputPath()),
+            new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS));
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(

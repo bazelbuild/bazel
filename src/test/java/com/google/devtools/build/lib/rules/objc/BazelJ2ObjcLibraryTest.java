@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -788,7 +789,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.DEFAULT);
+            NestedSetExpander.DEFAULT,
+            UnixGlob.DEFAULT_SYSCALLS);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -846,7 +848,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             DUMMY_ARTIFACT_EXPANDER,
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
-            NestedSetExpander.DEFAULT);
+            NestedSetExpander.DEFAULT,
+            UnixGlob.DEFAULT_SYSCALLS);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
