@@ -457,12 +457,27 @@ final class WorkerSpawnRunner implements SpawnRunner {
         try {
           response = worker.getResponse(request.getRequestId());
         } catch (InterruptedException e) {
-          finishWorkAsync(
-              key,
-              worker,
-              request,
-              workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn));
-          worker = null;
+          if (worker.isSandboxed()) {
+            // Sandboxed workers can safely finish their work async.
+            finishWorkAsync(
+                key,
+                worker,
+                request,
+                workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn));
+            worker = null;
+          } else if (!key.isSpeculative()) {
+            // Non-sandboxed workers interrupted outside of dynamic execution can only mean that
+            // the user interrupted the build, and we don't want to delay finishing. Instead we
+            // kill the worker.
+            // Technically, workers are always sandboxed under dynamic execution, at least for now.
+            try {
+              workers.invalidateObject(key, worker);
+            } catch (IOException e1) {
+              // Nothing useful we can do here, in fact it may not be possible to get here.
+            } finally {
+              worker = null;
+            }
+          }
           throw e;
         } catch (IOException e) {
           restoreInterrupt(e);

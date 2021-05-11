@@ -55,6 +55,11 @@ final class WorkerProxy extends Worker {
   }
 
   @Override
+  public boolean isSandboxed() {
+    return false;
+  }
+
+  @Override
   void setReporter(EventHandler reporter) {
     // We might have created this multiplexer after setting the reporter for existing multiplexers
     workerMultiplexer.setReporter(reporter);
