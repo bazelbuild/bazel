@@ -63,7 +63,9 @@ public abstract class JavaPluginInfo extends NativeInfo
               ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
               : NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, (String) processorClass);
       NestedSet<Artifact> processorClasspath =
-          JavaInfo.merge(Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"))
+          JavaInfo.merge(
+                  Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
+                  /*withExportsProvider=*/ false)
               .getProvider(JavaCompilationArgsProvider.class)
               .getRuntimeJars();
 

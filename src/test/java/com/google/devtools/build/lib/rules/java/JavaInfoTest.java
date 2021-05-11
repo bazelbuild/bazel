@@ -67,7 +67,7 @@ public class JavaInfoTest {
             .addProvider(JavaExportsProvider.class, createJavaExportsProvider("bar", 3))
             .build();
 
-    JavaInfo javaInfoMerged = JavaInfo.merge(ImmutableList.of(javaInfo1, javaInfo2));
+    JavaInfo javaInfoMerged = JavaInfo.merge(ImmutableList.of(javaInfo1, javaInfo2), true);
 
     NestedSet<Label> labels = javaInfoMerged.getTransitiveExports().getSet(Label.class);
 

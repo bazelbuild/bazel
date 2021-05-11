@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
@@ -172,6 +174,7 @@ public interface JavaInfoApi<
   @StarlarkMethod(
       name = "transitive_exports",
       structField = true,
+      enableOnlyWithFlag = INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER,
       doc = "Returns a set of labels that are being exported from this rule transitively.")
   Depset /*<Label>*/ getTransitiveExports();
 

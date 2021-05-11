@@ -416,8 +416,10 @@ public interface JavaCommonApi<
             named = false,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
-      })
-  JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
+      },
+      useStarlarkThread = true)
+  JavaInfoT mergeJavaProviders(
+      Sequence<?> providers /* <JavaInfoT> expected. */, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -200,9 +201,12 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo mergeJavaProviders(Sequence<?> providers /* <JavaInfo> expected. */)
+  public JavaInfo mergeJavaProviders(
+      Sequence<?> providers, /* <JavaInfo> expected. */ StarlarkThread thread)
       throws EvalException {
-    return JavaInfo.merge(Sequence.cast(providers, JavaInfo.class, "providers"));
+    return JavaInfo.merge(
+        Sequence.cast(providers, JavaInfo.class, "providers"),
+        thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER));
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.

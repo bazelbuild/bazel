@@ -443,6 +443,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   /** Tests that JavaExportsProvider is empty by default. */
   @Test
   public void buildHelperCreateJavaInfoExportIsEmpty() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     ruleBuilder().build();
     scratch.file(
         "foo/BUILD",
@@ -461,6 +462,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   /** Test exports adds dependencies to JavaCompilationArgsProvider. */
   @Test
   public void buildHelperCreateJavaInfoExportProviderExportsDepsAdded() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     ruleBuilder().build();
     scratch.file(
         "foo/BUILD",
@@ -502,6 +504,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void buildHelperCreateJavaInfoExportProvider() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     ruleBuilder().build();
     scratch.file(
         "foo/BUILD",
@@ -560,6 +563,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void buildHelperCreateJavaInfoExportProvider001() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     ruleBuilder().build();
     scratch.file(
         "foo/BUILD",

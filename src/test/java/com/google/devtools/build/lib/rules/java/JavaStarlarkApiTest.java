@@ -1897,6 +1897,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaInfoGetTransitiveExports() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     scratch.file(
         "foo/extension.bzl",
         "result = provider()",
@@ -2192,6 +2193,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void javaCompile_transitiveExportsWithLabels() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     writeJavaCustomLibraryWithLabels("tools/build_defs/java/java_library.bzl");
     scratch.file(

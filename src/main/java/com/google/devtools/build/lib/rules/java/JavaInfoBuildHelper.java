@@ -85,7 +85,8 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> runtimeDeps,
       Sequence<JavaInfo> exports,
       Sequence<CcInfo> nativeLibraries,
-      Location location) {
+      Location location,
+      boolean withExportsProvider) {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     javaInfoBuilder.setLocation(location);
 
@@ -121,9 +122,11 @@ final class JavaInfoBuildHelper {
     javaInfoBuilder.addProvider(
         JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build());
 
+    if (withExportsProvider) {
     javaInfoBuilder.addProvider(
         JavaExportsProvider.class,
         createJavaExportsProvider(exports, /* labels = */ ImmutableList.of()));
+    }
 
     javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exports));
 

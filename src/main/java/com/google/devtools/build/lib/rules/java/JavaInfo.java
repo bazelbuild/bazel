@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -125,7 +126,7 @@ public final class JavaInfo extends NativeInfo
    * Merges the given providers into one {@link JavaInfo}. All the providers with the same type in
    * the given list are merged into one provider that is added to the resulting {@link JavaInfo}.
    */
-  public static JavaInfo merge(List<JavaInfo> providers) {
+  public static JavaInfo merge(List<JavaInfo> providers, boolean withExportsProvider) {
     List<JavaCompilationArgsProvider> javaCompilationArgsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
@@ -135,8 +136,7 @@ public final class JavaInfo extends NativeInfo
             .map(JavaInfo::getJavaPluginInfo)
             .filter(Objects::nonNull)
             .collect(toImmutableList());
-    List<JavaExportsProvider> javaExportsProviders =
-        JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
+
     List<JavaRuleOutputJarsProvider> javaRuleOutputJarsProviders =
         JavaInfo.fetchProvidersFromList(providers, JavaRuleOutputJarsProvider.class);
     List<JavaCcInfoProvider> javaCcInfoProviders =
@@ -149,23 +149,31 @@ public final class JavaInfo extends NativeInfo
       javaConstraints.addAll(javaInfo.getJavaConstraints());
     }
 
-    return JavaInfo.Builder.create()
-        .addProvider(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
-        .addProvider(
-            JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
-        .addProvider(
-            JavaRuleOutputJarsProvider.class,
-            JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
-        .javaPluginInfo(JavaPluginInfo.merge(javaPluginInfos))
-        .addProvider(JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders))
-        .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
-        // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
-        // TODO(iirina): merge or remove JavaCompilationInfoProvider
-        .setRuntimeJars(runtimeJars.build())
-        .setJavaConstraints(javaConstraints.build())
-        .build();
+    JavaInfo.Builder javaInfoBuilder =
+        JavaInfo.Builder.create()
+            .addProvider(
+                JavaCompilationArgsProvider.class,
+                JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
+            .addProvider(
+                JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
+            .addProvider(
+                JavaRuleOutputJarsProvider.class,
+                JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
+            .javaPluginInfo(JavaPluginInfo.merge(javaPluginInfos))
+            .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
+            // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
+            // TODO(iirina): merge or remove JavaCompilationInfoProvider
+            .setRuntimeJars(runtimeJars.build())
+            .setJavaConstraints(javaConstraints.build());
+
+    if (withExportsProvider) {
+      List<JavaExportsProvider> javaExportsProviders =
+          JavaInfo.fetchProvidersFromList(providers, JavaExportsProvider.class);
+      javaInfoBuilder.addProvider(
+          JavaExportsProvider.class, JavaExportsProvider.merge(javaExportsProviders));
+    }
+
+    return javaInfoBuilder.build();
   }
 
   /**
@@ -510,7 +518,8 @@ public final class JavaInfo extends NativeInfo
               Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
               Sequence.cast(exports, JavaInfo.class, "exports"),
               Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
-              thread.getCallerLocation());
+              thread.getCallerLocation(),
+              thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER));
     }
   }
 

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -666,7 +667,7 @@ public class JavaCommon {
       NestedSet<Artifact> coverageSupportFiles) {
 
     JavaCompilationInfoProvider compilationInfoProvider = createCompilationInfoProvider();
-    JavaExportsProvider exportsProvider = collectTransitiveExports();
+
 
     builder
         .addNativeDeclaredProvider(
@@ -678,7 +679,10 @@ public class JavaCommon {
                 coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
-    javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
+    if (ruleContext.getStarlarkSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
+      JavaExportsProvider exportsProvider = collectTransitiveExports();
+      javaInfoBuilder.addProvider(JavaExportsProvider.class, exportsProvider);
+    }
     javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
 
     addCcRelatedProviders(javaInfoBuilder);
