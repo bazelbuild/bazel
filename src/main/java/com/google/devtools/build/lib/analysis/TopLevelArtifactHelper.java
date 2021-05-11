@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
@@ -22,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -137,20 +137,24 @@ public final class TopLevelArtifactHelper {
       ImmutableSet.Builder<Artifact> artifacts = ImmutableSet.builder();
       artifacts.addAll(analysisResult.getArtifactsToBuild());
 
-      Iterable<ProviderCollection> providers =
-          Iterables.concat(
-              analysisResult.getTargetsToBuild(),
-              analysisResult.getAspectsMap().values(),
-              firstNonNull(analysisResult.getTargetsToTest(), ImmutableList.of()));
       TopLevelArtifactContext ctx = analysisResult.getTopLevelContext();
       Set<NestedSet.Node> visited = new HashSet<>();
 
-      for (ProviderCollection provider : providers) {
+      for (ProviderCollection provider :
+          Iterables.concat(
+              analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().values())) {
         for (ArtifactsInOutputGroup group :
             getAllArtifactsToBuild(provider, ctx).getAllArtifactsByOutputGroup().values()) {
           memoizedAddAll(group.getArtifacts(), artifacts, visited);
         }
       }
+
+      if (analysisResult.getTargetsToTest() != null) {
+        for (ConfiguredTarget testTarget : analysisResult.getTargetsToTest()) {
+          artifacts.addAll(TestProvider.getTestStatusArtifacts(testTarget));
+        }
+      }
+
       return artifacts.build();
     }
   }
