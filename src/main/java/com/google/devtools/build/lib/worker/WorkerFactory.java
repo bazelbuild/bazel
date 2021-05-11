@@ -99,11 +99,9 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     return new DefaultPooledObject<>(worker);
   }
 
-  /**
-   * When a worker process is discarded, destroy its process, too.
-   */
+  /** When a worker process is discarded, destroy its process, too. */
   @Override
-  public void destroyObject(WorkerKey key, PooledObject<Worker> p) throws Exception {
+  public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
     if (workerOptions.workerVerbose) {
       int workerId = p.getObject().getWorkerId();
       reporter.handle(

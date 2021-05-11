@@ -179,8 +179,10 @@ public class WorkerSpawnRunnerTest {
       throws ExecException, InterruptedException, IOException {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerCancellation = true;
+    workerOptions.workerSandboxing = true;
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
+    when(worker.isSandboxed()).thenReturn(true);
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
             new SandboxHelpers(false),
@@ -196,6 +198,7 @@ public class WorkerSpawnRunnerTest {
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     Semaphore secondResponseRequested = new Semaphore(0);
+    // Fake that the getting the regular response gets interrupted and we then answer the cancel.
     when(worker.getResponse(anyInt()))
         .thenThrow(new InterruptedException())
         .thenAnswer(
@@ -227,6 +230,53 @@ public class WorkerSpawnRunnerTest {
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
     assertThat(argumentCaptor.getAllValues().get(1))
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).setCancel(true).build());
+  }
+
+  @Test
+  public void testExecInWorker_unsandboxedDiesOnInterrupt()
+      throws InterruptedException, IOException {
+    WorkerOptions workerOptions = new WorkerOptions();
+    workerOptions.workerCancellation = true;
+    workerOptions.workerSandboxing = false;
+    when(spawn.getExecutionInfo())
+        .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
+    WorkerSpawnRunner runner =
+        new WorkerSpawnRunner(
+            new SandboxHelpers(false),
+            fs.getPath("/execRoot"),
+            createWorkerPool(),
+            /* multiplex */ false,
+            reporter,
+            localEnvProvider,
+            /* binTools */ null,
+            resourceManager,
+            /* runfilesTreeUpdater=*/ null,
+            workerOptions);
+    WorkerKey key = createWorkerKey(fs, "mnem", false);
+    Path logFile = fs.getPath("/worker.log");
+    when(worker.getResponse(anyInt())).thenThrow(new InterruptedException());
+
+    // Since this worker is not sandboxed, it will just get killed on interrupt.
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            runner.execInWorker(
+                spawn,
+                key,
+                context,
+                new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+                SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+                ImmutableList.of(),
+                inputFileCache,
+                spawnMetrics));
+
+    assertThat(logFile.exists()).isFalse();
+    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    ArgumentCaptor<WorkRequest> argumentCaptor = ArgumentCaptor.forClass(WorkRequest.class);
+    verify(worker, times(1)).putRequest(argumentCaptor.capture());
+    assertThat(argumentCaptor.getAllValues().get(0))
+        .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
+    verify(worker, times(1)).destroy();
   }
 
   @Test
