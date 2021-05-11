@@ -123,9 +123,7 @@ final class JavaInfoBuildHelper {
         JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build());
 
     if (withExportsProvider) {
-    javaInfoBuilder.addProvider(
-        JavaExportsProvider.class,
-        createJavaExportsProvider(exports, /* labels = */ ImmutableList.of()));
+      javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
     }
 
     javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exports));
@@ -227,12 +225,9 @@ final class JavaInfoBuildHelper {
     return concat(transitiveSourceJars, sourceJars);
   }
 
-  private JavaExportsProvider createJavaExportsProvider(
-      Iterable<JavaInfo> exports, Iterable<Label> labels) {
-    ImmutableList.Builder<JavaExportsProvider> builder = new ImmutableList.Builder<>();
-    builder.addAll(JavaInfo.fetchProvidersFromList(exports, JavaExportsProvider.class));
-    builder.add(new JavaExportsProvider(NestedSetBuilder.wrap(Order.STABLE_ORDER, labels)));
-    return JavaExportsProvider.merge(builder.build());
+  private JavaExportsProvider createJavaExportsProvider(Iterable<JavaInfo> exports) {
+    return JavaExportsProvider.merge(
+        JavaInfo.fetchProvidersFromList(exports, JavaExportsProvider.class));
   }
 
   private JavaPluginInfo mergeExportedJavaPluginInfo(Iterable<JavaInfo> javaInfos) {
@@ -254,7 +249,6 @@ final class JavaInfoBuildHelper {
       List<JavaInfo> runtimeDeps,
       List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
-      List<Label> exportLabels,
       List<JavaInfo> plugins,
       List<JavaInfo> exportedPlugins,
       List<CcInfo> nativeLibraries,
@@ -351,7 +345,7 @@ final class JavaInfoBuildHelper {
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(concat(exportedPlugins, exports)))
-        .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports, exportLabels))
+        .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)
         .addTransitiveOnlyRuntimeJarsToJavaInfo(exports)
