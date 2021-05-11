@@ -40,6 +40,17 @@ public class MetricsModule extends BlazeModule {
             "When set we collect and publish used_heap_size_post_build "
                 + "from build_event_stream.proto. This forces a full GC and is off by default.")
     public boolean bepPublishUsedHeapSizePostBuild;
+
+    @Option(
+        name = "experimental_record_metrics_for_all_mnemonics",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "By default the number of action types is limited to the 20 mnemonics with the largest "
+                + "number of executed actions. Setting this option will write statistics for all "
+                + "mnemonics.")
+    public boolean recordMetricsForAllMnemonics;
   }
 
   private final AtomicInteger numAnalyses = new AtomicInteger();

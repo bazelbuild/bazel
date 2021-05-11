@@ -828,6 +828,24 @@ message BuildMetrics {
     // The total number of actions executed during the build. This includes any
     // remote cache hits, but excludes local action cache hits.
     int64 actions_executed = 2;
+
+    message ActionData {
+      string mnemonic = 1;
+
+      // The total number of actions of this type executed during the build. As
+      // above, includes remote cache hits but excludes local action cache hits.
+      int64 actions_executed = 2;
+
+      // When the first action of this type started being executed, in
+      // milliseconds from the epoch.
+      int64 first_started_ms = 3;
+
+      // When the last action of this type ended being executed, in
+      // milliseconds from the epoch.
+      int64 last_ended_ms = 4;
+    }
+    // Contains the top N actions by number of actions executed.
+    repeated ActionData action_data = 4;
   }
   ActionSummary action_summary = 1;
 
