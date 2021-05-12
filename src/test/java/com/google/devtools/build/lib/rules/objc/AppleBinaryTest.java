@@ -1344,4 +1344,50 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   protected RuleType getRuleType() {
     return RULE_TYPE;
   }
+
+  @Test
+  public void testExpandedLinkopts() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "genrule(name = 'linker', cmd='generate', outs=['a.lds'])",
+        "apple_binary(",
+        "    name='bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':lib'],",
+        "    linkopts=['@$(location a.lds)'],",
+        "    additional_linker_inputs=['a.lds'])");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    CommandAction action = linkAction("//a:bin");
+
+    assertThat(Joiner.on(" ").join(action.getArguments()))
+        .contains(
+            String.format(
+                "-Wl,@%s/a/a.lds",
+                getRuleContext(target).getGenfilesDirectory().getExecPath().getPathString()));
+  }
+
+  @Test
+  public void testProvidesLinkerScriptToLinkAction() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "apple_binary(",
+        "    name='bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':lib'],",
+        "    linkopts=['@$(location a.lds)'],",
+        "    additional_linker_inputs=['a.lds'])");
+
+    CommandAction action = linkAction("//a:bin");
+
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a.lds");
+  }
 }

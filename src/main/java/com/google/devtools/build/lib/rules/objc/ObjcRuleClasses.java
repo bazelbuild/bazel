@@ -678,6 +678,14 @@ public class ObjcRuleClasses {
           Extra flags to pass to the linker.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("linkopts", STRING_LIST))
+          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(additional_linker_inputs) -->
+          Extra files to pass to the linker.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("additional_linker_inputs", LABEL_LIST)
+                  .orderIndependent()
+                  .direct_compile_time_input()
+                  .allowedFileTypes(FileTypeSet.ANY_FILE))
           .add(
               attr("$j2objc_dead_code_pruner", LABEL)
                   .allowedFileTypes(FileType.of(".py"))

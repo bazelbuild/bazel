@@ -1250,6 +1250,7 @@ public class CompilationSupport implements StarlarkValue {
             .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
             .addNonCodeLinkerInputs(ImmutableList.copyOf(prunedJ2ObjcArchives))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
+            .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
             .addTransitiveAdditionalLinkerInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveAdditionalLinkerInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))

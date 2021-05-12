@@ -186,6 +186,17 @@ public class CppHelper {
     return result;
   }
 
+  /** Returns the linkopts for the rule context. */
+  public static ImmutableList<String> getLinkopts(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
+      Iterable<String> linkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
+      if (linkopts != null) {
+        return ImmutableList.copyOf(expandLinkopts(ruleContext, "linkopts", linkopts));
+      }
+    }
+    return ImmutableList.of();
+  }
+
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
       RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain)
       throws RuleErrorException {

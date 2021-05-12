@@ -206,13 +206,7 @@ public final class CcCommon {
    */
   public ImmutableList<String> getLinkopts() {
     Preconditions.checkState(hasAttribute("linkopts", Type.STRING_LIST));
-    Iterable<String> ourLinkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
-    List<String> result;
-    if (ourLinkopts != null) {
-      result = CppHelper.expandLinkopts(ruleContext, "linkopts", ourLinkopts);
-    } else {
-      result = ImmutableList.of();
-    }
+    ImmutableList<String> result = CppHelper.getLinkopts(ruleContext);
 
     if (ApplePlatform.isApplePlatform(ccToolchain.getTargetCpu()) && result.contains("-static")) {
       ruleContext.attributeError(
