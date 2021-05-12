@@ -117,7 +117,7 @@ public final class Crosstool {
       private String ccTargetOs = "";
       private String cpu = "k8";
       private String compiler = "compiler";
-      private String toolchainIdentifier = "mock-llvm-toolchain-k8";
+      private String toolchainIdentifier = "mock-toolchain-k8";
       private String hostSystemName = "local";
       private String targetSystemName = "local";
       private String targetLibc = "local";

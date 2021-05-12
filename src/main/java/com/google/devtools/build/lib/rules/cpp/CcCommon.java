@@ -916,16 +916,13 @@ public final class CcCommon {
       if ((branchFdoProvider.isLlvmFdo() || branchFdoProvider.isLlvmCSFdo())
           && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
         allFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
-        // For LLVM, support implicit enabling of ThinLTO for FDO unless it has been
-        // explicitly disabled.
-        if (toolchain.isLLVMCompiler()
-            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        // Support implicit enabling of ThinLTO for FDO unless it has been explicitly disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
         }
 
         // Support implicit enabling of split functions for FDO unless it has been disabled.
-        if (toolchain.isLLVMCompiler()
-            && !allUnsupportedFeatures.contains(CppRuleClasses.SPLIT_FUNCTIONS)) {
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.SPLIT_FUNCTIONS)) {
           allFeatures.add(CppRuleClasses.ENABLE_FDO_SPLIT_FUNCTIONS);
         }
       }
@@ -934,19 +931,15 @@ public final class CcCommon {
       }
       if (branchFdoProvider.isAutoFdo()) {
         allFeatures.add(CppRuleClasses.AUTOFDO);
-        // For LLVM, support implicit enabling of ThinLTO for AFDO unless it has been
-        // explicitly disabled.
-        if (toolchain.isLLVMCompiler()
-            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        // Support implicit enabling of ThinLTO for AFDO unless it has been explicitly disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
         }
       }
       if (branchFdoProvider.isAutoXBinaryFdo()) {
         allFeatures.add(CppRuleClasses.XBINARYFDO);
-        // For LLVM, support implicit enabling of ThinLTO for XFDO unless it has been
-        // explicitly disabled.
-        if (toolchain.isLLVMCompiler()
-            && !allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
+        // Support implicit enabling of ThinLTO for XFDO unless it has been explicitly disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_XFDO_THINLTO);
         }
       }
