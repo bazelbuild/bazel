@@ -38,10 +38,11 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
-import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -268,6 +269,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
 
     ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
+    ExecGroupCollection.Builder execGroupCollectionBuilder = null;
 
     // TODO(janakr): this call may tie up this thread indefinitely, reducing the parallelism of
     //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
@@ -276,7 +278,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     acquireWithLogging(key);
     try {
       // Determine what toolchains are needed by this target.
-      unloadedToolchainContexts =
+      ComputedToolchainContexts result =
           computeUnloadedToolchainContexts(
               env,
               ruleClassProvider,
@@ -286,6 +288,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
+      unloadedToolchainContexts = result.toolchainCollection;
+      execGroupCollectionBuilder = result.execGroupCollectionBuilder;
 
       // Get the configuration targets that trigger this rule's configurable attributes.
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
@@ -377,6 +381,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               depValueMap,
               configConditions,
               toolchainContexts,
+              execGroupCollectionBuilder,
               transitivePackagesForPackageRootResolution);
       if (configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
@@ -454,15 +459,25 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * Returns the {@link UnloadedToolchainContext} for this target, or {@code null} if the target
-   * doesn't use toolchains.
+   * Simple wrapper to allow returning two variables from {@link #computeUnloadedToolchainContexts}.
+   */
+  @VisibleForTesting
+  public static class ComputedToolchainContexts {
+    @Nullable public ToolchainCollection<UnloadedToolchainContext> toolchainCollection = null;
+    public ExecGroupCollection.Builder execGroupCollectionBuilder =
+        ExecGroupCollection.emptyBuilder();
+  }
+
+  /**
+   * Returns the toolchain context and exec group collection for this target. The toolchain context
+   * may be {@code null} if the target doesn't use toolchains.
    *
    * <p>This involves Skyframe evaluation: callers should check {@link Environment#valuesMissing()
    * to check the result is valid.
    */
   @VisibleForTesting
   @Nullable
-  public static ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
+  public static ComputedToolchainContexts computeUnloadedToolchainContexts(
       Environment env,
       RuleClassProvider ruleClassProvider,
       BuildOptions defaultBuildOptions,
@@ -470,12 +485,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainContextKey parentToolchainContextKey)
       throws InterruptedException, ToolchainException {
     if (!(targetAndConfig.getTarget() instanceof Rule)) {
-      return null;
+      return new ComputedToolchainContexts();
     }
     Rule rule = ((Rule) targetAndConfig.getTarget());
-    if (!rule.getRuleClassObject().useToolchainResolution()) {
-      return null;
-    }
     BuildConfiguration configuration = targetAndConfig.getConfiguration();
 
     ImmutableSet<Label> requiredDefaultToolchains =
@@ -485,7 +497,18 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         getExecutionPlatformConstraints(
             rule, configuration.getFragment(PlatformConfiguration.class));
 
-    ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
+    // Create a merged version of the exec groups that handles exec group inheritance properly.
+    ExecGroup defaultExecGroup =
+        ExecGroup.create(requiredDefaultToolchains, defaultExecConstraintLabels);
+    ExecGroupCollection.Builder execGroupCollectionBuilder =
+        ExecGroupCollection.builder(defaultExecGroup, rule.getRuleClassObject().getExecGroups());
+
+    // Short circuit and end now if this target doesn't require toolchain resolution.
+    if (!rule.getRuleClassObject().useToolchainResolution()) {
+      ComputedToolchainContexts result = new ComputedToolchainContexts();
+      result.execGroupCollectionBuilder = execGroupCollectionBuilder;
+      return result;
+    }
 
     // The toolchain context's options are the parent rule's options with manual trimming
     // auto-applied. This means toolchains don't inherit feature flags. This helps build
@@ -550,10 +573,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     ToolchainContextKey toolchainContextKey = toolchainContextKeyBuilder.build();
     toolchainContextKeys.put(targetUnloadedToolchainContext, toolchainContextKey);
-    for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
-      ExecGroup execGroup = group.getValue();
+    for (String name : execGroupCollectionBuilder.getExecGroupNames()) {
+      ExecGroup execGroup = execGroupCollectionBuilder.getExecGroup(name);
       toolchainContextKeys.put(
-          group.getKey(),
+          name,
           ToolchainContextKey.key()
               .configurationKey(toolchainConfig)
               .requiredToolchainTypeLabels(execGroup.requiredToolchains())
@@ -583,7 +606,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
 
-    return valuesMissing ? null : toolchainContexts.build();
+    ComputedToolchainContexts result = new ComputedToolchainContexts();
+    result.toolchainCollection = valuesMissing ? null : toolchainContexts.build();
+    result.execGroupCollectionBuilder = execGroupCollectionBuilder;
+    return result;
   }
 
   /**
@@ -1002,6 +1028,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();
@@ -1022,7 +1049,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configuredTargetKey,
               depValueMap,
               configConditions,
-              toolchainContexts);
+              toolchainContexts,
+              execGroupCollectionBuilder);
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;

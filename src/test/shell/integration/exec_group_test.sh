@@ -19,7 +19,6 @@
 
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
-set -euo pipefail
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
   if [[ -f "$0.runfiles_manifest" ]]; then
     export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
@@ -412,6 +411,51 @@ EOF
   grep "test_override" out.txt || fail "Did not find the overriding test-action value"
 }
 
+function test_platform_execgroup_properties_test_inherits_default() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+  cat > ${pkg}/a.cc <<EOF
+int main() {}
+EOF
+  cat > ${pkg}/BUILD <<EOF
+constraint_setting(name = "setting")
+constraint_value(name = "local", constraint_setting = ":setting")
+cc_test(
+  name = "a",
+  srcs = ["a.cc"],
+  exec_compatible_with = [":local"],
+)
+
+# This platform should be first in --extra_execution_platforms.
+# It has no constraints and only exists to detect if the correct platform is not
+# used.
+platform(
+    name = "platform_no_constraint",
+    parents = ["${default_host_platform}"],
+    exec_properties = {
+        "exec_property": "no_constraint",
+    },
+)
+
+# This platform should be second. The constraint means it will be used for
+# the cc_test.
+# The exec_property should be used for the actual test execution.
+platform(
+    name = "platform_with_constraint",
+    parents = ["${default_host_platform}"],
+    exec_properties = {
+        "exec_property": "requires_test_constraint",
+    },
+    constraint_values = [":local"],
+)
+EOF
+
+  bazel test --extra_execution_platforms="${pkg}:platform_no_constraint,${pkg}:platform_with_constraint" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
+  grep --after=4 "platform" out.txt | grep "exec_property" || fail "Did not find the property key"
+  grep --after=4 "platform" out.txt | grep "no_constraint" && fail "Found the wrong property."
+  grep --after=4 "platform" out.txt | grep "requires_test_constraint" || fail "Did not find the property value"
+}
+
 function test_platform_properties_only_applied_for_relevant_execgroups_cc_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
@@ -462,5 +506,195 @@ EOF
   grep "Tried to set properties for non-existent exec group" $TEST_log || fail "Did not complain about unknown exec group"
 }
 
-run_suite "exec group test"
+function write_toolchains_for_exec_group_tests() {
+  mkdir -p ${pkg}/platform
+  cat >> ${pkg}/platform/toolchain.bzl <<EOF
+def _impl(ctx):
+  toolchain = platform_common.ToolchainInfo(
+      message = ctx.attr.message)
+  return [toolchain]
 
+test_toolchain = rule(
+    implementation = _impl,
+    attrs = {
+        'message': attr.string(),
+    }
+)
+EOF
+
+  cat >> ${pkg}/platform/BUILD <<EOF
+package(default_visibility = ['//visibility:public'])
+toolchain_type(name = 'toolchain_type')
+
+constraint_setting(name = 'setting')
+constraint_value(name = 'value_foo', constraint_setting = ':setting')
+constraint_value(name = 'value_bar', constraint_setting = ':setting')
+
+load(':toolchain.bzl', 'test_toolchain')
+
+# Define the toolchains.
+test_toolchain(
+    name = 'test_toolchain_impl_foo',
+    message = 'foo',
+)
+test_toolchain(
+    name = 'test_toolchain_impl_bar',
+    message = 'bar',
+)
+
+# Declare the toolchains.
+toolchain(
+    name = 'test_toolchain_foo',
+    toolchain_type = ':toolchain_type',
+    exec_compatible_with = [
+        ':value_foo',
+    ],
+    target_compatible_with = [],
+    toolchain = ':test_toolchain_impl_foo',
+)
+toolchain(
+    name = 'test_toolchain_bar',
+    toolchain_type = ':toolchain_type',
+    exec_compatible_with = [
+        ':value_bar',
+    ],
+    target_compatible_with = [],
+    toolchain = ':test_toolchain_impl_bar',
+)
+
+# Define the platforms.
+platform(
+    name = 'platform_foo',
+    constraint_values = [':value_foo'],
+)
+platform(
+    name = 'platform_bar',
+    constraint_values = [':value_bar'],
+)
+EOF
+
+  cat >> WORKSPACE <<EOF
+register_toolchains('//${pkg}/platform:all')
+register_execution_platforms('//${pkg}/platform:all')
+EOF
+}
+
+# Test basic inheritance of constraints and toolchains on a single rule.
+function test_exec_group_rule_constraint_inheritance() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  write_toolchains_for_exec_group_tests
+
+  # Add a rule with default execution constraints.
+  mkdir -p ${pkg}/demo
+  cat >> ${pkg}/demo/rule.bzl <<EOF
+def _impl(ctx):
+    toolchain = ctx.toolchains['//${pkg}/platform:toolchain_type']
+    out_file_main = ctx.actions.declare_file("%s.log" % ctx.attr.name)
+    ctx.actions.run_shell(
+        outputs = [out_file_main],
+        command = "echo 'hi from %s, toolchain says %s' > '%s'" %
+            (ctx.attr.name, toolchain.message, out_file_main.path),
+    )
+
+    out_file_extra = ctx.actions.declare_file("%s_extra.log" % ctx.attr.name)
+    extra_toolchain = ctx.exec_groups['extra'].toolchains['//${pkg}/platform:toolchain_type']
+    ctx.actions.run_shell(
+        outputs = [out_file_extra],
+        command = "echo 'extra from %s, toolchain says %s' > '%s'" %
+            (ctx.attr.name, extra_toolchain.message, out_file_extra.path),
+    )
+
+    return [DefaultInfo(files = depset([out_file_main, out_file_extra]))]
+
+sample_rule = rule(
+    implementation = _impl,
+    exec_groups = {
+        # extra should inherit both the exec constraint and the toolchain.
+        'extra': exec_group(copy_from_rule = True),
+    },
+    exec_compatible_with = ['//${pkg}/platform:value_foo'],
+    toolchains = ['//${pkg}/platform:toolchain_type'],
+)
+EOF
+
+  # Use the new rule.
+  cat >> ${pkg}/demo/BUILD <<EOF
+load(':rule.bzl', 'sample_rule')
+
+sample_rule(
+    name = 'use',
+)
+EOF
+
+  # Build the target, using debug messages to verify the correct platform was selected.
+  bazel build \
+    --experimental_exec_groups \
+    //${pkg}/demo:use &> $TEST_log || fail "Build failed"
+  cat bazel-bin/${pkg}/demo/use.log >> $TEST_log
+  cat bazel-bin/${pkg}/demo/use_extra.log >> $TEST_log
+  expect_log "hi from use, toolchain says foo"
+  expect_log "extra from use, toolchain says foo"
+}
+
+# Test basic inheritance of constraints and toolchains with a target.
+function test_exec_group_target_constraint_inheritance() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  write_toolchains_for_exec_group_tests
+
+  # Add a rule with default execution constraints.
+  mkdir -p ${pkg}/demo
+  cat >> ${pkg}/demo/rule.bzl <<EOF
+def _impl(ctx):
+    toolchain = ctx.toolchains['//${pkg}/platform:toolchain_type']
+    out_file_main = ctx.actions.declare_file("%s.log" % ctx.attr.name)
+    ctx.actions.run_shell(
+        outputs = [out_file_main],
+        command = "echo 'hi from %s, toolchain says %s' > '%s'" %
+            (ctx.attr.name, toolchain.message, out_file_main.path),
+    )
+
+    out_file_extra = ctx.actions.declare_file("%s_extra.log" % ctx.attr.name)
+    extra_toolchain = ctx.exec_groups['extra'].toolchains['//${pkg}/platform:toolchain_type']
+    ctx.actions.run_shell(
+        outputs = [out_file_extra],
+        command = "echo 'extra from %s, toolchain says %s' > '%s'" %
+            (ctx.attr.name, extra_toolchain.message, out_file_extra.path),
+    )
+
+    return [DefaultInfo(files = depset([out_file_main, out_file_extra]))]
+
+sample_rule = rule(
+    implementation = _impl,
+    exec_groups = {
+        # extra should inherit the toolchain, and the exec constraint from the target.
+        'extra': exec_group(copy_from_rule = True),
+    },
+    toolchains = ['//${pkg}/platform:toolchain_type'],
+)
+EOF
+
+  # Use the new rule.
+  cat >> ${pkg}/demo/BUILD <<EOF
+load(':rule.bzl', 'sample_rule')
+
+sample_rule(
+    name = 'use',
+    exec_compatible_with = ['//${pkg}/platform:value_bar'],
+)
+EOF
+
+  # Build the target, using debug messages to verify the correct platform was selected.
+  bazel build \
+    --experimental_exec_groups \
+    //${pkg}/demo:use &> $TEST_log || fail "Build failed"
+  cat bazel-bin/${pkg}/demo/use.log >> $TEST_log
+  cat bazel-bin/${pkg}/demo/use_extra.log >> $TEST_log
+  expect_log "hi from use, toolchain says bar"
+  expect_log "extra from use, toolchain says bar"
+}
+
+run_suite "exec group test"

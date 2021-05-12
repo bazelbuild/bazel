@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.analysis.testing;
 
 import static com.google.common.truth.Truth.assertAbout;
 
-import com.google.common.truth.BooleanSubject;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
+import com.google.common.truth.StringSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
@@ -72,7 +72,11 @@ public class ExecGroupSubject extends Subject {
     execCompatibleWith().contains(constraintLabel);
   }
 
-  public BooleanSubject isCopiedFromDefault() {
-    return check("isCopiedFromDefault()").that(actual.isCopiedFromDefault());
+  public StringSubject copiesFrom() {
+    return check("copyFrom()").that(actual.copyFrom());
+  }
+
+  public void copiesFromDefault() {
+    copiesFrom().isEqualTo(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
   }
 }
