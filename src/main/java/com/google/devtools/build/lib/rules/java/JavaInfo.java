@@ -486,6 +486,7 @@ public final class JavaInfo extends NativeInfo
         Sequence<?> deps,
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
+        Sequence<?> exportedPlugins,
         Object jdepsApi,
         Sequence<?> nativeLibraries,
         StarlarkThread thread)
@@ -499,7 +500,6 @@ public final class JavaInfo extends NativeInfo
       @Nullable Artifact nativeHeadersJar = nullIfNone(nativeHeadersJarApi, Artifact.class);
       @Nullable Artifact manifestProto = nullIfNone(manifestProtoApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
-
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
               JavaOutput.builder()
@@ -517,6 +517,7 @@ public final class JavaInfo extends NativeInfo
               Sequence.cast(deps, JavaInfo.class, "deps"),
               Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
               Sequence.cast(exports, JavaInfo.class, "exports"),
+              Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins"),
               Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
               thread.getCallerLocation(),
               thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER));

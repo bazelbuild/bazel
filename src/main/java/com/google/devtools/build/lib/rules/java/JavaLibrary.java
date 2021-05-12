@@ -197,7 +197,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
         .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
-        .addNativeDeclaredProvider(javaInfo)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(
             JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
@@ -206,6 +205,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     if (isJavaPluginRule) {
       builder.addStarlarkDeclaredProvider(javaPluginInfo);
+    }
+    if (!isJavaPluginRule || !javaConfig.requireJavaPluginInfo()) {
+      // After javaConfig.requireJavaPluginInfo is flipped JavaInfo is not returned from java_plugin
+      builder.addNativeDeclaredProvider(javaInfo);
     }
 
     Artifact validation =

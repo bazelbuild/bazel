@@ -75,6 +75,7 @@ final class JavaInfoBuildHelper {
    * @param exports libraries to make available for users of this library. <a
    *     href="https://docs.bazel.build/versions/master/be/java.html#java_library"
    *     target="_top">java_library.exports</a>
+   * @param exportedPlugins A list of exported plugins.
    * @param nativeLibraries CC library dependencies that are needed for this library
    * @return new created JavaInfo instance
    */
@@ -84,6 +85,7 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> compileTimeDeps,
       Sequence<JavaInfo> runtimeDeps,
       Sequence<JavaInfo> exports,
+      Sequence<JavaPluginInfo> exportedPlugins,
       Sequence<CcInfo> nativeLibraries,
       Location location,
       boolean withExportsProvider) {
@@ -126,7 +128,7 @@ final class JavaInfoBuildHelper {
       javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
     }
 
-    javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exports));
+    javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports));
 
     javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
@@ -230,12 +232,15 @@ final class JavaInfoBuildHelper {
         JavaInfo.fetchProvidersFromList(exports, JavaExportsProvider.class));
   }
 
-  private JavaPluginInfo mergeExportedJavaPluginInfo(Iterable<JavaInfo> javaInfos) {
+  private JavaPluginInfo mergeExportedJavaPluginInfo(
+      Iterable<JavaPluginInfo> plugins, Iterable<JavaInfo> javaInfos) {
     return JavaPluginInfo.merge(
-        stream(javaInfos)
-            .map(JavaInfo::getJavaPluginInfo)
-            .filter(Objects::nonNull)
-            .collect(toImmutableList()));
+        concat(
+            plugins,
+            stream(javaInfos)
+                .map(JavaInfo::getJavaPluginInfo)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList())));
   }
 
   public JavaInfo createJavaCompileAction(
@@ -249,8 +254,8 @@ final class JavaInfoBuildHelper {
       List<JavaInfo> runtimeDeps,
       List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
-      List<JavaInfo> plugins,
-      List<JavaInfo> exportedPlugins,
+      List<JavaPluginInfo> plugins,
+      List<JavaPluginInfo> exportedPlugins,
       List<CcInfo> nativeLibraries,
       List<Artifact> annotationProcessorAdditionalInputs,
       List<Artifact> annotationProcessorAdditionalOutputs,
@@ -289,7 +294,7 @@ final class JavaInfoBuildHelper {
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-    helper.setPlugins(mergeExportedJavaPluginInfo(concat(plugins, deps)));
+    helper.setPlugins(mergeExportedJavaPluginInfo(plugins, deps));
     helper.setNeverlink(neverlink);
 
     NestedSet<Artifact> localCompileTimeDeps =
@@ -344,7 +349,7 @@ final class JavaInfoBuildHelper {
             JavaSourceJarsProvider.class,
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
-        .javaPluginInfo(mergeExportedJavaPluginInfo(concat(exportedPlugins, exports)))
+        .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
         .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)

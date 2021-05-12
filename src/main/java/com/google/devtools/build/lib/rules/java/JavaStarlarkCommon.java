@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 
 import com.google.common.collect.ImmutableList;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
+import java.util.Objects;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -65,8 +67,8 @@ public class JavaStarlarkCommon
       Sequence<?> runtimeDeps, // <JavaInfo> expected
       Sequence<?> experimentalLocalCompileTimeDeps, // <JavaInfo> expected
       Sequence<?> exports, // <JavaInfo> expected
-      Sequence<?> plugins, // <JavaInfo> expected
-      Sequence<?> exportedPlugins, // <JavaInfo> expected
+      Sequence<?> plugins, // <JavaPluginInfo> expected
+      Sequence<?> exportedPlugins, // <JavaPluginInfo> expected
       Sequence<?> nativeLibraries, // <CcInfo> expected.
       Sequence<?> annotationProcessorAdditionalInputs, // <Artifact> expected
       Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
@@ -78,6 +80,40 @@ public class JavaStarlarkCommon
       Boolean neverlink,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
+
+    boolean acceptJavaInfo =
+        !starlarkRuleContext
+            .getRuleContext()
+            .getFragment(JavaConfiguration.class)
+            .requireJavaPluginInfo();
+
+    final ImmutableList<JavaPluginInfo> pluginsParam;
+    if (acceptJavaInfo && !plugins.isEmpty() && plugins.get(0) instanceof JavaInfo) {
+      // Handle deprecated case where plugins is given a list of JavaInfos
+      pluginsParam =
+          Sequence.cast(plugins, JavaInfo.class, "plugins").stream()
+              .map(JavaInfo::getJavaPluginInfo)
+              .filter(Objects::nonNull)
+              .collect(toImmutableList());
+    } else {
+      pluginsParam = Sequence.cast(plugins, JavaPluginInfo.class, "plugins").getImmutableList();
+    }
+
+    final ImmutableList<JavaPluginInfo> exportedPluginsParam;
+    if (acceptJavaInfo
+        && !exportedPlugins.isEmpty()
+        && exportedPlugins.get(0) instanceof JavaInfo) {
+      // Handle deprecated case where exported_plugins is given a list of JavaInfos
+      exportedPluginsParam =
+          Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins").stream()
+              .map(JavaInfo::getJavaPluginInfo)
+              .filter(Objects::nonNull)
+              .collect(toImmutableList());
+    } else {
+      exportedPluginsParam =
+          Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins")
+              .getImmutableList();
+    }
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
@@ -94,8 +130,8 @@ public class JavaStarlarkCommon
                 JavaInfo.class,
                 "experimental_local_compile_time_deps"),
             Sequence.cast(exports, JavaInfo.class, "exports"),
-            Sequence.cast(plugins, JavaInfo.class, "plugins"),
-            Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins"),
+            pluginsParam,
+            exportedPluginsParam,
             Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
             Sequence.cast(
                 annotationProcessorAdditionalInputs,

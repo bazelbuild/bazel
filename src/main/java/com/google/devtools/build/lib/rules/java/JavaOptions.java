@@ -656,6 +656,18 @@ public class JavaOptions extends FragmentOptions {
   public boolean dontCollectDataLibraries;
 
   @Option(
+      name = "incompatible_require_javaplugininfo_in_javacommon",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
+  public boolean requireJavaPluginInfo;
+
+  @Option(
       name = "experimental_publish_javacclinkparamsinfo",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -753,6 +765,7 @@ public class JavaOptions extends FragmentOptions {
 
     host.dontCollectSoArtifacts = dontCollectSoArtifacts;
     host.dontCollectDataLibraries = dontCollectDataLibraries;
+    host.requireJavaPluginInfo = requireJavaPluginInfo;
 
     return host;
   }

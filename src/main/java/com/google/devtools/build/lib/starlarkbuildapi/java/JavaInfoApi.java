@@ -320,6 +320,14 @@ public interface JavaInfoApi<
                       + "<a class=\"anchor\" href=\"https://docs.bazel.build/versions/"
                       + "master/be/java.html#java_library.exports\">java_library.exports</a>."),
           @Param(
+              name = "exported_plugins",
+              named = true,
+              allowedTypes = {
+                @ParamType(type = Sequence.class, generic1 = JavaPluginInfoApi.class)
+              },
+              defaultValue = "[]",
+              doc = "A list of exported plugins. Optional."),
+          @Param(
               name = "jdeps",
               allowedTypes = {
                 @ParamType(type = FileApi.class),
@@ -355,6 +363,7 @@ public interface JavaInfoApi<
         Sequence<?> deps,
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
+        Sequence<?> exportedPlugins,
         Object jdepsApi,
         Sequence<?> nativeLibraries,
         StarlarkThread thread)

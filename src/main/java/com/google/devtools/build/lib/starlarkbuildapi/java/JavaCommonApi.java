@@ -137,14 +137,20 @@ public interface JavaCommonApi<
             name = "plugins",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = JavaPluginInfoApi.class),
+              @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)
+            },
             defaultValue = "[]",
             doc = "A list of plugins. Optional."),
         @Param(
             name = "exported_plugins",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = JavaPluginInfoApi.class),
+              @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)
+            },
             defaultValue = "[]",
             doc = "A list of exported plugins. Optional."),
         @Param(

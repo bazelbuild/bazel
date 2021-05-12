@@ -623,16 +623,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void buildHelperCreateJavaInfoPlugins() throws Exception {
+  public void buildHelperCreateJavaInfoPluginsFromExports() throws Exception {
     ruleBuilder().build();
-    scratch.file("java/test/lib.jar");
-    scratch.file(
-        "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  export = ':export',",
-        ")");
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
@@ -649,6 +641,28 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         "my_rule(name = 'my_starlark_rule',",
         "        output_jar = 'my_starlark_rule_lib.jar',",
         "        dep_exports = [':export']",
+        ")");
+    assertNoEvents();
+
+    assertThat(fetchJavaInfo().getJavaPluginInfo().plugins().processorClasses().toList())
+        .containsExactly("com.google.process.stuff");
+  }
+
+  @Test
+  public void buildHelperCreateJavaInfoWithPlugins() throws Exception {
+    ruleBuilder().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'plugin_dep',",
+        "    srcs = [ 'ProcessorDep.java'])",
+        "java_plugin(name = 'plugin',",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [ ':plugin_dep' ])",
+        "my_rule(name = 'my_starlark_rule',",
+        "        output_jar = 'my_starlark_rule_lib.jar',",
+        "        dep_exported_plugins = [':plugin']",
         ")");
     assertNoEvents();
 
@@ -895,6 +909,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "  dp = [dep[java_common.provider] for dep in ctx.attr.dep]",
           "  dp_runtime = [dep[java_common.provider] for dep in ctx.attr.dep_runtime]",
           "  dp_exports = [dep[java_common.provider] for dep in ctx.attr.dep_exports]",
+          "  dp_exported_plugins = [dep[JavaPluginInfo] for dep in ctx.attr.dep_exported_plugins]",
           "  dp_libs = [dep[CcInfo] for dep in ctx.attr.cc_dep]");
 
       if (useIJar) {
@@ -941,6 +956,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    deps = dp,",
           "    runtime_deps = dp_runtime,",
           "    exports = dp_exports,",
+          "    exported_plugins = dp_exported_plugins,",
           "    jdeps = ctx.file.jdeps,",
           "    compile_jdeps = ctx.file.compile_jdeps,",
           "    generated_class_jar = ctx.file.generated_class_jar,",
@@ -968,6 +984,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    'cc_dep' : attr.label_list(),",
           "    'dep_runtime' : attr.label_list(),",
           "    'dep_exports' : attr.label_list(),",
+          "    'dep_exported_plugins' : attr.label_list(),",
           "    'output_jar' : attr.output(mandatory=True),",
           "    'source_jars' : attr.label_list(allow_files=['.jar']),",
           "    'sources' : attr.label_list(allow_files=['.java']),",
