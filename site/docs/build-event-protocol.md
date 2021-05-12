@@ -52,6 +52,20 @@ necessarily be posted before it. When a build is complete (succeeded or failed)
 all announced events will have been posted. In case of a Bazel crash or a failed
 network transport, some announced build events may never be posted.
 
+The event graph's structure reflects the lifecycle of a command. Every BEP
+graph has the following characteristic shape:
+
+1. The root event is always a [`BuildStarted`](bep-glossary.md#buildstarted)
+   event. All other events are its descendants.
+1. Immediate children of the BuildStarted event contain metadata about the
+   command.
+1. Events containing data produced by the command, such as files built and test
+   results, appear before the [`BuildFinished`](bep-glossary.md#buildfinished)
+   event.
+1. The [`BuildFinished`](bep-glossary.md#buildfinished) event *may* be followed
+   by events containing summary information about the build (for example, metric
+   or profiling data).
+
 ## Consuming Build Event Protocol
 
 ### Consume in binary format
@@ -88,8 +102,9 @@ Protocol is a generic [gRPC](https://www.grpc.io) service for publishing build e
 Service protocol is independent of the BEP and treats BEP events as opaque bytes.
 Bazel ships with a gRPC client implementation of the Build Event Service protocol that
 publishes Build Event Protocol events. One can specify the endpoint to send the
-events to using the `--bes_backend=HOST:PORT` flag. Bazel’s implementation also
-supports TLS which can be enabled by specifying the `--tls_enabled` flag.
+events to using the `--bes_backend=HOST:PORT` flag. If your backend uses gRPC,
+you must prefix the address with the appropriate scheme: `grpc://` for plaintext
+gRPC and `grpcs://` for gRPC with TLS enabled.
 
 There is currently an experimental open source implementation of the [Build
 Event Service](https://github.com/buildbarn/bb-event-service/) in Go as part of
@@ -139,5 +154,4 @@ from the cache.
 
 See [GitHub issue 3689](https://github.com/bazelbuild/bazel/issues/3689) for
 more details.
-
 

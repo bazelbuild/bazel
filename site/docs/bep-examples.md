@@ -14,14 +14,9 @@ Consider a simple Bazel workspace that consists of two empty shell scripts
 `foo.sh` and `foo_test.sh` and the following BUILD file:
 
 ```bash
-sh_binary(
-    name = "foo",
-    srcs = ["foo.sh"],
-)
-
 sh_library(
     name = "foo_lib",
-    data = [":foo"],
+    srcs = ["foo.sh"],
 )
 
 sh_test(
@@ -53,11 +48,11 @@ build was invoked through the `bazel test` command and announces child events:
 The first three events provide information about how Bazel was invoked.
 
 The `PatternExpanded` build event provides insight
-into which specific targets the `...` pattern expanded to: `//:foo`,
-`//:foo_lib` and `//:foo_test`. It does so by declaring three `TargetConfigured`
-events as children. Note that the `TargetConfigured` event declares the
-`Configuration` event as a child event, even though `Configuration` has been
-posted before the `TargetConfigured` event.
+into which specific targets the `...` pattern expanded to:
+`//foo:foo_lib` and `//foo:foo_test`. It does so by declaring two
+`TargetConfigured` events as children. Note that the `TargetConfigured` event
+declares the `Configuration` event as a child event, even though `Configuration`
+has been posted before the `TargetConfigured` event.
 
 Besides the parent and child relationship, events may also refer to each other
 using their build event identifiers. For example, in the above graph the
@@ -74,10 +69,10 @@ the number of files. A `NamedSetOfFiles` event may also not have all its files
 embedded, but instead refer to other `NamedSetOfFiles` events through their
 build event identifiers.
 
-Below is an instance of the `TargetComplete` event for the `//:foo_lib` target
-from the above graph, printed in protocol buffer’s JSON representation. The
-build event identifier contains the target as an opaque string and refers to the
-`Configuration` event using its build event identifier. The event does not
+Below is an instance of the `TargetComplete` event for the `//foo:foo_lib`
+target from the above graph, printed in protocol buffer’s JSON representation.
+The build event identifier contains the target as an opaque string and refers to
+the `Configuration` event using its build event identifier. The event does not
 announce any child events. The payload contains information about whether the
 target was built successfully, the set of output files, and the kind of target
 built.
@@ -86,7 +81,7 @@ built.
 {
   "id": {
     "targetCompleted": {
-      "label": "//:foo_lib",
+      "label": "//foo:foo_lib",
       "configuration": {
         "id": "544e39a7f0abdb3efdd29d675a48bc6a"
       }
@@ -124,7 +119,7 @@ the BEP:
 {
   "id": {
     "targetCompleted": {
-      "label": "//:foo_lib",
+      "label": "//foo:foo_lib",
       "configuration": {
         "id": "544e39a7f0abdb3efdd29d675a48bc6a"
       },
@@ -157,6 +152,8 @@ Consumers must take care to avoid quadratic algorithms when processing
 `NamedSetOfFiles` events because large builds can contain tens of thousands of
 such events, requiring hundreds of millions operations in a traversal with
 quadratic complexity.
+
+![namedsetoffiles-bep-graph](/assets/namedsetoffiles-bep-graph.png)
 
 A `NamedSetOfFiles` event always appears in the BEP stream *before* a
 `TargetComplete` or `NamedSetOfFiles` event that references it. This is the
