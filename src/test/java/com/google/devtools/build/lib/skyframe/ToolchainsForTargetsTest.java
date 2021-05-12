@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -112,13 +113,18 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
         throws ComputeUnloadedToolchainContextsException, InterruptedException {
       try {
         Key key = (Key) skyKey.argument();
-        ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
+        ComputedToolchainContexts result =
             ConfiguredTargetFunction.computeUnloadedToolchainContexts(
                 env,
                 stateProvider.lateBoundRuleClassProvider(),
                 key.targetAndConfiguration(),
                 key.configuredTargetKey().getToolchainContextKey());
-        return env.valuesMissing() ? null : Value.create(toolchainCollection);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
+            result.toolchainCollection;
+        return Value.create(toolchainCollection);
       } catch (ToolchainException e) {
         throw new ComputeUnloadedToolchainContextsException(e);
       }

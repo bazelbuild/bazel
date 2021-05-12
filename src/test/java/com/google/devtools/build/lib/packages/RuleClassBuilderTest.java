@@ -232,14 +232,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST))
             .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/other/toolchain"))
             .build();
-    Label cToolchain = Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about");
     RuleClass c =
         new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b)
-            .addRequiredToolchains(cToolchain)
+            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about"))
             .build();
     assertThat(c.getExecGroups()).containsKey("blueberry");
     ExecGroup blueberry = c.getExecGroups().get("blueberry");
-    assertThat(blueberry).isCopiedFromDefault().isTrue();
+    assertThat(blueberry).copiesFromDefault();
   }
 
   @Test

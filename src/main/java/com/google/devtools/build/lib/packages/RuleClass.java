@@ -843,24 +843,7 @@ public class RuleClass {
             this.useToolchainTransition.apply(name, parent.useToolchainTransition);
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
-          ImmutableMap.Builder<String, ExecGroup> cleanedExecGroups = new ImmutableMap.Builder<>();
-          // For exec groups that copied toolchains and constraints from the rule, clear
-          // the toolchains and constraints. This prevents multiple inherited rule-copying exec
-          // groups with the same name from different parents from clashing. The toolchains and
-          // constraints will be overwritten with the rule's toolchains and constraints later
-          // anyway (see {@link #build}).
-          // For example, every rule that creates c++ linking actions inherits the rule-copying
-          // exec group "cpp_link". For rules that are the child of multiple of these rules,
-          // we need to clear out whatever toolchains and constraints have been copied from the rule
-          // in order to prevent clashing and fill with the the child's toolchain and constraints.
-          for (Map.Entry<String, ExecGroup> execGroup : parent.getExecGroups().entrySet()) {
-            if (execGroup.getValue().isCopiedFromDefault()) {
-              cleanedExecGroups.put(execGroup.getKey(), ExecGroup.copyFromDefault());
-            } else {
-              cleanedExecGroups.put(execGroup);
-            }
-          }
-          addExecGroups(cleanedExecGroups.build());
+          addExecGroups(parent.getExecGroups());
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
@@ -950,24 +933,6 @@ public class RuleClass {
         this.useToolchainTransition(ToolchainTransitionMode.DISABLED);
       }
 
-      // Any exec groups that have entirely empty toolchains and constraints inherit the rule's
-      // toolchains and constraints. Note that this isn't the same as a target's constraints which
-      // also read from attributes and configuration.
-      Map<String, ExecGroup> execGroupsWithInheritance = new HashMap<>();
-      ExecGroup copiedFromRule = null;
-      for (Map.Entry<String, ExecGroup> groupEntry : execGroups.entrySet()) {
-        ExecGroup group = groupEntry.getValue();
-        if (group.isCopiedFromDefault()) {
-          if (copiedFromRule == null) {
-            copiedFromRule =
-                ExecGroup.createCopied(requiredToolchains, executionPlatformConstraints);
-          }
-          execGroupsWithInheritance.put(groupEntry.getKey(), copiedFromRule);
-        } else {
-          execGroupsWithInheritance.put(groupEntry.getKey(), group);
-        }
-      }
-
       return new RuleClass(
           name,
           callstack,
@@ -1002,7 +967,7 @@ public class RuleClass {
           useToolchainResolution,
           useToolchainTransition,
           executionPlatformConstraints,
-          execGroupsWithInheritance,
+          execGroups,
           outputFileKind,
           attributes.values(),
           buildSetting);

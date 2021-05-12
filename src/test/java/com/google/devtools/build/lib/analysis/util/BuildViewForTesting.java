@@ -52,10 +52,11 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -99,6 +100,7 @@ import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
@@ -622,12 +624,16 @@ public class BuildViewForTesting {
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler);
 
-    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
+    ComputedToolchainContexts result =
         ConfiguredTargetFunction.computeUnloadedToolchainContexts(
             skyfunctionEnvironment,
             ruleClassProvider,
             new TargetAndConfiguration(target.getAssociatedRule(), targetConfig),
             null);
+
+    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
+        result.toolchainCollection;
+    ExecGroupCollection.Builder execGroupCollectionBuilder = result.execGroupCollectionBuilder;
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
@@ -674,6 +680,7 @@ public class BuildViewForTesting {
         .setConfigConditions(ConfigConditions.EMPTY)
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContexts(resolvedToolchainContext.build())
+        .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
         .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
         .build();
   }

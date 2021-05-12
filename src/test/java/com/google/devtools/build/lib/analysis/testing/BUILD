@@ -16,6 +16,7 @@ java_library(
     name = "testing",
     testonly = 1,
     srcs = [
+        "ExecGroupCollectionSubject.java",
         "ExecGroupSubject.java",
         "ResolvedToolchainContextSubject.java",
         "ToolchainCollectionSubject.java",
@@ -23,6 +24,7 @@ java_library(
         "ToolchainInfoSubject.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
