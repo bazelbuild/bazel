@@ -173,7 +173,17 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                           spawn.getMnemonic(), strategyThatCancelled.get())));
         }
 
-        branchToCancel.cancel(true);
+        if (!branchToCancel.cancel(true)) {
+          // This can happen if the other branch is local under local_lockfree and has returned
+          // its result but not yet cancelled this branch, or if the other branch was already
+          // cancelled for other reasons.
+          if (!branchToCancel.isCancelled()) {
+            throw new DynamicInterruptedException(
+                String.format(
+                    "Execution of %s strategy stopped because %s strategy could not be cancelled",
+                    cancellingStrategy, cancellingStrategy.other()));
+          }
+        }
         branchDone.acquire();
       } else {
         throw new DynamicInterruptedException(
