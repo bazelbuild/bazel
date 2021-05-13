@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -42,7 +40,6 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Support utility for creating multi-arch Apple binaries. */
 public class MultiArchBinarySupport {
@@ -115,94 +112,82 @@ public class MultiArchBinarySupport {
   }
 
   /**
-   * Registers actions to create a multi-arch Apple binary.
+   * Registers actions to link a single-platform/architecture Apple binary in a specific
+   * configuration.
    *
+   * @param dependencySpecificConfiguration a single {@link DependencySpecificConfiguration} that
+   *     corresponds to the child configuration to link for this target. Can be obtained via {@link
+   *     #getDependencySpecificConfigurations}
    * @param extraLinkArgs the extra linker args to add to link actions linking single-architecture
    *     binaries together
-   * @param dependencySpecificConfigurations a set of {@link DependencySpecificConfiguration} that
-   *     corresponds to child configurations for this target. Can be obtained via {@link
-   *     #getDependencySpecificConfigurations}
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
    * @param isStampingEnabled whether linkstamping is enabled
-   * @param cpuToDepsCollectionMap a multimap from dependency configuration to the list of provider
-   *     collections which are propagated from the dependencies of that configuration
+   * @param infoCollections a list of provider collections which are propagated from the
+   *     dependencies in the requested configuration
    * @param outputMapCollector a map to which output groups created by compile action generation are
    *     added
-   * @return a map containing all single-architecture binaries that are linked from this call
+   * @return an {@link Artifact} representing the single-architecture binary linked from this call
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public ImmutableMap<String, Artifact> registerActions(
+  public Artifact registerConfigurationSpecificLinkActions(
+      DependencySpecificConfiguration dependencySpecificConfiguration,
       ExtraLinkArgs extraLinkArgs,
-      Set<DependencySpecificConfiguration> dependencySpecificConfigurations,
       Iterable<Artifact> extraLinkInputs,
       boolean isStampingEnabled,
-      ListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
+      Iterable<TransitiveInfoCollection> infoCollections,
       Map<String, NestedSet<Artifact>> outputMapCollector)
       throws RuleErrorException, InterruptedException {
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(
+            ruleContext, dependencySpecificConfiguration.config());
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+        J2ObjcMappingFileProvider.union(
+            getTypedProviders(infoCollections, J2ObjcMappingFileProvider.PROVIDER));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
+        new J2ObjcEntryClassProvider.Builder()
+            .addTransitive(getTypedProviders(infoCollections, J2ObjcEntryClassProvider.PROVIDER))
+            .build();
+    ImmutableList<CcLinkingContext> ccLinkingContexts =
+        getTypedProviders(infoCollections, CcInfo.PROVIDER).stream()
+            .map(CcInfo::getCcLinkingContext)
+            .collect(toImmutableList());
 
-    ImmutableMap.Builder<String, Artifact> platformToBinariesMap = ImmutableMap.builder();
-    for (DependencySpecificConfiguration dependencySpecificConfiguration :
-        dependencySpecificConfigurations) {
-      IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(
-              ruleContext, dependencySpecificConfiguration.config());
-      String configCpu = dependencySpecificConfiguration.config().getCpu();
-      Iterable<TransitiveInfoCollection> infoCollections = cpuToDepsCollectionMap.get(configCpu);
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
-          J2ObjcMappingFileProvider.union(
-              getTypedProviders(infoCollections, J2ObjcMappingFileProvider.PROVIDER));
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
-          new J2ObjcEntryClassProvider.Builder()
-              .addTransitive(getTypedProviders(infoCollections, J2ObjcEntryClassProvider.PROVIDER))
-              .build();
-      ImmutableList<CcLinkingContext> ccLinkingContexts =
-          getTypedProviders(infoCollections, CcInfo.PROVIDER).stream()
-              .map(CcInfo::getCcLinkingContext)
-              .collect(toImmutableList());
+    ObjcProvider objcProvider = dependencySpecificConfiguration.objcLinkProvider();
+    CompilationArtifacts compilationArtifacts =
+        new CompilationArtifacts.Builder()
+            .setIntermediateArtifacts(
+                ObjcRuleClasses.intermediateArtifacts(
+                    ruleContext, dependencySpecificConfiguration.config()))
+            .build();
 
-      // TODO(b/177442911): Use the target platform from platform info coming from split
-      // transition outputs instead of inferring this based on the target CPU.
-      ApplePlatform cpuPlatform = ApplePlatform.forTargetCpu(configCpu);
-      platformToBinariesMap.put(
-          cpuPlatform.cpuStringWithTargetEnvironmentForTargetCpu(configCpu),
-          intermediateArtifacts.strippedSingleArchitectureBinary());
+    CompilationSupport compilationSupport =
+        new CompilationSupport.Builder(ruleContext, cppSemantics)
+            .setConfig(dependencySpecificConfiguration.config())
+            .setToolchainProvider(dependencySpecificConfiguration.toolchain())
+            .setOutputGroupCollector(outputMapCollector)
+            .build();
 
-      ObjcProvider objcProvider = dependencySpecificConfiguration.objcLinkProvider();
-      CompilationArtifacts compilationArtifacts =
-          new CompilationArtifacts.Builder()
-              .setIntermediateArtifacts(
-                  ObjcRuleClasses.intermediateArtifacts(
-                      ruleContext, dependencySpecificConfiguration.config()))
-              .build();
+    compilationSupport
+        .registerCompileAndArchiveActions(compilationArtifacts, ObjcCompilationContext.EMPTY)
+        .registerLinkActions(
+            objcProvider,
+            ccLinkingContexts,
+            j2ObjcMappingFileProvider,
+            j2ObjcEntryClassProvider,
+            extraLinkArgs,
+            extraLinkInputs,
+            isStampingEnabled)
+        .validateAttributes();
+    ruleContext.assertNoErrors();
 
-      CompilationSupport compilationSupport =
-          new CompilationSupport.Builder(ruleContext, cppSemantics)
-              .setConfig(dependencySpecificConfiguration.config())
-              .setToolchainProvider(dependencySpecificConfiguration.toolchain())
-              .setOutputGroupCollector(outputMapCollector)
-              .build();
-
-      compilationSupport
-          .registerCompileAndArchiveActions(compilationArtifacts, ObjcCompilationContext.EMPTY)
-          .registerLinkActions(
-              objcProvider,
-              ccLinkingContexts,
-              j2ObjcMappingFileProvider,
-              j2ObjcEntryClassProvider,
-              extraLinkArgs,
-              extraLinkInputs,
-              isStampingEnabled)
-          .validateAttributes();
-      ruleContext.assertNoErrors();
-    }
-    return platformToBinariesMap.build();
+    return intermediateArtifacts.strippedSingleArchitectureBinary();
   }
 
   /**
    * Returns a set of {@link DependencySpecificConfiguration} instances that comprise all
    * information about the dependencies for each child configuration. This can be used both to
-   * register actions in {@link #registerActions} and collect provider information to be propagated
-   * upstream.
+   * register actions in {@link #registerConfigurationSpecificLinkActions} and collect provider
+   * information to be propagated upstream.
    *
    * @param childConfigurationsAndToolchains the set of configurations and toolchains for which
    *     dependencies of the current rule are built
