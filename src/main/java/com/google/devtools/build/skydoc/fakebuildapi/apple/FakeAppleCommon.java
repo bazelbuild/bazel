@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleExecutableBinaryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
@@ -150,6 +151,12 @@ public class FakeAppleCommon
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles) {
     return new FakeAppleDynamicFrameworkInfo();
+  }
+
+  @Override
+  public AppleExecutableBinaryApi newExecutableBinaryProvider(
+      Object executableBinary, ObjcProviderApi<?> depsObjcProvider) {
+    return new FakeAppleExecutableBinaryInfo();
   }
 
   @Override
