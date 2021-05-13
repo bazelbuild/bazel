@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -155,8 +155,9 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         new ObjcCommon.Builder(
                 ObjcCommon.Purpose.valueOf(purpose), starlarkRuleContext.getRuleContext())
             .setCompilationAttributes(compilationAttributes)
-            .addDepsCT(Sequence.cast(deps, ConfiguredTarget.class, "deps"))
-            .addRuntimeDeps(Sequence.cast(runtimeDeps, ConfiguredTarget.class, "runtime_deps"))
+            .addDeps(Sequence.cast(deps, TransitiveInfoCollection.class, "deps"))
+            .addRuntimeDeps(
+                Sequence.cast(runtimeDeps, TransitiveInfoCollection.class, "runtime_deps"))
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(alwayslink)
             .addExtraImportLibraries(

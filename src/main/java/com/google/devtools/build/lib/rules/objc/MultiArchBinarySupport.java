@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
 
@@ -200,7 +199,6 @@ public class MultiArchBinarySupport {
   public ImmutableSet<DependencySpecificConfiguration> getDependencySpecificConfigurations(
       Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains,
       ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap,
-      ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap,
       ImmutableList<TransitiveInfoCollection> dylibProviders)
       throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
@@ -217,7 +215,7 @@ public class MultiArchBinarySupport {
               ruleContext,
               childToolchainConfig,
               intermediateArtifacts,
-              nullToEmptyList(cpuToCTATDepsCollectionMap.get(childCpu)),
+              nullToEmptyList(cpuToDepsCollectionMap.get(childCpu)),
               dylibObjcProviders);
       ObjcProvider objcProviderWithDylibSymbols = common.getObjcProvider();
       ObjcProvider objcProvider =
@@ -259,7 +257,7 @@ public class MultiArchBinarySupport {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      List<ConfiguredTargetAndData> propagatedConfiguredTargetAndDataDeps,
+      List<? extends TransitiveInfoCollection> propagatedDeps,
       Iterable<ObjcProvider> additionalDepProviders)
       throws InterruptedException {
 
@@ -267,7 +265,7 @@ public class MultiArchBinarySupport {
         new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext, buildConfiguration)
             .setCompilationAttributes(
                 CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-            .addDeps(propagatedConfiguredTargetAndDataDeps)
+            .addDeps(propagatedDeps)
             .addObjcProviders(additionalDepProviders)
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(false)

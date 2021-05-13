@@ -43,7 +43,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -57,7 +56,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
@@ -195,27 +193,27 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
-    Builder addDepsCT(List<ConfiguredTarget> deps) {
+    Builder addDeps(List<? extends TransitiveInfoCollection> deps) {
       ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfosForDirectFields = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkStampContexts = ImmutableList.builder();
 
-      for (ConfiguredTarget depCT : deps) {
-        if (depCT.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
-          addAnyProviders(objcProviders, depCT, ObjcProvider.STARLARK_CONSTRUCTOR);
+      for (TransitiveInfoCollection dep : deps) {
+        if (dep.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
+          addAnyProviders(objcProviders, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
         } else {
           // This is the way we inject cc_library attributes into direct fields.
-          addAnyProviders(ccInfosForDirectFields, depCT, CcInfo.PROVIDER);
+          addAnyProviders(ccInfosForDirectFields, dep, CcInfo.PROVIDER);
           // We only use CcInfo's linking info if there is no ObjcProvider.  This is required so
           // that objc_library archives do not get treated as if they are from cc targets.
-          addAnyContexts(ccLinkingContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+          addAnyContexts(ccLinkingContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
         }
-        addAnyProviders(ccInfos, depCT, CcInfo.PROVIDER);
+        addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
         // Temporary solution to specially handle LinkStamps, so that they don't get dropped.  When
         // linking info has been fully migrated to CcInfo, we can drop this.
-        addAnyContexts(ccLinkStampContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+        addAnyContexts(ccLinkStampContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
       }
       addObjcProviders(objcProviders.build());
       addCcCompilationContexts(ccInfos.build());
@@ -225,14 +223,6 @@ public final class ObjcCommon implements StarlarkValue {
           Iterables.concat(this.ccLinkStampContexts, ccLinkStampContexts.build());
 
       return this;
-    }
-
-    /** Add the providers for the build dependencies. */
-    Builder addDeps(List<ConfiguredTargetAndData> deps) {
-      return addDepsCT(
-          deps.stream()
-              .map(ConfiguredTargetAndData::getConfiguredTarget)
-              .collect(ImmutableList.toImmutableList()));
     }
 
     /**

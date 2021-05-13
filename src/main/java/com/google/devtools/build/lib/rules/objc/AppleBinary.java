@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -187,9 +186,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     }
     ImmutableListMultimap<String, TransitiveInfoCollection> cpuToDepsCollectionMap =
         MultiArchBinarySupport.transformMap(ruleContext.getPrerequisitesByConfiguration("deps"));
-    ImmutableListMultimap<String, ConfiguredTargetAndData> cpuToCTATDepsCollectionMap =
-        MultiArchBinarySupport.transformMap(
-            ruleContext.getPrerequisiteCofiguredTargetAndTargetsByConfiguration("deps"));
 
     ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
         MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
@@ -200,7 +196,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         multiArchBinarySupport.getDependencySpecificConfigurations(
             childConfigurationsAndToolchains,
             cpuToDepsCollectionMap,
-            cpuToCTATDepsCollectionMap,
             getDylibProviderTargets(ruleContext));
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();

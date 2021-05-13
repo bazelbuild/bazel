@@ -1009,22 +1009,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all the ConfiguredTargetAndTargets of that attribute. Each
-   * ConfiguredTargetAndData is keyed by the {@link BuildConfiguration} that created it.
-   */
-  public ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
-      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(String attributeName) {
-    checkAttributeIsDependency(attributeName);
-    List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, ConfiguredTargetAndData> result =
-        ImmutableListMultimap.builder();
-    for (ConfiguredTargetAndData ctad : ctatCollection) {
-      result.put(ctad.getConfiguration(), ctad);
-    }
-    return result.build();
-  }
-
-  /**
    * For a given attribute, returns all declared provider provided by targets of that attribute.
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
