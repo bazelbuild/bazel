@@ -50,8 +50,12 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.ArrayList;
+import java.util.List;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -3084,6 +3088,336 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
                 Iterables.getOnlyElement(analysisResult.getAspectsMap().values()).getActions())
             .getOwner();
     assertThat(owner.getExecProperties()).isEmpty();
+  }
+
+  @Test
+  public void testAspectRequiredProviders_defaultNoRequiredProviders() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      targets_labels.extend(dep.target_labels)",
+        "  return struct(target_labels = targets_labels)",
+        "",
+        "my_aspect = aspect(",
+        "  implementation = _my_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        ")",
+        "",
+        "def _rule_without_providers_impl(ctx):",
+        "  s = []",
+        "  for dep in ctx.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      s.extend(dep.target_labels)",
+        "  return struct(rule_deps = s)",
+        "",
+        "rule_without_providers = rule(",
+        "  implementation = _rule_without_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_aspect])",
+        "  },",
+        ")",
+        "",
+        "def _rule_with_providers_impl(ctx):",
+        "  return [prov_a(), prov_b()]",
+        "",
+        "rule_with_providers = rule(",
+        "  implementation = _rule_with_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a, prov_b]",
+        ")",
+        "",
+        "rule_with_providers_not_advertised = rule(",
+        "  implementation = _rule_with_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = []",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'rule_with_providers', 'rule_without_providers',",
+        "                        'rule_with_providers_not_advertised')",
+        "rule_without_providers(",
+        "  name = 'main',",
+        "  deps = [':target_without_providers', ':target_with_providers',",
+        "          ':target_with_providers_not_advertised'],",
+        ")",
+        "rule_without_providers(",
+        "  name = 'target_without_providers',",
+        ")",
+        "rule_with_providers(",
+        "  name = 'target_with_providers',",
+        ")",
+        "rule_with_providers(",
+        "  name = 'target_with_providers_indeps',",
+        ")",
+        "rule_with_providers_not_advertised(",
+        "  name = 'target_with_providers_not_advertised',",
+        "  deps = [':target_with_providers_indeps'],",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    // my_aspect does not require any providers so it will be applied to all the dependencies of
+    // main target
+    List<String> expected = new ArrayList<>();
+    expected.add("//test:defs.bzl%my_aspect(//test:target_without_providers)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers_not_advertised)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers_indeps)");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    Object ruleDepsUnchecked = target.get("rule_deps");
+    assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
+    StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
+    assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testAspectRequiredProviders_flatSetOfRequiredProviders() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      targets_labels.extend(dep.target_labels)",
+        "  return struct(target_labels = targets_labels)",
+        "",
+        "my_aspect = aspect(",
+        "  implementation = _my_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_providers = [prov_a, prov_b],",
+        ")",
+        "",
+        "def _rule_without_providers_impl(ctx):",
+        "  s = []",
+        "  for dep in ctx.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      s.extend(dep.target_labels)",
+        "  return struct(rule_deps = s)",
+        "",
+        "rule_without_providers = rule(",
+        "  implementation = _rule_without_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects=[my_aspect])",
+        "  },",
+        "  provides = []",
+        ")",
+        "",
+        "def _rule_with_a_impl(ctx):",
+        "  return [prov_a()]",
+        "",
+        "rule_with_a = rule(",
+        "  implementation = _rule_with_a_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a]",
+        ")",
+        "",
+        "def _rule_with_ab_impl(ctx):",
+        "  return [prov_a(), prov_b()]",
+        "",
+        "rule_with_ab = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a, prov_b]",
+        ")",
+        "",
+        "rule_with_ab_not_advertised = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = []",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_ab',",
+        "                        'rule_with_ab_not_advertised')",
+        "rule_without_providers(",
+        "  name = 'main',",
+        "  deps = [':target_without_providers', ':target_with_a', ':target_with_ab',",
+        "          ':target_with_ab_not_advertised'],",
+        ")",
+        "rule_without_providers(",
+        "  name = 'target_without_providers',",
+        ")",
+        "rule_with_a(",
+        "  name = 'target_with_a',",
+        "  deps = [':target_with_ab_indeps_not_reached']",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab',",
+        "  deps = [':target_with_ab_indeps_reached']",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab_indeps_not_reached',",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab_indeps_reached',",
+        ")",
+        "rule_with_ab_not_advertised(",
+        "  name = 'target_with_ab_not_advertised',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    // my_aspect will only be applied on target_with_ab and target_with_ab_indeps_reached since
+    // their rule (rule_with_ab) is the only rule that advertises the aspect required providers.
+    // However, my_aspect cannot be propagated to target_with_ab_indeps_not_reached because it was
+    // not applied to its parent (target_with_a)
+    List<String> expected = new ArrayList<>();
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab_indeps_reached)");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    Object ruleDepsUnchecked = target.get("rule_deps");
+    assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
+    StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
+    assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testAspectRequiredProviders_listOfRequiredProvidersLists() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "prov_c = provider()",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      targets_labels.extend(dep.target_labels)",
+        "  return struct(target_labels = targets_labels)",
+        "",
+        "my_aspect = aspect(",
+        "  implementation = _my_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_providers = [[prov_a, prov_b], [prov_c]],",
+        ")",
+        "",
+        "def _rule_without_providers_impl(ctx):",
+        "  s = []",
+        "  for dep in ctx.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      s.extend(dep.target_labels)",
+        "  return struct(rule_deps = s)",
+        "",
+        "rule_without_providers = rule(",
+        "  implementation = _rule_without_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects=[my_aspect])",
+        "  },",
+        "  provides = []",
+        ")",
+        "",
+        "def _rule_with_a_impl(ctx):",
+        "  return [prov_a()]",
+        "",
+        "rule_with_a = rule(",
+        "  implementation = _rule_with_a_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a]",
+        ")",
+        "",
+        "def _rule_with_c_impl(ctx):",
+        "  return [prov_c()]",
+        "",
+        "rule_with_c = rule(",
+        "  implementation = _rule_with_c_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_c]",
+        ")",
+        "",
+        "def _rule_with_ab_impl(ctx):",
+        "  return [prov_a(), prov_b()]",
+        "",
+        "rule_with_ab = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a, prov_b]",
+        ")",
+        "",
+        "rule_with_ab_not_advertised = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = []",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_c',",
+        "                        'rule_with_ab', 'rule_with_ab_not_advertised')",
+        "rule_without_providers(",
+        "  name = 'main',",
+        "  deps = [':target_without_providers', ':target_with_a', ':target_with_c',",
+        "          ':target_with_ab', 'target_with_ab_not_advertised'],",
+        ")",
+        "rule_without_providers(",
+        "  name = 'target_without_providers',",
+        ")",
+        "rule_with_a(",
+        "  name = 'target_with_a',",
+        "  deps = [':target_with_c_indeps_not_reached'],",
+        ")",
+        "rule_with_c(",
+        "  name = 'target_with_c',",
+        ")",
+        "rule_with_c(",
+        "  name = 'target_with_c_indeps_reached',",
+        ")",
+        "rule_with_c(",
+        "  name = 'target_with_c_indeps_not_reached',",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab',",
+        "  deps = [':target_with_c_indeps_reached'],",
+        ")",
+        "rule_with_ab_not_advertised(",
+        "  name = 'target_with_ab_not_advertised',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    // my_aspect will only be applied on target_with_ab, target_wtih_c and
+    // target_with_c_indeps_reached because their rules (rule_with_ab and rule_with_c) are the only
+    // rules advertising the aspect required providers
+    // However, my_aspect cannot be propagated to target_with_c_indeps_not_reached because it was
+    // not applied to its parent (target_with_a)
+    List<String> expected = new ArrayList<>();
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_c)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_c_indeps_reached)");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    Object ruleDepsUnchecked = target.get("rule_deps");
+    assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
+    StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
+    assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
   }
 
   /** StarlarkAspectTest with "keep going" flag */

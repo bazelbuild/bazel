@@ -627,6 +627,21 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " environment and inputs during execution.")
   public boolean experimentalShadowedAction;
 
+  @Option(
+      name = "incompatible_top_level_aspects_require_providers",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set to true, the top level aspect will honor its required providers and only run on"
+              + " top level targets whose rules' advertised providers satisfy the required"
+              + " providers of the aspect.")
+  public boolean incompatibleTopLevelAspectsRequireProviders;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -694,6 +709,9 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(EXPERIMENTAL_SHADOWED_ACTION, experimentalShadowedAction)
+            .setBool(
+                INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
+                incompatibleTopLevelAspectsRequireProviders)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -765,6 +783,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String EXPERIMENTAL_SHADOWED_ACTION = "-experimental_shadowed_action";
+  public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
+      "-incompatible_top_level_aspects_require_providers";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

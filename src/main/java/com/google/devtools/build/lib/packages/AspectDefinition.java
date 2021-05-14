@@ -306,6 +306,20 @@ public final class AspectDefinition {
     }
 
     /**
+     * Asserts that this aspect can only be evaluated for rules that supply all of the providers
+     * from at least one set of required providers.
+     */
+    public Builder requireStarlarkProviderSets(
+        Iterable<ImmutableSet<StarlarkProviderIdentifier>> providerSets) {
+      for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
+        if (!providerSet.isEmpty()) {
+          requiredProviders.addStarlarkSet(providerSet);
+        }
+      }
+      return this;
+    }
+
+    /**
      * Asserts that this aspect can only be evaluated for rules that supply all of the specified
      * Starlark providers.
      */

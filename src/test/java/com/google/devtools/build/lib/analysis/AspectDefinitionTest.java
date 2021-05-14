@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -54,6 +56,20 @@ public class AspectDefinitionTest {
   private static final class P3 implements TransitiveInfoProvider {}
 
   private static final class P4 implements TransitiveInfoProvider {}
+
+  private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
+
+  private static final StarlarkProviderIdentifier STARLARK_P1 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P1"));
+
+  private static final StarlarkProviderIdentifier STARLARK_P2 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P2"));
+
+  private static final StarlarkProviderIdentifier STARLARK_P3 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P3"));
+
+  private static final StarlarkProviderIdentifier STARLARK_P4 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P4"));
 
   /**
    * A dummy aspect factory. Is there to demonstrate how to define aspects and so that we can test
@@ -150,7 +166,7 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequireProvider_addsToSetOfRequiredProvidersAndNames() throws Exception {
+  public void testRequireBuiltinProviders_addsToSetOfRequiredProvidersAndNames() throws Exception {
     AspectDefinition requiresProviders =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
             .requireProviders(P1.class, P2.class)
@@ -176,7 +192,8 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequireProvider_addsTwoSetsOfRequiredProvidersAndNames() throws Exception {
+  public void testRequireBuiltinProviders_addsTwoSetsOfRequiredProvidersAndNames()
+      throws Exception {
     AspectDefinition requiresProviders =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
             .requireProviderSets(
@@ -201,6 +218,73 @@ public class AspectDefinitionTest {
        .isFalse();
 
  }
+
+  @Test
+  public void testRequireStarlarkProviders_addsFlatSetOfRequiredProviders() throws Exception {
+    AspectDefinition requiresProviders =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requireStarlarkProviders(STARLARK_P1, STARLARK_P2)
+            .build();
+
+    AdvertisedProviderSet expectedOkSet =
+        AdvertisedProviderSet.builder()
+            .addStarlark(STARLARK_P1)
+            .addStarlark(STARLARK_P2)
+            .addStarlark(STARLARK_P3)
+            .build();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet)).isTrue();
+
+    AdvertisedProviderSet expectedFailSet =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P1).build();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet)).isFalse();
+
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
+        .isTrue();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+        .isFalse();
+  }
+
+  @Test
+  public void testRequireStarlarkProviders_addsTwoSetsOfRequiredProviders() throws Exception {
+    AspectDefinition requiresProviders =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requireStarlarkProviderSets(
+                ImmutableList.of(
+                    ImmutableSet.of(STARLARK_P1, STARLARK_P2), ImmutableSet.of(STARLARK_P3)))
+            .build();
+
+    AdvertisedProviderSet expectedOkSet1 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P1).addStarlark(STARLARK_P2).build();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet1)).isTrue();
+
+    AdvertisedProviderSet expectedOkSet2 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P3).build();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet2)).isTrue();
+
+    AdvertisedProviderSet expectedFailSet =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P4).build();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet)).isFalse();
+
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
+        .isTrue();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+        .isFalse();
+  }
+
+  @Test
+  public void testRequireProviders_defaultAcceptsEverything() {
+    AspectDefinition noRequiredProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS).build();
+
+    AdvertisedProviderSet expectedOkSet =
+        AdvertisedProviderSet.builder().addBuiltin(P4.class).addStarlark(STARLARK_P4).build();
+    assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet)).isTrue();
+
+    assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
+        .isTrue();
+    assertThat(
+            noRequiredProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+        .isTrue();
+  }
 
   @Test
   public void testRequireAspectClass_defaultAcceptsNothing() {

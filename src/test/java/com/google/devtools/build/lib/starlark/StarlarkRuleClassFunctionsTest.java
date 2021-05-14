@@ -1633,6 +1633,91 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void aspectRequiredProvidersSingle() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_providers=['java', cc])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder()
+                    .addStarlark(declared("cc"))
+                    .addStarlark("java")
+                    .build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredProvidersAlternatives() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_providers=[['java'], [cc]])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("java").build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredProvidersEmpty() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, required_providers=[])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isTrue();
+  }
+
+  @Test
+  public void aspectRequiredProvidersDefault() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):", //
+        "   pass",
+        "my_aspect = aspect(_impl)");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isTrue();
+  }
+
+  @Test
   public void aspectProvides() throws Exception {
     evalAndExport(
         ev,
