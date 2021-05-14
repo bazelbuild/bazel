@@ -586,6 +586,33 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
               + " (zero means no limit).")
   public long maxComputationSteps;
 
+  @Option(
+      name = "experimental_shadowed_action",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to true, allows passing an action for Starlark created actions to shadow and use"
+              + " its environment, inputs and discovered inputs combined with the starlark action's"
+              + " environment and inputs during execution.")
+  public boolean experimentalShadowedAction;
+
+  @Option(
+      name = "incompatible_top_level_aspects_require_providers",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set to true, the top level aspect will honor its required providers and only run on"
+              + " top level targets whose rules' advertised providers satisfy the required"
+              + " providers of the aspect.")
+  public boolean incompatibleTopLevelAspectsRequireProviders;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -656,6 +683,10 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
                 INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO,
                 incompatibleObjcProviderRemoveCompileInfo)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
+            .setBool(EXPERIMENTAL_SHADOWED_ACTION, experimentalShadowedAction)
+            .setBool(
+                INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
+                incompatibleTopLevelAspectsRequireProviders)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -729,6 +760,9 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
       "+record_rule_instantiation_callstack";
+  public static final String EXPERIMENTAL_SHADOWED_ACTION = "-experimental_shadowed_action";
+  public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
+      "-incompatible_top_level_aspects_require_providers";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
