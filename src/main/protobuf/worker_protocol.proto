@@ -41,11 +41,12 @@ message WorkRequest {
 
   // Each WorkRequest must have either a unique
   // request_id or request_id = 0. If request_id is 0, this WorkRequest must be
-  // processed alone, otherwise the worker may process multiple WorkRequests in
-  // parallel (multiplexing). As an exception to the above, if the cancel field
-  // is true, the request_id must be the same as a previously sent WorkRequest.
-  // The request_id must be attached unchanged to the corresponding
-  // WorkResponse.
+  // processed alone (singleplex), otherwise the worker may process multiple
+  // WorkRequests in parallel (multiplexing). As an exception to the above, if
+  // the cancel field is true, the request_id must be the same as a previously
+  // sent WorkRequest. The request_id must be attached unchanged to the
+  // corresponding WorkResponse. Only one singleplex request may be sent to a
+  // worker at a time.
   int32 request_id = 3;
 
   // EXPERIMENTAL: When true, this is a cancel request, indicating that a
