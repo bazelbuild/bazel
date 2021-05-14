@@ -84,6 +84,13 @@ id, so the request id must be specified if it is nonzero. This is a valid
 }
 ```
 
+A `request_id` of 0 indicates a "singleplex" request, i.e. this request cannot
+be processed in parallel with other requests. The server guarantees that a
+given worker receives requests with either only `request_id` 0 or only
+`request_id` greater than zero. Singleplex requests are sent in serial, i.e. the
+server doesn't send another request until it has received a response (except
+for cancel requests, see below).
+
 **Notes**
 
 * Each protocol buffer is preceded by its length in `varint` format (see
@@ -93,6 +100,34 @@ id, so the request id must be specified if it is nonzero. This is a valid
  JSON.
 * Bazel stores requests as protobufs and converts them to JSON using
 [protobuf's JSON format](https://cs.opensource.google/protobuf/protobuf/+/master:java/util/src/main/java/com/google/protobuf/util/JsonFormat.java)
+
+### Cancellation
+
+Workers can optionally allow work requests to be cancelled before they finish.
+This is particularly useful in connection with dynamic execution, where local
+execution can regularly be interrupted by a faster remote execution. To allow
+cancellation, add `supports-worker-cancellation: 1` to the
+`execution-requirements` field (see below) and set the
+`--experimental_worker_cancellation` flag.
+
+A **cancel request** is a `WorkRequest` with the `cancel` field set (and
+similarly a **cancel response** is a `WorkResponse` with the `was_cancelled`
+field set). The only other field that must be in a cancel request or cancel
+response is `request_id`, indicating which
+request to cancel. The `request_id` field will be 0 for singleplex workers
+or the non-0 `request_id` of a previously sent `WorkRequest` for multiplex
+workers. The server may send cancel requests for requests that the worker has
+already responded to, in which case the cancel request must be ignored.
+
+Each non-cancel `WorkRequest` message must be answered exactly once, whether
+or not it was cancelled. Once the server has sent a cancel request, the worker
+may respond with a `WorkResponse` with the `request_id` set
+and the `was_cancelled` field set to true. Sending a regular `WorkResponse`
+is also accepted, but the `output` and `exit_code` fields will be ignored.
+
+Once a response has been sent for a `WorkRequest`, the worker must not touch
+the files in its working directory. The server is free to clean up the files,
+including temporary files.
 
 ## Making the rule that uses the worker
 
