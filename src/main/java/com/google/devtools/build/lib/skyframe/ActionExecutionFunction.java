@@ -941,7 +941,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
   private DiscoveredState addDiscoveredInputs(
       ActionInputMap inputData,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Iterable<Artifact> discoveredInputs,
       Environment env,
@@ -1051,7 +1051,7 @@ public class ActionExecutionFunction implements SkyFunction {
     /** Metadata about Artifacts consumed by this Action. */
     private final ActionInputMap actionInputMap;
     /** Artifact expansion mapping for Runfiles tree and tree artifacts. */
-    private final Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts;
+    private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts;
     /** Archived representations for tree artifacts. */
     private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     /** Artifact expansion mapping for Filesets embedded in Runfiles. */
@@ -1062,7 +1062,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     CheckInputResults(
         ActionInputMap actionInputMap,
-        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets) {
@@ -1077,7 +1077,7 @@ public class ActionExecutionFunction implements SkyFunction {
   private interface AccumulateInputResultsFactory<S extends ActionInputMapSink, R> {
     R create(
         S actionInputMapSink,
-        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets);
@@ -1195,7 +1195,7 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableList<Artifact> allInputsList = allInputs.toList();
     S inputArtifactData =
         actionInputMapSinkFactory.apply(populateInputData ? allInputsList.size() : 0);
-    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts =
+    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts =
         Maps.newHashMapWithExpectedSize(populateInputData ? 128 : 0);
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts =
         Maps.newHashMapWithExpectedSize(128);
@@ -1389,7 +1389,7 @@ public class ActionExecutionFunction implements SkyFunction {
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
         Maps.newHashMapWithExpectedSize(0);
     S inputArtifactData = actionInputMapSinkFactory.apply(allInputsList.size());
-    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts =
+    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts =
         Maps.newHashMapWithExpectedSize(128);
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts =
         Maps.newHashMapWithExpectedSize(128);
@@ -1526,7 +1526,7 @@ public class ActionExecutionFunction implements SkyFunction {
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
 
-    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts = null;
+    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts = null;
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = null;
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = null;
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = null;

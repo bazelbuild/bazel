@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -41,7 +40,7 @@ final class ActionInputMapHelper {
 
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -67,7 +66,7 @@ final class ActionInputMapHelper {
    */
   static void addToMap(
       ActionInputMapSink inputMap,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -204,7 +203,7 @@ final class ActionInputMapHelper {
   private static void expandTreeArtifactAndPopulateArtifactData(
       Artifact treeArtifact,
       TreeArtifactValue value,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
@@ -212,13 +211,11 @@ final class ActionInputMapHelper {
       inputMap.put(treeArtifact, FileArtifactValue.OMITTED_FILE_MARKER, depOwner);
       return;
     }
-    ImmutableSet.Builder<Artifact> children = ImmutableSet.builder();
     for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
         value.getChildValues().entrySet()) {
-      children.add(child.getKey());
       inputMap.put(child.getKey(), child.getValue(), depOwner);
     }
-    expandedArtifacts.put(treeArtifact, children.build());
+    expandedArtifacts.put(treeArtifact, value.getChildren());
     // Again, we cache the "digest" of the value for cache checking.
     inputMap.put(treeArtifact, value.getMetadata(), depOwner);
 

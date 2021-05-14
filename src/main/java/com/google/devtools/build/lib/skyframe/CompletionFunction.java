@@ -176,7 +176,7 @@ public final class CompletionFunction<
             SourceArtifactException.class);
 
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
-    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts = new HashMap<>();
+    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();

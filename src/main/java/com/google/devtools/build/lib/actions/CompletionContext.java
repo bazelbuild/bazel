@@ -46,7 +46,7 @@ public class CompletionContext {
 
   private final Path execRoot;
   private final ArtifactPathResolver pathResolver;
-  private final Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts;
+  private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
   private final ActionInputMap inputMap;
   private final boolean expandFilesets;
@@ -54,7 +54,7 @@ public class CompletionContext {
 
   private CompletionContext(
       Path execRoot,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ArtifactPathResolver pathResolver,
       ActionInputMap inputMap,
@@ -70,7 +70,7 @@ public class CompletionContext {
   }
 
   public static CompletionContext create(
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       boolean expandFilesets,
       boolean fullyResolveFilesetSymlinks,
@@ -119,7 +119,8 @@ public class CompletionContext {
           visitFileset(artifact, receiver, fullyResolveFilesetLinks ? RESOLVE_FULLY : RESOLVE);
         }
       } else if (artifact.isTreeArtifact()) {
-        ImmutableCollection<Artifact> expandedArtifacts = this.expandedArtifacts.get(artifact);
+        ImmutableCollection<? extends Artifact> expandedArtifacts =
+            this.expandedArtifacts.get(artifact);
         for (Artifact expandedArtifact : expandedArtifacts) {
           receiver.accept(expandedArtifact);
         }
@@ -162,7 +163,7 @@ public class CompletionContext {
   public interface PathResolverFactory {
     ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
-        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
         String workspaceName)
         throws IOException;
