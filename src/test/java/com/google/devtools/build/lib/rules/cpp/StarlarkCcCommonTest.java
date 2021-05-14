@@ -6558,6 +6558,64 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testMergeCompilationContexts() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+
+    scratch.file(
+        "direct/cc_merger.bzl",
+        "def _cc_merger_impl(ctx):",
+        "    compilation_contexts = [dep[CcInfo].compilation_context for dep in ctx.attr.deps]",
+        "    merged_context = cc_common.merge_compilation_contexts(",
+        "        compilation_contexts = compilation_contexts,",
+        "    )",
+        "    return [CcInfo(compilation_context = merged_context)]",
+        "cc_merger = rule(",
+        "    _cc_merger_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(providers = [[CcInfo]]),",
+        "    }",
+        ")");
+    scratch.file(
+        "direct/BUILD",
+        "load('//direct:cc_merger.bzl', 'cc_merger')",
+        "cc_library(",
+        "    name = 'public1',",
+        "    srcs = ['public1.cc', 'public1_impl.h'],",
+        "    hdrs = ['public1.h'],",
+        "    textual_hdrs = ['public1.inc'],",
+        ")",
+        "cc_library(",
+        "    name = 'public2',",
+        "    srcs = ['public2.cc', 'public2_impl.h'],",
+        "    hdrs = ['public2.h'],",
+        "    textual_hdrs = ['public2.inc'],",
+        ")",
+        "cc_merger(",
+        "    name = 'merge',",
+        "    deps = [':public1', ':public2'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//direct:merge");
+    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(
+            baseArtifactNames(
+                ccCompilationContext.getExportingModuleMaps().stream()
+                    .map(CppModuleMap::getArtifact)
+                    .collect(ImmutableList.toImmutableList())))
+        .containsExactly("public1.cppmap", "public2.cppmap");
+    assertThat(baseArtifactNames(ccCompilationContext.getDirectPublicHdrs()))
+        .containsExactly("public1.h", "public2.h");
+    assertThat(baseArtifactNames(ccCompilationContext.getDirectPrivateHdrs()))
+        .containsExactly("public1_impl.h", "public2_impl.h");
+    assertThat(baseArtifactNames(ccCompilationContext.getTextualHdrs()))
+        .containsExactly("public1.inc", "public2.inc");
+  }
+
+  @Test
   public void testObjectFilesInCreateLibraryToLinkApiGuardedByFlag() throws Exception {
     AnalysisMock.get()
         .ccSupport()

@@ -770,6 +770,17 @@ public abstract class CcModule
     return ccCompilationContext.build();
   }
 
+  @Override
+  public CcCompilationContext mergeCompilationContexts(Sequence<?> compilationContexts)
+      throws EvalException {
+    return CcCompilationContext.builder(
+            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
+        .mergeDependentCcCompilationContexts(
+            Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts"),
+            ImmutableList.of())
+        .build();
+  }
+
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
       throws EvalException {
     if (obj == Starlark.UNBOUND) {

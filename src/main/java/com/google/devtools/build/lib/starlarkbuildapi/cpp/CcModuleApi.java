@@ -1263,4 +1263,21 @@ public interface CcModuleApi<
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "merge_compilation_contexts",
+      doc = "Merges multiple <code>CompilationContexts</code>s into one.",
+      parameters = {
+        @Param(
+            name = "compilation_contexts",
+            doc =
+                "List of <code>CompilationContexts</code>s to be merged. The headers of each "
+                    + "context will be exported by the direct fields in the returned provider.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+      })
+  CompilationContextT mergeCompilationContexts(
+      Sequence<?> compilationContexts) // <CcCompilationContextApi> expected
+      throws EvalException;
 }
