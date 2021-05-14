@@ -59,7 +59,7 @@ public interface FileApi extends StarlarkValue {
       name = "extension",
       structField = true,
       doc =
-          "The file extension of this file, following (not including) the rightmost period."
+          "The file extension of this file, following (not including) the rightmost period. "
               + "Empty string if the file's basename includes no periods.")
   String getExtension();
 
