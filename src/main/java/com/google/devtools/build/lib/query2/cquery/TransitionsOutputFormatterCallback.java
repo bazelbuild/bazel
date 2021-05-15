@@ -175,7 +175,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     toOptions.stream()
                         .map(
                             options -> {
-                              String checksum = options.computeChecksum();
+                              String checksum = options.checksum();
                               return checksum.equals(hostConfigurationChecksum)
                                   ? "HOST"
                                   : shortId(checksum);
@@ -193,7 +193,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
-  private String getRuleClassTransition(ConfiguredTarget ct, Target target) {
+  private static String getRuleClassTransition(ConfiguredTarget ct, Target target) {
     String output = "";
     if (ct instanceof RuleConfiguredTarget) {
       TransitionFactory<Rule> factory =

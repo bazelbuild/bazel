@@ -254,10 +254,10 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     Path nonExistentRoot = scratch.resolve(root);
     this.locator =
         PathPackageLocator.create(
-            null,
+            /*outputBase=*/ null,
             Arrays.asList(root),
             reporter,
-            /*workspace=*/ FileSystemUtils.getWorkingDirectory(scratch.getFileSystem()),
+            /*workspace=*/ FileSystemUtils.getWorkingDirectory(),
             /* clientWorkingDirectory= */ FileSystemUtils.getWorkingDirectory(
                 scratch.getFileSystem()),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
@@ -299,10 +299,10 @@ public class PathPackageLocatorTest extends FoundationTestCase {
         clientPath.getRelative("below").getPathString());
     assertThat(
             PathPackageLocator.create(
-                    null,
+                    /*outputBase=*/ null,
                     pathElements,
                     reporter,
-                    workspace,
+                    workspace.asFragment(),
                     clientPath,
                     BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
                 .getPathEntries())
@@ -320,19 +320,19 @@ public class PathPackageLocatorTest extends FoundationTestCase {
 
     // No warning if workspace == cwd.
     PathPackageLocator.create(
-        null,
+        /*outputBase=*/ null,
         ImmutableList.of("./foo"),
         reporter,
-        workspace,
+        workspace.asFragment(),
         workspace,
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     assertThat(eventCollector.count()).isSameInstanceAs(0);
 
     PathPackageLocator.create(
-        null,
+        /*outputBase=*/ null,
         ImmutableList.of("./foo"),
         reporter,
-        workspace,
+        workspace.asFragment(),
         workspace.getRelative("foo"),
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     assertThat(eventCollector.count()).isSameInstanceAs(1);
@@ -345,10 +345,10 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     Path workspace = scratch.dir("/some/path/to/workspace$1");
 
     PathPackageLocator.create(
-        null,
+        /*outputBase=*/ null,
         ImmutableList.of("%workspace%/blabla"),
         reporter,
-        workspace,
+        workspace.asFragment(),
         workspace.getRelative("foo"),
         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
   }

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -97,13 +97,9 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return RegisteredToolchainsValue.create(registeredToolchains);
   }
 
-  private Iterable<? extends String> getWorkspaceToolchains(Environment env)
+  private static ImmutableList<String> getWorkspaceToolchains(Environment env)
       throws InterruptedException {
-    List<String> patterns = getRegisteredToolchains(env);
-    if (patterns == null) {
-      return ImmutableList.of();
-    }
-    return patterns;
+    return firstNonNull(getRegisteredToolchains(env), ImmutableList.of());
   }
 
   /**
@@ -113,7 +109,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
    */
   @Nullable
   @VisibleForTesting
-  public static List<String> getRegisteredToolchains(Environment env) throws InterruptedException {
+  public static ImmutableList<String> getRegisteredToolchains(Environment env)
+      throws InterruptedException {
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
     if (externalPackageValue == null) {
@@ -124,10 +121,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     return externalPackage.getRegisteredToolchains();
   }
 
-  private ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
-      Environment env,
-      BuildConfiguration configuration,
-      List<Label> labels)
+  private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
+      Environment env, BuildConfiguration configuration, List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     ImmutableList<SkyKey> keys =
         labels.stream()
@@ -155,28 +150,6 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
         ConfiguredTarget target =
             ((ConfiguredTargetValue) valueOrException.get()).getConfiguredTarget();
-        if (configuration.trimConfigurationsRetroactively()
-            && !target.getConfigurationKey().getFragments().isEmpty()) {
-          // No fragment may be present on a toolchain rule in retroactive trimming mode.
-          // This is because trimming expects that platform and toolchain resolution uses only
-          // the platform configuration. In theory, this means toolchains could use platforms, but
-          // the current expectation is that toolchains should not use anything at all, so better
-          // to go with the stricter expectation for now.
-          String extraFragmentDescription =
-              target.getConfigurationKey().getFragments().stream()
-                  .map(cl -> cl.getSimpleName())
-                  .collect(joining(","));
-
-          throw new RegisteredToolchainsFunctionException(
-              new InvalidToolchainLabelException(
-                  toolchainLabel,
-                  "this toolchain uses configuration, which is forbidden in retroactive trimming "
-                      + "mode: "
-                      + "extra fragments are ["
-                      + extraFragmentDescription
-                      + "]"),
-              Transience.PERSISTENT);
-        }
         DeclaredToolchainInfo toolchainInfo = PlatformProviderUtils.declaredToolchainInfo(target);
         if (toolchainInfo == null) {
           throw new RegisteredToolchainsFunctionException(

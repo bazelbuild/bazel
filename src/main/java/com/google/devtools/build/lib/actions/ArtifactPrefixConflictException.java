@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * lead to an error if both actions were executed in the same build.
  */
 public class ArtifactPrefixConflictException extends Exception implements DetailedException {
+  private final Label firstOwner;
+
   public ArtifactPrefixConflictException(
       PathFragment firstPath, PathFragment secondPath, Label firstOwner, Label secondOwner) {
     super(
@@ -35,6 +37,11 @@ public class ArtifactPrefixConflictException extends Exception implements Detail
                 + "These actions cannot be simultaneously present; please rename one of the output "
                 + "files or build just one of them",
             firstPath, firstOwner, secondPath, secondOwner));
+    this.firstOwner = firstOwner;
+  }
+
+  public Label getFirstOwner() {
+    return firstOwner;
   }
 
   @Override

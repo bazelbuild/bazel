@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
@@ -23,6 +24,7 @@ import static java.util.stream.Stream.concat;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -36,12 +38,14 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -71,6 +75,8 @@ final class JavaInfoBuildHelper {
    * @param exports libraries to make available for users of this library. <a
    *     href="https://docs.bazel.build/versions/master/be/java.html#java_library"
    *     target="_top">java_library.exports</a>
+   * @param exportedPlugins A list of exported plugins.
+   * @param nativeLibraries CC library dependencies that are needed for this library
    * @return new created JavaInfo instance
    */
   JavaInfo createJavaInfo(
@@ -79,7 +85,10 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> compileTimeDeps,
       Sequence<JavaInfo> runtimeDeps,
       Sequence<JavaInfo> exports,
-      Location location) {
+      Sequence<JavaPluginInfo> exportedPlugins,
+      Sequence<CcInfo> nativeLibraries,
+      Location location,
+      boolean withExportsProvider) {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
     javaInfoBuilder.setLocation(location);
 
@@ -92,6 +101,10 @@ final class JavaInfoBuildHelper {
     if (javaOutput.getCompileJar() != null) {
       javaCompilationArgsBuilder.addDirectCompileTimeJar(
           /* interfaceJar= */ javaOutput.getCompileJar(), /* fullJar= */ javaOutput.getClassJar());
+    }
+    if (javaOutput.getCompileJdeps() != null) {
+      javaCompilationArgsBuilder.addCompileTimeJavaDependencyArtifacts(
+          NestedSetBuilder.create(Order.STABLE_ORDER, javaOutput.getCompileJdeps()));
     }
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
@@ -111,11 +124,11 @@ final class JavaInfoBuildHelper {
     javaInfoBuilder.addProvider(
         JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build());
 
-    javaInfoBuilder.addProvider(
-        JavaExportsProvider.class,
-        createJavaExportsProvider(exports, /* labels = */ ImmutableList.of()));
+    if (withExportsProvider) {
+      javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
+    }
 
-    javaInfoBuilder.addProvider(JavaPluginInfoProvider.class, createJavaPluginsProvider(exports));
+    javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports));
 
     javaInfoBuilder.addProvider(
         JavaSourceJarsProvider.class,
@@ -128,11 +141,21 @@ final class JavaInfoBuildHelper {
             false,
             javaOutput.getGeneratedClassJar(),
             javaOutput.getGeneratedSourceJar(),
-            JavaPluginInfoProvider.empty(),
+            JavaPluginInfo.empty(),
             JavaInfo.fetchProvidersFromList(
                 concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
 
     javaInfoBuilder.setRuntimeJars(ImmutableList.of(javaOutput.getClassJar()));
+
+    ImmutableList<JavaCcInfoProvider> transitiveNativeLibraries =
+        Streams.concat(
+                streamProviders(runtimeDeps, JavaCcInfoProvider.class),
+                streamProviders(exports, JavaCcInfoProvider.class),
+                streamProviders(compileTimeDeps, JavaCcInfoProvider.class),
+                Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
+            .collect(toImmutableList());
+    javaInfoBuilder.addProvider(
+        JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries));
 
     return javaInfoBuilder.build();
   }
@@ -204,17 +227,20 @@ final class JavaInfoBuildHelper {
     return concat(transitiveSourceJars, sourceJars);
   }
 
-  private JavaExportsProvider createJavaExportsProvider(
-      Iterable<JavaInfo> exports, Iterable<Label> labels) {
-    ImmutableList.Builder<JavaExportsProvider> builder = new ImmutableList.Builder<>();
-    builder.addAll(JavaInfo.fetchProvidersFromList(exports, JavaExportsProvider.class));
-    builder.add(new JavaExportsProvider(NestedSetBuilder.wrap(Order.STABLE_ORDER, labels)));
-    return JavaExportsProvider.merge(builder.build());
+  private JavaExportsProvider createJavaExportsProvider(Iterable<JavaInfo> exports) {
+    return JavaExportsProvider.merge(
+        JavaInfo.fetchProvidersFromList(exports, JavaExportsProvider.class));
   }
 
-  private JavaPluginInfoProvider createJavaPluginsProvider(Iterable<JavaInfo> javaInfos) {
-    return JavaPluginInfoProvider.merge(
-        JavaInfo.fetchProvidersFromList(javaInfos, JavaPluginInfoProvider.class));
+  private JavaPluginInfo mergeExportedJavaPluginInfo(
+      Iterable<JavaPluginInfo> plugins, Iterable<JavaInfo> javaInfos) {
+    return JavaPluginInfo.merge(
+        concat(
+            plugins,
+            stream(javaInfos)
+                .map(JavaInfo::getJavaPluginInfo)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList())));
   }
 
   public JavaInfo createJavaCompileAction(
@@ -228,9 +254,9 @@ final class JavaInfoBuildHelper {
       List<JavaInfo> runtimeDeps,
       List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
-      List<Label> exportLabels,
-      List<JavaInfo> plugins,
-      List<JavaInfo> exportedPlugins,
+      List<JavaPluginInfo> plugins,
+      List<JavaPluginInfo> exportedPlugins,
+      List<CcInfo> nativeLibraries,
       List<Artifact> annotationProcessorAdditionalInputs,
       List<Artifact> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
@@ -268,7 +294,7 @@ final class JavaInfoBuildHelper {
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-    helper.setPlugins(createJavaPluginsProvider(concat(plugins, deps)));
+    helper.setPlugins(mergeExportedJavaPluginInfo(plugins, deps));
     helper.setNeverlink(neverlink);
 
     NestedSet<Artifact> localCompileTimeDeps =
@@ -309,16 +335,23 @@ final class JavaInfoBuildHelper {
       javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
     }
 
+    ImmutableList<JavaCcInfoProvider> transitiveNativeLibraries =
+        Streams.concat(
+                streamProviders(runtimeDeps, JavaCcInfoProvider.class),
+                streamProviders(exports, JavaCcInfoProvider.class),
+                streamProviders(deps, JavaCcInfoProvider.class),
+                Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
+            .collect(toImmutableList());
+
     return javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
             JavaSourceJarsProvider.class,
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
-        .addProvider(
-            JavaPluginInfoProvider.class,
-            createJavaPluginsProvider(concat(exportedPlugins, exports)))
-        .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports, exportLabels))
+        .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
+        .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports))
+        .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)
         .addTransitiveOnlyRuntimeJarsToJavaInfo(exports)
         .addTransitiveOnlyRuntimeJarsToJavaInfo(runtimeDeps)

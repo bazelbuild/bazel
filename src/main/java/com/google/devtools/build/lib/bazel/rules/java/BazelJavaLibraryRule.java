@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 
 /**
@@ -152,7 +153,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         .add(
             attr("exported_plugins", LABEL_LIST)
                 .cfg(ExecutionTransitionFactory.create())
-                .allowedRuleClasses("java_plugin")
+                .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                 .allowedFileTypes())
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))

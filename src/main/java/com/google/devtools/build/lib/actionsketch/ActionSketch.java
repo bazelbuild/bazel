@@ -38,7 +38,7 @@ public abstract class ActionSketch implements SkyValue {
           .autoBuild();
 
   @Nullable
-  public abstract BigInteger transitiveSourceHash();
+  public abstract HashAndVersion transitiveSourceHash();
 
   @Nullable
   public abstract BigInteger transitiveActionLookupHash();
@@ -52,12 +52,12 @@ public abstract class ActionSketch implements SkyValue {
   /** A builder for {@link ActionSketch}. */
   @AutoValue.Builder
   public abstract static class Builder {
-    public abstract Builder setTransitiveSourceHash(BigInteger transitiveSourceHash);
+    public abstract Builder setTransitiveSourceHash(HashAndVersion transitiveSourceHash);
 
     public abstract Builder setTransitiveActionLookupHash(BigInteger transitiveActionLookupHash);
 
     @Nullable
-    abstract BigInteger transitiveSourceHash();
+    abstract HashAndVersion transitiveSourceHash();
 
     @Nullable
     abstract BigInteger transitiveActionLookupHash();
@@ -82,7 +82,16 @@ public abstract class ActionSketch implements SkyValue {
     writeNextValue(transitiveActionLookupHash(), buffer);
   }
 
-  public static void writeNextValue(@Nullable BigInteger value, ByteBuffer buffer) {
+  private static void writeNextValue(HashAndVersion value, ByteBuffer buffer) {
+    if (value == null) {
+      buffer.put((byte) -1);
+    } else {
+      byte[] bytes = value.hash().toByteArray();
+      buffer.put((byte) bytes.length).put(bytes).putLong(value.version());
+    }
+  }
+
+  private static void writeNextValue(BigInteger value, ByteBuffer buffer) {
     if (value == null) {
       buffer.put((byte) -1);
     } else {
@@ -98,19 +107,31 @@ public abstract class ActionSketch implements SkyValue {
   public static ActionSketch fromByteBuffer(ByteBuffer buffer) {
     Builder builder =
         builder()
-            .setTransitiveSourceHash(readNextValue(buffer))
-            .setTransitiveActionLookupHash(readNextValue(buffer));
+            .setTransitiveSourceHash(readNextHashAndVersion(buffer))
+            .setTransitiveActionLookupHash(readNextBigInteger(buffer));
     return builder.build();
   }
 
   @Nullable
-  public static BigInteger readNextValue(ByteBuffer buffer) {
+  private static BigInteger readNextBigInteger(ByteBuffer buffer) {
     byte length = buffer.get();
     if (length < 0) {
       return null;
     }
     byte[] val = new byte[length];
     buffer.get(val);
-    return new BigInteger(val);
+    return new BigInteger(1, val);
+  }
+
+  @Nullable
+  private static HashAndVersion readNextHashAndVersion(ByteBuffer buffer) {
+    byte length = buffer.get();
+    if (length < 0) {
+      return null;
+    }
+    byte[] val = new byte[length];
+    buffer.get(val);
+    long version = buffer.getLong();
+    return HashAndVersion.create(new BigInteger(val), version);
   }
 }

@@ -135,6 +135,14 @@ public class ExampleWorkerOptions extends OptionsBase {
   )
   public boolean hardPoison;
 
+  @Option(
+      name = "wait_for_cancel",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false",
+      help = "Don't send a response until receiving a cancel request.")
+  public boolean waitForCancel;
+
   /** Enum converter for --worker_protocol. */
   public static class WorkerProtocolEnumConverter
       extends EnumConverter<ExecutionRequirements.WorkerProtocolFormat> {

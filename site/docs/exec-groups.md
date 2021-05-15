@@ -68,6 +68,48 @@ module. The module exposes an `exec` function which takes a single string
 parameter which is the name of the exec group for which the dependency should be
 built.
 
+### Execution group inheritance
+
+In addition to defining its own constraints and toolchains, a new execution
+group can declare that it wants to inherit from the rule's default execution
+group, by passing the `copy_from_rule = True` parameter. It is an error to set
+`copy_from_rule` to true and to also pass `exec_compatible_with` or
+`toolchains`.
+
+An execution group that inherits from the default execution group copies
+constraints, toolchains, and execution properties from the default. This
+includes constraints and execution properties set on the target level, not just
+those specified by the rule itself. In other words, given the following:
+
+```python
+# foo.bzl
+my_rule = rule(
+    _impl,
+    exec_groups = {
+        “copied”: exec_group(
+            copy_from_rule = True,
+            # This will inherit exec_compatible_with and toolchains.
+            # Setting them here directly would be an error, however.
+        ),
+    },
+    toolchains = ["//foo_tools:toolchain_type"],
+    exec_compatible_with = [ "@platforms//os:linux" ]
+)
+
+# BUILD
+
+my_rule(
+    name = "demo",
+    exec_compatible_with = [":local_constraint"],
+)
+```
+
+The `copied` execution group for the configured target `demo` will include all
+of:
+- `//fool_tools:toolchain_type`
+- `@platforms//os:linux`
+- `:local_constraint`
+
 ## Accessing execution groups
 
 In the rule implementation, you can declare that actions should be run on the

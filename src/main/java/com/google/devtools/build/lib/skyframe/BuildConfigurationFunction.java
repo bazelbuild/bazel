@@ -18,19 +18,18 @@ import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -38,20 +37,17 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.lang.reflect.InvocationTargetException;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import net.starlark.java.eval.StarlarkSemantics;
 
-/**
- * A builder for {@link BuildConfigurationValue} instances.
- */
-public class BuildConfigurationFunction implements SkyFunction {
+/** A builder for {@link BuildConfigurationValue} instances. */
+public final class BuildConfigurationFunction implements SkyFunction {
+
   /** Cache with weak values can't have null values. */
   private static final Fragment NULL_MARKER = new Fragment() {};
 
   private final BlazeDirectories directories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final BuildOptions defaultBuildOptions;
   private final LoadingCache<FragmentKey, Fragment> fragmentCache =
       CacheBuilder.newBuilder()
           .weakValues()
@@ -64,12 +60,9 @@ public class BuildConfigurationFunction implements SkyFunction {
               });
 
   public BuildConfigurationFunction(
-      BlazeDirectories directories,
-      RuleClassProvider ruleClassProvider,
-      BuildOptions defaultBuildOptions) {
+      BlazeDirectories directories, RuleClassProvider ruleClassProvider) {
     this.directories = directories;
     this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
-    this.defaultBuildOptions = defaultBuildOptions;
   }
 
   @Override
@@ -82,14 +75,17 @@ public class BuildConfigurationFunction implements SkyFunction {
     }
 
     BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
-    Set<Fragment> fragments;
+    ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
     try {
       fragments = getConfigurationFragments(key);
     } catch (InvalidConfigurationException e) {
       throw new BuildConfigurationFunctionException(e);
     }
-    if (fragments == null) {
-      return null;
+
+    // If nothing was trimmed, reuse the same FragmentClassSet.
+    FragmentClassSet fragmentClasses = key.getFragments();
+    if (fragments.size() != fragmentClasses.size()) {
+      fragmentClasses = FragmentClassSet.of(fragments.keySet());
     }
 
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -97,25 +93,19 @@ public class BuildConfigurationFunction implements SkyFunction {
       return null;
     }
 
-    ClassToInstanceMap<Fragment> fragmentsMap = MutableClassToInstanceMap.create();
-    for (Fragment fragment : fragments) {
-      fragmentsMap.put(fragment.getClass(), fragment);
-    }
-
-    BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
     ActionEnvironment actionEnvironment =
-      ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(options);
+        ruleClassProvider.getActionEnvironmentProvider().getActionEnvironment(key.getOptions());
 
     try {
       return new BuildConfigurationValue(
           new BuildConfiguration(
               directories,
-              fragmentsMap,
-              options,
-              key.getOptionsDiff(),
+              fragments,
+              fragmentClasses,
+              key.getOptions(),
               ruleClassProvider.getReservedActionMnemonics(),
               actionEnvironment,
-              workspaceNameValue.getName(),
+              RepositoryName.createFromValidStrippedName(workspaceNameValue.getName()),
               starlarkSemantics.getBool(
                   BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)));
     } catch (InvalidMnemonicException e) {
@@ -123,17 +113,17 @@ public class BuildConfigurationFunction implements SkyFunction {
     }
   }
 
-  private Set<Fragment> getConfigurationFragments(BuildConfigurationValue.Key key)
-      throws InvalidConfigurationException {
-    BuildOptions options = defaultBuildOptions.applyDiff(key.getOptionsDiff());
-    ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses = key.getFragments();
-    ImmutableSet.Builder<Fragment> fragments =
-        ImmutableSet.builderWithExpectedSize(fragmentClasses.size());
+  private ImmutableSortedMap<Class<? extends Fragment>, Fragment> getConfigurationFragments(
+      BuildConfigurationValue.Key key) throws InvalidConfigurationException {
+    FragmentClassSet fragmentClasses = key.getFragments();
+    ImmutableSortedMap.Builder<Class<? extends Fragment>, Fragment> fragments =
+        ImmutableSortedMap.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
     for (Class<? extends Fragment> fragmentClass : fragmentClasses) {
       BuildOptions trimmedOptions =
-          options.trim(
-              BuildConfiguration.getOptionsClasses(
-                  ImmutableList.of(fragmentClass), ruleClassProvider));
+          key.getOptions()
+              .trim(
+                  BuildConfiguration.getOptionsClasses(
+                      ImmutableList.of(fragmentClass), ruleClassProvider));
       Fragment fragment;
       FragmentKey fragmentKey = FragmentKey.create(trimmedOptions, fragmentClass);
       try {
@@ -143,7 +133,7 @@ public class BuildConfigurationFunction implements SkyFunction {
         throw new IllegalStateException(e);
       }
       if (fragment != NULL_MARKER) {
-        fragments.add(fragment);
+        fragments.put(fragmentClass, fragment);
       } else {
         // NULL_MARKER is never GC'ed, so this entry will stay in cache forever unless we delete it
         // ourselves. Since it's a cheap computation we don't care about recomputing it.
@@ -165,7 +155,8 @@ public class BuildConfigurationFunction implements SkyFunction {
     }
   }
 
-  private Fragment makeFragment(FragmentKey fragmentKey) throws InvalidConfigurationException {
+  private static Fragment makeFragment(FragmentKey fragmentKey)
+      throws InvalidConfigurationException {
     BuildOptions buildOptions = fragmentKey.getBuildOptions();
     Class<? extends Fragment> fragmentClass = fragmentKey.getFragmentClass();
     String noConstructorPattern = "%s lacks constructor(BuildOptions)";
@@ -189,7 +180,7 @@ public class BuildConfigurationFunction implements SkyFunction {
   }
 
   private static final class BuildConfigurationFunctionException extends SkyFunctionException {
-    public BuildConfigurationFunctionException(InvalidConfigurationException e) {
+    BuildConfigurationFunctionException(InvalidConfigurationException e) {
       super(e, Transience.PERSISTENT);
     }
   }

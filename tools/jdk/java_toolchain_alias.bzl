@@ -19,13 +19,12 @@ def _java_runtime_alias(ctx):
     toolchain_info = None
     if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
         toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"]
-        if hasattr(toolchain_info, "java_runtime"):
-            toolchain = toolchain_info.java_runtime
-        else:
-            toolchain = toolchain_info
+        toolchain = toolchain_info.java_runtime
     else:
         toolchain = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
-    providers = [
+        toolchain_info = platform_common.ToolchainInfo(java_runtime = toolchain)
+    return [
+        toolchain_info,
         toolchain,
         platform_common.TemplateVariableInfo({
             "JAVA": str(toolchain.java_executable_exec_path),
@@ -37,9 +36,6 @@ def _java_runtime_alias(ctx):
             files = toolchain.files,
         ),
     ]
-    if toolchain_info != None and toolchain_info != toolchain:
-        providers.append(toolchain_info)
-    return providers
 
 java_runtime_alias = rule(
     implementation = _java_runtime_alias,
@@ -146,17 +142,15 @@ def _java_toolchain_alias(ctx):
     toolchain_info = None
     if java_common.is_java_toolchain_resolution_enabled_do_not_use(ctx = ctx):
         toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
-        if hasattr(toolchain_info, "java"):
-            toolchain = toolchain_info.java
-        else:
-            toolchain = toolchain_info
+        toolchain = toolchain_info.java
     else:
         toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]
-    providers = [toolchain]
-    if toolchain_info != None and toolchain_info != toolchain:
-        providers.append(toolchain_info)
+        toolchain_info = platform_common.ToolchainInfo(java = toolchain)
     return struct(
-        providers = providers,
+        providers = [
+            toolchain_info,
+            toolchain,
+        ],
         # Use the legacy provider syntax for compatibility with the native rules.
         java_toolchain = toolchain,
     )

@@ -328,6 +328,14 @@ public class Aapt2ResourcePackagingAction {
         effectTags = {OptionEffectTag.NO_OP},
         help = "Unused/deprecated option.")
     public boolean isTestWithResources;
+
+    @Option(
+        name = "includeProguardLocationReferences",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "When generating proguard configurations, include location references.")
+    public boolean includeProguardLocationReferences;
   }
 
   public static void main(String[] args) throws Exception {
@@ -468,6 +476,7 @@ public class Aapt2ResourcePackagingAction {
               .debug(aaptConfigOptions.debug)
               .includeGeneratedLocales(aaptConfigOptions.generatePseudoLocale)
               .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
+              .includeProguardLocationReferences(options.includeProguardLocationReferences)
               .link(compiled);
       profiler.recordEndOf("link").startTask("validate");
 

@@ -14,7 +14,7 @@ page gathers the current best practices and frameworks by use case.
 ## For testing rules
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib) has a test framework called
-[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/unittest.bzl)
+[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/main/lib/unittest.bzl)
 for checking the analysis-time behavior of rules, such as their actions and
 providers. Such tests are called "analysis tests" and are currently the best
 option for testing the inner workings of rules.
@@ -157,9 +157,11 @@ file:
 *   The test suite function, which calls the loading-time functions for each
     test, and declares a `test_suite` target bundling all tests together.
 
-We recommend the following naming convention. Let `foo` stand for the part of
-the test name that describes what the test is checking (`provider_contents` in
-the above example). For example, a JUnit test method would be named `testFoo`.
+For consistency, follow the recommended naming convention: Let `foo` stand for
+the part of the test name that describes what the test is checking
+(`provider_contents` in the above example). For example, a JUnit test method
+would be named `testFoo`.
+
 Then:
 
 *   the macro which generates the test and target under test should should be
@@ -381,7 +383,7 @@ def _myrule_validation_test_impl(ctx):
 myrule_validation_test = rule(
     implementation = _myrule_validation_test_impl,
     attrs = {"target": attr.label(allow_single_file=True),
-             # We need an implicit dependency in order to access the template.
+             # You need an implicit dependency in order to access the template.
              # A target could potentially override this attribute to modify
              # the test logic.
              "_script": attr.label(allow_single_file=True,
@@ -408,17 +410,17 @@ filegroup(
     srcs = [":myrule_validator.sh.template"],
 )
 
-# Needed for each target whose artifacts are to be checked. Notice that we no
+# Needed for each target whose artifacts are to be checked. Notice that you no
 # longer have to specify the output file name in a data attribute, or its
 # $(location) expansion in an args attribute, or the label for the script
-# (unless we want to override it).
+# (unless you want to override it).
 myrule_validation_test(
     name = "validate_mytarget",
     target = ":mytarget",
 )
 ```
 
-Alternatively, instead of using a template expansion action, we could have
+Alternatively, instead of using a template expansion action, you could have
 inlined the template into the .bzl file as a string and expanded it during the
 analysis phase using the `str.format` method or `%`-formatting.
 
@@ -426,7 +428,7 @@ analysis phase using the `str.format` method or `%`-formatting.
 ## For testing Starlark utilities
 
 [Skylib](https://github.com/bazelbuild/bazel-skylib)'s
-[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/master/lib/unittest.bzl)
+[`unittest.bzl`](https://github.com/bazelbuild/bazel-skylib/blob/main/lib/unittest.bzl)
 framework can be used to test utility functions (that is, functions that are
 neither macros nor rule implementations). Instead of using `unittest.bzl`'s
 `analysistest` library, `unittest` may be used. For such test suites, the
@@ -473,4 +475,4 @@ load(":myhelpers_test.bzl", "myhelpers_test_suite")
 myhelpers_test_suite(name = "myhelpers_tests")
 ```
 
-For more examples, see Skylib's own [tests](https://github.com/bazelbuild/bazel-skylib/blob/master/tests/BUILD).
+For more examples, see Skylib's own [tests](https://github.com/bazelbuild/bazel-skylib/blob/main/tests/BUILD).

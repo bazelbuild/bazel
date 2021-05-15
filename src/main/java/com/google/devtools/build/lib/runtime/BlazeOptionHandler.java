@@ -246,7 +246,7 @@ public final class BlazeOptionHandler {
       ProjectFileSupport.handleProjectFiles(
           eventHandler,
           runtime.getProjectFileProvider(),
-          workspaceDirectory,
+          workspaceDirectory.asFragment(),
           workingDirectory,
           optionsParser,
           commandAnnotation.name());

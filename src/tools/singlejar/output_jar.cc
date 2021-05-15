@@ -72,9 +72,8 @@ OutputJar::OutputJar()
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
-  manifest_.Append(
-      "Manifest-Version: 1.0\r\n"
-      "Created-By: singlejar\r\n");
+  manifest_.AppendLine("Manifest-Version: 1.0");
+  manifest_.AppendLine("Created-By: singlejar");
 }
 
 static std::string Basename(const std::string &path) {
@@ -127,23 +126,12 @@ int OutputJar::Doit(Options *options) {
 
   if (!options_->main_class.empty()) {
     build_properties_.AddProperty("main.class", options_->main_class);
-    manifest_.Append("Main-Class: ");
-    manifest_.Append(options_->main_class);
-    manifest_.Append("\r\n");
+    manifest_.AppendLine("Main-Class: " + options_->main_class);
   }
 
   // Copy CDS archive file (.jsa) if it is set.
   if (!options_->cds_archive.empty()) {
     AppendCDSArchive(options->cds_archive);
-  }
-
-  for (auto &manifest_line : options_->manifest_lines) {
-    if (!manifest_line.empty()) {
-      manifest_.Append(manifest_line);
-      if (manifest_line[manifest_line.size() - 1] != '\n') {
-        manifest_.Append("\r\n");
-      }
-    }
   }
 
   for (auto &build_info_line : options_->build_info_lines) {
@@ -203,16 +191,16 @@ int OutputJar::Doit(Options *options) {
   // Ready to write zip entries. Decide whether created entries should be
   // compressed.
   bool compress = options_->force_compression || options_->preserve_compression;
-  // First, write a directory entry for the META-INF, followed by the manifest
-  // file, followed by the build properties file.
+
+  // Write a directory entry for the META-INF
   WriteMetaInf();
-  manifest_.Append("\r\n");
-  WriteEntry(manifest_.OutputEntry(compress));
+
+  // Write the build properties file.
   if (!options_->exclude_build_data) {
     WriteEntry(build_properties_.OutputEntry(compress));
   }
 
-  // Then classpath resources.
+  // Write classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
     bool do_compress = compress;
     if (do_compress && !options_->nocompress_suffixes.empty()) {
@@ -240,12 +228,21 @@ int OutputJar::Doit(Options *options) {
     WriteEntry(classpath_resource->OutputEntry(do_compress));
   }
 
-  // Then copy source files' contents.
+  // Copy source files' contents.
   for (size_t ix = 0; ix < options_->input_jars.size(); ++ix) {
     if (!AddJar(ix)) {
       exit(1);
     }
   }
+
+  for (auto &manifest_line : options_->manifest_lines) {
+    if (!manifest_line.empty()) {
+      manifest_.AppendLine(manifest_line);
+    }
+  }
+
+  // Write the manifest file
+  WriteEntry(manifest_.OutputEntry(compress));
 
   // All entries written, write Central Directory and close.
   Close();
@@ -1049,8 +1046,7 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
   snprintf( cds_manifest_attr, sizeof(cds_manifest_attr),
     "Jsa-Offset: %ld", (long)aligned_offset); // NOLINT(runtime/int,
                                               // google-runtime-int)
-  manifest_.Append(cds_manifest_attr);
-  manifest_.Append("\r\n");
+  manifest_.AppendLine(cds_manifest_attr);
 
   // Add to build_properties
   build_properties_.AddProperty("cds.archive",

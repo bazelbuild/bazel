@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleStaticLibraryInfoApi.AppleStaticLibraryInfoProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -331,6 +330,31 @@ public interface AppleCommonApi<
       throws EvalException;
 
   @StarlarkMethod(
+      name = "new_executable_binary_provider",
+      doc = "Creates a new AppleExecutableBinaryInfo provider instance.",
+      parameters = {
+        @Param(
+            name = "binary",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "The binary artifact of the executable."),
+        @Param(
+            name = "objc",
+            named = true,
+            positional = false,
+            doc =
+                "An ObjcProvider which contains information about the transitive "
+                    + "dependencies linked into the binary.")
+      })
+  AppleExecutableBinaryApi newExecutableBinaryProvider(
+      Object executableBinary, ObjcProviderApiT depsObjcProvider) throws EvalException;
+
+  @StarlarkMethod(
       name = "link_multi_arch_binary",
       doc =
           "Links a (potentially multi-architecture) binary targeting Apple platforms. This "
@@ -391,12 +415,4 @@ public interface AppleCommonApi<
         @Param(name = "version", doc = "The string representation of the DottedVersion.")
       })
   DottedVersionApi<?> dottedVersion(String version) throws EvalException;
-
-  @StarlarkMethod(
-      name = "objc_proto_aspect",
-      doc =
-          "objc_proto_aspect gathers the proto dependencies of the attached rule target, and"
-              + " propagates the proto values of its dependencies through the ObjcProto provider.",
-      structField = true)
-  StarlarkAspectApi getObjcProtoAspect();
 }

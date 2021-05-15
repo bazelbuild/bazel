@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
 public abstract class AbstractAttributeMapper implements AttributeMap {
   private final RuleClass ruleClass;
   private final Label ruleLabel;
-  private final Rule rule;
+  protected final Rule rule;
 
   protected AbstractAttributeMapper(Rule rule) {
     this.ruleClass = rule.getRuleClassObject();

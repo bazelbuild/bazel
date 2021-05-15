@@ -8,7 +8,7 @@ category: extending
 
 `BUILD` files are intended to be simple and declarative. They will typically
 consist of a series of a target declarations. As your code base and your `BUILD`
-files are getting larger, you will probably notice some duplication, e.g.
+files get larger, you will probably notice some duplication, such as:
 
 ``` python
 cc_library(
@@ -32,9 +32,8 @@ tool might be able to read and update `BUILD` files to add missing dependencies.
 Code refactoring and code reuse might prevent this kind of automated
 modification.
 
-With that in mind, it is possible to share values, if you still believe it would
-be useful (e.g. values must be kept in sync). We can update the previous example
-and introduce a variable:
+If it is useful to share values (for example, if values must be kept in sync),
+you can introduce a variable:
 
 ``` python
 COPTS = ["-DVERSION=5"]
@@ -53,8 +52,8 @@ cc_library(
 )
 ```
 
-The value `COPTS` is now used by multiple declarations. By convention, we use
-uppercase letters to name global constants.
+Multiple declarations now use the value `COPTS`. By convention, use uppercase
+letters to name global constants.
 
 ## Sharing variables across multiple BUILD files
 

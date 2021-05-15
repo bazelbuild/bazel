@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -366,8 +367,19 @@ final class ActionMetadataHandler implements MetadataHandler {
     if (archivedTreeArtifactsEnabled) {
       ArchivedTreeArtifact archivedTreeArtifact =
           ArchivedTreeArtifact.create(parent, derivedPathPrefix);
-      tree.setArchivedRepresentation(
-          archivedTreeArtifact, constructFileArtifactValueFromFilesystem(archivedTreeArtifact));
+      FileStatus statNoFollow =
+          artifactPathResolver.toPath(archivedTreeArtifact).statIfFound(Symlinks.NOFOLLOW);
+      if (statNoFollow != null) {
+        tree.setArchivedRepresentation(
+            archivedTreeArtifact,
+            constructFileArtifactValue(
+                archivedTreeArtifact,
+                FileStatusWithDigestAdapter.adapt(statNoFollow),
+                /*injectedDigest=*/ null));
+      } else {
+        logger.atInfo().atMostEvery(5, MINUTES).log(
+            "Archived tree artifact: %s not created", archivedTreeArtifact);
+      }
     }
 
     return tree.build();

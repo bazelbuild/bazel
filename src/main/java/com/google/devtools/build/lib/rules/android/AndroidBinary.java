@@ -320,6 +320,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ruleContext.getConfiguration().isCodeCoverageEnabled(),
             /* collectJavaCompilationArgs= */ true,
             /* isBinary= */ true,
+            shouldCompileJavaSrcs,
             excludedRuntimeArtifacts,
             /* generateExtensionRegistry= */ true);
     ruleContext.assertNoErrors();
@@ -581,6 +582,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setSigningLineageFile(signingLineage)
         .setV4Signature(v4Signature)
         .setZipalignApk(true)
+        .setDeterministicSigning(androidSemantics.deterministicSigning())
         .registerActions(ruleContext);
 
     filesBuilder.add(binaryJar);

@@ -39,9 +39,20 @@ message WorkRequest {
   // request.
   repeated Input inputs = 2;
 
-  // To support multiplex worker, each WorkRequest must have an unique ID. This
-  // ID should be attached unchanged to the WorkResponse.
+  // Each WorkRequest must have either a unique
+  // request_id or request_id = 0. If request_id is 0, this WorkRequest must be
+  // processed alone (singleplex), otherwise the worker may process multiple
+  // WorkRequests in parallel (multiplexing). As an exception to the above, if
+  // the cancel field is true, the request_id must be the same as a previously
+  // sent WorkRequest. The request_id must be attached unchanged to the
+  // corresponding WorkResponse. Only one singleplex request may be sent to a
+  // worker at a time.
   int32 request_id = 3;
+
+  // EXPERIMENTAL: When true, this is a cancel request, indicating that a
+  // previously sent WorkRequest with the same request_id should be cancelled.
+  // The arguments and inputs fields must be empty and should be ignored.
+  bool cancel = 4;
 }
 
 // The worker sends this message to Blaze when it finished its work on the
@@ -54,9 +65,17 @@ message WorkResponse {
   // string type here, which gives us UTF-8 encoding.
   string output = 2;
 
-  // To support multiplex worker, each WorkResponse must have an unique ID.
-  // Since worker processes which support multiplex worker will handle multiple
-  // WorkRequests in parallel, this ID will be used to determined which
-  // WorkerProxy does this WorkResponse belong to.
+  // This field must be set to the same request_id as the WorkRequest it is a
+  // response to. Since worker processes which support multiplex worker will
+  // handle multiple WorkRequests in parallel, this ID will be used to
+  // determined which WorkerProxy does this WorkResponse belong to.
   int32 request_id = 3;
+
+  // EXPERIMENTAL When true, indicates that this response was sent due to
+  // receiving a cancel request. The exit_code and output fields should be empty
+  // and will be ignored. Exactly one WorkResponse must be sent for each
+  // non-cancelling WorkRequest received by the worker, but if the worker
+  // received a cancel request, it doesn't matter if it replies with a regular
+  // WorkResponse or with one where was_cancelled = true.
+  bool was_cancelled = 4;
 }

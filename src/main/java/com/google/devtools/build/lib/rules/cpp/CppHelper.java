@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -187,6 +186,17 @@ public class CppHelper {
     return result;
   }
 
+  /** Returns the linkopts for the rule context. */
+  public static ImmutableList<String> getLinkopts(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
+      Iterable<String> linkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
+      if (linkopts != null) {
+        return ImmutableList.copyOf(expandLinkopts(ruleContext, "linkopts", linkopts));
+      }
+    }
+    return ImmutableList.of();
+  }
+
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
       RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain)
       throws RuleErrorException {
@@ -195,12 +205,13 @@ public class CppHelper {
       if (llvmCov == null) {
         llvmCov = "";
       }
+      String gcov = toolchain.getToolPathStringOrNull(Tool.GCOV);
+      if (gcov == null) {
+        gcov = "";
+      }
       NestedSetBuilder<Pair<String, String>> coverageEnvironment =
           NestedSetBuilder.<Pair<String, String>>stableOrder()
-              .add(
-                  Pair.of(
-                      "COVERAGE_GCOV_PATH",
-                      toolchain.getToolPathFragment(Tool.GCOV, ruleContext).getPathString()))
+              .add(Pair.of("COVERAGE_GCOV_PATH", gcov))
               .add(Pair.of("LLVM_COV", llvmCov))
               .add(Pair.of("GENERATE_LLVM_LCOV", cppConfiguration.generateLlvmLCov() ? "1" : "0"));
       if (cppConfiguration.getFdoInstrument() != null) {
@@ -739,7 +750,7 @@ public class CppHelper {
         featureConfiguration.getToolRequirementsForAction(CppActionNames.STRIP)) {
       executionInfoBuilder.put(executionRequirement, "");
     }
-    Action[] stripAction =
+    SpawnAction stripAction =
         new SpawnAction.Builder()
             .addInput(input)
             .addTransitiveInputs(toolchain.getStripFiles())
@@ -1012,15 +1023,14 @@ public class CppHelper {
         && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 
-  public static CcNativeLibraryProvider collectNativeCcLibraries(
+  public static CcNativeLibraryInfo collectNativeCcLibraries(
       List<? extends TransitiveInfoCollection> deps, List<LibraryToLink> libraries) {
     NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.linkOrder();
     result.addAll(libraries);
-    for (CcNativeLibraryProvider dep :
-        AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.PROVIDER)) {
-      result.addTransitive(dep.getTransitiveCcNativeLibraries());
+    for (CcInfo dep : AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)) {
+      result.addTransitive(dep.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
     }
-    return new CcNativeLibraryProvider(result.build());
+    return new CcNativeLibraryInfo(result.build());
   }
 
   static boolean useToolchainResolution(RuleContext ruleContext) {

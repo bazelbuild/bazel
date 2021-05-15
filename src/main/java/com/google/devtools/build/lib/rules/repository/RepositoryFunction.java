@@ -589,7 +589,7 @@ public abstract class RepositoryFunction {
         return;
       }
 
-      if (isDirectory || repositoryPath.segmentCount() > 1) {
+      if (isDirectory || repositoryPath.isMultiSegment()) {
         if (!isDirectory
             && rule.getRuleClass().equals(LocalRepositoryRule.NAME)
             && WorkspaceFileHelper.endsWithWorkspaceFileName(repositoryPath)) {

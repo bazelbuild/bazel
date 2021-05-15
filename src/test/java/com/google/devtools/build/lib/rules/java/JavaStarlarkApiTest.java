@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,6 +34,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
@@ -516,7 +519,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    source_files = ctx.files.srcs,",
         "    deps = [d[JavaInfo] for d in ctx.attr.deps],",
         "    exports = [e[JavaInfo] for e in ctx.attr.exports],",
-        "    plugins = [p[JavaInfo] for p in ctx.attr.plugins],",
+        "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
         "    output = output_jar,",
         "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
         "  )",
@@ -538,6 +541,54 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     testAnnotationProcessingInfoIsStarlarkAccessible(
         /*toBeProcessedRuleName=*/ "java_custom_library",
         /*extraLoad=*/ "load(':custom_rule.bzl', 'java_custom_library')");
+  }
+
+  /**
+   * Test that plugin parameter of java_common.compile does not accept JavaInfo when
+   * incompatible_require_javaplugininfo_in_javacommon is flipped.
+   */
+  @Test
+  public void javaCommonCompile_requiresJavaPluginInfo() throws Exception {
+    useConfiguration("--incompatible_require_javaplugininfo_in_javacommon");
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  return java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    plugins = [p[JavaInfo] for p in ctx.attr.deps],",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=['.java']),",
+        "    'deps': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_library(name = 'dep',",
+        "    srcs = [ 'ProcessorDep.java'])",
+        "java_custom_library(",
+        "    name = 'to_be_processed',",
+        "    deps = [':dep'],",
+        "    srcs = ['ToBeProcessed.java'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//java/test:to_be_processed");
+
+    assertContainsEvent("at index 0 of plugins, got element of type JavaInfo, want JavaPluginInfo");
   }
 
   @Test
@@ -1030,6 +1081,415 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .contains(info.getValue("source_jar"));
   }
 
+  /** Retrieves Java plugin data from a target via Starlark. */
+  private JavaPluginData retrieveStarlarkPluginData(
+      String target, String provider, boolean apiGenerating) throws Exception {
+    String pkg = apiGenerating ? "java/getplugininfo" : "java/getapiplugininfo";
+    scratch.file(
+        pkg + "/extension.bzl",
+        "result = provider()",
+        "def impl(ctx):",
+        "   depj = ctx.attr.dep[" + provider + "]",
+        "   plugin_data = " + (apiGenerating ? "depj.api_generating_plugins" : "depj.plugins"),
+        "   return [result(",
+        "             processor_classpath = plugin_data.processor_jars,",
+        "             processor_classnames = plugin_data.processor_classes,",
+        "             processor_data = plugin_data.processor_data,",
+        "          )]",
+        "get_plugininfo = rule(impl, attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        pkg + "/BUILD",
+        "load(':extension.bzl', 'get_plugininfo')",
+        "get_plugininfo(name = 'plugininfo', dep = '" + target + "')");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//" + pkg + ":plugininfo");
+    StructImpl info =
+        (StructImpl)
+            configuredTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//" + pkg + ":extension.bzl", ImmutableMap.of()),
+                    "result"));
+
+    return JavaPluginData.create(
+        ((Depset) info.getValue("processor_classnames")).getSet(String.class),
+        ((Depset) info.getValue("processor_classpath")).getSet(Artifact.class),
+        ((Depset) info.getValue("processor_data")).getSet(Artifact.class));
+  }
+
+  /** Tests that java_plugin exposes plugin information to Starlark in JavaInfo provider. */
+  @Test
+  public void javaPlugin_javaInfoExposesPluginsToStarlark() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "java_library(",
+        "    name = 'plugin_dep',",
+        "    srcs = ['ProcessorDep.java'],",
+        "    data = ['depfile.dat'],",
+        ")",
+        "java_plugin(",
+        "    name = 'plugin',",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep'],",
+        "    data = ['pluginfile.dat'],",
+        ")");
+
+    JavaPluginData pluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaInfo", /* apiGenerating = */ false);
+    JavaPluginData apiPluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaInfo", /* apiGenerating = */ true);
+
+    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("libplugin.jar", "libplugin_dep.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile.dat");
+    assertThat(apiPluginData).isEqualTo(JavaPluginData.empty());
+  }
+
+  /**
+   * Tests that api generating java_plugin exposes plugin information to Starlark in JavaInfo
+   * provider.
+   */
+  @Test
+  public void apiGeneratingjavaPlugin_javaInfoExposesPluginsToStarlark() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "java_library(",
+        "    name = 'plugin_dep',",
+        "    srcs = ['ProcessorDep.java'],",
+        "    data = ['depfile.dat'],",
+        ")",
+        "java_plugin(",
+        "    name = 'plugin',",
+        "    generates_api = True,",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep'],",
+        "    data = ['pluginfile.dat'],",
+        ")");
+
+    JavaPluginData pluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaInfo", /* apiGenerating = */ false);
+    JavaPluginData apiPluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaInfo", /* apiGenerating = */ true);
+
+    assertThat(apiPluginData.processorClasses().toList())
+        .containsExactly("com.google.process.stuff");
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("libplugin.jar", "libplugin_dep.jar");
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile.dat");
+    assertThat(apiPluginData).isEqualTo(pluginData);
+  }
+
+  /** Tests that java_plugin exposes plugin information to Starlark. */
+  @Test
+  public void javaPlugin_exposesPluginsToStarlark() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "java_library(",
+        "    name = 'plugin_dep',",
+        "    srcs = ['ProcessorDep.java'],",
+        "    data = ['depfile.dat'],",
+        ")",
+        "java_plugin(",
+        "    name = 'plugin',",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep'],",
+        "    data = ['pluginfile.dat'],",
+        ")");
+
+    JavaPluginData pluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+    JavaPluginData apiPluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+
+    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("libplugin.jar", "libplugin_dep.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile.dat");
+    assertThat(apiPluginData).isEqualTo(JavaPluginData.empty());
+  }
+
+  /** Tests that api generating java_plugin exposes plugin information to Starlark. */
+  @Test
+  public void apiGeneratingjavaPlugin_exposesPluginsToStarlark() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "java_library(",
+        "    name = 'plugin_dep',",
+        "    srcs = ['ProcessorDep.java'],",
+        "    data = ['depfile.dat'],",
+        ")",
+        "java_plugin(",
+        "    name = 'plugin',",
+        "    generates_api = True,",
+        "    srcs = ['AnnotationProcessor.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep'],",
+        "    data = ['pluginfile.dat'],",
+        ")");
+
+    JavaPluginData pluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ false);
+    JavaPluginData apiPluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:plugin", /* provider = */ "JavaPluginInfo", /* apiGenerating = */ true);
+
+    assertThat(apiPluginData.processorClasses().toList())
+        .containsExactly("com.google.process.stuff");
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("libplugin.jar", "libplugin_dep.jar");
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile.dat");
+    assertThat(apiPluginData).isEqualTo(pluginData);
+  }
+
+  /** Tests that java_library exposes exported plugin information to Starlark. */
+  @Test
+  public void javaLibrary_exposesPluginsToStarlark() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "java_library(name = 'plugin_dep2', srcs = ['B.java'], data = ['depfile2.dat'])",
+        "java_plugin(",
+        "    name = 'plugin',",
+        "    srcs = ['AnnotationProcessor1.java'],",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")",
+        "java_plugin(",
+        "    name = 'apiplugin',",
+        "    generates_api = True,",
+        "    srcs = ['AnnotationProcessor2.java'],",
+        "    processor_class = 'com.google.process.apistuff',",
+        "    deps = [':plugin_dep2'],",
+        "    data = ['pluginfile2.dat'],",
+        ")",
+        "java_library(",
+        "    name = 'library',",
+        "    exported_plugins = [':plugin', ':apiplugin']",
+        ")");
+
+    JavaPluginData pluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:library", /* provider = */ "JavaInfo", /* apiGenerating = */ false);
+    JavaPluginData apiPluginData =
+        retrieveStarlarkPluginData(
+            "//java/test:library", /* provider = */ "JavaInfo", /* apiGenerating = */ true);
+
+    assertThat(pluginData.processorClasses().toList())
+        .containsExactly("com.google.process.stuff", "com.google.process.apistuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly(
+            "libplugin.jar", "libplugin_dep1.jar", "libapiplugin.jar", "libplugin_dep2.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat", "pluginfile2.dat");
+    assertThat(apiPluginData.processorClasses().toList())
+        .containsExactly("com.google.process.apistuff");
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("libapiplugin.jar", "libplugin_dep2.jar");
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile2.dat");
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor. */
+  @Test
+  public void javaPluginInfo_create() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = ctx.attr.processor_class,",
+        "    data = ctx.files.data,",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'processor_class': attr.string(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData.processorClasses().toList()).isEmpty();
+    assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
+    assertThat(apiPluginData.data().toList()).isEmpty();
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor for api generating plugin. */
+  @Test
+  public void javaPluginInfo_createApiPlugin() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = ctx.attr.processor_class,",
+        "    data = ctx.files.data,",
+        "    generates_api = True,",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'processor_class': attr.string(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(apiPluginData.processorClasses().toList())
+        .containsExactly("com.google.process.stuff");
+    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData).isEqualTo(pluginData);
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor without processor class. */
+  @Test
+  public void javaPluginInfo_createWithoutProcessorClass() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = None,",
+        "    data = ctx.files.data,",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(pluginData.processorClasses().toList()).isEmpty();
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData.processorClasses().toList()).isEmpty();
+    assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
+    assertThat(apiPluginData.data().toList()).isEmpty();
+  }
+
+  /** Tests the JavaPluginInfo provider's constructor with data given as depset. */
+  @Test
+  public void javaPluginInfo_createWithDataDepset() throws Exception {
+    scratch.file(
+        "java/test/myplugin.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib.jar')",
+        "  ctx.actions.write(output_jar, '')",
+        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
+        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
+        "  return [JavaPluginInfo(",
+        "    runtime_deps = [dep],",
+        "    processor_class = ctx.attr.processor_class,",
+        "    data = depset(ctx.files.data),",
+        "  )]",
+        "myplugin = rule(implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'processor_class': attr.string(),",
+        "    'data': attr.label_list(allow_files = True),",
+        "  })");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':myplugin.bzl', 'myplugin')",
+        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
+        "myplugin(",
+        "    name = 'plugin',",
+        "    processor_class = 'com.google.process.stuff',",
+        "    deps = [':plugin_dep1'],",
+        "    data = ['pluginfile1.dat'],",
+        ")");
+
+    JavaPluginInfo pluginInfo =
+        getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
+    JavaPluginData pluginData = pluginInfo.plugins();
+    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
+
+    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
+    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
+        .containsExactly("lib.jar", "libplugin_dep1.jar");
+    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
+        .containsExactly("pluginfile1.dat");
+    assertThat(apiPluginData.processorClasses().toList()).isEmpty();
+    assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
+    assertThat(apiPluginData.data().toList()).isEmpty();
+  }
+
   @Test
   public void testJavaProviderFieldsAreStarlarkAccessible() throws Exception {
     // The Starlark evaluation itself will test that compile_jars and
@@ -1267,18 +1727,33 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "def _exports_impl(ctx):",
         "  f = make_file(ctx)",
         "  return JavaInfo(output_jar=f, compile_jar=f, exports=[f])",
+        "def _nativelibs_impl(ctx):",
+        "  f = make_file(ctx)",
+        "  return JavaInfo(output_jar=f, compile_jar=f, native_libraries=[f])",
         "bad_deps = rule(_deps_impl)",
         "bad_runtime_deps = rule(_runtime_deps_impl)",
-        "bad_exports = rule(_exports_impl)");
+        "bad_exports = rule(_exports_impl)",
+        "bad_libs = rule(_nativelibs_impl)");
     scratch.file(
         "foo/BUILD",
-        "load(':bad_rules.bzl', 'bad_deps', 'bad_runtime_deps', 'bad_exports')",
+        "load(':bad_rules.bzl', 'bad_deps', 'bad_runtime_deps', 'bad_exports', 'bad_libs')",
         "bad_deps(name='bad_deps')",
         "bad_runtime_deps(name='bad_runtime_deps')",
-        "bad_exports(name='bad_exports')");
-    checkError("//foo:bad_deps", "Expected 'sequence of JavaInfo'");
-    checkError("//foo:bad_runtime_deps", "Expected 'sequence of JavaInfo'");
-    checkError("//foo:bad_exports", "Expected 'sequence of JavaInfo'");
+        "bad_exports(name='bad_exports')",
+        "bad_libs(name='bad_libs')");
+
+    checkError(
+        "//foo:bad_deps",
+        "Error in JavaInfo: at index 0 of deps, got element of type File, want JavaInfo");
+    checkError(
+        "//foo:bad_runtime_deps",
+        "Error in JavaInfo: at index 0 of runtime_deps, got element of type File, want JavaInfo");
+    checkError(
+        "//foo:bad_exports",
+        "Error in JavaInfo: at index 0 of exports, got element of type File, want JavaInfo");
+    checkError(
+        "//foo:bad_libs",
+        "Error in JavaInfo: at index 0 of native_libraries, got element of type File, want CcInfo");
   }
 
   @Test
@@ -1469,6 +1944,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaInfoGetTransitiveExports() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_exports_provider");
     scratch.file(
         "foo/extension.bzl",
         "result = provider()",
@@ -1499,22 +1975,208 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .containsExactly(Label.parseAbsolute("//foo:my_java_lib_b", ImmutableMap.of()));
   }
 
-  private void writeJavaCustomLibraryWithLabels(String path) throws Exception {
+  /** Tests that JavaInfo provides information about transitive native libraries in Starlark. */
+  @Test
+  public void javaInfo_getTransitiveNativeLibraries() throws Exception {
     scratch.file(
-        path,
+        "foo/extension.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_native_libraries)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_library(name = 'my_cc_lib_c.so', srcs = ['cc/c.cc'])",
+        "cc_library(name = 'my_cc_lib_b.so', srcs = ['cc/b.cc'])",
+        "cc_library(name = 'my_cc_lib_a.so', srcs = ['cc/a.cc'])",
+        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'], deps = ['my_cc_lib_c.so'])",
+        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = ['my_cc_lib_b.so'])",
+        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
+        "             deps = [':my_java_lib_b', ':my_java_lib_c', 'my_cc_lib_a.so'])",
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+    assertNoEvents();
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
+    StructImpl info =
+        (StructImpl)
+            myRuleTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "result"));
+
+    Depset nativeLibs = (Depset) info.getValue("property");
+
+    assertThat(
+            nativeLibs.getSet(LibraryToLink.class).toList().stream()
+                .map(LibraryToLink::getLibraryIdentifier))
+        .containsExactly("foo/libmy_cc_lib_a.so", "foo/libmy_cc_lib_b.so", "foo/libmy_cc_lib_c.so")
+        .inOrder();
+  }
+
+  /**
+   * Tests that java_library propagates direct native library information from JavaInfo provider.
+   */
+  @Test
+  public void javaLibrary_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
+        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
+        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
+        "    compile_jar = None,",
+        "    native_libraries = [cc_dep_params])",
+        "  return [java_common.merge([dep_params, java_info])]",
+        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_library(name = 'native', srcs = ['cc/x.cc'])",
+        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
+        "cc_library(name = 'ccl', srcs = ['cc/x.cc'])",
+        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
+        "java_library(name = 'jl_top', srcs = ['java/C.java'], deps = [':r'])");
+
+    ConfiguredTarget topJavaLibrary = getConfiguredTarget("//foo:jl_top");
+
+    NestedSet<LibraryToLink> librariesForTopTarget =
+        topJavaLibrary.get(JavaInfo.PROVIDER).getTransitiveNativeLibraries();
+    assertThat(librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+        .containsExactly("foo/libnative", "foo/libccl")
+        .inOrder();
+  }
+
+  /** Tests that java_binary propagates direct native library information from JavaInfo provider. */
+  @Test
+  public void javaBinary_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
+        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
+        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
+        "    compile_jar = None,",
+        "    native_libraries = [cc_dep_params])",
+        "  return [java_common.merge([dep_params, java_info])]",
+        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
+        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
+        "java_binary(name = 'binary', main_class = 'C', srcs = ['java/C.java'], deps = [':r'])");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
+
+    TemplateExpansionAction action =
+        (TemplateExpansionAction) getGeneratingAction(getExecutable(testTarget));
+    // Check that the directory name is on the java.library.path
+    assertThat(action.getFileContents())
+        .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
+  }
+
+  /** Tests that java_test propagates direct native library information from JavaInfo provider. */
+  @Test
+  public void javaTest_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[JavaInfo]",
+        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
+        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
+        "    compile_jar = None,",
+        "    native_libraries = [cc_dep_params])",
+        "  return [java_common.merge([dep_params, java_info])]",
+        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
+        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
+        "java_test(name = 'test', test_class='test', srcs = ['Test.java'], deps = [':r'])");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//foo:test");
+    TemplateExpansionAction action =
+        (TemplateExpansionAction) getGeneratingAction(getExecutable(testTarget));
+    // Check that the directory name is on the java.library.path
+    assertThat(action.getFileContents())
+        .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
+  }
+
+  /** Tests that java_library exposes native library info to Starlark. */
+  @Test
+  public void javaLibrary_exposesNativeLibraryInfoToStarlark() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "my_provider = provider()",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[JavaInfo].transitive_native_libraries",
+        "  return [my_provider(p = dep_params)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "cc_binary(name = 'native.so', srcs = ['cc/x.cc'], linkshared = True)",
+        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native.so'])",
+        "my_rule(name = 'r', dep = ':jl')");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
+    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
+
+    JavaInfo javaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
+    StarlarkProvider.Key myProviderKey =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//foo:extension.bzl", ImmutableMap.of()), "my_provider");
+    StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
+    Object nativeLibrariesFromStarlark = declaredProvider.getValue("p");
+    assertThat(nativeLibrariesFromStarlark)
+        .isEqualTo(javaInfo.getTransitiveNativeLibrariesForStarlark());
+    assertThat(
+            javaInfo
+                .getTransitiveNativeLibraries()
+                .getSingleton()
+                .getDynamicLibrary()
+                .getFilename())
+        .isEqualTo("native.so");
+  }
+
+  /** Tests that JavaInfo propagates native libraries from deps, runtime_deps, and exports. */
+  @Test
+  public void javaInfo_nativeLibrariesPropagate() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = ['A.java'],",
+        "  deps = [':lib_deps'],",
+        "  runtime_deps = [':lib_runtime_deps'],",
+        "  exports = [':lib_exports'],",
+        ")",
+        "java_library(name = 'lib_deps', srcs = ['B.java'], deps = [':native_deps1.so'])",
+        "cc_library(name = 'native_deps1.so', srcs = ['a.cc'])",
+        "java_library(name = 'lib_runtime_deps', srcs = ['C.java'], deps = [':native_rdeps1.so'])",
+        "cc_library(name = 'native_rdeps1.so', srcs = ['c.cc'])",
+        "java_library(name = 'lib_exports', srcs = ['D.java'], deps = [':native_exports1.so'])",
+        "cc_library(name = 'native_exports1.so', srcs = ['e.cc'])");
+    scratch.file(
+        "java/test/custom_rule.bzl",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    exports = ctx.attr.exports,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "  ctx.actions.write(output_jar, '')",
+        "  compilation_provider = JavaInfo(",
+        "    output_jar = output_jar,",
+        "    compile_jar = None,",
+        "    deps = [dep[JavaInfo] for dep in ctx.attr.deps if JavaInfo in dep],",
+        "    runtime_deps = [dep[JavaInfo] for dep in ctx.attr.runtime_deps if JavaInfo in dep],",
+        "    exports = [dep[JavaInfo] for dep in ctx.attr.exports if JavaInfo in dep],",
         "  )",
         "  return [",
-        "      DefaultInfo(",
-        "          files = depset([output_jar]),",
-        "      ),",
         "      compilation_provider",
         "  ]",
         "java_custom_library = rule(",
@@ -1523,68 +2185,25 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'my_output': 'lib%{name}.jar'",
         "  },",
         "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.java']),",
-        "     'exports': attr.label_list(),",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'deps': attr.label_list(),",
+        "    'runtime_deps': attr.label_list(),",
+        "    'exports': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
         "  fragments = ['java']",
         ")");
-  }
 
-  @Test
-  public void javaCompile_transitiveExportsWithLabels() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
-    writeJavaCustomLibraryWithLabels("tools/build_defs/java/java_library.bzl");
-    scratch.file(
-        "foo/BUILD",
-        "load('//tools/build_defs/java:java_library.bzl', 'java_custom_library')",
-        "load(':extension.bzl', 'my_rule')",
-        "java_custom_library(name = 'lib',",
-        "    srcs = ['Lib.java'],",
-        "    exports = [ ':export' ])",
-        "java_custom_library(name = 'export',",
-        "    srcs = ['Export.java'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
-    scratch.file("tools/build_defs/java/BUILD");
-    scratch.file(
-        "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_exports)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
 
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    Label.parseAbsolute(
-                        "//foo:extension.bzl", /* repositoryMapping = */ ImmutableMap.of()),
-                    "result"));
-
-    Depset exports = (Depset) info.getValue("property");
-
-    assertThat(exports.getSet(Label.class).toList())
-        .containsExactly(Label.parseAbsolute("//foo:export", ImmutableMap.of()));
-  }
-
-  @Test
-  public void javaCompileTransitiveExportsWithLabels_limitedToBuiltins() throws Exception {
-    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
-    writeJavaCustomLibraryWithLabels("foo/java_library.bzl");
-    scratch.file(
-        "foo/BUILD",
-        "load('//foo:java_library.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'lib',",
-        "    srcs = ['Lib.java'],",
-        "    exports = [ ':export' ])",
-        "java_custom_library(name = 'export',",
-        "    srcs = ['Export.java'])");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lib"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
+    JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
+    NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
+    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+        .containsExactly(
+            "java/test/libnative_rdeps1.so",
+            "java/test/libnative_exports1.so",
+            "java/test/libnative_deps1.so")
+        .inOrder();
   }
 
   @Test
@@ -1709,6 +2328,126 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                 FileType.filter(
                     getRunfilesSupport(target).getRunfilesSymlinkTargets(), JavaSemantics.JAR)))
         .isEqualTo("plugin.jar libsomedep.jar");
+  }
+
+  /**
+   * Tests that java_common.compile propagates native libraries from deps, runtime_deps, and
+   * exports.
+   */
+  @Test
+  public void javaCommonCompile_nativeLibrariesPropagate() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = ['A.java'],",
+        "  deps = [':lib_deps'],",
+        "  runtime_deps = [':lib_runtime_deps'],",
+        "  exports = [':lib_exports'],",
+        ")",
+        "java_library(name = 'lib_deps', srcs = ['B.java'], deps = [':native_deps1.so'])",
+        "cc_library(name = 'native_deps1.so', srcs = ['a.cc'])",
+        "java_library(name = 'lib_runtime_deps', srcs = ['C.java'], deps = [':native_rdeps1.so'])",
+        "cc_library(name = 'native_rdeps1.so', srcs = ['c.cc'])",
+        "java_library(name = 'lib_exports', srcs = ['D.java'], deps = [':native_exports1.so'])",
+        "cc_library(name = 'native_exports1.so', srcs = ['e.cc'])");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    deps = [dep[JavaInfo] for dep in ctx.attr.deps if JavaInfo in dep],",
+        "    runtime_deps = [dep[JavaInfo] for dep in ctx.attr.runtime_deps if JavaInfo in dep],",
+        "    exports = [dep[JavaInfo] for dep in ctx.attr.exports if JavaInfo in dep],",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "  )",
+        "  return [",
+        "      compilation_provider",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'deps': attr.label_list(),",
+        "    'runtime_deps': attr.label_list(),",
+        "    'exports': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
+
+    JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
+    NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
+    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+        .containsExactly(
+            "java/test/libnative_rdeps1.so",
+            "java/test/libnative_exports1.so",
+            "java/test/libnative_deps1.so")
+        .inOrder();
+  }
+
+  /**
+   * Tests that java_common.compile propagates native libraries passed by native_libraries argument.
+   */
+  @Test
+  public void javaCommonCompile_directNativeLibraries() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "java/test/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = ['A.java'],",
+        "  ccdeps = [':native.so'],",
+        ")",
+        "cc_library(",
+        "  name = 'native.so',",
+        "  srcs = ['a.cc'],",
+        ")");
+    scratch.file(
+        "java/test/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    native_libraries = [dep[CcInfo] for dep in ctx.attr.ccdeps if CcInfo in dep],",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "  )",
+        "  return [",
+        "      compilation_provider",
+        "  ]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'ccdeps': attr.label_list(),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
+
+    JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
+    NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
+    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+        .containsExactly("java/test/libnative.so")
+        .inOrder();
   }
 
   @Test

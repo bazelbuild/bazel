@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # pylint: disable=g-bad-file-header
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #

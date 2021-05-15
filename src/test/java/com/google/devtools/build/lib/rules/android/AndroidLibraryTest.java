@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.rules.android.AndroidLibraryTest.WithoutPla
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
-import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -397,12 +396,7 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "java/test",
         "lib",
         // error:
-        getErrorMsgMisplacedRules(
-            "plugins",
-            "android_library",
-            "//java/test:lib",
-            "java_library",
-            "//java/test:not_a_plugin"),
+        getErrorMsgMandatoryProviderMissing("//java/test:not_a_plugin", "JavaPluginInfo"),
         // BUILD file:
         "java_library(",
         "    name = 'not_a_plugin',",
@@ -672,41 +666,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
     assertThat(Arrays.asList("data.txt", "liba.jar", "libb.jar"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getDefaultRunfiles(bTarget).getArtifacts()));
-    assertNoEvents();
-  }
-
-  @Test
-  public void testTransitiveExports() throws Exception {
-    scratch.file(
-        "java/com/google/exports/BUILD",
-        "android_library(",
-        "    name = 'dummy',",
-        "    srcs = ['dummy.java'],",
-        "    exports = [':dummy2'],",
-        ")",
-        "android_library(",
-        "    name = 'dummy2',",
-        "    srcs = ['dummy2.java'],",
-        "    exports = [':dummy3'],",
-        ")",
-        "android_library(",
-        "    name = 'dummy3',",
-        "    srcs = ['dummy3.java'],",
-        "    exports = [':dummy4'],",
-        ")",
-        "android_library(",
-        "    name = 'dummy4',",
-        "    srcs = ['dummy4.java'],",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//java/com/google/exports:dummy");
-    List<Label> exports =
-        JavaInfo.getProvider(JavaExportsProvider.class, target).getTransitiveExports().toList();
-    assertThat(exports)
-        .containsExactly(
-            Label.parseAbsolute("//java/com/google/exports:dummy2", ImmutableMap.of()),
-            Label.parseAbsolute("//java/com/google/exports:dummy3", ImmutableMap.of()),
-            Label.parseAbsolute("//java/com/google/exports:dummy4", ImmutableMap.of()));
     assertNoEvents();
   }
 

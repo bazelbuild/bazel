@@ -139,15 +139,15 @@ workspace.
 </tr>
 <tr>
   <td><code>//foo/bar:all</code></td>
-  <td>All rules in the package <code>foo/bar</code>.</td>
+  <td>All rule targets in the package <code>foo/bar</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...</code></td>
-  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
+  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:all</code></td>
-  <td>All rules in all packages beneath the directory <code>foo</code>.</td>
+  <td>All rule targets in all packages beneath the directory <code>foo</code>.</td>
 </tr>
 <tr>
   <td><code>//foo/...:*</code></td>
@@ -156,6 +156,16 @@ workspace.
 <tr>
   <td><code>//foo/...:all-targets</code></td>
   <td>All targets (rules and files) in all packages beneath the directory <code>foo</code>.</td>
+</tr>
+<tr>
+  <td><code>//...</code></td>
+  <td>All targets in packages in the workspace. This does not include targets
+  from <a href="external.html">external repositories</a>.</td>
+</tr>
+<tr>
+  <td><code>//:all</code></td>
+  <td>All targets in the top-level package, if there is a BUILD file at the
+  root of the workspace.</td>
 </tr>
 </table>
 
@@ -909,9 +919,10 @@ different rc files. In order to avoid name conflicts, we suggest that configs
 defined in personal rc files start with an underscore (`_`) to avoid
 unintentional name sharing.
 
-`--config=foo` expands to the options defined in the rc files "in-place" so that
-the options specified for the config have the same precedence that the
-`--config=foo` option had.
+`--config=foo` expands to the options defined in
+[the rc files](#where-are-the-bazelrc-files) "in-place" so that the options
+specified for the config have the same precedence that the `--config=foo` option
+had.
 
 This syntax does not extend to the use of `startup` to set
 [startup options](#option-defaults), e.g. setting

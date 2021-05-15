@@ -28,12 +28,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDex2OatInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.javascript.JsModuleInfoApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeDeepStructure;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
@@ -78,6 +74,8 @@ import net.starlark.java.syntax.ExpressionStatement;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.Resolver;
+import net.starlark.java.syntax.Resolver.Scope;
 import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
@@ -192,7 +190,7 @@ public class SkydocMain {
             .filter(entry -> validSymbolName(symbolNames, entry.getKey()))
             .collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
 
-      try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputPath))) {
+    try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputPath))) {
       new ProtoRenderer()
           .appendRuleInfos(filteredRuleInfos.values())
           .appendProviderInfos(filteredProviderInfos.values())
@@ -200,7 +198,7 @@ public class SkydocMain {
           .appendAspectInfos(filteredAspectInfos.values())
           .setModuleDocstring(moduleDocMap.build().get(targetFileLabel))
           .writeModuleInfo(out);
-      }
+    }
   }
 
   private static boolean validSymbolName(ImmutableSet<String> symbolNames, String symbolName) {
@@ -376,11 +374,29 @@ public class SkydocMain {
     }
     pending.add(path);
 
-    // Add fake build API.
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    FakeApi.addPredeclared(env, ruleInfoList, providerInfoList, aspectInfoList);
-    addMorePredeclared(env);
-    Module module = Module.withPredeclared(semantics, env.build());
+    // Create an initial environment with a fake build API. Then use Starlark's name resolution
+    // step to further populate the environment with all additional symbols not in the fake build
+    // API but used by the program; these become FakeDeepStructures.
+    ImmutableMap.Builder<String, Object> initialEnvBuilder = ImmutableMap.builder();
+    FakeApi.addPredeclared(initialEnvBuilder, ruleInfoList, providerInfoList, aspectInfoList);
+    addMorePredeclared(initialEnvBuilder);
+
+    ImmutableMap<String, Object> initialEnv = initialEnvBuilder.build();
+
+    Map<String, Object> predeclaredSymbols = new HashMap<>();
+    predeclaredSymbols.putAll(initialEnv);
+
+    Resolver.Module predeclaredResolver =
+        (name) -> {
+          if (predeclaredSymbols.containsKey(name)) {
+            return Scope.PREDECLARED;
+          }
+          if (!Starlark.UNIVERSE.containsKey(name)) {
+            predeclaredSymbols.put(name, FakeDeepStructure.create(name));
+            return Scope.PREDECLARED;
+          }
+          return Resolver.Scope.UNIVERSAL;
+        };
 
     // parse & compile (and get doc)
     ParserInput input = getInputSource(path.toString());
@@ -388,7 +404,7 @@ public class SkydocMain {
     try {
       StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
       moduleDocMap.put(label, getModuleDoc(file));
-      prog = Program.compileFile(file, module);
+      prog = Program.compileFile(file, predeclaredResolver);
     } catch (SyntaxError.Exception ex) {
       Event.replayEventsOn(eventHandler, ex.errors());
       throw new StarlarkEvaluationException(ex.getMessage());
@@ -418,6 +434,7 @@ public class SkydocMain {
     }
 
     // execute
+    Module module = Module.withPredeclared(semantics, predeclaredSymbols);
     try (Mutability mu = Mutability.create("Skydoc")) {
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       // We use the default print handler, which writes to stderr.
@@ -463,8 +480,6 @@ public class SkydocMain {
   }
 
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {
-    addNonBootstrapGlobals(env);
-
     // Add dummy declarations that would come from packages.StarlarkLibrary.COMMON
     // were Skydoc allowed to depend on it. See hack for select below.
     env.put("json", Json.INSTANCE);
@@ -507,19 +522,6 @@ public class SkydocMain {
         });
   }
 
-  // TODO(cparsons): Remove this constant by migrating the contained symbols to bootstraps.
-  private static final String[] nonBootstrapGlobals = {
-    "android_data",
-    AndroidDex2OatInfoApi.NAME,
-    UsesDataBindingProviderApi.NAME,
-    GeneratedExtensionRegistryProviderApi.NAME,
-    JavaNativeLibraryInfoApi.NAME,
-    JsModuleInfoApi.NAME,
-    "JsInfo",
-    "js_common",
-    "pkg_common",
-  };
-
   @StarlarkBuiltin(name = "ProtoModule", doc = "")
   private static final class ProtoModule implements StarlarkValue {
     @StarlarkMethod(
@@ -528,17 +530,6 @@ public class SkydocMain {
         parameters = {@Param(name = "x")})
     public String encodeText(Object x) {
       return "";
-    }
-  }
-
-  /**
-   * A hack to add a number of global symbols which are part of the build API but are otherwise
-   * added by Bazel.
-   */
-  // TODO(cparsons): Remove this method by migrating the contained symbols to bootstraps.
-  private static void addNonBootstrapGlobals(ImmutableMap.Builder<String, Object> envBuilder) {
-    for (String global : nonBootstrapGlobals) {
-      envBuilder.put(global, global);
     }
   }
 

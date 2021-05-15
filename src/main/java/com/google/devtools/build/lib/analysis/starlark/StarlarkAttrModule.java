@@ -330,7 +330,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     for (Object o : starlarkList) {
       if (!(o instanceof Sequence)) {
-        throw Starlark.errorf(errorMsg, PROVIDERS_ARG, "an element of type " + Starlark.type(o));
+        throw Starlark.errorf(errorMsg, argumentName, "an element of type " + Starlark.type(o));
       }
       for (Object value : (Sequence) o) {
         if (!isProvider(value)) {

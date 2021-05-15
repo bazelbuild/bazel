@@ -84,4 +84,17 @@ EOF
   assert_build //java/bazel/multidex:bin
 }
 
+function test_android_tools_version() {
+  create_new_workspace
+  setup_android_sdk_support
+
+  label="1.2.3 4.5.6 1000000000000000000000000000000000000002"
+  bazel build --embed_label="$label" //tools/android/runtime_deps:version.txt
+  actual="$(cat bazel-bin/tools/android/runtime_deps/version.txt)"
+  expected="bazel_android_tools_version 1.2.3
+bazel_repo_commit 1000000000000000000000000000000000000002
+built_with_bazel_version 4.5.6"
+  assert_equals "$expected" "$actual"
+}
+
 run_suite "Android integration tests"

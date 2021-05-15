@@ -187,12 +187,28 @@ Package path elements may be specified in three formats:
   host configuration.
 </p>
 
+<h4 id='flag--host_conlyopt'><code class='flag'>--host_conlyopt=<var>cc-option</var></code></h4>
+<p>
+  This option takes an argument which is to be passed to the compiler for C source files
+  that are compiled in the host configuration. This is analogous to
+  the <a href='#flag--conlyopt'><code class='flag'>--conlyopt</code></a> option, but applies only
+  to the host configuration.
+</p>
+
 <h4 id='flag--host_cxxopt'><code class='flag'>--host_cxxopt=<var>cc-option</var></code></h4>
 <p>
   This option takes an argument which is to be passed to the compiler for C++ source files
   that are compiled in the host configuration. This is analogous to
   the <a href='#flag--cxxopt'><code class='flag'>--cxxopt</code></a> option, but applies only to the
   host configuration.
+</p>
+
+<h4 id='flag--host_linkopt'><code class='flag'>--host_linkopt=<var>linker-option</var></code></h4>
+<p>
+  This option takes an argument which is to be passed to the linker for source files
+  that are compiled in the host configuration. This is analogous to
+  the <a href='#flag--linkopt'><code class='flag'>--linkopt</code></a> option, but applies only to
+  the host configuration.
 </p>
 
 <h4 id='flag--conlyopt'><code class='flag'>--conlyopt=<var>cc-option</var></code></h4>
@@ -275,11 +291,17 @@ Package path elements may be specified in three formats:
   which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel. Also be
   aware that setting Bazel's <code class='flag'>--strip</code> flag will override
   <code class='flag'>--linkopt=-Wl,--strip-all</code>, so you should only set one or the other.
+
+  If you are only building a single binary and want all symbols stripped, you could also
+  pass <code class='flag'>--stripopt=--strip-all</code> and explicitly build the
+  <code>//foo:bar.stripped</code> version of the target. As described in the section on
+  <code class='flag'>--stripopt</code>, this applies a strip action after the final binary is
+  linked rather than including stripping in all of the build's link actions.
 </p>
 
 <h4 id='flag--stripopt'><code class='flag'>--stripopt=<var>strip-option</var></code></h4>
 <p>
-  An additional option to pass to the <code>strip</code> command when generating
+  This is an additional option to pass to the <code>strip</code> command when generating
   a <a href="be/c-cpp.html#cc_binary_implicit_outputs"><code>*.stripped</code>
   binary</a>. The default is <code>-S -p</code>. This option can be used
   multiple times.
@@ -1143,8 +1165,9 @@ memory-saving mode</a>.
   syntax checking source files in IDEs, for example, by rebuilding a single
   target that depends on the source file to detect errors as early as
   possible in the edit/build/test cycle. This argument affects the way all
-  non-flag arguments are interpreted: for each source filename, one
-  rule that depends on it will be built. For
+  non-flag arguments are interpreted: each argument must be a
+  file target label or a plain filename relative to the current working
+  directory, and one rule that depends on each source filename is built. For
 
   C++ and Java
   sources, rules in the same language space are preferentially chosen. For
@@ -2777,7 +2800,7 @@ adb -s deadbeef install ...
   All of the options described in this section must be specified using the
   <code class='flag'>--key=value</code> or <code class='flag'>--key value</code>
   syntax. Also, these options must appear <i>before</i> the name of the Bazel
-  command.
+  command. Use <code>startup --key=value</code> to list these in a <code>.bazelrc</code> file.
 </p>
 
 <h4 id='flag--output_base'><code class='flag'>--output_base=<var>dir</var></code></h4>
@@ -2816,33 +2839,34 @@ adb -s deadbeef install ...
   by an incremental build of <code>//bar</code>.
 </p>
 <p>
-  We recommend you do not use NFS locations for the output base, as
-  the higher access latency of NFS will cause noticeably slower
-  builds.
+  <b>Tip:</b>We recommend you do not use an NFS or similar networked file system for the root
+  directory, as the higher access latency will cause noticeably slower builds.
 </p>
 
 <h4 id='flag--output_user_root'><code class='flag'>--output_user_root=<var>dir</var></code></h4>
 <p>
-  Points to the root directory where output bases are created unless
-  overriden with <code class='flag'>--output_base</code>. The directory
+  Points to the root directory where output and install bases are created. The directory
   must either not exist or be owned by the calling user. In the past,
   this was allowed to point to a directory shared among various users
-  but it's not allowed any longer. This may be allowed once the following is addressed:
-  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>.
+  but it's not allowed any longer. This may be allowed once
+  <a href='https://github.com/bazelbuild/bazel/issues/11100'>issue #11100</a> is addressed.
 </p>
 <p>
   If the <code class='flag'>--output_base</code> option is specified, it overrides
   using <code class='flag'>--output_user_root</code> to calculate the output base.
 </p>
 <p>
-  The install base location is also calculated based on
+  The install base location is calculated based on
   <code class='flag'>--output_user_root</code>, plus the MD5 identity of the Bazel embedded
   binaries.
 </p>
 <p>
-  You can also use the <code class='flag'>--output_user_root</code> option to choose an
+  You can use the <code class='flag'>--output_user_root</code> option to choose an
   alternate base location for all of Bazel's output (install base and output
-  base) if there is a better location in your filesystem layout.
+  base) if there is a better location in your filesystem layout.</p>
+<p>
+  <b>Tip:</b>We recommend you do not use an NFS or similar networked file system for the root
+  directory, as the higher access latency will cause noticeably slower builds.
 </p>
 
 <a name="startup_flag--host_javabase"></a>
@@ -3037,10 +3061,10 @@ adb -s deadbeef install ...
 
 <h4 id='flag--config'><code class='flag'>--config=<var>name</var></code></h4>
 <p>
- Selects additional config section from the rc files; for the current
- <code>command</code>, it also pulls in the options from
- <code>command:name</code> if such a section exists. Can be specified multiple
- times to add flags from several config sections. Expansions can refer to other
+ Selects additional config section from
+ <a href="guide#where-are-the-bazelrc-files">the rc files</a>; for the current <code>command</code>,
+ it also pulls in the options from <code>command:name</code> if such a section exists. Can be
+ specified multiple times to add flags from several config sections. Expansions can refer to other
  definitions (i.e. expansions can be chained).
 </p>
 

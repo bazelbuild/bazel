@@ -101,7 +101,6 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
     printer.append("<input file target " + getLabel() + ">");
   }
 
-  @Override
   public SourceArtifact getSourceArtifact() {
     return artifact;
   }

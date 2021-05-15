@@ -13,13 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
- * {@link SkyKey} for an {@link ActionLookupValue}.
+ * {@link SkyKey} for an "analysis object": either an {@link ActionLookupValue} or a {@link
+ * com.google.devtools.build.lib.analysis.ConfiguredTargetValue}.
+ *
+ * <p>Whether a configured target creates actions cannot be inferred from its {@link
+ * com.google.devtools.build.lib.cmdline.Label} without performing analysis, so this class is used
+ * for both types. Non-{@link ActionLookupValue} nodes are not accessed during the execution phase.
  *
  * <p>All subclasses of {@link ActionLookupValue} "own" artifacts with {@link ArtifactOwner}s that
  * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,
  * while remaining agnostic to what action lookup values actually exist.
  */
-public interface ActionLookupKey extends ArtifactOwner, SkyKey {}
+public interface ActionLookupKey extends ArtifactOwner, CPUHeavySkyKey {}

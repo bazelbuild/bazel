@@ -30,14 +30,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.Set;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -64,12 +61,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
       return attributes.build();
     }
   };
-
-  @Before
-  public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
-    invalidatePackages();
-  }
 
   @Test
   public void testMandatoryMinimumOsVersionUnset() throws Exception {
@@ -243,71 +234,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         .containsExactly("x/x_lipo.a");
     assertAppleSdkPlatformEnv(action, "WatchOS");
     assertRequiresDarwin(action);
-  }
-
-  @Test
-  public void testProtoDeps() throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter_a.pbascii");
-    scratch.file("x/filter_b.pbascii");
-    scratch.file(
-        "protos/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "    name = 'protos_main',",
-        "    srcs = ['data_a.proto', 'data_b.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_low_level',",
-        "    srcs = ['data_b.proto'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_main',",
-        "    portable_proto_filters = ['filter_a.pbascii'],",
-        "    deps = [':protos_main'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_low_level',",
-        "    portable_proto_filters = ['filter_b.pbascii'],",
-        "    deps = [':protos_low_level'],",
-        ")");
-    scratch.file(
-        "libs/BUILD",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_main',]",
-        ")",
-        "objc_library(",
-        "    name = 'apple_low_level_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_low_level',]",
-        ")");
-
-    RULE_TYPE.scratchTarget(
-        scratch,
-        "deps", "['//libs:main_lib']",
-        "avoid_deps", "['//libs:apple_low_level_lib']");
-
-    CommandAction linkAction = linkLibAction("//x:x");
-    Iterable<Artifact> linkActionInputs = linkAction.getInputs().toList();
-
-    ImmutableList.Builder<Artifact> objects = ImmutableList.builder();
-    for (Artifact binActionArtifact : linkActionInputs) {
-      if (binActionArtifact.getRootRelativePath().getPathString().endsWith(".a")) {
-        CommandAction subLinkAction = (CommandAction) getGeneratingAction(binActionArtifact);
-        for (Artifact linkActionArtifact : subLinkAction.getInputs().toList()) {
-          if (linkActionArtifact.getRootRelativePath().getPathString().endsWith(".o")) {
-            objects.add(linkActionArtifact);
-          }
-        }
-      }
-    }
-
-    ImmutableList<Artifact> objectFiles = objects.build();
-    assertThat(getFirstArtifactEndingWith(objectFiles, "DataA.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(objectFiles, "DataB.pbobjc.o")).isNull();
   }
 
   @Test
@@ -721,17 +647,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         assertThrows(
             AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:my_target"));
     assertThat(expected).hasMessageThat().contains("unexpected keyword argument 'foo'");
-  }
-
-  @Test
-  public void testProtoBundlingWithTargetsWithNoDeps() throws Exception {
-    checkProtoBundlingWithTargetsWithNoDeps(RULE_TYPE);
-  }
-
-  @Test
-  public void testProtoBundlingDoesNotHappen() throws Exception {
-    useConfiguration("--noenable_apple_binary_native_protos");
-    checkProtoBundlingDoesNotHappen(RULE_TYPE);
   }
 
   @Test

@@ -404,8 +404,8 @@ TEST_F(OutputJarSimpleTest, ResourcesParentDirectories) {
 
   // The output should contain entries for parent directories
   std::vector<string> expected_entries(
-      {"META-INF/", "META-INF/MANIFEST.MF", "the/", "the/resources/",
-       "the/resources/res1", "the/resources2/", "the/resources2/res2"});
+      {"META-INF/", "the/", "the/resources/", "the/resources/res1",
+       "the/resources2/", "the/resources2/res2", "META-INF/MANIFEST.MF"});
   std::vector<string> jar_entries;
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
@@ -427,9 +427,8 @@ TEST_F(OutputJarSimpleTest, ResourcesDirectories) {
                {"--exclude_build_data", "--resources", dir_path + ":the/dir"});
 
   // The output should contain entries for the directory
-  std::vector<string> expected_entries({
-      "META-INF/", "META-INF/MANIFEST.MF", "the/", "the/dir/",
-  });
+  std::vector<string> expected_entries(
+      {"META-INF/", "the/", "the/dir/", "META-INF/MANIFEST.MF"});
   std::vector<string> jar_entries;
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));
@@ -521,9 +520,10 @@ TEST_F(OutputJarSimpleTest, IncludeHeaders) {
        resolvedLibDataPath1.c_str(), "--include_prefixes",
        "tools/singlejar/data"});
   std::vector<string> expected_entries(
-      {"META-INF/", "META-INF/MANIFEST.MF", "build-data.properties",
-       "tools/singlejar/data/", "tools/singlejar/data/extra_file1",
-       "tools/singlejar/data/extra_file2"});
+      {"META-INF/", "build-data.properties", "tools/singlejar/data/",
+       "tools/singlejar/data/extra_file1", "tools/singlejar/data/extra_file2",
+       "META-INF/MANIFEST.MF"});
+
   std::vector<string> jar_entries;
   InputJar input_jar;
   ASSERT_TRUE(input_jar.Open(out_path));

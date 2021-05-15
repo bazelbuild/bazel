@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -116,7 +116,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -172,8 +171,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      BuildOptions defaultBuildOptions,
-      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      BugReporter bugReporter) {
     super(
         skyframeExecutorConsumerOnInit,
         evaluatorSupplier,
@@ -191,11 +190,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         actionOnIOExceptionReadingBuildFile,
         /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
         GraphInconsistencyReceiver.THROWING,
-        defaultBuildOptions,
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
-        /*nonexistentFileReceiver=*/ null,
-        managedDirectoriesKnowledge);
+        managedDirectoriesKnowledge,
+        bugReporter);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
@@ -300,11 +298,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.invalidate(Iterables.filter(memoizingEvaluator.getValues().keySet(), pred));
   }
 
-  /**
-   * Sets the packages that should be treated as deleted and ignored.
-   */
+  /** Sets the packages that should be treated as deleted and ignored. */
   @Override
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public void setDeletedPackages(Iterable<PackageIdentifier> pkgs) {
     ImmutableSet<PackageIdentifier> newDeletedPackagesSet = ImmutableSet.copyOf(pkgs);
 
@@ -329,7 +325,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       dropConfiguredTargetsNow(eventHandler);
       super.lastAnalysisDiscarded = false;
     }
-    handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsProvider.EMPTY);
+    handleDiffs(eventHandler, /*checkOutputFiles=*/ false, OptionsProvider.EMPTY);
   }
 
   @Nullable
@@ -415,8 +411,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private void handleClientEnvironmentChanges() {
     // Remove deleted client environmental variables.
     Iterable<SkyKey> deletedKeys =
-        Sets.difference(previousClientEnvironment, clientEnv.get().keySet())
-            .stream()
+        Sets.difference(previousClientEnvironment, clientEnv.get().keySet()).stream()
             .map(ClientEnvironmentFunction::key)
             .collect(ImmutableList.toImmutableList());
     recordingDiffer.invalidate(deletedKeys);
@@ -470,8 +465,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       boolean managedDirectoriesChanged,
       int fsvcThreads)
       throws InterruptedException {
-    ExternalFilesKnowledge externalFilesKnowledge =
-        externalFilesHelper.getExternalFilesKnowledge();
+    ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
     if (pathEntriesWithoutDiffInformation.isEmpty()
         && Iterables.isEmpty(customDirtinessCheckers)
         && ((!externalFilesKnowledge.anyOutputFilesSeen || !checkOutputFiles)
@@ -593,22 +587,22 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       int numWithoutNewValues,
       Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
     int numModified = changedWithNewValue.size() + numWithoutNewValues;
-    StringBuilder result = new StringBuilder("DiffAwareness found ")
-        .append(numModified)
-        .append(" modified source files and directory listings");
+    StringBuilder result =
+        new StringBuilder("DiffAwareness found ")
+            .append(numModified)
+            .append(" modified source files and directory listings");
     if (!Iterables.isEmpty(pathEntries)) {
       result.append(" for ");
       result.append(Joiner.on(", ").join(pathEntries));
     }
 
     if (numModified > 0) {
-      Iterable<SkyKey> allModifiedKeys = Iterables.concat(changedWithoutNewValue,
-          changedWithNewValue.keySet());
+      Iterable<SkyKey> allModifiedKeys =
+          Iterables.concat(changedWithoutNewValue, changedWithNewValue.keySet());
       Iterable<SkyKey> trimmed =
           Iterables.limit(allModifiedKeys, MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG);
 
-      result.append(": ")
-          .append(Joiner.on(", ").join(trimmed));
+      result.append(": ").append(Joiner.on(", ").join(trimmed));
 
       if (numModified > MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG) {
         result.append(", ...");
@@ -759,32 +753,31 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyValue value = skyKeyAndValue.getValue();
       SkyKey key = skyKeyAndValue.getKey();
       SkyFunctionName functionName = key.functionName();
-      if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value;
-          ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
-          if (configuredTarget instanceof RuleConfiguredTarget) {
+      if (value instanceof RuleConfiguredTargetValue) {
+        RuleConfiguredTargetValue ctValue = (RuleConfiguredTargetValue) value;
+        ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
+        if (configuredTarget instanceof RuleConfiguredTarget) {
 
-            Rule rule;
-            try {
-              rule =
-                  (Rule) getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
-            } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
-              throw new IllegalStateException(
-                  "Failed to get Rule target from package when calculating stats.", e);
-            }
-            RuleClass ruleClass = rule.getRuleClassObject();
-            RuleStat ruleStat =
-                ruleStats.computeIfAbsent(
-                    ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
-            ruleStat.addRule(ctValue.getNumActions());
+          Rule rule;
+          try {
+            rule = (Rule) getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
+          } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
+            throw new IllegalStateException(
+                "Failed to get Rule target from package when calculating stats.", e);
           }
-      } else if (functionName.equals(SkyFunctions.ASPECT)) {
-        AspectValue aspectValue = (AspectValue) value;
-          AspectClass aspectClass = aspectValue.getAspect().getAspectClass();
+          RuleClass ruleClass = rule.getRuleClassObject();
           RuleStat ruleStat =
               ruleStats.computeIfAbsent(
-                  aspectClass.getKey(), k -> new RuleStat(k, aspectClass.getName(), false));
-          ruleStat.addRule(aspectValue.getNumActions());
+                  ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
+          ruleStat.addRule(ctValue.getNumActions());
+        }
+      } else if (functionName.equals(SkyFunctions.ASPECT)) {
+        AspectValue aspectValue = (AspectValue) value;
+        AspectClass aspectClass = aspectValue.getAspect().getAspectClass();
+        RuleStat ruleStat =
+            ruleStats.computeIfAbsent(
+                aspectClass.getKey(), k -> new RuleStat(k, aspectClass.getName(), false));
+        ruleStat.addRule(aspectValue.getNumActions());
       }
     }
     return new ArrayList<>(ruleStats.values());
@@ -805,20 +798,20 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyKey key = skyKeyAndValue.getKey();
       SkyValue skyValue = skyKeyAndValue.getValue();
-      SkyFunctionName functionName = key.functionName();
-      try {
+      if (skyValue == null) {
         // The skyValue may be null in case analysis of the previous build failed.
-        if (skyValue != null) {
-          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-            actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
-          } else if (functionName.equals(SkyFunctions.ASPECT)) {
-            AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = (AspectKey) key;
-            ConfiguredTargetValue configuredTargetValue =
-                (ConfiguredTargetValue)
-                    memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
-            actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
-          }
+        continue;
+      }
+      try {
+        if (skyValue instanceof RuleConfiguredTargetValue) {
+          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+        } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
+          AspectValue aspectValue = (AspectValue) skyValue;
+          AspectKey aspectKey = (AspectKey) key;
+          ConfiguredTargetValue configuredTargetValue =
+              (ConfiguredTargetValue)
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+          actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -837,20 +830,20 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyKey key = skyKeyAndValue.getKey();
       SkyValue skyValue = skyKeyAndValue.getValue();
-      SkyFunctionName functionName = key.functionName();
-      try {
+      if (skyValue == null) {
         // The skyValue may be null in case analysis of the previous build failed.
-        if (skyValue != null) {
-          if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-            actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
-          } else if (functionName.equals(SkyFunctions.ASPECT)) {
-            AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = (AspectKey) key;
-            ConfiguredTargetValue configuredTargetValue =
-                (ConfiguredTargetValue)
-                    memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
-            actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
-          }
+        continue;
+      }
+      try {
+        if (skyValue instanceof RuleConfiguredTargetValue) {
+          actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+        } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
+          AspectValue aspectValue = (AspectValue) skyValue;
+          AspectKey aspectKey = (AspectKey) key;
+          ConfiguredTargetValue configuredTargetValue =
+              (ConfiguredTargetValue)
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+          actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -889,18 +882,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     try {
       progressReceiver.ignoreInvalidations = true;
       Uninterruptibles.callUninterruptibly(
-          new Callable<Void>() {
-            @Override
-            public Void call() throws InterruptedException {
-              EvaluationContext evaluationContext =
-                  EvaluationContext.newBuilder()
-                      .setKeepGoing(false)
-                      .setNumThreads(ResourceUsage.getAvailableProcessors())
-                      .setEventHandler(eventHandler)
-                      .build();
-              getDriver().evaluate(ImmutableList.of(), evaluationContext);
-              return null;
-            }
+          () -> {
+            EvaluationContext evaluationContext =
+                EvaluationContext.newBuilder()
+                    .setKeepGoing(false)
+                    .setNumThreads(ResourceUsage.getAvailableProcessors())
+                    .setEventHandler(eventHandler)
+                    .build();
+            getDriver().evaluate(ImmutableList.of(), evaluationContext);
+            return null;
           });
     } catch (Exception e) {
       throw new IllegalStateException(e);
@@ -935,8 +925,10 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void dumpPackages(PrintStream out) {
-    Iterable<SkyKey> packageSkyKeys = Iterables.filter(memoizingEvaluator.getValues().keySet(),
-        SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE));
+    Iterable<SkyKey> packageSkyKeys =
+        Iterables.filter(
+            memoizingEvaluator.getValues().keySet(),
+            SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE));
     out.println(Iterables.size(packageSkyKeys) + " packages");
     for (SkyKey packageSkyKey : packageSkyKeys) {
       Package pkg = ((PackageValue) memoizingEvaluator.getValues().get(packageSkyKey)).getPackage();
@@ -1036,7 +1028,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     FileSystem fileSystem;
     BlazeDirectories directories;
     ActionKeyContext actionKeyContext;
-    BuildOptions defaultBuildOptions;
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ExternalPackageHelper externalPackageHelper;
@@ -1050,6 +1041,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Iterable<SkyValueDirtinessChecker> customDirtinessCheckers = ImmutableList.of();
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredPackagePrefixesFunction;
+    private BugReporter bugReporter = BugReporter.defaultInstance();
 
     private Builder() {}
 
@@ -1059,7 +1051,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(fileSystem);
       Preconditions.checkNotNull(directories);
       Preconditions.checkNotNull(actionKeyContext);
-      Preconditions.checkNotNull(defaultBuildOptions);
       Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
       Preconditions.checkNotNull(buildFilesByPriority);
       Preconditions.checkNotNull(externalPackageHelper);
@@ -1083,8 +1074,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               buildFilesByPriority,
               externalPackageHelper,
               actionOnIOExceptionReadingBuildFile,
-              defaultBuildOptions,
-              managedDirectoriesKnowledge);
+              managedDirectoriesKnowledge,
+              bugReporter);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -1109,13 +1100,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setDefaultBuildOptions(BuildOptions defaultBuildOptions) {
-      this.defaultBuildOptions = defaultBuildOptions;
+    public Builder setIgnoredPackagePrefixesFunction(SkyFunction ignoredPackagePrefixesFunction) {
+      this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
       return this;
     }
 
-    public Builder setIgnoredPackagePrefixesFunction(SkyFunction ignoredPackagePrefixesFunction) {
-      this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
+    public Builder setBugReporter(BugReporter bugReporter) {
+      this.bugReporter = bugReporter;
       return this;
     }
 

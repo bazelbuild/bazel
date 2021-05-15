@@ -55,8 +55,7 @@ really apply here.
 
 When in doubt, follow the
 [PEP 8 style guide](https://www.python.org/dev/peps/pep-0008/). In particular,
-use 4 spaces for indentation (we previously recommended 2, but we now follow the
-Python convention).
+use four rather than two spaces for indentation to follow the Python convention.
 
 ### Docstring
 

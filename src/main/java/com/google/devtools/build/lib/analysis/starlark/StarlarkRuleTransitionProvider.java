@@ -119,7 +119,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
       if (result.size() != 1) {
         eventHandler.handle(
             Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                starlarkDefinedConfigTransition.getLocation(),
                 "Rule transition only allowed to return a single transitioned configuration."));
         return buildOptions.clone();
       }

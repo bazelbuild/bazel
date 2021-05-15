@@ -19,7 +19,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
@@ -141,8 +140,8 @@ public final class FilesetEntryFunction implements SkyFunction {
         if (!path.isEmpty()) {
           path = t.getDestPath().getRelative(path);
           DirectoryTree dir = root;
-          for (int i = 0; i < path.segmentCount() - 1; ++i) {
-            dir = dir.addOrGetSubdir(path.getSegment(i));
+          for (String segment : path.getParentDirectory().segments()) {
+            dir = dir.addOrGetSubdir(segment);
           }
           dir.maybeAddFile(f);
         }
@@ -157,21 +156,18 @@ public final class FilesetEntryFunction implements SkyFunction {
       results = ImmutableList.of(resolvedRoot);
     }
 
-    // Create the set of excluded files. Only top-level files can be excluded, i.e. ones that are
-    // directly under the root if the root is a directory.
-    Set<String> exclusions =
-        Sets.filter(t.getExcludedFiles(), e -> PathFragment.create(e).segmentCount() == 1);
-
     // Create one output symlink for each entry in the results.
     for (ResolvedFile f : results) {
       // The linkName has to be under the traversal's root, which is also the prefix to remove.
       PathFragment linkName = f.getNameInSymlinkTree().relativeTo(prefixToRemove);
 
-      // Check whether the symlink is excluded before attempting to resolve it.
-      // It may be dangling, but excluding it is still fine.
+      // Check whether the symlink is excluded before attempting to resolve it. It may be dangling,
+      // but excluding it is still fine. Only top-level files can be excluded, i.e. ones that are
+      // directly under the root if the root is a directory. Matching on getSegment(0) is sufficient
+      // to satisfy this, since any specified exclusions with multiple segments will never match.
       // TODO(b/64754128): Investigate if we could have made the exclude earlier before
       //                   unnecessarily iterating over all the files in an excluded directory.
-      if (linkName.segmentCount() > 0 && exclusions.contains(linkName.getSegment(0))) {
+      if (!linkName.isEmpty() && t.getExcludedFiles().contains(linkName.getSegment(0))) {
         continue;
       }
 

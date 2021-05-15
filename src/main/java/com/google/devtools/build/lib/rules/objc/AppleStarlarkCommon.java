@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.AppleBinaryOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
@@ -86,10 +86,10 @@ public class AppleStarlarkCommon
   @Nullable private StructImpl platformType;
   @Nullable private StructImpl platform;
 
-  private ObjcProtoAspect objcProtoAspect;
+  private final CppSemantics cppSemantics;
 
-  public AppleStarlarkCommon(ObjcProtoAspect objcProtoAspect) {
-    this.objcProtoAspect = objcProtoAspect;
+  public AppleStarlarkCommon(CppSemantics cppSemantics) {
+    this.cppSemantics = cppSemantics;
   }
 
   @Override
@@ -218,6 +218,13 @@ public class AppleStarlarkCommon
   }
 
   @Override
+  public AppleExecutableBinaryInfo newExecutableBinaryProvider(
+      Object executableBinary, ObjcProvider depsObjcProvider) throws EvalException {
+    Artifact binary = (executableBinary != Starlark.NONE) ? (Artifact) executableBinary : null;
+    return new AppleExecutableBinaryInfo(binary, depsObjcProvider);
+  }
+
+  @Override
   public StructImpl linkMultiArchBinary(
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> extraLinkopts,
@@ -233,6 +240,7 @@ public class AppleStarlarkCommon
       AppleBinaryOutput appleBinaryOutput =
           AppleBinary.linkMultiArchBinary(
               ruleContext,
+              cppSemantics,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
               isStampingEnabled,
@@ -250,11 +258,6 @@ public class AppleStarlarkCommon
     } catch (DottedVersion.InvalidDottedVersionException e) {
       throw new EvalException(e.getMessage());
     }
-  }
-
-  @Override
-  public StarlarkAspect getObjcProtoAspect() {
-    return objcProtoAspect;
   }
 
   /**

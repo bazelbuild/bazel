@@ -106,7 +106,7 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
         skyframeExecutor.getConfigurations(
             eventHandler,
             topLevelCtKeys.stream()
-                .map(ctk -> ctk.getConfigurationKey())
+                .map(ConfiguredTargetKey::getConfigurationKey)
                 .filter(Predicates.notNull())
                 .collect(Collectors.toSet()));
 
@@ -157,10 +157,10 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(
       FragmentClassSet fragments,
-      BuildOptions.OptionsDiffForReconstruction optionsDiff,
+      BuildOptions options,
       Set<String> multiCpu,
       Collection<Label> labels) {
-    return new PrepareAnalysisPhaseKey(fragments, optionsDiff, multiCpu, labels);
+    return new PrepareAnalysisPhaseKey(fragments, options, multiCpu, labels);
   }
 
   /** The configuration needed to prepare the analysis phase. */
@@ -169,17 +169,17 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
   @AutoCodec
   public static final class PrepareAnalysisPhaseKey implements SkyKey, Serializable {
     private final FragmentClassSet fragments;
-    private final BuildOptions.OptionsDiffForReconstruction optionsDiff;
+    private final BuildOptions options;
     private final ImmutableSortedSet<String> multiCpu;
     private final ImmutableSet<Label> labels;
 
     PrepareAnalysisPhaseKey(
         FragmentClassSet fragments,
-        BuildOptions.OptionsDiffForReconstruction optionsDiff,
+        BuildOptions options,
         Set<String> multiCpu,
         Collection<Label> labels) {
       this.fragments = Preconditions.checkNotNull(fragments);
-      this.optionsDiff = Preconditions.checkNotNull(optionsDiff);
+      this.options = Preconditions.checkNotNull(options);
       this.multiCpu = ImmutableSortedSet.copyOf(multiCpu);
       this.labels = ImmutableSet.copyOf(labels);
     }
@@ -193,8 +193,8 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
       return fragments;
     }
 
-    public BuildOptions.OptionsDiffForReconstruction getOptionsDiff() {
-      return optionsDiff;
+    public BuildOptions getOptions() {
+      return options;
     }
 
     public ImmutableSortedSet<String> getMultiCpu() {
@@ -209,7 +209,7 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
     public String toString() {
       return MoreObjects.toStringHelper(PrepareAnalysisPhaseKey.class)
           .add("fragments", fragments)
-          .add("optionsDiff", optionsDiff)
+          .add("optionsDiff", options)
           .add("multiCpu", multiCpu)
           .add("labels", labels)
           .toString();
@@ -217,11 +217,7 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          fragments,
-          optionsDiff,
-          multiCpu,
-          labels);
+      return Objects.hash(fragments, options, multiCpu, labels);
     }
 
     @Override
@@ -234,7 +230,7 @@ public final class PrepareAnalysisPhaseValue implements SkyValue {
       }
       PrepareAnalysisPhaseKey other = (PrepareAnalysisPhaseKey) obj;
       return other.fragments.equals(this.fragments)
-          && other.optionsDiff.equals(this.optionsDiff)
+          && other.options.equals(this.options)
           && other.multiCpu.equals(multiCpu)
           && other.labels.equals(labels);
     }

@@ -15,14 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupCollectionSubject.assertThat;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -388,12 +387,11 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'papaya')");
 
     ConfiguredTarget ct = getConfiguredTarget("//test:papaya");
-    assertThat(getRuleContext(ct).getRule().getRuleClassObject().getExecGroups())
-        .containsExactly(
-            "watermelon",
-            ExecGroup.createCopied(
-                ImmutableSet.of(Label.parseAbsoluteUnchecked("//rule:toolchain_type_1")),
-                ImmutableSet.of(Label.parseAbsoluteUnchecked("//platform:constraint_1"))));
+    ExecGroupCollection execGroups = getRuleContext(ct).getExecGroups();
+    assertThat(execGroups).isNotNull();
+    assertThat(execGroups).hasExecGroup("watermelon");
+    assertThat(execGroups).execGroup("watermelon").hasRequiredToolchain("//rule:toolchain_type_1");
+    assertThat(execGroups).execGroup("watermelon").hasExecCompatibleWith("//platform:constraint_1");
   }
 
   @Test

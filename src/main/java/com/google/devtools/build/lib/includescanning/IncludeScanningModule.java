@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -63,6 +61,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 /**
  * Module that provides implementations of {@link CppIncludeExtractionContext},
@@ -111,7 +110,7 @@ public class IncludeScanningModule extends BlazeModule {
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
         ? ImmutableList.of(IncludeScanningOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+        : ImmutableList.of();
   }
 
   @Override
@@ -219,7 +218,7 @@ public class IncludeScanningModule extends BlazeModule {
    * supplier} which can be used to access the (potentially shared) scanners and exposes {@linkplain
    * #getSwigActionContext() action} {@linkplain #getCppActionContext() contexts} based on them.
    */
-  private static class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
+  private static final class IncludeScannerLifecycleManager implements ExecutorLifecycleListener {
     private final CommandEnvironment env;
     private final BuildRequest buildRequest;
 
@@ -227,7 +226,7 @@ public class IncludeScanningModule extends BlazeModule {
     private IncludeScannerSupplier includeScannerSupplier;
     private ExecutorService includePool;
 
-    public IncludeScannerLifecycleManager(
+    IncludeScannerLifecycleManager(
         CommandEnvironment env,
         BuildRequest buildRequest,
         MutableSupplier<SpawnIncludeScanner> spawnScannerSupplier) {
@@ -254,8 +253,7 @@ public class IncludeScanningModule extends BlazeModule {
 
     @Override
     public void executionPhaseStarting(
-        ActionGraph actionGraph,
-        Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToAccountingGroups)
+        ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts)
         throws AbruptExitException, InterruptedException {
       try {
         includeScannerSupplier.init(

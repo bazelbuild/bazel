@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -39,7 +39,7 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(name = "java_common", doc = "Utilities for Java compilation support in Starlark.")
 public interface JavaCommonApi<
         FileT extends FileApi,
-        JavaInfoT extends JavaInfoApi<FileT, ?>,
+        JavaInfoT extends JavaInfoApi<FileT, ?, ?>,
         JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
@@ -130,7 +130,6 @@ public interface JavaCommonApi<
             named = true,
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class),
-              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollectionApi.class),
             },
             defaultValue = "[]",
             doc = "A list of exports. Optional."),
@@ -138,16 +137,29 @@ public interface JavaCommonApi<
             name = "plugins",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = JavaPluginInfoApi.class),
+              @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)
+            },
             defaultValue = "[]",
             doc = "A list of plugins. Optional."),
         @Param(
             name = "exported_plugins",
             positional = false,
             named = true,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = JavaPluginInfoApi.class),
+              @ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)
+            },
             defaultValue = "[]",
             doc = "A list of exported plugins. Optional."),
+        @Param(
+            name = "native_libraries",
+            positional = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = CcInfoApi.class)},
+            named = true,
+            defaultValue = "[]",
+            doc = "CC native library dependencies that are needed for this library."),
         @Param(
             name = "annotation_processor_additional_inputs",
             positional = false,
@@ -219,6 +231,7 @@ public interface JavaCommonApi<
       Sequence<?> exports, // <JavaInfoT> expected.
       Sequence<?> plugins, // <JavaInfoT> expected.
       Sequence<?> exportedPlugins, // <JavaInfoT> expected.
+      Sequence<?> nativeLibraries, // <CcInfoT> expected.
       Sequence<?> annotationProcessorAdditionalInputs, // <FileT> expected.
       Sequence<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,
@@ -407,8 +420,10 @@ public interface JavaCommonApi<
             named = false,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = JavaInfoApi.class)},
             doc = "The list of providers to merge."),
-      })
-  JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
+      },
+      useStarlarkThread = true)
+  JavaInfoT mergeJavaProviders(
+      Sequence<?> providers /* <JavaInfoT> expected. */, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -565,41 +580,6 @@ public interface JavaCommonApi<
       Object processorClasspath,
       Object classJar,
       Object sourceJar)
-      throws EvalException;
-
-  @StarlarkMethod(
-      name = "compile_time_jdeps",
-      doc = "Returns a depset of the given JavaInfo's compile-time jdeps files.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to query."),
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Depset /*<FileT>*/ getCompileTimeJavaDependencyArtifacts(JavaInfoT javaInfo);
-
-  @StarlarkMethod(
-      name = "add_compile_time_jdeps",
-      doc = "Returns a copy of the given JavaInfo with the given compile-time jdeps files added.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to clone."),
-        @Param(
-            name = "compile_time_jdeps",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
-            named = true,
-            positional = false,
-            defaultValue = "[]",
-            doc = "Compile-time jdeps files to add.")
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT addCompileTimeJavaDependencyArtifacts(
-      JavaInfoT javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
       throws EvalException;
 
   @StarlarkMethod(

@@ -62,7 +62,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -101,9 +100,9 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... actions) {
-      Collections.addAll(this.actions, actions);
-      original.registerAction(actions);
+    public void registerAction(ActionAnalysisMetadata action) {
+      this.actions.add(action);
+      original.registerAction(action);
     }
 
     /** Calls {@link MutableActionGraph#registerAction} for all collected actions. */
@@ -350,8 +349,7 @@ public final class AnalysisTestUtil {
         };
 
     @Override
-    public void registerAction(ActionAnalysisMetadata... action) {
-    }
+    public void registerAction(ActionAnalysisMetadata action) {}
 
     @Override
     public boolean hasErrors() {
@@ -481,9 +479,23 @@ public final class AnalysisTestUtil {
    */
   public static Set<String> artifactsToStrings(
       BuildConfigurationCollection configurations, Iterable<? extends Artifact> artifacts) {
-    Map<String, String> rootMap = new HashMap<>();
     BuildConfiguration targetConfiguration =
         Iterables.getOnlyElement(configurations.getTargetConfigurations());
+    BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
+    return artifactsToStrings(targetConfiguration, hostConfiguration, artifacts);
+  }
+
+  /**
+   * Given a collection of Artifacts, returns a corresponding set of strings of the form "{root}
+   * {relpath}", such as "bin x/libx.a". Such strings make assertions easier to write.
+   *
+   * <p>The returned set preserves the order of the input.
+   */
+  public static Set<String> artifactsToStrings(
+      BuildConfiguration targetConfiguration,
+      BuildConfiguration hostConfiguration,
+      Iterable<? extends Artifact> artifacts) {
+    Map<String, String> rootMap = new HashMap<>();
     rootMap.put(
         targetConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin");
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore
@@ -493,7 +505,6 @@ public final class AnalysisTestUtil {
         targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN).getRoot().toString(),
         "internal");
 
-    BuildConfiguration hostConfiguration = configurations.getHostConfiguration();
     rootMap.put(
         hostConfiguration.getBinDirectory(RepositoryName.MAIN).getRoot().toString(), "bin(host)");
     // In preparation for merging genfiles/ and bin/, we don't differentiate them in tests anymore

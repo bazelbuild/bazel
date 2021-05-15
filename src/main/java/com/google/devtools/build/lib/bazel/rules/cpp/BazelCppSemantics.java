@@ -35,7 +35,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** C++ compilation semantics. */
 public class BazelCppSemantics implements AspectLegalCppSemantics {
-  @AutoCodec public static final BazelCppSemantics INSTANCE = new BazelCppSemantics();
+  @AutoCodec public static final BazelCppSemantics CPP = new BazelCppSemantics(Language.CPP);
+  @AutoCodec public static final BazelCppSemantics OBJC = new BazelCppSemantics(Language.OBJC);
 
   // TODO(#10338): We need to check for both providers. With and without the @rules_cc repo name.
   //  The reason for that is that when we are in a target inside @rules_cc, the provider won't have
@@ -50,7 +51,15 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
-  private BazelCppSemantics() {
+  private enum Language {
+    CPP,
+    OBJC
+  }
+
+  private final Language language;
+
+  private BazelCppSemantics(Language language) {
+    this.language = language;
   }
 
   @Override
@@ -60,15 +69,21 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer) {
     CcToolchainProvider toolchain = actionBuilder.getToolchain();
-    actionBuilder
-        .addTransitiveMandatoryInputs(
-            configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
-                    && !actionBuilder.getSourceFile().isTreeArtifact()
-                ? (actionBuilder.getActionName().equals(CppActionNames.ASSEMBLE)
-                    ? toolchain.getAsFiles()
-                    : toolchain.getCompilerFiles())
-                : toolchain.getAllFiles())
-        .setShouldScanIncludes(false);
+    if (language == Language.CPP) {
+      actionBuilder
+          .addTransitiveMandatoryInputs(
+              configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
+                      && !actionBuilder.getSourceFile().isTreeArtifact()
+                  ? (actionBuilder.getActionName().equals(CppActionNames.ASSEMBLE)
+                      ? toolchain.getAsFiles()
+                      : toolchain.getCompilerFiles())
+                  : toolchain.getAllFiles())
+          .setShouldScanIncludes(false);
+    } else {
+      actionBuilder
+          .addTransitiveMandatoryInputs(toolchain.getAllFilesMiddleman())
+          .setShouldScanIncludes(false);
+    }
   }
 
   @Override
@@ -92,7 +107,11 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
 
   @Override
   public boolean needsDotdInputPruning(BuildConfiguration configuration) {
-    return true;
+    if (language == Language.CPP) {
+      return true;
+    } else {
+      return configuration.getFragment(CppConfiguration.class).objcShouldGenerateDotdFiles();
+    }
   }
 
   @Override

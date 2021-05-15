@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -75,17 +76,40 @@ class BuildResultPrinter {
             env.getWorkspace(),
             request.getBuildOptions().printWorkspaceInOutputPathsIfNeeded
                 ? env.getWorkingDirectory()
-                : env.getWorkspace(),
-            request.getBuildOptions().experimentalNoProductNameOutSymlink);
+                : env.getWorkspace());
     OutErr outErr = request.getOutErr();
-    Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
+
+    // Produce output as if validation aspect didn't exist; instead we'll consult validation aspect
+    // if we end up printing targets below. Note that in the presence of other aspects, we may print
+    // success messages for them but the overall build will still fail if validation aspects (or
+    // targets) failed.
+    Collection<AspectKey> aspectsToPrint = aspects.keySet();
+    if (request.useValidationAspect()) {
+      aspectsToPrint =
+          aspectsToPrint.stream()
+              .filter(
+                  k -> !BuildRequest.VALIDATION_ASPECT_NAME.equals(k.getAspectClass().getName()))
+              .collect(ImmutableList.toImmutableList());
+    }
     final boolean success;
-    if (aspects.isEmpty()) {
+    if (aspectsToPrint.isEmpty()) {
       // Suppress summary if --show_result value is exceeded:
+      Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
       if (targetsToPrint.size() > request.getBuildOptions().maxResultTargets) {
         return;
       }
-      // Filter the targets we care about into three buckets:
+
+      // Filter the targets we care about into three buckets. Targets are only considered successful
+      // if they and their validation aspects succeeded. Note we determined above that all aspects
+      // are validation aspects, so just use the full keySet() here.
+      ImmutableMap<ConfiguredTargetKey, Boolean> validated =
+          aspects.keySet().stream()
+              .collect(
+                  ImmutableMap.toImmutableMap(
+                      AspectKey::getBaseConfiguredTargetKey,
+                      k -> result.getSuccessfulAspects().contains(k),
+                      Boolean::logicalAnd));
+
       Collection<ConfiguredTarget> succeeded = new ArrayList<>();
       Collection<ConfiguredTarget> failed = new ArrayList<>();
       Collection<ConfiguredTarget> skipped = new ArrayList<>();
@@ -93,8 +117,12 @@ class BuildResultPrinter {
       for (ConfiguredTarget target : targetsToPrint) {
         if (configuredTargetsToSkip.contains(target)) {
           skipped.add(target);
+        } else if (successfulTargets.contains(target)
+            && validated.getOrDefault(
+                ConfiguredTargetKey.builder().setConfiguredTarget(target).build(), Boolean.TRUE)) {
+          succeeded.add(target);
         } else {
-          (successfulTargets.contains(target) ? succeeded : failed).add(target);
+          failed.add(target);
         }
       }
 
@@ -134,7 +162,8 @@ class BuildResultPrinter {
           for (Artifact temp :
               topLevelProvider.getOutputGroup(OutputGroupInfo.TEMP_FILES).toList()) {
             if (temp.getPath().exists()) {
-              outErr.printErrLn("  See temp at " + prettyPrinter.getPrettyPath(temp.getPath()));
+              outErr.printErrLn(
+                  "  See temp at " + prettyPrinter.getPrettyPath(temp.getPath().asFragment()));
             }
           }
         }
@@ -142,14 +171,14 @@ class BuildResultPrinter {
       success = failed.isEmpty();
     } else {
       // Suppress summary if --show_result value is exceeded:
-      if (aspects.size() > request.getBuildOptions().maxResultTargets) {
+      if (aspectsToPrint.size() > request.getBuildOptions().maxResultTargets) {
         return;
       }
       // Filter the targets we care about into two buckets:
       Collection<AspectKey> succeeded = new ArrayList<>();
       Collection<AspectKey> failed = new ArrayList<>();
       ImmutableSet<AspectKey> successfulAspects = result.getSuccessfulAspects();
-      for (AspectKey aspect : aspects.keySet()) {
+      for (AspectKey aspect : aspectsToPrint) {
         (successfulAspects.contains(aspect) ? succeeded : failed).add(aspect);
       }
       TopLevelArtifactContext context = request.getTopLevelArtifactContext();
@@ -192,7 +221,7 @@ class BuildResultPrinter {
   }
 
   private String formatArtifactForShowResults(PathPrettyPrinter prettyPrinter, Artifact artifact) {
-    return "  " + prettyPrinter.getPrettyPath(artifact.getPath());
+    return "  " + prettyPrinter.getPrettyPath(artifact.getPath().asFragment());
   }
 
   /**

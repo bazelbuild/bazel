@@ -21,46 +21,53 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Integration tests with a custom filesystem layer, for faking things like IOExceptions, on top of
  * the real unix filesystem (so we can execute actions).
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
-@RunWith(JUnit4.class)
-public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTestCase {
+@RunWith(TestParameterInjector.class)
+public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegrationTestCase {
 
   private CustomRealFilesystem customFileSystem = null;
 
   @Override
   protected FileSystem createFileSystem() {
     if (customFileSystem == null) {
-      customFileSystem = new CustomRealFilesystem();
+      customFileSystem = new CustomRealFilesystem(getDigestHashFunction());
     }
     return customFileSystem;
   }
@@ -92,27 +99,158 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
         "Executing genrule //foo:top failed: error reading file '//foo:foo.sh': nope");
   }
 
+  @Test
+  public void globDanglingSymlink() throws Exception {
+    Path packageDirPath = write("foo/BUILD", "exports_files(glob(['*.txt']))").getParentDirectory();
+    write("foo/existing.txt");
+    Path badSymlink = packageDirPath.getChild("bad.txt");
+    FileSystemUtils.ensureSymbolicLink(badSymlink, "nope");
+    customFileSystem.alwaysError(badSymlink);
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> buildTarget("//foo:all"));
+    assertThat(e).hasMessageThat().contains("no such package 'foo': error globbing [*.txt]: nope");
+  }
+
   /**
    * Tests that IOExceptions encountered while handling non-mandatory inputs are properly handled.
    */
   @Test
   public void testIOException_nonMandatoryInputs() throws Exception {
-    Path fooBuildFile =
-        write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
+    addOptions("--features=cc_include_scanning");
+    write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
-    Path fooHFile = fooBuildFile.getParentDirectory().getRelative("foo.h");
-    writeAbsolute(fooHFile, "//thisisacomment");
-    customFileSystem.alwaysError(fooHFile);
+    Path fooHFile = write("foo/foo.h", "//thisisacomment");
+    customFileSystem.alwaysErrorAfter(fooHFile, 1);
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    events.assertContainsError(
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: include scanning: Include scanning"
+            + " IOException: nope");
+  }
+
+  @Test
+  public void ioExceptionInSkyframeOptionalInput(@TestParameter boolean keepGoing)
+      throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    addOptions("--features=cc_include_scanning");
+    write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
+    Path ccFile = write("foo/foo.cc", "#include \"foo/foo.h\"");
+    // Making the destination a symlink keeps the include scanner from populating the syscalls cache
+    // before Skyframe gets a chance to stat the bad file.
+    ccFile.getParentDirectory().getChild("foo.h").createSymbolicLink(PathFragment.create("bad.h"));
+    Path badFile = write("foo/bad.h", "//ok contents");
+    customFileSystem.alwaysError(badFile);
+
+    BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     events.assertContainsError(
         "foo/BUILD:1:11: Compiling foo/foo.cc failed: error reading file 'foo/foo.h': nope");
+  }
+
+  @Test
+  public void incrementalNonMandatoryInputIOException(
+      @TestParameter boolean keepGoing, @TestParameter({"0", "1"}) int nestedSetOnSkyframe)
+      throws Exception {
+    RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();
+    addOptions("--features=cc_include_scanning");
+    addOptions("--keep_going=" + keepGoing);
+    addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
+    write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
+    write("foo/foo.cc", "#include \"foo/foo.h\"");
+    Path fooHFile = write("foo/foo.h", "//thisisacomment");
+    buildTarget("//foo");
+    bugReporter.assertNoExceptions();
+
+    write("foo/foo.cc", "//no include anymore");
+    customFileSystem.alwaysError(fooHFile);
+    if (keepGoing) {
+      buildTarget("//foo");
+      bugReporter.assertNoExceptions();
+    } else {
+      RecordingOutErr outErr = new RecordingOutErr();
+      this.outErr = outErr;
+      BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+      assertDetailedExitCodeIsSourceIOFailure(e);
+      Throwable cause = bugReporter.getFirstCause();
+      assertThat(cause).hasMessageThat().isEqualTo("error reading file 'foo/foo.h': nope");
+      assertDetailedExitCodeIsSourceIOFailure(cause);
+      assertThat(outErr.errAsLatin1()).contains("error reading file 'foo/foo.h': nope");
+    }
+  }
+
+  @Test
+  public void unusedInputIOExceptionIncremental(@TestParameter boolean keepGoing) throws Exception {
+    RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();
+    addOptions("--keep_going=" + keepGoing);
+    write(
+        "foo/pruning.bzl",
+        "def _impl(ctx):",
+        "  inputs = ctx.attr.inputs.files",
+        "  output = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  unused_file = ctx.actions.declare_file(ctx.label.name + '.unused')",
+        "  ctx.actions.run(",
+        "    inputs = inputs,",
+        "    outputs = [output, unused_file],",
+        "    arguments = [output.path, unused_file.path] + [f.path for f in inputs.to_list()],",
+        "    executable = ctx.executable.executable,",
+        "    unused_inputs_list = unused_file,",
+        "  )",
+        "  return DefaultInfo(files = depset([output]))",
+        "",
+        "build_rule = rule(",
+        "  attrs = {",
+        "    'inputs': attr.label(allow_files = True),",
+        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "  },",
+        "  implementation = _impl,",
+        ")");
+    Path unusedSh =
+        write("foo/all_unused.sh", "touch $1", "shift", "unused=$1", "shift", "echo $@ > $unused");
+    unusedSh.setExecutable(true);
+    write(
+        "foo/BUILD",
+        "load('//foo:pruning.bzl', 'build_rule')",
+        "build_rule(name = 'prune', inputs = ':unused.txt', executable = ':all_unused.sh')");
+    Path unusedPath = write("foo/unused.txt");
+    buildTarget("//foo:prune");
+    bugReporter.assertNoExceptions();
+
+    customFileSystem.alwaysError(unusedPath);
+    if (keepGoing) {
+      buildTarget("//foo:prune");
+      bugReporter.assertNoExceptions();
+    } else {
+      RecordingOutErr outErr = new RecordingOutErr();
+      this.outErr = outErr;
+      BuildFailedException e =
+          assertThrows(BuildFailedException.class, () -> buildTarget("//foo:prune"));
+      assertDetailedExitCodeIsSourceIOFailure(e);
+      Throwable cause = bugReporter.getFirstCause();
+      assertThat(cause).hasMessageThat().isEqualTo("error reading file '//foo:unused.txt': nope");
+      assertDetailedExitCodeIsSourceIOFailure(cause);
+      assertThat(outErr.errAsLatin1()).contains("error reading file '//foo:unused.txt': nope");
+    }
+  }
+
+  private static final FailureDetails.FailureDetail SOURCE_IO_FAILURE =
+      FailureDetails.FailureDetail.newBuilder()
+          .setExecution(
+              FailureDetails.Execution.newBuilder()
+                  .setCode(FailureDetails.Execution.Code.SOURCE_INPUT_IO_EXCEPTION))
+          .build();
+
+  private static void assertDetailedExitCodeIsSourceIOFailure(Throwable exception) {
+    assertThat(exception).isInstanceOf(DetailedException.class);
+    assertThat(((DetailedException) exception).getDetailedExitCode().getFailureDetail())
+        .comparingExpectedFieldsOnly()
+        .isEqualTo(SOURCE_IO_FAILURE);
   }
 
   /** Tests that IOExceptions encountered when not all discovered deps are done are handled. */
   @Test
   public void testIOException_missingNonMandatoryInput() throws Exception {
+    addOptions("--features=cc_include_scanning");
     Path fooBuildFile =
         write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/error.h\"", "#include \"foo/other.h\"");
@@ -120,7 +258,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     Path otherHFile = fooBuildFile.getParentDirectory().getRelative("other.h");
     writeAbsolute(errorHFile, "//thisisacomment");
     writeAbsolute(otherHFile, "//thisisacomment");
-    customFileSystem.alwaysError(errorHFile);
+    customFileSystem.alwaysErrorAfter(errorHFile, 1);
     getSkyframeExecutor()
         .getEvaluatorForTesting()
         .injectGraphTransformerForTesting(
@@ -141,9 +279,10 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
                 }));
 
     BuildFailedException e = assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     events.assertContainsError(
-        "foo/BUILD:1:11: Compiling foo/foo.cc failed: error reading file 'foo/error.h': nope");
+        "foo/BUILD:1:11: Compiling foo/foo.cc failed: include scanning: Include scanning"
+            + " IOException: nope");
   }
 
   /**
@@ -152,6 +291,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
    */
   @Test
   public void testIOException_nonMandatoryGeneratedInputs() throws Exception {
+    addOptions("--features=cc_include_scanning");
     write(
         "bar/BUILD",
         "cc_library(",
@@ -172,17 +312,19 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     write("bar/bar.cc", "int f() { return 0; }");
     write("bar/in.txt", "int f(); // 0");
 
-    // On an incremental skyframe build, the output file from a genrule is statted 5 times:
-    //   1 time in FilesystemValueChecker
-    //   1 time in ActionCacheChecker#needToExecute
-    //   1 time in GenRuleAction#checkOutputsForDirectories
-    //   1 time in SkyframeActionExecutor#checkOutputs
-    //   1 time in SkyframeActionExecutor#setOutputsReadOnlyAndExecutable
+    // On an incremental skyframe build, the output file from a genrule is accessed 6 times via this
+    // test's instrumented methods.
+    //   FilesystemValueChecker
+    //   ActionCacheChecker#needToExecute
+    //   Path#getDigest (from ActionCacheChecker)
+    //   Internal remote execution client to check if symlink
+    //   SpawnIncludeScanner#shouldparseRemotely
+    //   IncludeParser#extractInclusions
 
-    int numStatsOnIncrementalBuildWithChange = 5;
+    int numAccessesOnIncrementalBuildWithChange = 6;
     buildTarget("//bar");
     Path barHOutputPath = Iterables.getOnlyElement(getArtifacts("//bar:bar.h")).getPath();
-    customFileSystem.alwaysErrorAfter(barHOutputPath, numStatsOnIncrementalBuildWithChange);
+    customFileSystem.alwaysErrorAfter(barHOutputPath, numAccessesOnIncrementalBuildWithChange);
     write("bar/in.txt", "int f(); // 1");
     buildTarget("//foo");
     // Check that the expected number of stats were made on the generated file (note that this
@@ -193,7 +335,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     // fail, but all the previous ones done (e.g. during the genrule execution) succeed. But for now
     // we just check the exact number of stats done.
     assertThat(customFileSystem.getNumCallsUntilError(barHOutputPath)).isEqualTo(0);
-    customFileSystem.alwaysErrorAfter(barHOutputPath, numStatsOnIncrementalBuildWithChange);
+    customFileSystem.alwaysErrorAfter(barHOutputPath, numAccessesOnIncrementalBuildWithChange);
     write("bar/in.txt", "int f(); // 2");
     buildTarget("//foo");
     assertThat(customFileSystem.getNumCallsUntilError(barHOutputPath)).isEqualTo(0);
@@ -201,6 +343,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
 
   @Test
   public void ioExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    addOptions("--features=cc_include_scanning");
     write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
     write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
     Path header = write("hello/subdir/undeclared.h");
@@ -211,11 +354,12 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     buildTarget("//hello:hello");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
-    MoreAsserts.assertContainsEventRegex(
+    MoreAsserts.assertContainsEvent(
         events.collector(),
-        "^ERROR.*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
-            + " artifact: no such package 'hello/subdir': IO errors while looking for BUILD file"
-            + " reading .*hello/subdir/BUILD: nope");
+        Pattern.compile(
+            "^ERROR.*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h"
+                + " as an artifact: no such package 'hello/subdir': IO errors while looking for"
+                + " BUILD file reading .*hello/subdir/BUILD: nope"));
     assertThat(e.getDetailedExitCode().getFailureDetail())
         .comparingExpectedFieldsOnly()
         .isEqualTo(
@@ -230,6 +374,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
 
   @Test
   public void inconsistentExceptionReadingBuildFileForDiscoveredInput() throws Exception {
+    addOptions("--features=cc_include_scanning");
     write("hello/BUILD", "cc_library(name = 'hello', srcs = ['hello.cc'], hdrs_check = 'loose')");
     write("hello/hello.cc", "#include \"hello/subdir/undeclared.h\"");
     write("hello/subdir/undeclared.h");
@@ -239,12 +384,14 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     customFileSystem.errorInsideStat(buildFile, 0);
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//hello:hello"));
-    MoreAsserts.assertContainsEventRegex(
+    MoreAsserts.assertContainsEvent(
         events.collector(),
-        ".*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
-            + " artifact: Inconsistent filesystem operations. 'stat' said .*/hello/subdir/BUILD is"
-            + " a file but then we later encountered error 'nope for .*/hello/subdir/BUILD' which"
-            + " indicates that .*/hello/subdir/BUILD is no longer a file.*");
+        Pattern.compile(
+            ".*Compiling hello/hello.cc failed: Unable to resolve hello/subdir/undeclared.h as an"
+                + " artifact: Inconsistent filesystem operations. 'stat' said"
+                + " .*/hello/subdir/BUILD is a file but then we later encountered error 'nope for"
+                + " .*/hello/subdir/BUILD' which indicates that .*/hello/subdir/BUILD is no longer"
+                + " a file.*"));
     events.assertContainsError("hello/subdir/BUILD ");
     assertThat(e.getDetailedExitCode().getFailureDetail())
         .comparingExpectedFieldsOnly()
@@ -386,14 +533,16 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
   @Test
   public void ioExceptionInTopLevelSource_noKeepGoing() throws Exception {
     runIoExceptionInTopLevelSource();
-    MoreAsserts.assertContainsEventRegex(
+    MoreAsserts.assertContainsEvent(
         events.collector(),
-        ".*foo/BUILD:2:11: //foo:foo: (error reading file '//foo:error.in': nope|missing input file"
-            + " '//foo:missing.in')");
-    MoreAsserts.assertContainsEventRegex(
+        Pattern.compile(
+            ".*foo/BUILD:2:11: //foo:foo: (error reading file '//foo:error.in': nope|missing input"
+                + " file '//foo:missing.in')"));
+    MoreAsserts.assertContainsEvent(
         events.collector(),
-        ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error or do"
-            + " not exist)");
+        Pattern.compile(
+            ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error"
+                + " or do not exist)"));
   }
 
   private void runMissingFileAndIoException() throws Exception {
@@ -413,23 +562,21 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     events.assertContainsError(
         "foo/BUILD:1:8: Executing genrule //foo:foo failed: error reading file '//foo:error.in':"
             + " nope");
-    events.assertContainsError(
-        "foo/BUILD:1:8: Executing genrule //foo:foo failed: missing input file '//foo:missing.in'");
-    events.assertContainsError(
-        "Executing genrule //foo:foo failed: 2 input file(s) are in error or do not exist");
   }
 
   @Test
   public void missingFileAndIoException_noKeepGoing() throws Exception {
     runMissingFileAndIoException();
-    MoreAsserts.assertContainsEventRegex(
+    MoreAsserts.assertContainsEvent(
         events.collector(),
-        ".*foo/BUILD:1:8: Executing genrule //foo:foo failed: (error reading file '//foo:error.in':"
-            + " nope|missing input file '//foo:missing.in')");
-    MoreAsserts.assertContainsEventRegex(
+        Pattern.compile(
+            ".*foo/BUILD:1:8: Executing genrule //foo:foo failed: (error reading file"
+                + " '//foo:error.in': nope|missing input file '//foo:missing.in')"));
+    MoreAsserts.assertContainsEvent(
         events.collector(),
-        ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error or do"
-            + " not exist)");
+        Pattern.compile(
+            ".*(1 input file\\(s\\) (are in error|do not exist)|2 input file\\(s\\) are in error"
+                + " or do not exist)"));
   }
 
   private static class CustomRealFilesystem extends UnixFileSystem {
@@ -437,8 +584,8 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
     private final Map<PathFragment, Integer> statBadPaths = new HashMap<>();
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
 
-    private CustomRealFilesystem() {
-      super(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    private CustomRealFilesystem(DigestHashFunction digestHashFunction) {
+      super(digestHashFunction, /*hashAttributeName=*/ "");
     }
 
     void alwaysError(Path path) {
@@ -516,6 +663,18 @@ public class CustomRealFilesystemBuildIntegrationTest extends BuildIntegrationTe
         throw new IOException("nope");
       }
       super.createDirectoryAndParents(path);
+    }
+
+    @Override
+    protected PathFragment readSymbolicLinkUnchecked(PathFragment path) throws IOException {
+      maybeThrowExn(path);
+      return super.readSymbolicLinkUnchecked(path);
+    }
+
+    @Override
+    protected InputStream createFileInputStream(PathFragment path) throws IOException {
+      maybeThrowExn(path);
+      return super.createFileInputStream(path);
     }
 
     private static class ThrowingFileStatus implements FileStatus {

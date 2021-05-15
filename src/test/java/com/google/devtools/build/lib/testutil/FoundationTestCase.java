@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.After;
 import org.junit.Before;
 
@@ -111,6 +112,10 @@ public abstract class FoundationTestCase {
   protected Event assertContainsEvent(String expectedMessage) {
     return MoreAsserts.assertContainsEvent(eventCollector,
                                               expectedMessage);
+  }
+
+  protected Event assertContainsEvent(Pattern expectedMessagePattern) {
+    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessagePattern);
   }
 
   protected Event assertContainsEvent(String expectedMessage, Set<EventKind> kinds) {

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
@@ -82,8 +81,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     JavaTargetAttributes attributes = attributesBuilder.build();
     if (attributes.hasMessages()) {
-      helper.setTranslations(
-          semantics.translate(ruleContext, javaConfig, attributes.getMessages()));
+      helper.setTranslations(semantics.translate(ruleContext, attributes.getMessages()));
     }
 
     ruleContext.checkSrcsSamePackage(true);
@@ -151,12 +149,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArgsProvider javaCompilationArgs =
         common.collectJavaCompilationArgs(neverLink, /* srcLessDepsExport= */ false);
-    NestedSet<LibraryToLink> transitiveJavaNativeLibraries =
-        common.collectTransitiveJavaNativeLibraries();
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 
-    semantics.addProviders(ruleContext, common, outputs.genSource(), builder);
     if (generatedExtensionRegistryProvider != null) {
       builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
     }
@@ -174,11 +169,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
-    JavaPluginInfoProvider pluginInfoProvider =
+    JavaPluginInfo javaPluginInfo =
         isJavaPluginRule
             // For java_plugin we create the provider with content retrieved from the rule
             // attributes.
-            ? common.getJavaPluginInfoProvider(ruleContext)
+            ? common.createJavaPluginInfo(ruleContext)
             // For java_library we add the transitive plugins from plugins and exported_plugins
             // attrs.
             : JavaCommon.getTransitivePlugins(ruleContext);
@@ -189,7 +184,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             // TODO(bazel-team): this should only happen for java_plugin
-            .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
+            .javaPluginInfo(javaPluginInfo)
             .addTransitiveOnlyRuntimeJars(common.getDependencies())
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
@@ -201,14 +196,20 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(new JavaNativeLibraryInfo(transitiveJavaNativeLibraries))
         .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
-        .addNativeDeclaredProvider(javaInfo)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(
             JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
             NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()))
         .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, proguardSpecs);
+
+    if (isJavaPluginRule) {
+      builder.addStarlarkDeclaredProvider(javaPluginInfo);
+    }
+    if (!isJavaPluginRule || !javaConfig.requireJavaPluginInfo()) {
+      // After javaConfig.requireJavaPluginInfo is flipped JavaInfo is not returned from java_plugin
+      builder.addNativeDeclaredProvider(javaInfo);
+    }
 
     Artifact validation =
         AndroidLintActionBuilder.create(

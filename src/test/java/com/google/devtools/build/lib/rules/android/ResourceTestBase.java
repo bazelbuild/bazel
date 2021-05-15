@@ -210,10 +210,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
     return getArtifact(RESOURCE_ROOT, pathString);
   }
 
-  Artifact getOutput(String pathString) {
-    return getArtifact("outputs", pathString);
-  }
-
   private Artifact getArtifact(String subdir, String pathString) {
     Path path = fileSystem.getPath("/" + subdir + "/" + pathString);
     return new Artifact.SourceArtifact(
@@ -244,7 +240,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
                 .setLabel(dummyTarget.getLabel())
                 .setConfiguration(targetConfig)
                 .build(),
-            /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),
             eventHandler,
@@ -262,7 +257,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
   /**
    * Assets that the action used to generate the given outputs has the expected inputs and outputs.
    */
-  void assertActionArtifacts(
+  static void assertActionArtifacts(
       RuleContext ruleContext, ImmutableList<Artifact> inputs, ImmutableList<Artifact> outputs) {
     // Actions must have at least one output
     assertThat(outputs).isNotEmpty();

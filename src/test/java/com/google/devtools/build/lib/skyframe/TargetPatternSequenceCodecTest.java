@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue.TargetPatternSequence;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -45,7 +45,7 @@ public final class TargetPatternSequenceCodecTest {
 
   @Test
   public void testPatternsOrderSignificant() throws Exception {
-    SerializationContext writeContext = new SerializationContext(ImmutableMap.of());
+    SerializationContext writeContext = new SerializationContext(ImmutableClassToInstanceMap.of());
 
     ByteArrayOutputStream outputBytes = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(outputBytes);

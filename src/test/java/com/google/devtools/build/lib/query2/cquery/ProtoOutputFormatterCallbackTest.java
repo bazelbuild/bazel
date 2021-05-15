@@ -88,7 +88,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "config_setting(",
         "  name = 'garfield',",
-        "  values = {'test_arg': 'cat'}",
+        "  values = {'foo': 'cat'}",
         ")");
 
     AnalysisProtos.ConfiguredTarget myRuleProto =
@@ -103,7 +103,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
       break;
     }
 
-    getHelper().useConfiguration("--test_arg=cat");
+    getHelper().useConfiguration("--foo=cat");
     myRuleProto = Iterables.getOnlyElement(getOutput("//test:my_rule").getResultsList());
     attributes = myRuleProto.getTarget().getRule().getAttributeList();
     for (Build.Attribute attribute : attributes) {
@@ -119,7 +119,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
 
   @Test
   public void testConfigurationHash() throws Exception {
-    TestArgPatchTransition attributePatchTransition = new TestArgPatchTransition("SET BY PATCH");
+    FooPatchTransition attributePatchTransition = new FooPatchTransition("SET BY PATCH");
 
     MockRule ruleWithPatch =
         () ->
@@ -189,11 +189,11 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         ")",
         "config_setting(",
         "  name = 'config1',",
-        "  values = {'test_arg': 'woof'},",
+        "  values = {'foo': 'woof'},",
         ")",
         "simple_rule(name = 'target1')",
         "simple_rule(name = 'target2')");
-    getHelper().useConfiguration("--test_arg=woof");
+    getHelper().useConfiguration("--foo=woof");
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
 
     List<AnalysisProtos.ConfiguredTarget> myAliasRuleProto =

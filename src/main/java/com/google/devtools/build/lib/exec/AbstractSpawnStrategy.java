@@ -97,6 +97,12 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   }
 
   @Override
+  public boolean canExecWithLegacyFallback(
+      Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
+    return spawnRunner.canExecWithLegacyFallback(spawn);
+  }
+
+  @Override
   public ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return exec(spawn, actionExecutionContext, null);

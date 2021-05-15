@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.analysis.util.DefaultBuildOptionsForTesting;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -61,21 +60,19 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BuildFileModificationTest extends FoundationTestCase {
 
-  private ManualClock clock = new ManualClock();
-  private AnalysisMock analysisMock;
-  private ConfiguredRuleClassProvider ruleClassProvider;
+  private final ManualClock clock = new ManualClock();
   private SkyframeExecutor skyframeExecutor;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
-  public final void disableLogging() throws Exception {
+  public final void disableLogging() {
     Logger.getLogger("com.google.devtools").setLevel(Level.SEVERE);
   }
 
   @Before
-  public final void initializeSkyframeExecutor() throws Exception {
-    analysisMock = AnalysisMock.get();
-    ruleClassProvider = analysisMock.createRuleClassProvider();
+  public final void initializeSkyframeExecutor() {
+    AnalysisMock analysisMock = AnalysisMock.get();
+    ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
@@ -92,8 +89,6 @@ public class BuildFileModificationTest extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setDefaultBuildOptions(
-                DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -116,7 +111,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
             null,
             packageOptions.packagePath,
             reporter,
-            rootDirectory,
+            rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageOptions.showLoadingProgress = true;
@@ -126,9 +121,9 @@ public class BuildFileModificationTest extends FoundationTestCase {
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(clock));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
   }
 

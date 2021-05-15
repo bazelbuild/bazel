@@ -109,7 +109,7 @@ Compiler, so every <code>genproto</code> rule carries an implicit dependency on 
 protocol compiler. These dependencies are not mentioned in the build file,
 but added in by the build tool. The full set of implicit dependencies is
   currently undocumented. Using <code>--noimplicit_deps</code> allows you to filter out
-  these deps from your query results.
+  these deps from your query results. For cquery, this will inlude resolved toolchains.
 
 <h2 id="Reverse_Dependencies">Reverse dependencies</h2>
 

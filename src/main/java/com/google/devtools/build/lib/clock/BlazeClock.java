@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.clock;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Provides the clock implementation used by Blaze, which is {@link JavaClock}
@@ -45,5 +47,36 @@ public abstract class BlazeClock {
 
   public static long nanoTime() {
     return instance().nanoTime();
+  }
+
+  /**
+   * Converts from nanos to millis since the epoch. In particular, note that {@link System#nanoTime}
+   * does not specify any particular time reference but only notes that returned values are only
+   * meaningful when taking in relation to each other.
+   */
+  public interface NanosToMillisSinceEpochConverter {
+    /** Converts from nanos to millis since the epoch. */
+    long toEpochMillis(long timeNanos);
+  }
+
+  /**
+   * Creates a {@link NanosToMillisSinceEpochConverter} from the current BlazeClock instance by
+   * taking the current time in millis and the current time in nanos to compute the appropriate
+   * offset.
+   */
+  public static NanosToMillisSinceEpochConverter createNanosToMillisSinceEpochConverter() {
+    return createNanosToMillisSinceEpochConverter(instance);
+  }
+
+  /**
+   * Creates a {@link NanosToMillisSinceEpochConverter} from clock by taking the current time in
+   * millis and the current time in nanos to compute the appropriate offset.
+   */
+  @VisibleForTesting
+  public static NanosToMillisSinceEpochConverter createNanosToMillisSinceEpochConverter(
+      Clock clock) {
+    long nowInMillis = clock.currentTimeMillis();
+    long nowInNanos = clock.nanoTime();
+    return (timeNanos) -> nowInMillis - TimeUnit.NANOSECONDS.toMillis((nowInNanos - timeNanos));
   }
 }

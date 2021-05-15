@@ -88,13 +88,13 @@ public class MerkleTreeTest {
 
     Directory fizzDir =
         Directory.newBuilder()
-            .addFiles(newFileNode("buzz.cc", digestUtil.computeAsUtf8("buzz"), false))
-            .addFiles(newFileNode("fizzbuzz.cc", digestUtil.computeAsUtf8("fizzbuzz"), false))
+            .addFiles(newFileNode("buzz.cc", digestUtil.computeAsUtf8("buzz"), true))
+            .addFiles(newFileNode("fizzbuzz.cc", digestUtil.computeAsUtf8("fizzbuzz"), true))
             .build();
     Directory srcsDir =
         Directory.newBuilder()
-            .addFiles(newFileNode("bar.cc", digestUtil.computeAsUtf8("bar"), false))
-            .addFiles(newFileNode("foo.cc", digestUtil.computeAsUtf8("foo"), false))
+            .addFiles(newFileNode("bar.cc", digestUtil.computeAsUtf8("bar"), true))
+            .addFiles(newFileNode("foo.cc", digestUtil.computeAsUtf8("foo"), true))
             .addDirectories(
                 DirectoryNode.newBuilder().setName("fizz").setDigest(digestUtil.compute(fizzDir)))
             .build();

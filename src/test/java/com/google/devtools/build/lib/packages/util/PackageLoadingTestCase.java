@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.util.DefaultBuildOptionsForTesting;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -126,8 +124,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setDefaultBuildOptions(
-                DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -138,7 +134,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.<EnvironmentExtension>of();
+    return ImmutableList.of();
   }
 
   protected void setUpSkyframe(RuleVisibility defaultVisibility) {
@@ -158,9 +154,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         packageOptions,
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
 
   private void setUpSkyframe() {
@@ -169,7 +165,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             outputBase,
             packageOptions.packagePath,
             reporter,
-            rootDirectory,
+            rootDirectory.asFragment(),
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageOptions.showLoadingProgress = true;
@@ -179,9 +175,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
   }
 
@@ -228,8 +224,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
    * @param ruleName the name of the rule.
    * @param lines the text of the rule.
    * @return the rule instance for the created rule.
-   * @throws IOException
-   * @throws Exception
    */
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
@@ -239,12 +233,13 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   /**
    * A Utility method that generates build file rules for tests.
+   *
    * @param rule the name of the rule class.
    * @param name the name of the rule instance.
    * @param body an array of strings containing the contents of the rule.
    * @return a string containing the build file rule.
    */
-  protected String genRule(String rule, String name, String... body) {
+  protected static String genRule(String rule, String name, String... body) {
     StringBuilder buf = new StringBuilder();
     buf.append(rule);
     buf.append("(name='");

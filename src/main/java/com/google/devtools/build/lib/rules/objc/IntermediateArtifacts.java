@@ -26,11 +26,12 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Factory class for generating artifacts which are used as intermediate output. */
 // TODO(bazel-team): This should really be named DerivedArtifacts as it contains methods for
 // final as well as intermediate artifacts.
-public final class IntermediateArtifacts {
+public final class IntermediateArtifacts implements StarlarkValue {
   static final String LINKMAP_SUFFIX = ".linkmap";
 
   private final RuleContext ruleContext;

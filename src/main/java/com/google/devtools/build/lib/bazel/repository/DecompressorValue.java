@@ -57,16 +57,10 @@ public class DecompressorValue implements SkyValue {
         return error + suggestion + suggestionBody;
       }
 
-      private static boolean isValidPrefixSuggestion(PathFragment pathFragment) {
-        return pathFragment.segmentCount() > 1;
-      }
-
       public static Optional<String> maybeMakePrefixSuggestion(PathFragment pathFragment) {
-        if (isValidPrefixSuggestion(pathFragment)) {
-          return Optional.of(pathFragment.getSegment(0));
-        } else {
-          return Optional.absent();
-        }
+        return pathFragment.isMultiSegment()
+            ? Optional.of(pathFragment.getSegment(0))
+            : Optional.absent();
       }
     }
 

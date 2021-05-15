@@ -59,6 +59,10 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
   CcDebugInfoContextApi getCcDebugInfoContextFromStarlark(StarlarkThread thread)
       throws EvalException;
 
+  @StarlarkMethod(name = "library_info", documented = false, useStarlarkThread = true)
+  CcNativeLibraryInfoApi getCcNativeLibraryInfoFromStarlark(StarlarkThread thread)
+      throws EvalException;
+
   /** The provider implementing this can construct CcInfo objects. */
   @StarlarkBuiltin(
       name = "Provider",

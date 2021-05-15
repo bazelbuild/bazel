@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.dynamic;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNotNull;
@@ -27,7 +28,11 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
@@ -38,8 +43,12 @@ import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -67,18 +76,27 @@ public class DynamicSpawnStrategyUnitTest {
 
   @Mock private Function<Spawn, Optional<Spawn>> mockGetPostProcessingSpawn;
 
+  private Scratch scratch;
+  private Path execDir;
+  private ArtifactRoot rootDir;
+
   @Before
-  public void initMocks() {
+  public void initMocks() throws IOException {
+    scratch = new Scratch();
+    execDir = scratch.dir("/base/exec");
+    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "root");
     MockitoAnnotations.initMocks(this);
   }
 
   @After
   public void stopExecutorService() throws InterruptedException {
-    executorServiceForCleanup.shutdown();
-    assertThat(
-            executorServiceForCleanup.awaitTermination(
-                TestUtils.WAIT_TIMEOUT_MILLISECONDS, MILLISECONDS))
-        .isTrue();
+    if (executorServiceForCleanup != null) {
+      executorServiceForCleanup.shutdown();
+      assertThat(
+              executorServiceForCleanup.awaitTermination(
+                  TestUtils.WAIT_TIMEOUT_MILLISECONDS, MILLISECONDS))
+          .isTrue();
+    }
   }
 
   @Test
@@ -203,6 +221,21 @@ public class DynamicSpawnStrategyUnitTest {
     ImmutableList<SpawnResult> results = dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
 
     assertThat(results).containsExactly(SUCCESSFUL_SPAWN_RESULT, SUCCESSFUL_SPAWN_RESULT);
+  }
+
+  @Test
+  public void waitBranches_givesDebugOutputOnWeirdCases() throws Exception {
+    Spawn spawn =
+        new SpawnBuilder()
+            .withOwnerPrimaryOutput(new SourceArtifact(rootDir, PathFragment.create("/foo"), null))
+            .build();
+    AssertionError error =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                DynamicSpawnStrategy.waitBranches(
+                    Futures.immediateFuture(null), Futures.immediateFuture(null), spawn));
+    assertThat(error).hasMessageThat().contains("Neither branch of /foo completed.");
   }
 
   private DynamicSpawnStrategy createDynamicSpawnStrategy(

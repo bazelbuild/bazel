@@ -67,7 +67,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private final RuleContext ruleContext;
   private final ObjcProvider objcProvider;
-  private final CompilationArtifacts compilationArtifacts;
   private final Artifact fullyLinkArchive;
   private final IntermediateArtifacts intermediateArtifacts;
   private final BuildConfiguration buildConfiguration;
@@ -85,7 +84,6 @@ class ObjcVariablesExtension implements VariablesExtension {
   private ObjcVariablesExtension(
       RuleContext ruleContext,
       ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts,
       Artifact fullyLinkArchive,
       IntermediateArtifacts intermediateArtifacts,
       BuildConfiguration buildConfiguration,
@@ -101,7 +99,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       boolean arcEnabled) {
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
-    this.compilationArtifacts = compilationArtifacts;
     this.fullyLinkArchive = fullyLinkArchive;
     this.intermediateArtifacts = intermediateArtifacts;
     this.buildConfiguration = buildConfiguration;
@@ -184,8 +181,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringVariable(
         OBJ_LIST_PATH_VARIABLE_NAME,
         intermediateArtifacts.archiveObjList().getExecPathString());
-    builder.addStringVariable(
-        ARCHIVE_PATH_VARIABLE_NAME, compilationArtifacts.getArchive().get().getExecPathString());
   }
 
   private void addFullyLinkArchiveVariables(CcToolchainVariables.Builder builder) {
@@ -255,7 +250,6 @@ class ObjcVariablesExtension implements VariablesExtension {
   static class Builder {
     private RuleContext ruleContext;
     private ObjcProvider objcProvider;
-    private CompilationArtifacts compilationArtifacts;
     private Artifact fullyLinkArchive;
     private IntermediateArtifacts intermediateArtifacts;
     private BuildConfiguration buildConfiguration;
@@ -281,12 +275,6 @@ class ObjcVariablesExtension implements VariablesExtension {
     /** Sets the {@link ObjcProvider} for this extension. */
     public Builder setObjcProvider(ObjcProvider objcProvider) {
       this.objcProvider = Preconditions.checkNotNull(objcProvider);
-      return this;
-    }
-
-    /** Sets the {@link CompilationArtifacts} for this extension. */
-    public Builder setCompilationArtifacts(CompilationArtifacts compilationArtifacts) {
-      this.compilationArtifacts = Preconditions.checkNotNull(compilationArtifacts);
       return this;
     }
 
@@ -376,9 +364,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       Preconditions.checkNotNull(ruleContext, "missing RuleContext");
       Preconditions.checkNotNull(buildConfiguration, "missing BuildConfiguration");
       Preconditions.checkNotNull(intermediateArtifacts, "missing IntermediateArtifacts");
-      if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
-        Preconditions.checkNotNull(compilationArtifacts, "missing CompilationArtifacts");
-      }
       if (activeVariableCategories.contains(VariableCategory.FULLY_LINK_VARIABLES)) {
         Preconditions.checkNotNull(objcProvider, "missing ObjcProvider");
         Preconditions.checkNotNull(fullyLinkArchive, "missing fully-link archive");
@@ -404,7 +389,6 @@ class ObjcVariablesExtension implements VariablesExtension {
       return new ObjcVariablesExtension(
           ruleContext,
           objcProvider,
-          compilationArtifacts,
           fullyLinkArchive,
           intermediateArtifacts,
           buildConfiguration,

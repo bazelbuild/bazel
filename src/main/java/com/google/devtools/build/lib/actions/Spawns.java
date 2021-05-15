@@ -92,6 +92,11 @@ public final class Spawns {
         .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS));
   }
 
+  public static boolean supportsWorkerCancellation(Spawn spawn) {
+    return "1"
+        .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION));
+  }
+
   /**
    * Returns which worker protocol format a Spawn claims a persistent worker uses. Defaults to proto
    * if the protocol format is not specified.
@@ -187,5 +192,22 @@ public final class Spawns {
         arguments,
         environment,
         workingDirectory.getPathString());
+  }
+
+  /**
+   * Returns a (somewhat) human-readable string for the given {@code Spawn}. Meant to be used in
+   * {@code toString()} of Spawns.
+   */
+  public static String prettyPrint(Spawn spawn) {
+    if (spawn.getResourceOwner() != null && spawn.getResourceOwner().getPrimaryOutput() != null) {
+      return spawn.getClass().getSimpleName()
+          + " for "
+          + spawn.getResourceOwner().getPrimaryOutput().prettyPrint();
+    } else {
+      return spawn.getClass().getSimpleName()
+          + " for "
+          + spawn.getMnemonic()
+          + " action without primary output";
+    }
   }
 }

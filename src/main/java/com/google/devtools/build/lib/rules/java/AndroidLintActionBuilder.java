@@ -76,10 +76,6 @@ class AndroidLintActionBuilder {
               .build();
     }
 
-    Artifact result =
-        ruleContext.getPackageRelativeArtifact(
-            ruleContext.getLabel().getName() + "_android_lint_output.xml",
-            ruleContext.getBinOrGenfilesDirectory());
     CustomCommandLine.Builder cmd = CustomCommandLine.builder();
     cmd.addExecPaths("--sources", attributes.getSourceFiles())
         .addExecPaths("--source_jars", allSrcJars)
@@ -96,15 +92,22 @@ class AndroidLintActionBuilder {
     }
     cmd.add("--lintopts");
     cmd.addAll(androidLint.options());
+
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     for (JavaPackageConfigurationProvider provider : androidLint.packageConfiguration()) {
       if (provider.matches(ruleContext.getLabel())) {
         cmd.addAll(provider.javacopts());
+        inputs.addTransitive(provider.data());
       }
     }
+
+    Artifact result =
+        ruleContext.getPackageRelativeArtifact(
+            ruleContext.getLabel().getName() + "_android_lint_output.xml",
+            ruleContext.getBinOrGenfilesDirectory());
     cmd.addExecPath("--xml", result);
 
     SpawnAction.Builder spawnAction = new SpawnAction.Builder();
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     androidLint.tool().buildCommandLine(spawnAction.executableArguments(), toolchain, inputs);
     ruleContext.registerAction(
         spawnAction

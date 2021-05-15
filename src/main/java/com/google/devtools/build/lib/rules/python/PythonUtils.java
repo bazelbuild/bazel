@@ -86,7 +86,7 @@ public final class PythonUtils {
         // If we have a python or .so file at this level...
         if (REQUIRES_INIT_PY.matches(source)) {
           // ...then record that we need an __init__.py in this and all parents directories...
-          while (source.segmentCount() > 1) {
+          while (source.isMultiSegment()) {
             source = source.getParentDirectory();
             // ...unless it's a Python .pyc cache or we already have __init__ there.
             if (!source.endsWith(PYCACHE) && !hasPackageInitDirs.contains(source)) {

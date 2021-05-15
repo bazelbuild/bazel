@@ -70,7 +70,12 @@ public class BazelCcModule extends CcModule
 
   @Override
   public CppSemantics getSemantics() {
-    return BazelCppSemantics.INSTANCE;
+    return BazelCppSemantics.CPP;
+  }
+
+  @Override
+  public CppSemantics getSemantics(Language language) {
+    return (language == Language.CPP) ? BazelCppSemantics.CPP : BazelCppSemantics.OBJC;
   }
 
   @Override

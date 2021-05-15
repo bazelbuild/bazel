@@ -883,8 +883,7 @@ public final class UnixGlob {
                 processFileOrDirectory(path, status.isDirectory(), idx, context);
               }
             } catch (IOException e) {
-              // Intentionally empty. Just ignore symlinks that cannot be stat'ed to leave
-              // historical behavior of readdir(..., Symlinks.FOLLOW).
+              ioException.compareAndSet(null, e);
             }
           });
     }

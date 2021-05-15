@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRu
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
+import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
 import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
@@ -99,6 +100,8 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
+import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
+import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
@@ -267,6 +270,11 @@ public class BazelRuleClassProvider {
               .addConfigurationFragment(StrictActionEnvConfiguration.class)
               .addUniversalConfigurationFragment(StrictActionEnvConfiguration.class)
               .addConfigurationOptions(CoreOptions.class);
+
+          builder.addStarlarkBuiltinsInternal(
+              ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
+          builder.addStarlarkBuiltinsInternal(
+              BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
         }
 
         @Override
@@ -303,7 +311,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.INSTANCE, builder);
+          CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.CPP, builder);
           builder.addNativeAspectClass(ccProtoAspect);
           builder.addRuleDefinition(new CcProtoLibraryRule(ccProtoAspect));
         }
@@ -342,7 +350,7 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(AndroidLocalTestConfiguration.class);
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
-          DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
+          DexArchiveAspect dexArchiveAspect = new BazelDexArchiveAspect(toolsRepository);
           builder.addNativeAspectClass(androidNeverlinkAspect);
           builder.addNativeAspectClass(dexArchiveAspect);
 

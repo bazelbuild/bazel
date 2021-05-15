@@ -14,8 +14,13 @@ filegroup(
 
 java_test(
     name = "BazelJ2ObjcLibraryTest",
-    srcs = ["BazelJ2ObjcLibraryTest.java"],
     tags = ["no_windows"],
+    runtime_deps = [":BazelJ2ObjcLibraryTest_lib"],
+)
+
+java_library(
+    name = "BazelJ2ObjcLibraryTest_lib",
+    srcs = ["BazelJ2ObjcLibraryTest.java"],
     deps = [
         ":J2ObjcLibraryTest",
         "//src/main/java/com/google/devtools/build/lib/actions",

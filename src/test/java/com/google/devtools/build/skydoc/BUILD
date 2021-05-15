@@ -64,12 +64,6 @@ skydoc_test(
 )
 
 skydoc_test(
-    name = "cc_api_test",
-    golden_file = "testdata/cc_api_test/golden.txt",
-    input_file = "testdata/cc_api_test/input.bzl",
-)
-
-skydoc_test(
     name = "simple_test",
     golden_file = "testdata/simple_test/golden.txt",
     input_file = "testdata/simple_test/input.bzl",
@@ -95,13 +89,10 @@ skydoc_test(
 )
 
 skydoc_test(
-    name = "android_basic_test",
-    golden_file = "testdata/android_basic_test/golden.txt",
-    input_file = "testdata/android_basic_test/input.bzl",
-    semantic_flags = [
-        "--experimental_google_legacy_api",
-    ],
-    symbol_names = ["android_related_rule"],
+    name = "unknown_predefines_test",
+    golden_file = "testdata/unknown_predefines_test/golden.txt",
+    input_file = "testdata/unknown_predefines_test/input.bzl",
+    symbol_names = ["my_rule"],
 )
 
 skydoc_test(
@@ -109,20 +100,6 @@ skydoc_test(
     golden_file = "testdata/apple_basic_test/golden.txt",
     input_file = "testdata/apple_basic_test/input.bzl",
     symbol_names = ["apple_related_rule"],
-)
-
-skydoc_test(
-    name = "cpp_basic_test",
-    golden_file = "testdata/cpp_basic_test/golden.txt",
-    input_file = "testdata/cpp_basic_test/input.bzl",
-    symbol_names = ["cpp_related_rule"],
-)
-
-skydoc_test(
-    name = "java_basic_test",
-    golden_file = "testdata/java_basic_test/golden.txt",
-    input_file = "testdata/java_basic_test/input.bzl",
-    symbol_names = ["java_related_rule"],
 )
 
 skydoc_test(
@@ -224,13 +201,6 @@ skydoc_test(
     name = "macro_kwargs_test",
     golden_file = "testdata/macro_kwargs_test/golden.txt",
     input_file = "testdata/macro_kwargs_test/input.bzl",
-)
-
-skydoc_test(
-    name = "py_rule_test",
-    golden_file = "testdata/py_rule_test/golden.txt",
-    input_file = "testdata/py_rule_test/input.bzl",
-    symbol_names = ["py_related_rule"],
 )
 
 skydoc_test(

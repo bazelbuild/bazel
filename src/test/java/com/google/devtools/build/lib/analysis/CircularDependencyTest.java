@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -77,13 +78,15 @@ public class CircularDependencyTest extends BuildViewTestCase {
 
   @Test
   public void testThreeLongPackageGroupCycle() throws Exception {
-    String expectedEvent =
-        "cycle in dependency graph:\n"
-            + "    //cycle:superman\n"
-            + ".-> //cycle:rock\n"
-            + "|   //cycle:paper\n"
-            + "|   //cycle:scissors\n"
-            + "`-- //cycle:rock";
+    @SuppressWarnings("ConstantPatternCompile")
+    Pattern expectedEvent =
+        Pattern.compile(
+            "cycle in dependency graph:\n"
+                + "    //cycle:superman \\([a-f0-9]+\\)\n"
+                + ".-> //cycle:rock \\(null\\)\n"
+                + "|   //cycle:paper \\(null\\)\n"
+                + "|   //cycle:scissors \\(null\\)\n"
+                + "`-- //cycle:rock \\(null\\)");
     checkError(
         "cycle",
         "superman",
@@ -94,33 +97,25 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "package_group(name='scissors', includes=['//cycle:rock'])",
         "sh_library(name='superman', visibility=[':rock'])");
 
-    Event foundEvent = null;
-    for (Event event : eventCollector) {
-      if (event.getMessage().contains(expectedEvent)) {
-        foundEvent = event;
-        break;
-      }
-    }
-    assertThat(foundEvent).isNotNull();
+    Event foundEvent = assertContainsEvent(expectedEvent);
     assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:14");
   }
 
   @Test
   public void cycleThroughVisibility() throws Exception {
-    String expectedEvent =
-        "in filegroup rule //cycle:v: cycle in dependency graph:\n"
-            + "    //cycle:v\n"
-            + "    //cycle:t\n"
-            + ".-> //cycle:v\n"
-            + "|   //cycle:t\n"
-            + "`-- //cycle:v\n"
-            + "The cycle is caused by a visibility edge from //cycle:t to the non-package_group"
-            + " target //cycle:v. Note that visibility labels are supposed to be package_group"
-            + " targets, which prevents cycles of this form.";
     checkError(
         "cycle",
         "v",
-        expectedEvent,
+        Pattern.compile(
+            "in filegroup rule //cycle:v: cycle in dependency graph:\n"
+                + "    //cycle:v \\([a-f0-9]+\\)\n"
+                + "    //cycle:t \\([a-f0-9]+\\)\n"
+                + ".-> //cycle:v \\([a-f0-9]+\\)\n"
+                + "|   //cycle:t \\([a-f0-9]+\\)\n"
+                + "`-- //cycle:v \\([a-f0-9]+\\)\n"
+                + "The cycle is caused by a visibility edge from //cycle:t to the non-package_group"
+                + " target //cycle:v. Note that visibility labels are supposed to be package_group"
+                + " targets, which prevents cycles of this form."),
         "filegroup(name='t', visibility=[':v'])",
         "filegroup(name='v', srcs=[':t'])");
   }
@@ -161,10 +156,11 @@ public class CircularDependencyTest extends BuildViewTestCase {
     checkError(
         "a",
         "rule1",
-        "in cc_library rule //a:rule1: cycle in dependency graph:\n"
-            + ".-> //a:rule1\n"
-            + "|   //b:rule2\n"
-            + "`-- //a:rule1",
+        Pattern.compile(
+            "in cc_library rule //a:rule1: cycle in dependency graph:\n"
+                + ".-> //a:rule1 \\([a-f0-9]+\\)\n"
+                + "|   //b:rule2 \\([a-f0-9]+\\)\n"
+                + "`-- //a:rule1 \\([a-f0-9]+\\)"),
         "cc_library(name='rule1',",
         "           deps=['//b:rule2'])");
   }
@@ -199,8 +195,8 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "      cmd = 'cp $< $@')");
   }
 
-  private String selfEdgeMsg(String label) {
-    return label + " [self-edge]";
+  private Pattern selfEdgeMsg(String label) {
+    return Pattern.compile(label + " \\([a-f0-9]+|null\\) \\[self-edge\\]");
   }
 
   // Regression test for: "IllegalStateException in

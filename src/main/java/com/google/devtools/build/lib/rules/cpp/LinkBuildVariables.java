@@ -142,10 +142,12 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
 
-    if (useTestOnlyFlags) {
-      buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-    } else {
-      buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
+    if (!cppConfiguration.useCcTestFeature()) {
+      if (useTestOnlyFlags) {
+        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
+      } else {
+        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
+      }
     }
 
     if (runtimeLibrarySearchDirectories != null) {
@@ -247,7 +249,8 @@ public enum LinkBuildVariables {
       buildVariables.addStringVariable(CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
     }
 
-    if (featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
+    if (fdoContext != null
+        && featureConfiguration.isEnabled(CppRuleClasses.PROPELLER_OPTIMIZE)
         && fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
       buildVariables.addStringVariable(

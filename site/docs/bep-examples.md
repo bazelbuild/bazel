@@ -5,6 +5,7 @@ title: Build Event Protocol Examples
 
 # Build Event Protocol Examples
 
+
 The full specification of the Build Event Protocol can be found in its protocol
 buffer definition. However, it might be helpful to build up some intuition
 before looking at the specification.
@@ -13,14 +14,9 @@ Consider a simple Bazel workspace that consists of two empty shell scripts
 `foo.sh` and `foo_test.sh` and the following BUILD file:
 
 ```bash
-sh_binary(
-    name = "foo",
-    srcs = ["foo.sh"],
-)
-
 sh_library(
     name = "foo_lib",
-    data = [":foo"],
+    srcs = ["foo.sh"],
 )
 
 sh_test(
@@ -38,17 +34,25 @@ most fields have been omitted for brevity.
 ![bep-graph](/assets/bep-graph.png)
 
 Initially, a `BuildStarted` event is published. The event informs us that the
-build was invoked through the `bazel test` command and it also announces five
-child events: `OptionsParsed`, `WorkspaceStatus`, `CommandLine`,
-`PatternExpanded` and `Progress`. The first three events provide information
-about how Bazel was invoked. The `PatternExpanded` build event provides insight
-into which specific targets the `...` pattern expanded to: `//:foo`,
-`//:foo_lib` and `//:foo_test`. It does so by declaring three `TargetConfigured`
-events as children.
+build was invoked through the `bazel test` command and announces child events:
 
-Note that the `TargetConfigured` event declares the `Configuration` event as a
-child event, even though `Configuration` has been posted before the
-`TargetConfigured` event.
+* `OptionsParsed`
+* `WorkspaceStatus`
+* `CommandLine`
+* `UnstructuredCommandLine`
+* `BuildMetadata`
+* `BuildFinished`
+* `PatternExpanded`
+* `Progress`
+
+The first three events provide information about how Bazel was invoked.
+
+The `PatternExpanded` build event provides insight
+into which specific targets the `...` pattern expanded to:
+`//foo:foo_lib` and `//foo:foo_test`. It does so by declaring two
+`TargetConfigured` events as children. Note that the `TargetConfigured` event
+declares the `Configuration` event as a child event, even though `Configuration`
+has been posted before the `TargetConfigured` event.
 
 Besides the parent and child relationship, events may also refer to each other
 using their build event identifiers. For example, in the above graph the
@@ -65,10 +69,10 @@ the number of files. A `NamedSetOfFiles` event may also not have all its files
 embedded, but instead refer to other `NamedSetOfFiles` events through their
 build event identifiers.
 
-Below is an instance of the `TargetComplete` event for the `//:foo_lib` target
-from the above graph, printed in protocol buffer’s JSON representation. The
-build event identifier contains the target as an opaque string and refers to the
-`Configuration` event using its build event identifier. The event does not
+Below is an instance of the `TargetComplete` event for the `//foo:foo_lib`
+target from the above graph, printed in protocol buffer’s JSON representation.
+The build event identifier contains the target as an opaque string and refers to
+the `Configuration` event using its build event identifier. The event does not
 announce any child events. The payload contains information about whether the
 target was built successfully, the set of output files, and the kind of target
 built.
@@ -77,7 +81,7 @@ built.
 {
   "id": {
     "targetCompleted": {
-      "label": "//:foo_lib",
+      "label": "//foo:foo_lib",
       "configuration": {
         "id": "544e39a7f0abdb3efdd29d675a48bc6a"
       }
@@ -115,7 +119,7 @@ the BEP:
 {
   "id": {
     "targetCompleted": {
-      "label": "//:foo_lib",
+      "label": "//foo:foo_lib",
       "configuration": {
         "id": "544e39a7f0abdb3efdd29d675a48bc6a"
       },
@@ -149,6 +153,8 @@ Consumers must take care to avoid quadratic algorithms when processing
 such events, requiring hundreds of millions operations in a traversal with
 quadratic complexity.
 
+![namedsetoffiles-bep-graph](/assets/namedsetoffiles-bep-graph.png)
+
 A `NamedSetOfFiles` event always appears in the BEP stream *before* a
 `TargetComplete` or `NamedSetOfFiles` event that references it. This is the
 inverse of the "parent-child" event relationship, where all but the first event
@@ -168,54 +174,6 @@ process the outputs for a subset of built targets/aspects:
     Show/Hide BEP JSON
   </button>
 </p>
-
-```json
-{
-  "id": { "namedSet": { "id": "3" } },
-  "namedSetOfFiles": {
-    "files": [ { "name": "examples/py/beplib.py", "uri": "file:///tmp/bazel/examples/py/beplib.py" } ]
-  }
-}
-{
-  "id": { "namedSet": { "id": "2" } },
-  "namedSetOfFiles": { "fileSets": [ { "id": "3" } ] }
-}
-{
-  "id": { "namedSet": { "id": "1" } },
-  "namedSetOfFiles": {
-    "files": [ { "name": "examples/py/util.py", "uri": "file:///tmp/bazel/examples/py/util.py" } ],
-    "fileSets": [ { "id": "3" } ]
-  }
-}
-{
-  "id": { "namedSet": { "id": "0" } },
-  "namedSetOfFiles": {
-    "files": [
-      { "name": "examples/py/bep.py", "uri": "file:///tmp/bazel/examples/py/bep.py" },
-      {
-        "name": "examples/py/bep",
-        "uri": "file:///tmp/.cache/bazel/_bazel_foo/a61fd0fbee3f9d6c1e30d54b68655d35/execroot/io_bazel/bazel-out/k8-fastbuild/bin/examples/py/bep",
-        "pathPrefix": ["bazel-out", "k8-fastbuild", "bin"]
-      }
-    ],
-    "fileSets": [ { "id": "1" }, { "id": "2" } ]
-  }
-}
-{
-  "id": {
-    "targetCompleted": {
-      "label": "//examples/py:bep",
-      "configuration": {
-        "id": "a5d130b0966b4a9ca2d32725aa5baf40e215bcfc4d5cdcdc60f5cc5b4918903b"
-      }
-    }
-  },
-  "completed": {
-    "success": true,
-    "outputGroup": [ { "name": "default", "fileSets": [ { "id": "0" } ] } ]
-  }
-}
-```
 {: .collapse #collapseNamedSetJson}
 
 ```python

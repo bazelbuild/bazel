@@ -260,7 +260,7 @@ public class BaseRuleClasses {
 
   // Always return the same ImmutableList<Label> for every $test_runtime attribute's default value.
   public static synchronized ImmutableList<Label> getTestRuntimeLabelList(
-      RuleDefinitionContext env) {
+      RuleDefinitionEnvironment env) {
     if (testRuntimeLabelList == null) {
       testRuntimeLabelList =
           ImmutableList.of(

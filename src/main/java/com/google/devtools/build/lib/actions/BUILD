@@ -27,6 +27,7 @@ java_library(
         ],
         exclude = [
             "ActionInput.java",
+            "ActionLookupData.java",
             "ActionLookupKey.java",
             "AnalysisGraphStatsEvent.java",
             "Artifact.java",
@@ -58,6 +59,7 @@ java_library(
         ],
     ),
     deps = [
+        ":action_lookup_data",
         ":action_lookup_key",
         ":artifact_owner",
         ":artifacts",
@@ -86,7 +88,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -148,6 +149,7 @@ java_library(
     srcs = ["ActionLookupKey.java"],
     deps = [
         ":artifact_owner",
+        "//src/main/java/com/google/devtools/build/skyframe:cpu_heavy_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
@@ -155,7 +157,7 @@ java_library(
 java_library(
     name = "analysis_graph_stats_event",
     srcs = ["AnalysisGraphStatsEvent.java"],
-    deps = [":total_and_configured_target_only_metric"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto"],
 )
 
 java_library(

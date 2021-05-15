@@ -38,9 +38,9 @@ If you don't need the union operation, consider using another type, such as
 This example is available at
 [https://github.com/bazelbuild/examples/tree/master/rules/depsets](https://github.com/bazelbuild/examples/tree/master/rules/depsets).
 
-Suppose we have a hypothetical interpreted language Foo. In order to build each
-`foo_binary` we need to know all the `*.foo` files that it directly or indirectly
-depends on.
+Suppose there is a hypothetical interpreted language Foo. In order to build
+each `foo_binary` you need to know all the `*.foo` files that it directly or
+indirectly depends on.
 
 ```python
 # //depsets:BUILD
@@ -294,9 +294,9 @@ is deterministic).
 
 ## Performance
 
-To see the motivation for using depsets, consider what would have happened if we
-had implemented `get_transitive_srcs()` without them. A naive way of writing
-this function would be to collect the sources in a list.
+To see the motivation for using depsets, consider what happens if
+`get_transitive_srcs()` doesn't have depsets. A naive way to write this
+function would be to collect the sources in a list.
 
 ```python
 def get_transitive_srcs(srcs, deps):
@@ -349,8 +349,9 @@ target are added.
 To actually get the performance advantage, it’s important to not retrieve the
 contents of the depset unnecessarily in library rules. One call to `to_list()`
 at the end in a binary rule is fine, since the overall cost is just O(n). It’s
-when many non-terminal targets try to call `to_list()` that we start to get into
-quadratic behavior.
+when many non-terminal targets try to call `to_list()` that quadratic behavior
+occurs.
+
 
 The [performance](performance.md) page also contains information about using
 depsets efficiently.

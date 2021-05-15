@@ -666,10 +666,6 @@ def _impl(ctx):
 
         generate_pdb_file_feature = feature(
             name = "generate_pdb_file",
-            requires = [
-                feature_set(features = ["dbg"]),
-                feature_set(features = ["fastbuild"]),
-            ],
         )
 
         output_execpath_flags_feature = feature(

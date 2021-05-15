@@ -29,9 +29,10 @@ java_library(
     name = "skyframe",
     srcs = glob(
         ["**/*.java"],
-        exclude = SKYFRAME_OBJECT_SRCS,
+        exclude = SKYFRAME_OBJECT_SRCS + ["CPUHeavySkyKey.java"],
     ),
     deps = [
+        ":cpu_heavy_skykey",
         ":graph_inconsistency_java_proto",
         ":skyframe-objects",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -61,6 +62,13 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
     ],
+)
+
+java_library(
+    name = "cpu_heavy_skykey",
+    srcs = ["CPUHeavySkyKey.java"],
+    visibility = ["//visibility:public"],
+    deps = ["skyframe-objects"],
 )
 
 proto_library(

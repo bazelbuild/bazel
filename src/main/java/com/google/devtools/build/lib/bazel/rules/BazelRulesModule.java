@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -44,9 +43,9 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
 /** Module implementing the rule set of Bazel. */
-public class BazelRulesModule extends BlazeModule {
+public final class BazelRulesModule extends BlazeModule {
   /** This is where deprecated options go to die. */
-  public static class GraveyardOptions extends OptionsBase {
+  public static final class GraveyardOptions extends OptionsBase {
     @Option(
         name = "incompatible_load_python_rules_from_bzl",
         defaultValue = "false",
@@ -533,12 +532,6 @@ public class BazelRulesModule extends BlazeModule {
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.addSkyFunction(
         CcSkyframeFdoSupportValue.SKYFUNCTION, new CcSkyframeFdoSupportFunction(directories));
-  }
-
-  @Override
-  public BuildOptions getDefaultBuildOptions(BlazeRuntime blazeRuntime) {
-    return BuildOptions.getDefaultBuildOptionsForFragments(
-        blazeRuntime.getRuleClassProvider().getConfigurationOptions());
   }
 
   @Override

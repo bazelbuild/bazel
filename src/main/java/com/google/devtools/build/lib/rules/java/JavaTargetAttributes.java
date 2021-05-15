@@ -65,7 +65,7 @@ public class JavaTargetAttributes {
     private ImmutableList<Artifact> sourcePath = ImmutableList.of();
     private final ImmutableList.Builder<Artifact> nativeLibraries = ImmutableList.builder();
 
-    private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
+    private JavaPluginInfo plugins = JavaPluginInfo.empty();
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
@@ -296,9 +296,9 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addPlugin(JavaPluginInfoProvider plugins) {
+    public Builder addPlugin(JavaPluginInfo plugins) {
       Preconditions.checkArgument(!built);
-      this.plugins = JavaPluginInfoProvider.merge(this.plugins, plugins);
+      this.plugins = JavaPluginInfo.merge(this.plugins, plugins);
       return this;
     }
 
@@ -379,7 +379,7 @@ public class JavaTargetAttributes {
   private final ImmutableList<Artifact> sourcePath;
   private final ImmutableList<Artifact> nativeLibraries;
 
-  private final JavaPluginInfoProvider plugins;
+  private final JavaPluginInfo plugins;
 
   private final ImmutableMap<PathFragment, Artifact> resources;
   private final NestedSet<Artifact> resourceJars;
@@ -407,7 +407,7 @@ public class JavaTargetAttributes {
       BootClassPathInfo bootClassPath,
       ImmutableList<Artifact> sourcePath,
       ImmutableList<Artifact> nativeLibraries,
-      JavaPluginInfoProvider plugins,
+      JavaPluginInfo plugins,
       ImmutableMap<PathFragment, Artifact> resources,
       NestedSet<Artifact> resourceJars,
       ImmutableList<Artifact> messages,
@@ -450,6 +450,34 @@ public class JavaTargetAttributes {
     NestedSet<Artifact> directJars =
         NestedSetBuilder.fromNestedSet(additionalClassPathEntries)
             .addTransitive(this.directJars)
+            .build();
+    return new JavaTargetAttributes(
+        sourceFiles,
+        runtimeClassPath,
+        compileTimeClassPath,
+        bootClassPath,
+        sourcePath,
+        nativeLibraries,
+        plugins,
+        resources,
+        resourceJars,
+        messages,
+        sourceJars,
+        classPathResources,
+        additionalOutputs,
+        directJars,
+        compileTimeDependencyArtifacts,
+        targetLabel,
+        injectingRuleKind,
+        excludedArtifacts,
+        strictJavaDeps);
+  }
+
+  JavaTargetAttributes appendAdditionalTransitiveClassPathEntries(
+      NestedSet<Artifact> additionalClassPathEntries) {
+    NestedSet<Artifact> compileTimeClassPath =
+        NestedSetBuilder.fromNestedSet(this.compileTimeClassPath)
+            .addTransitive(additionalClassPathEntries)
             .build();
     return new JavaTargetAttributes(
         sourceFiles,
@@ -549,7 +577,7 @@ public class JavaTargetAttributes {
     return sourcePath;
   }
 
-  public JavaPluginInfoProvider plugins() {
+  public JavaPluginInfo plugins() {
     return plugins;
   }
 

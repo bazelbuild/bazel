@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
+import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.util.HashMap;
@@ -49,11 +50,8 @@ import javax.annotation.Nullable;
  * proto format.
  */
 public class ActionGraphDump {
-
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
   private final Set<String> actionGraphTargets;
-
-  private final KnownRuleClassStrings knownRuleClassStrings;
   private final KnownArtifacts knownArtifacts;
   private final KnownConfigurations knownConfigurations;
   private final KnownNestedSets knownNestedSets;
@@ -96,7 +94,7 @@ public class ActionGraphDump {
     this.includeParamFiles = includeParamFiles;
     this.aqueryOutputHandler = aqueryOutputHandler;
 
-    knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
+    KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
     knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
     knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
@@ -245,7 +243,7 @@ public class ActionGraphDump {
     }
   }
 
-  public void dumpConfiguredTarget(ConfiguredTargetValue configuredTargetValue)
+  public void dumpConfiguredTarget(RuleConfiguredTargetValue configuredTargetValue)
       throws CommandLineExpansionException, InterruptedException, IOException {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {

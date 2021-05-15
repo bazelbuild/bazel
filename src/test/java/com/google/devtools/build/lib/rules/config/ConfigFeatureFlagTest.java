@@ -44,10 +44,8 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Before
-  public void useTrimmedConfigurations() throws Exception {
-    useConfiguration(
-        "--experimental_dynamic_configs=on",
-        "--enforce_transitive_configs_for_config_feature_flag");
+  public void enforceTransitiveConfigs() throws Exception {
+    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
   }
 
   @Override

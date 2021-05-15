@@ -100,7 +100,7 @@ public class CommonQueryOptions extends OptionsBase {
               + " target. That means if the top-level target is in the target configuration, only"
               + " configured targets also in the target configuration will be returned. If the"
               + " top-level target is in the host configuration, only host configured targets will"
-              + " be returned.")
+              + " be returned. This option will NOT exclude resolved toolchains.")
   public boolean includeToolDeps;
 
   @Option(
@@ -111,7 +111,8 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "If enabled, implicit dependencies will be included in the dependency graph over "
               + "which the query operates. An implicit dependency is one that is not explicitly "
-              + "specified in the BUILD file but added by bazel.")
+              + "specified in the BUILD file but added by bazel. For cquery, this option controls "
+              + "filtering resolved toolchains.")
   public boolean includeImplicitDeps;
 
   @Option(

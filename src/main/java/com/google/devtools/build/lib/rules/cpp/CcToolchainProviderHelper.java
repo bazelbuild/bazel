@@ -484,6 +484,7 @@ public class CcToolchainProviderHelper {
                   // and return true.  This needs changes to crosstool_config.proto.
                   return false;
                 } else if (tool == CppConfiguration.Tool.GCOVTOOL
+                    || tool == CppConfiguration.Tool.GCOV
                     || tool == CppConfiguration.Tool.OBJCOPY) {
                   // gcov-tool and objcopy are optional, don't check whether they're present
                   return false;

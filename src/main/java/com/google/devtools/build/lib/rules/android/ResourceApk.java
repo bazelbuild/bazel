@@ -327,7 +327,6 @@ public final class ResourceApk {
       AssetDependencies assetDeps,
       StampedAndroidManifest manifest)
       throws InterruptedException {
-
     return new AndroidResourcesProcessorBuilder()
         .setLibrary(true)
         .setRTxtOut(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
@@ -340,6 +339,7 @@ public final class ResourceApk {
         .withAssetDependencies(assetDeps)
         .setDebug(dataContext.useDebug())
         .setThrowOnResourceConflict(dataContext.throwOnResourceConflict())
+        .setIncludeProguardLocationReferences(dataContext.includeProguardLocationReferences())
         .buildWithoutLocalResources(dataContext, manifest, dataBindingContext);
   }
 }

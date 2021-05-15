@@ -419,11 +419,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attribute = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(attribute.getName()).isEqualTo("$extra_deps");
     assertThat(attribute.getDefaultValue(null))
-        .isEqualTo(
-            Label.parseAbsolute(
-                "//foo/bar:baz",
-                /* defaultToMain= */ false,
-                /* repositoryMapping= */ ImmutableMap.of()));
+        .isEqualTo(Label.parseAbsoluteUnchecked("//foo/bar:baz"));
   }
 
   @Test
@@ -537,36 +533,20 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testLabelAttrDefaultValueAsString() throws Exception {
     Attribute sligleAttr = buildAttribute("a1", "attr.label(default = '//foo:bar')");
     assertThat(sligleAttr.getDefaultValueUnchecked())
-        .isEqualTo(
-            Label.parseAbsolute(
-                "//foo:bar",
-                /* defaultToMain= */ false,
-                /* repositoryMapping= */ ImmutableMap.of()));
+        .isEqualTo(Label.parseAbsoluteUnchecked("//foo:bar"));
 
     Attribute listAttr =
         buildAttribute("a2", "attr.label_list(default = ['//foo:bar', '//bar:foo'])");
     assertThat(listAttr.getDefaultValueUnchecked())
         .isEqualTo(
             ImmutableList.of(
-                Label.parseAbsolute(
-                    "//foo:bar",
-                    /* defaultToMain= */ false,
-                    /* repositoryMapping= */ ImmutableMap.of()),
-                Label.parseAbsolute(
-                    "//bar:foo",
-                    /* defaultToMain= */ false,
-                    /*repositoryMapping= */ ImmutableMap.of())));
+                Label.parseAbsoluteUnchecked("//foo:bar"),
+                Label.parseAbsoluteUnchecked("//bar:foo")));
 
     Attribute dictAttr =
         buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
     assertThat(dictAttr.getDefaultValueUnchecked())
-        .isEqualTo(
-            ImmutableMap.of(
-                Label.parseAbsolute(
-                    "//foo:bar",
-                    /* defaultToMain= */ false,
-                    /* repositoryMapping= */ ImmutableMap.of()),
-                "my value"));
+        .isEqualTo(ImmutableMap.of(Label.parseAbsoluteUnchecked("//foo:bar"), "my value"));
   }
 
   @Test
@@ -1650,6 +1630,91 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .getRequiredProvidersForAspects();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+  }
+
+  @Test
+  public void aspectRequiredProvidersSingle() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_providers=['java', cc])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder()
+                    .addStarlark(declared("cc"))
+                    .addStarlark("java")
+                    .build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredProvidersAlternatives() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_providers=[['java'], [cc]])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("java").build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
+        .isTrue();
+    assertThat(
+            requiredProviders.isSatisfiedBy(
+                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredProvidersEmpty() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, required_providers=[])");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isTrue();
+  }
+
+  @Test
+  public void aspectRequiredProvidersDefault() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):", //
+        "   pass",
+        "my_aspect = aspect(_impl)");
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    RequiredProviders requiredProviders =
+        myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
+
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isTrue();
   }
 
   @Test

@@ -1053,9 +1053,13 @@ static bool IsVolatileArg(const string &arg) {
   // not used at server startup to be part of the startup command line. The
   // server command line difference logic can be simplified then.
   static const std::set<string> volatile_startup_options = {
-      "--option_sources=",       "--max_idle_secs=",
-      "--connect_timeout_secs=", "--local_startup_timeout_secs=",
-      "--client_debug=",         "--preemptible="};
+      "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
+      "--local_startup_timeout_secs=", "--client_debug=", "--preemptible=",
+      // Internally, -XX:HeapDumpPath is set automatically via the user's TMPDIR
+      // environment variable. Since that can change based on the shell, we
+      // tolerate changes to it. Note that an explicit setting of
+      // -XX:HeapDumpPath via --host_jvm_args *will* trigger a restart.
+      "-XX:HeapDumpPath="};
 
   // Split arg based on the first "=" if one exists in arg.
   const string::size_type eq_pos = arg.find_first_of('=');

@@ -14,18 +14,23 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -37,7 +42,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,9 +58,6 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public final class PlatformMappingValue implements SkyValue {
-
-  public static final PlatformMappingValue EMPTY =
-      new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of());
 
   /** Key for {@link PlatformMappingValue} based on the location of the mapping file. */
   @ThreadSafety.Immutable
@@ -137,10 +138,11 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private final Map<Label, Collection<String>> platformsToFlags;
-  private final Map<Collection<String>, Label> flagsToPlatforms;
-  private final Cache<Collection<String>, OptionsParsingResult> parserCache;
-  private final Cache<BuildConfigurationValue.Key, BuildConfigurationValue.Key> mappingCache;
+  private final ImmutableMap<Label, ImmutableSet<String>> platformsToFlags;
+  private final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
+  private final ImmutableList<Class<? extends FragmentOptions>> optionsClasses;
+  private final LoadingCache<ImmutableSet<String>, OptionsParsingResult> parserCache;
+  private final LoadingCache<BuildConfigurationValue.Key, BuildConfigurationValue.Key> mappingCache;
 
   /**
    * Creates a new mapping value which will match on the given platforms (if a target platform is
@@ -148,19 +150,39 @@ public final class PlatformMappingValue implements SkyValue {
    *
    * @param platformsToFlags mapping from target platform label to the command line style flags that
    *     should be parsed & modified if that platform is set
-   * @param flagsToPlatforms mapping from a collection of command line style flags to a target
-   *     platform that should be set if the flags match the mapped options
+   * @param flagsToPlatforms mapping from a set of command line style flags to a target platform
+   *     that should be set if the flags match the mapped options
+   * @param optionsClasses default options classes that should be used for options parsing
    */
   PlatformMappingValue(
-      Map<Label, Collection<String>> platformsToFlags,
-      Map<Collection<String>, Label> flagsToPlatforms) {
-    this.platformsToFlags = Preconditions.checkNotNull(platformsToFlags);
-    this.flagsToPlatforms = Preconditions.checkNotNull(flagsToPlatforms);
+      ImmutableMap<Label, ImmutableSet<String>> platformsToFlags,
+      ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms,
+      ImmutableList<Class<? extends FragmentOptions>> optionsClasses) {
+    this.platformsToFlags = checkNotNull(platformsToFlags);
+    this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
+    this.optionsClasses = checkNotNull(optionsClasses);
     this.parserCache =
         CacheBuilder.newBuilder()
             .initialCapacity(platformsToFlags.size() + flagsToPlatforms.size())
-            .build();
-    this.mappingCache = CacheBuilder.newBuilder().weakKeys().build();
+            .build(
+                new CacheLoader<ImmutableSet<String>, OptionsParsingResult>() {
+                  @Override
+                  public OptionsParsingResult load(ImmutableSet<String> args)
+                      throws OptionsParsingException {
+                    return parse(args);
+                  }
+                });
+    this.mappingCache =
+        CacheBuilder.newBuilder()
+            .weakKeys()
+            .build(
+                new CacheLoader<BuildConfigurationValue.Key, BuildConfigurationValue.Key>() {
+                  @Override
+                  public BuildConfigurationValue.Key load(BuildConfigurationValue.Key original)
+                      throws OptionsParsingException {
+                    return computeMapping(original);
+                  }
+                });
   }
 
   /**
@@ -178,30 +200,26 @@ public final class PlatformMappingValue implements SkyValue {
    * </ol>
    *
    * @param original the key representing the configuration to be mapped
-   * @param defaultBuildOptions build options as set by default in this server
    * @return the mapped key if any mapping matched the original or else the original
    * @throws OptionsParsingException if any of the user configured flags cannot be parsed
    * @throws IllegalArgumentException if the original does not contain a {@link PlatformOptions}
    *     fragment
    */
-  public BuildConfigurationValue.Key map(
-      BuildConfigurationValue.Key original, BuildOptions defaultBuildOptions)
+  public BuildConfigurationValue.Key map(BuildConfigurationValue.Key original)
       throws OptionsParsingException {
     try {
-      return mappingCache.get(original, () -> computeMapping(original, defaultBuildOptions));
+      return mappingCache.get(original);
     } catch (ExecutionException | UncheckedExecutionException e) {
       Throwables.propagateIfPossible(e.getCause(), OptionsParsingException.class);
       throw new IllegalStateException(e);
     }
   }
 
-  private BuildConfigurationValue.Key computeMapping(
-      BuildConfigurationValue.Key original, BuildOptions defaultBuildOptions)
+  private BuildConfigurationValue.Key computeMapping(BuildConfigurationValue.Key original)
       throws OptionsParsingException {
-    BuildOptions.OptionsDiffForReconstruction originalDiff = original.getOptionsDiff();
-    BuildOptions originalOptions = defaultBuildOptions.applyDiff(originalDiff);
+    BuildOptions originalOptions = original.getOptions();
 
-    Preconditions.checkArgument(
+    checkArgument(
         originalOptions.contains(PlatformOptions.class),
         "When using platform mappings, all configurations must contain platform options");
 
@@ -219,13 +237,11 @@ public final class PlatformMappingValue implements SkyValue {
       }
 
       modifiedOptions =
-          originalOptions.applyParsingResult(
-              parseWithCache(platformsToFlags.get(targetPlatform), defaultBuildOptions));
+          originalOptions.applyParsingResult(parseWithCache(platformsToFlags.get(targetPlatform)));
     } else {
       boolean mappingFound = false;
-      for (Map.Entry<Collection<String>, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
-        if (originalOptions.matches(
-            parseWithCache(flagsToPlatform.getKey(), defaultBuildOptions))) {
+      for (Map.Entry<ImmutableSet<String>, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
+        if (originalOptions.matches(parseWithCache(flagsToPlatform.getKey()))) {
           modifiedOptions = originalOptions.clone();
           modifiedOptions.get(PlatformOptions.class).platforms =
               ImmutableList.of(flagsToPlatform.getValue());
@@ -242,24 +258,23 @@ public final class PlatformMappingValue implements SkyValue {
     }
 
     return BuildConfigurationValue.keyWithoutPlatformMapping(
-        original.getFragments(),
-        BuildOptions.diffForReconstruction(defaultBuildOptions, modifiedOptions));
+        original.getFragments(), modifiedOptions);
   }
 
-  private OptionsParsingResult parseWithCache(
-      Collection<String> args, BuildOptions defaultBuildOptions) throws OptionsParsingException {
+  private OptionsParsingResult parseWithCache(ImmutableSet<String> args)
+      throws OptionsParsingException {
     try {
-      return parserCache.get(args, () -> parse(args, defaultBuildOptions));
+      return parserCache.get(args);
     } catch (ExecutionException e) {
-      throw (OptionsParsingException) e.getCause();
+      Throwables.propagateIfPossible(e.getCause(), OptionsParsingException.class);
+      throw new IllegalStateException(e);
     }
   }
 
-  private OptionsParsingResult parse(Iterable<String> args, BuildOptions defaultBuildOptions)
-      throws OptionsParsingException {
+  private OptionsParsingResult parse(Iterable<String> args) throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(defaultBuildOptions.getFragmentClasses())
+            .optionsClasses(optionsClasses)
             // We need the ability to re-map internal options in the mappings file.
             .ignoreInternalOptions(false)
             .build();
@@ -278,12 +293,13 @@ public final class PlatformMappingValue implements SkyValue {
     }
     PlatformMappingValue that = (PlatformMappingValue) obj;
     return this.flagsToPlatforms.equals(that.flagsToPlatforms)
-        && this.platformsToFlags.equals(that.platformsToFlags);
+        && this.platformsToFlags.equals(that.platformsToFlags)
+        && this.optionsClasses.equals(that.optionsClasses);
   }
 
   @Override
   public int hashCode() {
-    return 37 * flagsToPlatforms.hashCode() + platformsToFlags.hashCode();
+    return Objects.hash(flagsToPlatforms, platformsToFlags, optionsClasses);
   }
 
   @Override
@@ -291,6 +307,7 @@ public final class PlatformMappingValue implements SkyValue {
     return MoreObjects.toStringHelper(this)
         .add("flagsToPlatforms", flagsToPlatforms)
         .add("platformsToFlags", platformsToFlags)
+        .add("optionsClasses", optionsClasses)
         .toString();
   }
 }

@@ -946,13 +946,6 @@ public final class CcToolchainProvider extends NativeInfo
     return targetSystemName.substring(0, targetSystemName.indexOf('-'));
   }
 
-  public final boolean isLLVMCompiler() {
-    // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
-    // is temporary until the crosstool configuration is modified to add fields that
-    // indicate which flavor of fdo is being used.
-    return toolchainIdentifier.contains("llvm");
-  }
-
   // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality
   // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.

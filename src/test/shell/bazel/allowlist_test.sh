@@ -49,11 +49,11 @@ function test_allowlist_includes_external_deps() {
   cat > hotsauce/rules.bzl <<EOF
 def _my_transition_impl(settings, attr):
     _ignore = (settings, attr)
-    return {'//command_line_option:test_arg': ['tapatio']}
+    return {'//command_line_option:platform_suffix': 'tapatio'}
 my_transition = transition(
     implementation = _my_transition_impl,
     inputs = [],
-    outputs = ["//command_line_option:test_arg"]
+    outputs = ["//command_line_option:platform_suffix"]
 )
 def _rule_with_transition_impl(ctx):
     return []
@@ -95,11 +95,11 @@ rule_with_external_dep(
 )
 EOF
 
-  bazel cquery "deps(//vinegar)" --test_arg=hotlanta --transitions=full \
+  bazel cquery "deps(//vinegar)" --platform_suffix=hotlanta --transitions=full \
     --noimplicit_deps \
     >& $TEST_log || fail "failed to query //vinegar"
   expect_log "@secret_ingredient//hotsauce"
-  expect_log "test_arg:\[hotlanta\] -> \[\[\"tapatio\"\]\]"
+  expect_log "platform_suffix:hotlanta -> \[tapatio\]"
 
 }
 
@@ -118,11 +118,11 @@ function test_allowlist_bad_value() {
   cat > vinegar/rules.bzl <<EOF
 def _my_transition_impl(settings, attr):
     _ignore = (settings, attr)
-    return {'//command_line_option:test_arg': ['tapatio']}
+    return {'//command_line_option:platform_suffix': 'tapatio'}
 my_transition = transition(
     implementation = _my_transition_impl,
     inputs = [],
-    outputs = ["//command_line_option:test_arg"]
+    outputs = ["//command_line_option:platform_suffix"]
 )
 def _rule_with_transition_impl(ctx):
     return []
@@ -177,11 +177,11 @@ EOF
   cat > vinegar/rules.bzl <<EOF
 def _my_transition_impl(settings, attr):
     _ignore = (settings, attr)
-    return {'//command_line_option:test_arg': ['tapatio']}
+    return {'//command_line_option:platform_suffix': 'tapatio'}
 my_transition = transition(
     implementation = _my_transition_impl,
     inputs = [],
-    outputs = ["//command_line_option:test_arg"]
+    outputs = ["//command_line_option:platform_suffix"]
 )
 def _rule_with_transition_impl(ctx):
     return []
@@ -202,10 +202,10 @@ rule_with_transition(
 rule_with_transition(name = "acetic-acid")
 EOF
 
-  bazel cquery "deps(//vinegar)" --test_arg=hotlanta --transitions=full \
+  bazel cquery "deps(//vinegar)" --platform_suffix=hotlanta --transitions=full \
     --noimplicit_deps \
     >& $TEST_log || fail "failed to query //vinegar"
-  expect_log "test_arg:\[hotlanta\] -> \[\[\"tapatio\"\]\]"
+  expect_log "platform_suffix:hotlanta -> \[tapatio\]"
 }
 
 run_suite "allowlist tests"

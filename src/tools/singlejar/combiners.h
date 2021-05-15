@@ -136,4 +136,28 @@ class PropertyCombiner : public Concatenator {
   }
 };
 
+// Combines the contents of the multiple manifests.
+class ManifestCombiner : public Combiner {
+ public:
+  ManifestCombiner(const std::string &filename)
+      : filename_(filename), multi_release_(false) {
+    concatenator_.reset(new Concatenator(filename_, false));
+  }
+  ~ManifestCombiner() override;
+
+  void AppendLine(const std::string &line);
+
+  bool Merge(const CDH *cdh, const LH *lh) override;
+
+  void *OutputEntry(bool compress) override;
+
+  const std::string filename() const { return filename_; }
+
+ private:
+  std::unique_ptr<Concatenator> concatenator_;
+  const std::string filename_;
+  bool multi_release_;
+  std::unique_ptr<Inflater> inflater_;
+};
+
 #endif  //  SRC_TOOLS_SINGLEJAR_COMBINERS_H_

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.RuleDefinitionContext;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
@@ -27,7 +27,7 @@ import net.starlark.java.eval.StarlarkThread;
  * The collection of the supported build rules. Provides an StarlarkThread for Starlark rule
  * creation.
  */
-public interface RuleClassProvider extends RuleDefinitionContext {
+public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
   /** Label referencing the prelude file. */
   Label getPreludeLabel();

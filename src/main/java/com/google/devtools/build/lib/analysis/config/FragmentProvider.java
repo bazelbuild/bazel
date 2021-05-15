@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 
 /**
@@ -22,5 +21,5 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
  */
 public interface FragmentProvider extends RuleClassProvider {
   /** Returns the set of configuration fragments provided by this module. */
-  ImmutableList<Class<? extends Fragment>> getConfigurationFragments();
+  FragmentClassSet getConfigurationFragments();
 }

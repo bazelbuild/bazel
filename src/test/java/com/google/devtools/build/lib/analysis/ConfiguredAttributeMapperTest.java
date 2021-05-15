@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -302,5 +303,48 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         "    }))");
     useConfiguration("--define", "mode=a");
     assertThat(getMapper("//a:gen").get("message", Type.STRING)).isEqualTo("defined message");
+  }
+
+  @Test
+  public void noMatchErrorFormat() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "config_setting(",
+        "    name = 'a',",
+        "    values = {'define': 'mode=a'})",
+        "config_setting(",
+        "    name = 'b',",
+        "    values = {'define': 'mode=b'})",
+        "genrule(",
+        "    name = 'g',",
+        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = '',",
+        "    message = select({",
+        "        ':a': 'not chosen',",
+        "        ':b': 'not chosen',",
+        "    }))");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:g");
+    // Match with a regex pattern because the error message includes the failing target's
+    // configuration ID, which can vary among builds.
+    assertContainsEvent(
+        Pattern.compile(
+            ".*configurable attribute \"message\" in //a:g doesn't match this configuration. Would"
+                + " a default condition help\\?\n"
+                + "\n"
+                + "Conditions checked:\n"
+                + " //a:a\n"
+                + " //a:b\n"
+                + "\n"
+                + "To see a condition's definition, run: bazel query --output=build <condition"
+                + " label>.\n"
+                + "\n"
+                + "This instance of //a:g has configuration identifier .*. To inspect its"
+                + " configuration, run: bazel config .*.\n"
+                + "\n"
+                + "For more help, see"
+                + " https://docs.bazel.build/configurable-attributes.html#why-doesnt-my"
+                + "-select-choose-what-i-expect.*"));
   }
 }

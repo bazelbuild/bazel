@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
@@ -1097,7 +1098,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         new RuleClass.Builder("label_flag", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST))
-            .setBuildSetting(BuildSetting.create(true, LABEL))
+            .setBuildSetting(BuildSetting.create(true, NODEP_LABEL))
             .build();
     RuleClass stringSetting =
         new RuleClass.Builder("string_setting", RuleClassType.NORMAL, false)
@@ -1106,7 +1107,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .setBuildSetting(BuildSetting.create(false, STRING))
             .build();
 
-    assertThat(labelFlag.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isTrue();
+    assertThat(labelFlag.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL)).isTrue();
     assertThat(stringSetting.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, STRING)).isTrue();
   }
 

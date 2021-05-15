@@ -417,16 +417,42 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect to only be used with rules that have attributes of the same "
                     + "name, type, and valid values according to the restriction."),
         @Param(
+            name = "required_providers",
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "This attribute allows the aspect to limit its propagation to only the targets "
+                    + "whose rules advertise its required providers. The value must be a "
+                    + "list containing either individual providers or lists of providers but not "
+                    + "both. For example, <code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code> "
+                    + "is a valid value while <code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> "
+                    + "is not valid."
+                    + ""
+                    + "<p>An unnested list of providers will automatically be converted to a list "
+                    + "containing one list of providers. That is, <code>[FooInfo, BarInfo]</code> "
+                    + "will automatically be converted to <code>[[FooInfo, BarInfo]]</code>."
+                    + ""
+                    + "<p>To make some rule (e.g. <code>some_rule</code>) targets visible to an "
+                    + "aspect, <code>some_rule</code> must advertise all providers from at least "
+                    + "one of the required providers lists. For example, if the "
+                    + "<code>required_providers</code> of an aspect are "
+                    + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
+                    + "only see <code>some_rule</code> targets if and only if "
+                    + "<code>some_rule</code> provides <code>FooInfo</code> *or* "
+                    + "<code>BarInfo</code> *or* both <code>BazInfo</code> *and* "
+                    + "<code>QuxInfo</code>."),
+        @Param(
             name = "required_aspect_providers",
             named = true,
             defaultValue = "[]",
             doc =
                 "This attribute allows this aspect to inspect other aspects. The value must be a "
-                    + "list of providers, or a list of lists of providers. For example, "
-                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> is a "
-                    + "valid value."
+                    + "list containing either individual providers or lists of providers but not "
+                    + "both. For example, <code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code> "
+                    + "is a valid value while <code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code> "
+                    + "is not valid."
                     + ""
-                    + "<p>A single list of providers will automatically be converted to a list "
+                    + "<p>An unnested list of providers will automatically be converted to a list "
                     + "containing one list of providers. That is, "
                     + "<code>[FooInfo, BarInfo]</code> will automatically be converted to "
                     + "<code>[[FooInfo, BarInfo]]</code>. "
@@ -434,8 +460,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<p>To make another aspect (e.g. <code>other_aspect</code>) visible to this "
                     + "aspect, <code>other_aspect</code> must provide all providers from at least "
                     + "one of the lists. In the example of "
-                    + "<code>[FooInfo, BarInfo, [BazInfo, QuxInfo]]</code>, this aspect can only "
-                    + "see <code>other_aspect</code> if and only if <code>other_aspect</code> "
+                    + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
+                    + "only see <code>other_aspect</code> if and only if <code>other_aspect</code> "
                     + "provides <code>FooInfo</code> *or* <code>BarInfo</code> *or* both "
                     + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(name = "provides", named = true, defaultValue = "[]", doc = PROVIDES_DOC),
@@ -500,6 +526,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,
+      Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> fragments,

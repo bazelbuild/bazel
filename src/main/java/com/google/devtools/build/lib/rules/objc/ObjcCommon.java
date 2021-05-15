@@ -43,7 +43,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -57,13 +56,15 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Contains information common to multiple objc_* rules, and provides a unified API for extracting
@@ -72,7 +73,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 // TODO(bazel-team): Decompose and subsume area-specific logic and data into the various *Support
 // classes. Make sure to distinguish rule output (providers, runfiles, ...) from intermediate,
 // rule-internal information. Any provider created by a rule should not be read, only published.
-public final class ObjcCommon {
+public final class ObjcCommon implements StarlarkValue {
 
   /** Filters fileset artifacts out of a group of artifacts. */
   public static ImmutableList<Artifact> filterFileset(Iterable<Artifact> artifacts) {
@@ -192,29 +193,27 @@ public final class ObjcCommon {
       return this;
     }
 
-    /** Add the providers for the build dependencies. */
-    Builder addDeps(List<ConfiguredTargetAndData> deps) {
+    Builder addDeps(List<? extends TransitiveInfoCollection> deps) {
       ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
       ImmutableList.Builder<CcInfo> ccInfosForDirectFields = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
       ImmutableList.Builder<CcLinkingContext> ccLinkStampContexts = ImmutableList.builder();
 
-      for (ConfiguredTargetAndData dep : deps) {
-        ConfiguredTarget depCT = dep.getConfiguredTarget();
-        if (depCT.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
-          addAnyProviders(objcProviders, depCT, ObjcProvider.STARLARK_CONSTRUCTOR);
+      for (TransitiveInfoCollection dep : deps) {
+        if (dep.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
+          addAnyProviders(objcProviders, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
         } else {
           // This is the way we inject cc_library attributes into direct fields.
-          addAnyProviders(ccInfosForDirectFields, depCT, CcInfo.PROVIDER);
+          addAnyProviders(ccInfosForDirectFields, dep, CcInfo.PROVIDER);
           // We only use CcInfo's linking info if there is no ObjcProvider.  This is required so
           // that objc_library archives do not get treated as if they are from cc targets.
-          addAnyContexts(ccLinkingContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+          addAnyContexts(ccLinkingContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
         }
-        addAnyProviders(ccInfos, depCT, CcInfo.PROVIDER);
+        addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
         // Temporary solution to specially handle LinkStamps, so that they don't get dropped.  When
         // linking info has been fully migrated to CcInfo, we can drop this.
-        addAnyContexts(ccLinkStampContexts, depCT, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
+        addAnyContexts(ccLinkStampContexts, dep, CcInfo.PROVIDER, CcInfo::getCcLinkingContext);
       }
       addObjcProviders(objcProviders.build());
       addCcCompilationContexts(ccInfos.build());
@@ -485,6 +484,7 @@ public final class ObjcCommon {
     return purpose;
   }
 
+  @StarlarkMethod(name = "objc_provider", documented = false, structField = true)
   public ObjcProvider getObjcProvider() {
     return objcProvider;
   }
@@ -511,6 +511,23 @@ public final class ObjcCommon {
       return compilationArtifacts.get().getArchive();
     }
     return Optional.absent();
+  }
+
+  /**
+   * Returns the compiled {@code .a} file, or null if this object contains no {@link
+   * CompilationArtifacts} or the compilation information has no sources.
+   */
+  @StarlarkMethod(
+      name = "compiled_archive",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  public Artifact getCompiledArchiveForStarlark() {
+    if (compilationArtifacts.isPresent() && compilationArtifacts.get().getArchive().isPresent()) {
+      return compilationArtifacts.get().getArchive().get();
+    }
+    return null;
   }
 
   /**

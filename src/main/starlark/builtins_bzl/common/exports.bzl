@@ -14,11 +14,17 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
+load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
+load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
+
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
     # that builtins injection is working properly. Its built-in value is
     # "original value".
     "_builtins_dummy": "overridden value",
 }
-exported_rules = {}
+exported_rules = {
+    "-objc_import": objc_import,
+    "-objc_library": objc_library,
+}
 exported_to_java = {}

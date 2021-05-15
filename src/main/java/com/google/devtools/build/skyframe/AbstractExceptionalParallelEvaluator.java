@@ -96,7 +96,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       Supplier<ExecutorService> executorService,
       CycleDetector cycleDetector,
-      EvaluationVersionBehavior evaluationVersionBehavior) {
+      EvaluationVersionBehavior evaluationVersionBehavior,
+      int cpuHeavySkyKeysThreadPoolSize) {
     super(
         graph,
         graphVersion,
@@ -110,7 +111,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
         graphInconsistencyReceiver,
         executorService,
         cycleDetector,
-        evaluationVersionBehavior);
+        evaluationVersionBehavior,
+        cpuHeavySkyKeysThreadPoolSize);
   }
 
   private void informProgressReceiverThatValueIsDone(SkyKey key, NodeEntry entry)
@@ -215,7 +217,8 @@ public abstract class AbstractExceptionalParallelEvaluator<E extends Exception>
           graph.createIfAbsentBatch(null, Reason.PRE_OR_POST_EVALUATION, skyKeys).entrySet()) {
         SkyKey skyKey = e.getKey();
         NodeEntry entry = e.getValue();
-        // This must be equivalent to the code in enqueueChild above, in order to be thread-safe.
+        // This must be equivalent to the code in AbstractParallelEvaluator.Evaluate#enqueueChild,
+        // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
             // Low priority because this node is not needed by any other currently evaluating node.

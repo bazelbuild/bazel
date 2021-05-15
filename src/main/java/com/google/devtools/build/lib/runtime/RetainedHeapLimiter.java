@@ -27,11 +27,13 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.MemoryOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.sun.management.GarbageCollectionNotificationInfo;
+import com.sun.management.HotSpotDiagnosticMXBean;
+import java.io.IOException;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
@@ -39,6 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.management.ListenerNotFoundException;
@@ -64,6 +67,8 @@ final class RetainedHeapLimiter implements NotificationListener {
   private final ImmutableList<NotificationEmitter> tenuredGcEmitters;
   private OptionalInt occupiedHeapPercentageThreshold = OptionalInt.empty();
   private String oomMessage = "";
+  private boolean heapDumpOnOom = false;
+  private UUID invocationId = null;
   private EventHandler eventHandler = NullEventHandler.INSTANCE;
   private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
   private final BugReporter bugReporter;
@@ -96,45 +101,25 @@ final class RetainedHeapLimiter implements NotificationListener {
   }
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
-  void update(int occupiedHeapPercentageThreshold, String oomMessage, EventHandler eventHandler)
+  void update(CommonCommandOptions options, UUID invocationId, EventHandler eventHandler)
       throws AbruptExitException {
-    if (tenuredGcEmitters.isEmpty() && occupiedHeapPercentageThreshold != 100) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      "No tenured GC collectors were found: unable to watch for GC events to exit"
-                          + " JVM when "
-                          + occupiedHeapPercentageThreshold
-                          + "% of heap is used")
-                  .setMemoryOptions(
-                      FailureDetails.MemoryOptions.newBuilder()
-                          .setCode(
-                              FailureDetails.MemoryOptions.Code
-                                  .EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND)
-                          .build())
-                  .build()));
+    if (tenuredGcEmitters.isEmpty() && options.oomMoreEagerlyThreshold != 100) {
+      throw createExitException(
+          "No tenured GC collectors were found: unable to watch for GC events to exit JVM when "
+              + options.oomMoreEagerlyThreshold
+              + "% of heap is used",
+          MemoryOptions.Code.EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND);
     }
-    if (occupiedHeapPercentageThreshold < 0 || occupiedHeapPercentageThreshold > 100) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      "--experimental_oom_more_eagerly_threshold must be a percent between "
-                          + "0 and 100 but was "
-                          + occupiedHeapPercentageThreshold)
-                  .setMemoryOptions(
-                      FailureDetails.MemoryOptions.newBuilder()
-                          .setCode(
-                              FailureDetails.MemoryOptions.Code
-                                  .EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE)
-                          .build())
-                  .build()));
+    if (options.oomMoreEagerlyThreshold < 0 || options.oomMoreEagerlyThreshold > 100) {
+      throw createExitException(
+          "--experimental_oom_more_eagerly_threshold must be a percent between 0 and 100 but was "
+              + options.oomMoreEagerlyThreshold,
+          MemoryOptions.Code.EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE);
     }
     boolean alreadyInstalled = this.occupiedHeapPercentageThreshold.isPresent();
     this.occupiedHeapPercentageThreshold =
-        occupiedHeapPercentageThreshold < 100
-            ? OptionalInt.of(occupiedHeapPercentageThreshold)
+        options.oomMoreEagerlyThreshold < 100
+            ? OptionalInt.of(options.oomMoreEagerlyThreshold)
             : OptionalInt.empty();
     boolean shouldBeInstalled = this.occupiedHeapPercentageThreshold.isPresent();
     if (alreadyInstalled && !shouldBeInstalled) {
@@ -148,7 +133,9 @@ final class RetainedHeapLimiter implements NotificationListener {
     } else if (!alreadyInstalled && shouldBeInstalled) {
       tenuredGcEmitters.forEach(e -> e.addNotificationListener(this, null, null));
     }
-    this.oomMessage = oomMessage;
+    this.oomMessage = options.oomMessage;
+    this.heapDumpOnOom = options.heapDumpOnEagerOom;
+    this.invocationId = invocationId;
     this.eventHandler = eventHandler;
   }
 
@@ -197,44 +184,72 @@ final class RetainedHeapLimiter implements NotificationListener {
         GarbageCollectionNotificationInfo.from((CompositeData) notification.getUserData());
     Map<String, MemoryUsage> spaces = info.getGcInfo().getMemoryUsageAfterGc();
     for (Map.Entry<String, MemoryUsage> entry : spaces.entrySet()) {
-      if (isTenuredSpace(entry.getKey())) {
-        MemoryUsage space = entry.getValue();
-        if (space.getMax() == 0) {
-          // The collector sometimes passes us nonsense stats.
-          continue;
-        }
+      if (!isTenuredSpace(entry.getKey())) {
+        continue;
+      }
+      MemoryUsage space = entry.getValue();
+      if (space.getMax() == 0) {
+        // The collector sometimes passes us nonsense stats.
+        continue;
+      }
 
-        long percentUsed = 100 * space.getUsed() / space.getMax();
-        if (percentUsed > occupiedHeapPercentageThreshold.getAsInt()) {
-          if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
-            // Assume we got here from a GC initiated by the other branch.
-            OutOfMemoryError oom =
-                new OutOfMemoryError(
-                    String.format(
-                        "RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back"
-                            + " full GCs, the tenured space is more than %s%% occupied (%s out of"
-                            + " a tenured space size of %s).",
-                        occupiedHeapPercentageThreshold.getAsInt(),
-                        space.getUsed(),
-                        space.getMax()));
-            // Exits the runtime.
-            bugReporter.handleCrash(
-                Crash.from(oom),
-                CrashContext.halt().withExtraOomInfo(oomMessage).reportingTo(eventHandler));
-          }
+      long percentUsed = 100 * space.getUsed() / space.getMax();
+      if (percentUsed <= occupiedHeapPercentageThreshold.getAsInt()) {
+        continue;
+      }
 
-          if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
-              > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
-            logger.atInfo().log(
-                "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
-                space.getUsed(), space.getMax());
-            // Force a full stop-the-world GC and see if it can get us below the threshold.
-            System.gc();
-            lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());
+      if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
+        // Assume we got here from a GC initiated by the other branch.
+        String heapDumpPath = null;
+        if (heapDumpOnOom) {
+          // The path must end in .hprof or else dumpHeap() throws IllegalArgumentException.
+          heapDumpPath = invocationId + ".heapdump.hprof";
+          logger.atInfo().log("Attempting to dump heap to %s", heapDumpPath);
+          try {
+            dumpHeap(heapDumpPath);
+            logger.atInfo().log("Heap dump complete");
+          } catch (Throwable t) { // Catch anything so we don't forgo the OOM.
+            logger.atWarning().withCause(t).log("Heap dump failed");
+            heapDumpPath = null;
           }
         }
+        OutOfMemoryError oom =
+            new OutOfMemoryError(
+                String.format(
+                    "RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back"
+                        + " full GCs, the tenured space is more than %s%% occupied (%s out of"
+                        + " a tenured space size of %s).%s",
+                    occupiedHeapPercentageThreshold.getAsInt(),
+                    space.getUsed(),
+                    space.getMax(),
+                    heapDumpPath == null
+                        ? ""
+                        : " A heap dump was written to " + heapDumpPath + "."));
+        // Exits the runtime.
+        bugReporter.handleCrash(
+            Crash.from(oom),
+            CrashContext.halt().withExtraOomInfo(oomMessage).reportingTo(eventHandler));
+      }
+
+      if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
+          > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
+        logger.atInfo().log(
+            "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
+            space.getUsed(), space.getMax());
+        // Force a full stop-the-world GC and see if it can get us below the threshold.
+        System.gc();
+        lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());
       }
     }
+  }
+
+  private void dumpHeap(String path) throws IOException {
+    HotSpotDiagnosticMXBean mxBean =
+        ManagementFactory.newPlatformMXBeanProxy(
+            ManagementFactory.getPlatformMBeanServer(),
+            "com.sun.management:type=HotSpotDiagnostic",
+            HotSpotDiagnosticMXBean.class);
+    mxBean.dumpHeap(path, /*live=*/ true);
   }
 
   private static boolean isTenuredSpace(String name) {
@@ -244,5 +259,14 @@ final class RetainedHeapLimiter implements NotificationListener {
         || "Tenured Gen".equals(name)
         || "Shenandoah".equals(name)
         || "ZHeap".equals(name);
+  }
+
+  private static AbruptExitException createExitException(String message, MemoryOptions.Code code) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setMemoryOptions(MemoryOptions.newBuilder().setCode(code))
+                .build()));
   }
 }

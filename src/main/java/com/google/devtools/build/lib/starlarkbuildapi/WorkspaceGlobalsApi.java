@@ -60,7 +60,7 @@ public interface WorkspaceGlobalsApi {
             name = "name",
             doc =
                 "the name of the workspace. Names must start with a letter and can only contain "
-                    + "letters, numbers, and underscores.",
+                    + "letters, numbers, underscores, dashes, and dots.",
             named = true,
             positional = false),
         @Param(

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -107,22 +106,10 @@ public final class MockObjcSupport {
         "package(default_visibility=['//visibility:public'])",
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
-        "filegroup(name = 'compile_protos', srcs = ['compile_protos.py'])",
-        "filegroup(name = 'protobuf_compiler_wrapper', srcs = ['protobuf_compiler_wrapper.sh'])",
-        "filegroup(name = 'protobuf_compiler', srcs = ['protobuf_compiler_helper.py'])",
-        "filegroup(",
-        "  name = 'protobuf_compiler_support',",
-        "  srcs = ['proto_support', 'protobuf_compiler_helper.py'],",
-        ")",
         "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
         "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
         "filegroup(name = 'j2objc_dead_code_pruner', srcs = ['j2objc_dead_code_pruner.py'])",
-        "filegroup(",
-        "  name = 'protobuf_well_known_types',",
-        String.format(
-            "  srcs = ['%s//objcproto:well_known_type.proto'],", TestConstants.TOOLS_REPOSITORY),
-        ")",
         "xcode_config(name = 'host_xcodes',",
         "  default = ':version7_3_1',",
         "  versions = [':version7_3_1', ':version5_0', ':version7_3', ':version5_8', ':version5'])",
@@ -147,8 +134,7 @@ public final class MockObjcSupport {
         "  name = 'version5',",
         "  version = '5',",
         ")",
-        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])",
-        "alias(name = 'protobuf_lib', actual = '//objcproto:protobuf_lib')");
+        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
     // If the bazel tools repository is not in the workspace, also create a workspace tools/objc
     // package with a few lingering dependencies.
     // TODO(b/64537078): Move these dependencies underneath the tools workspace.
@@ -163,33 +149,9 @@ public final class MockObjcSupport {
     }
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/foo.mobileprovision", "No such luck");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/compile_protos.py");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/xctest.plist");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/proto_support");
     config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/j2objc_dead_code_pruner.py");
     setupCcToolchainConfig(config);
-    setupObjcProto(config);
-  }
-
-  /** Sets up the support for building protocol buffers for ObjC. */
-  private static void setupObjcProto(MockToolsConfig config) throws IOException {
-    config.create(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "objc_library(",
-        "  name = 'protobuf_lib',",
-        "  srcs = ['empty.m'],",
-        "  hdrs = ['include/header.h'],",
-        "  includes = ['include'],",
-        ")",
-        "exports_files(['well_known_type.proto'])",
-        "proto_library(",
-        "  name = 'well_known_type_proto',",
-        "  srcs = ['well_known_type.proto'],",
-        ")");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/empty.m");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/empty.cc");
-    config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "objcproto/well_known_type.proto");
   }
 
   public static void setupCcToolchainConfig(
@@ -569,25 +531,5 @@ public final class MockObjcSupport {
 
   public static String readCcToolchainConfigFile() throws IOException {
     return ResourceLoader.readFromResources(MOCK_OSX_TOOLCHAIN_CONFIG_PATH);
-  }
-
-  /** Creates a mock objc_proto_library rule in the current main workspace. */
-  public static void setupObjcProtoLibrary(Scratch scratch) throws Exception {
-    // Append file instead of creating one in case it already exists.
-    String toolsRepo = TestConstants.TOOLS_REPOSITORY;
-    scratch.file("objc_proto_library/BUILD", "");
-    scratch.file(
-        "objc_proto_library/objc_proto_library.bzl",
-        "def _impl(ctx):",
-        "  return [apple_common.new_objc_provider()]",
-        "",
-        "objc_proto_library = rule(",
-        "  _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'portable_proto_filters': attr.label_list(allow_files=True),",
-        "    '_lib_protobuf': attr.label(default = '" + toolsRepo + "//objcproto:protobuf_lib'),",
-        "  }",
-        ")");
   }
 }

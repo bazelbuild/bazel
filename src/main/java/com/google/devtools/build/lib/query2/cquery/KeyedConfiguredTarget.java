@@ -56,9 +56,7 @@ public abstract class KeyedConfiguredTarget {
   /** Returns the configuration checksum in use for this KeyedConfiguredTarget. */
   @Nullable
   public String getConfigurationChecksum() {
-    return getConfigurationKey() == null
-        ? null
-        : getConfigurationKey().getOptionsDiff().getChecksum();
+    return getConfigurationKey() == null ? null : getConfigurationKey().getOptions().checksum();
   }
 
   /**

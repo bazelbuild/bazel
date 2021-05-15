@@ -77,7 +77,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            toolchain.getTarget().getPackage().getRepositoryMapping(),
             unloadedToolchainContext,
             "test",
             ImmutableList.of(toolchain));
@@ -128,7 +127,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            toolchain.getTarget().getPackage().getRepositoryMapping(),
             unloadedToolchainContext,
             "test",
             ImmutableList.of(toolchain));
@@ -173,7 +171,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         ToolchainException.class,
         () ->
             ResolvedToolchainContext.load(
-                toolchain.getTarget().getPackage().getRepositoryMapping(),
                 unloadedToolchainContext,
                 "test",
                 ImmutableList.of(toolchain)));
@@ -234,7 +231,6 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             Label.parseAbsoluteUnchecked("//variable:variable_toolchain_impl"), targetConfig);
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            toolchain.getTarget().getPackage().getRepositoryMapping(),
             unloadedToolchainContext,
             "test",
             ImmutableList.of(toolchain));

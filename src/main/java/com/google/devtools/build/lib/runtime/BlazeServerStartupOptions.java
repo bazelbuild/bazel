@@ -467,18 +467,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public String macosQosClass;
 
   @Option(
-      name = "incompatible_enable_execution_transition",
-      defaultValue = "false", // Only for documentation; value is set by the client.
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If false, the execution transition behaves like the host transition.")
-  public boolean enableExecutionTransition;
-
-  @Option(
       name = "windows_enable_symlinks",
       defaultValue = "false", // Only for documentation; value is set by the client.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,

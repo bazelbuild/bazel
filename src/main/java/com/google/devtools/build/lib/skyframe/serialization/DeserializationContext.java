@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Deserializer;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
@@ -33,12 +34,12 @@ import javax.annotation.Nullable;
  */
 public class DeserializationContext {
   private final ObjectCodecRegistry registry;
-  private final ImmutableMap<Class<?>, Object> dependencies;
+  private final ImmutableClassToInstanceMap<Object> dependencies;
   private final Memoizer.Deserializer deserializer;
 
   private DeserializationContext(
       ObjectCodecRegistry registry,
-      ImmutableMap<Class<?>, Object> dependencies,
+      ImmutableClassToInstanceMap<Object> dependencies,
       Deserializer deserializer) {
     this.registry = registry;
     this.dependencies = dependencies;
@@ -47,12 +48,12 @@ public class DeserializationContext {
 
   @VisibleForTesting
   public DeserializationContext(
-      ObjectCodecRegistry registry, ImmutableMap<Class<?>, Object> dependencies) {
+      ObjectCodecRegistry registry, ImmutableClassToInstanceMap<Object> dependencies) {
     this(registry, dependencies, /*deserializer=*/ null);
   }
 
   @VisibleForTesting
-  public DeserializationContext(ImmutableMap<Class<?>, Object> dependencies) {
+  public DeserializationContext(ImmutableClassToInstanceMap<Object> dependencies) {
     this(AutoRegistry.get(), dependencies);
   }
 
@@ -112,8 +113,7 @@ public class DeserializationContext {
   }
 
   public <T> T getDependency(Class<T> type) {
-    Preconditions.checkNotNull(type);
-    return type.cast(dependencies.get(type));
+    return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);
   }
 
   /**

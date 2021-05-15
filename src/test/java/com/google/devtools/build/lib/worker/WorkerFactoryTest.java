@@ -58,6 +58,7 @@ public class WorkerFactoryTest {
         /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
         /* mustBeSandboxed= */ mustBeSandboxed,
         /* proxied= */ proxied,
+        /* cancellable= */ false,
         WorkerProtocolFormat.PROTO);
   }
 

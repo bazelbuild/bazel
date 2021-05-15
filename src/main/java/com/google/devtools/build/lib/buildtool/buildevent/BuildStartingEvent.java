@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.protobuf.util.Timestamps;
 import java.util.Collection;
 
 /**
@@ -101,6 +102,7 @@ public final class BuildStartingEvent implements BuildEvent {
     BuildEventStreamProtos.BuildStarted.Builder started =
         BuildEventStreamProtos.BuildStarted.newBuilder()
             .setUuid(request.getId().toString())
+            .setStartTime(Timestamps.fromMillis(request.getStartTime()))
             .setStartTimeMillis(request.getStartTime())
             .setBuildToolVersion(BlazeVersionInfo.instance().getVersion())
             .setOptionsDescription(request.getOptionsDescription())

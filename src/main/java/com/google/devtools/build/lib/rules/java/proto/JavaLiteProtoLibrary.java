@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.java.JavaCcInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -78,23 +79,24 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
-    JavaInfo.Builder javaInfoBuilder =
-        JavaInfo.Builder.create()
-            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders);
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+
     JavaInfo javaInfo =
-        javaInfoBuilder
+        JavaInfo.Builder.create()
+            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
+            .addProvider(
+                JavaCcInfoProvider.class, createCcLinkingInfo(ruleContext, ImmutableList.of()))
             .setJavaConstraints(ImmutableList.of("android"))
             .build();
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
+    return builder
         .setFilesToBuild(filesToBuild.build())
         .addProvider(RunfilesProvider.simple(runfiles))
         .addOutputGroup(OutputGroupInfo.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addNativeDeclaredProvider(getJavaLiteRuntimeSpec(ruleContext))
         .addNativeDeclaredProvider(javaInfo)
-        .addNativeDeclaredProvider(createCcLinkingInfo(ruleContext, ImmutableList.of()))
         .build();
   }
 

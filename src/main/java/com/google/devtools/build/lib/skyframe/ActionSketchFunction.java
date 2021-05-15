@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
+import com.google.devtools.build.lib.actionsketch.HashAndVersion;
 import com.google.devtools.build.lib.actionsketch.Sketches;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -118,9 +119,15 @@ public final class ActionSketchFunction implements SkyFunction {
     // Incorporate the direct source values.
     for (SkyValue val : srcArtifactValues.values()) {
       FileArtifactValue fileArtifactValue = (FileArtifactValue) val;
-      transitiveSourceHash =
-          BigIntegerFingerprintUtils.compose(
-              transitiveSourceHash, fileArtifactValue.getValueFingerprint());
+      byte[] sourceFingerprint = fileArtifactValue.getValueFingerprint();
+      if (sourceFingerprint != null) {
+        transitiveSourceHash =
+            BigIntegerFingerprintUtils.compose(
+                transitiveSourceHash, new BigInteger(1, sourceFingerprint));
+      } else {
+        transitiveSourceHash = null;
+        break;
+      }
     }
 
     // Incorporate the transitive action key and source values.
@@ -129,14 +136,18 @@ public final class ActionSketchFunction implements SkyFunction {
       transitiveActionKeyHash =
           BigIntegerFingerprintUtils.compose(
               transitiveActionKeyHash, depSketch.transitiveActionLookupHash());
-      transitiveSourceHash =
-          BigIntegerFingerprintUtils.compose(
-              transitiveSourceHash, depSketch.transitiveSourceHash());
+      HashAndVersion hashAndVersion = depSketch.transitiveSourceHash();
+      if (hashAndVersion != null) {
+        transitiveSourceHash =
+            BigIntegerFingerprintUtils.composeNullable(transitiveSourceHash, hashAndVersion.hash());
+      } else {
+        transitiveSourceHash = null;
+      }
     }
 
     return ActionSketch.builder()
         .setTransitiveActionLookupHash(transitiveActionKeyHash)
-        .setTransitiveSourceHash(transitiveSourceHash)
+        .setTransitiveSourceHash(HashAndVersion.createNoVersion(transitiveSourceHash))
         .build();
   }
 }

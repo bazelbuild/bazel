@@ -121,7 +121,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     Rule rule = (Rule) getTarget(actual);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
     ConfiguredAttributeMapper attributeMapper =
-        ConfiguredAttributeMapper.of(rule, configConditions);
+        ConfiguredAttributeMapper.of(
+            rule, configConditions, keyedConfiguredTarget.getConfigurationChecksum());
     if (!attributeMapper.has(attrName)) {
       throw new QueryException(
           caller,

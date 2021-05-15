@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
@@ -203,7 +204,8 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         artifactExpander,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT);
+        NestedSetExpander.DEFAULT,
+        UnixGlob.DEFAULT_SYSCALLS);
   }
 
   private enum KeyAttributes {

@@ -460,14 +460,14 @@ EOF
   cat > $pkg/rules.bzl <<EOF
 def _rule_class_transition_impl(settings, attr):
     return {
-        "//command_line_option:test_arg": ["blah"]
+        "//command_line_option:platform_suffix": "blah"
     }
 
 _rule_class_transition = transition(
     implementation = _rule_class_transition_impl,
     inputs = [],
     outputs = [
-        "//command_line_option:test_arg",
+        "//command_line_option:platform_suffix",
     ],
 )
 

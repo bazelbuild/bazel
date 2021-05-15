@@ -27,15 +27,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.eval.StarlarkValue;
 
-/**
- * Provides a way to access attributes that are common to all compilation rules.
- */
+/** Provides a way to access attributes that are common to all compilation rules. */
 // TODO(bazel-team): Delete and move into support-specific attributes classes once ObjcCommon is
 // gone.
-final class CompilationAttributes {
+final class CompilationAttributes implements StarlarkValue {
   static class Builder {
     private final NestedSetBuilder<Artifact> hdrs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> textualHdrs = NestedSetBuilder.stableOrder();
@@ -43,6 +43,7 @@ final class CompilationAttributes {
     private final NestedSetBuilder<PathFragment> sdkIncludes = NestedSetBuilder.stableOrder();
     private final ImmutableList.Builder<String> copts = ImmutableList.builder();
     private final ImmutableList.Builder<String> linkopts = ImmutableList.builder();
+    private final ImmutableList.Builder<Artifact> linkInputs = ImmutableList.builder();
     private final ImmutableList.Builder<String> defines = ImmutableList.builder();
     private final NestedSetBuilder<SdkFramework> sdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<SdkFramework> weakSdkFrameworks = NestedSetBuilder.stableOrder();
@@ -113,6 +114,12 @@ final class CompilationAttributes {
       return this;
     }
 
+    /** Adds additional linker inputs. */
+    public Builder addLinkInputs(Iterable<Artifact> linkInputs) {
+      this.linkInputs.addAll(linkInputs);
+      return this;
+    }
+
     /** Adds defines. */
     public Builder addDefines(Iterable<String> defines) {
       this.defines.addAll(defines);
@@ -178,6 +185,7 @@ final class CompilationAttributes {
           this.packageFragment,
           this.copts.build(),
           this.linkopts.build(),
+          this.linkInputs.build(),
           this.defines.build(),
           this.enableModules);
     }
@@ -246,7 +254,12 @@ final class CompilationAttributes {
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
-        builder.addLinkopts(ruleContext.getExpander().withDataLocations().tokenized("linkopts"));
+        builder.addLinkopts(CppHelper.getLinkopts(ruleContext));
+      }
+
+      if (ruleContext.attributes().has("additional_linker_inputs", BuildType.LABEL_LIST)) {
+        builder.addLinkInputs(
+            ruleContext.getPrerequisiteArtifacts("additional_linker_inputs").list());
       }
 
       if (ruleContext.attributes().has("defines", Type.STRING_LIST)) {
@@ -277,6 +290,7 @@ final class CompilationAttributes {
   private final Optional<PathFragment> packageFragment;
   private final ImmutableList<String> copts;
   private final ImmutableList<String> linkopts;
+  private final ImmutableList<Artifact> linkInputs;
   private final ImmutableList<String> defines;
   private final boolean enableModules;
 
@@ -291,6 +305,7 @@ final class CompilationAttributes {
       Optional<PathFragment> packageFragment,
       ImmutableList<String> copts,
       ImmutableList<String> linkopts,
+      ImmutableList<Artifact> linkInputs,
       ImmutableList<String> defines,
       boolean enableModules) {
     this.hdrs = hdrs;
@@ -303,6 +318,7 @@ final class CompilationAttributes {
     this.packageFragment = packageFragment;
     this.copts = copts;
     this.linkopts = linkopts;
+    this.linkInputs = linkInputs;
     this.defines = defines;
     this.enableModules = enableModules;
   }
@@ -387,6 +403,11 @@ final class CompilationAttributes {
    */
   public ImmutableList<String> linkopts() {
     return this.linkopts;
+  }
+
+  /** Returns the additional link inputs. */
+  public ImmutableList<Artifact> linkInputs() {
+    return this.linkInputs;
   }
 
   /** Returns the defines. */

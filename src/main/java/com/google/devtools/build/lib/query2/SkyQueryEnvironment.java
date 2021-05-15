@@ -91,6 +91,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider.UniverseTargetPattern;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
@@ -268,7 +269,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(
               graph,
-              getTargetPatternsForUniverseKey(universeKey),
+              UniverseTargetPattern.of(getTargetPatternsForUniverseKey(universeKey)),
               pkgPath,
               new TraversalInfoRootPackageExtractor());
     }
@@ -624,10 +625,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Iterable<Target> targets, QueryExpressionContext<Target> context)
       throws InterruptedException {
     return processRawReverseDeps(
-        getReverseDepsOfLabels(Iterables.transform(targets, Target::getLabel)));
+        getReverseDepsOfLabels(Iterables.transform(targets, Target::getLabel), context));
   }
 
-  protected Map<SkyKey, Collection<Target>> getReverseDepsOfLabels(Iterable<Label> targetLabels)
+  protected Map<SkyKey, Collection<Target>> getReverseDepsOfLabels(
+      Iterable<Label> targetLabels, QueryExpressionContext<Target> context)
       throws InterruptedException {
     return getRawReverseDeps(Iterables.transform(targetLabels, label -> label));
   }

@@ -184,37 +184,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean deviceDebugEntitlements;
 
+  // TODO(b/63112347): Remove all references to this flag and delete it.
   @Option(
-      name = "objc_use_dotd_pruning",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "If set, .d files emitted by clang will be used to prune the set of inputs passed into "
-              + "objc compiles.")
-  public boolean useDotdPruning;
-
-  @Option(
-    name = "enable_apple_binary_native_protos",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    help = "If set, apple_binary will generate and link objc protos into the output binary."
-  )
-  public boolean enableAppleBinaryNativeProtos;
-
-  @Option(
-      name = "experimental_objc_include_scanning",
+      name = "enable_apple_binary_native_protos",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.CHANGES_INPUTS
-      },
-      help = "Whether to perform include scanning for objective C/C++.")
-  public boolean scanIncludes;
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
+      help = "This flag is a no-op and will soon be deleted.")
+  public boolean enableAppleBinaryNativeProtos;
 
   @Option(
     name = "apple_sdk",

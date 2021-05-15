@@ -263,7 +263,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (includeInstantiationStack) {
-        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toArray()) {
+        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toList()) {
           // Always report relative locations.
           // (New fields needn't honor relativeLocations.)
           rulePb.addInstantiationStack(

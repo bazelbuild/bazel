@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Map;
@@ -66,12 +67,15 @@ public final class CreateIncSymlinkAction extends AbstractAction {
 
   @Override
   public void prepare(
-      Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+      Path execRoot,
+      ArtifactPathResolver pathResolver,
+      @Nullable BulkDeleter bulkDeleter,
+      @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
       throws IOException, InterruptedException {
     if (includePath.isDirectory(Symlinks.NOFOLLOW)) {
       includePath.deleteTree();
     }
-    super.prepare(execRoot, pathResolver, bulkDeleter);
+    super.prepare(execRoot, pathResolver, bulkDeleter, outputPrefixForArchivedArtifactsCleanup);
   }
 
   @Override

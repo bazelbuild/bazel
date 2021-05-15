@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import java.util.function.Supplier;
 
 /**
  * Type that can get informed about executor lifecycle events.
@@ -38,11 +39,10 @@ public interface ExecutorLifecycleListener {
    * Handles the start of the execution phase.
    *
    * @param actionGraph actions as calcuated in the analysis phase
-   * @param topLevelArtifactsToOwnerLabels supplier of all output artifacts from top-level targets
-   *     and aspects, mapped to their owners
+   * @param topLevelArtifacts supplies all output artifacts from top-level targets and aspects
    */
   void executionPhaseStarting(
-      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
+      ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts)
       throws AbruptExitException, InterruptedException;
 
   /** Handles the end of the execution phase. */

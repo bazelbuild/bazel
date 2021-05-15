@@ -82,10 +82,8 @@ pkg_tar(
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",
     ],
-    remap_paths = {
-        "..": "derived/jars",
-    },
-    strip_prefix = ".",
+    package_dir = "derived/jars",
+    strip_prefix = "external",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
@@ -127,11 +125,12 @@ pkg_tar(
         ":generated_resources",
         ":srcs",
     ],
+    # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
         "WORKSPACE.filtered": "WORKSPACE",
         # Rewrite paths coming from local repositories back into third_party.
-        "../googleapis": "third_party/googleapis",
-        "../remoteapis": "third_party/remoteapis",
+        "external/googleapis": "third_party/googleapis",
+        "external/remoteapis": "third_party/remoteapis",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.
@@ -141,8 +140,7 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    package_dir = "platforms",
-    strip_prefix = ".",
+    strip_prefix = "external",
     visibility = ["//:__subpackages__"],
 )
 

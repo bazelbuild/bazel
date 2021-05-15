@@ -23,11 +23,12 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.Options;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransititionApi;
+import java.util.List;
 import net.starlark.java.eval.Printer;
 
 /** Android Split configuration transition for properly handling native dependencies */
@@ -48,9 +49,28 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
 
     AndroidConfiguration.Options androidOptions =
         buildOptions.get(AndroidConfiguration.Options.class);
-    CppOptions cppOptions = buildOptions.get(CppOptions.class);
 
-    if (!androidOptions.fatApkCpus.isEmpty()) {
+    CppOptions cppOptions = buildOptions.get(CppOptions.class);
+    /*
+     * The intended order of checks is:
+     *  - --android_platforms
+     *    - Split using the values of this flag as the target platform
+     *    - If this is unset, fall though.
+     *  - --fat_apk_cpus
+     *    - Split using the values of this flag as --cpu
+     *    - If this is unset, fall though.
+     *    - legacy, will eventually be removed
+     *  - --android_cpu
+     *    - Don't split, just use the value of this flag as --cpu
+     *    - If this is unset, fall though.
+     *    - legacy, will eventually be removed
+     *  - Default
+     *    - Don't split, using the same previously set --cpu and/or --platforms
+     */
+    if (androidOptions.incompatibleUseToolchainResolution
+        && !androidOptions.androidPlatforms.isEmpty()) {
+      return handleAndroidPlatforms(buildOptions, androidOptions, androidOptions.androidPlatforms);
+    } else if (!androidOptions.fatApkCpus.isEmpty()) {
       return handleFatApkCpus(buildOptions, androidOptions);
     } else if (!androidOptions.cpu.isEmpty()
         && androidOptions.androidCrosstoolTop != null
@@ -63,13 +83,16 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
 
   private void addNonCpuSplits(
       ImmutableMap.Builder<String, BuildOptions> result,
-      String cpu,
+      String name,
       BuildOptionsView buildOptions) {
-    result.put(cpu, buildOptions.underlying());
 
     AndroidConfiguration.Options androidOptions =
         buildOptions.get(AndroidConfiguration.Options.class);
-    if (cpu.equals("arm64-v8a") && androidOptions.fatApkHwasan) {
+    if (!androidOptions.fatApkHwasan) {
+      return;
+    }
+
+    if (name.contains("arm64-v8a")) {
       BuildOptionsView hwasanSplitOptions = buildOptions.clone();
 
       // A HWASAN build is different from a regular one in these ways:
@@ -81,14 +104,43 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
       hwasanSplitOptions.get(CppOptions.class).outputDirectoryTag = "hwasan";
       hwasanSplitOptions.get(AndroidConfiguration.Options.class).hwasan = true;
 
-      result.put(cpu + "-hwasan", hwasanSplitOptions.underlying());
+      result.put(name + "-hwasan", hwasanSplitOptions.underlying());
     }
   }
 
-  /** Returns a transition that uses the "--cpu" and non-CPU (i.e. HWASAN) splits. */
+  /**
+   * Splits the configuration based on the values of --android_platforms. Each split will set the
+   * --platforms flag to one value from --android_platforms, as well as clean up a few other flags
+   * around native CC builds.
+   */
+  private ImmutableMap<String, BuildOptions> handleAndroidPlatforms(
+      BuildOptionsView buildOptions,
+      AndroidConfiguration.Options androidOptions,
+      List<Label> androidPlatforms) {
+    ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
+    for (Label platform : ImmutableSortedSet.copyOf(androidPlatforms)) {
+      BuildOptionsView splitOptions = buildOptions.clone();
+
+      // Disable fat APKs for the child configurations.
+      splitOptions.get(AndroidConfiguration.Options.class).fatApkCpus = ImmutableList.of();
+      splitOptions.get(AndroidConfiguration.Options.class).androidPlatforms = ImmutableList.of();
+
+      // The cpu flag will be set by platform mapping if a mapping exists.
+      splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platform);
+      setCcFlagsFromAndroid(androidOptions, splitOptions);
+      result.put(platform.getName(), splitOptions.underlying());
+
+      addNonCpuSplits(result, platform.getName(), splitOptions);
+    }
+    return result.build();
+  }
+
+  /** Returns a single-split transition that uses the "--cpu" and does not change any flags. */
   private ImmutableMap<String, BuildOptions> handleDefaultSplit(
       BuildOptionsView buildOptions, String cpu) {
+    // Avoid a clone when nothing changes.
     ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
+    result.put(cpu, buildOptions.underlying());
     addNonCpuSplits(result, cpu, buildOptions);
     return result.build();
   }
@@ -98,10 +150,12 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
    * based on the corresponding Android flags.
    */
   private ImmutableMap<String, BuildOptions> handleAndroidCpu(
-      BuildOptionsView buildOptions, Options androidOptions) {
+      BuildOptionsView buildOptions, AndroidConfiguration.Options androidOptions) {
     BuildOptionsView splitOptions = buildOptions.clone();
     splitOptions.get(CoreOptions.class).cpu = androidOptions.cpu;
     setCcFlagsFromAndroid(androidOptions, splitOptions);
+    // Ensure platforms aren't set so that platform mapping can take place.
+    splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
     return handleDefaultSplit(splitOptions, androidOptions.cpu);
   }
 
@@ -110,18 +164,22 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
    * other C++ flags based on the corresponding Android flags.
    */
   private ImmutableMap<String, BuildOptions> handleFatApkCpus(
-      BuildOptionsView buildOptions, Options androidOptions) {
+      BuildOptionsView buildOptions, AndroidConfiguration.Options androidOptions) {
     ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
     for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
       BuildOptionsView splitOptions = buildOptions.clone();
       // Disable fat APKs for the child configurations.
-      splitOptions.get(Options.class).fatApkCpus = ImmutableList.of();
+      splitOptions.get(AndroidConfiguration.Options.class).fatApkCpus = ImmutableList.of();
+      splitOptions.get(AndroidConfiguration.Options.class).androidPlatforms = ImmutableList.of();
 
       // Set the cpu & android_cpu.
       // TODO(bazel-team): --android_cpu doesn't follow --cpu right now; it should.
-      splitOptions.get(Options.class).cpu = cpu;
+      splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
       splitOptions.get(CoreOptions.class).cpu = cpu;
       setCcFlagsFromAndroid(androidOptions, splitOptions);
+      // Ensure platforms aren't set so that platform mapping can take place.
+      splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
+      result.put(cpu, splitOptions.underlying());
       addNonCpuSplits(result, cpu, splitOptions);
     }
     return result.build();
@@ -142,9 +200,6 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
 
     newOptions.get(AndroidConfiguration.Options.class).configurationDistinguisher =
         ConfigurationDistinguisher.ANDROID;
-
-    // Ensure platforms aren't set so that platform mapping can take place.
-    newOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
   }
 
   @Override

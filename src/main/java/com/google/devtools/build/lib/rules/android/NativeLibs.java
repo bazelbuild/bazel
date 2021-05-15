@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.nativedeps.NativeDepsHelper;
@@ -49,8 +49,17 @@ public final class NativeLibs {
 
   private static String getLibDirName(ConfiguredTargetAndData dep) {
     BuildConfiguration configuration = dep.getConfiguration();
-    String name = configuration.getFragment(AndroidConfiguration.class).getCpu();
-    if (configuration.getFragment(AndroidConfiguration.class).isHwasan()) {
+    AndroidConfiguration androidConfiguration =
+        configuration.getFragment(AndroidConfiguration.class);
+    String name;
+    if (androidConfiguration.incompatibleUseToolchainResolution()) {
+      name = configuration.getFragment(PlatformConfiguration.class).getTargetPlatform().getName();
+    } else {
+      // Legacy builds use the CPU as the name.
+      name = androidConfiguration.getCpu();
+    }
+
+    if (androidConfiguration.isHwasan()) {
       name += "-hwasan";
     }
     return name;
@@ -84,8 +93,9 @@ public final class NativeLibs {
     for (Map.Entry<String, Collection<ConfiguredTargetAndData>> entry :
         depsByLibDir.asMap().entrySet()) {
       ConfiguredTargetAndData toolchainDep = toolchainsByLibDir.get(entry.getKey());
+      // Get the actual cc toolchain from the dependency.
       CcToolchainProvider toolchain =
-          CppHelper.getToolchain(ruleContext, toolchainDep.getConfiguredTarget());
+          toolchainDep.getConfiguredTarget().get(CcToolchainProvider.PROVIDER);
 
       CcInfo ccInfo =
           AndroidCommon.getCcInfo(

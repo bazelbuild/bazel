@@ -139,6 +139,7 @@ public class ResourceLinker {
   private List<CompiledResources> include = ImmutableList.of();
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
+  private boolean includeProguardLocationReferences = false;
 
   private ResourceLinker(
       Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
@@ -426,6 +427,11 @@ public class ResourceLinker {
             .add("--java", javaSourceDirectory)
             .add("--proguard", proguardConfig)
             .add("--proguard-main-dex", mainDexProguard)
+            // By default, exclude the file path location comments, since the paths
+            // include temporary directory names, which otherwise cause
+            // nondeterministic build output.
+            .when(!includeProguardLocationReferences)
+            .thenAdd("--no-proguard-location-reference")
             .when(conditionalKeepRules)
             .thenAdd("--proguard-conditional-keep-rules")
             .add("-o", linked)
@@ -605,6 +611,12 @@ public class ResourceLinker {
     return this;
   }
 
+  public ResourceLinker includeProguardLocationReferences(
+      boolean includeProguardLocationReferences) {
+    this.includeProguardLocationReferences = includeProguardLocationReferences;
+    return this;
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
@@ -615,6 +627,7 @@ public class ResourceLinker {
         .add("densities", densities)
         .add("uncompressedExtensions", uncompressedExtensions)
         .add("resourceConfigs", resourceConfigs)
+        .add("includeProguardLocationReferences", includeProguardLocationReferences)
         .toString();
   }
 }

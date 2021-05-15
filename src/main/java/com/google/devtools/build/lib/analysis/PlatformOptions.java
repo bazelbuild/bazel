@@ -155,7 +155,9 @@ public class PlatformOptions extends FragmentOptions {
       help =
           "Print debug information during toolchain resolution. The flag takes a regex, which is"
               + " checked against toolchain types to see which to debug. Multiple regexes may be"
-              + " separated by commas, and then each regex is checked separately.")
+              + " separated by commas, and then each regex is checked separately. Note: The output"
+              + " of this flag is very complex and will likely only be useful to experts in"
+              + " toolchain resolution.")
   public RegexFilter toolchainResolutionDebug;
 
   @Option(

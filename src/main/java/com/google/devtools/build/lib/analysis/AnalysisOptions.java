@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -120,4 +121,37 @@ public class AnalysisOptions extends OptionsBase {
       help =
           "Check for action prefix file path conflicts, regardless of action-specific overrides.")
   public boolean strictConflictChecks;
+
+  @Option(
+      name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      help =
+          "If set to a positive value (e.g. \"HOST_CPUS*1.5\"), Skyframe will run the"
+              + " loading/analysis phase with 2 separate thread pools: 1 with <value> threads"
+              + " (ideally close to HOST_CPUS) reserved for CPU-heavy SkyKeys, and 1 \"standard\""
+              + " thread pool (whose size is controlled by --loading_phase_threads) for the rest.",
+      converter = CpuResourceConverter.class)
+  public int cpuHeavySkyKeysThreadPoolSize;
+
+  @Option(
+      name = "experimental_oom_sensitive_skyfunctions_semaphore_size",
+      defaultValue = "HOST_CPUS",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      help =
+          "Sets the size of the semaphore used to prevent SkyFunctions with large peak memory"
+              + " requirement from OOM-ing blaze. A value of 0 indicates that no semaphore should"
+              + " be used. Example value: \"HOST_CPUS*0.5\".",
+      converter = CpuResourceConverter.class)
+  public int oomSensitiveSkyFunctionsSemaphoreSize;
 }

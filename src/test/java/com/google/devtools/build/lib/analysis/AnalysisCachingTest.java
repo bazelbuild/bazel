@@ -313,6 +313,27 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertThat(successfulAnalyses).isEqualTo(1);
   }
 
+  @Test
+  public void aliasConflict() throws Exception {
+    scratch.file(
+        "conflict/conflict.bzl",
+        "def _conflict(ctx):",
+        "    file = ctx.actions.declare_file('single_file')",
+        "    ctx.actions.write(output = file, content = ctx.attr.name)",
+        "    return [DefaultInfo(files = depset([file]))]",
+        "my_rule = rule(implementation = _conflict)");
+    scratch.file(
+        "conflict/BUILD",
+        "load(':conflict.bzl', 'my_rule')",
+        "my_rule(name = 'conflict1')",
+        "my_rule(name = 'conflict2')",
+        "alias(name = 'aliased', actual = ':conflict2')");
+    reporter.removeHandler(failFastHandler);
+    assertThrows(
+        ViewCreationFailedException.class,
+        () -> update("//conflict:conflict1", "//conflict:aliased"));
+  }
+
   /** BUILD file involved in BUILD-file cycle is changed */
   @Test
   public void testBuildFileInCycleChanged() throws Exception {

@@ -20,11 +20,10 @@ import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -34,26 +33,6 @@ import javax.annotation.Nullable;
  */
 @ThreadCompatible
 public class CriticalPathComponent {
-  /**
-   * Converts from nanos to millis since the epoch. In particular, note that {@link System#nanoTime}
-   * does not specify any particular time reference but only notes that returned values are only
-   * meaningful when taking in relation to each other.
-   */
-  public interface NanosToEpochConverter {
-    /** Converts from nanos to millis since the epoch. */
-    long toEpoch(long timeNanos);
-  }
-
-  /**
-   * Creates a {@link NanosToEpochConverter} from clock by taking the current time in millis and the
-   * current time in nanos to compute the appropriate offset.
-   */
-  public static NanosToEpochConverter fromClock(Clock clock) {
-    long nowInMillis = clock.currentTimeMillis();
-    long nowInNanos = clock.nanoTime();
-    return (startNanos) -> nowInMillis - TimeUnit.NANOSECONDS.toMillis((nowInNanos - startNanos));
-  }
-
   /** Empty metrics used to simplify handling of {@link #phaseMaxMetrics}. */
   private static final SpawnMetrics EMPTY_PLACEHOLDER_METRICS =
       SpawnMetrics.Builder.forOtherExec().build();
@@ -271,8 +250,8 @@ public class CriticalPathComponent {
     return startNanos;
   }
 
-  public long getStartTimeMillisSinceEpoch(NanosToEpochConverter converter) {
-    return converter.toEpoch(startNanos);
+  public long getStartTimeMillisSinceEpoch(NanosToMillisSinceEpochConverter converter) {
+    return converter.toEpochMillis(startNanos);
   }
 
   public Duration getElapsedTime() {
@@ -288,7 +267,7 @@ public class CriticalPathComponent {
       // does not get called in this state.
       // If we want the critical path to contain partially executed actions in a case of interrupt,
       // then we need to tell the critical path computer that the build was interrupt, and let it
-      // artifically mark all such actions as done.
+      // artificially mark all such actions as done.
       return 0;
     }
     return getElapsedTimeNanosNoCheck();

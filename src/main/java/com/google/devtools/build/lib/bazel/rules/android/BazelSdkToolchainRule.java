@@ -25,10 +25,12 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
 /** Rule for accessing the android sdk via toolchains. */
 public final class BazelSdkToolchainRule implements RuleDefinition {
+  static final String TOOLCHAIN_LABEL = "//tools/android:sdk_toolchain_type";
+
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     // This lives in tools/android/BUILD.tools
-    Label toolchainType = env.getToolsLabel("//tools/android:sdk_toolchain_type");
+    Label toolchainType = env.getToolsLabel(TOOLCHAIN_LABEL);
 
     return builder
         .addRequiredToolchains(toolchainType)

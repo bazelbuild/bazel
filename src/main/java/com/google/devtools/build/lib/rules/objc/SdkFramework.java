@@ -16,14 +16,16 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Represents the name of an SDK framework.
- * <p>
- * Besides being a glorified String, this class prevents you from adding framework names to an
+ *
+ * <p>Besides being a glorified String, this class prevents you from adding framework names to an
  * argument list without explicitly specifying how to prefix them.
  */
-final class SdkFramework extends Value<SdkFramework> {
+final class SdkFramework extends Value<SdkFramework> implements StarlarkValue {
   private final String name;
 
   public SdkFramework(String name) {
@@ -31,6 +33,7 @@ final class SdkFramework extends Value<SdkFramework> {
     this.name = name;
   }
 
+  @StarlarkMethod(name = "name", documented = false, structField = true)
   public String getName() {
     return name;
   }

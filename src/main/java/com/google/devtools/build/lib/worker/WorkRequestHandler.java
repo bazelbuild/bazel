@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -25,7 +24,11 @@ import java.io.StringWriter;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
 /**
@@ -34,21 +37,73 @@ import java.util.function.BiFunction;
  * (https://docs.bazel.build/versions/master/multiplex-worker.html).
  */
 public class WorkRequestHandler implements AutoCloseable {
-
   /** Contains the logic for reading {@link WorkRequest}s and writing {@link WorkResponse}s. */
   public interface WorkerMessageProcessor {
     /** Reads the next incoming request from this worker's stdin. */
-    public WorkRequest readWorkRequest() throws IOException;
+    WorkRequest readWorkRequest() throws IOException;
 
     /**
      * Writes the provided {@link WorkResponse} to this worker's stdout. This function is also
      * responsible for flushing the stdout.
      */
-    public void writeWorkResponse(WorkResponse workResponse) throws IOException;
+    void writeWorkResponse(WorkResponse workResponse) throws IOException;
 
     /** Clean up. */
-    public void close() throws IOException;
+    void close() throws IOException;
   }
+
+  /** Holds information necessary to properly handle a request, especially for cancellation. */
+  static class RequestInfo {
+    /** The thread handling the request. */
+    final Thread thread;
+    /** If true, we have received a cancel request for this request. */
+    private boolean cancelled;
+    /**
+     * The builder for the response to this request. Since only one response must be sent per
+     * request, this builder must be accessed through takeBuilder(), which zeroes this field and
+     * returns the builder.
+     */
+    private WorkResponse.Builder responseBuilder = WorkResponse.newBuilder();
+
+    RequestInfo(Thread thread) {
+      this.thread = thread;
+    }
+
+    /** Sets whether this request has been cancelled. */
+    void setCancelled() {
+      cancelled = true;
+    }
+
+    /** Returns true if this request has been cancelled. */
+    boolean isCancelled() {
+      return cancelled;
+    }
+
+    /**
+     * Returns the response builder. If called more than once on the same instance, subsequent calls
+     * will return {@code null}.
+     */
+    synchronized Optional<WorkResponse.Builder> takeBuilder() {
+      WorkResponse.Builder b = responseBuilder;
+      responseBuilder = null;
+      return Optional.ofNullable(b);
+    }
+
+    /**
+     * Adds {@code s} as output to when the response eventually gets built. Does nothing if the
+     * response has already been taken. There is no guarantee that the response hasn't already been
+     * taken, making this call a no-op. This may be called multiple times. No delimiters are added
+     * between strings from multiple calls.
+     */
+    synchronized void addOutput(String s) {
+      if (responseBuilder != null) {
+        responseBuilder.setOutput(responseBuilder.getOutput() + s);
+      }
+    }
+  }
+
+  /** Requests that are currently being processed. Visible for testing. */
+  final ConcurrentMap<Integer, RequestInfo> activeRequests = new ConcurrentHashMap<>();
 
   /** The function to be called after each {@link WorkRequest} is read. */
   private final BiFunction<List<String>, PrintWriter, Integer> callback;
@@ -57,6 +112,8 @@ public class WorkRequestHandler implements AutoCloseable {
   private final PrintStream stderr;
 
   final WorkerMessageProcessor messageProcessor;
+
+  private final BiConsumer<Integer, Thread> cancelCallback;
 
   private final CpuTimeBasedGcScheduler gcScheduler;
 
@@ -76,7 +133,7 @@ public class WorkRequestHandler implements AutoCloseable {
       BiFunction<List<String>, PrintWriter, Integer> callback,
       PrintStream stderr,
       WorkerMessageProcessor messageProcessor) {
-    this(callback, stderr, messageProcessor, Duration.ZERO);
+    this(callback, stderr, messageProcessor, Duration.ZERO, null);
   }
 
   /**
@@ -91,17 +148,86 @@ public class WorkRequestHandler implements AutoCloseable {
    * @param messageProcessor Object responsible for parsing {@code WorkRequest}s from the server and
    *     writing {@code WorkResponses} to the server.
    * @param cpuUsageBeforeGc The minimum amount of CPU time between explicit garbage collection
-   *     calls.
+   *     calls. Pass Duration.ZERO to not do explicit garbage collection.
+   * @deprecated Use WorkRequestHandlerBuilder instead.
    */
+  @Deprecated()
   public WorkRequestHandler(
       BiFunction<List<String>, PrintWriter, Integer> callback,
       PrintStream stderr,
       WorkerMessageProcessor messageProcessor,
       Duration cpuUsageBeforeGc) {
+    this(callback, stderr, messageProcessor, cpuUsageBeforeGc, null);
+  }
+
+  /**
+   * Creates a {@code WorkRequestHandler} that will call {@code callback} for each WorkRequest
+   * received. Only used for the Builder.
+   */
+  private WorkRequestHandler(
+      BiFunction<List<String>, PrintWriter, Integer> callback,
+      PrintStream stderr,
+      WorkerMessageProcessor messageProcessor,
+      Duration cpuUsageBeforeGc,
+      BiConsumer<Integer, Thread> cancelCallback) {
     this.callback = callback;
     this.stderr = stderr;
     this.messageProcessor = messageProcessor;
     this.gcScheduler = new CpuTimeBasedGcScheduler(cpuUsageBeforeGc);
+    this.cancelCallback = cancelCallback;
+  }
+
+  /** Builder class for WorkRequestHandler. Required parameters are passed to the constructor. */
+  public static class WorkRequestHandlerBuilder {
+    private final BiFunction<List<String>, PrintWriter, Integer> callback;
+    private final PrintStream stderr;
+    private final WorkerMessageProcessor messageProcessor;
+    private Duration cpuUsageBeforeGc = Duration.ZERO;
+    private BiConsumer<Integer, Thread> cancelCallback;
+
+    /**
+     * Creates a {@code WorkRequestHandlerBuilder}.
+     *
+     * @param callback Callback method for executing a single WorkRequest in a thread. The first
+     *     argument to {@code callback} is the set of command-line arguments, the second is where
+     *     all error messages and other user-oriented messages should be written to. The callback
+     *     must return an exit code indicating success (zero) or failure (nonzero).
+     * @param stderr Stream that log messages should be written to, typically the process' stderr.
+     * @param messageProcessor Object responsible for parsing {@code WorkRequest}s from the server
+     *     and writing {@code WorkResponses} to the server.
+     */
+    public WorkRequestHandlerBuilder(
+        BiFunction<List<String>, PrintWriter, Integer> callback,
+        PrintStream stderr,
+        WorkerMessageProcessor messageProcessor) {
+      this.callback = callback;
+      this.stderr = stderr;
+      this.messageProcessor = messageProcessor;
+    }
+
+    /**
+     * Sets the minimum amount of CPU time between explicit garbage collection calls. Pass
+     * Duration.ZERO to not do explicit garbage collection (the default).
+     */
+    public WorkRequestHandlerBuilder setCpuUsageBeforeGc(Duration cpuUsageBeforeGc) {
+      this.cpuUsageBeforeGc = cpuUsageBeforeGc;
+      return this;
+    }
+
+    /**
+     * Sets a callback will be called when a cancellation message has been received. The callback
+     * will be call with the request ID and the thread executing the request.
+     */
+    public WorkRequestHandlerBuilder setCancelCallback(BiConsumer<Integer, Thread> cancelCallback) {
+      this.cancelCallback = cancelCallback;
+      return this;
+    }
+
+    /** Returns a WorkRequestHandler instance with the values in this Builder. */
+    public WorkRequestHandler build() {
+      return new WorkRequestHandler(
+          callback, stderr, messageProcessor, cpuUsageBeforeGc, cancelCallback);
+    }
   }
 
   /**
@@ -116,34 +242,47 @@ public class WorkRequestHandler implements AutoCloseable {
       if (request == null) {
         break;
       }
-      if (request.getRequestId() != 0) {
-        Thread t = createResponseThread(request);
-        t.start();
+      if (request.getCancel()) {
+        respondToCancelRequest(request);
       } else {
-        respondToRequest(request);
+        startResponseThread(request);
       }
     }
   }
 
-  /** Creates a new {@link Thread} to process a multiplex request. */
-  public Thread createResponseThread(WorkRequest request) {
+  /** Starts a thread for the given request. */
+  void startResponseThread(WorkRequest request) {
     Thread currentThread = Thread.currentThread();
-    return new Thread(
-        () -> {
-          try {
-            respondToRequest(request);
-          } catch (IOException e) {
-            e.printStackTrace(stderr);
-            // In case of error, shut down the entire worker.
-            currentThread.interrupt();
-          }
-        },
-        "multiplex-request-" + request.getRequestId());
+    String threadName =
+        request.getRequestId() > 0
+            ? "multiplex-request-" + request.getRequestId()
+            : "singleplex-request";
+    Thread t =
+        new Thread(
+            () -> {
+              RequestInfo requestInfo = activeRequests.get(request.getRequestId());
+              if (requestInfo == null) {
+                // Already cancelled
+                return;
+              }
+              try {
+                respondToRequest(request, requestInfo);
+              } catch (IOException e) {
+                e.printStackTrace(stderr);
+                // In case of error, shut down the entire worker.
+                currentThread.interrupt();
+              } finally {
+                activeRequests.remove(request.getRequestId());
+              }
+            },
+            threadName);
+    activeRequests.put(request.getRequestId(), new RequestInfo(t));
+    t.start();
   }
 
   /** Handles and responds to the given {@link WorkRequest}. */
   @VisibleForTesting
-  void respondToRequest(WorkRequest request) throws IOException {
+  void respondToRequest(WorkRequest request, RequestInfo requestInfo) throws IOException {
     try (StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw)) {
       int exitCode;
@@ -154,16 +293,60 @@ public class WorkRequestHandler implements AutoCloseable {
         exitCode = 1;
       }
       pw.flush();
-      WorkResponse workResponse =
-          WorkResponse.newBuilder()
-              .setOutput(sw.toString())
-              .setExitCode(exitCode)
-              .setRequestId(request.getRequestId())
-              .build();
-      synchronized (this) {
-        messageProcessor.writeWorkResponse(workResponse);
+      Optional<WorkResponse.Builder> optBuilder = requestInfo.takeBuilder();
+      if (optBuilder.isPresent()) {
+        WorkResponse.Builder builder = optBuilder.get();
+        builder.setRequestId(request.getRequestId());
+        if (requestInfo.isCancelled()) {
+          builder.setWasCancelled(true);
+        } else {
+          builder.setOutput(builder.getOutput() + sw).setExitCode(exitCode);
+        }
+        WorkResponse response = builder.build();
+        synchronized (this) {
+          messageProcessor.writeWorkResponse(response);
+        }
       }
       gcScheduler.maybePerformGc();
+    }
+  }
+
+  /**
+   * Handles cancelling an existing request, including sending a response if that is not done by the
+   * time {@code cancelCallback.accept} returns.
+   */
+  void respondToCancelRequest(WorkRequest request) throws IOException {
+    // Theoretically, we could have gotten two singleplex requests, and we can't tell those apart.
+    // However, that's a violation of the protocol, so we don't try to handle it (not least because
+    // handling it would be quite error-prone).
+    RequestInfo ri = activeRequests.remove(request.getRequestId());
+
+    if (ri == null) {
+      return;
+    }
+    if (cancelCallback == null) {
+      ri.setCancelled();
+      // This is either an error on the server side or a version mismatch between the server setup
+      // and the binary. It's better to wait for the regular work to finish instead of breaking the
+      // build, but we should inform the user about the bad setup.
+      ri.addOutput(
+          String.format(
+              "Cancellation request received for worker request %d, but this worker does not"
+                  + " support cancellation.\n",
+              request.getRequestId()));
+    } else {
+      if (ri.thread.isAlive() && !ri.isCancelled()) {
+        ri.setCancelled();
+        cancelCallback.accept(request.getRequestId(), ri.thread);
+        Optional<WorkResponse.Builder> builder = ri.takeBuilder();
+        if (builder.isPresent()) {
+          WorkResponse response =
+              builder.get().setWasCancelled(true).setRequestId(request.getRequestId()).build();
+          synchronized (this) {
+            messageProcessor.writeWorkResponse(response);
+          }
+        }
+      }
     }
   }
 

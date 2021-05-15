@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.util.BigIntegerFingerprint;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -29,15 +28,11 @@ import java.util.Objects;
  * So if files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged
  * after the user executes `mv a b` between two builds.
  */
-public final class FileContentsProxy implements Serializable {
+public final class FileContentsProxy {
   private final long ctime;
   private final long nodeId;
 
-  /**
-   * Visible for serialization / deserialization. Do not use this method, but call {@link #create}
-   * instead.
-   */
-  public FileContentsProxy(long ctime, long nodeId) {
+  private FileContentsProxy(long ctime, long nodeId) {
     this.ctime = ctime;
     this.nodeId = nodeId;
   }
@@ -46,16 +41,6 @@ public final class FileContentsProxy implements Serializable {
     // Note: there are file systems that return mtime for this call instead of ctime, such as the
     // WindowsFileSystem.
     return new FileContentsProxy(stat.getLastChangeTime(), stat.getNodeId());
-  }
-
-  /** Visible for serialization / deserialization. Do not use this method; use {@link #equals}. */
-  public long getCTime() {
-    return ctime;
-  }
-
-  /** Visible for serialization / deserialization. Do not use this method; use {@link #equals}. */
-  public long getNodeId() {
-    return nodeId;
   }
 
   @Override
@@ -77,7 +62,7 @@ public final class FileContentsProxy implements Serializable {
     return Objects.hash(ctime, nodeId);
   }
 
-  void addToFingerprint(BigIntegerFingerprint fp) {
+  void addToFingerprint(Fingerprint fp) {
     fp.addLong(ctime);
     fp.addLong(nodeId);
   }

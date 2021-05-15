@@ -19,13 +19,14 @@ Bazel's focus on hermeticity, reproducibility, and incrementality means the
 may run in a sandbox, with limited network access, and aren't guaranteed to be
 re-run with every `bazel build`.
 
-Instead, we rely on `bazel run`: the workhorse for tasks we *want* to have side
-effects. Bazel users are accustomed to rules that create executables, and rule
-authors can follow a common set of patterns to extend this to "custom verbs".
+Instead, rely on `bazel run`: the workhorse for tasks that you *want* to have
+side effects. Bazel users are accustomed to rules that create executables, and
+rule authors can follow a common set of patterns to extend this to
+"custom verbs".
 
 ### In the wild: `rules_k8s`
-For an example, consider [`rules_k8s`](https://github.com/bazelbuild/rules_k8s),
-the Kubernetes rules for Bazel. Suppose we have the following target:
+For example, consider [`rules_k8s`](https://github.com/bazelbuild/rules_k8s),
+the Kubernetes rules for Bazel. Suppose you have the following target:
 
 ```python
 # BUILD file in //application/k8s
@@ -52,7 +53,7 @@ This pattern can also be seen in the Angular project. The
 produces two targets. The first is a standard `nodejs_test` target which compares
 some generated output against a "golden" file (that is, a file containing the
 expected output). This can be built and run with a normal `bazel
-test` invocation. In `angular-cli`, we can run [one such
+test` invocation. In `angular-cli`, you can run [one such
 target](https://github.com/angular/angular-cli/blob/e1269cb520871ee29b1a4eec6e6c0e4a94f0b5fc/etc/api/BUILD)
 with `bazel test //etc/api:angular_devkit_core_api`.
 
@@ -61,8 +62,9 @@ Updating this manually is tedious and error-prone, so this macro also provides
 a `nodejs_binary` target that updates the golden file, instead of comparing
 against it. Effectively, the same test script can be written to run in "verify"
 or "accept" mode, based on how it's invoked. This follows the same pattern
-we've learned already! There is no native `bazel test-accept` command, but the
-same effect can be achieved with `bazel run //etc/api:angular_devkit_core_api.accept`.
+you've learned already: there is no native `bazel test-accept` command, but the
+same effect can be achieved with
+`bazel run //etc/api:angular_devkit_core_api.accept`.
 
 This pattern can be quite powerful, and turns out to be quite common once you
 learn to recognize it.
@@ -77,7 +79,7 @@ this pattern, additional targets are created to produce scripts performing side
 effects based on the output of the primary target, like publishing the
 resulting binary or updating the expected test output.
 
-To illustrate this, we'll wrap an imaginary rule that generates a website with
+To illustrate this, wrap an imaginary rule that generates a website with
 [Sphinx](https://www.sphinx-doc.org) with a macro to create an additional
 target that allows the user to publish it when ready. Consider the following
 existing rule for generating a website with Sphinx:
@@ -106,7 +108,7 @@ _sphinx_publisher = rule(
 )
 ```
 
-Finally, we define the following macro to create targets for both of the above
+Finally, define the following macro to create targets for both of the above
 rules together:
 
 ```python
@@ -118,7 +120,8 @@ def sphinx_site(name, srcs = [], **kwargs):
     _sphinx_publisher(name = "%s.publish" % name, site = name, **kwargs)
 ```
 
-In our `BUILD` files, we use the macro as though it just creates the primary target:
+In the `BUILD` files, use the macro as though it just creates the primary
+target:
 
 ```python
 sphinx_site(
@@ -131,10 +134,9 @@ In this example, a "docs" target is created, just as though the macro were a
 standard, single Bazel rule. When built, the rule generates some configuration
 and runs Sphinx to produce an HTML site, ready for manual inspection. However,
 an additional "docs.publish" target is also created, which builds a script for
-publishing the site. Once we check the output of the primary target, we can use
-`bazel run :docs.publish` to publish it for public consumption, just like an
-imaginary `bazel publish` command.
-
+publishing the site. Once you check the output of the primary target, you can
+use `bazel run :docs.publish` to publish it for public consumption, just like
+an imaginary `bazel publish` command.
 
 It's not immediately obvious what the implementation of the `_sphinx_publisher`
 rule might look like. Often, actions like this write a _launcher_ shell script.
@@ -145,7 +147,6 @@ with a path to the output of the primary target. This way, the publisher
 implementation can remain generic, the `_sphinx_site` rule can just produce
 HTML, and this small script is all that's necessary to combine the two
 together.
-
 
 In `rules_k8s`, this is indeed what `.apply` does:
 [`expand_template`](https://github.com/bazelbuild/rules_k8s/blob/f10e7025df7651f47a76abf1db5ade1ffeb0c6ac/k8s/object.bzl#L213-L241)

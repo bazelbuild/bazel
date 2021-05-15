@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -97,7 +97,7 @@ public class JavaHeaderCompileActionBuilder {
   private NestedSet<Artifact> compileTimeDependencyArtifacts =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private final ImmutableList.Builder<String> javacOptsBuilder = ImmutableList.builder();
-  private JavaPluginInfo plugins = JavaPluginInfo.empty();
+  private JavaPluginData plugins = JavaPluginData.empty();
 
   private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
   private NestedSet<Artifact> toolsJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
@@ -199,7 +199,7 @@ public class JavaHeaderCompileActionBuilder {
   }
 
   /** Sets the annotation processors classpath entries. */
-  public JavaHeaderCompileActionBuilder setPlugins(JavaPluginInfo plugins) {
+  public JavaHeaderCompileActionBuilder setPlugins(JavaPluginData plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
     this.plugins = plugins;

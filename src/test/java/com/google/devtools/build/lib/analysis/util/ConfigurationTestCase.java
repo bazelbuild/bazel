@@ -91,7 +91,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
     workspace = rootDirectory;
-    analysisMock = getAnalysisMock();
+    analysisMock = AnalysisMock.get();
 
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     PathPackageLocator pkgLocator =
@@ -146,8 +146,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setDefaultBuildOptions(
-                DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
@@ -174,9 +172,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         packageOptions,
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
@@ -184,11 +182,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     buildOptionClasses = ruleClassProvider.getConfigurationOptions();
   }
 
-  protected AnalysisMock getAnalysisMock() {
-    return AnalysisMock.get();
-  }
-
-  protected void checkError(String expectedMessage, String... options) throws Exception {
+  protected void checkError(String expectedMessage, String... options) {
     reporter.removeHandler(failFastHandler);
     assertThrows(InvalidConfigurationException.class, () -> create(options));
     assertContainsEvent(expectedMessage);
@@ -228,9 +222,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         parser.getOptions(TestOptions.class).multiCpus);
 
     skyframeExecutor.handleDiffsForTesting(reporter);
-    BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
+    return skyframeExecutor.createConfigurations(
         reporter, BuildOptions.of(buildOptionClasses, parser), multiCpu, false);
-    return collection;
   }
 
   /**
@@ -265,8 +258,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     return createCollection(args).getHostConfiguration();
   }
 
-  public void assertConfigurationsHaveUniqueOutputDirectories(
-      BuildConfigurationCollection configCollection) throws Exception {
+  public static void assertConfigurationsHaveUniqueOutputDirectories(
+      BuildConfigurationCollection configCollection) {
     Map<ArtifactRoot, BuildConfiguration> outputPaths = new HashMap<>();
     for (BuildConfiguration config : configCollection.getTargetConfigurations()) {
       BuildConfiguration otherConfig =

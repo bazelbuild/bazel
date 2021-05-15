@@ -39,8 +39,8 @@ Rules can be grouped either by language (e.g., Scala) or some notion of platform
 Every rule repository should have a certain layout so that users can quickly
 understand new rules.
 
-For example, suppose we are writing new rules for the (make-believe)
-`mockascript` language. We would have the following structure:
+For example, when writing new rules for the (make-believe)
+`mockascript` language, the rule repository would have the following structure:
 
 ```
 /
@@ -77,7 +77,7 @@ repository `<org>_rules_<lang>` (e.g. `build_stack_rules_proto`). Please contact
 if you feel like your rules should follow the convention for rules in the
 [bazelbuild](https://github.com/bazelbuild) organization.
 
-In the following sections, we will assume the repository belongs to the
+In the following sections, assume the repository belongs to the
 [bazelbuild](https://github.com/bazelbuild) organization.
 
 ```

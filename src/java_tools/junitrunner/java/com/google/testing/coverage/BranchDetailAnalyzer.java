@@ -72,7 +72,6 @@ public class BranchDetailAnalyzer extends Analyzer {
     }
   }
 
-  @Override
   public void analyzeClass(final ClassReader reader) {
     final Map<Integer, BranchExp> lineToBranchExp = mapProbes(reader);
 

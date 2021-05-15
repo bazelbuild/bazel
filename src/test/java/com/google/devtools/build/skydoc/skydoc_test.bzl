@@ -55,7 +55,7 @@ def skydoc_test(
     abs_input_file_label = str(Label("//%s" % native.package_name()).relative(input_file))
 
     native.sh_test(
-        name = "%s_e2e_test" % name,
+        name = name,
         srcs = ["diff_test_runner.sh"],
         args = [
             "$(location %s)" % actual_generated_doc,

@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actionsketch.ActionSketch;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -79,7 +81,8 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
-import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceFileInErrorArtifactValue;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -97,7 +100,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.ValueOrException3;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -111,6 +113,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -138,15 +141,18 @@ public class ActionExecutionFunction implements SkyFunction {
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
   private final AtomicReference<TimestampGranularityMonitor> tsgm;
+  private final BugReporter bugReporter;
   private ConcurrentMap<Action, ContinuationState> stateMap;
 
   public ActionExecutionFunction(
       SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
-      AtomicReference<TimestampGranularityMonitor> tsgm) {
+      AtomicReference<TimestampGranularityMonitor> tsgm,
+      BugReporter bugReporter) {
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.directories = directories;
     this.tsgm = tsgm;
+    this.bugReporter = bugReporter;
     // TODO(b/136156191): This stays in RAM while the SkyFunction of the action is pending, which
     // can result in a lot of memory pressure if a lot of actions are pending.
     stateMap = Maps.newConcurrentMap();
@@ -198,7 +204,7 @@ public class ActionExecutionFunction implements SkyFunction {
       if (sketch == null) {
         return null;
       }
-      ActionExecutionValue actionExecutionValue = topDownActionCache.get(sketch);
+      ActionExecutionValue actionExecutionValue = topDownActionCache.get(sketch, actionLookupData);
       if (actionExecutionValue != null) {
         return actionExecutionValue.transformForSharedAction(action.getOutputs());
       }
@@ -264,11 +270,13 @@ public class ActionExecutionFunction implements SkyFunction {
 
     Iterable<SkyKey> depKeys = getInputDepKeys(allInputs, state);
     // We do this unconditionally to maintain our invariant of asking for the same deps each build.
-    List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+    List<
+            ValueOrException3<
+                SourceArtifactException, ActionExecutionException, ArtifactNestedSetEvalException>>
         inputDeps =
             env.getOrderedValuesOrThrow(
                 depKeys,
-                IOException.class,
+                SourceArtifactException.class,
                 ActionExecutionException.class,
                 ArtifactNestedSetEvalException.class);
 
@@ -447,7 +455,11 @@ public class ActionExecutionFunction implements SkyFunction {
       Action action,
       long actionStartTime,
       Environment env,
-      List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+      List<
+              ValueOrException3<
+                  SourceArtifactException,
+                  ActionExecutionException,
+                  ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
       Iterable<SkyKey> depKeys,
@@ -472,13 +484,18 @@ public class ActionExecutionFunction implements SkyFunction {
       ImmutableSet<SkyKey> failedActionDeps;
       if (e.isFromInputDiscovery()) {
         // Lost inputs found during input discovery are necessarily ordinary derived artifacts.
-        // Their keys may not be direct deps yet, but the next time this Skyframe node is evaluated
-        // they will be. See SkyframeActionExecutor's lostDiscoveredInputsMap.
-        failedActionDeps =
+        // Their keys may not be direct deps yet, so to ensure that when this action is restarted
+        // the lost inputs' generating actions are requested, they're added to
+        // SkyframeActionExecutor's lostDiscoveredInputsMap. Also, lost inputs from input discovery
+        // may come from nested sets, which may be directly represented in skyframe. To ensure that
+        // applicable nested set nodes are rewound, this action's deps are also considered when
+        // computing the rewind plan.
+        lostDiscoveredInputs =
             e.getLostInputs().values().stream()
                 .map(input -> Artifact.key((Artifact) input))
-                .collect(toImmutableSet());
-        lostDiscoveredInputs = failedActionDeps.asList();
+                .collect(toImmutableList());
+        failedActionDeps =
+            ImmutableSet.<SkyKey>builder().addAll(depKeys).addAll(lostDiscoveredInputs).build();
       } else if (state.discoveredInputs != null) {
         failedActionDeps =
             ImmutableSet.<SkyKey>builder()
@@ -538,7 +555,11 @@ public class ActionExecutionFunction implements SkyFunction {
       LostInputsActionExecutionException e,
       Action action,
       Environment env,
-      List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+      List<
+              ValueOrException3<
+                  SourceArtifactException,
+                  ActionExecutionException,
+                  ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
       Iterable<SkyKey> requestedSkyKeys)
@@ -753,7 +774,7 @@ public class ActionExecutionFunction implements SkyFunction {
         ActionMetadataHandler.create(
             state.inputArtifactData,
             action.discoversInputs(),
-            skyframeActionExecutor.useArchivedTreeArtifacts(),
+            skyframeActionExecutor.useArchivedTreeArtifacts(action),
             action.getOutputs(),
             tsgm.get(),
             pathResolver,
@@ -920,20 +941,17 @@ public class ActionExecutionFunction implements SkyFunction {
 
   private DiscoveredState addDiscoveredInputs(
       ActionInputMap inputData,
-      Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+      Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
       Iterable<Artifact> discoveredInputs,
       Environment env,
       Action actionForError)
       throws InterruptedException, ActionExecutionException {
-    // In most cases we don't need to handle exceptions here, because derived inputs were already
-    // (transitively) requested, so we shouldn't have reached here, and non-mandatory inputs don't
-    // throw exceptions. However, in nokeep-going mode, a missing discovered input will result in an
-    // IOException that won't turn into a MissingInputFileArtifactValue, and so we have to transform
-    // it here.
-    Map<SkyKey, ValueOrException<IOException>> nonMandatoryDiscovered =
+    // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
+    //  inputs, since ActionExecutionExceptions can come through here and should be aggregated. Fix.
+    Map<SkyKey, ValueOrException<SourceArtifactException>> nonMandatoryDiscovered =
         env.getValuesOrThrow(
-            Iterables.transform(discoveredInputs, Artifact::key), IOException.class);
+            Iterables.transform(discoveredInputs, Artifact::key), SourceArtifactException.class);
     if (nonMandatoryDiscovered.isEmpty()) {
       return DiscoveredState.NO_DISCOVERED_DATA;
     }
@@ -941,14 +959,14 @@ public class ActionExecutionFunction implements SkyFunction {
       SkyValue retrievedMetadata;
       try {
         retrievedMetadata = nonMandatoryDiscovered.get(Artifact.key(input)).get();
-      } catch (IOException e) {
+      } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
-          BugReport.sendBugReport(
-              new IllegalStateException("Non-source artifact had IO Exception" + input, e));
+          bugReporter.sendBugReport(
+              new IllegalStateException(
+                  "Non-source artifact had SourceArtifactException" + input, e));
         }
 
-        skyframeActionExecutor.printError(
-            ArtifactFunction.makeIOExceptionInputFileMessage(input, e), actionForError);
+        skyframeActionExecutor.printError(e.getMessage(), actionForError);
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
         // it likely has no label, so we'd have to use the Action's label anyway. Just use the
         // default ActionFailed event constructed by ActionExecutionException.
@@ -985,7 +1003,7 @@ public class ActionExecutionFunction implements SkyFunction {
       } else if (retrievedMetadata instanceof ActionExecutionValue) {
         inputData.putWithNoDepOwner(
             input, ((ActionExecutionValue) retrievedMetadata).getExistingFileArtifactValue(input));
-      } else if (retrievedMetadata instanceof SourceFileInErrorArtifactValue) {
+      } else if (retrievedMetadata instanceof MissingArtifactValue) {
         inputData.putWithNoDepOwner(input, FileArtifactValue.MISSING_FILE_MARKER);
       } else if (retrievedMetadata instanceof FileArtifactValue) {
         inputData.putWithNoDepOwner(input, (FileArtifactValue) retrievedMetadata);
@@ -1033,7 +1051,7 @@ public class ActionExecutionFunction implements SkyFunction {
     /** Metadata about Artifacts consumed by this Action. */
     private final ActionInputMap actionInputMap;
     /** Artifact expansion mapping for Runfiles tree and tree artifacts. */
-    private final Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts;
+    private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts;
     /** Archived representations for tree artifacts. */
     private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     /** Artifact expansion mapping for Filesets embedded in Runfiles. */
@@ -1044,7 +1062,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     CheckInputResults(
         ActionInputMap actionInputMap,
-        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets) {
@@ -1059,7 +1077,7 @@ public class ActionExecutionFunction implements SkyFunction {
   private interface AccumulateInputResultsFactory<S extends ActionInputMapSink, R> {
     R create(
         S actionInputMapSink,
-        Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts,
+        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets);
@@ -1067,12 +1085,17 @@ public class ActionExecutionFunction implements SkyFunction {
 
   /**
    * Declare dependency on all known inputs of action. Throws exception if any are known to be
-   * missing. Some inputs may not yet be in the graph, in which case the builder should abort.
+   * missing. Some inputs may not yet be in the graph, in which case this returns {@code null}.
    */
+  @Nullable
   private CheckInputResults checkInputs(
       Environment env,
       Action action,
-      List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+      List<
+              ValueOrException3<
+                  SourceArtifactException,
+                  ActionExecutionException,
+                  ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
       ImmutableSet<Artifact> mandatoryInputs,
@@ -1086,7 +1109,8 @@ public class ActionExecutionFunction implements SkyFunction {
         mandatoryInputs,
         requestedSkyKeys,
         ActionInputMap::new,
-        CheckInputResults::new);
+        CheckInputResults::new,
+        /*allowValuesMissingEarlyReturn=*/ true);
   }
 
   /**
@@ -1095,13 +1119,21 @@ public class ActionExecutionFunction implements SkyFunction {
   private ActionInputDepOwnerMap getInputDepOwners(
       Environment env,
       Action action,
-      List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+      List<
+              ValueOrException3<
+                  SourceArtifactException,
+                  ActionExecutionException,
+                  ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
       ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       Collection<ActionInput> lostInputs)
       throws ActionExecutionException, InterruptedException {
+    // The rewinding strategy should be calculated with whatever information is available, instead
+    // of returning null if there are missing dependencies, so this uses false for
+    // allowValuesMissingEarlyReturn. (Lost inputs coinciding with missing dependencies is possible
+    // with, at least, action file systems and include scanning.)
     return accumulateInputs(
         env,
         action,
@@ -1114,19 +1146,30 @@ public class ActionExecutionFunction implements SkyFunction {
             expandedArtifacts,
             archivedArtifacts,
             filesetsInsideRunfiles,
-            topLevelFilesets) -> actionInputMapSink);
+            topLevelFilesets) -> actionInputMapSink,
+        /*allowValuesMissingEarlyReturn=*/ false);
   }
 
+  /**
+   * May return {@code null} if {@code allowValuesMissingEarlyReturn} and {@code
+   * env.valuesMissing()} are true and no inputs result in {@link ActionExecutionException}s.
+   */
+  @Nullable
   private <S extends ActionInputMapSink, R> R accumulateInputs(
       Environment env,
       Action action,
-      List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+      List<
+              ValueOrException3<
+                  SourceArtifactException,
+                  ActionExecutionException,
+                  ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
       ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       IntFunction<S> actionInputMapSinkFactory,
-      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
+      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
+      boolean allowValuesMissingEarlyReturn)
       throws ActionExecutionException, InterruptedException {
 
     if (evalInputsAsNestedSet(allInputs)) {
@@ -1138,7 +1181,8 @@ public class ActionExecutionFunction implements SkyFunction {
           mandatoryInputs,
           requestedSkyKeys,
           actionInputMapSinkFactory,
-          accumulateInputResultsFactory);
+          accumulateInputResultsFactory,
+          allowValuesMissingEarlyReturn);
     }
     // Only populate input data if we have the input values, otherwise they'll just go unused.
     // We still want to loop through the inputs to collect missing deps errors. During the
@@ -1151,7 +1195,7 @@ public class ActionExecutionFunction implements SkyFunction {
     ImmutableList<Artifact> allInputsList = allInputs.toList();
     S inputArtifactData =
         actionInputMapSinkFactory.apply(populateInputData ? allInputsList.size() : 0);
-    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts =
+    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts =
         Maps.newHashMapWithExpectedSize(populateInputData ? 128 : 0);
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts =
         Maps.newHashMapWithExpectedSize(128);
@@ -1164,7 +1208,8 @@ public class ActionExecutionFunction implements SkyFunction {
 
     int i = 0;
     for (Artifact input : allInputsList) {
-      ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>
+      ValueOrException3<
+              SourceArtifactException, ActionExecutionException, ArtifactNestedSetEvalException>
           valueOrException = inputDeps.get(i++);
       if (valueOrException == null) {
         continue;
@@ -1178,10 +1223,10 @@ public class ActionExecutionFunction implements SkyFunction {
       //
       // This mechanism fails, though, if we remove a #include statement referencing a header and
       // then introduce a symlink cycle in its place: then there will be an IOException which will
-      // be propagated even though we shouldn't have read the file in the first place. This is not
-      // really avoidable (at least not without redesigning the action cache), because once the
-      // ArtifactFunction throws an exception, Skyframe evaluation must stop, so all we can do is
-      // signal the error in a more meaningful way.
+      // be propagated as a SourceArtifactException even though we shouldn't have read the file in
+      // the first place. This is not really avoidable (at least not without redesigning the action
+      // cache), because once the ArtifactFunction throws an exception, Skyframe evaluation must
+      // stop, so all we can do is signal the error in a more meaningful way.
       //
       // In particular, making it possible to check only the up-to-dateness of mandatory inputs in
       // the action cache is not enough: it can be that the reference to the symlink cycle arose
@@ -1192,18 +1237,16 @@ public class ActionExecutionFunction implements SkyFunction {
       SkyValue value = FileArtifactValue.MISSING_FILE_MARKER;
       try {
         value = valueOrException.get();
-      } catch (IOException e) {
+      } catch (SourceArtifactException e) {
         if (!input.isSourceArtifact()) {
-          BugReport.sendBugReport(
+          bugReporter.sendBugReport(
               new IllegalStateException(
-                  "Unexpected IOException for generated artifact: " + input + ", " + action, e));
+                  "Non-source artifact had SourceArtifactException" + input, e));
         }
         if (mandatory) {
           sourceArtifactErrorCauses.add(
-              createLabelCause(
-                  input,
-                  ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
-                  action.getOwner().getLabel()));
+              createLabelCauseNullOwnerOk(
+                  input, e.getDetailedExitCode(), action.getOwner().getLabel(), bugReporter));
           continue;
         }
       } catch (ActionExecutionException e) {
@@ -1225,11 +1268,14 @@ public class ActionExecutionFunction implements SkyFunction {
             e);
       }
 
-      if (value instanceof SourceFileInErrorArtifactValue) {
+      if (value instanceof MissingArtifactValue) {
         if (mandatory) {
           sourceArtifactErrorCauses.add(
               createLabelCause(
-                  input, (SourceFileInErrorArtifactValue) value, action.getOwner().getLabel()));
+                  input,
+                  ((MissingArtifactValue) value).getDetailedExitCode(),
+                  action.getOwner().getLabel(),
+                  bugReporter));
           continue;
         } else {
           value = FileArtifactValue.MISSING_FILE_MARKER;
@@ -1249,10 +1295,9 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    if (!sourceArtifactErrorCauses.isEmpty()) {
-      for (LabelCause missingInput : sourceArtifactErrorCauses) {
-        skyframeActionExecutor.printError(missingInput.getMessage(), action);
-      }
+    // TODO(janakr): unify this code and NSOS codepath to avoid divergence.
+    for (LabelCause missingInput : sourceArtifactErrorCauses) {
+      skyframeActionExecutor.printError(missingInput.getMessage(), action);
     }
     // We need to rethrow first exception because it can contain useful error message
     if (firstActionExecutionException != null) {
@@ -1293,56 +1338,78 @@ public class ActionExecutionFunction implements SkyFunction {
   private <S extends ActionInputMapSink, R> R accumulateInputsWithNestedSet(
       Environment env,
       Action action,
-      List<ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+      List<
+              ValueOrException3<
+                  SourceArtifactException,
+                  ActionExecutionException,
+                  ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
       ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       IntFunction<S> actionInputMapSinkFactory,
-      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
+      AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
+      boolean allowValuesMissingEarlyReturn)
       throws ActionExecutionException, InterruptedException {
-    ImmutableList<Artifact> allInputsList = allInputs.toList();
-
-    // Some keys have more than 1 corresponding Artifact (e.g. actions with 2 outputs).
-    // For Artifacts whose Artifact::key isn't itself.
-    Multimap<SkyKey, Artifact> skyKeyToArtifactSet =
-        MultimapBuilder.hashKeys().hashSetValues().build();
-    allInputsList.forEach(
-        input -> {
-          SkyKey key = Artifact.key(input);
-          if (key != input) {
-            skyKeyToArtifactSet.put(key, input);
-          }
-        });
 
     ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler =
         new ActionExecutionFunctionExceptionHandler(
-            skyKeyToArtifactSet, inputDeps, action, mandatoryInputs, requestedSkyKeys);
+            Suppliers.memoize(
+                () -> {
+                  ImmutableList<Artifact> allInputsList = allInputs.toList();
+                  Multimap<SkyKey, Artifact> skyKeyToArtifactSet =
+                      MultimapBuilder.hashKeys().hashSetValues().build();
+                  allInputsList.forEach(
+                      input -> {
+                        SkyKey key = Artifact.key(input);
+                        if (key != input) {
+                          skyKeyToArtifactSet.put(key, input);
+                        }
+                      });
+                  return skyKeyToArtifactSet;
+                }),
+            inputDeps,
+            action,
+            mandatoryInputs,
+            requestedSkyKeys,
+            env.valuesMissing());
 
-    actionExecutionFunctionExceptionHandler.accumulateAndThrowExceptions();
+    actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
 
-    // All exceptions from dependencies handled, it's now safe to check for missing values.
-    if (env.valuesMissing()) {
+    if (env.valuesMissing() && allowValuesMissingEarlyReturn) {
       return null;
     }
 
-    // When there are no missing values, we can start populating input data.
+    ImmutableList<Artifact> allInputsList = allInputs.toList();
+
+    // When there are no missing values or there was an error, we can start checking individual
+    // files. We don't bother to optimize the error-ful case since it's rare.
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles =
         Maps.newHashMapWithExpectedSize(0);
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
         Maps.newHashMapWithExpectedSize(0);
     S inputArtifactData = actionInputMapSinkFactory.apply(allInputsList.size());
-    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts =
+    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts =
         Maps.newHashMapWithExpectedSize(128);
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts =
         Maps.newHashMapWithExpectedSize(128);
 
     for (Artifact input : allInputsList) {
       SkyValue value = ArtifactNestedSetFunction.getInstance().getValueForKey(Artifact.key(input));
-      if (value instanceof SourceFileInErrorArtifactValue) {
+      if (value == null) {
+        if (mandatoryInputs == null || mandatoryInputs.contains(input)) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  String.format(
+                      "Null value for mandatory %s with no errors or values missing: %s",
+                      input, action)));
+        }
+        continue;
+      }
+      if (value instanceof MissingArtifactValue) {
         if (actionExecutionFunctionExceptionHandler.isMandatory(input)) {
           actionExecutionFunctionExceptionHandler.accumulateMissingFileArtifactValue(
-              input, (SourceFileInErrorArtifactValue) value);
+              input, (MissingArtifactValue) value);
           continue;
         } else {
           value = FileArtifactValue.MISSING_FILE_MARKER;
@@ -1371,17 +1438,34 @@ public class ActionExecutionFunction implements SkyFunction {
   }
 
   static LabelCause createLabelCause(
-      Artifact input, SourceFileInErrorArtifactValue missingValue, Label labelInCaseOfBug) {
-    Label inputLabel = input.getOwner();
-    if (inputLabel == null) {
-      BugReport.sendBugReport(
+      Artifact input,
+      DetailedExitCode detailedExitCode,
+      Label labelInCaseOfBug,
+      BugReporter bugReporter) {
+    if (input.getOwner() == null) {
+      bugReporter.sendBugReport(
           new IllegalStateException(
               String.format(
-                  "Artifact %s with missing value %s should have owner (%s)",
-                  input, missingValue.getMessage(), labelInCaseOfBug)));
-      inputLabel = labelInCaseOfBug;
+                  "Mandatory artifact %s with exit code %s should have owner (%s)",
+                  input, detailedExitCode, labelInCaseOfBug)));
     }
-    return new LabelCause(inputLabel, missingValue.getDetailedExitCode());
+    return createLabelCauseNullOwnerOk(input, detailedExitCode, labelInCaseOfBug, bugReporter);
+  }
+
+  private static LabelCause createLabelCauseNullOwnerOk(
+      Artifact input,
+      DetailedExitCode detailedExitCode,
+      Label actionLabel,
+      BugReporter bugReporter) {
+    if (!input.isSourceArtifact()) {
+      bugReporter.sendBugReport(
+          new IllegalStateException(
+              String.format(
+                  "Unexpected exit code %s for generated artifact %s (%s)",
+                  detailedExitCode, input, actionLabel)));
+    }
+    return new LabelCause(
+        MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
   }
 
   @Override
@@ -1442,7 +1526,7 @@ public class ActionExecutionFunction implements SkyFunction {
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
 
-    Map<Artifact, ImmutableCollection<Artifact>> expandedArtifacts = null;
+    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts = null;
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = null;
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = null;
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = null;
@@ -1527,54 +1611,69 @@ public class ActionExecutionFunction implements SkyFunction {
 
   /** Helper subclass for the error-handling logic for ActionExecutionFunction#accumulateInputs. */
   private final class ActionExecutionFunctionExceptionHandler {
-    private final Multimap<SkyKey, Artifact> skyKeyToDerivedArtifactSet;
+    private final Supplier<Multimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions;
     private final List<
             ValueOrException3<
-                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+                SourceArtifactException, ActionExecutionException, ArtifactNestedSetEvalException>>
         inputDeps;
     private final Action action;
     private final Set<Artifact> mandatoryInputs;
     private final Iterable<SkyKey> requestedSkyKeys;
+    private final boolean valuesMissing;
     List<LabelCause> missingArtifactCauses = Lists.newArrayListWithCapacity(0);
     List<NestedSet<Cause>> transitiveCauses = Lists.newArrayListWithCapacity(0);
     private ActionExecutionException firstActionExecutionException;
 
     ActionExecutionFunctionExceptionHandler(
-        Multimap<SkyKey, Artifact> skyKeyToDerivedArtifactSet,
+        Supplier<Multimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions,
         List<
                 ValueOrException3<
-                    IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+                    SourceArtifactException,
+                    ActionExecutionException,
+                    ArtifactNestedSetEvalException>>
             inputDeps,
         Action action,
         Set<Artifact> mandatoryInputs,
-        Iterable<SkyKey> requestedSkyKeys) {
-      this.skyKeyToDerivedArtifactSet = skyKeyToDerivedArtifactSet;
+        Iterable<SkyKey> requestedSkyKeys,
+        boolean valuesMissing) {
+      this.skyKeyToDerivedArtifactSetForExceptions = skyKeyToDerivedArtifactSetForExceptions;
       this.inputDeps = inputDeps;
       this.action = action;
       this.mandatoryInputs = mandatoryInputs;
       this.requestedSkyKeys = requestedSkyKeys;
+      this.valuesMissing = valuesMissing;
     }
 
     /**
-     * Go through the list of evaluated SkyKeys and handle any exception that arises, taking into
+     * Goes through the list of evaluated SkyKeys and handles any exception that arises, taking into
      * account whether the corresponding artifact(s) is a mandatory input.
      *
-     * <p>This also updates ArtifactNestedSetFunction#skyKeyToSkyValue if an Artifact's value is
+     * <p>Also updates ArtifactNestedSetFunction#skyKeyToSkyValue if an Artifact's value is
      * non-null.
      *
      * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception.
+     *     This may not be the most complete exception because it may lack missing input file causes
+     *     that did not throw exceptions, but were present as "missing file artifact values" in the
+     *     global {@link ArtifactNestedSetFunction#artifactSkyKeyToSkyValue} map. Unfortunately,
+     *     that map is not trustworthy in the exceptional case, since it may not have been populated
+     *     with all data from this build before an exception shut the build down.
      */
-    void accumulateAndThrowExceptions() throws ActionExecutionException {
+    void accumulateAndMaybeThrowExceptions() throws ActionExecutionException {
       int i = 0;
       for (SkyKey key : requestedSkyKeys) {
         try {
           SkyValue value = inputDeps.get(i++).get();
+          Preconditions.checkState(
+              valuesMissing || value != null,
+              "%s had null value with no values missing (%s)",
+              key,
+              action);
           if (key instanceof ArtifactNestedSetKey || value == null) {
             continue;
           }
           ArtifactNestedSetFunction.getInstance().updateValueForKey(key, value);
-        } catch (IOException e) {
-          handleIOExceptionFromSkykey(key, e);
+        } catch (SourceArtifactException e) {
+          handleSourceArtifactExceptionFromSkykey(key, e);
         } catch (ActionExecutionException e) {
           handleActionExecutionExceptionFromSkykey(key, e);
         } catch (ArtifactNestedSetEvalException e) {
@@ -1582,13 +1681,14 @@ public class ActionExecutionFunction implements SkyFunction {
             SkyKey skyKey = skyKeyAndException.getFirst();
             Exception inputException = skyKeyAndException.getSecond();
             Preconditions.checkState(
-                inputException instanceof IOException
+                inputException instanceof SourceArtifactException
                     || inputException instanceof ActionExecutionException,
                 "Unexpected exception type: %s, key: %s",
                 inputException,
                 skyKey);
-            if (inputException instanceof IOException) {
-              handleIOExceptionFromSkykey(skyKey, (IOException) inputException);
+            if (inputException instanceof SourceArtifactException) {
+              handleSourceArtifactExceptionFromSkykey(
+                  skyKey, (SourceArtifactException) inputException);
               continue;
             }
             handleActionExecutionExceptionFromSkykey(
@@ -1596,7 +1696,6 @@ public class ActionExecutionFunction implements SkyFunction {
           }
         }
       }
-
       maybeThrowException();
     }
 
@@ -1605,27 +1704,42 @@ public class ActionExecutionFunction implements SkyFunction {
         handleActionExecutionExceptionPerArtifact((Artifact) key, e);
         return;
       }
-      for (Artifact input : skyKeyToDerivedArtifactSet.get(key)) {
+      for (Artifact input : skyKeyToDerivedArtifactSetForExceptions.get().get(key)) {
         handleActionExecutionExceptionPerArtifact(input, e);
       }
     }
 
-    private void handleIOExceptionFromSkykey(SkyKey key, IOException e) {
-      if (key instanceof Artifact) {
-        handleIOExceptionPerArtifact((Artifact) key, e);
+    private void handleSourceArtifactExceptionFromSkykey(SkyKey key, SourceArtifactException e) {
+      if (!(key instanceof Artifact) || !((Artifact) key).isSourceArtifact()) {
+        bugReporter.sendBugReport(
+            new IllegalStateException(
+                "Unexpected SourceArtifactException for key: " + key + ", " + action, e));
+        missingArtifactCauses.add(
+            new LabelCause(action.getOwner().getLabel(), e.getDetailedExitCode()));
         return;
       }
-      for (Artifact input : skyKeyToDerivedArtifactSet.get(key)) {
-        handleIOExceptionPerArtifact(input, e);
+
+      if (isMandatory((Artifact) key)) {
+        missingArtifactCauses.add(
+            createLabelCauseNullOwnerOk(
+                (Artifact) key,
+                e.getDetailedExitCode(),
+                action.getOwner().getLabel(),
+                bugReporter));
       }
     }
 
-    void accumulateMissingFileArtifactValue(Artifact input, SourceFileInErrorArtifactValue value) {
-      missingArtifactCauses.add(createLabelCause(input, value, action.getOwner().getLabel()));
+    void accumulateMissingFileArtifactValue(Artifact input, MissingArtifactValue value) {
+      missingArtifactCauses.add(
+          createLabelCause(
+              input, value.getDetailedExitCode(), action.getOwner().getLabel(), bugReporter));
     }
 
     /** @throws ActionExecutionException if there is any accumulated exception from the inputs. */
     void maybeThrowException() throws ActionExecutionException {
+      for (LabelCause missingInput : missingArtifactCauses) {
+        skyframeActionExecutor.printError(missingInput.getMessage(), action);
+      }
       // We need to rethrow the first exception because it can contain a useful error message.
       if (firstActionExecutionException != null) {
         if (missingArtifactCauses.isEmpty()
@@ -1647,9 +1761,6 @@ public class ActionExecutionFunction implements SkyFunction {
       }
 
       if (!missingArtifactCauses.isEmpty()) {
-        for (LabelCause missingInput : missingArtifactCauses) {
-          skyframeActionExecutor.printError(missingInput.getMessage(), action);
-        }
         throw throwSourceErrorException(action, missingArtifactCauses);
       }
     }
@@ -1672,21 +1783,6 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    private void handleIOExceptionPerArtifact(Artifact input, IOException e) {
-      if (!input.isSourceArtifact()) {
-        BugReport.sendBugReport(
-            new IllegalStateException(
-                "Unexpected IOException for generated artifact: " + input + ", " + action, e));
-      }
-
-      if (isMandatory(input)) {
-        missingArtifactCauses.add(
-            createLabelCause(
-                input,
-                ArtifactFunction.makeIOExceptionSourceInputFileValue(input, e),
-                action.getOwner().getLabel()));
-      }
-    }
   }
 
   /**
@@ -1698,7 +1794,7 @@ public class ActionExecutionFunction implements SkyFunction {
    */
   static Pair<DetailedExitCode, String> createSourceErrorCodeAndMessage(
       List<? extends Cause> sourceArtifactErrorCauses, Object debugInfo) {
-    AtomicBoolean sawIOException = new AtomicBoolean();
+    AtomicBoolean sawSourceArtifactException = new AtomicBoolean();
     AtomicBoolean sawMissingFile = new AtomicBoolean();
     DetailedExitCode prioritizedDetailedExitCode =
         sourceArtifactErrorCauses.stream()
@@ -1713,7 +1809,7 @@ public class ActionExecutionFunction implements SkyFunction {
                   }
                   switch (code.getFailureDetail().getExecution().getCode()) {
                     case SOURCE_INPUT_IO_EXCEPTION:
-                      sawIOException.set(true);
+                      sawSourceArtifactException.set(true);
                       break;
                     case SOURCE_INPUT_MISSING:
                       sawMissingFile.set(true);
@@ -1732,7 +1828,7 @@ public class ActionExecutionFunction implements SkyFunction {
             + Joiner.on(" or ")
                 .skipNulls()
                 .join(
-                    sawIOException.get() ? "are in error" : null,
+                    sawSourceArtifactException.get() ? "are in error" : null,
                     sawMissingFile.get() ? "do not exist" : null);
     return Pair.of(prioritizedDetailedExitCode, errorMessage);
   }

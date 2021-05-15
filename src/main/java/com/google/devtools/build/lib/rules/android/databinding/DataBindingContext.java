@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -63,15 +63,13 @@ public interface DataBindingContext {
   /**
    * Adds data binding's annotation processor as a plugin to the given Java compilation context.
    *
-   * <p>This extends the Java compilation to translate data binding .xml into corresponding
-   * classes.
+   * <p>This extends the Java compilation to translate data binding .xml into corresponding classes.
    *
-   * The BiConsumer accepts as its first argument the JavaPluginInfoProvider, and the list of
+   * <p>The BiConsumer accepts as its first argument the JavaPluginInfoProvider, and the list of
    * outputs of the processor as the second argument.
    */
   void supplyAnnotationProcessor(
-      RuleContext ruleContext,
-      BiConsumer<JavaPluginInfoProvider, Iterable<Artifact>> consumer);
+      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer);
 
   /**
    * Processes deps that also apply data binding.

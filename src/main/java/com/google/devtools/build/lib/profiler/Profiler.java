@@ -37,6 +37,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -253,13 +254,15 @@ public final class Profiler {
   private final SlowestTaskAggregator[] slowestTasks =
       new SlowestTaskAggregator[ProfilerTask.values().length];
 
-  private final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
+  @VisibleForTesting
+  final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
 
   /** Thread that collects local cpu usage data (if enabled). */
   private CollectLocalResourceUsage cpuUsageThread;
 
   private TimeSeries actionCountTimeSeries;
   private long actionCountStartTime;
+  private boolean collectTaskHistograms;
 
   private Profiler() {
     initHistograms();
@@ -365,7 +368,8 @@ public final class Profiler {
       boolean enabledCpuUsageProfiling,
       boolean slimProfile,
       boolean includePrimaryOutput,
-      boolean includeTargetLabel)
+      boolean includeTargetLabel,
+      boolean collectTaskHistograms)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -375,6 +379,7 @@ public final class Profiler {
     this.actionCountStartTime = clock.nanoTime();
     this.actionCountTimeSeries =
         new TimeSeries(Duration.ofNanos(actionCountStartTime).toMillis(), ACTION_COUNT_BUCKET_MS);
+    this.collectTaskHistograms = collectTaskHistograms;
 
     // Check for current limitation on the number of supported types due to using enum.ordinal() to
     // store them instead of EnumSet for performance reasons.
@@ -489,7 +494,7 @@ public final class Profiler {
       writer.shutdown();
       writer = null;
     }
-    initHistograms();
+    Arrays.fill(tasksHistograms, null);
     profileStartTime = 0L;
     profileCpuStartTime = null;
 
@@ -530,34 +535,35 @@ public final class Profiler {
    */
   private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
     Preconditions.checkNotNull(description);
-    Preconditions.checkState(startTimeNanos > 0, "startTime was %s", startTimeNanos);
     Preconditions.checkState(!"".equals(description), "No description -> not helpful");
     if (duration < 0) {
       // See note in Clock#nanoTime, which is used by Profiler#nanoTimeMaybe.
       duration = 0;
     }
 
-    tasksHistograms[type.ordinal()].addStat(
-        (int) TimeUnit.NANOSECONDS.toMillis(duration), description);
-    // Store instance fields as local variables so they are not nulled out from under us by #clear.
-    FileWriter currentWriter = writerRef.get();
-    if (wasTaskSlowEnoughToRecord(type, duration)) {
-      TaskData data = new TaskData(taskId.incrementAndGet(), startTimeNanos, type, description);
-      data.duration = duration;
-      if (currentWriter != null) {
-        currentWriter.enqueue(data);
-      }
+    StatRecorder statRecorder = tasksHistograms[type.ordinal()];
+    if (collectTaskHistograms && statRecorder != null) {
+      statRecorder.addStat((int) Duration.ofNanos(duration).toMillis(), description);
+    }
 
-      SlowestTaskAggregator aggregator = slowestTasks[type.ordinal()];
+    if (isActive() && startTimeNanos >= 0 && isProfiling(type)) {
+      // Store instance fields as local variables so they are not nulled out from under us by
+      // #clear.
+      FileWriter currentWriter = writerRef.get();
+      if (wasTaskSlowEnoughToRecord(type, duration)) {
+        TaskData data = new TaskData(taskId.incrementAndGet(), startTimeNanos, type, description);
+        data.duration = duration;
+        if (currentWriter != null) {
+          currentWriter.enqueue(data);
+        }
 
-      if (aggregator != null) {
-        aggregator.add(data);
+        SlowestTaskAggregator aggregator = slowestTasks[type.ordinal()];
+
+        if (aggregator != null) {
+          aggregator.add(data);
+        }
       }
     }
-  }
-
-  private boolean shouldProfile(long startTime, ProfilerTask type) {
-    return isActive() && startTime > 0 && isProfiling(type);
   }
 
   /**
@@ -565,13 +571,13 @@ public final class Profiler {
    * minDuration attribute of the task type, task may be just aggregated into the parent task and
    * not stored directly.
    *
-   * @param startTime task start time (obtained through {@link Profiler#nanoTimeMaybe()})
+   * @param startTimeNanos task start time (obtained through {@link Profiler#nanoTimeMaybe()})
    * @param type task type
    * @param description task description. May be stored until the end of the build.
    */
-  public void logSimpleTask(long startTime, ProfilerTask type, String description) {
-    if (shouldProfile(startTime, type)) {
-      logTask(startTime, clock.nanoTime() - startTime, type, description);
+  public void logSimpleTask(long startTimeNanos, ProfilerTask type, String description) {
+    if (clock != null) {
+      logTask(startTimeNanos, clock.nanoTime() - startTimeNanos, type, description);
     }
   }
 
@@ -589,9 +595,7 @@ public final class Profiler {
    */
   public void logSimpleTask(
       long startTimeNanos, long stopTimeNanos, ProfilerTask type, String description) {
-    if (shouldProfile(startTimeNanos, type)) {
-      logTask(startTimeNanos, stopTimeNanos - startTimeNanos, type, description);
-    }
+    logTask(startTimeNanos, stopTimeNanos - startTimeNanos, type, description);
   }
 
   /**
@@ -606,16 +610,12 @@ public final class Profiler {
    */
   public void logSimpleTaskDuration(
       long startTimeNanos, Duration duration, ProfilerTask type, String description) {
-    if (shouldProfile(startTimeNanos, type)) {
-      logTask(startTimeNanos, duration.toNanos(), type, description);
-    }
+    logTask(startTimeNanos, duration.toNanos(), type, description);
   }
 
   /** Used to log "events" happening at a specific time - tasks with zero duration. */
   public void logEventAtTime(long atTimeNanos, ProfilerTask type, String description) {
-    if (isActive() && isProfiling(type)) {
-      logTask(atTimeNanos, 0, type, description);
-    }
+    logTask(atTimeNanos, 0, type, description);
   }
 
   /** Used to log "events" - tasks with zero duration. */
@@ -725,9 +725,11 @@ public final class Profiler {
 
       if (shouldRecordTask) {
         if (actionCountTimeSeries != null && countAction(data.type, data)) {
-          actionCountTimeSeries.addRange(
-              Duration.ofNanos(data.startTimeNanos).toMillis(),
-              Duration.ofNanos(endTime).toMillis());
+          synchronized (this) {
+            actionCountTimeSeries.addRange(
+                Duration.ofNanos(data.startTimeNanos).toMillis(),
+                Duration.ofNanos(endTime).toMillis());
+          }
         }
         SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
         if (aggregator != null) {

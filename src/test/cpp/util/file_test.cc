@@ -144,7 +144,8 @@ TEST(FileTest, TestWriteFile) {
 TEST(FileTest, TestLargeFileWrite) {
   // Buffer over the write limit (2,147,479,552 for Linux, INT32_MAX for MacOS).
   const size_t size = 4000000000;
-  std::unique_ptr<const char[]> buffer(new char[size]);
+  std::unique_ptr<char[]> buffer(new char[size]);
+  std::fill(buffer.get(), buffer.get() + size, '\0');
 
   ASSERT_TRUE(WriteFile(buffer.get(), size, "/dev/null"));
 }

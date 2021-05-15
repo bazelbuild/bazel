@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Creates and manages the contents of a working directory of a persistent worker. */
 final class WorkerExecRoot {
@@ -71,34 +72,35 @@ final class WorkerExecRoot {
       SandboxOutputs outputs,
       Set<PathFragment> inputsToCreate,
       LinkedHashSet<PathFragment> dirsToCreate) {
-    // Add all worker files and the ancestor directories.
-    for (PathFragment path : workerFiles) {
-      inputsToCreate.add(path);
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(path.subFragment(0, i));
-      }
+    // Add all worker files, input files, and the ancestor directories.
+    for (PathFragment input :
+        Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet())) {
+      inputsToCreate.add(input);
+      addDirectoryAndParents(input.getParentDirectory(), dirsToCreate);
     }
 
-    // Add all inputs files and the ancestor directories.
-    Iterable<PathFragment> allInputs =
-        Iterables.concat(inputs.getFiles().keySet(), inputs.getSymlinks().keySet());
-    for (PathFragment path : allInputs) {
-      inputsToCreate.add(path);
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(path.subFragment(0, i));
-      }
+    // And all ancestor directories of output files. Note that we don't add the files themselves --
+    // any pre-existing files that have the same path as an output should get deleted.
+    for (PathFragment file : outputs.files()) {
+      addDirectoryAndParents(file.getParentDirectory(), dirsToCreate);
     }
 
-    // And all ancestor directories of outputs. Note that we don't add the files themselves -- any
-    // pre-existing files that have the same path as an output should get deleted.
-    for (PathFragment path : Iterables.concat(outputs.files(), outputs.dirs())) {
-      for (int i = 0; i < path.segmentCount(); i++) {
-        dirsToCreate.add(path.subFragment(0, i));
-      }
+    // Add all ouput directories and ancestors.
+    for (PathFragment dir : outputs.dirs()) {
+      addDirectoryAndParents(dir, dirsToCreate);
     }
+  }
 
-    // Add all ouput directories, must be created after their parents above
-    dirsToCreate.addAll(outputs.dirs());
+  private static void addDirectoryAndParents(
+      @Nullable PathFragment dir, LinkedHashSet<PathFragment> dirsToCreate) {
+    if (dir == null || dirsToCreate.contains(dir)) {
+      return;
+    }
+    // Add parents first so that directories are created in the proper order. We collect all parent
+    // directories as opposed to just calling createDirectoryAndParents to support the optimization
+    // in #cleanExisting where an existing directory is kept if we still need it.
+    addDirectoryAndParents(dir.getParentDirectory(), dirsToCreate);
+    dirsToCreate.add(dir);
   }
 
   /**

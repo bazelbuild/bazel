@@ -313,6 +313,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     rewriteWorkspace("register_execution_platforms('//test:bad_exec_platform_label')");
     scratch.file(
         "test/BUILD", "genrule(name = 'g', srcs = [], outs = ['g.out'], cmd = 'echo hi > $@')");
+    reporter.removeHandler(failFastHandler);
     assertThrows(
         "invalid registered execution platform '//test:bad_exec_platform_label': "
             + "no such target '//test:bad_exec_platform_label'",

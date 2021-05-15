@@ -156,7 +156,10 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     @Override
     public void prepare(
-        Path execRoot, ArtifactPathResolver pathResolver, @Nullable BulkDeleter bulkDeleter)
+        Path execRoot,
+        ArtifactPathResolver pathResolver,
+        @Nullable BulkDeleter bulkDeleter,
+        @Nullable PathFragment outputPrefixForArchivedArtifactsCleanup)
         throws IOException {
       // The default implementation of this method deletes all output files; override it to keep
       // the old stableStatus around. This way we can reuse the existing file (preserving its mtime)

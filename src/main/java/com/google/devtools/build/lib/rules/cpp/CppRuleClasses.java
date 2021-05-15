@@ -245,6 +245,9 @@ public class CppRuleClasses {
   /** A string constant for the include_paths feature. */
   public static final String INCLUDE_PATHS = "include_paths";
 
+  /** A string constant for the external_include_paths feature. */
+  public static final String EXTERNAL_INCLUDE_PATHS = "external_include_paths";
+
   /** A string constant for the feature signalling static linking mode. */
   public static final String STATIC_LINKING_MODE = "static_linking_mode";
 
@@ -442,6 +445,17 @@ public class CppRuleClasses {
    * "no_generate_debug_symbols" in addition to "generate_dsym_file"
    */
   public static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
+
+  /**
+   * A feature which indicates that this target is a test (rather than a binary). This can be used
+   * to select test-only options.
+   */
+  public static final String IS_CC_TEST_FEATURE_NAME = "is_cc_test";
+
+  /**
+   * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
+   */
+  public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {

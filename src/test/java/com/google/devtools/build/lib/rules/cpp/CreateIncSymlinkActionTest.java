@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -139,7 +140,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
-        NestedSetExpander.DEFAULT);
+        NestedSetExpander.DEFAULT,
+        UnixGlob.DEFAULT_SYSCALLS);
   }
 
   @Test
@@ -156,7 +158,11 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Path extra = rootDirectory.getRelative("out/extra");
     FileSystemUtils.createEmptyFile(extra);
     assertThat(extra.exists()).isTrue();
-    action.prepare(rootDirectory, ArtifactPathResolver.IDENTITY, /*bulkDeleter=*/ null);
+    action.prepare(
+        rootDirectory,
+        ArtifactPathResolver.IDENTITY,
+        /*bulkDeleter=*/ null,
+        /*outputPrefixForArchivedArtifactsCleanup=*/ null);
     assertThat(extra.exists()).isFalse();
   }
 

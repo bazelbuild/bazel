@@ -158,7 +158,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
     }
   }
 
-  EvaluationResult<GetPlatformInfoValue> getPlatformInfo(GetPlatformInfoKey key)
+  private EvaluationResult<GetPlatformInfoValue> getPlatformInfo(GetPlatformInfoKey key)
       throws InterruptedException {
     try {
       // Must re-enable analysis for Skyframe functions that create configured targets.
@@ -188,7 +188,7 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
       GetPlatformInfoKey key = (GetPlatformInfoKey) skyKey;
       try {
         Map<ConfiguredTargetKey, PlatformInfo> platforms =
-            PlatformLookupUtil.getPlatformInfo(key.platformKeys(), env, false);
+            PlatformLookupUtil.getPlatformInfo(key.platformKeys(), env);
         if (env.valuesMissing()) {
           return null;
         }
@@ -205,8 +205,8 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
     }
   }
 
-  private static class GetPlatformInfoFunctionException extends SkyFunctionException {
-    public GetPlatformInfoFunctionException(InvalidPlatformException e) {
+  private static final class GetPlatformInfoFunctionException extends SkyFunctionException {
+    GetPlatformInfoFunctionException(InvalidPlatformException e) {
       super(e, Transience.PERSISTENT);
     }
   }

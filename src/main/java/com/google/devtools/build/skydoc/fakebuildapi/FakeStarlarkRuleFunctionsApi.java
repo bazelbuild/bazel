@@ -180,6 +180,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
       Object attrs,
+      Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> fragments,

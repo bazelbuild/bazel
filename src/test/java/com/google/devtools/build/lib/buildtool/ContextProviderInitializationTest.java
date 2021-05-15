@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.buildtool;
 
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
@@ -30,9 +30,11 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
 
 /**
  * Test to make sure that context provider initialization failure is handled correctly.
@@ -51,8 +53,7 @@ public class ContextProviderInitializationTest extends BuildIntegrationTestCase 
 
             @Override
             public void executionPhaseStarting(
-                ActionGraph actionGraph,
-                Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToAccountingGroups)
+                ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts)
                 throws AbruptExitException {
               throw new AbruptExitException(
                   DetailedExitCode.of(
@@ -75,7 +76,7 @@ public class ContextProviderInitializationTest extends BuildIntegrationTestCase 
   }
 
   @Test
-  public void testContextProviderInitializationFailure() throws Exception {
+  public void testContextProviderInitializationFailure() {
     assertThrows(AbruptExitException.class, () -> runtimeWrapper.executeBuild(ImmutableList.of()));
   }
 }

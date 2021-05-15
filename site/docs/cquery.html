@@ -332,7 +332,8 @@ cc_library(
 
 <p>
   Setting this flag to false filters out all results that aren't explicitly set in
-  the BUILD file and instead set elsewhere by Bazel.
+  the BUILD file and instead set elsewhere by Bazel. This includes filtering resolved
+  toolchains.
 </p>
 
 <h4><code>--tool_deps</code> (boolean, default=True)</h4>
@@ -345,7 +346,8 @@ cc_library(
   If the queried target is in the target configuration, setting <code>--notool_deps</code> will
   only return targets that also are in the target configuration. If the queried
   target is in a non-target configuration, setting <code>--notool_deps</code> will only return
-  targets also in non-target configurations.
+  targets also in non-target configurations. This setting generally does not affect filtering
+  of resolved toolchains.
 </p>
 
 <h4><code>--include_aspects</code> (boolean, default=False)</h4>
@@ -733,11 +735,44 @@ tool(host_config)
   </li>
 </ul>
 
-<h2 id='updates'>Updates</h2>
+<h2 id='troubleshooting'>Troubleshooting</h2>
+
+<h3>Recursive target patterns (<code>/...</code>)</h3>
 
 <p>
-  The Bazel configurability team is continuously improving <code>cquery</code>. If you want to
-  ask questions, stay updated, or get involved, contact
-
-  the Bazel team at one of <a href="https://bazel.build/support.html">these channels</a>.
+  If you encounter:
 </p>
+
+<pre>
+$ bazel cquery --universe_scope=//foo:app "somepath(//foo:app, //foo/...)"
+ERROR: Error doing post analysis query: Evaluation failed: Unable to load package '[foo]'
+because package is not in scope. Check that all target patterns in query expression are within the
+--universe_scope of this query.
+</pre>
+
+<p>
+  this incorrectly suggests package <code>//foo</code> isn't in scope even though
+  <code>--universe_scope=//foo:app</code> includes it. This is due to design limitations in
+  <code>cquery</code>. As a workaround, explicitly include <code>//foo/...</code> in the universe
+  scope:
+</p>
+
+<pre>
+$ bazel cquery --universe_scope=//foo:app,//foo/... "somepath(//foo:app, //foo/...)"
+</pre>
+
+<p>
+  If that doesn't work (for example, because some target in <code>//foo/...</code> can't build
+  with the chosen build flags), manually unwrap the pattern into its constituent packages with a
+  pre-processing query:
+</p>
+
+<pre>
+# Replace "//foo/..." with a subshell query call (not cquery!) outputting each package, piped into
+# a sed call converting "&lt;pkg&gt;" to "//&lt;pkg&gt;:*", piped into a "+"-delimited line merge.
+# Output looks like "//foo:*+//foo/bar:*+//foo/baz".
+#
+$  bazel cquery --universe_scope=//foo:app "somepath(//foo:app, $(bazel query //foo/...
+--output=package | sed -e 's/^/\/\//' -e 's/$/:*/' | paste -sd "+" -))"
+</pre>
+

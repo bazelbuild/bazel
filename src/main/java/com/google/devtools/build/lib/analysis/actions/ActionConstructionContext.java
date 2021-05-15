@@ -64,7 +64,7 @@ public interface ActionConstructionContext {
   /** The current analysis environment. */
   AnalysisEnvironment getAnalysisEnvironment();
 
-  void registerAction(ActionAnalysisMetadata... actions);
+  void registerAction(ActionAnalysisMetadata action);
 
   /**
    * Creates an artifact under a given root with the given root-relative path.

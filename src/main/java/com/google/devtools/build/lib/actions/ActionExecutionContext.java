@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
@@ -74,6 +75,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   private final ArtifactPathResolver pathResolver;
   private final NestedSetExpander nestedSetExpander;
+  private final FilesystemCalls syscalls;
 
   private ActionExecutionContext(
       Executor executor,
@@ -91,7 +93,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      NestedSetExpander nestedSetExpander) {
+      NestedSetExpander nestedSetExpander,
+      FilesystemCalls syscalls) {
     this.actionInputFileCache = actionInputFileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -111,6 +114,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
     this.nestedSetExpander = nestedSetExpander;
+    this.syscalls = syscalls;
   }
 
   public ActionExecutionContext(
@@ -128,7 +132,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      NestedSetExpander nestedSetExpander) {
+      NestedSetExpander nestedSetExpander,
+      FilesystemCalls syscalls) {
     this(
         executor,
         actionInputFileCache,
@@ -145,7 +150,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         /*env=*/ null,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander);
+        nestedSetExpander,
+        syscalls);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -161,7 +167,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       Map<String, String> clientEnv,
       Environment env,
       @Nullable FileSystem actionFileSystem,
-      NestedSetExpander nestedSetExpander) {
+      NestedSetExpander nestedSetExpander,
+      FilesystemCalls syscalls) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
@@ -178,7 +185,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         env,
         actionFileSystem,
         /*skyframeDepsResult=*/ null,
-        nestedSetExpander);
+        nestedSetExpander,
+        syscalls);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -353,6 +361,15 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return nestedSetExpander;
   }
 
+  /**
+   * This only exists for loose header checking (and shouldn't be exist at all).
+   *
+   * <p>Do NOT use from any other place.
+   */
+  public FilesystemCalls getSyscalls() {
+    return syscalls;
+  }
+
   @Override
   public void close() throws IOException {
     // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
@@ -386,7 +403,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         env,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander);
+        nestedSetExpander,
+        syscalls);
   }
 
   /**

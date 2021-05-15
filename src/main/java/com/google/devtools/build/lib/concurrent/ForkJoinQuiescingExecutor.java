@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.base.Preconditions;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.Future;
@@ -92,12 +93,12 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
   }
 
   @Override
-  protected void executeRunnable(WrappedRunnable runnable) {
+  protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
     if (ForkJoinTask.inForkJoinPool()) {
       @SuppressWarnings("unused") 
       Future<?> possiblyIgnoredError = ForkJoinTask.adapt(runnable).fork();
     } else {
-      super.executeRunnable(runnable);
+      super.executeWrappedRunnable(runnable, executorService);
     }
   }
 }

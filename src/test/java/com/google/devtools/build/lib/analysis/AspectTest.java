@@ -64,7 +64,7 @@ import org.junit.runners.JUnit4;
 public class AspectTest extends AnalysisTestCase {
 
   private void pkg(String name, String... contents) throws Exception {
-    scratch.file("" + name + "/BUILD", contents);
+    scratch.file(name + "/BUILD", contents);
   }
 
   @Test
@@ -628,7 +628,7 @@ public class AspectTest extends AnalysisTestCase {
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
+      for (Artifact artifact : analysisResult.getArtifactsToBuild()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }
@@ -642,7 +642,7 @@ public class AspectTest extends AnalysisTestCase {
 
       // Get owners of all extra-action artifacts.
       List<Label> extraArtifactOwners = new ArrayList<>();
-      for (Artifact artifact : analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts()) {
+      for (Artifact artifact : analysisResult.getArtifactsToBuild()) {
         if (artifact.getRootRelativePathString().endsWith(".xa")) {
           extraArtifactOwners.add(artifact.getOwnerLabel());
         }
@@ -841,9 +841,7 @@ public class AspectTest extends AnalysisTestCase {
   @Test
   public void aspectApplyingToFiles() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
-    setRulesAndAspectsAvailableInTests(
-        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
-        ImmutableList.<RuleDefinition>of());
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
@@ -861,9 +859,7 @@ public class AspectTest extends AnalysisTestCase {
   @Test
   public void aspectApplyingToSourceFilesIgnored() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
-    setRulesAndAspectsAvailableInTests(
-        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
-        ImmutableList.<RuleDefinition>of());
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
@@ -879,9 +875,7 @@ public class AspectTest extends AnalysisTestCase {
   @Test
   public void duplicateAspectsDeduped() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
-    setRulesAndAspectsAvailableInTests(
-        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
-        ImmutableList.<RuleDefinition>of());
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
     AnalysisResult analysisResult =
         update(

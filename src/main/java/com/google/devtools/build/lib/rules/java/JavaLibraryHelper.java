@@ -59,7 +59,7 @@ public final class JavaLibraryHelper {
   private final List<JavaCompilationArgsProvider> runtimeDeps = new ArrayList<>();
 
   private final List<JavaCompilationArgsProvider> exports = new ArrayList<>();
-  private JavaPluginInfoProvider plugins = JavaPluginInfoProvider.empty();
+  private JavaPluginInfo plugins = JavaPluginInfo.empty();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private final List<Artifact> additionalOutputs = new ArrayList<>();
@@ -136,7 +136,7 @@ public final class JavaLibraryHelper {
     return this;
   }
 
-  public JavaLibraryHelper setPlugins(JavaPluginInfoProvider plugins) {
+  public JavaLibraryHelper setPlugins(JavaPluginInfo plugins) {
     checkNotNull(plugins, "plugins must not be null");
     checkState(this.plugins.isEmpty());
     this.plugins = plugins;

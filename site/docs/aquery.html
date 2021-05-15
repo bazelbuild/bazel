@@ -269,6 +269,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   To use it, clone the repository to your local machine. An example usage:
 </p>
 
+
 <pre>
   $ bazel run //tools/aquery_differ -- \
   --before=/path/to/before.proto \
@@ -277,6 +278,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   --attrs=cmdline \
   --attrs=inputs
 </pre>
+
 
 <p>
   The above command returns the difference between the <code>before</code> and <code>after</code> aquery outputs:

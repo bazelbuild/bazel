@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -327,6 +328,34 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .cfg(ExecutionTransitionFactory.create())
                 .mandatoryBuiltinProviders(
                     ImmutableList.of(JavaPackageConfigurationProvider.class)))
+        .add(attr("jspecify_processor_class", STRING).value("").undocumented("experimental"))
+        .add(
+            attr("jspecify_processor", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_implicit_deps", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec()
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_javacopts", STRING_LIST)
+                .value(ImmutableList.<String>of())
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_stubs", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .undocumented("experimental"))
+        .add(
+            attr("jspecify_packages", LABEL_LIST)
+                .cfg(ExecutionTransitionFactory.create())
+                .allowedFileTypes()
+                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                .undocumented("experimental"))
         .build();
   }
 

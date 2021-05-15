@@ -978,6 +978,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
 
+    @Option(
+        name = "android_include_proguard_location_references",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "When using aapt2 to generate proguard configurations, include location references."
+                + " This will make the build nondeterministic.")
+    public boolean includeProguardLocationReferences;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1063,6 +1073,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean incompatibleUseToolchainResolution;
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
+  private final boolean includeProguardLocationReferences;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1123,6 +1134,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
+    this.includeProguardLocationReferences = options.includeProguardLocationReferences;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1401,6 +1413,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean getJavaResourcesFromOptimizedJar() {
     return getJavaResourcesFromOptimizedJar;
+  }
+
+  public boolean includeProguardLocationReferences() {
+    return includeProguardLocationReferences;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

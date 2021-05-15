@@ -33,7 +33,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -122,14 +124,16 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected void assertNativeLibrariesCopiedNotLinked(
-      ConfiguredTarget target, String... expectedLibNames) {
+      ConfiguredTarget target, BuildConfiguration targetConfiguration, String... expectedLibNames) {
     Iterable<Artifact> copiedLibs = getNativeLibrariesInApk(target);
     for (Artifact copiedLib : copiedLibs) {
       assertWithMessage("Native libraries were linked to produce " + copiedLib)
           .that(getGeneratingLabelForArtifact(copiedLib))
           .isNotEqualTo(target.getLabel());
     }
-    assertThat(artifactsToStrings(copiedLibs))
+    assertThat(
+            AnalysisTestUtil.artifactsToStrings(
+                targetConfiguration, getHostConfiguration(), copiedLibs))
         .containsAtLeastElementsIn(ImmutableSet.copyOf(Arrays.asList(expectedLibNames)));
   }
 

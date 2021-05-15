@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
@@ -41,19 +42,20 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.objc.ObjcProtoProvider;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import java.util.ArrayList;
+import java.util.List;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
-import org.junit.Before;
+import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -63,14 +65,6 @@ import org.junit.runners.JUnit4;
 public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   protected boolean keepGoing() {
     return false;
-  }
-
-  @Before
-  public final void initializeToolsConfigMock() throws Exception {
-    // Required for tests including the objc_library rule.
-    MockObjcSupport.setup(mockToolsConfig);
-    // Required for tests including the proto_library rule.
-    MockProtoSupport.setup(mockToolsConfig);
   }
 
   @Test
@@ -176,7 +170,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
   }
 
-  private Iterable<String> getAspectDescriptions(AnalysisResult analysisResult) {
+  private static Iterable<String> getAspectDescriptions(AnalysisResult analysisResult) {
     return Iterables.transform(
         analysisResult.getAspectsMap().keySet(),
         aspectKey ->
@@ -224,7 +218,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         .containsExactly("@local//:aspect.bzl%MyAspect(//test:xxx)");
   }
 
-  private Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {
+  private static Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {
     return Iterables.transform(
         analysisResult.getTargetsToBuild(),
         configuredTarget -> configuredTarget.getLabel().toString());
@@ -432,10 +426,19 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
     assertThat(names.toList()).isNotEmpty();
-    NestedSet<Artifact> expectedSet =
+
+    // Configuration of the true Artifact may diverge slightly (e.g. be trimmed) causing owners to
+    // also diverge so just compare paths instead of the whole Artifact.
+    ImmutableList<Path> paths =
+        names.toList().stream().map(Artifact::getPath).collect(toImmutableList());
+    ImmutableList<Path> expectedPaths =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
-            .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
+            .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL)
+            .toList()
+            .stream()
+            .map(Artifact::getPath)
+            .collect(toImmutableList());
+    assertThat(paths).containsExactlyElementsIn(expectedPaths);
   }
 
   @Test
@@ -464,10 +467,19 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(outputGroupInfo).isNotNull();
     NestedSet<Artifact> names = outputGroupInfo.getOutputGroup("my_result");
     assertThat(names.toList()).isNotEmpty();
-    NestedSet<Artifact> expectedSet =
+
+    // Configuration of the true Artifact may diverge slightly (e.g. be trimmed) causing owners to
+    // also diverge so just compare paths instead of the whole Artifact.
+    ImmutableList<Path> paths =
+        names.toList().stream().map(Artifact::getPath).collect(toImmutableList());
+    ImmutableList<Path> expectedPaths =
         OutputGroupInfo.get(getConfiguredTarget("//test:xxx"))
-            .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
-    assertThat(names.toList()).containsExactlyElementsIn(expectedSet.toList());
+            .getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL)
+            .toList()
+            .stream()
+            .map(Artifact::getPath)
+            .collect(toImmutableList());
+    assertThat(paths).containsExactlyElementsIn(expectedPaths);
   }
 
   @Test
@@ -1211,7 +1223,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1244,7 +1256,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1279,7 +1291,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1311,7 +1323,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1349,7 +1361,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+      AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
       assertThat(keepGoing()).isTrue();
       assertThat(result.hasError()).isTrue();
     } catch (Exception e) {
@@ -1382,7 +1394,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "load('//test:aspect.bzl', 'my_rule')",
         "my_rule(name = 'xxx', my_attr = 'aaa')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1405,7 +1417,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1458,7 +1470,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1486,7 +1498,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "load('//test:aspect.bzl', 'my_rule')",
         "my_rule(name = 'xxx', my_attr = 'b')");
 
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
   }
 
@@ -1511,35 +1523,35 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "foo/BUILD",
         "load(':extension.bzl',  'my_rule')",
         "my_rule(name = 'main', exe1 = ':tool.sh', exe2 = ':tool.sh')");
-    AnalysisResult analysisResultOfRule = update(ImmutableList.<String>of(), "//foo:main");
+    AnalysisResult analysisResultOfRule = update(ImmutableList.of(), "//foo:main");
     assertThat(analysisResultOfRule.hasError()).isFalse();
 
     AnalysisResult analysisResultOfAspect =
-        update(ImmutableList.<String>of("/foo/extension.bzl%my_aspect"), "//foo:main");
+        update(ImmutableList.of("/foo/extension.bzl%my_aspect"), "//foo:main");
     assertThat(analysisResultOfAspect.hasError()).isFalse();
   }
 
   @Test
   public void aspectFragmentAccessSuccess() throws Exception {
-    getConfiguredTargetForAspectFragment(
+    analyzeConfiguredTargetForAspectFragment(
         "ctx.fragments.java.strict_java_deps", "'java'", "", "", "");
     assertNoEvents();
   }
 
   @Test
   public void aspectHostFragmentAccessSuccess() throws Exception {
-    getConfiguredTargetForAspectFragment(
+    analyzeConfiguredTargetForAspectFragment(
         "ctx.host_fragments.java.strict_java_deps", "", "'java'", "", "");
     assertNoEvents();
   }
 
   @Test
-  public void aspectFragmentAccessError() throws Exception {
+  public void aspectFragmentAccessError() {
     reporter.removeHandler(failFastHandler);
     assertThrows(
         ViewCreationFailedException.class,
         () ->
-            getConfiguredTargetForAspectFragment(
+            analyzeConfiguredTargetForAspectFragment(
                 "ctx.fragments.java.strict_java_deps", "'cpp'", "'java'", "'java'", ""));
     assertContainsEvent(
         "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
@@ -1549,12 +1561,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectHostFragmentAccessError() throws Exception {
+  public void aspectHostFragmentAccessError() {
     reporter.removeHandler(failFastHandler);
     assertThrows(
         ViewCreationFailedException.class,
         () ->
-            getConfiguredTargetForAspectFragment(
+            analyzeConfiguredTargetForAspectFragment(
                 "ctx.host_fragments.java.java_strict_deps", "'java'", "'cpp'", "", "'java'"));
     assertContainsEvent(
         "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'java' as a "
@@ -1563,7 +1575,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             + "(for example: host_fragments = [\"java\"])");
   }
 
-  private ConfiguredTarget getConfiguredTargetForAspectFragment(
+  private void analyzeConfiguredTargetForAspectFragment(
       String fullFieldName,
       String fragments,
       String hostFragments,
@@ -1616,7 +1628,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
               .build());
     }
 
-    return getConfiguredTarget("//test:xxx");
+    assertThat(getConfiguredTarget("//test:xxx")).isNotNull();
   }
 
   @Test
@@ -1638,14 +1650,14 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:r2");
+    AnalysisResult result = update(ImmutableList.of(), "//test:r2");
     ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
     Depset ruleInfoValue = (Depset) configuredTarget.get("rule_info");
     assertThat(ruleInfoValue.getSet(String.class).toList())
         .containsExactlyElementsIn(expectedLabels);
   }
 
-  private String[] aspectBzlFile(String attrAspects) {
+  private static String[] aspectBzlFile(String attrAspects) {
     return new String[] {
       "def _repro_aspect_impl(target, ctx):",
       "    s = depset([str(target.label)], transitive =",
@@ -1710,7 +1722,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "rule_bin_out(name = 'rbin')",
         "rule_gen_out(name = 'rgen')",
         "main_rule(name = 'main', deps = [':rbin', ':rgen'])");
-    AnalysisResult analysisResult = update(ImmutableList.<String>of(), "//foo:main");
+    AnalysisResult analysisResult = update(ImmutableList.of(), "//foo:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     NestedSet<Artifact> aspectFiles = ((Depset) target.get("aspect_files")).getSet(Artifact.class);
     assertThat(Iterables.transform(aspectFiles.toList(), Artifact::getFilename))
@@ -1815,11 +1827,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "java_library(name = 'xxx')");
     useConfiguration("--experimental_action_listener=//test:al");
     AnalysisResult analysisResult =
-        update(ImmutableList.<String>of("test/aspect.bzl%my_aspect"), "//test:xxx");
-    assertThat(
-            Iterables.transform(
-                analysisResult.getTopLevelArtifactsToOwnerLabels().getArtifacts(),
-                Artifact::getFilename))
+        update(ImmutableList.of("test/aspect.bzl%my_aspect"), "//test:xxx");
+    assertThat(Iterables.transform(analysisResult.getArtifactsToBuild(), Artifact::getFilename))
         .contains("file.xa");
   }
 
@@ -1942,7 +1951,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2006,7 +2015,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "rcollect(name = 'rcollect', deps = [':r1', ':r2'])");
     AnalysisResult analysisResult = update("//test:rcollect");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
     assertThat(result)
         .containsExactly(
             "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
@@ -2056,7 +2065,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "r2(name = 'r2', dep = ':r1')");
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence) target.get("result");
+    Sequence<?> result = (Sequence<?>) target.get("result");
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
@@ -2592,63 +2601,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  // This test verifies that aspects which are defined natively and exported for use in Starlark
-  // can be referenced at the top level using the --aspects flag. For ease of testing,
-  // apple_common.objc_proto_aspect is used as an example.
-  public void testTopLevelStarlarkObjcProtoAspect() throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("test_starlark/BUILD");
-    scratch.file("x/data_filter.pbascii");
-    scratch.file(
-        "test_starlark/top_level_stub.bzl",
-        "top_level_aspect = apple_common.objc_proto_aspect",
-        "",
-        "def top_level_stub_impl(ctx):",
-        "  return struct()",
-        "top_level_stub = rule(",
-        "    top_level_stub_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "    },",
-        "    fragments = ['apple'],",
-        ")");
-
-    scratch.file(
-        "x/BUILD",
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "  name = 'protos',",
-        "  srcs = ['data.proto'],",
-        MockProtoSupport.MIGRATION_TAG,
-        ")",
-        "objc_proto_library(",
-        "  name = 'x',",
-        "  deps = [':protos'],",
-        "  portable_proto_filters = ['data_filter.pbascii'],",
-        ")");
-
-    scratch.file(
-        "bin/BUILD",
-        "load('//test_starlark:top_level_stub.bzl', 'top_level_stub')",
-        "top_level_stub(",
-        "  name = 'link_target',",
-        "  deps = ['//x:x'],",
-        ")");
-
-    useConfiguration(MockObjcSupport.requiredObjcCrosstoolFlags().toArray(new String[1]));
-    AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("test_starlark/top_level_stub.bzl%top_level_aspect"),
-            "//bin:link_target");
-    ConfiguredAspect configuredAspect =
-        Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
-
-    ObjcProtoProvider objcProtoProvider =
-        (ObjcProtoProvider) configuredAspect.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR.getKey());
-    assertThat(objcProtoProvider).isNotNull();
-  }
-
-  @Test
   public void testAspectActionProvider() throws Exception {
     scratch.file(
         "test/aspect.bzl",
@@ -3136,6 +3088,336 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
                 Iterables.getOnlyElement(analysisResult.getAspectsMap().values()).getActions())
             .getOwner();
     assertThat(owner.getExecProperties()).isEmpty();
+  }
+
+  @Test
+  public void testAspectRequiredProviders_defaultNoRequiredProviders() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      targets_labels.extend(dep.target_labels)",
+        "  return struct(target_labels = targets_labels)",
+        "",
+        "my_aspect = aspect(",
+        "  implementation = _my_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        ")",
+        "",
+        "def _rule_without_providers_impl(ctx):",
+        "  s = []",
+        "  for dep in ctx.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      s.extend(dep.target_labels)",
+        "  return struct(rule_deps = s)",
+        "",
+        "rule_without_providers = rule(",
+        "  implementation = _rule_without_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_aspect])",
+        "  },",
+        ")",
+        "",
+        "def _rule_with_providers_impl(ctx):",
+        "  return [prov_a(), prov_b()]",
+        "",
+        "rule_with_providers = rule(",
+        "  implementation = _rule_with_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a, prov_b]",
+        ")",
+        "",
+        "rule_with_providers_not_advertised = rule(",
+        "  implementation = _rule_with_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = []",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'rule_with_providers', 'rule_without_providers',",
+        "                        'rule_with_providers_not_advertised')",
+        "rule_without_providers(",
+        "  name = 'main',",
+        "  deps = [':target_without_providers', ':target_with_providers',",
+        "          ':target_with_providers_not_advertised'],",
+        ")",
+        "rule_without_providers(",
+        "  name = 'target_without_providers',",
+        ")",
+        "rule_with_providers(",
+        "  name = 'target_with_providers',",
+        ")",
+        "rule_with_providers(",
+        "  name = 'target_with_providers_indeps',",
+        ")",
+        "rule_with_providers_not_advertised(",
+        "  name = 'target_with_providers_not_advertised',",
+        "  deps = [':target_with_providers_indeps'],",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    // my_aspect does not require any providers so it will be applied to all the dependencies of
+    // main target
+    List<String> expected = new ArrayList<>();
+    expected.add("//test:defs.bzl%my_aspect(//test:target_without_providers)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers_not_advertised)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_providers_indeps)");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    Object ruleDepsUnchecked = target.get("rule_deps");
+    assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
+    StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
+    assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testAspectRequiredProviders_flatSetOfRequiredProviders() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      targets_labels.extend(dep.target_labels)",
+        "  return struct(target_labels = targets_labels)",
+        "",
+        "my_aspect = aspect(",
+        "  implementation = _my_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_providers = [prov_a, prov_b],",
+        ")",
+        "",
+        "def _rule_without_providers_impl(ctx):",
+        "  s = []",
+        "  for dep in ctx.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      s.extend(dep.target_labels)",
+        "  return struct(rule_deps = s)",
+        "",
+        "rule_without_providers = rule(",
+        "  implementation = _rule_without_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects=[my_aspect])",
+        "  },",
+        "  provides = []",
+        ")",
+        "",
+        "def _rule_with_a_impl(ctx):",
+        "  return [prov_a()]",
+        "",
+        "rule_with_a = rule(",
+        "  implementation = _rule_with_a_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a]",
+        ")",
+        "",
+        "def _rule_with_ab_impl(ctx):",
+        "  return [prov_a(), prov_b()]",
+        "",
+        "rule_with_ab = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a, prov_b]",
+        ")",
+        "",
+        "rule_with_ab_not_advertised = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = []",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_ab',",
+        "                        'rule_with_ab_not_advertised')",
+        "rule_without_providers(",
+        "  name = 'main',",
+        "  deps = [':target_without_providers', ':target_with_a', ':target_with_ab',",
+        "          ':target_with_ab_not_advertised'],",
+        ")",
+        "rule_without_providers(",
+        "  name = 'target_without_providers',",
+        ")",
+        "rule_with_a(",
+        "  name = 'target_with_a',",
+        "  deps = [':target_with_ab_indeps_not_reached']",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab',",
+        "  deps = [':target_with_ab_indeps_reached']",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab_indeps_not_reached',",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab_indeps_reached',",
+        ")",
+        "rule_with_ab_not_advertised(",
+        "  name = 'target_with_ab_not_advertised',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    // my_aspect will only be applied on target_with_ab and target_with_ab_indeps_reached since
+    // their rule (rule_with_ab) is the only rule that advertises the aspect required providers.
+    // However, my_aspect cannot be propagated to target_with_ab_indeps_not_reached because it was
+    // not applied to its parent (target_with_a)
+    List<String> expected = new ArrayList<>();
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab_indeps_reached)");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    Object ruleDepsUnchecked = target.get("rule_deps");
+    assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
+    StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
+    assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testAspectRequiredProviders_listOfRequiredProvidersLists() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "prov_c = provider()",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
+        "  for dep in ctx.rule.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      targets_labels.extend(dep.target_labels)",
+        "  return struct(target_labels = targets_labels)",
+        "",
+        "my_aspect = aspect(",
+        "  implementation = _my_aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_providers = [[prov_a, prov_b], [prov_c]],",
+        ")",
+        "",
+        "def _rule_without_providers_impl(ctx):",
+        "  s = []",
+        "  for dep in ctx.attr.deps:",
+        "    if hasattr(dep, 'target_labels'):",
+        "      s.extend(dep.target_labels)",
+        "  return struct(rule_deps = s)",
+        "",
+        "rule_without_providers = rule(",
+        "  implementation = _rule_without_providers_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects=[my_aspect])",
+        "  },",
+        "  provides = []",
+        ")",
+        "",
+        "def _rule_with_a_impl(ctx):",
+        "  return [prov_a()]",
+        "",
+        "rule_with_a = rule(",
+        "  implementation = _rule_with_a_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a]",
+        ")",
+        "",
+        "def _rule_with_c_impl(ctx):",
+        "  return [prov_c()]",
+        "",
+        "rule_with_c = rule(",
+        "  implementation = _rule_with_c_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_c]",
+        ")",
+        "",
+        "def _rule_with_ab_impl(ctx):",
+        "  return [prov_a(), prov_b()]",
+        "",
+        "rule_with_ab = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = [prov_a, prov_b]",
+        ")",
+        "",
+        "rule_with_ab_not_advertised = rule(",
+        "  implementation = _rule_with_ab_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list()",
+        "  },",
+        "  provides = []",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_c',",
+        "                        'rule_with_ab', 'rule_with_ab_not_advertised')",
+        "rule_without_providers(",
+        "  name = 'main',",
+        "  deps = [':target_without_providers', ':target_with_a', ':target_with_c',",
+        "          ':target_with_ab', 'target_with_ab_not_advertised'],",
+        ")",
+        "rule_without_providers(",
+        "  name = 'target_without_providers',",
+        ")",
+        "rule_with_a(",
+        "  name = 'target_with_a',",
+        "  deps = [':target_with_c_indeps_not_reached'],",
+        ")",
+        "rule_with_c(",
+        "  name = 'target_with_c',",
+        ")",
+        "rule_with_c(",
+        "  name = 'target_with_c_indeps_reached',",
+        ")",
+        "rule_with_c(",
+        "  name = 'target_with_c_indeps_not_reached',",
+        ")",
+        "rule_with_ab(",
+        "  name = 'target_with_ab',",
+        "  deps = [':target_with_c_indeps_reached'],",
+        ")",
+        "rule_with_ab_not_advertised(",
+        "  name = 'target_with_ab_not_advertised',",
+        ")");
+
+    AnalysisResult analysisResult = update("//test:main");
+
+    // my_aspect will only be applied on target_with_ab, target_wtih_c and
+    // target_with_c_indeps_reached because their rules (rule_with_ab and rule_with_c) are the only
+    // rules advertising the aspect required providers
+    // However, my_aspect cannot be propagated to target_with_c_indeps_not_reached because it was
+    // not applied to its parent (target_with_a)
+    List<String> expected = new ArrayList<>();
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_ab)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_c)");
+    expected.add("//test:defs.bzl%my_aspect(//test:target_with_c_indeps_reached)");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    Object ruleDepsUnchecked = target.get("rule_deps");
+    assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
+    StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
+    assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
   }
 
   /** StarlarkAspectTest with "keep going" flag */

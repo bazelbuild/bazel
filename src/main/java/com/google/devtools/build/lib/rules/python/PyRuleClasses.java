@@ -21,11 +21,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
+import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -63,10 +62,10 @@ public class PyRuleClasses {
    * returns a transition that sets the version to that value. Otherwise, the factory returns {@code
    * defaultTransition} instead.
    *
-   * <p>If the attribute has an unparsable value, then the factory returns {@code defaultTransition}
-   * and it is up to the rule's analysis phase ({@link PyCommon#validatePythonVersionAttr}) to
-   * report an attribute error to the user. This case should be prevented by attribute validation if
-   * the rule class is defined correctly.
+   * <p>If the attribute has an unparseable value, then the factory returns {@code
+   * defaultTransition} and it is up to the rule's analysis phase ({@link
+   * PyCommon#validatePythonVersionAttr}) to report an attribute error to the user. This case should
+   * be prevented by attribute validation if the rule class is defined correctly.
    */
   public static TransitionFactory<Rule> makeVersionTransition(
       PythonVersionTransition defaultTransition) {
@@ -112,7 +111,7 @@ public class PyRuleClasses {
     private final String versionString;
     private final PythonVersionTransition transition;
 
-    private PySymlink(PythonVersion version) {
+    PySymlink(PythonVersion version) {
       this.versionString = Ascii.toLowerCase(version.toString());
       this.transition = PythonVersionTransition.toConstant(version);
     }
@@ -123,7 +122,7 @@ public class PyRuleClasses {
     }
 
     @Override
-    public Set<Path> getLinkPaths(
+    public ImmutableSet<Path> getLinkPaths(
         BuildRequestOptions buildRequestOptions,
         Set<BuildConfiguration> targetConfigs,
         Function<BuildOptions, BuildConfiguration> configGetter,
@@ -134,16 +133,13 @@ public class PyRuleClasses {
         return ImmutableSet.of();
       }
       EventHandler e =
-          new EventHandler() {
-            @Override
-            public void handle(Event event) {
-              throw new UnsupportedOperationException(
-                  "This transition shouldn't do anything that could fail.\n"
-                      + "TODO(bazel-team): refactor this to not call patch(). Blaze code should"
-                      + " not apply transitions unless it absolutely has to, since that requires"
-                      + " sequencing (likesupporting Starlark flags and handling exceptions)"
-                      + " that's easy to get wrong.");
-            }
+          event -> {
+            throw new UnsupportedOperationException(
+                "This transition shouldn't do anything that could fail.\n"
+                    + "TODO(bazel-team): refactor this to not call patch(). Blaze code should"
+                    + " not apply transitions unless it absolutely has to, since that requires"
+                    + " sequencing (like supporting Starlark flags and handling exceptions)"
+                    + " that's easy to get wrong.");
           };
       return targetConfigs.stream()
           .map(

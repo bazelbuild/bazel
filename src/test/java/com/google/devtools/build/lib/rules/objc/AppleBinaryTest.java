@@ -39,17 +39,13 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,7 +97,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
     scratch.file("myinfo/BUILD");
 
-    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages();
   }
 
@@ -400,416 +395,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         String.format(MultiArchSplitTransitionProvider.UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT,
             "meow_meow_os"),
         "apple_binary(name = 'test', platform_type = 'meow_meow_os')");
-  }
-
-  @Test
-  public void testProtoDylibDeps() throws Exception {
-    checkProtoDedupingDeps(BinaryType.DYLIB);
-  }
-
-  @Test
-  public void testProtoBundleLoaderDeps() throws Exception {
-    checkProtoDedupingDeps(BinaryType.LOADABLE_BUNDLE);
-  }
-
-  /**
-   * Test scenario where all proto symbols are contained within the lower level dependency. There is
-   * an implicit dependency hierarchy between the different apple_binary types (executable,
-   * loadable_bundle, dylib) which looks like this (top level binary types can depend on lower level
-   * binary types):
-   *
-   *              loadable_bundle
-   *            /                \
-   *        dylib(s)          executable
-   *                              |
-   *                            dylibs
-   *
-   * The mechanism to remove duplicate dependencies between dylibs and executable binaries works the
-   * same way between executable and loadable_bundle binaries; the only difference is through which
-   * attribute the dependency is declared (dylibs vs bundle_loader). This test scenario sets up
-   * dependencies for low level and top level binaries and checks that the correct files are linked
-   * for each of the binaries.
-   *
-   * @param depBinaryType either {@link BinaryType#DYLIB} or {@link BinaryType#LOADABLE_BUNDLE}, as
-   *     this deduping test is applicable for either
-   */
-  private void checkProtoDedupingDeps(BinaryType depBinaryType) throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter_a.pbascii");
-    scratch.file("x/filter_b.pbascii");
-    scratch.file(
-        "protos/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "    name = 'protos_1',",
-        "    srcs = ['data_a.proto', 'data_b.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_2',",
-        "    srcs = ['data_b.proto', 'data_c.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_3',",
-        "    srcs = ['data_a.proto', 'data_c.proto', 'data_d.proto'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_a',",
-        "    portable_proto_filters = ['filter_a.pbascii'],",
-        "    deps = [':protos_1'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_b',",
-        "    portable_proto_filters = ['filter_b.pbascii'],",
-        "    deps = [':protos_2', ':protos_3'],",
-        ")");
-    scratch.file(
-        "libs/BUILD",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_a', '//protos:objc_protos_b']",
-        ")");
-
-    if (depBinaryType == BinaryType.DYLIB) {
-      scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
-      scratch.file(
-          "depBinary/BUILD",
-          "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
-          "apple_binary(",
-          "    name = 'apple_low_level_binary',",
-          "    deps = ['//libs:objc_lib'],",
-          "    platform_type = 'ios',",
-          "    binary_type = 'dylib',",
-          ")",
-          "framework_stub_rule(",
-          "  name = 'low_level_framework',",
-          "  deps = [':apple_low_level_binary'],",
-          "  binary = ':apple_low_level_binary')");
-      getRuleType().scratchTarget(
-          scratch,
-          "binary_type",
-          "'executable'",
-          "deps",
-          "['//libs:objc_lib']",
-          "dylibs",
-          "['//depBinary:low_level_framework']");
-
-    } else {
-      assertThat(depBinaryType == BinaryType.LOADABLE_BUNDLE).isTrue();
-      scratch.file(
-          "depBinary/BUILD",
-          "apple_binary(",
-          "    name = 'apple_low_level_binary',",
-          "    deps = ['//libs:objc_lib'],",
-          "    platform_type = 'ios',",
-          "    binary_type = 'executable',",
-          ")");
-      getRuleType().scratchTarget(
-          scratch,
-          "binary_type",
-          "'loadable_bundle'",
-          "deps",
-          "['//libs:objc_lib']",
-          "bundle_loader",
-          "'//depBinary:apple_low_level_binary'");
-    }
-
-    // The proto libraries objc_lib depends on should be linked into the low level binary but not x.
-    Artifact lowLevelBinary =
-        Iterables.getOnlyElement(linkAction("//depBinary:apple_low_level_binary").getOutputs());
-    ImmutableList<Artifact> lowLevelObjectFiles = getAllObjectFilesLinkedInBin(lowLevelBinary);
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataA.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataB.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataC.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataD.pbobjc.o")).isNotNull();
-
-    Artifact bin = Iterables.getOnlyElement(linkAction("//x:x").getOutputs());
-    ImmutableList<Artifact> binObjectFiles = getAllObjectFilesLinkedInBin(bin);
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataA.pbobjc.o")).isNull();
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataB.pbobjc.o")).isNull();
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataC.pbobjc.o")).isNull();
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataD.pbobjc.o")).isNull();
-  }
-
-  @Test
-  public void testProtoDylibDepsPartial() throws Exception {
-    checkProtoDedupingDepsPartial(AppleBinary.BinaryType.DYLIB);
-  }
-
-  @Test
-  public void testProtoBundleLoaderDepsPartial() throws Exception {
-    checkProtoDedupingDepsPartial(AppleBinary.BinaryType.LOADABLE_BUNDLE);
-  }
-
-  /**
-   * Test scenario where proto symbols are mixed between the low and top level binaries. There is
-   * an implicit dependency hierarchy between the different apple_binary types (executable,
-   * loadable_bundle, dylib) which looks like this (top level binary types can depend on lower level
-   * binary types):
-   *
-   *              loadable_bundle
-   *            /                \
-   *        dylib(s)          executable
-   *                              |
-   *                            dylibs
-   *
-   * The mechanism to remove duplicate dependencies between dylibs and executable binaries works the
-   * same way between executable and loadable_bundle binaries; the only difference is through which
-   * attribute the dependency is declared (dylibs vs bundle_loader). This test scenario sets up
-   * dependencies for low level and top level binaries and checks that the correct files are linked
-   * for each of the binaries.
-   *
-   * @param depBinaryType either {@link BinaryType#DYLIB} or {@link BinaryType#LOADABLE_BUNDLE}, as
-   *     this deduping test is applicable for either
-   */
-  private void checkProtoDedupingDepsPartial(BinaryType depBinaryType) throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter_a.pbascii");
-    scratch.file("x/filter_b.pbascii");
-    scratch.file(
-        "protos/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "    name = 'protos_1',",
-        "    srcs = ['data_a.proto', 'data_b.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_2',",
-        "    srcs = ['data_b.proto', 'data_c.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_3',",
-        "    srcs = ['data_a.proto', 'data_c.proto', 'data_d.proto'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_a',",
-        "    portable_proto_filters = ['filter_a.pbascii'],",
-        "    deps = [':protos_1'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_b',",
-        "    portable_proto_filters = ['filter_b.pbascii'],",
-        "    deps = [':protos_2', ':protos_3'],",
-        ")");
-    scratch.file(
-        "libs/BUILD",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_a', '//protos:objc_protos_b']",
-        ")",
-        "objc_library(",
-        "    name = 'apple_low_level_lib',",
-        "    srcs = ['b.m'],",
-        "    deps = ['//protos:objc_protos_a']",
-        ")");
-
-    if (depBinaryType == BinaryType.DYLIB) {
-      scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
-      scratch.file(
-          "depBinary/BUILD",
-          "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
-          "apple_binary(",
-          "    name = 'apple_low_level_binary',",
-          "    deps = ['//libs:apple_low_level_lib'],",
-          "    platform_type = 'ios',",
-          "    binary_type = 'dylib',",
-          ")",
-          "framework_stub_rule(",
-          "  name = 'low_level_framework',",
-          "  deps = [':apple_low_level_binary'],",
-          "  binary = ':apple_low_level_binary')");
-      getRuleType().scratchTarget(
-          scratch,
-          "binary_type",
-          "'executable'",
-          "deps",
-          "['//libs:main_lib']",
-          "dylibs",
-          "['//depBinary:low_level_framework']");
-
-    } else {
-      assertThat(depBinaryType == BinaryType.LOADABLE_BUNDLE).isTrue();
-      scratch.file(
-          "depBinary/BUILD",
-          "apple_binary(",
-          "    name = 'apple_low_level_binary',",
-          "    deps = ['//libs:apple_low_level_lib'],",
-          "    platform_type = 'ios',",
-          "    binary_type = 'executable',",
-          ")");
-      getRuleType().scratchTarget(
-          scratch,
-          "binary_type",
-          "'loadable_bundle'",
-          "deps",
-          "['//libs:main_lib']",
-          "bundle_loader",
-          "'//depBinary:apple_low_level_binary'");
-    }
-
-    // The proto libraries objc_lib depends on should be linked into the low level binary but not x.
-    Artifact lowLevelBinary =
-        Iterables.getOnlyElement(linkAction("//depBinary:apple_low_level_binary").getOutputs());
-    ImmutableList<Artifact> lowLevelObjectFiles = getAllObjectFilesLinkedInBin(lowLevelBinary);
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataA.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataB.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataC.pbobjc.o")).isNull();
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataD.pbobjc.o")).isNull();
-
-    Artifact bin = Iterables.getOnlyElement(linkAction("//x:x").getOutputs());
-    ImmutableList<Artifact> binObjectFiles = getAllObjectFilesLinkedInBin(bin);
-
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataA.pbobjc.o")).isNull();
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataB.pbobjc.o")).isNull();
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataC.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataD.pbobjc.o")).isNotNull();
-  }
-
-  @Test
-  public void testProtoDepsViaDylib() throws Exception {
-    checkProtoDisjointDeps(BinaryType.DYLIB);
-  }
-
-  @Test
-  public void testProtoDepsViaBundleLoader() throws Exception {
-    checkProtoDisjointDeps(BinaryType.LOADABLE_BUNDLE);
-  }
-
-  /**
-   * Test scenario where a proto in the top level binary depends on a proto in a low level binary.
-   * There is an implicit dependency hierarchy between the different apple_binary types (executable,
-   * loadable_bundle, dylib) which looks like this (top level binary types can depend on lower level
-   * binary types):
-   *
-   *              loadable_bundle
-   *            /                \
-   *        dylib(s)          executable
-   *                              |
-   *                            dylibs
-   *
-   * The mechanism to remove duplicate dependencies between dylibs and executable binaries works the
-   * same way between executable and loadable_bundle binaries; the only difference is through which
-   * attribute the dependency is declared (dylibs vs bundle_loader). This test scenario sets up
-   * dependencies for low level and top level binaries and checks that the correct files are linked
-   * for each of the binaries.
-   *
-   * @param depBinaryType either {@link BinaryType#DYLIB} or {@link BinaryType#LOADABLE_BUNDLE}, as
-   *     this deduping test is applicable for either
-   */
-  private void checkProtoDisjointDeps(BinaryType depBinaryType) throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter_a.pbascii");
-    scratch.file("x/filter_b.pbascii");
-    scratch.file(
-        "protos/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "proto_library(",
-        "    name = 'protos_main',",
-        "    srcs = ['data_a.proto', 'data_b.proto'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos_low_level',",
-        "    srcs = ['data_b.proto'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_main',",
-        "    portable_proto_filters = ['filter_a.pbascii'],",
-        "    deps = [':protos_main'],",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos_low_level',",
-        "    portable_proto_filters = ['filter_b.pbascii'],",
-        "    deps = [':protos_low_level'],",
-        ")");
-    scratch.file(
-        "libs/BUILD",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_main',]",
-        ")",
-        "objc_library(",
-        "    name = 'apple_low_level_lib',",
-        "    srcs = ['a.m'],",
-        "    deps = ['//protos:objc_protos_low_level',]",
-        ")");
-
-    if (depBinaryType == BinaryType.DYLIB) {
-      scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
-      scratch.file(
-          "depBinary/BUILD",
-          "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
-          "apple_binary(",
-          "    name = 'apple_low_level_binary',",
-          "    deps = ['//libs:apple_low_level_lib'],",
-          "    platform_type = 'ios',",
-          "    binary_type = 'dylib',",
-          ")",
-          "framework_stub_rule(",
-          "  name = 'low_level_framework',",
-          "  deps = [':apple_low_level_binary'],",
-          "  binary = ':apple_low_level_binary')");
-      getRuleType().scratchTarget(
-          scratch,
-          "binary_type",
-          "'executable'",
-          "deps",
-          "['//libs:main_lib']",
-          "dylibs",
-          "['//depBinary:low_level_framework']");
-
-    } else {
-      assertThat(depBinaryType == BinaryType.LOADABLE_BUNDLE).isTrue();
-      scratch.file(
-          "depBinary/BUILD",
-          "apple_binary(",
-          "    name = 'apple_low_level_binary',",
-          "    deps = ['//libs:apple_low_level_lib'],",
-          "    platform_type = 'ios',",
-          "    binary_type = 'executable',",
-          ")");
-      getRuleType().scratchTarget(
-          scratch,
-          "binary_type",
-          "'loadable_bundle'",
-          "deps",
-          "['//libs:main_lib']",
-          "bundle_loader",
-          "'//depBinary:apple_low_level_binary'");
-    }
-
-    // The proto libraries objc_lib depends on should be linked into apple_dylib but not x.
-    Artifact lowLevelBinary =
-        Iterables.getOnlyElement(linkAction("//depBinary:apple_low_level_binary").getOutputs());
-    ImmutableList<Artifact> lowLevelObjectFiles = getAllObjectFilesLinkedInBin(lowLevelBinary);
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataA.pbobjc.o")).isNull();
-    assertThat(getFirstArtifactEndingWith(lowLevelObjectFiles, "DataB.pbobjc.o")).isNotNull();
-
-    Artifact bin = Iterables.getOnlyElement(linkAction("//x:x").getOutputs());
-    ImmutableList<Artifact> binObjectFiles = getAllObjectFilesLinkedInBin(bin);
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataA.pbobjc.o")).isNotNull();
-    assertThat(getFirstArtifactEndingWith(binObjectFiles, "DataB.pbobjc.o")).isNull();
-    Action dataAObjectAction =
-        getGeneratingAction(getFirstArtifactEndingWith(binObjectFiles, "DataA.pbobjc.o"));
-    assertThat(
-            getFirstArtifactEndingWith(
-                getExpandedActionInputs(dataAObjectAction), "DataB.pbobjc.h"))
-        .isNotNull();
-  }
-
-  @Test
-  public void testProtoBundlingWithTargetsWithNoDeps() throws Exception {
-    checkProtoBundlingWithTargetsWithNoDeps(getRuleType());
-  }
-
-  @Test
-  public void testProtoBundlingDoesNotHappen() throws Exception {
-    useConfiguration("--noenable_apple_binary_native_protos");
-    checkProtoBundlingDoesNotHappen(getRuleType());
   }
 
   @Test
@@ -1243,127 +828,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testGenfilesProtoGetsCorrectPath() throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter.pbascii");
-    scratch.file(
-        "examples/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "package(default_visibility = ['//visibility:public'])",
-        "apple_binary(",
-        "    name = 'bin',",
-        "    deps = [':objc_protos'],",
-        "    platform_type = 'ios',",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos',",
-        "    portable_proto_filters = ['filter.pbascii'],",
-        "    deps = [':protos'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos',",
-        "    srcs = ['genfile.proto'],",
-        ")",
-        "genrule(",
-        "    name = 'copy_proto',",
-        "    srcs = ['original.proto'],",
-        "    outs = ['genfile.proto'],",
-        "    cmd = '/bin/cp $< $@',",
-        ")");
-
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-
-    Action lipoAction = actionProducingArtifact("//examples:bin", "_lipobin");
-    ArrayList<String> genfileRoots = new ArrayList<>();
-
-    for (Artifact archBinary : lipoAction.getInputs().toList()) {
-      if (archBinary.getExecPathString().endsWith("bin_bin")) {
-        Artifact protoLib =
-            getFirstArtifactEndingWith(
-                getGeneratingAction(archBinary).getInputs(), "BundledProtos.a");
-        Artifact protoObject =
-            getFirstArtifactEndingWith(
-                getGeneratingAction(protoLib).getInputs(), "Genfile.pbobjc.o");
-        Artifact protoObjcSource =
-            getFirstArtifactEndingWith(
-                getGeneratingAction(protoObject).getInputs(), "Genfile.pbobjc.m");
-        Artifact protoSource =
-            getFirstArtifactEndingWith(
-                getGeneratingAction(protoObjcSource).getInputs(), "genfile.proto");
-        genfileRoots.add(protoSource.getRoot().getExecPathString());
-      }
-    }
-
-    // Make sure there are genrules for both arm64 and armv7 configurations.
-    Collections.sort(genfileRoots);
-    assertThat(genfileRoots).hasSize(2);
-    assertThat(genfileRoots.get(0)).contains("arm64");
-    assertThat(genfileRoots.get(1)).contains("armv7");
-  }
-
-  @Test
-  public void testDifferingProtoDepsPerArchitecture() throws Exception {
-    MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("x/filter.pbascii");
-    scratch.file(
-        "examples/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//objc_proto_library:objc_proto_library.bzl', 'objc_proto_library')",
-        "package(default_visibility = ['//visibility:public'])",
-        "apple_binary(",
-        "    name = 'bin',",
-        "    deps = [':objc_protos'],",
-        "    platform_type = 'ios',",
-        ")",
-        "objc_proto_library(",
-        "    name = 'objc_protos',",
-        "    portable_proto_filters = ['filter.pbascii'],",
-        "    deps = [':protos'],",
-        ")",
-        "proto_library(",
-        "    name = 'protos',",
-        "    srcs = select({",
-        "        ':armv7': [ 'one.proto', ],",
-        "        '//conditions:default': [ 'two.proto', ],",
-        "    }),",
-        ")",
-        "config_setting(",
-        "    name = 'armv7',",
-        "    values = {'apple_split_cpu': 'armv7'},",
-        ")");
-
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
-
-    Action lipoAction = actionProducingArtifact("//examples:bin", "_lipobin");
-
-    Artifact armv7Binary = getSingleArchBinary(lipoAction, "armv7");
-    Artifact arm64Binary = getSingleArchBinary(lipoAction, "arm64");
-
-    Artifact armv7ProtoLib =
-        getFirstArtifactEndingWith(getGeneratingAction(armv7Binary).getInputs(), "BundledProtos.a");
-    Artifact armv7ProtoObject =
-        getFirstArtifactEndingWith(
-            getGeneratingAction(armv7ProtoLib).getInputs(), "One.pbobjc.o");
-    Artifact armv7ProtoObjcSource =
-        getFirstArtifactEndingWith(
-            getGeneratingAction(armv7ProtoObject).getInputs(), "One.pbobjc.m");
-    assertThat(getFirstArtifactEndingWith(
-        getGeneratingAction(armv7ProtoObjcSource).getInputs(), "one.proto")).isNotNull();
-
-    Artifact arm64ProtoLib =
-        getFirstArtifactEndingWith(getGeneratingAction(arm64Binary).getInputs(), "BundledProtos.a");
-    Artifact arm64ProtoObject =
-        getFirstArtifactEndingWith(
-            getGeneratingAction(arm64ProtoLib).getInputs(), "Two.pbobjc.o");
-    Artifact arm64ProtoObjcSource =
-        getFirstArtifactEndingWith(
-            getGeneratingAction(arm64ProtoObject).getInputs(), "Two.pbobjc.m");
-    assertThat(getFirstArtifactEndingWith(
-        getGeneratingAction(arm64ProtoObjcSource).getInputs(), "two.proto")).isNotNull();
-  }
-
-  @Test
   public void testPlatformTypeIsConfigurable() throws Exception {
     scratch.file(
         "examples/BUILD",
@@ -1617,11 +1081,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   @Test
   public void testWatchSimulatorLinkAction() throws Exception {
     checkWatchSimulatorLinkAction(getRuleType());
-  }
-
-  @Test
-  public void testProtoBundlingAndLinking() throws Exception {
-    checkProtoBundlingAndLinking(getRuleType());
   }
 
   @Test
@@ -1884,5 +1343,51 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   protected RuleType getRuleType() {
     return RULE_TYPE;
+  }
+
+  @Test
+  public void testExpandedLinkopts() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "genrule(name = 'linker', cmd='generate', outs=['a.lds'])",
+        "apple_binary(",
+        "    name='bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':lib'],",
+        "    linkopts=['@$(location a.lds)'],",
+        "    additional_linker_inputs=['a.lds'])");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    CommandAction action = linkAction("//a:bin");
+
+    assertThat(Joiner.on(" ").join(action.getArguments()))
+        .contains(
+            String.format(
+                "-Wl,@%s/a/a.lds",
+                getRuleContext(target).getGenfilesDirectory().getExecPath().getPathString()));
+  }
+
+  @Test
+  public void testProvidesLinkerScriptToLinkAction() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m'],",
+        ")",
+        "apple_binary(",
+        "    name='bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':lib'],",
+        "    linkopts=['@$(location a.lds)'],",
+        "    additional_linker_inputs=['a.lds'])");
+
+    CommandAction action = linkAction("//a:bin");
+
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a.lds");
   }
 }

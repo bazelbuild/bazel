@@ -13,6 +13,8 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+exports_files(["java_stub_template.txt"])
+
 java_library(
     name = "java",
     srcs = glob(
@@ -61,7 +63,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",

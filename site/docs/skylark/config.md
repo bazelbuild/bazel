@@ -7,10 +7,9 @@ category: extending
 # Configurations
 
 
-This page covers the benefits and basic usage of Starlark configurations. It
-includes how to define build settings and provides examples.
-
-Starlark configuration is Bazel's API for customizing how your project builds.
+This page covers the benefits and basic usage of Starlark configurations,
+Bazel's API for customizing how your project builds. It includes how to define
+build settings and provides examples.
 
 This makes it possible to:
 
@@ -145,8 +144,8 @@ $ bazel build //my/target --//example:roasts=blonde \
     --//example:roasts=medium,dark
 ```
 
-The above will be parsed to {//example:roasts:["blonde", "medium,dark"]} and
-`ctx.build_setting_value` will return a list ["blonde", "medium,dark"].
+The above is parsed to `{"//example:roasts": ["blonde", "medium,dark"]}` and
+`ctx.build_setting_value` returns the list `["blonde", "medium,dark"]`.
 
 #### Instantiating build settings
 
@@ -198,7 +197,7 @@ string_flag(
 ```
 
 For a complete list, see
-[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
+[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/main/rules/common_settings.bzl).
 
 ### Using build settings
 
@@ -395,8 +394,8 @@ config_setting(
 
 A configuration
 [transition](lib/transition.html#transition)
-is how we change configuration of
-configured targets in the build graph.
+maps the transformation from one configured target to another within the
+build graph.
 
 > IMPORTANT: Transitions have [memory and performance impact](#memory-and-performance-considerations).
 > Rules that set them must include a special attribute:
@@ -511,7 +510,7 @@ edge transition).
 NOTE: There is currently no way to attach Starlark transitions to native rules.
 If you need to do this, contact
 bazel-discuss@googlegroups.com
-and we can help you try to figure out a workaround.
+for help with figuring out workarounds.
 
 ### Incoming edge transitions
 Incoming edge transitions are activated by attaching a `transition` object
@@ -546,10 +545,10 @@ Outgoing edge transitions can be 1:1 or 1:2+.
 
 [End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/transition_on_native_flag)
 
-WARNING: Long term, we plan to reimplement all native options as build settings.
-When that happens, this syntax will be deprecated. Currently other issues are
-blocking that migration but be aware you may have to migrate your transitions
-at some point in the future.
+WARNING: Long term, the plan is to reimplement all native options as build
+settings. When that happens, this syntax will be deprecated. Currently other
+issues are blocking that migration but be aware you may have to migrate your
+transitions at some point in the future.
 
 Starlark transitions can also declare reads and writes on native build
 configuration options via a special prefix to the option name.

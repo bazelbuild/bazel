@@ -293,6 +293,12 @@ def _my_rule_impl(ctx):
         )
         group_kwargs[name + "_outputs"] = depset(
             [outfile], transitive=[group_kwargs[name + "_outputs"]])
+    valid = ctx.actions.declare_file(ctx.label.name + "-valid")
+    ctx.actions.run_shell(
+        outputs = [valid],
+        command = "printf valid > %s && exit %d" % (valid.path, 0),
+    )
+    group_kwargs["_validation"] = depset([valid])
     return [OutputGroupInfo(**group_kwargs)]
 
 my_rule = rule(implementation = _my_rule_impl, attrs = {
@@ -666,6 +672,7 @@ function test_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
   # We request the first three output groups and expect foo_outputs and
   # bar_outputs to appear in BEP, because both groups have at least one
@@ -675,6 +682,7 @@ function test_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
    --output_groups=foo_outputs,bar_outputs,baz_outputs \
     && fail "expected failure" || true
 
@@ -700,6 +708,7 @@ function test_bep_output_groups() {
     expect_not_log "\"name\":\"${name}_outputs\""
     expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
   done
+  expect_not_log "-valid\""  # validation outputs shouldn't appear in BEP
 }
 
 function test_aspect_artifacts() {
@@ -755,7 +764,7 @@ function test_aspect_analysis_failure_no_target_summary() {
   expect_log_once '^completed '  # target completes due to -k
   # One "aborted" for failed aspect analysis, another for target_summary_id
   # announced by "completed" event asserted above
-  expect_log_n '^aborted ' 2
+  expect_log_n 'aborted' 2
   expect_not_log '^target_summary '  # no summary due to analysis failure
 }
 
@@ -766,6 +775,7 @@ function test_failing_aspect_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
+  #    5. _validation implicit with --experimental_run_validations (1/0)
   #
   # We request the first two output groups and expect only bar_outputs to
   # appear in BEP, because all actions contributing to bar_outputs succeeded.
@@ -778,6 +788,8 @@ function test_failing_aspect_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
+   --experimental_run_validations \
+   --experimental_use_validation_aspect \
    --aspects=semifailingaspect.bzl%semifailing_aspect \
    --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out,mixed-aspect-out \
     && fail "expected failure" || true
@@ -804,6 +816,10 @@ function test_failing_aspect_bep_output_groups() {
   expect_log "\"name\":\"semifailingpkg/out2.txt.aspect.good\",\"uri\":"
   expect_log "\"name\":\"semifailingpkg/out1.txt.aspect.mixed\",\"uri\":"
   expect_not_log "\"name\":\"semifailingpkg/out2.txt.aspect.mixed\",\"uri\":"
+
+  # Validation outputs shouldn't appear in BEP (incl. no output group)
+  expect_not_log "-valid\""
+  expect_log_n '^{"id":{"targetCompleted":{.*"aspect":"ValidateTarget".*}},"completed":{"success":true}}$' 2
 }
 
 function test_build_only() {
@@ -907,13 +923,18 @@ function test_root_cause_before_target_summary() {
 
 function test_action_conf() {
   # Verify that the expected configurations for actions are reported.
-  # The example contains a configuration transition (from building for
-  # target to building for host). As the action fails, we expect the
-  # configuration of the action to be reported as well.
-  (bazel build --build_event_text_file=$TEST_log \
+  # Expect the following configurations:
+  # 1. The top-level target configuration
+  # 2. Host configuration (since example contains transition to host).
+  # 3. Trimmed top-level target configuration (since non-test rule).
+  # As the action fails, we expect the configuration of the action to be
+  # reported as well.
+  # TODO(blaze-configurability-team): remove explicit trim_test_configuration
+  # once it is (very soon) default true.
+  (bazel build --trim_test_configuration --build_event_text_file=$TEST_log \
          -k failingtool/... && fail "build failure expected") || true
   count=`grep '^configuration' "${TEST_log}" | wc -l`
-  [ "${count}" -eq 2 ] || fail "Expected 2 configurations, found $count."
+  [ "${count}" -eq 3 ] || fail "Expected 3 configurations, found $count."
 }
 
 function test_loading_failure() {
@@ -1058,7 +1079,22 @@ function test_test_fails_to_build() {
   (bazel test --experimental_bep_target_summary \
          --build_event_text_file=$TEST_log \
          pkg:test_that_fails_to_build && fail "test failure expected") || true
-  expect_not_log '^test_summary'
+  expect_not_log 'test_summary'  # no test_summary events or references to them
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success'
+  expect_log 'last_message: true'
+  expect_log 'BUILD_FAILURE'
+  expect_log 'last_message: true'
+  expect_log 'command_line:.*This build will fail'
+  expect_log_once '^build_tool_logs'
+}
+
+function test_test_fails_to_build_without_default_output_group() {
+  (bazel test --experimental_bep_target_summary \
+         --build_event_text_file=$TEST_log \
+         --output_groups=extra \
+         pkg:test_that_fails_to_build && fail "test failure expected") || true
+  expect_not_log 'test_summary'  # no test_summary events or references to them
   expect_log_once '^target_summary '
   expect_not_log 'overall_build_success'
   expect_log 'last_message: true'

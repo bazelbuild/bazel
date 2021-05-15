@@ -301,6 +301,11 @@ public class ObjectCodecRegistry {
       return this;
     }
 
+    public Builder addReferenceConstants(Iterable<?> referenceConstants) {
+      referenceConstantsBuilder.addAll(referenceConstants);
+      return this;
+    }
+
     public Builder addClassName(String className) {
       classNames.add(className);
       return this;

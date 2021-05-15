@@ -70,7 +70,7 @@ public @interface Option {
    * usual literal meaning.
    *
    * <p>Multiple options (e.g. with {@code allowMultiple = true}) are not allowed to have default
-   * values (with only a small numner of exceptions - see {@link OptionsProcessor}), thus should
+   * values (with only a small number of exceptions - see {@link OptionsProcessor}), thus should
    * always use {@link OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
    */
   String defaultValue();

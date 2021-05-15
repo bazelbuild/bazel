@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -59,7 +59,8 @@ public final class NestedSetCodecTest {
   public void testAutoCodecedCodec() throws Exception {
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
-            AutoRegistry.get().getBuilder().setAllowDefaultCodec(true).build(), ImmutableMap.of());
+            AutoRegistry.get().getBuilder().setAllowDefaultCodec(true).build(),
+            ImmutableClassToInstanceMap.of());
     NestedSetCodecTestUtils.checkCodec(objectCodecs, false, false);
   }
 
@@ -472,6 +473,6 @@ public final class NestedSetCodecTest {
             .setAllowDefaultCodec(true)
             .add(new NestedSetCodecWithStore(store))
             .build(),
-        /*dependencies=*/ ImmutableMap.of());
+        /*dependencies=*/ ImmutableClassToInstanceMap.of());
   }
 }

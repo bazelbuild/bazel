@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.PatternExpanded.TestSuiteExpansion;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -98,7 +97,7 @@ public final class LoadingPhaseRunnerTest {
   }
 
   @Before
-  public final void createLoadingPhaseTester() throws Exception {
+  public void createLoadingPhaseTester() throws Exception {
     tester = new LoadingPhaseTester();
   }
 
@@ -110,9 +109,10 @@ public final class LoadingPhaseRunnerTest {
     return result;
   }
 
-  private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
+  private void assertCircularSymlinksDuringTargetParsing(String targetPattern, String errorMessage)
+      throws Exception {
     assertThrows(TargetParsingException.class, () -> tester.load(targetPattern));
-    tester.assertContainsError("circular symlinks detected");
+    tester.assertContainsError(errorMessage);
     TargetPatternPhaseValue result = tester.loadKeepGoing(targetPattern);
     assertThat(result.hasError()).isTrue();
   }
@@ -725,7 +725,7 @@ public final class LoadingPhaseRunnerTest {
     fooFilePath.createSymbolicLink(barFilePath);
     barFilePath.createSymbolicLink(bazFilePath);
     bazFilePath.createSymbolicLink(fooFilePath);
-    assertCircularSymlinksDuringTargetParsing("//hello:a");
+    assertCircularSymlinksDuringTargetParsing("//hello:a", "Too many levels of symbolic links");
   }
 
   @Test
@@ -738,7 +738,7 @@ public final class LoadingPhaseRunnerTest {
         .getRelative(PathFragment.create("broken/BUILD"))
         .createSymbolicLink(PathFragment.create("BUILD"));
 
-    assertCircularSymlinksDuringTargetParsing("//broken/...");
+    assertCircularSymlinksDuringTargetParsing("//broken/...", "circular symlinks detected");
   }
 
   @Test
@@ -755,7 +755,7 @@ public final class LoadingPhaseRunnerTest {
         .getRelative(PathFragment.create("broken/x"))
         .createSymbolicLink(PathFragment.create("BUILD"));
 
-    assertCircularSymlinksDuringTargetParsing("//broken/...");
+    assertCircularSymlinksDuringTargetParsing("//broken/...", "circular symlinks detected");
   }
 
   @Test
@@ -1400,29 +1400,21 @@ public final class LoadingPhaseRunnerTest {
           analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
       PackageOptions options = Options.getDefaults(PackageOptions.class);
       storedErrors = new StoredEventHandler();
-      BuildOptions defaultBuildOptions;
-      try {
-        defaultBuildOptions = BuildOptions.of(ImmutableList.of());
-      } catch (OptionsParsingException e) {
-        throw new RuntimeException(e);
-      }
-      ActionKeyContext actionKeyContext = new ActionKeyContext();
       skyframeExecutor =
           BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)
               .setFileSystem(fs)
               .setDirectories(directories)
-              .setActionKeyContext(actionKeyContext)
-              .setDefaultBuildOptions(defaultBuildOptions)
+              .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
-              null,
+              /*outputBase=*/ null,
               options.packagePath,
               storedErrors,
-              workspace,
+              workspace.asFragment(),
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);

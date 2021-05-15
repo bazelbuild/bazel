@@ -224,7 +224,7 @@ function testenv_tear_down() {
 # $TEST_log.
 function fail() {
     __show_log >&2
-    echo "$TEST_name FAILED:" "$@" "." >&2
+    echo "$TEST_name FAILED: $*." >&2
     echo "$@" >$TEST_TMPDIR/__fail
     TEST_passed="false"
     __show_stack

@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -28,7 +29,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -96,12 +98,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.server.FailureDetails.Analysis;
-import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -212,13 +209,13 @@ public final class RuleContext extends TargetContext
   private final String ruleClassNameForLogging;
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-  private final ImmutableList<Class<? extends Fragment>> universalFragments;
+  private final FragmentClassSet universalFragments;
   private final RuleErrorConsumer reporter;
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+  private final ExecGroupCollection execGroupCollection;
   private final ConstraintSemantics<RuleContext> constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
-  private final ImmutableTable<String, String, String> execProperties;
 
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
@@ -257,11 +254,12 @@ public final class RuleContext extends TargetContext
       ListMultimap<String, ConfiguredTargetAndData> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      ImmutableList<Class<? extends Fragment>> universalFragments,
+      FragmentClassSet universalFragments,
       String ruleClassNameForLogging,
       ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      ExecGroupCollection execGroupCollection,
       ConstraintSemantics<RuleContext> constraintSemantics,
       ImmutableSet<String> requiredConfigFragments,
       String toolsRepository,
@@ -298,7 +296,7 @@ public final class RuleContext extends TargetContext
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
     this.toolchainContexts = toolchainContexts;
-    this.execProperties = parseExecProperties(builder.rawExecProperties);
+    this.execGroupCollection = execGroupCollection;
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
     this.starlarkSemantics = starlarkSemantics;
@@ -515,9 +513,8 @@ public final class RuleContext extends TargetContext
             rule,
             aspectDescriptors,
             getConfiguration(),
-            getExecProperties(execGroup, execProperties),
-            getExecutionPlatform(execGroup),
-            ImmutableSet.of(execGroup));
+            getExecGroups().getExecProperties(execGroup),
+            getExecutionPlatform(execGroup));
     actionOwners.put(execGroup, actionOwner);
     return actionOwner;
   }
@@ -624,47 +621,13 @@ public final class RuleContext extends TargetContext
             AnalysisUtils.isStampingEnabled(this, getConfiguration()), key, getConfiguration());
   }
 
-  /**
-   * Computes a map of exec properties given the execution platform, taking only properties in exec
-   * groups that are applicable to this action. Properties for specific exec groups take precedence
-   * over properties that don't specify an exec group.
-   */
-  private static ImmutableMap<String, String> computeExecProperties(
-      Map<String, String> targetExecProperties,
-      @Nullable PlatformInfo executionPlatform,
-      Set<String> execGroups) {
-    Map<String, String> execProperties = new HashMap<>();
-
-    if (executionPlatform != null) {
-      ImmutableTable<String, String, String> execPropertiesPerGroup =
-          parseExecGroups(executionPlatform.execProperties());
-
-      if (execPropertiesPerGroup.containsRow(DEFAULT_EXEC_GROUP_NAME)) {
-        execProperties.putAll(execPropertiesPerGroup.row(DEFAULT_EXEC_GROUP_NAME));
-      }
-
-      for (String execGroup : execPropertiesPerGroup.rowKeySet()) {
-        if (execGroups.contains(execGroup)) {
-          execProperties.putAll(execPropertiesPerGroup.row(execGroup));
-        }
-      }
-    }
-
-    // If the same key occurs both in the platform and in target-specific properties, the
-    // value is taken from target-specific properties (effectively overriding the platform
-    // properties).
-    execProperties.putAll(targetExecProperties);
-    return ImmutableMap.copyOf(execProperties);
-  }
-
   @VisibleForTesting
   public static ActionOwner createActionOwner(
       Rule rule,
       ImmutableList<AspectDescriptor> aspectDescriptors,
       BuildConfiguration configuration,
-      Map<String, String> targetExecProperties,
-      @Nullable PlatformInfo executionPlatform,
-      Set<String> execGroups) {
+      ImmutableMap<String, String> execProperties,
+      @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
         rule.getLabel(),
         aspectDescriptors,
@@ -674,12 +637,12 @@ public final class RuleContext extends TargetContext
         configuration.checksum(),
         configuration.toBuildEvent(),
         configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null,
-        computeExecProperties(targetExecProperties, executionPlatform, execGroups),
+        execProperties,
         executionPlatform);
   }
 
   @Override
-  public void registerAction(ActionAnalysisMetadata... action) {
+  public void registerAction(ActionAnalysisMetadata action) {
     getAnalysisEnvironment().registerAction(action);
   }
 
@@ -1046,22 +1009,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all the ConfiguredTargetAndTargets of that attribute. Each
-   * ConfiguredTargetAndData is keyed by the {@link BuildConfiguration} that created it.
-   */
-  public ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
-      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(String attributeName) {
-    checkAttributeIsDependency(attributeName);
-    List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, ConfiguredTargetAndData> result =
-        ImmutableListMultimap.builder();
-    for (ConfiguredTargetAndData ctad : ctatCollection) {
-      result.put(ctad.getConfiguration(), ctad);
-    }
-    return result.build();
-  }
-
-  /**
    * For a given attribute, returns all declared provider provided by targets of that attribute.
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
@@ -1109,9 +1056,11 @@ public final class RuleContext extends TargetContext
     }
 
     List<ConfiguredTargetAndData> prerequisiteConfiguredTargets;
-    // android_binary and android_test override deps to use a split transition.
+    // android_binary, android_test, and android_binary_internal override deps to use a split
+    // transition.
     if ((getRule().getRuleClass().equals("android_binary")
-            || getRule().getRuleClass().equals("android_test"))
+            || getRule().getRuleClass().equals("android_test")
+            || getRule().getRuleClass().equals("android_binary_internal"))
         && attributeName.equals("deps")
         && attributes().getAttributeDefinition(attributeName).getTransitionFactory().isSplit()) {
       // TODO(b/168038145): Restore legacy behavior of returning the prerequisites from the first
@@ -1370,6 +1319,10 @@ public final class RuleContext extends TargetContext
     return toolchainContexts;
   }
 
+  public ExecGroupCollection getExecGroups() {
+    return execGroupCollection;
+  }
+
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
     if (toolchainContexts == null || toolchainContexts.getTargetPlatform() == null) {
       return false;
@@ -1402,101 +1355,6 @@ public final class RuleContext extends TargetContext
       }
     }
     return ans.build();
-  }
-
-  private ImmutableTable<String, String, String> parseExecProperties(
-      Map<String, String> execProperties) throws InvalidExecGroupException {
-    if (execProperties.isEmpty()) {
-      return ImmutableTable.of();
-    } else {
-      return parseExecProperties(
-          execProperties, toolchainContexts == null ? null : toolchainContexts.getExecGroups());
-    }
-  }
-
-  /**
-   * Parse raw exec properties attribute value into a map of exec group names to their properties.
-   * The raw map can have keys of two forms: (1) 'property' and (2) 'exec_group_name.property'. The
-   * former get parsed into the default exec group, the latter get parsed into their relevant exec
-   * groups.
-   */
-  private static ImmutableTable<String, String, String> parseExecGroups(
-      Map<String, String> rawExecProperties) {
-    ImmutableTable.Builder<String, String, String> execProperties = ImmutableTable.builder();
-    for (Map.Entry<String, String> execProperty : rawExecProperties.entrySet()) {
-      String rawProperty = execProperty.getKey();
-      int delimiterIndex = rawProperty.indexOf('.');
-      if (delimiterIndex == -1) {
-        execProperties.put(DEFAULT_EXEC_GROUP_NAME, rawProperty, execProperty.getValue());
-      } else {
-        String execGroup = rawProperty.substring(0, delimiterIndex);
-        String property = rawProperty.substring(delimiterIndex + 1);
-        execProperties.put(execGroup, property, execProperty.getValue());
-      }
-    }
-    return execProperties.build();
-  }
-
-  /**
-   * Parse raw exec properties attribute value into a map of exec group names to their properties.
-   * If given a set of exec groups, validates all the exec groups in the map are applicable to the
-   * action.
-   */
-  private static ImmutableTable<String, String, String> parseExecProperties(
-      Map<String, String> rawExecProperties, @Nullable Set<String> execGroups)
-      throws InvalidExecGroupException {
-    ImmutableTable<String, String, String> consolidatedProperties =
-        parseExecGroups(rawExecProperties);
-    if (execGroups != null) {
-      for (String execGroupName : consolidatedProperties.rowKeySet()) {
-        if (!execGroupName.equals(DEFAULT_EXEC_GROUP_NAME) && !execGroups.contains(execGroupName)) {
-          throw new InvalidExecGroupException(
-              String.format(
-                  "Tried to set properties for non-existent exec group '%s'.", execGroupName));
-        }
-      }
-    }
-
-    return consolidatedProperties;
-  }
-
-  /**
-   * Gets the combined exec properties of the given exec group and the target's exec properties. If
-   * a property is set in both, the exec group properties take precedence. If a non-existent exec
-   * group is passed in, just returns the target's exec properties.
-   *
-   * @param execGroup group whose properties to retrieve
-   * @param execProperties Map of exec group name to map of properties and values
-   */
-  private static ImmutableMap<String, String> getExecProperties(
-      String execGroup, ImmutableTable<String, String, String> execProperties) {
-    if (!execProperties.containsRow(execGroup) || execGroup.equals(DEFAULT_EXEC_GROUP_NAME)) {
-      return execProperties.row(DEFAULT_EXEC_GROUP_NAME);
-    }
-
-    // Use a HashMap to build here because we expect duplicate keys to happen
-    // (and rewrite previous entries).
-    Map<String, String> targetAndGroupProperties =
-        new HashMap<>(execProperties.row(DEFAULT_EXEC_GROUP_NAME));
-    targetAndGroupProperties.putAll(execProperties.row(execGroup));
-    return ImmutableMap.copyOf(targetAndGroupProperties);
-  }
-
-  /** An error for when the user tries to access an non-existent exec group */
-  public static final class InvalidExecGroupException extends Exception
-      implements SaneAnalysisException {
-    InvalidExecGroupException(String message) {
-      super(message);
-    }
-
-    @Override
-    public DetailedExitCode getDetailedExitCode() {
-      return DetailedExitCode.of(
-          FailureDetail.newBuilder()
-              .setMessage(getMessage())
-              .setAnalysis(Analysis.newBuilder().setCode(Code.EXEC_GROUP_MISSING))
-              .build());
-    }
   }
 
   private void checkAttributeIsDependency(String attributeName) {
@@ -1857,7 +1715,7 @@ public final class RuleContext extends TargetContext
     private final AnalysisEnvironment env;
     private final Target target;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private ImmutableList<Class<? extends Fragment>> universalFragments;
+    private FragmentClassSet universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
     private final ActionLookupKey actionOwnerSymbol;
@@ -1872,6 +1730,7 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+    private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
     private ConstraintSemantics<RuleContext> constraintSemantics;
     private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
@@ -1913,7 +1772,8 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(visibility);
       Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
-          ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions.asProviders());
+          ConfiguredAttributeMapper.of(
+              target.getAssociatedRule(), configConditions.asProviders(), configuration.checksum());
       checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       // This conditionally checks visibility on config_setting rules based on
@@ -1928,14 +1788,7 @@ public final class RuleContext extends TargetContext
       }
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(target.getAssociatedRule(), configConditions.asProviders());
-      if (rawExecProperties == null) {
-        if (!attributes.has(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
-          rawExecProperties = ImmutableMap.of();
-        } else {
-          rawExecProperties =
-              ImmutableMap.copyOf(attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT));
-        }
-      }
+
       return new RuleContext(
           this,
           attributes,
@@ -1945,13 +1798,29 @@ public final class RuleContext extends TargetContext
           universalFragments,
           getRuleClassNameForLogging(),
           actionOwnerSymbol,
-          aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
+          firstNonNull(aspectAttributes, ImmutableMap.of()),
           toolchainContexts,
+          createExecGroupCollection(execGroupCollectionBuilder, attributes),
           constraintSemantics,
           requiredConfigFragments,
           toolsRepository,
           starlarkSemantics,
           mutability);
+    }
+
+    private ExecGroupCollection createExecGroupCollection(
+        ExecGroupCollection.Builder execGroupCollectionBuilder, AttributeMap attributes)
+        throws InvalidExecGroupException {
+      if (rawExecProperties == null) {
+        if (!attributes.has(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+          rawExecProperties = ImmutableMap.of();
+        } else {
+          rawExecProperties =
+              ImmutableMap.copyOf(attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT));
+        }
+      }
+
+      return execGroupCollectionBuilder.build(toolchainContexts, rawExecProperties);
     }
 
     private void checkAttributesNonEmpty(AttributeMap attributes) {
@@ -2025,7 +1894,7 @@ public final class RuleContext extends TargetContext
     }
 
     /** Sets the fragment that can be legally accessed even when not explicitly declared. */
-    public Builder setUniversalFragments(ImmutableList<Class<? extends Fragment>> fragments) {
+    public Builder setUniversalFragments(FragmentClassSet fragments) {
       // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
       // don't need separate logic specifically for checking this fragment. The challenge is
       // that we need RuleClassProvider to figure out what this fragment is, and not every
@@ -2054,6 +1923,12 @@ public final class RuleContext extends TargetContext
           this.toolchainContexts == null,
           "toolchainContexts has already been set for this Builder");
       this.toolchainContexts = toolchainContexts;
+      return this;
+    }
+
+    public Builder setExecGroupCollectionBuilder(
+        ExecGroupCollection.Builder execGroupCollectionBuilder) {
+      this.execGroupCollectionBuilder = execGroupCollectionBuilder;
       return this;
     }
 
@@ -2126,8 +2001,9 @@ public final class RuleContext extends TargetContext
           ctMap.put(
               AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget()), prerequisite);
         }
-        List<FilesetEntry> entries = ConfiguredAttributeMapper.of(rule, configConditions)
-            .get(attributeName, BuildType.FILESET_ENTRY_LIST);
+        List<FilesetEntry> entries =
+            ConfiguredAttributeMapper.of(rule, configConditions, configuration.checksum())
+                .get(attributeName, BuildType.FILESET_ENTRY_LIST);
         for (FilesetEntry entry : entries) {
           if (entry.getFiles() == null) {
             Label label = entry.getSrcLabel();

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actionsketch;
 
+import static java.lang.Math.max;
+
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -21,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 
 /** Utilities for dealing with {@link ActionSketch} sketches. */
 public class Sketches {
@@ -35,15 +38,64 @@ public class Sketches {
   public static BigInteger computeActionKey(
       ActionAnalysisMetadata action, ActionKeyContext keyContext) throws InterruptedException {
     Hasher hasher =
-        newHasher().putUnencodedChars(action.getKey(keyContext, /*artifactExpander=*/ null));
+        newHashOnlyHasher()
+            .putUnencodedChars(action.getKey(keyContext, /*artifactExpander=*/ null));
     for (Artifact output : action.getOutputs()) {
       hasher.putUnencodedChars(output.getExecPath().getPathString());
     }
     return fromHashCode(hasher.hash());
   }
 
-  public static Hasher newHasher() {
+  private static Hasher newHashOnlyHasher() {
     return Hashing.murmur3_128().newHasher();
+  }
+
+  public static HashAndVersionTracker newHasher() {
+    return new HashAndVersionTrackerImpl(newHashOnlyHasher());
+  }
+
+  /** Simple interface for accumulating elements for a hash+version pair. */
+  public interface HashAndVersionTracker {
+    HashAndVersionTracker putUnencodedChars(CharSequence chars);
+
+    HashAndVersionTracker putVersion(long l);
+
+    HashAndVersionTracker putBytes(ByteBuffer bytes);
+
+    HashAndVersion hashAndVersion();
+  }
+
+  private static class HashAndVersionTrackerImpl implements HashAndVersionTracker {
+    private final Hasher hasher;
+    private long version = 0;
+
+    private HashAndVersionTrackerImpl(Hasher hasher) {
+      this.hasher = hasher;
+    }
+
+    @Override
+    public HashAndVersion hashAndVersion() {
+      return HashAndVersion.create(new BigInteger(1, hasher.hash().asBytes()), version);
+    }
+
+    @Override
+    public HashAndVersionTracker putUnencodedChars(CharSequence charSequence) {
+      hasher.putUnencodedChars(charSequence);
+      return this;
+    }
+
+    @Override
+    public HashAndVersionTracker putVersion(long v) {
+      hasher.putLong(v);
+      version = max(version, v);
+      return this;
+    }
+
+    @Override
+    public HashAndVersionTracker putBytes(ByteBuffer bytes) {
+      hasher.putBytes(bytes);
+      return this;
+    }
   }
 
   private Sketches() {}

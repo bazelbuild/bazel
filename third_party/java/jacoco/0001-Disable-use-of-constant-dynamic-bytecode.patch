@@ -1,0 +1,47 @@
+From 3fc8dcb960e78d06a5db8b3d49b87eac2940280b Mon Sep 17 00:00:00 2001
+From: Liam Miller-Cushon <cushon@google.com>
+Date: Thu, 28 Jan 2021 21:25:28 -0800
+Subject: [PATCH 1/2] Disable use of 'constant dynamic' bytecode
+
+Ssee b/177688213 and https://github.com/jacoco/jacoco/issues/1151
+---
+ .../instr/ProbeArrayStrategyFactory.java         | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/org.jacoco.core/src/org/jacoco/core/internal/instr/ProbeArrayStrategyFactory.java b/org.jacoco.core/src/org/jacoco/core/internal/instr/ProbeArrayStrategyFactory.java
+index 9df681b3..14bd7d4f 100644
+--- a/org.jacoco.core/src/org/jacoco/core/internal/instr/ProbeArrayStrategyFactory.java
++++ b/org.jacoco.core/src/org/jacoco/core/internal/instr/ProbeArrayStrategyFactory.java
+@@ -51,10 +51,10 @@ public final class ProbeArrayStrategyFactory {
+ 			if (counter.getCount() == 0) {
+ 				return new NoneProbeArrayStrategy();
+ 			}
+-			if (version >= Opcodes.V11 && counter.hasMethods()) {
+-				return new CondyProbeArrayStrategy(className, true, classId,
+-						accessorGenerator);
+-			}
++			// if (version >= Opcodes.V11 && counter.hasMethods()) {
++			// return new CondyProbeArrayStrategy(className, true, classId,
++			// accessorGenerator);
++			// }
+ 			if (version >= Opcodes.V1_8 && counter.hasMethods()) {
+ 				return new InterfaceFieldProbeArrayStrategy(className, classId,
+ 						counter.getCount(), accessorGenerator);
+@@ -63,10 +63,10 @@ public final class ProbeArrayStrategyFactory {
+ 						counter.getCount(), accessorGenerator);
+ 			}
+ 		} else {
+-			if (version >= Opcodes.V11) {
+-				return new CondyProbeArrayStrategy(className, false, classId,
+-						accessorGenerator);
+-			}
++			// if (version >= Opcodes.V11) {
++			// return new CondyProbeArrayStrategy(className, false, classId,
++			// accessorGenerator);
++			// }
+ 			return new ClassFieldProbeArrayStrategy(className, classId,
+ 					InstrSupport.needsFrames(version), accessorGenerator);
+ 		}
+-- 
+2.30.0.365.g02bc693789-goog
+

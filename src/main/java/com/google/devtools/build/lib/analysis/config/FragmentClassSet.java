@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.base.Predicates.not;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Arrays;
-import javax.annotation.Nullable;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
 
 /**
  * A wrapper class for an {@code ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>>}
@@ -30,72 +35,92 @@ import javax.annotation.Nullable;
  * are in frequently used keys. For good measure, we also compute a fingerprint.
  */
 @AutoCodec
-public class FragmentClassSet {
-  private final ImmutableSortedSet<Class<? extends Fragment>> fragments;
+public final class FragmentClassSet implements Iterable<Class<? extends Fragment>> {
 
-  // Lazily initialized.
-  @Nullable private volatile byte[] fingerprint;
-  private volatile int hashCode;
-
-  private FragmentClassSet(ImmutableSortedSet<Class<? extends Fragment>> fragments) {
-    this.fragments = fragments;
-  }
+  /**
+   * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
+   * output from buildMnemonic.
+   */
+  @SerializationConstant
+  public static final Comparator<Class<? extends Fragment>> LEXICAL_FRAGMENT_SORTER =
+      Comparator.comparing(Class::getName);
 
   private static final Interner<FragmentClassSet> interner = BlazeInterners.newWeakInterner();
 
   @AutoCodec.Instantiator
-  public static FragmentClassSet of(ImmutableSortedSet<Class<? extends Fragment>> fragments) {
-    return interner.intern(new FragmentClassSet(fragments));
+  public static FragmentClassSet of(Collection<Class<? extends Fragment>> fragments) {
+    ImmutableSortedSet<Class<? extends Fragment>> sortedFragments =
+        ImmutableSortedSet.copyOf(LEXICAL_FRAGMENT_SORTER, fragments);
+    byte[] fingerprint = computeFingerprint(sortedFragments);
+    return interner.intern(
+        new FragmentClassSet(sortedFragments, fingerprint, Arrays.hashCode(fingerprint)));
   }
 
-  public ImmutableSortedSet<Class<? extends Fragment>> fragmentClasses() {
-    return fragments;
+  public static FragmentClassSet union(
+      FragmentClassSet firstFragments, FragmentClassSet secondFragments) {
+    return of(
+        ImmutableSortedSet.orderedBy(LEXICAL_FRAGMENT_SORTER)
+            .addAll(firstFragments)
+            .addAll(secondFragments)
+            .build());
   }
 
-  /**
-   * Lazily initialize {@link #fingerprint} and {@link #hashCode}. Keeps computation off critical
-   * path of build, while still avoiding expensive computation for equality and hash code each time.
-   *
-   * <p>We check for nullity of {@link #fingerprint} to see if this method has already been called.
-   * Using {@link #hashCode} after this method is called is safe because it is set here before
-   * {@link #fingerprint} is set, so if {@link #fingerprint} is non-null then {@link #hashCode} is
-   * definitely set.
-   */
-  private void maybeInitializeFingerprintAndHashCode() {
-    if (fingerprint != null) {
-      return;
+  private static byte[] computeFingerprint(
+      ImmutableSortedSet<Class<? extends Fragment>> fragments) {
+    Fingerprint fingerprint = new Fingerprint();
+    for (Class<?> fragment : fragments) {
+      fingerprint.addString(fragment.getName());
     }
-    synchronized (this) {
-      if (fingerprint != null) {
-        return;
-      }
-      Fingerprint fingerprint = new Fingerprint();
-      for (Class<? extends Fragment> fragment : fragments) {
-        fingerprint.addString(fragment.getName());
-      }
-      byte[] computedFingerprint = fingerprint.digestAndReset();
-      hashCode = Arrays.hashCode(computedFingerprint);
-      this.fingerprint = computedFingerprint;
+    return fingerprint.digestAndReset();
+  }
+
+  private final ImmutableSortedSet<Class<? extends Fragment>> fragments;
+  private final byte[] fingerprint;
+  private final int hashCode;
+
+  private FragmentClassSet(
+      ImmutableSortedSet<Class<? extends Fragment>> fragments, byte[] fingerprint, int hashCode) {
+    this.fragments = fragments;
+    this.fingerprint = fingerprint;
+    this.hashCode = hashCode;
+  }
+
+  public int size() {
+    return fragments.size();
+  }
+
+  public boolean contains(Class<? extends Fragment> fragment) {
+    return fragments.contains(fragment);
+  }
+
+  /** Returns a set of fragment classes identical to this one but without the given fragment. */
+  public FragmentClassSet trim(Class<? extends Fragment> fragment) {
+    if (!contains(fragment)) {
+      return this;
     }
+    return of(Sets.filter(fragments, not(fragment::equals)));
   }
 
   @Override
+  public Iterator<Class<? extends Fragment>> iterator() {
+    return fragments.iterator();
+  }
+
+  @Override
+  @SuppressWarnings("ReferenceEquality") // Fast-path check of the underlying fragments set.
   public boolean equals(Object other) {
     if (this == other) {
       return true;
-    } else if (!(other instanceof FragmentClassSet)) {
-      return false;
-    } else {
-      maybeInitializeFingerprintAndHashCode();
-      FragmentClassSet that = (FragmentClassSet) other;
-      that.maybeInitializeFingerprintAndHashCode();
-      return Arrays.equals(this.fingerprint, that.fingerprint);
     }
+    if (!(other instanceof FragmentClassSet)) {
+      return false;
+    }
+    FragmentClassSet that = (FragmentClassSet) other;
+    return fragments == that.fragments || Arrays.equals(fingerprint, that.fingerprint);
   }
 
   @Override
   public int hashCode() {
-    maybeInitializeFingerprintAndHashCode();
     return hashCode;
   }
 

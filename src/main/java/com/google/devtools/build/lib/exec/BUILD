@@ -91,9 +91,10 @@ java_library(
     deps = [
         ":regex_filter_assignment_converter",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/per_label_options",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:cpu_resource_converter",
+        "//src/main/java/com/google/devtools/build/lib/util:ram_resource_converter",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -122,7 +123,7 @@ java_library(
     srcs = ["ExecutorLifecycleListener.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:artifacts_to_owner_labels",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//third_party:guava",
     ],
@@ -221,8 +222,6 @@ java_library(
     srcs = ["SpawnExecException.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],

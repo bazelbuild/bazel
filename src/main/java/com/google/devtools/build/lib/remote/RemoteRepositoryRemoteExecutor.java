@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.buildAction;
+
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
@@ -44,6 +46,7 @@ import com.google.protobuf.Message;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.TreeSet;
 
 /** The remote package's implementation of {@link RepositoryRemoteExecutor}. */
 public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor {
@@ -106,18 +109,29 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       Duration timeout)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "repository_rule");
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "repository_rule", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
 
     Platform platform = PlatformUtils.buildPlatformProto(executionProperties);
-    Command command =
-        RemoteSpawnRunner.buildCommand(
-            /* outputs= */ ImmutableList.of(), arguments, environment, platform, workingDirectory);
+
+    Command.Builder commandBuilder = Command.newBuilder().addAllArguments(arguments);
+    // Sorting the environment pairs by variable name.
+    TreeSet<String> variables = new TreeSet<>(environment.keySet());
+    for (String var : variables) {
+      commandBuilder.addEnvironmentVariablesBuilder().setName(var).setValue(environment.get(var));
+    }
+    if (platform != null) {
+      commandBuilder.setPlatform(platform);
+    }
+    if (workingDirectory != null) {
+      commandBuilder.setWorkingDirectory(workingDirectory);
+    }
+
+    Command command = commandBuilder.build();
     Digest commandHash = digestUtil.compute(command);
     MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
     Action action =
-        RemoteSpawnRunner.buildAction(
-            commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
+        buildAction(commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     ActionResult actionResult;

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -390,7 +390,7 @@ public final class DynamicCodecTest {
 
   @Test
   public void testNoCodecExample() {
-    ObjectCodecs codecs = new ObjectCodecs(AutoRegistry.get(), ImmutableMap.of());
+    ObjectCodecs codecs = new ObjectCodecs(AutoRegistry.get(), ImmutableClassToInstanceMap.of());
     SerializationException.NoCodecException expected =
         assertThrows(
             SerializationException.NoCodecException.class,

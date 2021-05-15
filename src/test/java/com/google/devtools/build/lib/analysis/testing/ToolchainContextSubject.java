@@ -31,16 +31,13 @@ public class ToolchainContextSubject extends Subject {
 
   /** Entry point for test assertions related to {@link ToolchainContext}. */
   public static ToolchainContextSubject assertThat(ToolchainContext toolchainContext) {
-    return assertAbout(TOOLCHAIN_CONTEXT_SUBJECT_FACTORY).that(toolchainContext);
+    return assertAbout(ToolchainContextSubject::new).that(toolchainContext);
   }
 
   /** Static method for getting the subject factory (for use with assertAbout()). */
   public static Subject.Factory<ToolchainContextSubject, ToolchainContext> toolchainContexts() {
-    return TOOLCHAIN_CONTEXT_SUBJECT_FACTORY;
+    return ToolchainContextSubject::new;
   }
-
-  private static final Subject.Factory<ToolchainContextSubject, ToolchainContext>
-      TOOLCHAIN_CONTEXT_SUBJECT_FACTORY = ToolchainContextSubject::new;
 
   // Instance fields.
 

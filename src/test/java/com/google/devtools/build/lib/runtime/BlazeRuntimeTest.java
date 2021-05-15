@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
@@ -47,11 +46,14 @@ import org.mockito.Mockito;
 public class BlazeRuntimeTest {
 
   @Test
-  public void optionSplitting() throws Exception {
+  public void optionSplitting() {
     BlazeRuntime.CommandLineOptions options =
         BlazeRuntime.splitStartupOptions(
-            ImmutableList.<BlazeModule>of(),
-            "--install_base=/foo --host_jvm_args=-Xmx1B", "build", "//foo:bar", "--nobuild");
+            ImmutableList.of(),
+            "--install_base=/foo --host_jvm_args=-Xmx1B",
+            "build",
+            "//foo:bar",
+            "--nobuild");
     assertThat(options.getStartupArgs())
         .isEqualTo(Arrays.asList("--install_base=/foo --host_jvm_args=-Xmx1B"));
     assertThat(options.getOtherArgs()).isEqualTo(Arrays.asList("build", "//foo:bar", "--nobuild"));
@@ -59,9 +61,9 @@ public class BlazeRuntimeTest {
 
   // A regression test to make sure that the 'no' prefix is handled correctly.
   @Test
-  public void optionSplittingNoPrefix() throws Exception {
-    BlazeRuntime.CommandLineOptions options = BlazeRuntime.splitStartupOptions(
-        ImmutableList.<BlazeModule>of(), "--nobatch", "build");
+  public void optionSplittingNoPrefix() {
+    BlazeRuntime.CommandLineOptions options =
+        BlazeRuntime.splitStartupOptions(ImmutableList.of(), "--nobatch", "build");
     assertThat(options.getStartupArgs()).isEqualTo(Arrays.asList("--nobatch"));
     assertThat(options.getOtherArgs()).isEqualTo(Arrays.asList("build"));
   }
@@ -77,13 +79,6 @@ public class BlazeRuntimeTest {
             fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.builder().build();
-                  }
-                })
             .setFileSystem(fs)
             .setProductName("bazel")
             .setServerDirectories(serverDirectories)
@@ -131,13 +126,6 @@ public class BlazeRuntimeTest {
             fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
-            .addBlazeModule(
-                new BlazeModule() {
-                  @Override
-                  public BuildOptions getDefaultBuildOptions(BlazeRuntime runtime) {
-                    return BuildOptions.builder().build();
-                  }
-                })
             .setFileSystem(fs)
             .setProductName("bazel")
             .setServerDirectories(serverDirectories)

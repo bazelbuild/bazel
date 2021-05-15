@@ -222,6 +222,24 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPreferMutual_choosesLocalDefaultOverNewest() throws Exception {
+    new BuildFileBuilder()
+        .addRemoteVersion("version512", "5.1.2", true)
+        .addRemoteVersion("version84", "8.4", false)
+        .addLocalVersion("version512", "5.1.2", true)
+        .addLocalVersion("version84", "8.4", false)
+        .write(scratch, "xcode/BUILD");
+
+    useConfiguration(
+        "--experimental_prefer_mutual_xcode=true", "--xcode_version_config=//xcode:foo");
+    assertXcodeVersion("5.1.2");
+    assertAvailability(XcodeConfigInfo.Availability.BOTH);
+    assertHasRequirements(
+        ImmutableList.of(
+            ExecutionRequirements.REQUIRES_DARWIN, ExecutionRequirements.REQUIREMENTS_SET));
+  }
+
+  @Test
   public void testWarnWithExplicitLocalOnlyVersion() throws Exception {
     new BuildFileBuilder()
         .addRemoteVersion("version512", "5.1.2", true)
@@ -271,7 +289,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
         .addRemoteVersion("version92", "9.2", true)
         .addRemoteVersion("version10", "10", false, "10.0.0.10C504")
         .addRemoteVersion("version84", "8.4", false)
-        .addLocalVersion("version84", "8.4", true)
+        .addLocalVersion("version9", "9", true)
+        .addLocalVersion("version84", "8.4", false)
         .addLocalVersion("version10.0.0.10C504", "10.0.0.10C504", false, "10.0")
         .write(scratch, "xcode/BUILD");
 

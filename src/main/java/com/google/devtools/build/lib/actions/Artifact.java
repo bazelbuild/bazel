@@ -266,12 +266,12 @@ public abstract class Artifact
 
   /** Implementation of {@link ArtifactExpander} */
   public static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, ImmutableCollection<Artifact>> expandedInputs;
+    private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedInputs;
     private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
 
     public ArtifactExpanderImpl(
-        Map<Artifact, ImmutableCollection<Artifact>> expandedInputs,
+        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedInputs,
         Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
       this.expandedInputs = expandedInputs;
@@ -283,7 +283,7 @@ public abstract class Artifact
     public void expand(Artifact artifact, Collection<? super Artifact> output) {
       Preconditions.checkState(
           artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
-      ImmutableCollection<Artifact> result = expandedInputs.get(artifact);
+      ImmutableCollection<? extends Artifact> result = expandedInputs.get(artifact);
       if (result != null) {
         output.addAll(result);
       }

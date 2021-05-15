@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -277,8 +279,11 @@ public class TestSummaryTest {
             BuildEventStreamProtos.TestSummary.newBuilder()
                 .setOverallStatus(TestStatus.FAILED)
                 .setFirstStartTimeMillis(1000)
+                .setFirstStartTime(Timestamps.fromMillis(1000))
                 .setLastStopTimeMillis(1300)
+                .setLastStopTime(Timestamps.fromMillis(1300))
                 .setTotalRunDurationMillis(300)
+                .setTotalRunDuration(Durations.fromMillis(300))
                 .setRunCount(2)
                 .setShardCount(3)
                 .addPassed(BuildEventStreamProtos.File.newBuilder().setUri("/path/to/apple"))

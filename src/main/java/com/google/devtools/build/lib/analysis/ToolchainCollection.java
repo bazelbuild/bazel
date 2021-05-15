@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,15 +34,11 @@ import java.util.Map;
 @AutoValue
 public abstract class ToolchainCollection<T extends ToolchainContext> {
 
-  // This is intentionally a string that would fail {@code Identifier.isValid} so that
-  // users can't create a group with the same name.
-  @VisibleForTesting public static final String DEFAULT_EXEC_GROUP_NAME = "default-exec-group";
-
   /** A map of execution group names to toolchain contexts. */
   public abstract ImmutableMap<String, T> getContextMap();
 
   public T getDefaultToolchainContext() {
-    return getContextMap().get(DEFAULT_EXEC_GROUP_NAME);
+    return getContextMap().get(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
   }
 
   public boolean hasToolchainContext(String execGroup) {
@@ -59,7 +55,7 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
         .collect(toImmutableSet());
   }
 
-  public ImmutableSet<String> getExecGroups() {
+  public ImmutableSet<String> getExecGroupNames() {
     return getContextMap().keySet();
   }
 
@@ -87,7 +83,7 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
     private final Map<String, T> toolchainContexts = new HashMap<>();
 
     public ToolchainCollection<T> build() {
-      Preconditions.checkArgument(toolchainContexts.containsKey(DEFAULT_EXEC_GROUP_NAME));
+      Preconditions.checkArgument(toolchainContexts.containsKey(ExecGroup.DEFAULT_EXEC_GROUP_NAME));
       return new AutoValue_ToolchainCollection<T>(ImmutableMap.copyOf(toolchainContexts));
     }
 
@@ -100,7 +96,7 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
     }
 
     public Builder<T> addDefaultContext(T context) {
-      addContext(DEFAULT_EXEC_GROUP_NAME, context);
+      addContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME, context);
       return this;
     }
   }

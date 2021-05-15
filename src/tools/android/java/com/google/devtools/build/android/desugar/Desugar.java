@@ -789,7 +789,13 @@ public class Desugar {
     // instructions in generated lambda classes (checkState below will fail)
     visitor =
         new LambdaDesugaring(
-            visitor, loader, lambdas, null, ImmutableSet.of(), allowDefaultMethods);
+            visitor,
+            loader,
+            lambdas,
+            null,
+            ImmutableSet.of(),
+            classAttributeRecord,
+            allowDefaultMethods);
     return visitor;
   }
 
@@ -871,6 +877,7 @@ public class Desugar {
                 lambdas,
                 interfaceLambdaMethodCollector,
                 methodsUsedInInvokeDynamics,
+                classAttributeRecord,
                 allowDefaultMethods);
       }
     }

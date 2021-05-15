@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static java.util.Collections.singleton;
-import static java.util.stream.Collectors.toCollection;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -183,20 +182,6 @@ public abstract class ImplicitOutputsFunction {
     Set<String> get(AttributeMap rule, String attr);
   }
 
-  /**
-   * The default rule attribute retriever.
-   *
-   * <p>Custom {@link AttributeValueGetter} implementations may delegate to this object as a
-   * fallback mechanism.
-   */
-  public static final AttributeValueGetter DEFAULT_RULE_ATTRIBUTE_GETTER =
-      new AttributeValueGetter() {
-        @Override
-        public Set<String> get(AttributeMap rule, String attr) {
-          return attributeValues(rule, attr);
-        }
-      };
-
   private static final Escaper PERCENT_ESCAPER = Escapers.builder().addEscape('%', "%%").build();
 
   /**
@@ -285,24 +270,24 @@ public abstract class ImplicitOutputsFunction {
     @Override
     public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule)
         throws EvalException {
-        ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
-        for (String template : templates) {
-          List<String> substitutions =
-              substitutePlaceholderIntoUnsafeTemplate(
-                  template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER);
-          if (substitutions.isEmpty()) {
-            continue;
-          }
-          result.addAll(substitutions);
+      ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
+      for (String template : templates) {
+        List<String> substitutions =
+            substitutePlaceholderIntoUnsafeTemplate(
+                template, rule, ImplicitOutputsFunction::attributeValues);
+        if (substitutions.isEmpty()) {
+          continue;
         }
-
-        return result.build();
+        result.addAll(substitutions);
       }
 
-      @Override
-      public String toString() {
-        return StringUtil.joinEnglishList(templates);
-      }
+      return result.build();
+    }
+
+    @Override
+    public String toString() {
+      return StringUtil.joinEnglishList(templates);
+    }
   }
 
   /**
@@ -370,46 +355,44 @@ public abstract class ImplicitOutputsFunction {
   }
 
   /**
-   * Coerces attribute "attrName" of the specified rule into a sequence of
-   * strings.  Helper function for {@link #fromTemplates(Iterable)}.
+   * Coerces attribute "attrName" of the specified rule into a sequence of strings. Helper function
+   * for {@link #fromTemplates(Iterable)}.
    */
-  private static Set<String> attributeValues(AttributeMap rule, String attrName) {
+  private static ImmutableSet<String> attributeValues(AttributeMap rule, String attrName) {
     if (attrName.equals("dirname")) {
       PathFragment dir = PathFragment.create(rule.getName()).getParentDirectory();
-      return (dir.segmentCount() == 0) ? singleton("") : singleton(dir.getPathString() + "/");
+      return dir.isEmpty() ? ImmutableSet.of("") : ImmutableSet.of(dir.getPathString() + "/");
     } else if (attrName.equals("basename")) {
-      return singleton(PathFragment.create(rule.getName()).getBaseName());
+      return ImmutableSet.of(PathFragment.create(rule.getName()).getBaseName());
     }
 
     Type<?> attrType = rule.getAttributeType(attrName);
     if (attrType == null) {
-      return Collections.emptySet();
+      return ImmutableSet.of();
     }
     // String attributes and lists are easy.
     if (Type.STRING == attrType) {
-      return singleton(rule.get(attrName, Type.STRING));
+      return ImmutableSet.of(rule.get(attrName, Type.STRING));
     } else if (Type.STRING_LIST == attrType) {
-      return Sets.newLinkedHashSet(rule.get(attrName, Type.STRING_LIST));
+      return ImmutableSet.copyOf(rule.get(attrName, Type.STRING_LIST));
     } else if (BuildType.LABEL == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
       Label label = rule.get(attrName, BuildType.LABEL);
-      return singleton(FileSystemUtils.removeExtension(label.getName()));
+      return ImmutableSet.of(FileSystemUtils.removeExtension(label.getName()));
     } else if (BuildType.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
-      return rule.get(attrName, BuildType.LABEL_LIST)
-          .stream()
+      return rule.get(attrName, BuildType.LABEL_LIST).stream()
           .map(label -> FileSystemUtils.removeExtension(label.getName()))
-          .collect(toCollection(LinkedHashSet::new));
+          .collect(toImmutableSet());
     } else if (BuildType.OUTPUT == attrType) {
       Label out = rule.get(attrName, BuildType.OUTPUT);
-      return singleton(out.getName());
+      return ImmutableSet.of(out.getName());
     } else if (BuildType.OUTPUT_LIST == attrType) {
-      return rule.get(attrName, BuildType.OUTPUT_LIST)
-          .stream()
+      return rule.get(attrName, BuildType.OUTPUT_LIST).stream()
           .map(Label::getName)
-          .collect(toCollection(LinkedHashSet::new));
+          .collect(toImmutableSet());
     }
     throw new IllegalArgumentException(
         "Don't know how to handle " + attrName + " : " + attrType);
@@ -461,7 +444,8 @@ public abstract class ImplicitOutputsFunction {
    */
   public static ImmutableList<String> substitutePlaceholderIntoTemplate(String template,
       AttributeMap rule) {
-    return substitutePlaceholderIntoTemplate(template, rule, DEFAULT_RULE_ATTRIBUTE_GETTER);
+    return substitutePlaceholderIntoTemplate(
+        template, rule, ImplicitOutputsFunction::attributeValues);
   }
 
   @AutoValue

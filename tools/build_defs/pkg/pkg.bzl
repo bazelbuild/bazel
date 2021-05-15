@@ -17,7 +17,7 @@ load(":path.bzl", "compute_data_path", "dest_path")
 load("//tools/config:common_settings.bzl", "BuildSettingInfo")
 
 # Filetype to restrict inputs
-tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"]
+tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.bz2"]
 
 def _remap(remap_paths, path):
     """If path starts with a key in remap_paths, rewrite it."""

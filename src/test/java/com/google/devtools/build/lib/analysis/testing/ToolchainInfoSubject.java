@@ -26,16 +26,13 @@ public class ToolchainInfoSubject extends Subject {
 
   /** Entry point for test assertions related to {@link ToolchainInfo}. */
   public static ToolchainInfoSubject assertThat(ToolchainInfo toolchainInfo) {
-    return assertAbout(TOOLCHAIN_INFO_SUBJECT_FACTORY).that(toolchainInfo);
+    return assertAbout(ToolchainInfoSubject::new).that(toolchainInfo);
   }
 
   /** Static method for getting the subject factory (for use with assertAbout()). */
   public static Factory<ToolchainInfoSubject, ToolchainInfo> toolchainInfos() {
-    return TOOLCHAIN_INFO_SUBJECT_FACTORY;
+    return ToolchainInfoSubject::new;
   }
-
-  static final Factory<ToolchainInfoSubject, ToolchainInfo> TOOLCHAIN_INFO_SUBJECT_FACTORY =
-      ToolchainInfoSubject::new;
 
   // Instance fields.
 

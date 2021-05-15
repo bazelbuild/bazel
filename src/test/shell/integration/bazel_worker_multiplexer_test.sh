@@ -191,7 +191,8 @@ EOF
   assert_equals "1" $work_count
 }
 
-function test_build_fails_when_worker_exits() {
+# Flaky
+function DISABLED_test_build_fails_when_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -497,7 +498,8 @@ EOF
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
-function test_multiple_target_without_delay() {
+# Flaky
+function DISABLED_test_multiple_target_without_delay() {
   prepare_example_worker
   cat >>BUILD <<EOF
 work(
@@ -527,7 +529,8 @@ EOF
 }
 
 # We just need to test the build completion, no assertion is needed.
-function test_multiple_target_with_delay() {
+# Flaky
+function DISABLED_test_multiple_target_with_delay() {
   prepare_example_worker
   cat >>BUILD <<EOF
 work(

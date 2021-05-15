@@ -105,8 +105,7 @@ public class FunctionTransitionUtil {
       return splitBuildOptions.build();
 
     } catch (ValidationException ex) {
-      handler.handle(
-          Event.error(starlarkTransition.getLocationForErrorReporting(), ex.getMessage()));
+      handler.handle(Event.error(starlarkTransition.getLocation(), ex.getMessage()));
       return null;
     }
   }
@@ -332,6 +331,11 @@ public class FunctionTransitionUtil {
                       .convert(
                           optionValueAsList.stream().map(Object::toString).collect(joining(",")));
             }
+          } else if (def.getType() == List.class && optionValue == null) {
+            throw ValidationException.format(
+                "'None' value not allowed for List-type option '%s'. Please use '[]' instead if"
+                    + " trying to set option to empty value.",
+                optionName);
           } else if (optionValue == null || def.getType().isInstance(optionValue)) {
             convertedValue = optionValue;
           } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {

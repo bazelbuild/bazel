@@ -168,8 +168,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     // If the Starlark action shadows another action and the shadowed action discovers its inputs,
-    // we depend on the outputs of the action doing input discovery and it should know its inputs
-    // after having been executed.
+    // we get the shadowed action's discovered inputs and append it to the Starlark action inputs.
     if (shadowedAction.isPresent() && shadowedAction.get().discoversInputs()) {
       Action shadowedActionObj = shadowedAction.get();
 
