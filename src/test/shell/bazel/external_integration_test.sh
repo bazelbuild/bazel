@@ -1108,13 +1108,13 @@ EOF
 
   # Simulate going offline by removing the external archive
   rm -f "${EXTREPODIR}/ext.zip"
-  # bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
-  #  || fail "expected success"
-  # expect_log '@ext//:foo'
-  # bazel shutdown
-  # bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
-  #  || fail "expected success"
-  # expect_log '@ext//:foo'
+  bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
+   || fail "expected success"
+  expect_log '@ext//:foo'
+  bazel shutdown
+  bazel query 'deps("@ext//:bar")' > "${TEST_log}" 2>&1 \
+   || fail "expected success"
+  expect_log '@ext//:foo'
 }
 
 function test_repository_cache_relative_path() {
