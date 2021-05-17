@@ -66,13 +66,12 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
     sdk_frameworks = objc_provider.sdk_framework.to_list()
     user_link_flags = []
     for sdk_framework in sdk_frameworks:
-        user_link_flags.append("-framework")
-        user_link_flags.append(sdk_framework)
+        user_link_flags.append(["-framework", sdk_framework])
 
     linker_input = cc_common.create_linker_input(
         owner = ctx.label,
         libraries = depset(libraries_to_link.values()),
-        user_link_flags = depset(user_link_flags),
+        user_link_flags = user_link_flags,
         linkstamps = depset(objc_provider.linkstamp.to_list()),
     )
 
