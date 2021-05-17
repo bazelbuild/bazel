@@ -353,7 +353,7 @@ message CToolchain {
   required string toolchain_identifier = 1;
 
   // A basic toolchain description.
-  required string host_system_name = 2;
+  required string unused_host_system_name = 2;
   required string target_system_name = 3;
   required string target_cpu = 4;
   required string target_libc = 5;
