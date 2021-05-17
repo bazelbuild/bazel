@@ -287,8 +287,7 @@ EOF
 
   bazel build "${package}:a" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out \
-      --experimental_shadowed_action || \
+      --output_groups=out || \
       fail "bazel build should've succeeded"
 
   cp "bazel-bin/${package}/run_timestamp" "${package}/run_1_timestamp"
@@ -299,9 +298,8 @@ EOF
 
   bazel build "${package}:a" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out \
-      --experimental_shadowed_action || \
-      fail "bazel build should've passed"
+      --output_groups=out || \
+      fail "bazel build should've succeeded"
 
   cp "bazel-bin/${package}/run_timestamp" "${package}/run_2_timestamp"
 
@@ -315,9 +313,8 @@ EOF
 
   bazel build "${package}:a" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out \
-      --experimental_shadowed_action || \
-      fail "bazel build should've passed"
+      --output_groups=out || \
+      fail "bazel build should've succeeded"
 
   cp "bazel-bin/${package}/run_timestamp" "${package}/run_3_timestamp"
 

@@ -1369,18 +1369,15 @@ EOF
   # Test that actions are reconstructible under default configuration
   bazel build "${package}:a" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out \
-      --experimental_shadowed_action || \
-      fail "bazel build should've passed"
+      --output_groups=out || \
+      fail "bazel build should've succeeded"
 
   # Test that compile actions are reconstructible when using param files
   bazel build "${package}:a" \
       --features=compiler_param_file \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out \
-       --experimental_shadowed_action || \
-      fail "bazel build should've passed with --features=compiler_param_file"
+      --output_groups=out || \
+      fail "bazel build should've succeeded with --features=compiler_param_file"
 }
-
 
 run_suite "cc_integration_test"

@@ -616,18 +616,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public int nestedSetDepthLimit;
 
   @Option(
-      name = "experimental_shadowed_action",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If set to true, allows passing an action for Starlark created actions to shadow and use"
-              + " its environment, inputs and discovered inputs combined with the starlark action's"
-              + " environment and inputs during execution.")
-  public boolean experimentalShadowedAction;
-
-  @Option(
       name = "incompatible_top_level_aspects_require_providers",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -708,7 +696,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, incompatibleLinkoptsToLinklibs)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
-            .setBool(EXPERIMENTAL_SHADOWED_ACTION, experimentalShadowedAction)
             .setBool(
                 INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
                 incompatibleTopLevelAspectsRequireProviders)
@@ -782,7 +769,6 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
       "-incompatible_visibility_private_attributes_at_definition";
-  public static final String EXPERIMENTAL_SHADOWED_ACTION = "-experimental_shadowed_action";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
 

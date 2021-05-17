@@ -430,10 +430,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_SHADOWED_ACTION,
-            valueWhenDisabled = "None",
             doc =
-                "(Experimental) runs the action using the given shadowed action's inputs and"
+                "Runs the action using the given shadowed action's inputs and"
                     + " environment added to the action's inputs list and environment. The action"
                     + " environment can overwrite any of the shadowed action's environment"
                     + " variables. If none, uses only the action's inputs and given environment."),
@@ -636,10 +634,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_SHADOWED_ACTION,
-            valueWhenDisabled = "None",
             doc =
-                "(Experimental) runs the action using the given shadowed action's discovered inputs"
+                "Runs the action using the given shadowed action's discovered inputs"
                     + " added to the action's inputs list. If none, uses only the action's"
                     + " inputs."),
       })
