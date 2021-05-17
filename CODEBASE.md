@@ -1064,7 +1064,8 @@ the set of inputs of an action come in two forms:
     header file as an "input", but scan the source file for transitively
     included headers and only mark those header files as inputs that are
     mentioned in `#include` statements (we overestimate so that we don't need to
-    implement a full C preprocessor)
+    implement a full C preprocessor) This option is currently hard-wired to
+    "false" in Bazel and is only used at Google.
 *   An action may realize that some files were not used during its execution. In
     C++, this is called ".d files": the compiler tells which header files were
     used after the fact, and in order to avoid the embarrassment of having worse
