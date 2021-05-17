@@ -61,7 +61,6 @@ def _impl(ctx):
     cxx_builtin_include_directories = []
     target_cpu = None
     toolchain_identifier = None
-    host_system_name = None
     target_system_name = None
     abi_version = None
     abi_libc_version = None
@@ -246,7 +245,6 @@ def _impl(ctx):
             artifact_name_patterns = [],
             cxx_builtin_include_directories = cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
-            host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = target_cpu,
             target_libc = target_libc,

@@ -75,7 +75,6 @@ cc_toolchain_config(
     cpu = "%{target_cpu}",
     compiler = "%{compiler}",
     toolchain_identifier = "%{cc_toolchain_identifier}",
-    host_system_name = "%{host_system_name}",
     target_system_name = "%{target_system_name}",
     target_libc = "%{target_libc}",
     abi_version = "%{abi_version}",

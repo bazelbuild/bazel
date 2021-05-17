@@ -242,7 +242,6 @@ public class CcToolchainProviderHelper {
         // Crosstool and libc versions, you must always choose compatible ones.
         defaultSysroot,
         toolchainConfigInfo.getTargetLibc(),
-        toolchainConfigInfo.getHostSystemName(),
         ruleContext.getLabel(),
         solibDirectory,
         toolchainConfigInfo.getAbiVersion(),

@@ -53,7 +53,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
   private final ImmutableList<String> cxxBuiltinIncludeDirectories;
 
   private final String toolchainIdentifier;
-  private final String hostSystemName;
   private final String targetSystemName;
   private final String targetCpu;
   private final String targetLibc;
@@ -72,7 +71,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
       ImmutableList<ArtifactNamePattern> artifactNamePatterns,
       ImmutableList<String> cxxBuiltinIncludeDirectories,
       String toolchainIdentifier,
-      String hostSystemName,
       String targetSystemName,
       String targetCpu,
       String targetLibc,
@@ -88,7 +86,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     this.artifactNamePatterns = artifactNamePatterns;
     this.cxxBuiltinIncludeDirectories = cxxBuiltinIncludeDirectories;
     this.toolchainIdentifier = toolchainIdentifier;
-    this.hostSystemName = hostSystemName;
     this.targetSystemName = targetSystemName;
     this.targetCpu = targetCpu;
     this.targetLibc = targetLibc;
@@ -129,7 +126,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
         artifactNamePatternBuilder.build(),
         ImmutableList.copyOf(toolchain.getCxxBuiltinIncludeDirectoryList()),
         toolchain.getToolchainIdentifier(),
-        toolchain.getHostSystemName(),
         toolchain.getTargetSystemName(),
         toolchain.getTargetCpu(),
         toolchain.getTargetLibc(),
@@ -164,10 +160,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
-  }
-
-  public String getHostSystemName() {
-    return hostSystemName;
   }
 
   public String getTargetSystemName() {
@@ -255,7 +247,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     cToolchain
         .addAllCxxBuiltinIncludeDirectory(cxxBuiltinIncludeDirectories)
         .setToolchainIdentifier(toolchainIdentifier)
-        .setHostSystemName(hostSystemName)
         .setTargetSystemName(targetSystemName)
         .setTargetCpu(targetCpu)
         .setTargetLibc(targetLibc)

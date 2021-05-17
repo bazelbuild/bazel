@@ -499,7 +499,6 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
             toSequenceOfStarlarkStrings(toolchain.getCxxBuiltinIncludeDirectoryList())),
         String.format("  target_cpu = '%s'", toolchain.getTargetCpu()),
         String.format("  toolchain_identifier = '%s'", toolchain.getToolchainIdentifier()),
-        String.format("  host_system_name = '%s'", toolchain.getHostSystemName()),
         String.format("  target_system_name = '%s'", toolchain.getTargetSystemName()),
         String.format("  target_libc = '%s'", toolchain.getTargetLibc()),
         String.format("  target_compiler = '%s'", toolchain.getCompiler()),

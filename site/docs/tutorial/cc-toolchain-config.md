@@ -213,7 +213,6 @@ slightly between different versions of clang.
         return cc_common.create_cc_toolchain_config_info(
             ctx = ctx,
             toolchain_identifier = "k8-toolchain",
-            host_system_name = "local",
             target_system_name = "local",
             target_cpu = "k8",
             target_libc = "unknown",
@@ -302,7 +301,6 @@ slightly between different versions of clang.
         return cc_common.create_cc_toolchain_config_info(
             ctx = ctx,
             toolchain_identifier = "local",
-            host_system_name = "local",
             target_system_name = "local",
             target_cpu = "k8",
             target_libc = "unknown",
@@ -344,7 +342,6 @@ slightly between different versions of clang.
             "/usr/include",
           ],
           toolchain_identifier = "local",
-          host_system_name = "local",
           target_system_name = "local",
           target_cpu = "k8",
           target_libc = "unknown",
@@ -449,7 +446,6 @@ slightly between different versions of clang.
                   "/usr/include",
               ],
               toolchain_identifier = "local",
-              host_system_name = "local",
               target_system_name = "local",
               target_cpu = "k8",
               target_libc = "unknown",

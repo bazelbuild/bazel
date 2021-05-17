@@ -67,7 +67,6 @@ def _get_artifact_name_pattern(category, prefix, extension):
 
 def _impl(ctx):
     toolchain_identifier = ctx.attr.toolchain_identifier
-    host_system_name = ctx.attr.host_system_name
     target_system_name = ctx.attr.target_system_name
     target_cpu = ctx.attr.cpu
     target_libc = ctx.attr.target_libc
@@ -105,7 +104,6 @@ def _impl(ctx):
             artifact_name_patterns = artifact_name_patterns,
             cxx_builtin_include_directories = cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
-            host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = target_cpu,
             target_libc = target_libc,
@@ -128,7 +126,6 @@ cc_toolchain_config = rule(
         "cpu": attr.string(mandatory = True, values = ["armeabi-v7a", "x86"]),
         "compiler": attr.string(default = "gcc"),
         "toolchain_identifier": attr.string(default = "x86"),
-        "host_system_name": attr.string(default = "x86"),
         "target_system_name": attr.string(default = "x86-linux-android"),
         "target_libc": attr.string(default = "local"),
         "abi_version": attr.string(default = "x86"),

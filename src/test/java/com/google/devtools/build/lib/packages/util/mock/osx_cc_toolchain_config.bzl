@@ -91,7 +91,6 @@ def _impl(ctx):
     toolchain_identifier = ctx.attr.toolchain_identifier
     target_cpu = ctx.attr.cpu
     compiler = ctx.attr.compiler
-    host_system_name = ctx.attr.host_system_name
     target_system_name = ctx.attr.target_system_name
     target_libc = ctx.attr.target_libc
     abi_version = ctx.attr.abi_version
@@ -8063,7 +8062,6 @@ def _impl(ctx):
             artifact_name_patterns = artifact_name_patterns,
             cxx_builtin_include_directories = cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
-            host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = target_cpu,
             target_libc = target_libc,
@@ -8097,7 +8095,6 @@ cc_toolchain_config = rule(
         ]),
         "compiler": attr.string(mandatory = True),
         "toolchain_identifier": attr.string(mandatory = True),
-        "host_system_name": attr.string(mandatory = True),
         "target_system_name": attr.string(mandatory = True),
         "target_libc": attr.string(mandatory = True),
         "abi_version": attr.string(mandatory = True),

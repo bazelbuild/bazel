@@ -59,7 +59,6 @@ def _impl(ctx):
     is_bsd = cpu == "freebsd" or cpu == "openbsd"
     compiler = "compiler"
     toolchain_identifier = "local_{}".format(cpu) if is_bsd else "stub_armeabi-v7a"
-    host_system_name = "local" if is_bsd else "armeabi-v7a"
     target_system_name = "local" if is_bsd else "armeabi-v7a"
     target_libc = "local" if is_bsd else "armeabi-v7a"
     abi_version = "local" if is_bsd else "armeabi-v7a"
@@ -284,7 +283,6 @@ def _impl(ctx):
             action_configs = action_configs,
             cxx_builtin_include_directories = cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
-            host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = cpu,
             target_libc = target_libc,

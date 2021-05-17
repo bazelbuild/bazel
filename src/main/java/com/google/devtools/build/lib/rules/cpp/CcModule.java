@@ -1017,7 +1017,6 @@ public abstract class CcModule
       Sequence<?> artifactNamePatterns, // <StarlarkInfo> expected
       Sequence<?> cxxBuiltInIncludeDirectoriesUnchecked, // <String> expected
       String toolchainIdentifier,
-      String hostSystemName,
       String targetSystemName,
       String targetCpu,
       String targetLibc,
@@ -1182,7 +1181,6 @@ public abstract class CcModule
         artifactNamePatternBuilder.build(),
         ImmutableList.copyOf(cxxBuiltInIncludeDirectories),
         toolchainIdentifier,
-        hostSystemName,
         targetSystemName,
         targetCpu,
         targetLibc,

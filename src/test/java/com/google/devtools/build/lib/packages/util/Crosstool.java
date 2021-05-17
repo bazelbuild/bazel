@@ -46,7 +46,6 @@ public final class Crosstool {
     private final String cpu;
     private final String compiler;
     private final String toolchainIdentifier;
-    private final String hostSystemName;
     private final String targetSystemName;
     private final String abiVersion;
     private final String abiLibcVersion;
@@ -66,7 +65,6 @@ public final class Crosstool {
         String cpu,
         String compiler,
         String toolchainIdentifier,
-        String hostSystemName,
         String targetSystemName,
         String abiVersion,
         String abiLibcVersion,
@@ -84,7 +82,6 @@ public final class Crosstool {
       this.cpu = cpu;
       this.compiler = compiler;
       this.toolchainIdentifier = toolchainIdentifier;
-      this.hostSystemName = hostSystemName;
       this.targetSystemName = targetSystemName;
       this.abiVersion = abiVersion;
       this.abiLibcVersion = abiLibcVersion;
@@ -118,7 +115,6 @@ public final class Crosstool {
       private String cpu = "k8";
       private String compiler = "compiler";
       private String toolchainIdentifier = "mock-toolchain-k8";
-      private String hostSystemName = "local";
       private String targetSystemName = "local";
       private String targetLibc = "local";
       private String abiVersion = "local";
@@ -138,11 +134,6 @@ public final class Crosstool {
 
       public Builder withToolchainIdentifier(String toolchainIdentifier) {
         this.toolchainIdentifier = toolchainIdentifier;
-        return this;
-      }
-
-      public Builder withHostSystemName(String hostSystemName) {
-        this.hostSystemName = hostSystemName;
         return this;
       }
 
@@ -227,7 +218,6 @@ public final class Crosstool {
             cpu,
             compiler,
             toolchainIdentifier,
-            hostSystemName,
             targetSystemName,
             abiVersion,
             abiLibcVersion,
@@ -295,7 +285,6 @@ public final class Crosstool {
           /* cpu= */ cpu,
           /* compiler= */ "mock-compiler-for-" + cpu,
           /* toolchainIdentifier= */ "mock-llvm-toolchain-for-" + cpu,
-          /* hostSystemName= */ "mock-system-name-for-" + cpu,
           /* targetSystemName= */ "mock-target-system-name-for-" + cpu,
           /* abiVersion= */ "mock-abi-version-for-" + cpu,
           /* abiLibcVersion= */ "mock-abi-libc-for-" + cpu,
@@ -352,7 +341,6 @@ public final class Crosstool {
               "  toolchain_identifier = '" + toolchainIdentifier + "',",
               "  cpu = '" + cpu + "',",
               "  compiler = '" + compiler + "',",
-              "  host_system_name = '" + hostSystemName + "',",
               "  target_system_name = '" + targetSystemName + "',",
               "  target_libc = '" + targetLibc + "',",
               "  abi_version = '" + abiVersion + "',",

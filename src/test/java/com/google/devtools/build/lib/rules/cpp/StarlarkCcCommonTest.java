@@ -4470,7 +4470,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "                   extension = '.a')],",
         "                cxx_builtin_include_directories = ['dir1', 'dir2', 'dir3'],",
         "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
@@ -4506,13 +4505,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("missing 1 required named argument: toolchain_identifier");
-  }
-
-  @Test
-  public void testCcToolchainInfoFromStarlarkRequiredHostSystemName() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("host_system_name");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: host_system_name");
   }
 
   @Test
@@ -4573,7 +4565,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ImmutableList<String> fields =
         ImmutableList.of(
             "toolchain_identifier = 'identifier'",
-            "host_system_name = 'host_system_name'",
             "target_system_name = 'target_system_name'",
             "target_cpu = 'target_cpu'",
             "target_libc = 'target_libc'",
@@ -4634,7 +4625,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "                   prefix = 'prefix',",
         "                   extension = '.a')],",
         "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
@@ -4703,7 +4693,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "                   prefix = 'prefix',",
         "                   extension = '.a')],",
         "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
@@ -4826,7 +4815,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "                   extension = '.a')],",
         "                cxx_builtin_include_directories = ['dir1', 'dir2', 'dir3'],",
         "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
@@ -4862,7 +4850,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(toolchain.getCxxBuiltinIncludeDirectoryList())
         .containsExactly("dir1", "dir2", "dir3");
     assertThat(toolchain.getToolchainIdentifier()).isEqualTo("toolchain");
-    assertThat(toolchain.getHostSystemName()).isEqualTo("host");
     assertThat(toolchain.getTargetSystemName()).isEqualTo("target");
     assertThat(toolchain.getTargetCpu()).isEqualTo("cpu");
     assertThat(toolchain.getTargetLibc()).isEqualTo("libc");
@@ -4980,7 +4967,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    return cc_common.create_cc_toolchain_config_info(",
         "                ctx = ctx,",
         "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
@@ -5069,7 +5055,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    return cc_common.create_cc_toolchain_config_info(",
         "                ctx = ctx,",
         "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",

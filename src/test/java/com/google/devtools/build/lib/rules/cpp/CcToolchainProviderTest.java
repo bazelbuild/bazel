@@ -229,7 +229,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "        artifact_name_patterns = [],",
         "        cxx_builtin_include_directories = [],",
         "        toolchain_identifier = 'toolchain',",
-        "        host_system_name = 'host',",
         "        target_system_name = 'target',",
         "        target_cpu = 'cpu',",
         "        target_libc = 'libc',",

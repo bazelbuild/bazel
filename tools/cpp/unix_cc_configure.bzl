@@ -475,12 +475,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                 "local",
                 False,
             )),
-            "%{host_system_name}": escape_string(get_env_var(
-                repository_ctx,
-                "BAZEL_HOST_SYSTEM",
-                "local",
-                False,
-            )),
             "%{target_libc}": "macosx" if darwin else escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_TARGET_LIBC",

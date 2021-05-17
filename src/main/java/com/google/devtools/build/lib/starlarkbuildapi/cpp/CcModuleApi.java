@@ -1005,11 +1005,6 @@ public interface CcModuleApi<
                     + "be possible to use this as a directory name in a path.</p>"
                     + "<p>It has to match the following regex: [a-zA-Z_][\\.\\- \\w]*</p>"),
         @Param(
-            name = "host_system_name",
-            positional = false,
-            named = true,
-            doc = "The system name which is required by the toolchain to run."),
-        @Param(
             name = "target_system_name",
             positional = false,
             named = true,
@@ -1079,7 +1074,6 @@ public interface CcModuleApi<
       Sequence<?> artifactNamePatterns, // <StructApi> expected
       Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
-      String hostSystemName,
       String targetSystemName,
       String targetCpu,
       String targetLibc,

@@ -607,7 +607,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "                   extension = '.a')],",
         "                cxx_builtin_include_directories = ['dir1', 'dir2', 'dir3'],",
         "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
         "                target_system_name = 'target',",
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",

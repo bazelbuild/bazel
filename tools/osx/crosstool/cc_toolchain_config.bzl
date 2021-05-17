@@ -55,26 +55,6 @@ def _deterministic_libtool_flags(ctx):
     return []
 
 def _impl(ctx):
-    if (ctx.attr.cpu == "armeabi-v7a"):
-        host_system_name = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin_x86_64" or
-          ctx.attr.cpu == "darwin_arm64" or
-          ctx.attr.cpu == "darwin_arm64e" or
-          ctx.attr.cpu == "ios_arm64" or
-          ctx.attr.cpu == "ios_arm64e" or
-          ctx.attr.cpu == "ios_armv7" or
-          ctx.attr.cpu == "ios_i386" or
-          ctx.attr.cpu == "ios_x86_64" or
-          ctx.attr.cpu == "tvos_arm64" or
-          ctx.attr.cpu == "tvos_x86_64" or
-          ctx.attr.cpu == "watchos_arm64_32" or
-          ctx.attr.cpu == "watchos_armv7k" or
-          ctx.attr.cpu == "watchos_i386" or
-          ctx.attr.cpu == "watchos_x86_64"):
-        host_system_name = "x86_64-apple-macosx"
-    else:
-        fail("Unreachable")
-
     if ctx.attr.cpu == "armeabi-v7a":
         toolchain_identifier = "stub_armeabi-v7a"
     else:
@@ -3389,7 +3369,6 @@ def _impl(ctx):
             artifact_name_patterns = artifact_name_patterns,
             cxx_builtin_include_directories = ctx.attr.cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
-            host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = ctx.attr.cpu,
             target_libc = target_libc,

@@ -147,7 +147,6 @@ cc_autoconf = repository_rule(
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
         "BAZEL_COMPILER",
-        "BAZEL_HOST_SYSTEM",
         "BAZEL_CXXOPTS",
         "BAZEL_LINKOPTS",
         "BAZEL_LINKLIBS",

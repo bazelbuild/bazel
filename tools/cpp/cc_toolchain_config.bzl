@@ -118,18 +118,6 @@ def _impl(ctx):
         fail("Unreachable")
 
     if (ctx.attr.cpu == "armeabi-v7a"):
-        host_system_name = "armeabi-v7a"
-    elif (ctx.attr.cpu == "darwin" or
-          ctx.attr.cpu == "freebsd" or
-          ctx.attr.cpu == "openbsd" or
-          ctx.attr.cpu == "local" or
-          ctx.attr.cpu == "x64_windows" or
-          ctx.attr.cpu == "x64_windows_msvc"):
-        host_system_name = "local"
-    else:
-        fail("Unreachable")
-
-    if (ctx.attr.cpu == "armeabi-v7a"):
         target_system_name = "armeabi-v7a"
     elif (ctx.attr.cpu == "darwin" or
           ctx.attr.cpu == "freebsd" or
@@ -1487,7 +1475,6 @@ def _impl(ctx):
             artifact_name_patterns = artifact_name_patterns,
             cxx_builtin_include_directories = cxx_builtin_include_directories,
             toolchain_identifier = toolchain_identifier,
-            host_system_name = host_system_name,
             target_system_name = target_system_name,
             target_cpu = target_cpu,
             target_libc = target_libc,

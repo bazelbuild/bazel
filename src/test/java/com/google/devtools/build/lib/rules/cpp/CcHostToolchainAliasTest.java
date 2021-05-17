@@ -69,7 +69,6 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    return cc_common.create_cc_toolchain_config_info(",
         "                ctx = ctx,",
         "                toolchain_identifier = 'custom_toolchain',",
-        "                host_system_name = 'mock-system-name-for-k8',",
         "                target_system_name = 'mock-target-system-name-for-k8',",
         "                target_cpu = 'k8',",
         "                target_libc = 'mock-libc-for-k8',",

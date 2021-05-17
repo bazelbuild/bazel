@@ -38,17 +38,17 @@ final class AndroidNdkCrosstoolsR12 {
    *
    * @return A CrosstoolRelease for the Android NDK.
    */
-  static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
+  static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl) {
     return CrosstoolRelease.newBuilder()
         .setMajorVersion("android")
         .setMinorVersion("")
         .setDefaultTargetCpu("armeabi")
-        .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform))
+        .addAllToolchain(createToolchains(ndkPaths, stlImpl))
         .build();
   }
 
   private static ImmutableList<CToolchain> createToolchains(
-      NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
+      NdkPaths ndkPaths, StlImpl stlImpl) {
 
     List<CToolchain.Builder> toolchainBuilders = new ArrayList<>();
     toolchainBuilders.addAll(new ArmCrosstools(ndkPaths, stlImpl).createCrosstools());
@@ -60,7 +60,6 @@ final class AndroidNdkCrosstoolsR12 {
     // Set attributes common to all toolchains.
     for (CToolchain.Builder toolchainBuilder : toolchainBuilders) {
       toolchainBuilder
-          .setHostSystemName(hostPlatform)
           .setTargetLibc("local")
           .setAbiVersion(toolchainBuilder.getTargetCpu())
           .setAbiLibcVersion("local");

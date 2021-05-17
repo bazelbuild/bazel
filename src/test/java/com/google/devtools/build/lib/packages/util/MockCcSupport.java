@@ -104,7 +104,6 @@ public abstract class MockCcSupport {
               "    return cc_common.create_cc_toolchain_config_info(",
               "                ctx = ctx,",
               "                toolchain_identifier = 'mock-llvm-toolchain-k8',",
-              "                host_system_name = 'mock-system-name-for-k8',",
               "                target_system_name = 'mock-target-system-name-for-k8',",
               "                target_cpu = 'k8',",
               "                target_libc = 'mock-libc-for-k8',",
@@ -130,7 +129,6 @@ public abstract class MockCcSupport {
                 .add(
                     "toolchain {",
                     "  toolchain_identifier: 'mock-llvm-toolchain-" + cpu + "'",
-                    "  host_system_name: 'mock-system-name-for-" + cpu + "'",
                     "  target_system_name: 'mock-target-system-name-for-" + cpu + "'",
                     "  target_cpu: '" + cpu + "'",
                     "  target_libc: 'mock-libc-for-" + cpu + "'",
