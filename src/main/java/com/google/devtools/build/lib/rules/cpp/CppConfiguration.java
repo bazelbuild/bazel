@@ -804,6 +804,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.objcGenerateDotdFiles;
   }
 
+  public boolean experimentalCcImplementationDeps() {
+    return cppOptions.experimentalCcImplementationDeps;
+  }
+
   @Override
   public boolean macosSetInstallName() {
     return cppOptions.macosSetInstallName;

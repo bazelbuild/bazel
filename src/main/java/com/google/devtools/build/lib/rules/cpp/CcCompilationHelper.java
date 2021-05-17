@@ -257,7 +257,8 @@ public final class CcCompilationHelper {
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
   private final Set<String> localDefines = new LinkedHashSet<>();
-  private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
+  private final List<CcCompilationContext> deps = new ArrayList<>();
+  private final List<CcCompilationContext> implementationDeps = new ArrayList<>();
   private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> quoteIncludeDirs = new ArrayList<>();
@@ -284,6 +285,7 @@ public final class CcCompilationHelper {
   private String stripIncludePrefix = null;
   private String includePrefix = null;
 
+  // This context is built out of deps and implementation_deps.
   private CcCompilationContext ccCompilationContext;
 
   private final RuleErrorConsumer ruleErrorConsumer;
@@ -619,10 +621,21 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /** For adding CC compilation infos that affect compilation, e.g: from dependencies. */
+  /** For adding CC compilation infos that affect compilation, for example from dependencies. */
   public CcCompilationHelper addCcCompilationContexts(
       Iterable<CcCompilationContext> ccCompilationContexts) {
-    Iterables.addAll(this.ccCompilationContexts, Preconditions.checkNotNull(ccCompilationContexts));
+    Iterables.addAll(this.deps, Preconditions.checkNotNull(ccCompilationContexts));
+    return this;
+  }
+
+  /**
+   * For adding CC compilation infos that affect compilation non-transitively, for example from
+   * dependencies.
+   */
+  public CcCompilationHelper addImplementationDepsCcCompilationContexts(
+      Iterable<CcCompilationContext> ccCompileActionCompilationContexts) {
+    Iterables.addAll(
+        this.implementationDeps, Preconditions.checkNotNull(ccCompileActionCompilationContexts));
     return this;
   }
 
@@ -780,17 +793,26 @@ public final class CcCompilationHelper {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
     }
 
-    ccCompilationContext = initializeCcCompilationContext(ruleContext);
+    CcCompilationContext.Builder contextBuilder = initializeCcCompilationContext(ruleContext);
+    CcCompilationContext publicCompilationContext = contextBuilder.build();
+    ccCompilationContext = publicCompilationContext;
+    if (!implementationDeps.isEmpty()) {
+      // We set a different purpose so that the middleman doesn't clash with the one from propagated
+      // ccCompilationContext.
+      contextBuilder.addDependentCcCompilationContexts(implementationDeps);
+      contextBuilder.setPurpose(purpose + "_impl");
+      ccCompilationContext = contextBuilder.build();
+    }
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(
-        !compileHeaderModules || ccCompilationContext.getCppModuleMap() != null,
+        !compileHeaderModules || publicCompilationContext.getCppModuleMap() != null,
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
     CcCompilationOutputs ccOutputs = createCcCompileActions();
 
-    return new CompilationInfo(ccCompilationContext, ccOutputs);
+    return new CompilationInfo(publicCompilationContext, ccOutputs);
   }
 
   public static Map<String, NestedSet<Artifact>> buildOutputGroups(
@@ -997,7 +1019,7 @@ public final class CcCompilationHelper {
   }
 
   /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
-  private CcCompilationContext initializeCcCompilationContext(RuleContext ruleContext)
+  private CcCompilationContext.Builder initializeCcCompilationContext(RuleContext ruleContext)
       throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
@@ -1061,10 +1083,8 @@ public final class CcCompilationHelper {
           publicHeaders.virtualToOriginalHeaders);
     }
 
-    ccCompilationContextBuilder.mergeDependentCcCompilationContexts(ccCompilationContexts);
     mergeToolchainDependentCcCompilationContext(ccToolchain, ccCompilationContextBuilder);
 
-    // But defines come after those inherited from deps.
     ccCompilationContextBuilder.addDefines(defines);
 
     ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
@@ -1150,7 +1170,8 @@ public final class CcCompilationHelper {
       }
     }
     ccCompilationContextBuilder.setPurpose(purpose);
-    return ccCompilationContextBuilder.build();
+    ccCompilationContextBuilder.addDependentCcCompilationContexts(deps);
+    return ccCompilationContextBuilder;
   }
 
   /**
@@ -1244,7 +1265,15 @@ public final class CcCompilationHelper {
 
   private List<CppModuleMap> collectModuleMaps() {
     ImmutableList.Builder<CppModuleMap> builder = ImmutableList.<CppModuleMap>builder();
-    for (CcCompilationContext ccCompilationContext : ccCompilationContexts) {
+    // TODO(bazel-team): Here we use the implementationDeps to build the dependents of this rule's
+    // module map. This is technically incorrect for the following reasons:
+    //  - Clang will not issue a layering_check warning if headers from implementation_deps are
+    //    included from headers of this library.
+    //  - If we were to ever build with modules, Clang might store this dependency inside the .pcm
+    // It should be evaluated whether this is ok.  If this turned into a problem at some
+    // point, we could probably just declare two different modules with different use-declarations
+    // in the module map file.
+    for (CcCompilationContext ccCompilationContext : Iterables.concat(deps, implementationDeps)) {
       CppModuleMap moduleMap = ccCompilationContext.getCppModuleMap();
       // Cpp module maps may be null for some rules.
       if (moduleMap != null) {
@@ -2190,7 +2219,7 @@ public final class CcCompilationHelper {
   private static void mergeToolchainDependentCcCompilationContext(
       CcToolchainProvider toolchain, CcCompilationContext.Builder ccCompilationContextBuilder) {
     if (toolchain != null) {
-      ccCompilationContextBuilder.mergeDependentCcCompilationContext(
+      ccCompilationContextBuilder.addDependentCcCompilationContext(
           toolchain.getCcCompilationContext());
     }
   }

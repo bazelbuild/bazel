@@ -127,11 +127,17 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return;
     }
 
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if (!cppConfiguration.experimentalCcImplementationDeps()
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
+      ruleContext.attributeError(
+          "implementation_deps", "requires --experimental_cc_implementation_deps");
+    }
+
     final CcCommon common = new CcCommon(ruleContext);
     common.reportInvalidOptions(ruleContext);
 
     CcToolchainProvider ccToolchain = common.getToolchain();
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
 
     ImmutableMap.Builder<String, String> toolchainMakeVariables = ImmutableMap.builder();
     ccToolchain.addGlobalMakeVariables(toolchainMakeVariables);
@@ -181,6 +187,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                     .collect(ImmutableList.toImmutableList()))
             .addCcCompilationContexts(
                 ImmutableList.of(CcCompilationHelper.getStlCcCompilationContext(ruleContext)))
+            .addImplementationDepsCcCompilationContexts(
+                CppHelper.getCompilationContextsFromDeps(
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
             .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
 
     CcLinkingHelper linkingHelper =
@@ -199,6 +208,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
             .fromCommon(ruleContext, common)
+            .addCcLinkingContexts(
+                CppHelper.getLinkingContextsFromDeps(
+                    ImmutableList.copyOf(ruleContext.getPrerequisites("implementation_deps"))))
             .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget())
             .addLinkopts(common.getLinkopts())

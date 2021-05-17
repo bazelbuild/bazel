@@ -463,7 +463,7 @@ public class CompilationSupport implements StarlarkValue {
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
     // Do a re-exporting merge of the ARC and non-ARC contexts so that the direct headers are
     // preserved in the unified context.
-    ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
+    ccCompilationContextBuilder.addDependentCcCompilationContexts(
         Arrays.asList(
             objcArcCompilationInfo.getCcCompilationContext(),
             nonObjcArcCompilationInfo.getCcCompilationContext()),

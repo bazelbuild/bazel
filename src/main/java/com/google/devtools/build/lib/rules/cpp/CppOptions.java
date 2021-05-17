@@ -1080,6 +1080,17 @@ public class CppOptions extends FragmentOptions {
               + "objc compiles.")
   public boolean objcGenerateDotdFiles;
 
+  @Option(
+      name = "experimental_cc_implementation_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
+  public boolean experimentalCcImplementationDeps;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {

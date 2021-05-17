@@ -258,8 +258,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    *
    * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
    * prerequisites as a transitive dependency via a middleman. After they have been accumulated
-   * ({@link Builder#mergeDependentCcCompilationContext(CcCompilationContext)}, and {@link
-   * Builder#mergeDependentCcCompilationContexts(Iterable)}, they are consolidated into a single
+   * ({@link Builder#addDependentCcCompilationContext(CcCompilationContext)}, and {@link
+   * Builder#addDependentCcCompilationContexts(Iterable)}, they are consolidated into a single
    * middleman Artifact when {@link Builder#build()} is called.
    *
    * <p>The returned set can be empty if there are no prerequisites. Usually, it contains a single
@@ -638,7 +638,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     CcCompilationContext.Builder builder =
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
-    builder.mergeDependentCcCompilationContexts(ccCompilationContexts);
+    builder.addDependentCcCompilationContexts(ccCompilationContexts);
     return builder.build();
   }
 
@@ -704,11 +704,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
     private final HeaderInfo.Builder headerInfoBuilder = new HeaderInfo.Builder();
-    private final NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
-    private final Set<Artifact> directModuleMaps = new LinkedHashSet<>();
-    private final Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
-    private final TransitiveSetHelper<String> defines = new TransitiveSetHelper<>();
+    private final Set<String> defines = new LinkedHashSet<>();
+    private final ImmutableList.Builder<CcCompilationContext> deps = ImmutableList.builder();
+    private final ImmutableList.Builder<CcCompilationContext> exportedDeps =
+        ImmutableList.builder();
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
@@ -755,8 +754,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * Merges the {@link CcCompilationContext} of a dependency into this one by adding the contents
      * of all of its attributes.
      */
-    public Builder mergeDependentCcCompilationContext(
+    public Builder addDependentCcCompilationContext(
         CcCompilationContext otherCcCompilationContext) {
+      deps.add(otherCcCompilationContext);
+      return this;
+    }
+
+    private void mergeDependentCcCompilationContext(
+        CcCompilationContext otherCcCompilationContext,
+        TransitiveSetHelper<String> allDefines,
+        NestedSetBuilder<Artifact> transitiveModules,
+        NestedSetBuilder<Artifact> transitivePicModules,
+        Set<Artifact> directModuleMaps) {
       Preconditions.checkNotNull(otherCcCompilationContext);
       compilationPrerequisites.addTransitive(
           otherCcCompilationContext.getTransitiveCompilationPrerequisites());
@@ -789,10 +798,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         directModuleMaps.add(moduleMap.getArtifact());
       }
 
-      defines.addTransitive(otherCcCompilationContext.getDefines());
+      allDefines.addTransitive(otherCcCompilationContext.getDefines());
       virtualToOriginalHeaders.addTransitive(
           otherCcCompilationContext.getVirtualToOriginalHeaders());
-      return this;
     }
 
     private static void addIfNotNull(
@@ -806,11 +814,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * Merges the given {@code CcCompilationContext}s into this one by adding the contents of their
      * attributes.
      */
-    public Builder mergeDependentCcCompilationContexts(
+    public Builder addDependentCcCompilationContexts(
         Iterable<CcCompilationContext> ccCompilationContexts) {
-      for (CcCompilationContext ccCompilationContext : ccCompilationContexts) {
-        mergeDependentCcCompilationContext(ccCompilationContext);
-      }
+      deps.addAll(ccCompilationContexts);
       return this;
     }
 
@@ -819,12 +825,30 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      * attributes, and re-exporting the direct headers and module maps of {@code
      * exportedCcCompilationContexts} through this one.
      */
-    public Builder mergeDependentCcCompilationContexts(
+    public Builder addDependentCcCompilationContexts(
         Iterable<CcCompilationContext> exportedCcCompilationContexts,
         Iterable<CcCompilationContext> ccCompilationContexts) {
+      deps.addAll(ccCompilationContexts);
+      exportedDeps.addAll(exportedCcCompilationContexts);
+      return this;
+    }
+
+    private void mergeDependentCcCompilationContexts(
+        Iterable<CcCompilationContext> exportedCcCompilationContexts,
+        Iterable<CcCompilationContext> ccCompilationContexts,
+        TransitiveSetHelper<String> allDefines,
+        NestedSetBuilder<Artifact> transitiveModules,
+        NestedSetBuilder<Artifact> transitivePicModules,
+        Set<Artifact> directModuleMaps,
+        Set<CppModuleMap> exportingModuleMaps) {
       for (CcCompilationContext ccCompilationContext :
           Iterables.concat(exportedCcCompilationContexts, ccCompilationContexts)) {
-        mergeDependentCcCompilationContext(ccCompilationContext);
+        mergeDependentCcCompilationContext(
+            ccCompilationContext,
+            allDefines,
+            transitiveModules,
+            transitivePicModules,
+            directModuleMaps);
       }
 
       for (CcCompilationContext ccCompilationContext : exportedCcCompilationContexts) {
@@ -840,8 +864,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         // re-exported.
         headerInfoBuilder.mergeHeaderInfo(ccCompilationContext.headerInfo);
       }
-
-      return this;
     }
 
     /**
@@ -985,7 +1007,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** Adds multiple defines. */
     public Builder addDefines(Iterable<String> defines) {
-      this.defines.addAll(defines);
+      Iterables.addAll(this.defines, defines);
       return this;
     }
 
@@ -1050,8 +1072,24 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     @VisibleForTesting // productionVisibility = Visibility.PRIVATE
     public CcCompilationContext build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
-      NestedSet<Artifact> constructedPrereq = createMiddleman(owner, middlemanFactory);
+      TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
+      NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
+      Set<Artifact> directModuleMaps = new LinkedHashSet<>();
+      Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
+      mergeDependentCcCompilationContexts(
+          exportedDeps.build(),
+          deps.build(),
+          allDefines,
+          transitiveModules,
+          transitivePicModules,
+          directModuleMaps,
+          exportingModuleMaps);
+
+      allDefines.addAll(defines);
+
       HeaderInfo headerInfo = headerInfoBuilder.build();
+      NestedSet<Artifact> constructedPrereq = createMiddleman(owner, middlemanFactory);
 
       return new CcCompilationContext(
           new CommandLineCcCompilationContext(
@@ -1060,7 +1098,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               systemIncludeDirs.getMergedResult(),
               frameworkIncludeDirs.getMergedResult(),
               externalIncludeDirs.getMergedResult(),
-              defines.getMergedResult(),
+              allDefines.getMergedResult(),
               ImmutableList.copyOf(localDefines)),
           constructedPrereq,
           looseHdrsDirs.build(),

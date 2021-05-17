@@ -119,7 +119,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
     return new CcInfo(
         builder
-            .mergeDependentCcCompilationContexts(
+            .addDependentCcCompilationContexts(
                 directCcCompilationContexts.build(), ccCompilationContexts.build())
             .build(),
         CcLinkingContext.merge(ccLinkingContexts.build()),

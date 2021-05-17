@@ -127,7 +127,7 @@ public final class ObjcCompilationContext {
         .addIncludeDirs(getIncludes())
         .addSystemIncludeDirs(getSystemIncludes())
         .addQuoteIncludeDirs(getQuoteIncludes())
-        .mergeDependentCcCompilationContexts(
+        .addDependentCcCompilationContexts(
             getDirectCcCompilationContexts(), getCcCompilationContexts());
     return builder.build();
   }

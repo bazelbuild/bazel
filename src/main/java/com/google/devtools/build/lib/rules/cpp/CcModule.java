@@ -775,7 +775,7 @@ public abstract class CcModule
       throws EvalException {
     return CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
-        .mergeDependentCcCompilationContexts(
+        .addDependentCcCompilationContexts(
             Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts"),
             ImmutableList.of())
         .build();

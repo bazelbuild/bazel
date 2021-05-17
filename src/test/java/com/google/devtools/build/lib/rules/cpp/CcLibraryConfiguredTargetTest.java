@@ -1934,4 +1934,105 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//transition:main");
     assertNoEvents();
   }
+
+  @Test
+  public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
+    useConfiguration("--experimental_cc_implementation_deps");
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['public_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'public_dep',",
+        "    srcs = ['public_dep.cc'],",
+        "    includes = ['public_dep'],",
+        "    hdrs = ['public_dep.h'],",
+        "    implementation_deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    includes = ['implementation_dep'],",
+        "    hdrs = ['implementation_dep.h'],",
+        ")");
+
+    CcCompilationContext libCompilationContext =
+        getCppCompileAction("//foo:lib").getCcCompilationContext();
+    assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
+        .contains("src foo/public_dep.h");
+    assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
+        .doesNotContain("src foo/implementation_dep.h");
+
+    assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
+        .contains("foo/public_dep");
+    assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
+        .doesNotContain("implementation_dep");
+
+    CcCompilationContext publicDepCompilationContext =
+        getCppCompileAction("//foo:public_dep").getCcCompilationContext();
+    assertThat(artifactsToStrings(publicDepCompilationContext.getDeclaredIncludeSrcs()))
+        .contains("src foo/implementation_dep.h");
+
+    assertThat(pathfragmentsToStrings(publicDepCompilationContext.getSystemIncludeDirs()))
+        .contains("foo/implementation_dep");
+  }
+
+  @Test
+  public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
+    useConfiguration("--experimental_cc_implementation_deps");
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['public_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'public_dep',",
+        "    srcs = ['public_dep.cc'],",
+        "    hdrs = ['public_dep.h'],",
+        "    implementation_deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
+    assertThat(
+            artifactsToStrings(
+                lib.get(CcInfo.PROVIDER)
+                    .getCcLinkingContext()
+                    .getStaticModeParamsForExecutableLibraries()))
+        .contains("bin foo/libpublic_dep.a");
+    assertThat(
+            artifactsToStrings(
+                lib.get(CcInfo.PROVIDER)
+                    .getCcLinkingContext()
+                    .getStaticModeParamsForExecutableLibraries()))
+        .contains("bin foo/libimplementation_dep.a");
+  }
+
+  @Test
+  public void testImplementationDepsFailsWithoutFlag() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    implementation_deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:lib");
+    assertContainsEvent("requires --experimental_cc_implementation_deps");
+  }
 }

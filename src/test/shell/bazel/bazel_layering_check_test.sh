@@ -35,12 +35,19 @@ cc_library(
   srcs = ["hello_private.h", "hellolib.cc"],
   hdrs = ["hello.h"],
   deps = [":base"],
+  implementation_deps = [":implementation"],
 )
 
 cc_library(
   name = "base",
   srcs = ["base.cc"],
   hdrs = ["base.h"],
+)
+
+cc_library(
+  name = "implementation",
+  srcs = ["implementation.cc"],
+  hdrs = ["implementation.h"],
 )
 EOF
   cat >hello/hello.h <<EOF
@@ -64,11 +71,25 @@ int base() {
 }
 EOF
 
+  cat >hello/implementation.h <<EOF
+int implementation();
+EOF
+
+  cat >hello/implementation.cc <<EOF
+#include "implementation.h"
+
+int implementation() {
+  return 42;
+}
+EOF
+
   cat >hello/hellolib.cc <<EOF
 #include "hello.h"
 #include "base.h"
+#include "implementation.h"
 
 int helloPrivate() {
+  implementation();
   return base();
 }
 
@@ -113,7 +134,7 @@ function test_bazel_layering_check() {
 
   write_files
 
-  CC="${clang_tool}" bazel build \
+  CC="${clang_tool}" bazel build --experimental_cc_implementation_deps \
     //hello:hello --linkopt=-fuse-ld=gold --features=layering_check \
     &> "${TEST_log}" || fail "Build with layering_check failed"
 
@@ -130,14 +151,14 @@ function test_bazel_layering_check() {
   # Specifying -fuse-ld=gold explicitly to override -fuse-ld=/usr/bin/ld.gold
   # passed in by cc_configure because Ubuntu-16.04 ships with an old
   # clang version that doesn't accept that.
-  CC="${clang_tool}" bazel build \
+  CC="${clang_tool}" bazel build --experimental_cc_implementation_deps \
     --copt=-D=private_header \
     //hello:hello --linkopt=-fuse-ld=gold --features=layering_check \
     &> "${TEST_log}" && fail "Build of private header violation with "\
     "layering_check should have failed"
   expect_log "use of private header from outside its module: 'hello_private.h'"
 
-  CC="${clang_tool}" bazel build \
+  CC="${clang_tool}" bazel build --experimental_cc_implementation_deps \
     --copt=-D=layering_violation \
     //hello:hello --linkopt=-fuse-ld=gold --features=layering_check \
     &> "${TEST_log}" && fail "Build of private header violation with "\
