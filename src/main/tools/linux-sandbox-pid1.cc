@@ -49,6 +49,16 @@
 #include <linux/fs.h>
 #endif
 
+// Musl doesn't have TEMP_FAILURE_RETRY. Taken from glibc unistd.h
+#ifndef TEMP_FAILURE_RETRY
+#define TEMP_FAILURE_RETRY(expression) \
+  (__extension__                                                              \
+    ({ long int __result;                                                     \
+       do __result = (long int) (expression);                                 \
+       while (__result == -1L && errno == EINTR);                             \
+       __result; }))
+#endif
+
 #include "src/main/tools/linux-sandbox-options.h"
 #include "src/main/tools/linux-sandbox.h"
 #include "src/main/tools/logging.h"
