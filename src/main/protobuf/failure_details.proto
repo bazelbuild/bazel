@@ -1044,6 +1044,7 @@ message DynamicExecution {
     XCODE_RELATED_PREREQ_UNMET = 1 [(metadata) = { exit_code: 36 }];
     ACTION_LOG_MOVE_FAILURE = 2 [(metadata) = { exit_code: 1 }];
     RUN_FAILURE = 3 [(metadata) = { exit_code: 1 }];
+    NO_USABLE_STRATEGY_FOUND = 4 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
