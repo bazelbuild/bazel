@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurre
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -74,6 +75,21 @@ public class DynamicSpawnStrategyUnitTest {
 
   private ExecutorService executorServiceForCleanup;
 
+  /**
+   * {@see org.mockito.Mockito#verifyZeroInteractions}
+   *
+   * <p>TODO(b/188373809): {@link org.mockito.Mockito#verifyZeroInteractions
+   * Mockito.verifyZeroInteractions} is deprecated in Mockito 3.0.1, replaced with {@code
+   * verifyNoInteractions}. However, some of the builders on Google Bazel Presubmits on BuildKite
+   * have an older version of that, so we can't replace these calls yet. This function will serve to
+   * mute the depcrecation warnings until they are. At which point this method should be removed and
+   * {@code verifyNoInteractions} just be called instead.
+   */
+  @SuppressWarnings("deprecation")
+  private static void verifyNoInteractions(Object... objs) {
+    verifyZeroInteractions(objs);
+  }
+
   @Mock private Function<Spawn, Optional<Spawn>> mockGetPostProcessingSpawn;
 
   private Scratch scratch;
@@ -86,6 +102,9 @@ public class DynamicSpawnStrategyUnitTest {
     execDir = scratch.dir("/base/exec");
     rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "root");
     MockitoAnnotations.initMocks(this);
+    // Mockito can't see that we want the function to return Optional.empty() instead
+    // of null on apply by default (thanks generic type erasure). Set that up ourselves.
+    when(mockGetPostProcessingSpawn.apply(any())).thenReturn(Optional.empty());
   }
 
   @After
@@ -100,7 +119,7 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
-  public void exec_remoteOnlySpawn_doesNotGetLocalPostProcessingSpawn() throws Exception {
+  public void exec_remoteOnlySpawn_doesNotExecLocalPostProcessingSpawn() throws Exception {
     DynamicSpawnStrategy dynamicSpawnStrategy =
         createDynamicSpawnStrategy(
             ExecutionPolicy.REMOTE_EXECUTION_ONLY, mockGetPostProcessingSpawn);
@@ -121,6 +140,28 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
+  public void exec_remoteOnlySpawn_noneCanExec_fails() throws Exception {
+    Spawn spawn = new SpawnBuilder().withMnemonic("TheThing").build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.REMOTE_EXECUTION_ONLY, mockGetPostProcessingSpawn);
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy(false);
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    UserExecException thrown =
+        assertThrows(
+            UserExecException.class,
+            () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+    assertThat(thrown).hasMessageThat().doesNotContain("dynamic_local_strategy");
+    assertThat(thrown).hasMessageThat().containsMatch("\\bdynamic_remote_strategy\\b");
+    assertThat(thrown).hasMessageThat().containsMatch("\\bTheThing\\b");
+    verifyNoInteractions(local);
+    // No post processing because local never ran.
+    verify(mockGetPostProcessingSpawn, never()).apply(any());
+  }
+
+  @Test
   public void exec_localOnlySpawn_runsLocalPostProcessingSpawn() throws Exception {
     Spawn spawn = new SpawnBuilder("command").build();
     Spawn postProcessingSpawn = new SpawnBuilder("extra_command").build();
@@ -137,15 +178,15 @@ public class DynamicSpawnStrategyUnitTest {
     ImmutableList<SpawnResult> results = dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
 
     assertThat(results).containsExactly(SUCCESSFUL_SPAWN_RESULT, SUCCESSFUL_SPAWN_RESULT);
-    verifyZeroInteractions(remote);
+    verifyNoInteractions(remote);
     assertThat(localSpawnCaptor.getAllValues())
         .containsExactly(spawn, postProcessingSpawn)
         .inOrder();
   }
 
   @Test
-  public void exec_failedLocalSpawn_doesNotGetLocalPostProcessingSpawn() throws Exception {
-    testExecFailedLocalSpawnDoesNotGetLocalPostProcessingSpawn(
+  public void exec_failedLocalSpawn_doesNotExecLocalPostProcessingSpawn() throws Exception {
+    testExecFailedLocalSpawnDoesNotExecLocalPostProcessingSpawn(
         new SpawnResult.Builder()
             .setRunnerName("test")
             .setStatus(Status.TIMEOUT)
@@ -155,8 +196,31 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   @Test
-  public void exec_nonZeroExitCodeLocalSpawn_doesNotGetLocalPostProcessingSpawn() throws Exception {
-    testExecFailedLocalSpawnDoesNotGetLocalPostProcessingSpawn(
+  public void exec_localOnlySpawn_noneCanExec_fails() throws Exception {
+    Spawn spawn = new SpawnBuilder().withMnemonic("TheThing").build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.LOCAL_EXECUTION_ONLY, mockGetPostProcessingSpawn);
+    SandboxedSpawnStrategy local = createMockSpawnStrategy(false);
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    UserExecException thrown =
+        assertThrows(
+            UserExecException.class,
+            () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+    assertThat(thrown).hasMessageThat().containsMatch("\\bdynamic_local_strategy\\b");
+    assertThat(thrown).hasMessageThat().doesNotContain("dynamic_remote_strategy");
+    assertThat(thrown).hasMessageThat().containsMatch("\\bTheThing\\b");
+    verifyNoInteractions(remote);
+    // No post processing because local never completed.
+    verify(mockGetPostProcessingSpawn, never()).apply(any());
+  }
+
+  @Test
+  public void exec_nonZeroExitCodeLocalSpawn_doesNotExecLocalPostProcessingSpawn()
+      throws Exception {
+    testExecFailedLocalSpawnDoesNotExecLocalPostProcessingSpawn(
         new SpawnResult.Builder()
             .setRunnerName("test")
             .setStatus(Status.EXECUTION_FAILED)
@@ -165,7 +229,7 @@ public class DynamicSpawnStrategyUnitTest {
             .build());
   }
 
-  private void testExecFailedLocalSpawnDoesNotGetLocalPostProcessingSpawn(SpawnResult failedResult)
+  private void testExecFailedLocalSpawnDoesNotExecLocalPostProcessingSpawn(SpawnResult failedResult)
       throws Exception {
     DynamicSpawnStrategy dynamicSpawnStrategy =
         createDynamicSpawnStrategy(
@@ -183,7 +247,6 @@ public class DynamicSpawnStrategyUnitTest {
     assertThat(results).containsExactly(failedResult);
     assertThat(localSpawnCaptor.getAllValues()).containsExactly(spawn);
     verify(remote, never()).exec(any(), any(), any());
-    verify(mockGetPostProcessingSpawn, never()).apply(any());
   }
 
   @Test
@@ -238,6 +301,82 @@ public class DynamicSpawnStrategyUnitTest {
     assertThat(error).hasMessageThat().contains("Neither branch of /foo completed.");
   }
 
+  @Test
+  public void exec_runAnywhereSpawn_localCantExec_runsRemote() throws Exception {
+    Spawn spawn = new SpawnBuilder().build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn);
+    SandboxedSpawnStrategy local = createMockSpawnStrategy(false);
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    when(remote.exec(eq(spawn), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              StopConcurrentSpawns stopConcurrentSpawns = invocation.getArgument(2);
+              if (stopConcurrentSpawns != null) {
+                stopConcurrentSpawns.stop();
+              }
+              return ImmutableList.of(SUCCESSFUL_SPAWN_RESULT);
+            });
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    ImmutableList<SpawnResult> results = dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+
+    assertThat(results).containsExactly(SUCCESSFUL_SPAWN_RESULT);
+    // Never runs anything as it says it can't execute anything at all.
+    verify(local, never()).exec(any(), any(), any());
+    verify(mockGetPostProcessingSpawn, never()).apply(any());
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_remoteCantExec_runsLocal() throws Exception {
+    Spawn spawn = new SpawnBuilder().build();
+    Spawn postProcessingSpawn = new SpawnBuilder("extra_command").build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(
+            ExecutionPolicy.ANYWHERE, ignored -> Optional.of(postProcessingSpawn));
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+    ArgumentCaptor<Spawn> localSpawnCaptor = ArgumentCaptor.forClass(Spawn.class);
+    when(local.exec(localSpawnCaptor.capture(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              StopConcurrentSpawns stopConcurrentSpawns = invocation.getArgument(2);
+              if (stopConcurrentSpawns != null) {
+                stopConcurrentSpawns.stop();
+              }
+              return ImmutableList.of(SUCCESSFUL_SPAWN_RESULT);
+            });
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy(false);
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    ImmutableList<SpawnResult> results = dynamicSpawnStrategy.exec(spawn, actionExecutionContext);
+
+    assertThat(results).containsExactly(SUCCESSFUL_SPAWN_RESULT, SUCCESSFUL_SPAWN_RESULT);
+    assertThat(localSpawnCaptor.getAllValues())
+        .containsExactly(spawn, postProcessingSpawn)
+        .inOrder();
+    verify(remote, never()).exec(any(), any(), any());
+  }
+
+  @Test
+  public void exec_runAnywhereSpawn_noneCanExec_fails() throws Exception {
+    Spawn spawn = new SpawnBuilder().withMnemonic("TheThing").build();
+    DynamicSpawnStrategy dynamicSpawnStrategy =
+        createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, mockGetPostProcessingSpawn);
+    SandboxedSpawnStrategy local = createMockSpawnStrategy(false);
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy(false);
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
+
+    UserExecException thrown =
+        assertThrows(
+            UserExecException.class,
+            () -> dynamicSpawnStrategy.exec(spawn, actionExecutionContext));
+    assertThat(thrown).hasMessageThat().containsMatch("\\bdynamic_local_strategy\\b");
+    assertThat(thrown).hasMessageThat().containsMatch("\\bdynamic_remote_strategy\\b");
+    assertThat(thrown).hasMessageThat().containsMatch("\\bTheThing\\b");
+    // No post processing because local never completed.
+    verify(mockGetPostProcessingSpawn, never()).apply(any());
+  }
+
   private DynamicSpawnStrategy createDynamicSpawnStrategy(
       ExecutionPolicy executionPolicy,
       Function<Spawn, Optional<Spawn>> getPostProcessingSpawnForLocalExecution) {
@@ -279,8 +418,13 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   private static SandboxedSpawnStrategy createMockSpawnStrategy() throws InterruptedException {
+    return createMockSpawnStrategy(true);
+  }
+
+  private static SandboxedSpawnStrategy createMockSpawnStrategy(boolean canExec)
+      throws InterruptedException {
     SandboxedSpawnStrategy strategy = mock(SandboxedSpawnStrategy.class);
-    when(strategy.canExec(any(), any())).thenReturn(true);
+    when(strategy.canExec(any(), any())).thenReturn(canExec);
     when(strategy.beginExecution(any(), any())).thenThrow(UnsupportedOperationException.class);
     return strategy;
   }
