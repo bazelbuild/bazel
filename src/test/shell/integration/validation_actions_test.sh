@@ -172,6 +172,12 @@ sh_test(
   data = [":some_implicit_dep"],
 )
 
+sh_test(
+  name = "test_with_same_validation_in_deps",
+  srcs = ["test_with_rule_with_validation_in_deps.sh"],
+  data = [":some_implicit_dep"],
+)
+
 genquery(
   name = "genquery_with_validation_actions_somewhere",
   expression = "deps(//validation_actions:gen)",
@@ -379,10 +385,12 @@ function test_failing_validation_action_for_dep_from_test_fails_build() {
   setup_test_project
   setup_failing_validation_action
 
-  # Validation actions in the the deps of the test should fail the build when
+  # Validation actions in the deps of the test should fail the build when
   # run with bazel test.
   bazel test --experimental_run_validations //validation_actions:test_with_rule_with_validation_in_deps >& "$TEST_log" && fail "Expected build to fail"
   expect_log "validation failed!"
+  expect_log "FAILED TO BUILD"
+  expect_log "out of 1 test: 1 fails to build."
 }
 
 function test_slow_failing_validation_action_for_dep_from_test_fails_build() {
@@ -392,12 +400,71 @@ function test_slow_failing_validation_action_for_dep_from_test_fails_build() {
   # Validation actions in the deps of the test should fail the build when run
   # with "bazel test", even though validation finishes after test
   bazel clean  # Clean out any previous test or validation outputs
-  bazel test --experimental_run_validations --experimental_use_validation_aspect \
-      //validation_actions:test_with_rule_with_validation_in_deps >& "$TEST_log" && fail "Expected build to fail"
+  bazel test --experimental_run_validations \
+      --experimental_use_validation_aspect \
+      //validation_actions:test_with_rule_with_validation_in_deps >& "$TEST_log" \
+      && fail "Expected build to fail"
   expect_log "validation failed!"
   expect_log "Target //validation_actions:test_with_rule_with_validation_in_deps failed to build"
-  # Potential race: hopefully validation is so slow that test always completes
-  expect_log "out of 1 test: 1 test passes."
+  # --experimental_use_validation_aspect reports all affected tests NO STATUS
+  # for simplicity, while one test is randomly reports FAILED TO BUILD without
+  # that flag (absent -k).
+  expect_log "NO STATUS"
+  expect_log "out of 1 test: 1 was skipped."
+}
+
+function test_failing_validation_action_fails_multiple_tests() {
+  setup_test_project
+  setup_failing_validation_action
+
+  # Validation actions in the deps of the test should fail the build when run
+  # with bazel test.
+  bazel test --experimental_run_validations \
+      //validation_actions:test_with_rule_with_validation_in_deps \
+      //validation_actions:test_with_same_validation_in_deps >& "$TEST_log" \
+      && fail "Expected build to fail"
+  expect_log "validation failed!"
+  # One test is (randomly) marked as FAILED_TO_BUILD
+  expect_log_once "FAILED TO BUILD"
+  expect_log "out of 2 tests: 1 fails to build and 1 was skipped."
+}
+
+function test_slow_failing_validation_action_fails_multiple_tests() {
+  setup_test_project
+  setup_slow_failing_validation_action
+
+  # Validation actions in the deps of the test should fail the build when run
+  # with "bazel test", even though validation finishes after test
+  bazel clean  # Clean out any previous test or validation outputs
+  bazel test --experimental_run_validations \
+      --experimental_use_validation_aspect \
+      //validation_actions:test_with_rule_with_validation_in_deps \
+      //validation_actions:test_with_same_validation_in_deps >& "$TEST_log" \
+      && fail "Expected build to fail"
+  expect_log "validation failed!"
+  # --experimental_use_validation_aspect reports all affected tests NO STATUS
+  # for simplicity, while one test is randomly reports FAILED TO BUILD without
+  # that flag (absent -k).
+  expect_log_n "NO STATUS" 2
+  expect_log "out of 2 tests: 2 were skipped."
+}
+
+function test_slow_failing_validation_action_fails_multiple_tests_keep_going() {
+  setup_test_project
+  setup_slow_failing_validation_action
+
+  # Validation actions in the deps of the test should fail the build when run
+  # with "bazel test", even though validation finishes after test
+  bazel clean  # Clean out any previous test or validation outputs
+  bazel test -k --experimental_run_validations \
+      --experimental_use_validation_aspect \
+      //validation_actions:test_with_rule_with_validation_in_deps \
+      //validation_actions:test_with_same_validation_in_deps >& "$TEST_log" \
+      && fail "Expected build to fail"
+  expect_log "validation failed!"
+  expect_log_n "FAILED TO BUILD" 2
+  expect_not_log "NO STATUS"
+  expect_log "out of 2 tests: 2 fail to build."
 }
 
 function test_validation_actions_do_not_propagate_through_genquery() {

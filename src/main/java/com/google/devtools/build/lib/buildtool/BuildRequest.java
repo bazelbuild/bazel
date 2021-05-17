@@ -50,7 +50,7 @@ import java.util.concurrent.ExecutionException;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsProvider {
-  static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
+  public static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
 
   private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
       ImmutableList.of(
@@ -391,7 +391,7 @@ public class BuildRequest implements OptionsProvider {
   }
 
   /** Whether {@value #VALIDATION_ASPECT_NAME} is in use. */
-  boolean useValidationAspect() {
+  public boolean useValidationAspect() {
     return validationMode() == OutputGroupInfo.ValidationMode.ASPECT;
   }
 

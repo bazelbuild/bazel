@@ -265,7 +265,6 @@ public final class BuildResult {
    * Returns the set of targets which were skipped (Blaze didn't attempt to execute them)
    * because they're not compatible with the build's target platform.
    */
-  @VisibleForTesting
   public Collection<ConfiguredTarget> getSkippedTargets() {
     return skippedTargets;
   }

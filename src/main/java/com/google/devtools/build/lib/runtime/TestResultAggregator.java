@@ -135,7 +135,7 @@ final class TestResultAggregator {
     postSummary();
   }
 
-  private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
+  static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
     return status.getNumber() > other.getNumber() ? status : other;
   }
 
