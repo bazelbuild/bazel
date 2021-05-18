@@ -502,6 +502,15 @@ public final class BazelRulesModule extends BlazeModule {
         },
         help = "No-op")
     public boolean dontUseJavaSourceInfoProvider;
+
+    @Option(
+        name = "experimental_shadowed_action",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        help = "No-op")
+    public boolean shadowedAction;
   }
 
   @Override
