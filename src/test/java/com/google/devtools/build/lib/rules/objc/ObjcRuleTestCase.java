@@ -718,14 +718,21 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       BuildConfiguration configuration, String... unrootedPaths) {
     ImmutableList.Builder<String> rootedPaths = new ImmutableList.Builder<>();
     for (String unrootedPath : unrootedPaths) {
-      rootedPaths
-          .add(unrootedPath)
-          .add(
-              removeConfigFragment(
-                  configuration
-                      .getGenfilesFragment(RepositoryName.MAIN)
-                      .getRelative(unrootedPath)
-                      .getSafePathString()));
+      rootedPaths.add(unrootedPath);
+      if (configuration.hasSeparateGenfilesDirectory()) {
+        rootedPaths.add(
+            removeConfigFragment(
+                configuration
+                    .getGenfilesFragment(RepositoryName.MAIN)
+                    .getRelative(unrootedPath)
+                    .getSafePathString()));
+      }
+      rootedPaths.add(
+          removeConfigFragment(
+              configuration
+                  .getBinFragment(RepositoryName.MAIN)
+                  .getRelative(unrootedPath)
+                  .getSafePathString()));
     }
     return rootedPaths.build();
   }
