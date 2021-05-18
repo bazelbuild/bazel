@@ -27,6 +27,8 @@
 #include <memory>
 #include <string>
 
+#pragma comment(lib, "advapi32.dll") //RegGetValueW
+
 namespace bazel {
 namespace windows {
 
