@@ -763,7 +763,7 @@ public final class RuleContext extends TargetContext
    */
   @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
-    return rule.hasBinaryOutput()
+    return rule.outputsToBindir()
         ? getConfiguration().getBinDirectory(getLabel().getRepository())
         : getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }

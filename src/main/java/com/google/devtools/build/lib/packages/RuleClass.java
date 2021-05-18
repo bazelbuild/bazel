@@ -738,7 +738,7 @@ public class RuleClass {
     private final boolean starlark;
     private boolean starlarkTestable = false;
     private boolean documented;
-    private boolean binaryOutput = true;
+    private boolean outputsToBindir = true;
     private boolean workspaceOnly = false;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
@@ -941,7 +941,7 @@ public class RuleClass {
           starlark,
           starlarkTestable,
           documented,
-          binaryOutput,
+          outputsToBindir,
           workspaceOnly,
           isExecutableStarlark,
           isAnalysisTest,
@@ -1132,7 +1132,7 @@ public class RuleClass {
     public Builder setOutputToGenfiles() {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (output to genrules) of abstract rule class '%s'", name);
-      this.binaryOutput = false;
+      this.outputsToBindir = false;
       return this;
     }
 
@@ -1617,7 +1617,7 @@ public class RuleClass {
   private final boolean isStarlark;
   private final boolean starlarkTestable;
   private final boolean documented;
-  private final boolean binaryOutput;
+  private final boolean outputsToBindir;
   private final boolean workspaceOnly;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
@@ -1754,7 +1754,7 @@ public class RuleClass {
       boolean isStarlark,
       boolean starlarkTestable,
       boolean documented,
-      boolean binaryOutput,
+      boolean outputsToBindir,
       boolean workspaceOnly,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
@@ -1792,7 +1792,7 @@ public class RuleClass {
     this.targetKind = name + Rule.targetKindSuffix();
     this.starlarkTestable = starlarkTestable;
     this.documented = documented;
-    this.binaryOutput = binaryOutput;
+    this.outputsToBindir = outputsToBindir;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
@@ -2625,15 +2625,13 @@ public class RuleClass {
   }
 
   /**
-   * Returns true iff the outputs of this rule should be created beneath the
-   * <i>bin</i> directory, false if beneath <i>genfiles</i>.  For most rule
-   * classes, this is a constant, but for genrule, it is a property of the
-   * individual rule instance, derived from the 'output_to_bindir' attribute;
-   * see Rule.hasBinaryOutput().
+   * Returns true iff the outputs of this rule should be created beneath the <i>bin</i> directory,
+   * false if beneath <i>genfiles</i>. For most rule classes, this is a constant, but for genrule,
+   * it is a property of the individual rule instance, derived from the 'output_to_bindir'
+   * attribute; see Rule.outputsToBindir().
    */
-  @VisibleForTesting
-  public boolean hasBinaryOutput() {
-    return binaryOutput;
+  public boolean outputsToBindir() {
+    return outputsToBindir;
   }
 
   /** Returns this RuleClass's custom Starlark rule implementation. */

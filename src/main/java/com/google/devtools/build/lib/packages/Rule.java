@@ -201,15 +201,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns true iff the outputs of this rule should be created beneath the
-   * bin directory, false if beneath genfiles.  For most rule
-   * classes, this is a constant, but for genrule, it is a property of the
-   * individual rule instance, derived from the 'output_to_bindir' attribute.
+   * Returns true iff the outputs of this rule should be created beneath the bin directory, false if
+   * beneath genfiles. For most rule classes, this is constant, but for genrule, it is a property of
+   * the individual target, derived from the 'output_to_bindir' attribute.
    */
-  public boolean hasBinaryOutput() {
+  public boolean outputsToBindir() {
     return ruleClass.getName().equals("genrule") // this is unfortunate...
         ? NonconfigurableAttributeMapper.of(this).get("output_to_bindir", Type.BOOLEAN)
-        : ruleClass.hasBinaryOutput();
+        : ruleClass.outputsToBindir();
   }
 
   /** Returns true if this rule is an analysis test (set by analysis_test = true). */

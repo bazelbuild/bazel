@@ -757,7 +757,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testOutputToGenfiles() throws Exception {
     evalAndExport(ev, "def impl(ctx): pass", "r1 = rule(impl, output_to_genfiles=True)");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasBinaryOutput()).isFalse();
+    assertThat(c.outputsToBindir()).isFalse();
   }
 
   @Test
