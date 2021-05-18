@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
@@ -85,20 +86,21 @@ public class WorkerSpawnRunnerTest {
 
   private WorkerPool createWorkerPool() {
     return new WorkerPool(
-        new WorkerFactory(options, fs.getPath("/workerBase")) {
-          @Override
-          public Worker create(WorkerKey key) {
-            return worker;
-          }
+        new WorkerPoolConfig(
+            new WorkerFactory(fs.getPath("/workerBase"), options.workerSandboxing) {
+              @Override
+              public Worker create(WorkerKey key) {
+                return worker;
+              }
 
-          @Override
-          public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
-            return true;
-          }
-        },
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        ImmutableList.of());
+              @Override
+              public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
+                return true;
+              }
+            },
+            ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of()));
   }
 
   @Test

@@ -14,20 +14,18 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.testing.EqualsTester;
-
+import com.google.devtools.build.lib.worker.SimpleWorkerPool.SimpleWorkerPoolConfig;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test WorkerPoolConfig.
- */
+/** Test SimpleWorkerPoolConfig. */
 @RunWith(JUnit4.class)
-public class WorkerPoolConfigTest {
+public class SimpleWorkerPoolConfigTest {
 
   @Test
   public void testEquals() throws Exception {
-    WorkerPoolConfig config1a = new WorkerPoolConfig();
+    SimpleWorkerPoolConfig config1a = new SimpleWorkerPoolConfig();
     config1a.setLifo(true);
     config1a.setMaxIdlePerKey(4);
     config1a.setMaxTotalPerKey(4);
@@ -39,7 +37,7 @@ public class WorkerPoolConfigTest {
     config1a.setTestOnReturn(true);
     config1a.setTimeBetweenEvictionRunsMillis(-1);
 
-    WorkerPoolConfig config1b = new WorkerPoolConfig();
+    SimpleWorkerPoolConfig config1b = new SimpleWorkerPoolConfig();
     config1b.setLifo(true);
     config1b.setMaxIdlePerKey(4);
     config1b.setMaxTotalPerKey(4);
@@ -51,7 +49,7 @@ public class WorkerPoolConfigTest {
     config1b.setTestOnReturn(true);
     config1b.setTimeBetweenEvictionRunsMillis(-1);
 
-    WorkerPoolConfig config2a = new WorkerPoolConfig();
+    SimpleWorkerPoolConfig config2a = new SimpleWorkerPoolConfig();
     config2a.setLifo(true);
     config2a.setMaxIdlePerKey(1);
     config2a.setMaxTotalPerKey(1);
@@ -63,7 +61,7 @@ public class WorkerPoolConfigTest {
     config2a.setTestOnReturn(true);
     config2a.setTimeBetweenEvictionRunsMillis(-1);
 
-    WorkerPoolConfig config2b = new WorkerPoolConfig();
+    SimpleWorkerPoolConfig config2b = new SimpleWorkerPoolConfig();
     config2b.setLifo(true);
     config2b.setMaxIdlePerKey(1);
     config2b.setMaxTotalPerKey(1);

@@ -23,15 +23,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
 import java.io.IOException;
 import java.lang.Thread.State;
+import java.util.Map.Entry;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,14 +62,13 @@ public class WorkerPoolTest {
   public void setUp() throws Exception {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
     doAnswer(
-            arg -> {
-              return new DefaultPooledObject<>(
-                  new TestWorker(
-                      arg.getArgument(0),
-                      workerIds++,
-                      fileSystem.getPath("/workDir"),
-                      fileSystem.getPath("/logDir")));
-            })
+            arg ->
+                new DefaultPooledObject<>(
+                    new TestWorker(
+                        arg.getArgument(0),
+                        workerIds++,
+                        fileSystem.getPath("/workDir"),
+                        fileSystem.getPath("/logDir"))))
         .when(factoryMock)
         .makeObject(any());
     when(factoryMock.validateObject(any(), any())).thenReturn(true);
@@ -77,10 +78,8 @@ public class WorkerPoolTest {
   public void testBorrow_createsWhenNeeded() throws Exception {
     WorkerPool workerPool =
         new WorkerPool(
-            factoryMock,
-            ImmutableMap.of("mnem", 2, "", 1),
-            ImmutableMap.of(),
-            Lists.newArrayList());
+            new WorkerPoolConfig(
+                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
     Worker worker2 = workerPool.borrowObject(workerKey);
@@ -93,10 +92,8 @@ public class WorkerPoolTest {
   public void testBorrow_reusesWhenPossible() throws Exception {
     WorkerPool workerPool =
         new WorkerPool(
-            factoryMock,
-            ImmutableMap.of("mnem", 2, "", 1),
-            ImmutableMap.of(),
-            Lists.newArrayList());
+            new WorkerPoolConfig(
+                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
     workerPool.returnObject(workerKey, worker1);
@@ -109,10 +106,8 @@ public class WorkerPoolTest {
   public void testBorrow_usesDefault() throws Exception {
     WorkerPool workerPool =
         new WorkerPool(
-            factoryMock,
-            ImmutableMap.of("mnem", 2, "", 1),
-            ImmutableMap.of(),
-            Lists.newArrayList());
+            new WorkerPoolConfig(
+                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
     Worker worker1a = workerPool.borrowObject(workerKey1);
@@ -129,10 +124,8 @@ public class WorkerPoolTest {
   public void testBorrow_pooledByKey() throws Exception {
     WorkerPool workerPool =
         new WorkerPool(
-            factoryMock,
-            ImmutableMap.of("mnem", 2, "", 1),
-            ImmutableMap.of(),
-            Lists.newArrayList());
+            new WorkerPoolConfig(
+                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
     Worker worker1a = workerPool.borrowObject(workerKey1);
@@ -149,10 +142,11 @@ public class WorkerPoolTest {
   public void testBorrow_separateMultiplexWorkers() throws Exception {
     WorkerPool workerPool =
         new WorkerPool(
-            factoryMock,
-            ImmutableMap.of("mnem", 1, "", 1),
-            ImmutableMap.of("mnem", 2, "", 1),
-            Lists.newArrayList());
+            new WorkerPoolConfig(
+                factoryMock,
+                entryList("mnem", 1, "", 1),
+                entryList("mnem", 2, "", 1),
+                Lists.newArrayList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
     assertThat(worker1.getWorkerId()).isEqualTo(1);
@@ -175,10 +169,11 @@ public class WorkerPoolTest {
   public void testBorrow_allowsOneHiPrio() throws Exception {
     WorkerPool workerPool =
         new WorkerPool(
-            factoryMock,
-            ImmutableMap.of("loprio", 2, "hiprio", 2, "", 1),
-            ImmutableMap.of(),
-            ImmutableList.of("hiprio"));
+            new WorkerPoolConfig(
+                factoryMock,
+                entryList("loprio", 2, "hiprio", 2, "", 1),
+                entryList(),
+                ImmutableList.of("hiprio")));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "hiprio", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
     assertThat(worker1.getWorkerId()).isEqualTo(1);
@@ -194,10 +189,11 @@ public class WorkerPoolTest {
   public void testBorrow_twoHiPrioBlocks() throws Exception {
     WorkerPool workerPool =
         new WorkerPool(
-            factoryMock,
-            ImmutableMap.of("loprio", 2, "hiprio", 2, "", 1),
-            ImmutableMap.of(),
-            ImmutableList.of("hiprio"));
+            new WorkerPoolConfig(
+                factoryMock,
+                entryList("loprio", 2, "hiprio", 2, "", 1),
+                entryList(),
+                ImmutableList.of("hiprio")));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "hiprio", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
     Worker worker1a = workerPool.borrowObject(workerKey1);
@@ -237,5 +233,22 @@ public class WorkerPoolTest {
         .isTrue();
     verify(factoryMock, times(2)).makeObject(workerKey1);
     verify(factoryMock, times(1)).makeObject(workerKey2);
+  }
+
+  private static ImmutableList<Entry<String, Integer>> entryList() {
+    return ImmutableList.of();
+  }
+
+  private static ImmutableList<Entry<String, Integer>> entryList(
+      String key1, int value1, String key2, int value2) {
+    return ImmutableList.of(Maps.immutableEntry(key1, value1), Maps.immutableEntry(key2, value2));
+  }
+
+  private static ImmutableList<Entry<String, Integer>> entryList(
+      String key1, int value1, String key2, int value2, String key3, int value3) {
+    return ImmutableList.of(
+        Maps.immutableEntry(key1, value1),
+        Maps.immutableEntry(key2, value2),
+        Maps.immutableEntry(key3, value3));
   }
 }
