@@ -174,15 +174,6 @@ public class JavaOptions extends FragmentOptions {
               + "but error messages can be different.")
   public boolean useIjars;
 
-  @Deprecated
-  @Option(
-      name = "use_src_ijars",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public boolean useSourceIjars;
-
   @Option(
       name = "java_header_compilation",
       defaultValue = "true",
@@ -191,16 +182,6 @@ public class JavaOptions extends FragmentOptions {
       help = "Compile ijars directly from source.",
       oldName = "experimental_java_header_compilation")
   public boolean headerCompilation;
-
-  // TODO(cushon): delete flag after removing from global .blazerc
-  @Deprecated
-  @Option(
-      name = "experimental_optimize_header_compilation_annotation_processing",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "This flag is a noop and scheduled for removal.")
-  public boolean optimizeHeaderCompilationAnnotationProcessing;
 
   @Option(
       name = "java_deps",
@@ -291,62 +272,6 @@ public class JavaOptions extends FragmentOptions {
   public boolean explicitJavaTestDeps;
 
   @Option(
-      name = "javabuilder_top",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public String javaBuilderTop;
-
-  @Option(
-      name = "singlejar_top",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public String singleJarTop;
-
-  @Option(
-      name = "genclass_top",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public String genClassTop;
-
-  @Option(
-      name = "ijar_top",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public String iJarTop;
-
-  @Option(
-      name = "java_langtools",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public String javaLangtoolsJar;
-
-  @Option(
-      name = "javac_bootclasspath",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public String javacBootclasspath;
-
-  @Option(
-      name = "javac_extdir",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public String javacExtdir;
-
-  @Option(
       name = "host_java_launcher",
       defaultValue = "null",
       converter = EmptyToNullLabelConverter.class,
@@ -425,16 +350,6 @@ public class JavaOptions extends FragmentOptions {
           "If enabled, requires that ProGuard configuration files outside of third_party/ use the"
               + " *.pgcfg file extension.")
   public boolean enforceProguardFileExtension;
-
-  @Deprecated
-  @Option(
-      name = "check_constraint",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op. Kept here for backwards compatibility.")
-  public List<String> checkedConstraints;
 
   @Option(
       name = "java_optimization_mode",
@@ -630,19 +545,6 @@ public class JavaOptions extends FragmentOptions {
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
-  // TODO(b/180107817): delete flag after removing from global .blazerc
-  @Option(
-      name = "incompatible_dont_collect_so_artifacts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "This flag is a noop and scheduled for removal.")
-  public boolean dontCollectSoArtifacts;
-
   @Option(
       name = "incompatible_dont_collect_native_libraries_in_data",
       defaultValue = "false",
@@ -666,14 +568,6 @@ public class JavaOptions extends FragmentOptions {
       },
       help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
   public boolean requireJavaPluginInfo;
-
-  @Option(
-      name = "experimental_publish_javacclinkparamsinfo",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "Deprecated no-op.")
-  public boolean experimentalPublishJavaCcLinkParamsInfo;
 
   @Option(
       name = "experimental_enable_jspecify",
@@ -763,7 +657,6 @@ public class JavaOptions extends FragmentOptions {
 
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
-    host.dontCollectSoArtifacts = dontCollectSoArtifacts;
     host.dontCollectDataLibraries = dontCollectDataLibraries;
     host.requireJavaPluginInfo = requireJavaPluginInfo;
 
