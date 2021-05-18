@@ -86,6 +86,7 @@ public final class ExampleWorker {
         if (request == null) {
           break;
         }
+
         currentRequest = request;
         inputs.clear();
         for (Input input : request.getInputsList()) {

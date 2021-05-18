@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,21 +36,17 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
   // request_id (which is indistinguishable from 0 in proto3).
   private static final AtomicInteger pidCounter = new AtomicInteger(1);
 
-  private WorkerOptions workerOptions;
   private final Path workerBaseDir;
   private Reporter reporter;
+  private final boolean workerSandboxing;
 
-  public WorkerFactory(WorkerOptions workerOptions, Path workerBaseDir) {
-    this.workerOptions = workerOptions;
+  public WorkerFactory(Path workerBaseDir, boolean workerSandboxing) {
     this.workerBaseDir = workerBaseDir;
+    this.workerSandboxing = workerSandboxing;
   }
 
   public void setReporter(Reporter reporter) {
     this.reporter = reporter;
-  }
-
-  public void setOptions(WorkerOptions workerOptions) {
-    this.workerOptions = workerOptions;
   }
 
   @Override
@@ -60,7 +57,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
-    boolean sandboxed = workerOptions.workerSandboxing || key.isSpeculative();
+    boolean sandboxed = workerSandboxing || key.isSpeculative();
     if (sandboxed) {
       Path workDir = getSandboxedWorkerPath(key, workerId);
       worker = new SandboxedWorker(key, workerId, workDir, logFile);
@@ -70,7 +67,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     } else {
       worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile);
     }
-    if (workerOptions.workerVerbose) {
+    if (reporter != null) {
       reporter.handle(
           Event.info(
               String.format(
@@ -91,9 +88,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
         .getRelative(workspaceName);
   }
 
-  /**
-   * Use the DefaultPooledObject implementation.
-   */
+  /** Use the DefaultPooledObject implementation. */
   @Override
   public PooledObject<Worker> wrap(Worker worker) {
     return new DefaultPooledObject<>(worker);
@@ -102,7 +97,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
   /** When a worker process is discarded, destroy its process, too. */
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
-    if (workerOptions.workerVerbose) {
+    if (reporter != null) {
       int workerId = p.getObject().getWorkerId();
       reporter.handle(
           Event.info(
@@ -122,7 +117,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     Worker worker = p.getObject();
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
-      if (workerOptions.workerVerbose && worker.diedUnexpectedly()) {
+      if (reporter != null && worker.diedUnexpectedly()) {
         String msg =
             String.format(
                 "%s %s (id %d) has unexpectedly died with exit code %d.",
@@ -140,7 +135,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     boolean filesChanged =
         !key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 
-    if (workerOptions.workerVerbose && reporter != null && filesChanged) {
+    if (reporter != null && filesChanged) {
       StringBuilder msg = new StringBuilder();
       msg.append(
           String.format(
@@ -166,5 +161,22 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
     }
 
     return !filesChanged;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof WorkerFactory)) {
+      return false;
+    }
+    WorkerFactory that = (WorkerFactory) o;
+    return workerSandboxing == that.workerSandboxing && workerBaseDir.equals(that.workerBaseDir);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(workerBaseDir, workerSandboxing);
   }
 }
