@@ -442,6 +442,11 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     private static final LoadingCache<Artifact, StaticOnlyLibraryToLink> cache =
         CacheBuilder.newBuilder()
             .concurrencyLevel(BlazeInterners.concurrencyLevel())
+            // Needs to use weak keys for identity equality of the artifact. The artifact may not
+            // yet have its generating action key set, but Artifact#equals treats unset and set as
+            // equal. Reusing an artifact from a previous build is not safe - the generating
+            // action key's index may be stale (b/184948206).
+            .weakKeys()
             .weakValues()
             .build(
                 CacheLoader.from(
