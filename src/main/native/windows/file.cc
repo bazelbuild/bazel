@@ -39,6 +39,20 @@ namespace windows {
 using std::unique_ptr;
 using std::wstring;
 
+bool IsDeveloperModeEnabled() {
+  DWORD val = 0;
+  DWORD valSize = sizeof(val);
+  if (RegGetValueW(
+          HKEY_LOCAL_MACHINE,
+          L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
+          L"AllowDevelopmentWithoutDevLicense", RRF_RT_DWORD, nullptr, &val,
+          &valSize) != ERROR_SUCCESS) {
+    return false;
+  }
+  return val != 0;
+}
+
+
 wstring AddUncPrefixMaybe(const wstring& path) {
   return path.empty() || IsDevNull(path.c_str()) || HasUncPrefix(path.c_str())
              ? path
@@ -446,13 +460,14 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   }
 
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
-                           SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
-     // The flag SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE requires
-     // developer mode enabled, which we expect if using symbolic linking.
-     *error = MakeErrorMessage(
-               WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
-               L"createSymbolicLinkW failed");
-     return CreateSymlinkResult::kError;
+                           symlinkPrivilegeFlag)) {
+    *error = MakeErrorMessage(
+              WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+              GetLastError() == ERROR_PRIVILEGE_NOT_HELD
+               ? L"createSymbolicLinkW failed (permission denied). Either "
+                 "Windows developer mode or admin privileges are required."
+               : L"createSymbolicLinkW failed");
+    return CreateSymlinkResult::kError;
   }
   return CreateSymlinkResult::kSuccess;
 }
