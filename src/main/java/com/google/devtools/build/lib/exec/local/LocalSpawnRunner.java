@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -118,7 +119,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException, ExecException {
+      throws IOException, InterruptedException, ExecException, ForbiddenActionInputException {
 
     runfilesTreeUpdater.updateRunfilesDirectory(
         execRoot,
@@ -186,7 +187,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       setState(State.PARSING);
     }
 
-    public SpawnResult run() throws InterruptedException, IOException {
+    public SpawnResult run()
+        throws InterruptedException, IOException, ForbiddenActionInputException {
       if (localExecutionOptions.localRetriesOnCrash == 0) {
         return runOnce();
       } else {
@@ -212,7 +214,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
     }
 
-    private SpawnResult runOnce() throws InterruptedException, IOException {
+    private SpawnResult runOnce()
+        throws InterruptedException, IOException, ForbiddenActionInputException {
       try {
         return start();
       } catch (InterruptedException | InterruptedIOException e) {
@@ -223,6 +226,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         throw e;
       } catch (Error e) {
         stepLog(SEVERE, e, UNHANDLED_EXCEPTION_MSG);
+        throw e;
+      } catch (ForbiddenActionInputException e) {
+        stepLog(WARNING, e, "Bad input file");
         throw e;
       } catch (IOException e) {
         stepLog(SEVERE, e, "Local I/O error");
@@ -275,7 +281,8 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     /** Parse the request and run it locally. */
-    private SpawnResult start() throws InterruptedException, IOException {
+    private SpawnResult start()
+        throws InterruptedException, IOException, ForbiddenActionInputException {
       logger.atInfo().log("starting local subprocess #%d, argv: %s", id, debugCmdString());
 
       FileOutErr outErr = context.getFileOutErr();

@@ -221,6 +221,7 @@ message Spawn {
     // TODO(b/138456686): this code should be deprecated when SpawnResult is
     //   refactored to prohibit undetailed failures
     UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
+    FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
   }
   Code code = 1;
 
@@ -713,7 +714,7 @@ message Sandbox {
   enum Code {
     SANDBOX_FAILURE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
-    EXECUTION_IO_EXCEPTION = 2 [(metadata) = { exit_code: 1 }];
+    EXECUTION_IO_EXCEPTION = 2 [(metadata) = { exit_code: 36 }];
     DOCKER_COMMAND_FAILURE = 3 [(metadata) = { exit_code: 1 }];
     NO_DOCKER_IMAGE = 4 [(metadata) = { exit_code: 1 }];
     DOCKER_IMAGE_PREPARATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
@@ -722,6 +723,7 @@ message Sandbox {
     MOUNT_SOURCE_TARGET_TYPE_MISMATCH = 8 [(metadata) = { exit_code: 1 }];
     MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
     SUBPROCESS_START_FAILED = 10 [(metadata) = { exit_code: 36 }];
+    FORBIDDEN_INPUT = 11 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1123,12 +1125,13 @@ message Worker {
     NO_FLAGFILE = 4 [(metadata) = { exit_code: 1 }];
     VIRTUAL_INPUT_MATERIALIZATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
     BORROW_FAILURE = 6 [(metadata) = { exit_code: 1 }];
-    PREFETCH_FAILURE = 7 [(metadata) = { exit_code: 1 }];
+    PREFETCH_FAILURE = 7 [(metadata) = { exit_code: 36 }];
     PREPARE_FAILURE = 8 [(metadata) = { exit_code: 1 }];
     REQUEST_FAILURE = 9 [(metadata) = { exit_code: 1 }];
     PARSE_RESPONSE_FAILURE = 10 [(metadata) = { exit_code: 1 }];
     NO_RESPONSE = 11 [(metadata) = { exit_code: 1 }];
     FINISH_FAILURE = 12 [(metadata) = { exit_code: 1 }];
+    FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

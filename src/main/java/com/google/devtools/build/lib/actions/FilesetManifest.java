@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,9 +37,7 @@ public final class FilesetManifest {
   private static final int MAX_SYMLINK_TRAVERSALS = 256;
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /**
-   * Mode that determines how to handle relative target paths.
-   */
+  /** Mode that determines how to handle relative target paths. */
   public enum RelativeSymlinkBehavior {
     /** Ignore any relative target paths. */
     IGNORE,
@@ -52,14 +49,58 @@ public final class FilesetManifest {
     RESOLVE,
 
     /** Fully resolve all relative paths, even those pointing to internal directories. */
-    RESOLVE_FULLY;
+    RESOLVE_FULLY
+  }
+
+  /**
+   * Shadow of {@link RelativeSymlinkBehavior} without the {@link RelativeSymlinkBehavior#ERROR}
+   * value for callers who know there won't be an error thrown when constructing the manifest.
+   */
+  public enum RelativeSymlinkBehaviorWithoutError {
+    /** Ignore any relative target paths. */
+    IGNORE(RelativeSymlinkBehavior.IGNORE),
+
+    /** Resolve all relative target paths. */
+    RESOLVE(RelativeSymlinkBehavior.RESOLVE),
+
+    /** Fully resolve all relative paths, even those pointing to internal directories. */
+    RESOLVE_FULLY(RelativeSymlinkBehavior.RESOLVE_FULLY);
+
+    private final RelativeSymlinkBehavior target;
+
+    RelativeSymlinkBehaviorWithoutError(RelativeSymlinkBehavior target) {
+      this.target = target;
+    }
+  }
+
+  /**
+   * Constructs a FilesetManifest from the given {@code outputSymlinks}, processing relative
+   * symlinks according to {@code relSymlinkBehavior}. Use when {@link
+   * RelativeSymlinkBehavior#ERROR} is guaranteed not to be the behavior.
+   */
+  public static FilesetManifest constructFilesetManifestWithoutError(
+      List<FilesetOutputSymlink> outputSymlinks,
+      PathFragment targetPrefix,
+      RelativeSymlinkBehaviorWithoutError relSymlinkBehavior) {
+    try {
+      return constructFilesetManifest(outputSymlinks, targetPrefix, relSymlinkBehavior.target);
+    } catch (ForbiddenRelativeSymlinkException e) {
+      throw new IllegalStateException(
+          "Can't throw forbidden symlink exception unless behavior is ERROR: "
+              + relSymlinkBehavior
+              + ", "
+              + targetPrefix
+              + ", "
+              + outputSymlinks,
+          e);
+    }
   }
 
   public static FilesetManifest constructFilesetManifest(
       List<FilesetOutputSymlink> outputSymlinks,
       PathFragment targetPrefix,
       RelativeSymlinkBehavior relSymlinkBehavior)
-      throws IOException {
+      throws ForbiddenRelativeSymlinkException {
     LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
     Map<PathFragment, String> relativeLinks = new HashMap<>();
     Map<String, FileArtifactValue> artifactValues = new HashMap<>();
@@ -91,12 +132,10 @@ public final class FilesetManifest {
       PathFragment fullLocation,
       RelativeSymlinkBehavior relSymlinkBehavior,
       Map<PathFragment, String> relativeLinks)
-      throws IOException {
+      throws ForbiddenRelativeSymlinkException {
     switch (relSymlinkBehavior) {
       case ERROR:
-        IOException ioException = new IOException("runfiles target is not absolute: " + artifact);
-        BugReport.sendBugReport(ioException);
-        throw ioException;
+        throw new ForbiddenRelativeSymlinkException(artifact);
       case RESOLVE:
       case RESOLVE_FULLY:
         if (!relativeLinks.containsKey(fullLocation)) { // Keep consistent behavior: no overwriting.
@@ -110,8 +149,9 @@ public final class FilesetManifest {
 
   /** Fully resolve relative symlinks including internal directory symlinks. */
   private static void fullyResolveRelativeSymlinks(
-      Map<PathFragment, String> entries, Map<PathFragment, String> relativeLinks, boolean absolute)
-      throws IOException {
+      Map<PathFragment, String> entries,
+      Map<PathFragment, String> relativeLinks,
+      boolean absolute) {
     try {
       // Construct an in-memory Filesystem containing all the non-relative-symlink entries in the
       // Fileset. Treat these as regular files in the filesystem whose contents are the "real"
@@ -141,15 +181,7 @@ public final class FilesetManifest {
 
       addSymlinks(root, entries, absolute);
     } catch (IOException e) {
-      // TODO(janakr): make this crash hard if there are no bug reports.
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "Unexpected IOException from InMemoryFileSystem operations for "
-                  + entries
-                  + " with "
-                  + relativeLinks,
-              e));
-      throw e;
+      throw new IllegalStateException("InMemoryFileSystem can't throw", e);
     }
   }
 
@@ -181,8 +213,7 @@ public final class FilesetManifest {
       Map<PathFragment, String> entries,
       Map<PathFragment, String> relativeLinks,
       boolean absolute,
-      RelativeSymlinkBehavior relSymlinkBehavior)
-      throws IOException {
+      RelativeSymlinkBehavior relSymlinkBehavior) {
     if (relSymlinkBehavior == RelativeSymlinkBehavior.RESOLVE_FULLY && !relativeLinks.isEmpty()) {
       fullyResolveRelativeSymlinks(entries, relativeLinks, absolute);
     } else if (relSymlinkBehavior == RelativeSymlinkBehavior.RESOLVE) {
@@ -257,5 +288,13 @@ public final class FilesetManifest {
    */
   public Map<String, FileArtifactValue> getArtifactValues() {
     return artifactValues;
+  }
+
+  /** Exception indicating that a relative symlink was encountered but not permitted. */
+  public static final class ForbiddenRelativeSymlinkException
+      extends ForbiddenActionInputException {
+    private ForbiddenRelativeSymlinkException(String symlinkTarget) {
+      super("Fileset symlink " + symlinkTarget + " is not absolute");
+    }
   }
 }

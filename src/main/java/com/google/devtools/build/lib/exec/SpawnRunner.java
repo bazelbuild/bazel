@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -159,7 +160,7 @@ public interface SpawnRunner {
      * again. I suppose we could require implementations to memoize getInputMapping (but not compute
      * it eagerly), and that may change in the future.
      */
-    void prefetchInputs() throws IOException, InterruptedException;
+    void prefetchInputs() throws IOException, InterruptedException, ForbiddenActionInputException;
 
     /**
      * The input file metadata cache for this specific spawn, which can be used to efficiently
@@ -210,7 +211,7 @@ public interface SpawnRunner {
      * is not the same as the execroot.
      */
     SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
-        throws IOException;
+        throws IOException, ForbiddenActionInputException;
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus state, String name);
@@ -247,7 +248,7 @@ public interface SpawnRunner {
    * @throws ExecException if the request is malformed
    */
   default FutureSpawn execAsync(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException {
+      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
     // TODO(ulfjack): Remove this default implementation. [exec-async]
     return FutureSpawn.immediate(exec(spawn, context));
   }
@@ -264,7 +265,7 @@ public interface SpawnRunner {
    * @throws ExecException if the request is malformed
    */
   SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException;
+      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException;
 
   /** Returns whether this SpawnRunner supports executing the given Spawn. */
   boolean canExec(Spawn spawn);

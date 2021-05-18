@@ -54,7 +54,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -240,20 +239,16 @@ public final class CompletionFunction<
     }
 
     final CompletionContext ctx;
-    try {
-      ctx =
-          CompletionContext.create(
-              expandedArtifacts,
-              expandedFilesets,
-              key.topLevelArtifactContext().expandFilesets(),
-              key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
-              inputMap,
-              pathResolverFactory,
-              skyframeActionExecutor.getExecRoot(),
-              workspaceNameValue.getName());
-    } catch (IOException e) {
-      throw new CompletionFunctionException(e);
-    }
+    ctx =
+        CompletionContext.create(
+            expandedArtifacts,
+            expandedFilesets,
+            key.topLevelArtifactContext().expandFilesets(),
+            key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
+            inputMap,
+            pathResolverFactory,
+            skyframeActionExecutor.getExecRoot(),
+            workspaceNameValue.getName());
 
     if (!rootCauses.isEmpty()) {
       ImmutableMap<String, ArtifactsInOutputGroup> builtOutputs =
@@ -336,7 +331,6 @@ public final class CompletionFunction<
   }
 
   private static final class CompletionFunctionException extends SkyFunctionException {
-
     private final ActionExecutionException actionException;
 
     CompletionFunctionException(ActionExecutionException e) {
@@ -347,11 +341,6 @@ public final class CompletionFunction<
     CompletionFunctionException(InputFileErrorException e) {
       // Not transient from the point of view of this SkyFunction.
       super(e, Transience.PERSISTENT);
-      this.actionException = null;
-    }
-
-    CompletionFunctionException(IOException e) {
-      super(e, Transience.TRANSIENT);
       this.actionException = null;
     }
 

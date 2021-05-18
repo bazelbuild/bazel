@@ -356,21 +356,11 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
-      Action action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector metadataInjector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
-      throws ActionExecutionException {
-    try {
-      outputService.updateActionFileSystemContext(
-          actionFileSystem, env, metadataInjector, filesets);
-    } catch (IOException e) {
-      String message = "Failed to update filesystem context: " + e.getMessage();
-      DetailedExitCode code =
-          createDetailedExitCode(message, Code.FILESYSTEM_CONTEXT_UPDATE_FAILURE);
-      throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
-    }
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+    outputService.updateActionFileSystemContext(actionFileSystem, env, metadataInjector, filesets);
   }
 
   void executionOver() {
@@ -466,8 +456,7 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(
-          action, actionFileSystem, env, metadataHandler, expandedFilesets);
+      updateActionFileSystemContext(actionFileSystem, env, metadataHandler, expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -787,7 +776,6 @@ public final class SkyframeActionExecutor {
             syscalls.get());
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action,
           actionFileSystem,
           env,
           THROWING_METADATA_INJECTOR_FOR_ACTIONFS,

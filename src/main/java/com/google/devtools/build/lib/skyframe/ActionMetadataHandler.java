@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
+import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -203,22 +203,15 @@ final class ActionMetadataHandler implements MetadataHandler {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets, PathFragment execRoot) {
     Map<PathFragment, FileArtifactValue> filesetMap = new HashMap<>();
     for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry : filesets.entrySet()) {
-      try {
-        FilesetManifest fileset =
-            FilesetManifest.constructFilesetManifest(
-                entry.getValue(), execRoot, RelativeSymlinkBehavior.RESOLVE);
+      FilesetManifest fileset =
+          FilesetManifest.constructFilesetManifestWithoutError(
+              entry.getValue(), execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
         for (Map.Entry<String, FileArtifactValue> favEntry :
             fileset.getArtifactValues().entrySet()) {
           if (favEntry.getValue().getDigest() != null) {
             filesetMap.put(PathFragment.create(favEntry.getKey()), favEntry.getValue());
           }
         }
-      } catch (IOException e) {
-        // If we cannot get the FileArtifactValue, then we will make a FileSystem call to get the
-        // digest, so it is okay to skip and continue here.
-        logger.atWarning().withCause(e).log(
-            "Could not properly get digest for %s", entry.getKey().getExecPath());
-      }
     }
     return ImmutableMap.copyOf(filesetMap);
   }

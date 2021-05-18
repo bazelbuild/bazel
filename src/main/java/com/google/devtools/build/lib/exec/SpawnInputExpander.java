@@ -25,8 +25,10 @@ import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
+import com.google.devtools.build.lib.actions.FilesetManifest.ForbiddenRelativeSymlinkException;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -110,7 +112,7 @@ public class SpawnInputExpander {
       MetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory)
-      throws IOException {
+      throws IOException, ForbiddenActionInputException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
         runfilesSupplier.getMappings();
 
@@ -161,7 +163,7 @@ public class SpawnInputExpander {
       MetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory)
-      throws IOException {
+      throws IOException, ForbiddenActionInputException {
     Map<PathFragment, ActionInput> inputMap = new HashMap<>();
     addRunfilesToInputs(
         inputMap, runfilesSupplier, actionFileCache, artifactExpander, baseDirectory);
@@ -169,10 +171,10 @@ public class SpawnInputExpander {
   }
 
   private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
-      throws IOException {
+      throws IOException, ForbiddenActionInputException {
     FileArtifactValue metadata = actionFileCache.getMetadata(input);
     if (metadata != null && !metadata.getType().isFile()) {
-      throw new IOException("Not a file: " + input.getExecPathString());
+      throw new ForbiddenNonFileException(input);
     }
   }
 
@@ -181,7 +183,7 @@ public class SpawnInputExpander {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       Map<PathFragment, ActionInput> inputMappings,
       PathFragment baseDirectory)
-      throws IOException {
+      throws ForbiddenRelativeSymlinkException {
     for (Artifact fileset : filesetMappings.keySet()) {
       addFilesetManifest(
           fileset.getExecPath(),
@@ -198,7 +200,7 @@ public class SpawnInputExpander {
       ImmutableList<FilesetOutputSymlink> filesetLinks,
       Map<PathFragment, ActionInput> inputMappings,
       PathFragment baseDirectory)
-      throws IOException {
+      throws ForbiddenRelativeSymlinkException {
     Preconditions.checkState(filesetArtifact.isFileset(), filesetArtifact);
     FilesetManifest filesetManifest =
         FilesetManifest.constructFilesetManifest(filesetLinks, location, relSymlinkBehavior);
@@ -230,9 +232,7 @@ public class SpawnInputExpander {
    * {@link ActionInput}s. The returned map does not contain tree artifacts as they are expanded to
    * file artifacts.
    *
-   * <p>The returned map never contains {@code null} values; it uses {@link #EMPTY_FILE} for empty
-   * files, which is an instance of {@link
-   * com.google.devtools.build.lib.actions.cache.VirtualActionInput}.
+   * <p>The returned map never contains {@code null} values.
    *
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    */
@@ -241,7 +241,7 @@ public class SpawnInputExpander {
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory,
       MetadataProvider actionInputFileCache)
-      throws IOException {
+      throws IOException, ForbiddenActionInputException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(inputMap, spawn, artifactExpander, baseDirectory);
     addRunfilesToInputs(
@@ -252,5 +252,15 @@ public class SpawnInputExpander {
         baseDirectory);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap, baseDirectory);
     return inputMap;
+  }
+
+  /**
+   * Exception signaling that an input was not a regular file: most likely a directory. This
+   * exception is currently never thrown in practice since we do not enforce "strict" mode.
+   */
+  private static final class ForbiddenNonFileException extends ForbiddenActionInputException {
+    ForbiddenNonFileException(ActionInput input) {
+      super("Not a file: " + input.getExecPathString());
+    }
   }
 }

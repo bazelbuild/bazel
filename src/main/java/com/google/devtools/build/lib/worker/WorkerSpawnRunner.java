@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
@@ -139,7 +140,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException, ForbiddenActionInputException {
     context.report(
         ProgressStatus.SCHEDULING,
         WorkerKey.makeWorkerTypeName(
@@ -400,6 +401,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
         restoreInterrupt(e);
         String message = "IOException while prefetching for worker:";
         throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
+      } catch (ForbiddenActionInputException e) {
+        throw createUserExecException(
+            e, "Forbidden input found while prefetching for worker:", Code.FORBIDDEN_INPUT);
       }
       Duration setupInputsTime = setupInputsStopwatch.elapsed();
 
@@ -595,6 +599,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private static UserExecException createUserExecException(
       IOException e, String message, Code detailedCode) {
+    return createUserExecException(
+        ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
+  }
+
+  private static UserExecException createUserExecException(
+      ForbiddenActionInputException e, String message, Code detailedCode) {
     return createUserExecException(
         ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
   }

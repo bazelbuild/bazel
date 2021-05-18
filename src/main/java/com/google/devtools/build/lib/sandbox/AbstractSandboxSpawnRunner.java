@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -91,6 +92,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           createFailureDetail(
               "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
       throw new UserExecException(e, failureDetail);
+    } catch (ForbiddenActionInputException e) {
+      FailureDetail failureDetail =
+          createFailureDetail(
+              "Forbidden input found during sandboxed execution", Code.FORBIDDEN_INPUT);
+      throw new UserExecException(e, failureDetail);
     }
   }
 
@@ -105,11 +111,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException;
+      throws IOException, ExecException, InterruptedException, ForbiddenActionInputException;
 
   private SpawnResult runSpawn(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException, InterruptedException {
+      throws IOException, ForbiddenActionInputException, InterruptedException {
     try {
       try (SilentCloseable c = Profiler.instance().profile("sandbox.createFileSystem")) {
         sandbox.createFileSystem();

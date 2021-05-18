@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -113,7 +114,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
-      throws IOException {
+      throws IOException, ForbiddenActionInputException {
     return new SpawnInputExpander(execRoot, /*strict*/ false)
         .getInputMapping(spawn, this::artifactExpander, baseDirectory, metadataProvider);
   }
