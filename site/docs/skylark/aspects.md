@@ -151,7 +151,8 @@ does not provide anything, so it returns an empty list.
 
 The simplest way to apply an aspect is from the command line using the
 [`--aspects`](../command-line-reference.html#flag--aspects)
-argument. Assuming the rule above were defined in a file named `print.bzl` this:
+argument. Assuming the aspect above were defined in a file named `print.bzl`
+this:
 
 ```bash
 bazel build //MyExample:example --aspects print.bzl%print_aspect
@@ -332,7 +333,7 @@ The parameters and private attributes are passed in the attributes of the
 what files to count.
 
 For returning providers, the values of attributes along which
-the aspect is propagated (from the `attr_aspect` list) are replaced with
+the aspect is propagated (from the `attr_aspects` list) are replaced with
 the results of an application of the aspect to them. For example, if target
 X has Y and Z in its deps, `ctx.rule.attr.deps` for A(X) will be [A(Y), A(Z)].
 In this example, ``ctx.rule.attr.deps`` are Target objects that are the
