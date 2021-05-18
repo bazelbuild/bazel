@@ -118,7 +118,8 @@ EOF
       fail "Timestamp of contents of archive file should be zero"
 }
 
-function test_strip_symbols() {
+# Verifies that unused code is dead stripped with `-c opt`.
+function test_symbols_dead_stripped_opt() {
   setup_objc_test_support
 
   rm -rf ios
@@ -131,9 +132,94 @@ int addOne(int num);
 int addOne(int num) {
   return num + 1;
 }
- int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
   NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
   int retVal = UIApplicationMain(argc, argv, nil, nil);
+  [pool release];
+  return retVal;
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+apple_binary(name = 'app',
+             deps = [':main'],
+             platform_type = 'ios')
+objc_library(name = 'main',
+             non_arc_srcs = ['main.m'])
+EOF
+
+  bazel build --verbose_failures \
+      --apple_platform_type=ios \
+      --ios_sdk_version=$IOS_SDK_VERSION \
+      --compilation_mode=opt \
+      //ios:app >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin \
+    || fail "should generate lipobin (stripped binary)"
+  ! nm bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin | grep addOne \
+    || fail "should fail to find symbol addOne"
+}
+
+# Verifies that unused code is *not* dead stripped with `-c dbg`.
+function test_symbols_not_dead_stripped_dbg() {
+  setup_objc_test_support
+
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.m <<EOF
+#import <UIKit/UIKit.h>
+
+/* function declaration */
+int addOne(int num);
+int addOne(int num) {
+  return num + 1;
+}
+int main(int argc, char *argv[]) {
+  NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+  int retVal = UIApplicationMain(argc, argv, nil, nil);
+  [pool release];
+  return retVal;
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+apple_binary(name = 'app',
+             deps = [':main'],
+             platform_type = 'ios')
+objc_library(name = 'main',
+             non_arc_srcs = ['main.m'])
+EOF
+
+  bazel build --verbose_failures \
+      --apple_platform_type=ios \
+      --ios_sdk_version=$IOS_SDK_VERSION \
+      --compilation_mode=dbg \
+      //ios:app >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-out/apl-ios_x86_64-dbg/bin/ios/app_lipobin \
+    || fail "should generate lipobin"
+  nm bazel-out/apl-ios_x86_64-dbg/bin/ios/app_lipobin | grep addOne \
+    || fail "should find symbol addOne"
+}
+
+# Verifies that symbols are stripped with `objc_enable_binary_stripping` and `-c opt`.
+function test_symbols_stripped_opt_with_objc_enable_binary_stripping() {
+  setup_objc_test_support
+
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.m <<EOF
+#import <UIKit/UIKit.h>
+
+/* function declaration */
+int addOne(int num) __attribute__((noinline));
+int addOne(int num) {
+  return num + 1;
+}
+int main(int argc, char *argv[]) {
+  NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+  int retVal = UIApplicationMain(argc, argv, nil, nil);
+  NSLog(@"%d", addOne(2));
   [pool release];
   return retVal;
 }
@@ -157,6 +243,94 @@ EOF
     || fail "should generate lipobin (stripped binary)"
   ! nm bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin | grep addOne \
     || fail "should fail to find symbol addOne"
+}
+
+# Verifies that symbols are not stripped with just `-c opt`.
+function test_symbols_not_stripped_opt() {
+  setup_objc_test_support
+
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.m <<EOF
+#import <UIKit/UIKit.h>
+
+/* function declaration */
+int addOne(int num) __attribute__((noinline));
+int addOne(int num) {
+  return num + 1;
+}
+int main(int argc, char *argv[]) {
+  NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+  int retVal = UIApplicationMain(argc, argv, nil, nil);
+  NSLog(@"%d", addOne(2));
+  [pool release];
+  return retVal;
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+apple_binary(name = 'app',
+             deps = [':main'],
+             platform_type = 'ios')
+objc_library(name = 'main',
+             non_arc_srcs = ['main.m'])
+EOF
+
+  bazel build --verbose_failures \
+      --apple_platform_type=ios \
+      --ios_sdk_version=$IOS_SDK_VERSION \
+      --compilation_mode=opt \
+      //ios:app >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin \
+    || fail "should generate lipobin (stripped binary)"
+  nm bazel-out/apl-ios_x86_64-opt/bin/ios/app_lipobin | grep addOne \
+    || fail "should fail to find symbol addOne"
+}
+
+
+# Verifies that symbols are not stripped with `objc_enable_binary_stripping` and `-c dbg`.
+function test_symbols_not_stripped_dbg() {
+  setup_objc_test_support
+
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.m <<EOF
+#import <UIKit/UIKit.h>
+
+/* function declaration */
+int addOne(int num) __attribute__((noinline));
+int addOne(int num) {
+  return num + 1;
+}
+int main(int argc, char *argv[]) {
+  NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+  int retVal = UIApplicationMain(argc, argv, nil, nil);
+  NSLog(@"%d", addOne(2));
+  [pool release];
+  return retVal;
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+apple_binary(name = 'app',
+             deps = [':main'],
+             platform_type = 'ios')
+objc_library(name = 'main',
+             non_arc_srcs = ['main.m'])
+EOF
+
+  bazel build --verbose_failures \
+      --apple_platform_type=ios \
+      --ios_sdk_version=$IOS_SDK_VERSION \
+      --objc_enable_binary_stripping=true \
+      --compilation_mode=dbg \
+      //ios:app >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-out/apl-ios_x86_64-dbg/bin/ios/app_lipobin \
+    || fail "should generate lipobin"
+  nm bazel-out/apl-ios_x86_64-dbg/bin/ios/app_lipobin | grep addOne \
+    || fail "should find symbol addOne"
 }
 
 function test_cc_test_depending_on_objc() {
