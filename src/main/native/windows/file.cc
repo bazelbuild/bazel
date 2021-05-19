@@ -21,6 +21,7 @@
 #include <WinIoCtl.h>
 #include <stdint.h>  // uint8_t
 #include <windows.h>
+#include <versionhelpers.h>
 
 #include <memory>
 #include <sstream>
@@ -39,17 +40,22 @@ namespace windows {
 using std::unique_ptr;
 using std::wstring;
 
-bool IsDeveloperModeEnabled() {
+DWORD DetermineSymlinkPrivilegeFlag() {
   DWORD val = 0;
   DWORD valSize = sizeof(val);
-  if (RegGetValueW(
+  if (// The unprivileged create flag was introduced in Windows 10 build 14972:
+      // https://blogs.windows.com/windowsdeveloper/2016/12/02/symlinks-windows-10/
+      !IsWindowsVersionOrGreater(10, 0, 14972)
+      // Check if developer mode is disabled:
+      || RegGetValueW(
           HKEY_LOCAL_MACHINE,
           L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
           L"AllowDevelopmentWithoutDevLicense", RRF_RT_DWORD, nullptr, &val,
-          &valSize) != ERROR_SUCCESS) {
-    return false;
+          &valSize) != ERROR_SUCCESS
+      || val == 0) {
+    return 0;
   }
-  return val != 0;
+  return SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
 }
 
 

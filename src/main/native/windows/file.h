@@ -27,8 +27,6 @@
 #include <memory>
 #include <string>
 
-#pragma comment(lib, "advapi32.lib") //RegGetValueW
-
 namespace bazel {
 namespace windows {
 
@@ -37,13 +35,13 @@ using std::wstring;
 
 bool IsDeveloperModeEnabled();
 
+DWORD DetermineSymlinkPrivilegeFlag();
+
 // The flag SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE requires
 // developer mode to be enabled. If it is not enabled, or the current
 // version of Windows does not support it, do not use the flag.
 // The process will need to be run with elevated privileges.
-const DWORD symlinkPrivilegeFlag = IsDeveloperModeEnabled()
-    ? SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
-    : 0;
+const DWORD symlinkPrivilegeFlag = DetermineSymlinkPrivilegeFlag();
 
 template <typename char_type>
 bool HasUncPrefix(const char_type* path) {
