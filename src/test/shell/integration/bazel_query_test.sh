@@ -956,6 +956,36 @@ function test_query_failure_exit_code_behavior() {
   assert_equals 7 "$exit_code"
 }
 
+function test_query_environment_keep_going_does_not_fail() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "a", deps = [":b", "//other:doesnotexist"])
+sh_library(name = "b")
+EOF
+
+  # Ensure that --keep_going works for both graphless and non-graphless blaze
+  # query environments for each function.
+  for incompatible in "--incompatible" "--noincompatible"
+  do
+    for command in \
+        "somepath(//foo:a, //foo:b)" \
+        "deps(//foo:a)" \
+        "rdeps(//foo:a, //foo:b)" \
+        "allpaths(//foo:a, //foo:b)"
+    do
+      bazel query "$incompatible"_lexicographical_output --keep_going \
+        --output=label_kind "$command" \
+        >& "$TEST_log" && fail "Expected failure"
+      exit_code="$?"
+      assert_equals 3 $exit_code
+      expect_log "sh_library rule //foo:a"
+      expect_log "sh_library rule //foo:b"
+      expect_log "errors were encountered while computing transitive closure"
+    done
+  done
+}
+
 function test_unnecessary_external_workspaces_not_loaded() {
   cat > WORKSPACE <<'EOF'
 local_repository(

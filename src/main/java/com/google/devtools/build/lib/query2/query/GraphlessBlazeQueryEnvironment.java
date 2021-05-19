@@ -259,13 +259,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(from, /*maxDepth=*/ Integer.MAX_VALUE);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter).somePath(eventHandler, from, to));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(
-          caller, e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .somePath(eventHandler, from, to);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override
@@ -275,12 +278,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(from, /*maxDepth=*/ Integer.MAX_VALUE);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter).allPaths(eventHandler, from, to));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .allPaths(eventHandler, from, to);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override
@@ -294,13 +301,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(targetsToPreload, /*maxDepth=*/ 1);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter)
-              .samePkgDirectRdeps(eventHandler, from));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .samePkgDirectRdeps(eventHandler, from);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override
@@ -314,13 +324,16 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
       preloadTransitiveClosure(universe, maxDepth);
     }
-    try {
-      callback.process(
-          new PathLabelVisitor(targetProvider, dependencyFilter)
-              .rdeps(eventHandler, from, universe, maxDepth));
-    } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    Iterable<Target> results =
+        new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
+            .rdeps(eventHandler, from, universe, maxDepth);
+    if (errorObserver.hasErrors()) {
+      handleError(
+          caller,
+          "errors were encountered while computing transitive closure",
+          errorObserver.getDetailedExitCode());
     }
+    callback.process(results);
   }
 
   @Override

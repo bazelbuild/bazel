@@ -44,6 +44,7 @@ import javax.annotation.Nullable;
 final class PathLabelVisitor {
   private final TargetProvider targetProvider;
   private final DependencyFilter edgeFilter;
+  private final TargetEdgeErrorObserver errorObserver;
 
   /**
    * Construct a PathLabelVisitor.
@@ -51,14 +52,18 @@ final class PathLabelVisitor {
    * @param targetProvider how to resolve labels to targets
    * @param edgeFilter which edges may be traversed
    */
-  public PathLabelVisitor(TargetProvider targetProvider, DependencyFilter edgeFilter) {
+  public PathLabelVisitor(
+      TargetProvider targetProvider,
+      DependencyFilter edgeFilter,
+      TargetEdgeErrorObserver errorObserver) {
     this.targetProvider = targetProvider;
     this.edgeFilter = edgeFilter;
+    this.errorObserver = errorObserver;
   }
 
   public Iterable<Target> somePath(
       ExtendedEventHandler eventHandler, Iterable<Target> from, Iterable<Target> to)
-      throws NoSuchThingException, InterruptedException {
+      throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.SOMEPATH);
     // TODO(ulfjack): It might be faster to stop the visitation once we see any 'to' Target.
     visitor.visitTargets(from);
@@ -83,7 +88,7 @@ final class PathLabelVisitor {
 
   public Iterable<Target> allPaths(
       ExtendedEventHandler eventHandler, Iterable<Target> from, Iterable<Target> to)
-      throws NoSuchThingException, InterruptedException {
+      throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
     visitor.visitTargets(from);
     Set<Target> result = new HashSet<>();
@@ -107,8 +112,7 @@ final class PathLabelVisitor {
   }
 
   public Iterable<Target> samePkgDirectRdeps(
-      ExtendedEventHandler eventHandler, Iterable<Target> from)
-      throws NoSuchThingException, InterruptedException {
+      ExtendedEventHandler eventHandler, Iterable<Target> from) throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.SAME_PKG_DIRECT_RDEPS);
     for (Target t : from) {
       visitor.visitTargets(t.getPackage().getTargets().values());
@@ -128,7 +132,7 @@ final class PathLabelVisitor {
       Iterable<Target> from,
       Iterable<Target> universe,
       int depth)
-      throws NoSuchThingException, InterruptedException {
+      throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
     visitor.visitTargets(universe);
 
@@ -216,14 +220,17 @@ final class PathLabelVisitor {
      * @param targets the targets to visit
      */
     @ThreadSafe
-    private void visitTargets(Iterable<Target> targets)
-        throws InterruptedException, NoSuchThingException {
+    private void visitTargets(Iterable<Target> targets) throws InterruptedException {
       for (Target t : targets) {
         enqueue(null, null, t);
       }
       while (!workQueue.isEmpty()) {
         Visit visit = workQueue.remove();
-        visit(visit.from, visit.attribute, visit.target);
+        try {
+          visit(visit.from, visit.attribute, visit.target);
+        } catch (NoSuchThingException e) {
+          errorObserver.missingEdge(visit.from, visit.target.getLabel(), e);
+        }
       }
     }
 
