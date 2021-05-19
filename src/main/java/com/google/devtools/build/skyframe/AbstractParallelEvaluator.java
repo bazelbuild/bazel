@@ -134,7 +134,8 @@ abstract class AbstractParallelEvaluator {
                     AbstractQueueVisitor.createExecutorService(
                         /*parallelism=*/ cpuHeavySkyKeysThreadPoolSize,
                         "skyframe-evaluator-cpu-heavy",
-                        /*useForkJoinPool=*/ false), // FJP resulted in a small regression.
+                        // FJP performs much better on machines with many cores.
+                        /*useForkJoinPool=*/ true),
                     /*failFastOnException=*/ true,
                     NodeEntryVisitor.NODE_ENTRY_VISITOR_ERROR_CLASSIFIER)
             : () ->
