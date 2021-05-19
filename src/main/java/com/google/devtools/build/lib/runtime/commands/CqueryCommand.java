@@ -48,7 +48,12 @@ import java.util.Set;
 @Command(
   name = "cquery",
   builds = true,
-  inherits = {BuildCommand.class},
+  // We inherit from TestCommand so that we pick up changes like `test --test_arg=foo` in .bazelrc
+  // files.
+  // Without doing this, there is no easy way to use the output of cquery to determine whether a
+  // test has changed between two invocations, because the testrunner action is not easily
+  // introspectable.
+  inherits = {TestCommand.class},
   options = {CqueryOptions.class},
   usesConfigurationOptions = true,
   shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
