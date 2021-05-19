@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.*;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
@@ -82,7 +82,7 @@ public class RemoteExecutionService {
   private final String commandId;
   private final DigestUtil digestUtil;
   private final RemoteOptions remoteOptions;
-  private final RemoteCache remoteCache;
+  @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final ImmutableSet<ActionInput> filesToDownload;
 
@@ -93,7 +93,7 @@ public class RemoteExecutionService {
       String commandId,
       DigestUtil digestUtil,
       RemoteOptions remoteOptions,
-      RemoteCache remoteCache,
+      @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       ImmutableSet<ActionInput> filesToDownload) {
     this.execRoot = execRoot;
@@ -212,6 +212,16 @@ public class RemoteExecutionService {
     public NetworkTime getNetworkTime() {
       return remoteActionExecutionContext.getNetworkTime();
     }
+  }
+
+  /** Returns {@code true} if the result of spawn may be cached remotely. */
+  public boolean mayBeCachedRemotely(Spawn spawn) {
+    return remoteCache != null && Spawns.mayBeCached(spawn) && Spawns.mayBeCachedRemotely(spawn);
+  }
+
+  /** Returns {@code true} if the spawn may be executed remotely. */
+  public boolean mayBeExecutedRemotely(Spawn spawn) {
+    return remoteCache != null && remoteExecutor != null && Spawns.mayBeExecutedRemotely(spawn);
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
@@ -335,6 +345,7 @@ public class RemoteExecutionService {
   @Nullable
   public RemoteActionResult lookupCache(RemoteAction action)
       throws IOException, InterruptedException {
+    checkNotNull(remoteCache, "remoteCache");
     ActionResult actionResult =
         remoteCache.downloadActionResult(
             action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
@@ -350,6 +361,7 @@ public class RemoteExecutionService {
   @Nullable
   public InMemoryOutput downloadOutputs(RemoteAction action, RemoteActionResult result)
       throws InterruptedException, IOException, ExecException {
+    checkNotNull(remoteCache, "remoteCache");
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     boolean downloadOutputs =
         shouldDownloadAllSpawnOutputs(
@@ -384,6 +396,7 @@ public class RemoteExecutionService {
   /** Upload outputs of a remote action which was executed locally to remote cache. */
   public void uploadOutputs(RemoteAction action)
       throws InterruptedException, IOException, ExecException {
+    checkNotNull(remoteCache, "remoteCache");
     Collection<Path> outputFiles =
         action.spawn.getOutputFiles().stream()
             .map((inp) -> execRoot.getRelative(inp.getExecPath()))
@@ -405,7 +418,8 @@ public class RemoteExecutionService {
    */
   public void uploadInputsIfNotPresent(RemoteAction action)
       throws IOException, InterruptedException {
-    Preconditions.checkState(remoteCache instanceof RemoteExecutionCache);
+    checkNotNull(remoteCache, "remoteCache");
+    checkState(remoteCache instanceof RemoteExecutionCache);
     RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) remoteCache;
     // Upload the command and all the inputs into the remote cache.
     Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
@@ -424,7 +438,7 @@ public class RemoteExecutionService {
   public RemoteActionResult execute(
       RemoteAction action, boolean acceptCachedResult, OperationObserver observer)
       throws IOException, InterruptedException {
-    Preconditions.checkNotNull(remoteExecutor, "remoteExecutor");
+    checkNotNull(remoteExecutor, "remoteExecutor");
 
     ExecuteRequest.Builder requestBuilder =
         ExecuteRequest.newBuilder()
@@ -458,6 +472,7 @@ public class RemoteExecutionService {
   /** Downloads server logs from a remotely executed action if any. */
   public ServerLogs maybeDownloadServerLogs(RemoteAction action, ExecuteResponse resp, Path logDir)
       throws InterruptedException, IOException {
+    checkNotNull(remoteCache, "remoteCache");
     ServerLogs serverLogs = new ServerLogs();
     serverLogs.directory = logDir.getRelative(action.getActionId());
 

@@ -53,10 +53,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
-import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
-import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.*;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -269,6 +266,7 @@ public final class RemoteModule extends BlazeModule {
 
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
       // Quit if no remote caching or execution was enabled.
+      actionContextProvider = RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
       return;
     }
 
@@ -459,6 +457,7 @@ public final class RemoteModule extends BlazeModule {
           errorMessage += System.lineSeparator() + Throwables.getStackTraceAsString(e);
         }
         env.getReporter().handle(Event.warn(errorMessage));
+        actionContextProvider = RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
         return;
       } else {
         if (verboseFailures) {
@@ -779,7 +778,7 @@ public final class RemoteModule extends BlazeModule {
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     registryBuilder.setRemoteLocalFallbackStrategyIdentifier(
         remoteOptions.remoteLocalFallbackStrategy);
-    actionContextProvider.registerRemoteSpawnStrategyIfApplicable(registryBuilder);
+    actionContextProvider.registerRemoteSpawnStrategy(registryBuilder);
   }
 
   @Override
