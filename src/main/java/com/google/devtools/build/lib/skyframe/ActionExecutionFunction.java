@@ -984,7 +984,7 @@ public class ActionExecutionFunction implements SkyFunction {
       }
       if (retrievedMetadata instanceof TreeArtifactValue) {
         TreeArtifactValue treeValue = (TreeArtifactValue) retrievedMetadata;
-        expandedArtifacts.put(input, ImmutableSet.copyOf(treeValue.getChildren()));
+        expandedArtifacts.put(input, treeValue.getChildren());
         for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
             treeValue.getChildValues().entrySet()) {
           inputData.putWithNoDepOwner(child.getKey(), child.getValue());
