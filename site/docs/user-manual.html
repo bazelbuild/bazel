@@ -933,8 +933,10 @@ the compilation of binaries during the build.
 
 <h4 id='flag--strategy'><code class='flag'>--strategy <var>mnemonic</var>=<var>strategy</var></code></h4>
 <p>
-  This option controls where and how commands are executed, overriding the default setting on a
-  per-mnemonic basis. See
+  This option controls where and how commands are executed, overriding the
+  <code class='flag'><a href="#flag--spawn_strategy">--spawn_strategy</a></code> (and
+  <code class='flag'><a href="#flag--genrule_strategy">--genrule_strategy</a></code> with mnemonic
+  Genrule) on a per-mnemonic basis. See
   <code class='flag'><a href="#flag--spawn_strategy">--spawn_strategy</a></code> for the supported
   strategies and their effects.
 </p>

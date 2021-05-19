@@ -94,7 +94,8 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
               + " list of strategies from highest to lowest priority. For each action Bazel picks"
               + " the strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\". See"
+              + " value is \"remote,worker,sandboxed,local\". This flag overrides the values set"
+              + " by --spawn_strategy (and --genrule_strategy if used with mnemonic Genrule). See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<Map.Entry<String, List<String>>> strategy;
 
