@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINK
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -480,12 +481,46 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         coverageSupportFiles.build());
     common.addGenJarsProvider(builder, javaInfoBuilder, outputs.genClass(), outputs.genSource());
 
-    JavaInfo javaInfo =
-        javaInfoBuilder
-            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addTransitiveOnlyRuntimeJars(common.getDependencies())
-            .build();
+    // This rule specifically _won't_ build deploy_env, so we selectively propagate validations to
+    // filter out deploy_env's if there are any (and otherwise rely on automatic validation
+    // propagation). Note that any validations not propagated here will still be built if and when
+    // deploy_env is built.
+    if (ruleContext.getRule().isAttrDefined("deploy_env", BuildType.LABEL_LIST)) {
+      NestedSetBuilder<Artifact> excluded = NestedSetBuilder.stableOrder();
+      for (OutputGroupInfo outputGroup :
+          ruleContext.getPrerequisites("deploy_env", OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+        NestedSet<Artifact> toExclude = outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
+        if (!toExclude.isEmpty()) {
+          excluded.addTransitive(toExclude);
+        }
+      }
+      if (!excluded.isEmpty()) {
+        NestedSetBuilder<Artifact> validations = NestedSetBuilder.stableOrder();
+        RuleConfiguredTargetBuilder.collectTransitiveValidationOutputGroups(
+            ruleContext,
+            attributeName -> !"deploy_env".equals(attributeName),
+            validations::addTransitive);
+
+        // Likely, deploy_env will overlap with deps/runtime_deps. Unless we're building an
+        // executable (which is rare and somewhat questionable when deploy_env is specified), we can
+        // exclude validations from deploy_env entirely from this rule, since this rule specifically
+        // never builds the referenced code.
+        builder.setPropagateValidationActionOutputGroup(false);
+        if (createExecutable) {
+          // Executable classpath isn't affected by deploy_env, so build all collected validations.
+          builder.addOutputGroup(OutputGroupInfo.VALIDATION, validations.build());
+        } else {
+          // Filter validations similar to JavaTargetAttributes.getRuntimeClassPathForArchive().
+          builder.addOutputGroup(
+              OutputGroupInfo.VALIDATION,
+              NestedSetBuilder.wrap(
+                  Order.STABLE_ORDER,
+                  Iterables.filter(
+                      validations.build().toList(),
+                      Predicates.not(Predicates.in(excluded.build().toSet())))));
+        }
+      }
+    }
 
     Artifact validation =
         AndroidLintActionBuilder.create(
@@ -499,6 +534,13 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       builder.addOutputGroup(
           OutputGroupInfo.VALIDATION, NestedSetBuilder.create(STABLE_ORDER, validation));
     }
+
+    JavaInfo javaInfo =
+        javaInfoBuilder
+            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            .addTransitiveOnlyRuntimeJars(common.getDependencies())
+            .build();
 
     return builder
         .setFilesToBuild(filesToBuild)
