@@ -805,7 +805,7 @@ public final class RemoteModule extends BlazeModule {
         Preconditions.checkNotNull(
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    if (!remoteOutputsMode.downloadAllOutputs()) {
+    if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getBuildRequestId(),

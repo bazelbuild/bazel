@@ -172,6 +172,10 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
     return cache;
   }
 
+  RemoteExecutionClient getRemoteExecutionClient() {
+    return executor;
+  }
+
   void setFilesToDownload(ImmutableSet<ActionInput> topLevelOutputs) {
     this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
   }

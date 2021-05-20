@@ -219,6 +219,11 @@ public class RemoteExecutionService {
     return remoteCache != null && Spawns.mayBeCached(spawn) && Spawns.mayBeCachedRemotely(spawn);
   }
 
+  /** Returns {@code true} if the result of spawn may be cached. */
+  public boolean mayBeCached(Spawn spawn) {
+    return remoteCache != null && Spawns.mayBeCached(spawn);
+  }
+
   /** Returns {@code true} if the spawn may be executed remotely. */
   public boolean mayBeExecutedRemotely(Spawn spawn) {
     return remoteCache != null && remoteExecutor != null && Spawns.mayBeExecutedRemotely(spawn);
