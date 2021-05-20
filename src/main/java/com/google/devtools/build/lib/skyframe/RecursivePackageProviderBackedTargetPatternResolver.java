@@ -68,16 +68,19 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   private final RecursivePackageProvider recursivePackageProvider;
   private final ExtendedEventHandler eventHandler;
   private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
+  private final PackageIdentifierBatchingCallback.Factory packageIdentifierBatchingCallbackFactory;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
       RecursivePackageProvider recursivePackageProvider,
       ExtendedEventHandler eventHandler,
       FilteringPolicy policy,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+      MultisetSemaphore<PackageIdentifier> packageSemaphore,
+      PackageIdentifierBatchingCallback.Factory packageIdentifierBatchingCallbackFactory) {
     this.recursivePackageProvider = recursivePackageProvider;
     this.eventHandler = eventHandler;
     this.policy = policy;
     this.packageSemaphore = packageSemaphore;
+    this.packageIdentifierBatchingCallbackFactory = packageIdentifierBatchingCallbackFactory;
   }
 
   @Override
@@ -245,7 +248,8 @@ public class RecursivePackageProviderBackedTargetPatternResolver
 
     PathFragment pathFragment;
     try (PackageIdentifierBatchingCallback batchingCallback =
-        new PackageIdentifierBatchingCallback(getPackageTargetsCallback, MAX_PACKAGES_BULK_GET)) {
+        packageIdentifierBatchingCallbackFactory.create(
+            getPackageTargetsCallback, MAX_PACKAGES_BULK_GET)) {
       pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       recursivePackageProvider.streamPackagesUnderDirectory(
           batchingCallback,

@@ -250,7 +250,8 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
                   ImmutableMap.of(pkg.getPackageIdentifier(), pkg)),
               eventHandler,
               FilteringPolicies.NO_FILTER,
-              /* packageSemaphore= */ null);
+              /* packageSemaphore= */ null,
+              SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       targetPattern.eval(
           resolver,

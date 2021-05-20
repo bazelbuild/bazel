@@ -155,6 +155,7 @@ java_library(
         ":output_store",
         ":package_error_function",
         ":package_error_message_function",
+        ":package_identifier_batching_callback",
         ":package_lookup_function",
         ":package_lookup_value",
         ":package_progress_receiver",
@@ -1705,7 +1706,10 @@ java_library(
 
 java_library(
     name = "package_identifier_batching_callback",
-    srcs = ["PackageIdentifierBatchingCallback.java"],
+    srcs = [
+        "PackageIdentifierBatchingCallback.java",
+        "SimplePackageIdentifierBatchingCallback.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

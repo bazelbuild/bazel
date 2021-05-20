@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtractor;
+import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCallback;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -165,7 +166,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
             graphBackedRecursivePackageProvider,
             eventHandler,
             FilteringPolicies.NO_FILTER,
-            MultisetSemaphore.unbounded());
+            MultisetSemaphore.unbounded(),
+            SimplePackageIdentifierBatchingCallback::new);
     checkSettings(settings);
   }
 
