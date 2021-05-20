@@ -158,43 +158,36 @@ public final class Attribute implements Comparable<Attribute> {
     UNDOCUMENTED,
     TAGGABLE,
 
-    /**
-     * Whether the list attribute is order-independent and can be sorted.
-     */
+    /** Whether the list attribute is order-independent and can be sorted. */
     ORDER_INDEPENDENT,
 
     /**
-     * Whether the allowedRuleClassesForLabels or allowedFileTypesForLabels are
-     * set to custom values. If so, and the attribute is called "deps", the
-     * legacy deps checking is skipped, and the new stricter checks are used
-     * instead. For non-"deps" attributes, this allows skipping the check if it
-     * would pass anyway, as the default setting allows any rule classes and
-     * file types.
+     * Whether the allowedRuleClassesForLabels or allowedFileTypesForLabels are set to custom
+     * values. If so, and the attribute is called "deps", the legacy deps checking is skipped, and
+     * the new stricter checks are used instead. For non-"deps" attributes, this allows skipping the
+     * check if it would pass anyway, as the default setting allows any rule classes and file types.
      */
     STRICT_LABEL_CHECKING,
 
     /**
-     * Set for things that would cause the a compile or lint-like action to
-     * be executed when the input changes.  Used by compile_one_dependency.
-     * Set for attributes like hdrs and srcs on cc_ rules or srcs on java_
-     * or py_rules.  Generally not set on data/resource attributes.
+     * Set for things that would cause the a compile or lint-like action to be executed when the
+     * input changes. Used by compile_one_dependency. Set for attributes like hdrs and srcs on cc_
+     * rules or srcs on java_ or py_rules. Generally not set on data/resource attributes.
      */
     DIRECT_COMPILE_TIME_INPUT,
 
-    /**
-     * Whether the value of the list type attribute must not be an empty list.
-     */
+    /** Whether the value of the list type attribute must not be an empty list. */
     NON_EMPTY,
 
     /**
-     * Verifies that the referenced rule produces a single artifact. Note that this check happens
-     * on a per label basis, i.e. the check happens separately for every label in a label list.
+     * Verifies that the referenced rule produces a single artifact. Note that this check happens on
+     * a per label basis, i.e. the check happens separately for every label in a label list.
      */
     SINGLE_ARTIFACT,
 
     /**
-     * Whether we perform silent ruleclass filtering of the dependencies of the label type
-     * attribute according to their rule classes. I.e. elements of the list which don't match the
+     * Whether we perform silent ruleclass filtering of the dependencies of the label type attribute
+     * according to their rule classes. I.e. elements of the list which don't match the
      * allowedRuleClasses predicate or not rules will be filtered out without throwing any errors.
      * This flag is introduced to handle plugins, do not use it in other cases.
      */
@@ -209,14 +202,12 @@ public final class Attribute implements Comparable<Attribute> {
      */
     SKIP_ANALYSIS_TIME_FILETYPE_CHECK,
 
-    /**
-     * Whether the value of the attribute should come from a given set of values.
-     */
+    /** Whether the value of the attribute should come from a given set of values. */
     CHECK_ALLOWED_VALUES,
 
     /**
-     * Whether this attribute is opted out of "configurability", i.e. the ability to determine
-     * its value based on properties of the build configuration.
+     * Whether this attribute is opted out of "configurability", i.e. the ability to determine its
+     * value based on properties of the build configuration.
      */
     NONCONFIGURABLE,
 
@@ -229,8 +220,8 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Whether we should check constraints on this attribute even if default enforcement policy
-     * would skip it. See
-     * {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for more on
+     * would skip it. See {@link
+     * com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for more on
      * constraints.
      */
     CHECK_CONSTRAINTS_OVERRIDE,
@@ -241,9 +232,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     SKIP_CONSTRAINTS_OVERRIDE,
 
-    /**
-     * Whether we should use output_licenses to check the licences on this attribute.
-     */
+    /** Whether we should use output_licenses to check the licences on this attribute. */
     OUTPUT_LICENSES,
 
     /**
@@ -253,21 +242,19 @@ public final class Attribute implements Comparable<Attribute> {
     HAS_STARLARK_DEFINED_TRANSITION,
 
     /**
-     * Has a Starlark-defined configuration transition designed specifically for rules which
-     * run analysis tests.
+     * Has a Starlark-defined configuration transition designed specifically for rules which run
+     * analysis tests.
      */
     HAS_ANALYSIS_TEST_TRANSITION,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
   // message function like AllowedValues does
-  /**
-   * A predicate-like class that determines whether an edge between two rules is valid or not.
-   */
+  /** A predicate-like class that determines whether an edge between two rules is valid or not. */
   public interface ValidityPredicate {
     /**
-     * This method should return null if the edge is valid, or a suitable error message
-     * if it is not. Note that warnings are not supported.
+     * This method should return null if the edge is valid, or a suitable error message if it is
+     * not. Note that warnings are not supported.
      */
     String checkValid(Rule from, Rule to);
   }
@@ -299,7 +286,8 @@ public final class Attribute implements Comparable<Attribute> {
 
     @Override
     public String getErrorReason(Object value) {
-      return String.format("has to be one of %s instead of '%s'",
+      return String.format(
+          "has to be one of %s instead of '%s'",
           StringUtil.joinEnglishList(allowedValues, "or", "'"), value);
     }
 
@@ -323,7 +311,6 @@ public final class Attribute implements Comparable<Attribute> {
    * @param name attribute name
    * @param type attribute type
    * @return attribute builder
-   *
    * @param <TYPE> attribute type class
    */
   public static <TYPE> Attribute.Builder<TYPE> attr(String name, Type<TYPE> type) {
@@ -434,10 +421,10 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * A fluent builder for the {@code Attribute} instances.
    *
-   * <p>All methods could be called only once per builder. The attribute
-   * already undocumented based on its name cannot be marked as undocumented.
+   * <p>All methods could be called only once per builder. The attribute already undocumented based
+   * on its name cannot be marked as undocumented.
    */
-  public static class Builder <TYPE> {
+  public static class Builder<TYPE> {
     private final String name;
     private final Type<TYPE> type;
     private TransitionFactory<AttributeTransitionData> transitionFactory =
@@ -503,9 +490,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    /**
-     * Makes the built attribute mandatory.
-     */
+    /** Makes the built attribute mandatory. */
     public Builder<TYPE> mandatory() {
       return setPropertyFlag(PropertyFlag.MANDATORY, "mandatory");
     }
@@ -519,46 +504,40 @@ public final class Attribute implements Comparable<Attribute> {
       return setPropertyFlag(PropertyFlag.NON_EMPTY, "non_empty");
     }
 
-    /**
-     * Makes the built attribute producing a single artifact.
-     */
+    /** Makes the built attribute producing a single artifact. */
     public Builder<TYPE> singleArtifact() {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "attribute '%s' must be a label-valued type", name);
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY,
+          "attribute '%s' must be a label-valued type",
+          name);
       return setPropertyFlag(PropertyFlag.SINGLE_ARTIFACT, "single_artifact");
     }
 
     /**
-     * Forces silent ruleclass filtering on the label type attribute.
-     * This flag is introduced to handle plugins, do not use it in other cases.
+     * Forces silent ruleclass filtering on the label type attribute. This flag is introduced to
+     * handle plugins, do not use it in other cases.
      */
     public Builder<TYPE> silentRuleClassFilter() {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "must be a label-valued type");
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
       return setPropertyFlag(PropertyFlag.SILENT_RULECLASS_FILTER, "silent_ruleclass_filter");
     }
 
-    /**
-     * Skip analysis time filetype check. Don't use it if avoidable.
-     */
+    /** Skip analysis time filetype check. Don't use it if avoidable. */
     public Builder<TYPE> skipAnalysisTimeFileTypeCheck() {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "must be a label-valued type");
-      return setPropertyFlag(PropertyFlag.SKIP_ANALYSIS_TIME_FILETYPE_CHECK,
-          "skip_analysis_time_filetype_check");
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
+      return setPropertyFlag(
+          PropertyFlag.SKIP_ANALYSIS_TIME_FILETYPE_CHECK, "skip_analysis_time_filetype_check");
     }
 
-    /**
-     * Mark the built attribute as order-independent.
-     */
+    /** Mark the built attribute as order-independent. */
     public Builder<TYPE> orderIndependent() {
       Preconditions.checkNotNull(type.getListElementType(), "attribute '%s' must be a list", name);
       return setPropertyFlag(PropertyFlag.ORDER_INDEPENDENT, "order-independent");
     }
 
-    /**
-     * Mark the built attribute as to use output_licenses for license checking.
-     */
+    /** Mark the built attribute as to use output_licenses for license checking. */
     public Builder<TYPE> useOutputLicenses() {
       Preconditions.checkState(BuildType.isLabelType(type), "must be a label type");
       return setPropertyFlag(PropertyFlag.OUTPUT_LICENSES, "output_license");
@@ -566,12 +545,12 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Indicate the attribute uses uses a starlark-defined (non-analysis-test) configuration
-     * transition. Transitions for analysis testing are tracked separately: see
-     * {@link #hasAnalysisTestTransition()}.
+     * transition. Transitions for analysis testing are tracked separately: see {@link
+     * #hasAnalysisTestTransition()}.
      */
     public Builder<TYPE> hasStarlarkDefinedTransition() {
-      return setPropertyFlag(PropertyFlag.HAS_STARLARK_DEFINED_TRANSITION,
-          "starlark-defined split transition");
+      return setPropertyFlag(
+          PropertyFlag.HAS_STARLARK_DEFINED_TRANSITION, "starlark-defined split transition");
     }
 
     /**
@@ -579,8 +558,8 @@ public final class Attribute implements Comparable<Attribute> {
      * Such a configuration transition may only be applied on rules with {@code analysis_test=true}.
      */
     public Builder<TYPE> hasAnalysisTestTransition() {
-      return setPropertyFlag(PropertyFlag.HAS_ANALYSIS_TEST_TRANSITION,
-          "analysis-test split transition");
+      return setPropertyFlag(
+          PropertyFlag.HAS_ANALYSIS_TEST_TRANSITION, "analysis-test split transition");
     }
 
     /** Defines the configuration transition for this attribute. */
@@ -594,8 +573,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Requires the attribute target to be executable; only for label or label
-     * list attributes. Defaults to {@code false}.
+     * Requires the attribute target to be executable; only for label or label list attributes.
+     * Defaults to {@code false}.
      */
     public Builder<TYPE> exec() {
       return setPropertyFlag(PropertyFlag.EXECUTABLE, "executable");
@@ -606,15 +585,14 @@ public final class Attribute implements Comparable<Attribute> {
      * compile_one_dependency.
      */
     public Builder<TYPE> direct_compile_time_input() {
-      return setPropertyFlag(PropertyFlag.DIRECT_COMPILE_TIME_INPUT,
-                             "direct_compile_time_input");
+      return setPropertyFlag(PropertyFlag.DIRECT_COMPILE_TIME_INPUT, "direct_compile_time_input");
     }
 
     /**
      * Makes the built attribute undocumented.
      *
-     * @param reason explanation why the attribute is undocumented. This is not
-     *        used but required for documentation
+     * @param reason explanation why the attribute is undocumented. This is not used but required
+     *     for documentation
      */
     public Builder<TYPE> undocumented(String reason) {
       return setPropertyFlag(PropertyFlag.UNDOCUMENTED, "undocumented");
@@ -631,14 +609,13 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets the attribute default value. The type of the default value must
-     * match the type parameter. (e.g. list=[], integer=0, string="",
-     * label=null). The {@code defaultValue} must be immutable.
+     * Sets the attribute default value. The type of the default value must match the type
+     * parameter. (e.g. list=[], integer=0, string="", label=null). The {@code defaultValue} must be
+     * immutable.
      *
-     * <p>If defaultValue is of type Label and is a target, that target will
-     * become an implicit dependency of the Rule; we will load the target
-     * (and its dependencies) if it encounters the Rule and build the target
-     * if needs to apply the Rule.
+     * <p>If defaultValue is of type Label and is a target, that target will become an implicit
+     * dependency of the Rule; we will load the target (and its dependencies) if it encounters the
+     * Rule and build the target if needs to apply the Rule.
      */
     public Builder<TYPE> value(TYPE defaultValue) {
       Preconditions.checkState(!valueSet, "the default value is already set");
@@ -746,10 +723,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    /**
-     * Switches on the capability of an attribute to be published to the rule's
-     * tag set.
-     */
+    /** Switches on the capability of an attribute to be published to the rule's tag set. */
     public Builder<TYPE> taggable() {
       return setPropertyFlag(PropertyFlag.TAGGABLE, "taggable");
     }
@@ -759,8 +733,8 @@ public final class Attribute implements Comparable<Attribute> {
      * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator}.
      */
     public Builder<TYPE> skipPrereqValidatorCheck() {
-      return setPropertyFlag(PropertyFlag.SKIP_PREREQ_VALIDATOR_CHECKS,
-          "skip_prereq_validator_checks");
+      return setPropertyFlag(
+          PropertyFlag.SKIP_PREREQ_VALIDATOR_CHECKS, "skip_prereq_validator_checks");
     }
 
     /**
@@ -773,7 +747,8 @@ public final class Attribute implements Comparable<Attribute> {
      * enforcement policy details.
      */
     public Builder<TYPE> checkConstraints() {
-      Verify.verify(!propertyFlags.contains(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE),
+      Verify.verify(
+          !propertyFlags.contains(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE),
           "constraint checking is already overridden to be skipped");
       return setPropertyFlag(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE, "check_constraints");
     }
@@ -786,7 +761,8 @@ public final class Attribute implements Comparable<Attribute> {
      * enforcement policy details.
      */
     public Builder<TYPE> dontCheckConstraints() {
-      Verify.verify(!propertyFlags.contains(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE),
+      Verify.verify(
+          !propertyFlags.contains(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE),
           "constraint checking is already overridden to be checked");
       return setPropertyFlag(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE, "dont_check_constraints");
     }
@@ -807,8 +783,7 @@ public final class Attribute implements Comparable<Attribute> {
      * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(Iterable<String> allowedRuleClasses) {
-      return allowedRuleClasses(
-          RuleClassNamePredicate.only(allowedRuleClasses));
+      return allowedRuleClasses(RuleClassNamePredicate.only(allowedRuleClasses));
     }
 
     /**
@@ -827,8 +802,8 @@ public final class Attribute implements Comparable<Attribute> {
      * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(RuleClassNamePredicate allowedRuleClasses) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "must be a label-valued type");
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedRuleClassesForLabels = allowedRuleClasses;
       return this;
@@ -854,17 +829,16 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * file types for file labels occurring in the attribute. If the attribute
-     * contains labels that correspond to files of any other type, then an error
-     * is produced during the analysis phase.
+     * If this is a label or label-list attribute, then this sets the allowed file types for file
+     * labels occurring in the attribute. If the attribute contains labels that correspond to files
+     * of any other type, then an error is produced during the analysis phase.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedFileTypes(FileTypeSet allowedFileTypes) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "must be a label-valued type");
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedFileTypesForLabels = Preconditions.checkNotNull(allowedFileTypes);
       return this;
@@ -880,13 +854,12 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * If this is a label or label-list attribute, then this sets the allowed
-     * file types for file labels occurring in the attribute. If the attribute
-     * contains labels that correspond to files of any other type, then an error
-     * is produced during the analysis phase.
+     * If this is a label or label-list attribute, then this sets the allowed file types for file
+     * labels occurring in the attribute. If the attribute contains labels that correspond to files
+     * of any other type, then an error is produced during the analysis phase.
      *
-     * <p>This only works on a per-target basis, not on a per-file basis; with
-     * other words, it works for 'deps' attributes, but not 'srcs' attributes.
+     * <p>This only works on a per-target basis, not on a per-file basis; with other words, it works
+     * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedFileTypes(FileType... allowedFileTypes) {
       return allowedFileTypes(FileTypeSet.of(allowedFileTypes));
@@ -908,8 +881,7 @@ public final class Attribute implements Comparable<Attribute> {
      * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(Collection<String> allowedRuleClasses) {
-      return allowedRuleClassesWithWarning(
-          RuleClassNamePredicate.only(allowedRuleClasses));
+      return allowedRuleClassesWithWarning(RuleClassNamePredicate.only(allowedRuleClasses));
     }
 
     /**
@@ -928,8 +900,8 @@ public final class Attribute implements Comparable<Attribute> {
      * for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(RuleClassNamePredicate allowedRuleClasses) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "must be a label-valued type");
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedRuleClassesForLabelsWarning = allowedRuleClasses;
       return this;
@@ -961,8 +933,8 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public final Builder<TYPE> mandatoryBuiltinProvidersList(
         Iterable<? extends Iterable<Class<? extends TransitiveInfoProvider>>> providersList) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "must be a label-valued type");
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
 
       for (Iterable<Class<? extends TransitiveInfoProvider>> providers : providersList) {
         this.requiredProvidersBuilder.addBuiltinSet(ImmutableSet.copyOf(providers));
@@ -985,8 +957,8 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> mandatoryProvidersList(
         Iterable<? extends Iterable<StarlarkProviderIdentifier>> providersList) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
-          "must be a label-valued type");
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
       for (Iterable<StarlarkProviderIdentifier> providers : providersList) {
         this.requiredProvidersBuilder.addStarlarkSet(ImmutableSet.copyOf(providers));
       }
@@ -1019,8 +991,8 @@ public final class Attribute implements Comparable<Attribute> {
      * Asserts that a particular parameterized aspect probably needs to be computed for all direct
      * dependencies through this attribute.
      *
-     * @param evaluator function that extracts aspect parameters from rule. If it returns null,
-     * then the aspect will not be attached.
+     * @param evaluator function that extracts aspect parameters from rule. If it returns null, then
+     *     the aspect will not be attached.
      */
     public Builder<TYPE> aspect(
         NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
@@ -1053,9 +1025,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    /**
-     * Should only be used for deserialization.
-     */
+    /** Should only be used for deserialization. */
     public Builder<TYPE> aspect(final Aspect aspect) {
       PredefinedRuleAspect predefinedRuleAspect = new PredefinedRuleAspect(aspect);
       RuleAspect<?> oldAspect =
@@ -1067,18 +1037,14 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    /**
-     * Sets the predicate-like edge validity checker.
-     */
+    /** Sets the predicate-like edge validity checker. */
     public Builder<TYPE> validityPredicate(ValidityPredicate validityPredicate) {
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       this.validityPredicate = validityPredicate;
       return this;
     }
 
-    /**
-     * The value of the attribute must be one of allowedValues.
-     */
+    /** The value of the attribute must be one of allowedValues. */
     public Builder<TYPE> allowedValues(PredicateWithMessage<Object> allowedValues) {
       this.allowedValues = allowedValues;
       propertyFlags.add(PropertyFlag.CHECK_ALLOWED_VALUES);
@@ -1086,17 +1052,17 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Makes the built attribute "non-configurable", i.e. its value cannot be influenced by
-     * the build configuration. Attributes are "configurable" unless explicitly opted out here.
+     * Makes the built attribute "non-configurable", i.e. its value cannot be influenced by the
+     * build configuration. Attributes are "configurable" unless explicitly opted out here.
      *
      * <p>Non-configurability indicates an exceptional state: there exists Blaze logic that needs
-     * the attribute's value, has no access to configurations, and can't apply a workaround
-     * through an appropriate {@link AbstractAttributeMapper} implementation. Scenarios like
-     * this should be as uncommon as possible, so it's important we maintain clear documentation
-     * on what causes them and why users consequently can't configure certain attributes.
+     * the attribute's value, has no access to configurations, and can't apply a workaround through
+     * an appropriate {@link AbstractAttributeMapper} implementation. Scenarios like this should be
+     * as uncommon as possible, so it's important we maintain clear documentation on what causes
+     * them and why users consequently can't configure certain attributes.
      *
      * @param reason why this attribute can't be configurable. This isn't used by Blaze - it's
-     *    solely a documentation mechanism.
+     *     solely a documentation mechanism.
      */
     public Builder<TYPE> nonconfigurable(String reason) {
       Preconditions.checkState(!reason.isEmpty());
@@ -1214,17 +1180,17 @@ public final class Attribute implements Comparable<Attribute> {
      * Returns a lookup table mapping from:
      *
      * <ul>
-     * <li>tuples of values that may be assigned by {@code rule} to attributes with names in {@code
-     *     dependencies} (note that there may be more than one such tuple for any given rule, if any
-     *     of the dependencies are configurable)
+     *   <li>tuples of values that may be assigned by {@code rule} to attributes with names in
+     *       {@code dependencies} (note that there may be more than one such tuple for any given
+     *       rule, if any of the dependencies are configurable)
      * </ul>
      *
      * <p>to:
      *
      * <ul>
-     * <li>the value {@link #compute(AttributeMap)} evaluates to when the provided {@link
-     *     AttributeMap} contains the values specified by that assignment, or {@code null} if the
-     *     {@link ComputationStrategy} failed to evaluate.
+     *   <li>the value {@link #compute(AttributeMap)} evaluates to when the provided {@link
+     *       AttributeMap} contains the values specified by that assignment, or {@code null} if the
+     *       {@link ComputationStrategy} failed to evaluate.
      * </ul>
      *
      * <p>The lookup table contains a tuple for each possible assignment to the {@code dependencies}
@@ -1574,9 +1540,11 @@ public final class Attribute implements Comparable<Attribute> {
       extends LateBoundDefault<FragmentT, ValueT> {
     private final Resolver<FragmentT, ValueT> resolver;
 
-    private SimpleLateBoundDefault(boolean useHostConfiguration,
+    private SimpleLateBoundDefault(
+        boolean useHostConfiguration,
         Class<FragmentT> fragmentClass,
-        ValueT defaultValue, Resolver<FragmentT, ValueT> resolver) {
+        ValueT defaultValue,
+        Resolver<FragmentT, ValueT> resolver) {
       super(useHostConfiguration, fragmentClass, defaultValue);
 
       this.resolver = resolver;
@@ -1860,27 +1828,25 @@ public final class Attribute implements Comparable<Attribute> {
   private final TransitionFactory<AttributeTransitionData> transitionFactory;
 
   /**
-   * For label or label-list attributes, this predicate returns which rule
-   * classes are allowed for the targets in the attribute.
+   * For label or label-list attributes, this predicate returns which rule classes are allowed for
+   * the targets in the attribute.
    */
   private final RuleClassNamePredicate allowedRuleClassesForLabels;
 
   /**
-   * For label or label-list attributes, this predicate returns which rule
-   * classes are allowed for the targets in the attribute with warning.
+   * For label or label-list attributes, this predicate returns which rule classes are allowed for
+   * the targets in the attribute with warning.
    */
   private final RuleClassNamePredicate allowedRuleClassesForLabelsWarning;
 
   /**
-   * For label or label-list attributes, this predicate returns which file
-   * types are allowed for targets in the attribute that happen to be file
-   * targets (rather than rules).
+   * For label or label-list attributes, this predicate returns which file types are allowed for
+   * targets in the attribute that happen to be file targets (rather than rules).
    */
   private final FileTypeSet allowedFileTypesForLabels;
 
   /**
-   * This predicate-like object checks
-   * if the edge between two rules using this attribute is valid
+   * This predicate-like object checks if the edge between two rules using this attribute is valid
    * in the dependency graph. Returns null if valid, otherwise an error message.
    */
   private final ValidityPredicate validityPredicate;
@@ -1970,9 +1936,7 @@ public final class Attribute implements Comparable<Attribute> {
             aspects);
   }
 
-  /**
-   * Returns the name of this attribute.
-   */
+  /** Returns the name of this attribute. */
   public String getName() {
     return name;
   }
@@ -1992,10 +1956,9 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the logical type of this attribute. (May differ from the actual
-   * representation as a value in the build interpreter; for example, an
-   * attribute may logically be a list of labels, but be represented as a list
-   * of strings.)
+   * Returns the logical type of this attribute. (May differ from the actual representation as a
+   * value in the build interpreter; for example, an attribute may logically be a list of labels,
+   * but be represented as a list of strings.)
    */
   public Type<?> getType() {
     return type;
@@ -2005,51 +1968,37 @@ public final class Attribute implements Comparable<Attribute> {
     return propertyFlags.contains(flag);
   }
 
-  /**
-   *  Returns true if this parameter is mandatory.
-   */
+  /** Returns true if this parameter is mandatory. */
   public boolean isMandatory() {
     return getPropertyFlag(PropertyFlag.MANDATORY);
   }
 
-  /**
-   *  Returns true if this list parameter cannot have an empty list as a value.
-   */
+  /** Returns true if this list parameter cannot have an empty list as a value. */
   public boolean isNonEmpty() {
     return getPropertyFlag(PropertyFlag.NON_EMPTY);
   }
 
-  /**
-   *  Returns true if this label parameter must produce a single artifact.
-   */
+  /** Returns true if this label parameter must produce a single artifact. */
   public boolean isSingleArtifact() {
     return getPropertyFlag(PropertyFlag.SINGLE_ARTIFACT);
   }
 
-  /**
-   *  Returns true if this label type parameter is checked by silent ruleclass filtering.
-   */
+  /** Returns true if this label type parameter is checked by silent ruleclass filtering. */
   public boolean isSilentRuleClassFilter() {
     return getPropertyFlag(PropertyFlag.SILENT_RULECLASS_FILTER);
   }
 
-  /**
-   *  Returns true if this label type parameter skips the analysis time filetype check.
-   */
+  /** Returns true if this label type parameter skips the analysis time filetype check. */
   public boolean isSkipAnalysisTimeFileTypeCheck() {
     return getPropertyFlag(PropertyFlag.SKIP_ANALYSIS_TIME_FILETYPE_CHECK);
   }
 
-  /**
-   *  Returns true if this parameter is order-independent.
-   */
+  /** Returns true if this parameter is order-independent. */
   public boolean isOrderIndependent() {
     return getPropertyFlag(PropertyFlag.ORDER_INDEPENDENT);
   }
 
-  /**
-   *  Returns true if output_licenses should be used for checking licensing.
-   */
+  /** Returns true if output_licenses should be used for checking licensing. */
   public boolean useOutputLicenses() {
     return getPropertyFlag(PropertyFlag.OUTPUT_LICENSES);
   }
@@ -2080,30 +2029,26 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns whether the target is required to be executable for label or label
-   * list attributes. For other attributes it always returns {@code false}.
+   * Returns whether the target is required to be executable for label or label list attributes. For
+   * other attributes it always returns {@code false}.
    */
   public boolean isExecutable() {
     return getPropertyFlag(PropertyFlag.EXECUTABLE);
   }
 
-  /**
-   * Returns {@code true} iff the rule is a direct input for an action.
-   */
+  /** Returns {@code true} iff the rule is a direct input for an action. */
   public boolean isDirectCompileTimeInput() {
     return getPropertyFlag(PropertyFlag.DIRECT_COMPILE_TIME_INPUT);
   }
 
-  /**
-   * Returns {@code true} iff this attribute requires documentation.
-   */
+  /** Returns {@code true} iff this attribute requires documentation. */
   public boolean isDocumented() {
     return !getPropertyFlag(PropertyFlag.UNDOCUMENTED);
   }
 
   /**
-   * Returns {@code true} iff this attribute should be published to the rule's
-   * tag set. Note that not all Type classes support tag conversion.
+   * Returns {@code true} iff this attribute should be published to the rule's tag set. Note that
+   * not all Type classes support tag conversion.
    */
   public boolean isTaggable() {
     return getPropertyFlag(PropertyFlag.TAGGABLE);
@@ -2113,9 +2058,7 @@ public final class Attribute implements Comparable<Attribute> {
     return getPropertyFlag(PropertyFlag.STRICT_LABEL_CHECKING);
   }
 
-  /**
-   * Returns true if the value of this attribute should be a part of a given set.
-   */
+  /** Returns true if the value of this attribute should be a part of a given set. */
   public boolean checkAllowedValues() {
     return getPropertyFlag(PropertyFlag.CHECK_ALLOWED_VALUES);
   }
@@ -2132,9 +2075,7 @@ public final class Attribute implements Comparable<Attribute> {
     return getPropertyFlag(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE);
   }
 
-  /**
-   * Returns true if this attribute's value can be influenced by the build configuration.
-   */
+  /** Returns true if this attribute's value can be influenced by the build configuration. */
   public boolean isConfigurable() {
     // Output types are excluded because of Rule#populateExplicitOutputFiles.
     return !(type.getLabelClass() == LabelClass.OUTPUT
@@ -2155,9 +2096,9 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns a predicate that evaluates to true for rule classes that are
-   * allowed labels in this attribute with warning. If this is not a label or label-list
-   * attribute, the returned predicate always evaluates to true.
+   * Returns a predicate that evaluates to true for rule classes that are allowed labels in this
+   * attribute with warning. If this is not a label or label-list attribute, the returned predicate
+   * always evaluates to true.
    */
   public Predicate<RuleClass> getAllowedRuleClassesWarningPredicate() {
     return allowedRuleClassesForLabelsWarning.asPredicateOfRuleClass();
@@ -2187,9 +2128,7 @@ public final class Attribute implements Comparable<Attribute> {
     return !aspects.isEmpty();
   }
 
-  /**
-   * Returns the list of aspects required for dependencies through this attribute.
-   */
+  /** Returns the list of aspects required for dependencies through this attribute. */
   public ImmutableList<Aspect> getAspects(Rule rule) {
     if (aspects.isEmpty()) {
       return ImmutableList.of();
@@ -2216,19 +2155,17 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the default value of this attribute in the context of the
-   * specified Rule.  For attributes with a computed default, i.e. {@code
-   * hasComputedDefault()}, {@code rule} must be non-null since the result may
-   * depend on the values of its other attributes.
+   * Returns the default value of this attribute in the context of the specified Rule. For
+   * attributes with a computed default, i.e. {@code hasComputedDefault()}, {@code rule} must be
+   * non-null since the result may depend on the values of its other attributes.
    *
-   * <p>The result may be null (although this is not a value in the build
-   * language).
+   * <p>The result may be null (although this is not a value in the build language).
    *
-   * <p>During population of the rule's attribute dictionary, all non-computed
-   * defaults must be set before all computed ones.
+   * <p>During population of the rule's attribute dictionary, all non-computed defaults must be set
+   * before all computed ones.
    *
-   * @param rule the rule to which this attribute belongs; non-null if
-   *   {@code hasComputedDefault()}; ignored otherwise.
+   * @param rule the rule to which this attribute belongs; non-null if {@code hasComputedDefault()};
+   *     ignored otherwise.
    */
   public Object getDefaultValue(Rule rule) {
     if (!getCondition().apply(rule == null ? null : NonconfigurableAttributeMapper.of(rule))) {
@@ -2274,8 +2211,8 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns if an attribute with the given name is an implicit dependency according to the
-   * naming policy that designates implicit attributes.
+   * Returns if an attribute with the given name is an implicit dependency according to the naming
+   * policy that designates implicit attributes.
    */
   public static boolean isImplicit(String name) {
     return name.startsWith("$");
@@ -2290,8 +2227,8 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns if an attribute with the given name is late-bound according to the naming policy
-   * that designates late-bound attributes.
+   * Returns if an attribute with the given name is late-bound according to the naming policy that
+   * designates late-bound attributes.
    */
   public static boolean isLateBound(String name) {
     return name.startsWith(":");
@@ -2356,9 +2293,7 @@ public final class Attribute implements Comparable<Attribute> {
     return hashCode;
   }
 
-  /**
-   * Returns a replica builder of this Attribute.
-   */
+  /** Returns a replica builder of this Attribute. */
   public <TYPE> Attribute.Builder<TYPE> cloneBuilder(Type<TYPE> tp) {
     Preconditions.checkArgument(tp == this.type);
     Builder<TYPE> builder = new Builder<>(name, tp);

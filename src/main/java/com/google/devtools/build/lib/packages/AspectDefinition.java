@@ -72,12 +72,14 @@ public final class AspectDefinition {
 
   /**
    * Which attributes aspect should propagate along:
+   *
    * <ul>
-   *  <li>A {@code null} value means propagate along all attributes</li>
-   *  <li>A (possibly empty) set means to propagate only along the attributes in a set</li>
+   *   <li>A {@code null} value means propagate along all attributes
+   *   <li>A (possibly empty) set means to propagate only along the attributes in a set
    * </ul>
    */
   @Nullable private final ImmutableSet<String> restrictToAttributes;
+
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final boolean applyToFiles;
   private final boolean applyToGeneratingRules;
@@ -149,19 +151,19 @@ public final class AspectDefinition {
   }
 
   /**
-   * Returns {@link RequiredProviders} that a configured target must have so that
-   * this aspect can be applied to it.
+   * Returns {@link RequiredProviders} that a configured target must have so that this aspect can be
+   * applied to it.
    *
-   * <p>If a configured target does not satisfy required providers, the aspect is
-   * silently not created for it.
+   * <p>If a configured target does not satisfy required providers, the aspect is silently not
+   * created for it.
    */
   public RequiredProviders getRequiredProviders() {
     return requiredProviders;
   }
 
   /**
-   * Aspects do not depend on other aspects applied to the same target <em>unless</em>
-   * the other aspect satisfies the {@link RequiredProviders} this method returns
+   * Aspects do not depend on other aspects applied to the same target <em>unless</em> the other
+   * aspect satisfies the {@link RequiredProviders} this method returns
    */
   public RequiredProviders getRequiredProvidersForAspects() {
     return requiredProvidersForAspects;
@@ -175,9 +177,7 @@ public final class AspectDefinition {
     return true;
   }
 
-  /**
-   * Returns the set of configuration fragments required by this Aspect.
-   */
+  /** Returns the set of configuration fragments required by this Aspect. */
   public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
     return configurationFragmentPolicy;
   }
@@ -185,8 +185,7 @@ public final class AspectDefinition {
   /**
    * Returns whether this aspect applies to (output) files.
    *
-   * Currently only supported for top-level aspects and targets, and
-   * only for output files.
+   * <p>Currently only supported for top-level aspects and targets, and only for output files.
    */
   public boolean applyToFiles() {
     return applyToFiles;
@@ -218,9 +217,7 @@ public final class AspectDefinition {
     return label == null ? null : from.getLabel().resolveRepositoryRelative(label);
   }
 
-  /**
-   * Collects all attribute labels from the specified aspectDefinition.
-   */
+  /** Collects all attribute labels from the specified aspectDefinition. */
   public static void addAllAttributesOfAspect(
       final Rule from,
       final Multimap<Attribute, Label> labelBuilder,
@@ -258,9 +255,7 @@ public final class AspectDefinition {
     return new Builder(aspectClass);
   }
 
-  /**
-   * Builder class for {@link AspectDefinition}.
-   */
+  /** Builder class for {@link AspectDefinition}. */
   public static final class Builder {
     private final AspectClass aspectClass;
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
@@ -271,8 +266,7 @@ public final class AspectDefinition {
         (BiPredicate<Object, String> & Serializable) (a, c) -> true;
     private RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
-    @Nullable
-    private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
+    @Nullable private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
@@ -363,9 +357,7 @@ public final class AspectDefinition {
       return this;
     }
 
-    /**
-     * State that the aspect being built provides given providers.
-     */
+    /** State that the aspect being built provides given providers. */
     public Builder advertiseProvider(Class<?>... providers) {
       for (Class<?> provider : providers) {
         advertisedProviders.addBuiltin(provider);
@@ -381,21 +373,20 @@ public final class AspectDefinition {
       return this;
     }
 
-
-
     /**
-     * Declares that this aspect propagates along an {@code attribute} on the target
-     * associated with this aspect.
+     * Declares that this aspect propagates along an {@code attribute} on the target associated with
+     * this aspect.
      *
-     * Specify multiple attributes by calling {@link #propagateAlongAttribute(String)}
+     * <p>Specify multiple attributes by calling {@link #propagateAlongAttribute(String)}
      * repeatedly.
      *
-     * Aspect can also declare to propagate along all attributes with
-     * {@link #propagateAlongAttributes}.
+     * <p>Aspect can also declare to propagate along all attributes with {@link
+     * #propagateAlongAttributes}.
      */
     public final Builder propagateAlongAttribute(String attribute) {
       Preconditions.checkNotNull(attribute);
-      Preconditions.checkState(this.propagateAlongAttributes != null,
+      Preconditions.checkState(
+          this.propagateAlongAttributes != null,
           "Either propagate along all attributes, or along specific attributes, not both");
 
       this.propagateAlongAttributes.add(attribute);
@@ -404,16 +395,18 @@ public final class AspectDefinition {
     }
 
     /**
-     * Declares that this aspect propagates along all attributes on the target
-     * associated with this aspect.
+     * Declares that this aspect propagates along all attributes on the target associated with this
+     * aspect.
      *
-     * Specify either this or {@link #propagateAlongAttribute(String)}, not both.
+     * <p>Specify either this or {@link #propagateAlongAttribute(String)}, not both.
      */
     public final Builder propagateAlongAllAttributes() {
-      Preconditions.checkState(this.propagateAlongAttributes != null,
+      Preconditions.checkState(
+          this.propagateAlongAttributes != null,
           "Aspects for all attributes must only be specified once");
 
-      Preconditions.checkState(this.propagateAlongAttributes.isEmpty(),
+      Preconditions.checkState(
+          this.propagateAlongAttributes.isEmpty(),
           "Specify either aspects for all attributes, or for specific attributes, not both");
       this.propagateAlongAttributes = null;
       return this;
@@ -422,8 +415,8 @@ public final class AspectDefinition {
     /**
      * Adds an attribute to the aspect.
      *
-     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit
-     * (not available in the BUILD file, starting with '$') or late-bound (determined after the
+     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit (not
+     * available in the BUILD file, starting with '$') or late-bound (determined after the
      * configuration is available, starting with ':')
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
@@ -481,8 +474,8 @@ public final class AspectDefinition {
      * <p>The value is inherited by subclasses.
      */
     public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
-      configurationFragmentPolicy
-          .requiresConfigurationFragments(ImmutableSet.copyOf(configurationFragments));
+      configurationFragmentPolicy.requiresConfigurationFragments(
+          ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -492,15 +485,15 @@ public final class AspectDefinition {
      * is also readable by the aspect.
      *
      * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see
-     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
+     * configurations other than their own. If you want to declare host config fragments, see {@link
+     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(ConfigurationTransition transition,
-        Class<?>... configurationFragments) {
-      configurationFragmentPolicy.requiresConfigurationFragments(transition,
-          ImmutableSet.copyOf(configurationFragments));
+    public Builder requiresConfigurationFragments(
+        ConfigurationTransition transition, Class<?>... configurationFragments) {
+      configurationFragmentPolicy.requiresConfigurationFragments(
+          transition, ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -550,9 +543,8 @@ public final class AspectDefinition {
     /**
      * Sets whether this aspect should apply to files.
      *
-     * Default is <code>false</code>.
-     * Currently only supported for top-level aspects and targets, and only for
-     * output files.
+     * <p>Default is <code>false</code>. Currently only supported for top-level aspects and targets,
+     * and only for output files.
      */
     public Builder applyToFiles(boolean propagateOverGeneratedFiles) {
       this.applyToFiles = propagateOverGeneratedFiles;
