@@ -467,6 +467,54 @@ EOF
       && fail "Expected failure" || true
 }
 
+function test_local_fallback_if_no_remote_executor() {
+  # Test that when manually set --spawn_strategy that includes remote, but remote_executor isn't set, we ignore
+  # the remote strategy rather than reporting an error. See https://github.com/bazelbuild/bazel/issues/13340.
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=remote,local \
+      --build_event_text_file=gen1.log \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "2 processes: 1 internal, 1 local"
+}
+
+function test_local_fallback_if_remote_executor_unavailable() {
+  # Test that when --remote_local_fallback is set and remote_executor is unavailable when build starts, we fallback to
+  # local strategy. See https://github.com/bazelbuild/bazel/issues/13487.
+  mkdir -p gen1
+  cat > gen1/BUILD <<'EOF'
+genrule(
+name = "gen1",
+srcs = [],
+outs = ["out1"],
+cmd = "touch \"$@\"",
+)
+EOF
+
+  bazel build \
+      --spawn_strategy=remote,local \
+      --remote_executor=grpc://noexist.invalid \
+      --remote_local_fallback \
+      --build_event_text_file=gen1.log \
+      //gen1 >& $TEST_log \
+      || fail "Expected success"
+
+  mv gen1.log $TEST_log
+  expect_log "2 processes: 1 internal, 1 local"
+}
+
 function is_file_uploaded() {
   h=$(shasum -a256 < $1)
   if [ -e "$cas_path/${h:0:64}" ]; then return 0; else return 1; fi
