@@ -130,6 +130,7 @@ public class TestRunnerAction extends AbstractAction
   private final ImmutableSet<PathFragment> directoriesToDeleteBeforeExecution;
 
   private final Artifact coverageData;
+  private final Artifact binaryCoverageData;
   @Nullable private final Artifact coverageDirectory;
   private final TestTargetProperties testProperties;
   private final TestTargetExecutionSettings executionSettings;
@@ -152,6 +153,7 @@ public class TestRunnerAction extends AbstractAction
   private final boolean cancelConcurrentTestsOnSuccess;
 
   private final boolean splitCoveragePostProcessing;
+  private final boolean outputBinaryCoverageData;
   private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
   private final RunfilesSupplier lcovMergerRunfilesSupplier;
 
@@ -183,6 +185,7 @@ public class TestRunnerAction extends AbstractAction
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
+      Artifact binaryCoverageArtifact,
       @Nullable Artifact coverageDirectory,
       TestTargetProperties testProperties,
       ActionEnvironment extraTestEnv,
@@ -195,6 +198,7 @@ public class TestRunnerAction extends AbstractAction
       boolean cancelConcurrentTestsOnSuccess,
       Iterable<Artifact> tools,
       boolean splitCoveragePostProcessing,
+      boolean outputBinaryCoverageData,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       RunfilesSupplier lcovMergerRunfilesSupplier) {
     super(
@@ -202,7 +206,7 @@ public class TestRunnerAction extends AbstractAction
         NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
         inputs,
         runfilesSupplier,
-        nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
+        nonNullAsSet(testLog, cacheStatus, coverageArtifact, binaryCoverageArtifact, coverageDirectory),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
@@ -213,6 +217,7 @@ public class TestRunnerAction extends AbstractAction
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
+    this.binaryCoverageData = binaryCoverageArtifact;
     this.coverageDirectory = coverageDirectory;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
@@ -253,6 +258,7 @@ public class TestRunnerAction extends AbstractAction
                 this.extraTestEnv.getInheritedEnv()));
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
+    this.outputBinaryCoverageData = outputBinaryCoverageData;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
     this.lcovMergerRunfilesSupplier = lcovMergerRunfilesSupplier;
 
@@ -336,6 +342,9 @@ public class TestRunnerAction extends AbstractAction
       if (!splitCoveragePostProcessing) {
         outputs.add(coverageData);
       }
+      if (outputBinaryCoverageData) {
+        outputs.add(binaryCoverageData);
+      }
       if (coverageDirectory != null) {
         outputs.add(coverageDirectory);
       }
@@ -356,6 +365,9 @@ public class TestRunnerAction extends AbstractAction
     }
     if (getCoverageData() != null && resolver.toPath(getCoverageData()).exists()) {
       builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData())));
+    }
+    if (getBinaryCoverageData() != null && resolver.toPath(getBinaryCoverageData()).exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE_EXEC, resolver.toPath(getBinaryCoverageData())));
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
@@ -627,6 +639,9 @@ public class TestRunnerAction extends AbstractAction
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
+      if (binaryCoverageDataGenerated()) {
+        env.put("EXEC_OUTPUT_FILE", getBinaryCoverageData().getExecPathString());
+      }
       env.put("SPLIT_COVERAGE_POST_PROCESSING", splitCoveragePostProcessing ? "1" : "0");
       env.put("IS_COVERAGE_SPAWN", "0");
     }
@@ -736,10 +751,16 @@ public class TestRunnerAction extends AbstractAction
     return xmlOutputPath;
   }
 
-  /** Returns coverage data artifact or null if code coverage was not requested. */
+  /** Returns lcov format coverage data artifact or null if code coverage was not requested. */
   @Nullable
   public Artifact getCoverageData() {
     return coverageData;
+  }
+
+  /** Returns exec format coverage data artifact or null if code coverage was not requested. */
+  @Nullable
+  public Artifact getBinaryCoverageData() {
+    return binaryCoverageData;
   }
 
   @Nullable
@@ -750,6 +771,11 @@ public class TestRunnerAction extends AbstractAction
   /** Returns true if coverage data should be gathered. */
   public boolean isCoverageMode() {
     return coverageData != null;
+  }
+
+  /** Returns true if binary coverage data has been generated. */
+  public boolean binaryCoverageDataGenerated() {
+    return binaryCoverageData != null;
   }
 
   /**

@@ -385,11 +385,17 @@ public final class TestActionBuilder {
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.cache_status"), root);
 
         Artifact.DerivedArtifact coverageArtifact = null;
+        Artifact.DerivedArtifact binaryCoverageReportArtifact = null;
         Artifact coverageDirectory = null;
         if (collectCodeCoverage) {
           coverageArtifact =
               ruleContext.getPackageRelativeArtifact(dir.getRelative("coverage.dat"), root);
           coverageArtifacts.add(coverageArtifact);
+          if (testConfiguration.outputBinaryCoverageData()) {
+            binaryCoverageReportArtifact =
+                    ruleContext.getPackageRelativeArtifact(dir.getRelative("test_coverage.exec"), root);
+            coverageArtifacts.add(binaryCoverageReportArtifact);
+          }
           if (testConfiguration.fetchAllCoverageOutputs()) {
             coverageDirectory =
                 ruleContext.getPackageRelativeTreeArtifact(dir.getRelative("_coverage"), root);
@@ -408,6 +414,7 @@ public final class TestActionBuilder {
           tools.addAll(additionalTools.build());
         }
         boolean splitCoveragePostProcessing = testConfiguration.splitCoveragePostProcessing();
+        boolean outputBinaryCoverageData = testConfiguration.outputBinaryCoverageData();
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
                 getOwner(),
@@ -419,6 +426,7 @@ public final class TestActionBuilder {
                 testLog,
                 cacheStatus,
                 coverageArtifact,
+                binaryCoverageReportArtifact,
                 coverageDirectory,
                 testProperties,
                 runfilesSupport.getActionEnvironment().addFixedVariables(extraTestEnv),
@@ -434,6 +442,7 @@ public final class TestActionBuilder {
                 cancelConcurrentTests,
                 tools.build(),
                 splitCoveragePostProcessing,
+                outputBinaryCoverageData,
                 lcovMergerFilesToRun,
                 lcovMergerRunfilesSupplier);
 

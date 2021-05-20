@@ -480,6 +480,8 @@ public class JacocoCoverageRunner {
     final boolean hasOneFileFinal = hasOneFile;
 
     final String coverageReportBase = System.getenv("JAVA_COVERAGE_FILE");
+    // Generate Exec Output File
+    final String binaryCoverageReport = System.getenv("EXEC_OUTPUT_FILE");
 
     // Disable Jacoco's default output mechanism, which runs as a shutdown hook. We generate the
     // report in our own shutdown hook below, and we want to avoid the data race (shutdown hooks are
@@ -524,6 +526,14 @@ public class JacocoCoverageRunner {
                     try (FileOutputStream fs = new FileOutputStream(coverageData, true)) {
                       fs.write(data);
                     }
+
+                    if (binaryCoverageReport != null) {
+                      // Only output the binary coverage data when output_binary_coverage_data is set
+                      try (FileOutputStream bfs = new FileOutputStream(binaryCoverageReport, true)) {
+                        bfs.write(data);
+                      }
+                    }
+
                     // We append to the output file, but run report generation only for the coverage
                     // data from this JVM. The output file may contain data from other
                     // subprocesses, etc.

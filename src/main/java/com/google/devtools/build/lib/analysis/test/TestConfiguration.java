@@ -301,6 +301,14 @@ public class TestConfiguration extends Fragment {
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
     public boolean splitCoveragePostProcessing;
 
+    @Option(
+            name = "output_binary_coverage_data",
+            defaultValue = "false",
+            documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+            effectTags = {OptionEffectTag.EXECUTION},
+            help = "If true, then Bazel will output exec coverage data along with lcov format test report.")
+    public boolean outputBinaryCoverageData;
+
     @Override
     public FragmentOptions getHost() {
       TestOptions hostOptions = (TestOptions) getDefault();
@@ -411,6 +419,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean splitCoveragePostProcessing() {
     return options.splitCoveragePostProcessing;
+  }
+
+  public boolean outputBinaryCoverageData() {
+    return options.outputBinaryCoverageData;
   }
 
   /**

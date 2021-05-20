@@ -33,5 +33,6 @@ public class TestFileNameConstants {
   public static final String UNDECLARED_OUTPUTS_ZIP = "test.outputs__outputs.zip";
   public static final String UNUSED_RUNFILES_LOG = "test.unused_runfiles_log";
   public static final String TEST_COVERAGE = "test.lcov";
+  public static final String TEST_COVERAGE_EXEC = "test_coverage.exec";
   public static final String BASELINE_COVERAGE = "baseline.lcov";
 }

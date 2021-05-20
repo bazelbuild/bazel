@@ -201,7 +201,11 @@ public final class CoverageReportActionBuilder {
     FilesToRunProvider reportGenerator = null;
     for (ConfiguredTarget target : targetsToTest) {
       TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
-      builder.addAll(testParams.getCoverageArtifacts());
+      for(Artifact artifact: testParams.getCoverageArtifacts()) {
+        if (artifact.getFilename().endsWith(".dat")) {
+          builder.add(artifact);
+        }
+      }
       if (reportGenerator == null) {
         reportGenerator = testParams.getCoverageReportGenerator();
       }
