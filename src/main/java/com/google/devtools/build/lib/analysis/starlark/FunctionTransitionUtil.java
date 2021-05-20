@@ -212,7 +212,7 @@ public class FunctionTransitionUtil {
         FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
         try {
           Object optionValue = field.get(options);
-          dict.putEntry(optionKey, optionValue == null ? Starlark.NONE : optionValue);
+          dict.putEntry(optionKey, Starlark.fromJava(optionValue, null));
         } catch (IllegalAccessException e) {
           // These exceptions should not happen, but if they do, throw a RuntimeException.
           throw new RuntimeException(e);

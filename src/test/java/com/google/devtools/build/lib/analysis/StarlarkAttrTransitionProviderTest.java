@@ -2141,4 +2141,65 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
         .containsExactly(Label.parseAbsoluteUnchecked("//platforms:my_platform"));
   }
+
+  @Test
+  public void testIterationOverSettingsItems() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/defs.bzl",
+        "def _add_feature_x_transition_impl(settings, attrs):",
+        "  build_settings = {}",
+        "  for key, value in settings.items():",
+        "    if key == '//command_line_option:features':",
+        "      value = value + ['x']",
+        "    build_settings[key] = value",
+        "  return build_settings",
+        "add_feature_x_transition = transition(",
+        "  implementation = _add_feature_x_transition_impl,",
+        "  inputs = ['//command_line_option:features'],",
+        "  outputs = ['//command_line_option:features'],",
+        ")",
+        "def _apply_feature_x_impl(ctx):",
+        "  return cc_common.merge_cc_infos(cc_infos = [dep[CcInfo] for dep in ctx.attr.deps])",
+        "apply_feature_x = rule(",
+        "  cfg = add_feature_x_transition,",
+        "  implementation = _apply_feature_x_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(providers=[CcInfo]),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'apply_feature_x')",
+        "cc_library(",
+        "  name = 'lib_a',",
+        "  srcs = ['main_a.cc']",
+        ")",
+        "cc_library(",
+        "  name = 'lib_bc',",
+        "  srcs = ['main_bc.cc']",
+        ")",
+        "apply_feature_x(",
+        "  name = 'lib_a_with_feature_x',",
+        "  deps = [':lib_a']",
+        ")",
+        "apply_feature_x(",
+        "  name = 'lib_bc_with_feature_x',",
+        "  deps = [':lib_bc']",
+        ")");
+    useConfiguration("--features=a");
+    ConfiguredTarget dep = getConfiguredTarget("//test:lib_a_with_feature_x");
+    assertThat(getConfiguration(dep).getOptions().get(CoreOptions.class).defaultFeatures)
+        .containsExactly("a", "x");
+    assertNoEvents();
+
+    useConfiguration("--features=bc");
+    dep = getConfiguredTarget("//test:lib_bc_with_feature_x");
+    assertThat(getConfiguration(dep).getOptions().get(CoreOptions.class).defaultFeatures)
+        .containsExactly("bc", "x");
+    assertNoEvents();
+  }
 }
