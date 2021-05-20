@@ -483,8 +483,7 @@ public final class RuleContext extends TargetContext
             aspectDescriptors,
             getConfiguration(),
             getExecProperties(execGroup, execProperties),
-            getExecutionPlatform(execGroup),
-            ImmutableSet.of(execGroup));
+            getExecutionPlatform(execGroup));
     actionOwners.put(execGroup, actionOwner);
     return actionOwner;
   }
@@ -591,31 +590,12 @@ public final class RuleContext extends TargetContext
             AnalysisUtils.isStampingEnabled(this, getConfiguration()), key, getConfiguration());
   }
 
-  /**
-   * Computes a map of exec properties given the execution platform, taking only properties in exec
-   * groups that are applicable to this action. Properties for specific exec groups take precedence
-   * over properties that don't specify an exec group.
-   */
   private static ImmutableMap<String, String> computeExecProperties(
-      Map<String, String> targetExecProperties,
-      @Nullable PlatformInfo executionPlatform,
-      Set<String> execGroups) {
+      Map<String, String> targetExecProperties, @Nullable PlatformInfo executionPlatform) {
     Map<String, String> execProperties = new HashMap<>();
 
     if (executionPlatform != null) {
-      Map<String, Map<String, String>> execPropertiesPerGroup =
-          parseExecGroups(executionPlatform.execProperties());
-
-      if (execPropertiesPerGroup.containsKey(DEFAULT_EXEC_GROUP_NAME)) {
-        execProperties.putAll(execPropertiesPerGroup.get(DEFAULT_EXEC_GROUP_NAME));
-        execPropertiesPerGroup.remove(DEFAULT_EXEC_GROUP_NAME);
-      }
-
-      for (Map.Entry<String, Map<String, String>> execGroup : execPropertiesPerGroup.entrySet()) {
-        if (execGroups.contains(execGroup.getKey())) {
-          execProperties.putAll(execGroup.getValue());
-        }
-      }
+      execProperties.putAll(executionPlatform.execProperties());
     }
 
     // If the same key occurs both in the platform and in target-specific properties, the
@@ -631,8 +611,7 @@ public final class RuleContext extends TargetContext
       ImmutableList<AspectDescriptor> aspectDescriptors,
       BuildConfiguration configuration,
       Map<String, String> targetExecProperties,
-      @Nullable PlatformInfo executionPlatform,
-      Set<String> execGroups) {
+      @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
         rule.getLabel(),
         aspectDescriptors,
@@ -642,7 +621,7 @@ public final class RuleContext extends TargetContext
         configuration.checksum(),
         configuration.toBuildEvent(),
         configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null,
-        computeExecProperties(targetExecProperties, executionPlatform, execGroups),
+        computeExecProperties(targetExecProperties, executionPlatform),
         executionPlatform);
   }
 
@@ -1279,18 +1258,20 @@ public final class RuleContext extends TargetContext
       return ImmutableMap.of(DEFAULT_EXEC_GROUP_NAME, ImmutableMap.of());
     } else {
       return parseExecProperties(
-          execProperties, toolchainContexts == null ? null : toolchainContexts.getExecGroups());
+          execProperties,
+          toolchainContexts == null ? ImmutableSet.of() : toolchainContexts.getExecGroups());
     }
   }
 
   /**
    * Parse raw exec properties attribute value into a map of exec group names to their properties.
    * The raw map can have keys of two forms: (1) 'property' and (2) 'exec_group_name.property'. The
-   * former get parsed into the default exec group, the latter get parsed into their relevant exec
-   * groups.
+   * former get parsed into the target's default exec group, the latter get parsed into their
+   * relevant exec groups.
    */
-  private static Map<String, Map<String, String>> parseExecGroups(
-      Map<String, String> rawExecProperties) {
+  private static ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+      Map<String, String> rawExecProperties, Set<String> execGroups)
+      throws InvalidExecGroupException {
     Map<String, Map<String, String>> consolidatedProperties = new HashMap<>();
     consolidatedProperties.put(DEFAULT_EXEC_GROUP_NAME, new HashMap<>());
     for (Map.Entry<String, String> execProperty : rawExecProperties.entrySet()) {
@@ -1303,30 +1284,14 @@ public final class RuleContext extends TargetContext
       } else {
         String execGroup = rawProperty.substring(0, delimiterIndex);
         String property = rawProperty.substring(delimiterIndex + 1);
-        consolidatedProperties.putIfAbsent(execGroup, new HashMap<>());
-        consolidatedProperties.get(execGroup).put(property, execProperty.getValue());
-      }
-    }
-    return consolidatedProperties;
-  }
-
-  /**
-   * Parse raw exec properties attribute value into a map of exec group names to their properties.
-   * If given a set of exec groups, validates all the exec groups in the map are applicable to the
-   * action.
-   */
-  private static ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
-      Map<String, String> rawExecProperties, @Nullable Set<String> execGroups)
-      throws InvalidExecGroupException {
-    Map<String, Map<String, String>> consolidatedProperties = parseExecGroups(rawExecProperties);
-    if (execGroups != null) {
-      for (Map.Entry<String, Map<String, String>> execGroup : consolidatedProperties.entrySet()) {
-        String execGroupName = execGroup.getKey();
-        if (!execGroupName.equals(DEFAULT_EXEC_GROUP_NAME) && !execGroups.contains(execGroupName)) {
+        if (!execGroups.contains(execGroup)) {
           throw new InvalidExecGroupException(
               String.format(
-                  "Tried to set properties for non-existent exec group '%s'.", execGroupName));
+                  "Tried to set exec property '%s' for non-existent exec group '%s'.",
+                  property, execGroup));
         }
+        consolidatedProperties.putIfAbsent(execGroup, new HashMap<>());
+        consolidatedProperties.get(execGroup).put(property, execProperty.getValue());
       }
     }
 

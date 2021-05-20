@@ -105,10 +105,6 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         "platform(",
         "    name = 'platform_2',",
         "    constraint_values = [':constraint_2'],",
-        "    exec_properties = {",
-        "        'watermelon.ripeness': 'unripe',",
-        "        'watermelon.color': 'red',",
-        "    },",
         ")");
 
     useConfiguration(
@@ -394,55 +390,5 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
             ExecGroup.createCopied(
                 ImmutableSet.of(Label.parseAbsoluteUnchecked("//rule:toolchain_type_1")),
                 ImmutableSet.of(Label.parseAbsoluteUnchecked("//platform:constraint_1"))));
-  }
-
-  @Test
-  public void testInheritsPlatformExecGroupExecProperty() throws Exception {
-    createToolchainsAndPlatforms();
-    writeRuleWithActionsAndWatermelonExecGroup();
-
-    scratch.file(
-        "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt',",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:papaya");
-
-    assertThat(
-            getGeneratingAction(target, "test/watermelon_out.txt").getOwner().getExecProperties())
-        .containsExactly("ripeness", "unripe", "color", "red");
-    assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
-        .containsExactly();
-  }
-
-  @Test
-  public void testOverridePlatformExecGroupExecProperty() throws Exception {
-    createToolchainsAndPlatforms();
-    writeRuleWithActionsAndWatermelonExecGroup();
-
-    scratch.file(
-        "test/BUILD",
-        "load('//test:defs.bzl', 'with_actions')",
-        "with_actions(",
-        "  name = 'papaya',",
-        "  output = 'out.txt',",
-        "  watermelon_output = 'watermelon_out.txt',",
-        "  exec_properties = {",
-        "    'watermelon.ripeness': 'ripe',",
-        "    'ripeness': 'unknown',",
-        "  },",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//test:papaya");
-
-    assertThat(
-            getGeneratingAction(target, "test/watermelon_out.txt").getOwner().getExecProperties())
-        .containsExactly("ripeness", "ripe", "color", "red");
-    assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
-        .containsExactly("ripeness", "unknown");
   }
 }
