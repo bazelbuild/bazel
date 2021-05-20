@@ -87,7 +87,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           installBase,
           outputBase,
           BUILD_FILES_BY_PRIORITY,
-          EXTERNAL_PACKAGE_HELPER,
           ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS);
       this.isFetch = isFetch;
     }
