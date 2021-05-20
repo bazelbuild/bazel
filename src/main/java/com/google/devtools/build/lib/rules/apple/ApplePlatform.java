@@ -98,13 +98,30 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   /**
-   * Returns the platform cpu string with target environment (_device|_simulator).
+   * Returns the target platform as it would be represented in a target triple.
    *
-   * @param targetCpu cpu value with platform type prefix, such as 'ios_arm64'
+   * <p>Note that the target platform for Catalyst is "ios", despite it being represented here as
+   * its own value.
    */
-  public String cpuStringWithTargetEnvironmentForTargetCpu(String targetCpu) {
-    String targetEnvironment = isDevice ? "device" : "simulator";
-    return String.format("%s_%s", targetCpu, targetEnvironment);
+  public String getTargetPlatform() {
+    if (platformType == PlatformType.CATALYST) {
+      return PlatformType.IOS.starlarkKey;
+    }
+    return platformType.starlarkKey;
+  }
+
+  /**
+   * Returns the platform's target environment as it would be represented in a target triple.
+   *
+   * <p>Note that the target environment corresponds to the target platform (as returned by {@link
+   * #getTargetPlatform()}, so "macabi" is an environment of iOS, not a separate platform as it is
+   * represented in this enumerated type.
+   */
+  public String getTargetEnvironment() {
+    if (platformType == PlatformType.CATALYST) {
+      return "macabi";
+    }
+    return isDevice ? "device" : "simulator";
   }
 
   /**

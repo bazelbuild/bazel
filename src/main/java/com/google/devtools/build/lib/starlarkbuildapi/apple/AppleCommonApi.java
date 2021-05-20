@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
@@ -366,6 +367,21 @@ public interface AppleCommonApi<
       parameters = {
         @Param(name = "ctx", named = true, positional = false, doc = "The Starlark rule context."),
         @Param(
+            name = "avoid_deps",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = TransitiveInfoCollection.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            doc =
+                "A list of <code>Target</code>s that are in the dependency graph of the binary but"
+                    + " whose libraries should not be linked into the binary. This is the case for"
+                    + " dependencies that will be found at runtime in another image, such as the"
+                    + " bundle loader or any dynamic libraries/frameworks that will be loaded by"
+                    + " this binary."),
+        @Param(
             name = "extra_linkopts",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
@@ -395,12 +411,19 @@ public interface AppleCommonApi<
             named = true,
             positional = false,
             defaultValue = "True",
-            doc = "If true, invoke lipo after linking to create a universal binary.")
+            doc =
+                "If True, invoke lipo after linking to create a universal binary. This parameter "
+                    + "is temporary and defaults to True for legacy purposes. After rules_apple "
+                    + "has been updated to call this with False, the default will be changed to "
+                    + "False and the support for invoking lipo inside "
+                    + "<code>link_multi_arch_binary</code> will be removed, along with this "
+                    + "parameter.")
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   StructApi linkMultiArchBinary(
       StarlarkRuleContextT starlarkRuleContext,
+      Object avoidDeps, // Sequence<TransitiveInfoCollection> expected.
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkInt stamp,
