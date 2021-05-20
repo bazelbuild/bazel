@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -428,7 +429,8 @@ public final class BlazeOptionHandler {
       EventHandler eventHandler,
       List<String> rcFiles,
       List<ClientOptions.OptionOverride> rawOverrides,
-      Set<String> validCommands) {
+      Set<String> validCommands)
+      throws OptionsParsingException {
     ListMultimap<String, RcChunkOfArgs> commandToRcArgs = ArrayListMultimap.create();
 
     String lastRcFile = null;
@@ -440,6 +442,21 @@ public final class BlazeOptionHandler {
         continue;
       }
       String rcFile = rcFiles.get(override.blazeRc);
+      // The canonicalize-flags command only inherits bazelrc "build" commands. Not "test", not
+      // "build:foo". Restrict --flag_alias accordingly to prevent building with flags that
+      // canonicalize-flags can't recognize.
+      if ((override.option.startsWith("--" + Converters.BLAZE_ALIASING_FLAG + "=")
+              || override.option.equals("--" + Converters.BLAZE_ALIASING_FLAG))
+          // In production, "build" is always a valid command, but not necessarily in tests.
+          // Particularly C0Command, which some tests use for low-level options parsing logic. We
+          // don't want to interfere with those.
+          && validCommands.contains("build")
+          && !override.command.equals("build")) {
+        throw new OptionsParsingException(
+            String.format(
+                "%s: \"%s %s\" disallowed. --%s only supports the \"build\" command.",
+                rcFile, override.command, override.option, Converters.BLAZE_ALIASING_FLAG));
+      }
       String command = override.command;
       int index = command.indexOf(':');
       if (index > 0) {
