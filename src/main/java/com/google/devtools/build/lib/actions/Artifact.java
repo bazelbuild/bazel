@@ -452,6 +452,14 @@ public abstract class Artifact
     }
 
     @Override
+    public final String toDebugString() {
+      if (hasGeneratingActionKey()) {
+        return super.toDetailString() + " (" + getGeneratingActionKey() + ")";
+      }
+      return super.toDebugString();
+    }
+
+    @Override
     public final PathFragment getRootRelativePath() {
       return getExecPath().relativeTo(getRoot().getExecPath());
     }
@@ -884,6 +892,13 @@ public abstract class Artifact
       // workspace name out and print that also.
       return "[[<execution_root>]" + root.getExecPath() + "]" + getRootRelativePathString();
     }
+  }
+
+  public String toDebugString() {
+    if (getOwner() == null || getOwner().toPathFragment().equals(getExecPath())) {
+      return toDetailString();
+    }
+    return toDetailString() + " (" + getArtifactOwner() + ")";
   }
 
   @Override
