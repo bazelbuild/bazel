@@ -239,7 +239,7 @@ To enable the Clang toolchain for building C++, there are several situations.
   You can enable the Clang toolchain by a build flag `--compiler=clang-cl`.
 
 * With `--incompatible_enable_cc_toolchain_resolution`:
-  You have to add a platform target to your BUILD file (eg. the top level BUILD file):
+  You have to add a platform target to your `BUILD file` (eg. the top level `BUILD` file):
     ```
     platform(
         name = "x64_windows-clang-cl",
@@ -257,7 +257,7 @@ To enable the Clang toolchain for building C++, there are several situations.
     --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
     ```
 
-    * Register the platform and toolchain in your WORKSPACE file:
+    * Register the platform and toolchain in your `WORKSPACE` file:
 
     ```
     register_execution_platforms(

@@ -12,7 +12,7 @@ installation and plugin details.
 
 IDEs integrate with Bazel in a variety of ways, from features that allow Bazel
 executions from within the IDE, to awareness of Bazel structures such as syntax
-highlighting of the BUILD files.
+highlighting of the `BUILD` files.
 
 If you are interested in developing an editor or IDE plugin for Bazel, please
 join the `#ide` channel on the [Bazel Slack](https://slack.bazel.build) or email
@@ -31,9 +31,9 @@ Features:
 
 * Interop with language-specific plugins. Supported languages include Java,
   Scala, and Python.
-* Import BUILD files into the IDE with semantic awareness of Bazel targets.
-* Make your IDE aware of Starlark, the language used for Bazel's BUILD and bzl
-  files
+* Import `BUILD` files into the IDE with semantic awareness of Bazel targets.
+* Make your IDE aware of Starlark, the language used for Bazel's `BUILD` and
+  `.bzl`files
 * Build, test, and execute binaries directly from the IDE
 * Create configurations for debugging and running binaries.
 
@@ -61,8 +61,8 @@ Official plugin for VS Code.
 Features:
 
 * Bazel Build Targets tree
-* Starlark debugger for .bzl files during a build (set breakpoints, step through
-  code, inspect variables, and so on)
+* Starlark debugger for `.bzl` files during a build (set breakpoints, step
+  through code, inspect variables, and so on)
 
 Find [the plugin on the Visual Studio
 marketplace](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel).
