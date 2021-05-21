@@ -120,6 +120,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
           ":android_sdk",
           "aidl_lib", // for the aidl runtime in the android_sdk rule
           "$toolchain", // this is _toolchain in Starlark rules (b/78647825)
+          "$build_stamp_deps", // for build stamp runtime class deps
+          "$build_stamp_mergee_manifest_lib", // for empty build stamp Service class implementation
           // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
           JavaProtoAspectCommon.LITE_PROTO_TOOLCHAIN_ATTR,
           "runtime");
