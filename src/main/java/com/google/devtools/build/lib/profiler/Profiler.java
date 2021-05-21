@@ -300,8 +300,8 @@ public final class Profiler {
   // TODO(ulfjack): This returns incomplete data by design. Maybe we should return the histograms on
   // stop instead? However, this is currently only called from one location in a module, and that
   // can't call stop itself. What to do?
-  public ImmutableList<StatRecorder> getTasksHistograms() {
-    return ImmutableList.copyOf(tasksHistograms);
+  public synchronized ImmutableList<StatRecorder> getTasksHistograms() {
+    return isActive() ? ImmutableList.copyOf(tasksHistograms) : ImmutableList.of();
   }
 
   public static Profiler instance() {
