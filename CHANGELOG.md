@@ -1,3 +1,353 @@
+## Release 4.1.0 (2021-05-21)
+
+```
+Baseline: 37a429ad12b4c9e6a62dbae4881a1ff03b81ab40
+
+Cherry picks:
+
+   + a689d673abadf80f1efaf8ddaeee92d56fc2847b:
+     Use getRunfilesPath for run_under executable path generation.
+     getRootRelativePath doesn't return a valid runfiles path for
+     external source files anymore after the recent external source
+     root change. Also, it won't work for external labels either once
+     the --nolegacy_external_runfiles becomes default. This fixes
+     issue #12545.
+   + d90ec67fdab9710f649a3c1d374fb6b938b9271a:
+     Fix NPE when coveragerunner is not set on the toolchain.
+   + 8555789dd239a5ac229c1d9cee80b2a9f30b3bf7:
+     Fix the classic query package-loading cutoff optimization with
+     external workspaces.
+   + 57672aca01b3be895382c952b550c9f8edf6c9f2:
+     Update turbine
+   + bef4bbbb47d47befe3711d06f358782ee12554f9:
+     Update turbine
+   + d113d7454127bba78aa618dac81e5d164920b662:
+     Update turbine
+   + 1489f0f4cae3e9247a70e4003ab76bef45c5b986:
+     Support Scala3 .tasty files
+   + 0d2d95cd7e34b4061c8e5fdfd21ba0ab8818c685:
+     Update to java_tools javac11 release 10.5 (#12647)
+   + a9419f38d5f29af31a6c8ebda09a6e0303a6ba54:
+     Fix common prefix for instrumentation filter
+   + 84fadcf81f81b2d7343ca4151a5639be7f2263ee:
+     Fix builds for filegroup targets with incompatible dependencies
+   + e43825d0bef359f645e1cabf2164fd2db6ee4a35:
+     Revert "Remove
+     --incompatible_blacklisted_protos_requires_proto_info"
+   + 082d58de852ebaa640bcf13cf419cbb94eec2b26:
+     Transform roots along with paths during output deletion.
+   + e8835c1c221d76a2d5532d18083eaa04401619b3:
+     AttributeContainer.Large now handles more than 127 attributes.
+   + e1e87349335ac59f9b3df47cee8b999faeaa6d11:
+     Add an env attribute to all test and binary rule classes
+   + a87d7ed2411d5382bac58a20b79e09c464ad13b9:
+     Take no action to prefetch empty artifacts.
+   + 3e969ff24a6a0e03139b9f288c88451a7dfa97cd:
+     Fix a couple of bugs with Incompatible Target Skipping
+   + e6670825b1e183f81f5c864aafd425d512fa9ff5:
+     Pass --host_action_env to host options hostActionEnvironment
+     attribute
+   + 07400c0392e7be163f8a3396fa5cf89ce6705412:
+     Add --{no,}autodetect_server_javabase.
+   + c83366064621d5a265eba14d93a03deff58fe6d8:
+     Only treat "env" and "env_inherit" attrs specially for native
+     rules
+   + 6a60b30cd0f22d0ab84b2ddd658d5ccb899a8a76:
+     Fix coverage support when using default_java_toolchain. (#12801)
+   + 4158a6f512e52516437e00f8d9609a91be7fc195:
+     Revert JacocoCoverage target to remote_java_tools_java_import
+     and add a new target for remore_java_tools_filegroup. (#12813)
+   + f6d30cf5ef9a8a39fea7072317f89a872387b790:
+     Add windows_msvc back to conditions in bazel_tools.
+   + 6b33bdb1e22514304c0e35ce8e067f2175685245:
+     Release 4.0.0 (2021-01-21)
+   + 8811e27353c2c10980faf7e4c5e44b431d2d4f1c:
+     Fix error message from getPrerequisites to not print internal
+     details.
+   + 27e15ad11410eb1014f5247fd0eeb31a46733c07:
+     Clean up ConfiguredTargetValueAccessor and
+     ConfiguredTargetAccessor
+   + e87feb8ac9573cef993824f82370d0389570521d:
+     Move getConfigConditions into ConfiguredTarget.
+   + 34d98234324da83e93ba0d5ef5702880d5ac7c5c:
+     Change ConfiguredTargetQuery to use KeyedConfiguredTarget as a
+     value.
+   + 079bb7d69931705bb2b092c9017090e224ef3043:
+     Clean up old dependencies that are unused since
+     https://github.com/bazelbuild/bazel/commit/34d98234324da83e93ba0d
+     5ef5702880d5ac7c5c.
+   + e03cb63e059420847d6578d7cbfe93f05615c95e:
+     Update bazelbuild/platforms to a current release. - Roll forward
+     https://github.com/bazelbuild/bazel/commit/0a4533420a3de467fd211d
+     7f925cf88e0cd5b76a  with kythe fix.
+   + 2eb1bf53d5fef13b89ee440af4f83003d1d0b50a:
+     Update docs and tests to use the @platforms//:incompatible
+     constraint
+   + c71697cf33b0fbbb42fc2910bac83960edc7e855:
+     Clarify test_suite behaviour in the Platforms docs
+   + dfb70ea4cae2ffffb76e9741d86c96505a6d05ad:
+     Enable toolchain resolution for filegroup targets.
+   + 24d086446f74606819dc53c3a436caa056ff05b7:
+     PlatformProviderUtils should ignore targets that don't have the
+     needed
+   + ba60c0b3f9bbd00975c984244839b155e84b4c5d:
+     ijar: fix manifest sections handling
+   + 58bb42ad7ca263a75c6eeef51482f805726663a5:
+     Revert "Switch to -fdebug-compilation-dir"
+   + 57672aca01b3be895382c952b550c9f8edf6c9f2:
+     Update turbine
+   + bef4bbbb47d47befe3711d06f358782ee12554f9:
+     Update turbine
+   + d113d7454127bba78aa618dac81e5d164920b662:
+     Update turbine
+   + ad241fbebd90a9f0ad65ccd0658838f57030db68:
+     Allow cquery to filter out incompatible targets
+   + 1782f0ae751569607ef88930c822ac460a1f8bb3:
+     Patch grpc to fix cares selecting the wrong source when building
+     for darwin_arm64 cpu.
+   + 8f7bc2f67fafcaa8d25cfc77eaaedbf8eed2984a:
+     [1/3] Bump grpc to 1.33.1 to fix corruption when downloading CAS
+     blobs
+   + 848a51747a460ab4c5185e4c61ab522a9981cbea:
+     [2/3] Bump grpc to 1.33.1 to fix corruption when downloading CAS
+     blobs
+   + 9b30172547f2093acb56aedf159a77d5dceffda2:
+     [3/3] Bump grpc to 1.33.1 to fix corruption when downloading CAS
+     blobs
+   + 1e258d2a7a5221613047e5cee0aaec5b56045d2b:
+     Allow exec groups to inherit from the rule or other exec groups.
+   + d0676693310215407224c1b8e8aea9e3eddc183d:
+     Support execution constraints per exec group
+   + f1e0d346c8235c855e61afc2adb870e4b895e002:
+     Clean up RuleContext to use a Table instead of a Map of Maps.
+   + 8186fbb47ab964a9affa9a0fc6315fcdbde2b5aa:
+     Documentation for #13110
+   + 321fe3b6b4e892821ee7dbf2d17dd8ae6a541913:
+     Prevent --repo_env from triggering unnecessary fetches
+   + 3ebf658cba43bbab1efc36518f0795a7d65e2d46:
+     Prevent a crash when using --repo_env=VAR without a value
+   + 913a985a5c2fc3842b12c6e5f29af0fa1bccfd6a:
+     Report digest of failed uploads
+   + 5122617b8a22fee7acd86c9c48f2c2737709ca3f:
+     Status error presentation with details
+   + 9a70805db543e2fb910e1c55ef3b3567362adf30:
+     Fix double shutdown of BuildEventArtifactUploader when BES+File
+     output enabled.
+   + 325eb956c92530bdfda54a36a186cae4245a4f7b:
+     Add rxjava3 to third_party
+   + ceaac966a7b977461b69ce9501df6a467f4a93b2:
+     remote: set executable bit of an input file based on its real
+     value
+   + 5b786da75837c5e29714e1d708c3cdf9a67ed32d:
+     Remote: correctly implement equals and hashCode.
+   + 48648503729d53fdee1322fde2c8e6c05e99cff9:
+     Fixed an error that bazel binary is not executable when testing
+     with remote execution.
+   + bc54c648aa1f99509c7c36d5e6b570d066689209:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata.
+   + 92955e617b5c41713a5163dc0437c2a024b31815:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 2)
+   + 75bd1ff8ab56d241916bde36291301fa026b2bab:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 3)
+   + 37ee252f3744abc4511f55b5089cc52abd3ba09d:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 4)
+   + 71e35b165f924e2649a078fcf6007645d58039af:
+     Remote: Use parameters instead of thread-local storage to
+     provide tracing metadata. (Part 5)
+   + 32fc451600b6e94a015263eb1c8a63e974f6f4cc:
+     Write/QueryWriteStatus logging refinement/addition
+   + 97963c5bb24ac79eb3646dd61bfcf2f8a648af54:
+     Remote: gRPC load balancing. (Part 1)
+   + e2b9a42a61596b0d24f0cadd6b7157b7f1efb221:
+     Remote: gRPC load balancing. (Part 2)
+   + 6667ad7dd77f8d97952133052c17e7779c1430ec:
+     Remote: gRPC load balancing. (Part 3)
+   + 7c081eb020186bfb16d4ef1c3832a8e946e99da1:
+     Remote: gRPC load balancing. (Part 4)
+   + 17afbe4e224b359fee6415a5bd71bbedaa7843eb:
+     Implement getMessage for BulkTransferException
+   + a6293b3df521aea9075b2ebbcdb675a7d02d3c32:
+     Remote: gRPC load balancing. (Part 5)
+   + 7a62c2d4e27e398f440910c81eacc384f38ca8be:
+     Remote: Add interoperability between Rx and ListenableFuture.
+   + 1fcb18a0b455bfcb8e9940778f37d8c82c5ed5a0:
+     Update to latest remote-execution proto
+   + dad96301d12aa77eb67399e08265a5f30f5ffd6a:
+     Set Platform on Action not just Command
+   + 6c5a3ee0dcbb4b804f4aa85c038a378fb70eb1f9:
+     Remote: Add AsyncTaskCache which is used to deduplicate task
+     executions and cache the results.
+   + 9d0c7325ac810febe565a62fdd875ae0c240b274:
+     Remote: Use AsyncTaskCache inside RemoteActionInputFetcher.
+   + f54fe07209acc25340df8d2e02993b1add2deafa:
+     Add --experimental_repository_disable_download to allow users
+     disable download for external repos
+   + b243584a479eb4481a9bf4f69acc899610a3b630:
+     Report errors parsing rewriter config file
+   + 63bc1c7d0853dc187e4b96a490d733fb29f79664:
+     Downloader rewriter config has all_blocked_message
+   + 495ac923f398443be45c20ab29d183fe47e08911:
+     Allow UrlRewriter to change protocol, i.e. https->http, and
+     http->https
+   + 8dbbde0037264c1db4b229a09f98a61ab4ca06b0:
+     Allow overriding the hostname and instance name in bytestream://
+     URIs
+   + 0881c80d29acecdfbb58c49156f805e8c50db117:
+     Don't set requestId on non-multiplex requests.
+   + e3b7e17b05f13ff183a4d7efec8ec797f3f5eaa3:
+     When generating a symlink in _virtual_includes, add the original
+     header to the 'allowed to use' set too
+   + f8f66f36ad299a0ea019c94100d5a8e2018f5ab5:
+     Make SimpleLogHandler not swallow interrupts.
+   + f8606e5e76579442a1c6563e718ea54c673f1a04:
+     linux-sandbox: don't assume -lrt, -D__STDC_FORMAT_MACROS
+   + dac0d40d0eb903f5cb70341398d1a333c19adf3a:
+     Improve "Common Attributes" section
+   + a607d9dc70ac67f1aa2c32ca954177f9c77860be:
+     Never create more than one process per WorkerMultiplexer.
+   + 80c03ef14a1842d1e3475b1adf98adeb05df33f9:
+     Move sending requests and reading responses for multiplex
+     workers into separate subthreads.
+   + 003cfcde3fd3901c1279ba1db3db3a14536248b4:
+     Allow use of JSON protocol in multiplex workers.
+   + 308bce36cba46095fe41866e703710035ddddada:
+     Actively kill off still-active workers when stopping work on
+     interrupt.
+   + 8959dff512fe4505af786bcf2ef981ec7082a913:
+     Add sanitizer support to Apple platforms
+   + 32f16e9360f3e1856db1775eb5014b930da2a303:
+     Fix a Google-internal broken link.
+   + c9e2be52a067dd9abf5efa4f5f55bb5b98cf5d3b:
+     Add SHA-1 to subresource integrity format for download()
+     checksums
+   + 3b3e6424c6fbd51d4c4ebb6aa25f1d1f4720221c:
+     Remove fallback strategy support for workers, add flag for it in
+     sandbox.
+   + 3457f2ae11e4543de0a5e6e8e37c3aff067891fd:
+     Update to java_tools javac11 10.6 (#13245)
+   + 4928295b236ec8f590a7e9d863502bc2f50a77d9:
+     Allow .S files in C++ Starlark cc_common.compile.
+   + 1b18d65227c127fe946d3fcde4586158bc7e5fcb:
+     Automatic code cleanup.
+   + b5d6c38535c7f6f1eab3fd4c8d3d2da91d0b0f8a:
+     Change short output of worker type to have the same logic as the
+     worker creation for sandboxing vs. multiplex.
+   + e7a0a71f50b69df5d38a8a85fefd36d211e12e8d:
+     More properly destroy workers on interrupt.
+   + 7056711eb11b672133274eb29fc93b01dcf088d5:
+     Make WorkRequestHandler do a GC after some amount of CPU time
+     has been used on requests. For Bazel and Blaze, defaults to 10s
+     based on benchmarking.
+   + 596653d3cf76e7b208da343e1fde5fe20273a5ff:
+     Allow tree artifacts to be source or header inputs to
+     cc_common.compile()
+   + 055c93d11ab20cc4479539b24bbdfa5cab78a342:
+     Switch to path autocompletion after -- for bazel run commands.
+   + 807f2a1929e23b60b237c63fadb25af81de2e3c3:
+     Fix Incompatible Target Skipping for test args
+   + 9a5cd854e0613f91d52075973e2454b1e009e1ef:
+     Fix order of build request id and command id
+   + 706f5acd02363e48076dc97e37613fd968932d03:
+     Fix bazel crash when passing config_setting to
+     target_compatible_with
+   + 61da1d2bf10eabba4c75de959b0374f302d89d70:
+     Support multiple --bazelrc on command line
+   + 5593358a58b66f06c4e421bb48856de94c3fd625:
+     Update ConfiguredTargetFunction.computeUnloadedToolchainContexts
+     to
+   + 662cf54de7a103db30e04ebae2d2b919437c4846:
+     Remote: Fix an issue that a failed action could lead to
+     RuntimeException caused by InterruptedException thrown when
+     acquiring gRPC connections.
+     https://github.com/bazelbuild/bazel/issues/13239
+   + a3a1763212f29932618b9b9b2f929976ae0e3b6e:
+     Pass more `--add-exports=` flags
+   + d2b942879471786e82f1c96eea8722bbe7919fc1:
+     Remote: Fixed a bug that remote cache is missed due to
+     executable bit is changed
+   + 616dc264f02907d7b7887285d22307dfe6d097b6:
+     Fix Bazel Coverage with C++ to work with Remote Execution
+   + 5f40d12e741aa30d506eaa15673fb2ae76d29468:
+     Fix external_path_test with newer Xcode versions.
+   + b416193075642017e13c774422b49cb07fb65c23:
+     Allow using embedded tools in sandboxed spawn runners.
+   + eb762d4e7431637e607146b1c191485795047ef9:
+     Fix racy write of temporary files while staging virtual inputs
+     for the sandbox.
+   + f31e86768579ad7ec57ba13f4c3c1348f5c2702e:
+     Update platforms_test to not rely on filegroup not using
+     toolchain
+   + 13031e5b3bd7c8f29b96b2fee1b380160e0e27fc:
+     Update SkyframeTests to not rely on filegroup not using toolchain
+   + 11651824a9d0ffb9adb9611dcd39f4c95a59d750:
+     Update ConfigurableAttributesTest to not rely on filegroup not
+     using …
+   + 4b68532e7ea5eb80c926b7b8e2ec2be300004628:
+     Make WorkerExecRoot not be a subclass of SandboxedSpawn.
+   + 31db460a45767de0bcd664a6efbe9d163b85b802:
+     Make WorkerExecRoot not be re-created on each createFileSystem()
+     call. Preparation for holding a map of existing links, but also
+     just nicer.
+   + a2cc0460dc84ad2dc88019af2fe2a65ce80c61e5:
+     Start the file existence check traversal from the execroot base
+     instead of execroot so that external repo files at
+     "<execroot>/../<path>" are correctly handled when the sibling
+     repository layout is enabled.
+   + b048282c7893231d3a7191b251804973917b07a4:
+     Use readdir for cleanExisting in WorkerExecRoot.
+   + 270f00dd01fa06cf3e813da5a406be3446de7377:
+     Add native support for Apple Silicon
+   + 8e56b9423e8ad2f7323fb90b19b73858def81e39:
+     Explicitly state that embedding macOS OpenJDK is for x86_64
+   + 09c621e4cf5b968f4c6cdf905ab142d5961f9ddc:
+     Remote: Fix a race that AsyncTaskCache#Execution could be reused
+     after disposed which results in
+     CancellationException("disposed") propagated to downstream.
+   + 0299cd7e17203a4ce0ea947b62a7c55f1afb8225:
+     Remove wrapped_clang params files after use
+   + 47edc57806056f3c8764241ed41b8acc72bd2ebf:
+     Silence swiftmodule timestamp warnings
+   + f6e1074b09ebefba185c0531e9cea26b9596c8a9:
+     Remote: Use shutdownNow() instead of shutdown() in
+     ChannelConnection#close() as a workaround to a gRPC bug.
+   + 71be4ea9e3d20bf90129e34a6a2899fe8401be36:
+     And mnemonic and label to remote metadata
+   + 6d28486e8eca70f76d13922944cb567b8aa09380:
+     Change `set -x` in coverage to be set by var
+   + 9b9de653355864e9700889ee36a3a49a450a2607:
+     Bump minimal JDK install base maximum size from 290 to 295 MB.
+   + 9e7e592ca51eba1a3f120320c41c845312894d74:
+     Remote: Check the return value of ActionOwner.getLabel() since
+     it could be `null`.
+   + 14abe4fd7c3967686a3536939fdc3882e691bca2:
+     Allow `DiffAwareness` to share precomputed information about the
+     workspace and propagate it to the `WorkspaceStatusAction`.
+   + 082d98772690946ed29c157e60640c97a6e1195b:
+     Implement available() method for Windows subprocesses.
+   + c2bdd034014f66ce14529cc353cda18a32320f6c:
+     Move --repo_env to common options
+   + e09f2743738044095b9d784ea62df16b7f5750e6:
+     Revert "Documentation for #13110"
+   + a165baa250652fdc865ae0df39160be1f7f74c47:
+     Revert "Clean up RuleContext to use a Table instead of a Map of
+     Maps."
+   + 51fb9e13a864f4f704ae378ea632433bae7ddc31:
+     Revert "Support execution constraints per exec group"
+   + cb6e5c24b82e0e20a243145fb6ea32b09e3d1de3:
+     Revert "Allow exec groups to inherit from the rule or other exec
+     groups."
+```
+
+Important changes:
+
+  - Multiplex persistent workers can now use the JSON protocol.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, Austin Schuh, Benjamin Peterson, Cristian Hancila, Daniel Wagner-Hall, Denys Kurylenko, Ed Schouten, Finn Ball, George Gensure, Keith Smiley, Lauri Peltonen, Philipp Schrader, Ryan Beasley, Thi Doan, Timothy Klim, Ulf Adams, Vaidas Pilkauskas, wisechengyi, Xavier Bonaventura, Yannic Bonenberger, Yuval Kaplan, Yuval.
+
 ## Release 4.0.0 (2021-01-21)
 
 ```
