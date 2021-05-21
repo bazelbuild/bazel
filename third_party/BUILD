@@ -10,6 +10,7 @@ filegroup(
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
         "//third_party/aws-sdk-auth-lite:srcs",
+        "//third_party/bazel-toolchains:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
