@@ -127,7 +127,7 @@ public final class BlazeWorkspace {
    * Callers should certainly not make this assumption. The Path returned may be null.
    */
   public Path getWorkspace() {
-    return directories.getWorkspace();
+    return directories.getWorkingDirectory();
   }
 
   /**

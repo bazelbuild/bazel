@@ -182,7 +182,6 @@ public class CommandEnvironment {
         Preconditions.checkNotNull(
             options.getOptions(CommonCommandOptions.class),
             "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
-    Path workspacePath = directories.getWorkspace();
     Path workingDirectory;
     try {
       workingDirectory = computeWorkingDirectory(commandOptions);
@@ -190,7 +189,7 @@ public class CommandEnvironment {
       // We'll exit very soon, but set the working directory to something reasonable so remainder of
       // setup can finish.
       this.blazeModuleEnvironment.exit(e);
-      workingDirectory = workspacePath;
+      workingDirectory = directories.getWorkingDirectory();
     }
     this.workingDirectory = workingDirectory;
     if (getWorkspace() != null) {
@@ -205,12 +204,14 @@ public class CommandEnvironment {
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     // If this command supports --package_path we initialize the package locator scoped
     // to the command environment
-    if (commandHasPackageOptions(command) && workspacePath != null) {
+    if (commandHasPackageOptions(command) && directories.getWorkspace() != null) {
       this.packageLocator =
           workspace
               .getSkyframeExecutor()
               .createPackageLocator(
-                  reporter, options.getOptions(PackageOptions.class).packagePath, workingDirectory);
+                  reporter,
+                  options.getOptions(PackageOptions.class).packagePath,
+                  directories.getWorkspace());
     } else {
       this.packageLocator = null;
     }
@@ -515,7 +516,7 @@ public class CommandEnvironment {
    * Callers should certainly not make this assumption. The Path returned may be null.
    */
   public Path getWorkspace() {
-    return getDirectories().getWorkspace();
+    return getDirectories().getWorkingDirectory();
   }
 
   public String getWorkspaceName() {

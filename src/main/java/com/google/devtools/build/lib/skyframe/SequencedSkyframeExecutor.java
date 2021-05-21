@@ -154,6 +154,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   // If this is null then workspace header pre-calculation won't happen.
   @Nullable private final ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
+  private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
 
   private SequencedSkyframeExecutor(
       Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit,
@@ -164,6 +165,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionKeyContext actionKeyContext,
       Factory workspaceStatusActionFactory,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
+      WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       SkyFunction ignoredPackagePrefixesFunction,
@@ -197,6 +199,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+    this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
   }
 
   @Override
@@ -353,6 +356,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
       if (pkgRoots.size() == 1) {
         workspaceInfo = modifiedFileSet.getWorkspaceInfo();
+        workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
+            pathEntry.asPath().asFragment(), workspaceInfo);
       }
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
@@ -1038,6 +1043,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
     private Factory workspaceStatusActionFactory;
     private Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories = ImmutableList.of();
+    private WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver =
+        (ignored1, ignored2) -> {};
     private Iterable<SkyValueDirtinessChecker> customDirtinessCheckers = ImmutableList.of();
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction ignoredPackagePrefixesFunction;
@@ -1067,6 +1074,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionKeyContext,
               workspaceStatusActionFactory,
               diffAwarenessFactories,
+              workspaceInfoFromDiffReceiver,
               extraSkyFunctions,
               customDirtinessCheckers,
               ignoredPackagePrefixesFunction,
@@ -1124,6 +1132,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     public Builder setDiffAwarenessFactories(
         Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
       this.diffAwarenessFactories = diffAwarenessFactories;
+      return this;
+    }
+
+    public Builder setWorkspaceInfoFromDiffReceiver(
+        WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver) {
+      this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
       return this;
     }
 

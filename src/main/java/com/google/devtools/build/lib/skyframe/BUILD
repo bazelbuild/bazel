@@ -210,6 +210,7 @@ java_library(
         ":unloaded_toolchain_context",
         ":unloaded_toolchain_context_impl",
         ":workspace_info",
+        ":workspace_info_receiver",
         ":workspace_name_function",
         ":workspace_name_value",
         ":workspace_status_function",
@@ -2752,6 +2753,16 @@ java_library(
 java_library(
     name = "workspace_info",
     srcs = ["WorkspaceInfoFromDiff.java"],
+)
+
+java_library(
+    name = "workspace_info_receiver",
+    srcs = ["WorkspaceInfoFromDiffReceiver.java"],
+    deps = [
+        ":workspace_info",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(

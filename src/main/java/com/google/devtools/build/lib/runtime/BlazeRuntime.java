@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1147,19 +1149,32 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           "Bad --output_base option specified: '" + outputBase + "'");
     }
 
-    FileSystem fs = null;
+    FileSystem nativeFs = null;
     Path execRootBasePath = null;
     for (BlazeModule module : blazeModules) {
       BlazeModule.ModuleFileSystem moduleFs =
           module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
       if (moduleFs != null) {
         execRootBasePath = moduleFs.virtualExecRootBase();
-        Preconditions.checkState(fs == null, "more than one module returns a file system");
-        fs = moduleFs.fileSystem();
+        Preconditions.checkState(nativeFs == null, "more than one module returns a file system");
+        nativeFs = moduleFs.fileSystem();
       }
     }
 
-    Preconditions.checkNotNull(fs, "No module set the file system");
+    Preconditions.checkNotNull(nativeFs, "No module set the file system");
+
+    FileSystem maybeFsForBuildArtifacts = null;
+    for (BlazeModule module : blazeModules) {
+      FileSystem maybeFs = module.getFileSystemForBuildArtifacts(nativeFs);
+      if (maybeFs != null) {
+        checkState(
+            maybeFsForBuildArtifacts == null,
+            "more than one module returns a file system for build artifacts");
+        maybeFsForBuildArtifacts = maybeFs;
+      }
+    }
+
+    FileSystem fs = MoreObjects.firstNonNull(maybeFsForBuildArtifacts, nativeFs);
 
     SubscriberExceptionHandler currentHandlerValue = null;
     for (BlazeModule module : blazeModules) {
@@ -1216,7 +1231,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
-      workspaceDirectoryPath = fs.getPath(workspaceDirectory);
+      workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
     }
     Path defaultSystemJavabasePath = null;
     if (!defaultSystemJavabase.equals(PathFragment.EMPTY_FRAGMENT)) {
