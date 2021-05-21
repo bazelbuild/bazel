@@ -344,7 +344,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               if (uid > 0) {
                 dockerfile.append(
                     String.format(
-                        "RUN [\"useradd\", \"-m\", \"-g\", \"%d\", \"-d\", \"%s\", \"-N\", \"-u\", "
+                        "RUN [\"useradd\", \"-l\", \"-m\", \"-g\", \"%d\", \"-d\", \"%s\", \"-N\", \"-u\", "
                             + "\"%d\", \"bazelbuild\"]\n",
                         gid, workDir, uid));
               }
