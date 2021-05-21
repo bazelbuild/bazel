@@ -46,9 +46,6 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class ActionOutputDirectoryHelperTest {
 
-  private static final CacheBuilderSpec CACHE_ENABLED =
-      CacheBuilderSpec.parse("maximumSize=100000");
-
   private Path execRoot;
   private ArtifactRoot outputRoot;
 
@@ -57,6 +54,18 @@ public class ActionOutputDirectoryHelperTest {
     Scratch scratch = new Scratch();
     execRoot = scratch.dir("/execroot");
     outputRoot = createOutputRoot(execRoot);
+  }
+
+  enum DirectoryCache {
+    CACHE_ENABLED(CacheBuilderSpec.parse("maximumSize=100000")),
+    CACHE_DISABLED(CacheBuilderSpec.disableCaching());
+
+    @SuppressWarnings("ImmutableEnumChecker")
+    final CacheBuilderSpec spec;
+
+    DirectoryCache(CacheBuilderSpec spec) {
+      this.spec = spec;
+    }
   }
 
   private enum OutputSet {
@@ -106,9 +115,9 @@ public class ActionOutputDirectoryHelperTest {
   }
 
   @Test
-  public void createOutputDirectories_createsExpectedDirectories(@TestParameter OutputSet outputSet)
-      throws Exception {
-    ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();
+  public void createOutputDirectories_createsExpectedDirectories(
+      @TestParameter DirectoryCache cache, @TestParameter OutputSet outputSet) throws Exception {
+    ActionOutputDirectoryHelper outputDirectoryHelper = new ActionOutputDirectoryHelper(cache.spec);
 
     outputDirectoryHelper.createOutputDirectories(outputSet.actionOutputs(this));
 
@@ -133,8 +142,9 @@ public class ActionOutputDirectoryHelperTest {
   }
 
   @Test
-  public void createOutputDirectories_ioExceptionWhenCreatingDirectory_fails() {
-    ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();
+  public void createOutputDirectories_ioExceptionWhenCreatingDirectory_fails(
+      @TestParameter DirectoryCache cache) {
+    ActionOutputDirectoryHelper outputDirectoryHelper = new ActionOutputDirectoryHelper(cache.spec);
     IOException injectedException = new IOException("oh no!");
     PathFragment outputRootPath = outputRoot.getRoot().asPath().asFragment();
     FileSystem fsWithFailures =
@@ -213,6 +223,6 @@ public class ActionOutputDirectoryHelperTest {
   }
 
   private static ActionOutputDirectoryHelper createActionOutputDirectoryHelper() {
-    return new ActionOutputDirectoryHelper(CACHE_ENABLED);
+    return new ActionOutputDirectoryHelper(DirectoryCache.CACHE_ENABLED.spec);
   }
 }

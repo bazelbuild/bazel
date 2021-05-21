@@ -202,7 +202,7 @@ public final class ActionOutputDirectoryHelper {
 
     // Walk up until the first known directory is found (must be root or below).
     List<Path> checkDirs = new ArrayList<>();
-    while (!knownDirectories.containsKey(dir.asFragment())) {
+    while (!dir.equals(rootPath) && !knownDirectories.containsKey(dir.asFragment())) {
       checkDirs.add(dir);
       dir = dir.getParentDirectory();
     }
