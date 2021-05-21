@@ -120,7 +120,7 @@ cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @$pwd_drive
 @cd "$abs_pwd"
 @set TMP=$(cygpath -a -w "${VSTEMP}")
-@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . ${WINDOWS_SOURCES[*]}
+@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . ${WINDOWS_SOURCES[*]} /link /DEFAULTLIB:advapi32.lib
 EOF
 
 # Invoke the file and hopefully generate the .DLL .

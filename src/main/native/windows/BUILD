@@ -25,6 +25,9 @@ cc_library(
         "file.h",
         "util.h",
     ],
+    linkopts = [
+        "-DEFAULTLIB:advapi32.lib",  # RegGetValueW
+    ],
     visibility = [
         "//src/main/cpp:__subpackages__",
         "//src/main/tools:__pkg__",

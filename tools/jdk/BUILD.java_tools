@@ -308,6 +308,9 @@ cc_library(
         "java_tools/src/main/native/windows/file.h",
         "java_tools/src/main/native/windows/util.h",
     ],
+    linkopts = [
+        "-DEFAULTLIB:advapi32.lib",
+    ],
     strip_include_prefix = "java_tools",
 )
 

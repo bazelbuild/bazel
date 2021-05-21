@@ -32,8 +32,11 @@ fsutil 8dot3name set 0
 
 ### Enable symlink support
 
-Some features require Bazel to create file symlink on Windows, you can allow Bazel to do that by enabling [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development) on Windows (Only works for Windows 10, version 1703 or newer).
-After enabling the Developer Mode, you should be able to use the following features:
+Some features require Bazel to be able to create file symlinks on Windows,
+either by enabling
+[Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development)
+(on Windows 10 version 1703 or newer), or by running Bazel as an administrator.
+This enables the following features:
 
 * [\-\-windows_enable_symlinks](command-line-reference.html#flag--windows_enable_symlinks)
 * [\-\-enable_runfiles](command-line-reference.html#flag--enable_runfiles)
