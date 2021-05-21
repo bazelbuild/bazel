@@ -34,7 +34,7 @@ android_ndk_repository(
 )
 ```
 
-For more information on the `android_ndk_repository` rule, see its the [Build
+For more information on the `android_ndk_repository` rule, see the [Build
 Encyclopedia entry](be/android.html#android_ndk_repository).
 
 ## Quick start
@@ -42,7 +42,7 @@ Encyclopedia entry](be/android.html#android_ndk_repository).
 To build C++ for Android, simply add `cc_library` dependencies to your
 `android_binary` or `android_library` rules.
 
-For example, given the following BUILD file for an Android app:
+For example, given the following `BUILD` file for an Android app:
 
 ```python
 # In <project>/app/src/main/BUILD.bazel
@@ -68,7 +68,7 @@ android_binary(
 )
 ```
 
-This BUILD file results in the following target graph:
+This `BUILD` file results in the following target graph:
 
 <img src="/assets/android_ndk.png" alt="Build graph of Android project with cc_library dependencies" width="600px"/>
 
@@ -107,7 +107,7 @@ This example is available in the [Bazel examples
 repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
 
 In the `BUILD.bazel` file, three targets are defined with the `android_binary`,
-`android_library` and `cc_library` rules.
+`android_library`, and `cc_library` rules.
 
 The `android_binary` top-level target builds the APK.
 
@@ -269,8 +269,8 @@ android_ndk_repository(name = "androidndk")
 register_toolchains("@androidndk//:all")
 ```
 
-Registering these toolchains tells Bazel to look for them in the NDK BUILD file
-(for NDK 20) when resolving architecture and operating system constraints:
+Registering these toolchains tells Bazel to look for them in the NDK `BUILD`
+file (for NDK 20) when resolving architecture and operating system constraints:
 
 ```python
 toolchain(
