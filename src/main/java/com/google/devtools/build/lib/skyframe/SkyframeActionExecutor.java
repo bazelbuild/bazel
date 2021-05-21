@@ -14,17 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -97,17 +93,16 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
+import com.google.devtools.build.lib.skyframe.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -115,15 +110,12 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -134,10 +126,6 @@ import javax.annotation.Nullable;
 public final class SkyframeActionExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  // Used to prevent check-then-act races in #createOutputDirectories. See the comment there for
-  // more detail.
-  private static final Striped<Lock> outputDirectoryDeletionLock = Striped.lock(64);
 
   private static final MetadataInjector THROWING_METADATA_INJECTOR_FOR_ACTIONFS =
       new MetadataInjector() {
@@ -204,14 +192,7 @@ public final class SkyframeActionExecutor {
   // at the start of its next attempt,
   private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<SkyKey>> lostDiscoveredInputsMap;
 
-  // Directories which are known to be created as regular directories within this invocation. This
-  // implies parent directories are also regular directories.
-  private Map<PathFragment, DirectoryState> knownDirectories;
-
-  private enum DirectoryState {
-    FOUND,
-    CREATED
-  }
+  private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
   private boolean useAsyncExecution;
@@ -296,11 +277,9 @@ public final class SkyframeActionExecutor {
     this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
 
-    Cache<PathFragment, DirectoryState> cache =
-        CacheBuilder.from(options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec)
-            .concurrencyLevel(Runtime.getRuntime().availableProcessors())
-            .build();
-    this.knownDirectories = cache.asMap();
+    this.outputDirectoryHelper =
+        new ActionOutputDirectoryHelper(
+            options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec);
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
@@ -376,7 +355,7 @@ public final class SkyframeActionExecutor {
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
     this.topDownActionCache = null;
-    this.knownDirectories = null;
+    this.outputDirectoryHelper = null;
   }
 
   /**
@@ -1014,9 +993,9 @@ public final class SkyframeActionExecutor {
             setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
           }
           if (actionFileSystemType().inMemoryFileSystem()) {
-            createActionFsOutputDirectories(action, actionExecutionContext);
+            createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
           } else {
-            createOutputDirectories(action, actionExecutionContext);
+            createOutputDirectories(action);
           }
         } catch (ActionExecutionException e) {
           // This try-catch block cannot trigger rewinding, so it is safe to notify the status
@@ -1322,25 +1301,14 @@ public final class SkyframeActionExecutor {
    * expect the output directory creation to always succeed. There can be no interference from state
    * left behind by prior builds or other actions intra-build.
    */
-  private void createActionFsOutputDirectories(Action action, ActionExecutionContext context)
-      throws ActionExecutionException {
+  private void createActionFsOutputDirectories(
+      Action action, ArtifactPathResolver artifactPathResolver) throws ActionExecutionException {
     try {
-      Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
-      for (Artifact outputFile : action.getOutputs()) {
-        Path outputDir;
-        if (outputFile.isTreeArtifact()) {
-          outputDir = context.getPathResolver().toPath(outputFile);
-        } else {
-          outputDir = context.getPathResolver().toPath(outputFile).getParentDirectory();
-        }
-
-        if (done.add(outputDir)) {
-          outputDir.createDirectoryAndParents();
-        }
-      }
-    } catch (IOException e) {
+      outputDirectoryHelper.createActionFsOutputDirectories(
+          action.getOutputs(), artifactPathResolver);
+    } catch (CreateOutputDirectoryException e) {
       throw toActionExecutionException(
-          "failed to create output directory",
+          String.format("failed to create output directory '%s'", e.directoryPath),
           e,
           action,
           null,
@@ -1348,152 +1316,17 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  /**
-   * Create an output directory and ensure that no symlinks exists between the output root and the
-   * output file. These are all expected to be regular directories. Violations of this expectations
-   * can only come from state left behind by previous invocations or external filesystem mutation.
-   */
-  private void createAndCheckForSymlinks(
-      final Path dir, final Artifact outputFile, ActionExecutionContext context)
-      throws IOException {
-    Path rootPath = outputFile.getRoot().getRoot().asPath();
-    PathFragment root = rootPath.asFragment();
-    Path curDir = context.getPathResolver().convertPath(dir);
-
-    // If the output root has not been created yet, do so now.
-    if (!knownDirectories.containsKey(root)) {
-      FileStatus stat = rootPath.statNullable(Symlinks.NOFOLLOW);
-      if (stat == null) {
-        outputFile.getRoot().getRoot().asPath().createDirectoryAndParents();
-        knownDirectories.put(root, DirectoryState.CREATED);
-      } else {
-        knownDirectories.put(root, DirectoryState.FOUND);
-      }
-    }
-
-    // Walk up until the first known directory is found (must be root or below).
-    List<Path> checkDirs = new ArrayList<>();
-    while (!knownDirectories.containsKey(curDir.asFragment())) {
-      checkDirs.add(curDir);
-      curDir = curDir.getParentDirectory();
-    }
-
-    // Check in reverse order (parent directory first):
-    // - If symlink -> Exception.
-    // - If non-existent -> Create directory and all children.
-    boolean parentCreated = knownDirectories.get(curDir.asFragment()) == DirectoryState.CREATED;
-    for (Path path : Lists.reverse(checkDirs)) {
-      if (parentCreated) {
-        // If we have created this directory's parent, we know that it doesn't exist or else we
-        // would know about it already. Even if a parallel thread has created it in the meantime,
-        // createDirectory() will return normally and we can assume that a regular directory exists
-        // afterwards.
-        path.createDirectory();
-        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
-        continue;
-      }
-      FileStatus stat = path.statNullable(Symlinks.NOFOLLOW);
-      if (stat != null && !stat.isDirectory()) {
-        throw new IOException(curDir + " is not a regular directory");
-      }
-      if (stat == null) {
-        parentCreated = true;
-        path.createDirectory();
-        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
-      } else {
-        knownDirectories.put(path.asFragment(), DirectoryState.FOUND);
-      }
-    }
-  }
-
-  private void createOutputDirectories(Action action, ActionExecutionContext context)
-      throws ActionExecutionException {
+  private void createOutputDirectories(Action action) throws ActionExecutionException {
     try {
-      Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
-      for (Artifact outputFile : action.getOutputs()) {
-        Path outputDir;
-        if (outputFile.isTreeArtifact()) {
-          outputDir = context.getPathResolver().toPath(outputFile);
-        } else {
-          outputDir = context.getPathResolver().toPath(outputFile).getParentDirectory();
-        }
-
-        if (done.add(outputDir)) {
-          try {
-            createAndCheckForSymlinks(outputDir, outputFile, context);
-            continue;
-          } catch (IOException e) {
-            /* Fall through to plan B. */
-          }
-
-          // Possibly some direct ancestors are not directories.  In that case, we traverse the
-          // ancestors downward, deleting any non-directories. This handles the case where a file
-          // becomes a directory. The traversal is done downward because otherwise we may delete
-          // files through a symlink in a parent directory. Since Blaze never creates such
-          // directories within a build, we have no idea where on disk we're actually deleting.
-          //
-          // Symlinks should not be followed so in order to clean up symlinks pointing to Fileset
-          // outputs from previous builds. See bug [incremental build of Fileset fails if
-          // Fileset.out was changed to be a subdirectory of the old value].
-          try {
-            Path p =
-                context.getPathResolver().transformRoot(outputFile.getRoot().getRoot()).asPath();
-            for (String segment : outputDir.relativeTo(p).segments()) {
-              p = p.getRelative(segment);
-
-              // This lock ensures that the only thread that observes a filesystem transition in
-              // which the path p first exists and then does not is the thread that calls
-              // p.delete() and causes the transition.
-              //
-              // If it were otherwise, then some thread A could test p.exists(), see that it does,
-              // then test p.isDirectory(), see that p isn't a directory (because, say, thread
-              // B deleted it), and then call p.delete(). That could result in two different kinds
-              // of failures:
-              //
-              // 1) In the time between when thread A sees that p is not a directory and when thread
-              // A calls p.delete(), thread B may reach the call to createDirectoryAndParents
-              // and create a directory at p, which thread A then deletes. Thread B would then try
-              // adding outputs to the directory it thought was there, and fail.
-              //
-              // 2) In the time between when thread A sees that p is not a directory and when thread
-              // A calls p.delete(), thread B may create a directory at p, and then either create a
-              // subdirectory beneath it or add outputs to it. Then when thread A tries to delete p,
-              // it would fail.
-              Lock lock = outputDirectoryDeletionLock.get(p);
-              lock.lock();
-              try {
-                FileStatus stat = p.statIfFound(Symlinks.NOFOLLOW);
-                if (stat == null) {
-                  // Missing entry: Break out and create expected directories.
-                  break;
-                }
-                if (stat.isDirectory()) {
-                  // If this directory used to be a tree artifact it won't be writable.
-                  p.setWritable(true);
-                  knownDirectories.put(p.asFragment(), DirectoryState.FOUND);
-                } else {
-                  // p may be a file or symlink (possibly from a Fileset in a previous build).
-                  p.delete(); // throws IOException
-                  break;
-                }
-              } finally {
-                lock.unlock();
-              }
-            }
-            outputDir.createDirectoryAndParents();
-          } catch (IOException e) {
-            String message =
-                String.format(
-                    "failed to create output directory '%s': %s", outputDir, e.getMessage());
-            DetailedExitCode code =
-                createDetailedExitCode(message, Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE);
-            throw new ActionExecutionException(message, e, action, false, code);
-          }
-        }
-      }
-    } catch (ActionExecutionException ex) {
-      printError(ex.getMessage(), action, null);
-      throw ex;
+      outputDirectoryHelper.createOutputDirectories(action.getOutputs());
+    } catch (CreateOutputDirectoryException e) {
+      throw toActionExecutionException(
+          String.format(
+              "failed to create output directory '%s': %s", e.directoryPath, e.getMessage()),
+          e,
+          action,
+          /*actionOutput=*/ null,
+          Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE);
     }
   }
 

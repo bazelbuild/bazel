@@ -19,6 +19,7 @@ java_library(
         "ActionArtifactCycleReporter.java",
         "ActionExecutionFunction.java",
         "ActionLookupConflictFindingFunction.java",
+        "ActionOutputDirectoryHelper.java",
         "AspectCompletionValue.java",
         "AspectCompletor.java",
         "AspectFunction.java",
