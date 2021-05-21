@@ -42,6 +42,8 @@ DIST_DEPS = {
         "used_in": [
             "additional_distfiles",
         ],
+        "patch_args": ["-p1"],
+        "patches": ["//third_party/bazel-toolchains:bazel-toolchains-4.0.0-fix-version-check.patch"],
     },
     # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
     # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
