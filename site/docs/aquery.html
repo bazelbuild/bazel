@@ -79,7 +79,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h2 id='functions'>Using aquery functions</h2>
 
-<p>There are currently 3 <code>aquery</code> functions:</p>
+<p>There are three <code>aquery</code> functions:</p>
 <ul>
   <li><code>inputs</code>: filter actions by inputs.</li>
   <li><code>outputs</code>: filter actions by outputs</li>
@@ -170,7 +170,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 <h4><code class='flag'>--skyframe_state, default=false</code></h4>
 
 <p>
-  Without performing extra analysis, dump the current Action Graph from Skyframe.
+  Without performing extra analysis, dump the Action Graph from Skyframe.
   Note: Specifying a target with <code>--skyframe_state</code> is currently not supported.
   This flag is only available with <code>--output=proto</code> or <code>--output=textproto</code>.
 </p>
@@ -186,7 +186,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 </p>
 
 <p>
-  In some cases, it is useful to query the Action Graph currently on Skyframe.
+  In some cases, it is useful to query the Action Graph on Skyframe.
   An example use case would be:
 </p>
 
@@ -223,7 +223,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <p>
   With <code>--skyframe_state</code> mode, <code>aquery</code> takes the content of the Action Graph
-  that Skyframe keeps on the current instance of Bazel, (optionally) performs filtering on it and
+  that Skyframe keeps on the instance of Bazel, (optionally) performs filtering on it and
   outputs the content, without re-running the analysis phase.
 </p>
 
