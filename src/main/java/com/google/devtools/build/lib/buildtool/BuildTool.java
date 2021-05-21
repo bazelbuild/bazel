@@ -347,6 +347,7 @@ public class BuildTool {
               /* includeArtifacts= */ true,
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
+              /* deduplicateDepsets= */ true,
               aqueryOutputHandler);
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }

@@ -82,4 +82,15 @@ public class AqueryOptions extends CommonQueryOptions {
       },
       help = "No-op.")
   public boolean protoV2;
+
+  @Option(
+      name = "deduplicate_depsets",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "De-duplicate non-leaf children of a dep_set_of_files in the final proto/textproto/json"
+              + " output. This does not deduplicate depsets that don't share an immediate parent."
+              + " This does not affect the final effective list of input artifacts of the actions.")
+  public boolean deduplicateDepsets;
 }

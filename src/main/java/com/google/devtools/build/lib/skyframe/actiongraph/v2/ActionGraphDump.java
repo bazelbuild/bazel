@@ -70,6 +70,7 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
+      boolean deduplicateDepsets,
       AqueryOutputHandler aqueryOutputHandler) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
@@ -77,6 +78,7 @@ public class ActionGraphDump {
         includeArtifacts,
         actionFilters,
         includeParamFiles,
+        deduplicateDepsets,
         aqueryOutputHandler);
   }
 
@@ -86,6 +88,7 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
+      boolean deduplicateDepsets,
       AqueryOutputHandler aqueryOutputHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
@@ -97,7 +100,7 @@ public class ActionGraphDump {
     KnownRuleClassStrings knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
     knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
     knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
-    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts, deduplicateDepsets);
     knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
     knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
