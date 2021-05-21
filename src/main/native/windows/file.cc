@@ -20,6 +20,7 @@
 
 #include <WinIoCtl.h>
 #include <stdint.h>  // uint8_t
+#include <versionhelpers.h>
 #include <windows.h>
 
 #include <memory>
@@ -38,6 +39,25 @@ namespace windows {
 
 using std::unique_ptr;
 using std::wstring;
+
+DWORD DetermineSymlinkPrivilegeFlag() {
+  DWORD val = 0;
+  DWORD valSize = sizeof(val);
+  if (  // The unprivileged create flag was introduced in Windows 10 build
+        // 14972:
+        // https://blogs.windows.com/windowsdeveloper/2016/12/02/symlinks-windows-10/
+      !IsWindowsVersionOrGreater(10, 0, 14972)
+      // Check if developer mode is disabled:
+      || RegGetValueW(
+             HKEY_LOCAL_MACHINE,
+             L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
+             L"AllowDevelopmentWithoutDevLicense", RRF_RT_DWORD, nullptr, &val,
+             &valSize) != ERROR_SUCCESS ||
+      val == 0) {
+    return 0;
+  }
+  return SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+}
 
 wstring AddUncPrefixMaybe(const wstring& path) {
   return path.empty() || IsDevNull(path.c_str()) || HasUncPrefix(path.c_str())
@@ -446,13 +466,14 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   }
 
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
-                           SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
-     // The flag SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE requires
-     // developer mode enabled, which we expect if using symbolic linking.
-     *error = MakeErrorMessage(
-               WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
-               L"createSymbolicLinkW failed");
-     return CreateSymlinkResult::kError;
+                           symlinkPrivilegeFlag)) {
+    *error = MakeErrorMessage(
+        WSTR(__FILE__), __LINE__, L"CreateSymlink", symlink_target,
+        GetLastError() == ERROR_PRIVILEGE_NOT_HELD
+            ? L"createSymbolicLinkW failed (permission denied). Either "
+              "Windows developer mode or admin privileges are required."
+            : L"createSymbolicLinkW failed");
+    return CreateSymlinkResult::kError;
   }
   return CreateSymlinkResult::kSuccess;
 }
