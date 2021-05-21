@@ -19,7 +19,7 @@ Bazel needs to know the following:
 * Paths to the required tools such as gcc, ld, ar, objcopy, and so on.
 * The built-in system include directories. Bazel needs these to validate that
   all headers that were included in the source file were properly declared in
-  the build file.
+  the `BUILD` file.
 * The default sysroot.
 * Which flags to use for compilation, linking, archiving.
 * Which flags to use for the supported compilation modes (opt, dbg, fastbuild).
@@ -41,7 +41,7 @@ You can find Starlark constructors for all structs you'll need in the process in
 
 
 When a C++ target enters the analysis phase, Bazel selects the appropriate
-`cc_toolchain` target based on the BUILD file, and obtains the
+`cc_toolchain` target based on the `BUILD` file, and obtains the
 `CcToolchainConfigInfo` provider from the target specified in the
 `cc_toolchain.toolchain_config` attribute. The `cc_toolchain` target
 passes this information to the C++ target through a `CcToolchainProvider`.
@@ -100,7 +100,7 @@ Bazel binary. C++ rules support multiple unique actions documented in detail
 
 A feature is an entity that requires command-line flags, actions,
 constraints on the execution environment, or dependency alterations. A feature
-can be something as simple as allowing BUILD files to select configurations of
+can be something as simple as allowing `BUILD` files to select configurations of
 flags, such as `treat_warnings_as_errors`, or interact with the C++ rules and
 include new compile actions and inputs to the compilation, such as
 `header_modules` or `thin_lto`.

@@ -8,7 +8,7 @@ category: getting-started
 
 **_Configurable attributes_**, commonly known as [`select()`](
 be/functions.html#select), is a Bazel feature that lets users toggle the values
-of BUILD rule attributes at the command line.
+of build rule attributes at the command line.
 
 This can be used, for example, for a multiplatform library that automatically
 chooses the appropriate implementation for the architecture, or for a

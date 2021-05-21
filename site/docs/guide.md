@@ -120,7 +120,7 @@ these are known as _target patterns_. This syntax is used in commands like
 `build`, `test`, or `query`.
 
 Whereas [labels](build-ref.html#labels) are used to specify individual targets,
-e.g. for declaring dependencies in BUILD files, Bazel's target patterns are a
+e.g. for declaring dependencies in `BUILD` files, Bazel's target patterns are a
 syntax for specifying multiple targets: they are a generalization of the label
 syntax for _sets_ of targets, using wildcards. In the simplest case, any valid
 label is also a valid target pattern, identifying a set of exactly one target.
@@ -164,7 +164,7 @@ workspace.
 </tr>
 <tr>
   <td><code>//:all</code></td>
-  <td>All targets in the top-level package, if there is a BUILD file at the
+  <td>All targets in the top-level package, if there is a `BUILD` file at the
   root of the workspace.</td>
 </tr>
 </table>
@@ -418,7 +418,7 @@ build --distdir=path/to/directory
 
 All the inputs that specify the behavior and result of a given build can be
 divided into two distinct categories. The first kind is the intrinsic
-information stored in the BUILD files of your project: the build rule, the
+information stored in the `BUILD` files of your project: the build rule, the
 values of its attributes, and the complete set of its transitive dependencies.
 The second kind is the external or environmental data, supplied by the user or
 by the build tool: the choice of target architecture, compilation and linking

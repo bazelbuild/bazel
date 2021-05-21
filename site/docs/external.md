@@ -38,7 +38,7 @@ If `project1` wanted to depend on a target, `:foo`, defined in
 `/home/user/project1/BUILD` could depend on `@project2//:foo`.
 
 The `WORKSPACE` file allows users to depend on targets from other parts of the
-filesystem or downloaded from the internet. It uses the same syntax as BUILD
+filesystem or downloaded from the internet. It uses the same syntax as `BUILD`
 files, but allows a different set of rules called _repository rules_ (sometimes
 also known as _workspace rules_). Bazel comes with a few [built-in repository
 rules](be/workspace.html) and a set of [embedded Starlark repository
@@ -103,7 +103,7 @@ new_local_repository(
 )
 ```
 
-`build_file` specifies a BUILD file to overlay on the existing project, for
+`build_file` specifies a `BUILD` file to overlay on the existing project, for
 example:
 
 ```python
@@ -114,8 +114,8 @@ cc_library(
 )
 ```
 
-You can then depend on `@coworkers_project//:some-lib` from your project's BUILD
-files.
+You can then depend on `@coworkers_project//:some-lib` from your project's
+`BUILD` files.
 
 <a name="external-packages"></a>
 ### Depending on external packages

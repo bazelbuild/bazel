@@ -11,7 +11,7 @@ Maven artifacts transitively.
 # Generate External Dependencies from Maven Projects
 
 The tool `generate_workspace` helps automate the process of writing
-the WORKSPACE file for a Java project. This tool is
+the `WORKSPACE` file for a Java project. This tool is
 helpful when the list of external dependencies is long, such as when working
 with [external transitive dependencies](external.html#transitive-dependencies).
 
@@ -77,7 +77,7 @@ use this tool:
 
     To access external dependencies:
 
-    1.  Add the following to your WORKSPACE file:
+    1.  Add the following to your `WORKSPACE` file:
 
         ```
         load("//:generate_workspace.bzl", "generated_maven_jars")
@@ -108,14 +108,14 @@ use this tool:
         as a dependency, the transitive dependencies are already included, and
         so you don't need to list them manually.
 
-        To access the libraries, add the following to a BUILD file:
+        To access the libraries, add the following to a `BUILD` file:
 
         ```
         load("//:generate_workspace.bzl", "generated_java_libraries")
         generated_java_libraries()
         ```
 
-        The recommended location for this BUILD file is in a directory called
+        The recommended location for this `BUILD` file is in a directory called
         `third_party`.
 
         You can now access any of the Java library targets in
@@ -153,5 +153,5 @@ use this tool:
     `javax.mail:mail:1.4`, `httpunit:httpunit:1.6`,
     `org.springframework:spring-support:2.0.2`, and `org.slf4j:nlog4j:1.2.24`
     all depend on `javax.activation`. However, two of these libraries wanted
-    version 1.1 and three of them wanted 1.0.2. The WORKSPACE file is using
+    version 1.1 and three of them wanted 1.0.2. The `WORKSPACE` file is using
     version 1.1, but that might not be the right version to use.
