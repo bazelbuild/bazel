@@ -399,16 +399,13 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   public void testAppleStaticLibraryInfo() throws Exception {
     RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
     ConfiguredTarget binTarget = getConfiguredTarget("//x:x");
+    SymlinkAction lipoAction = (SymlinkAction) lipoLibAction("//x:x");
+
     AppleStaticLibraryInfo provider = binTarget.get(AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
-    assertThat(provider.getMultiArchArchive()).isNotNull();
-    assertThat(provider.getDepsObjcProvider()).isNotNull();
     assertThat(provider.getMultiArchArchive())
-        .isEqualTo(
-            provider
-                .getDepsObjcProvider()
-                .get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)
-                .getSingleton());
+        .isEqualTo(Iterables.getOnlyElement(lipoAction.getOutputs()));
+    assertThat(provider.getDepsObjcProvider()).isNotNull();
   }
 
   @Test
@@ -604,17 +601,13 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
 
     ConfiguredTarget binTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
+    SymlinkAction lipoAction = (SymlinkAction) lipoLibAction("//x:x");
 
     AppleStaticLibraryInfo provider = binTarget.get(AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
-    assertThat(provider.getMultiArchArchive()).isNotNull();
-    assertThat(provider.getDepsObjcProvider()).isNotNull();
     assertThat(provider.getMultiArchArchive())
-        .isEqualTo(
-            provider
-                .getDepsObjcProvider()
-                .get(ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES)
-                .getSingleton());
+        .isEqualTo(Iterables.getOnlyElement(lipoAction.getOutputs()));
+    assertThat(provider.getDepsObjcProvider()).isNotNull();
   }
 
   @Test

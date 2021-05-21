@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -304,7 +303,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     if (shouldLipo) {
       Artifact outputArtifact =
           ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
-      objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
       builder.setLegacyBinaryArtifact(outputArtifact, getBinaryType(ruleContext));
       new LipoSupport(ruleContext)
           .registerCombineArchitecturesAction(binariesToLipo.build(), outputArtifact, platform);

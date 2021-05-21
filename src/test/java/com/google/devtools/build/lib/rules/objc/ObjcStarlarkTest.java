@@ -910,11 +910,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     Iterable<String> foundLinkopts =
         starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINKOPT).toList();
-    boolean usesSwift =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).is(ObjcProvider.Flag.USES_SWIFT);
 
     assertThat(foundLinkopts).containsExactly("somelinkopt");
-    assertThat(usesSwift).isFalse();
   }
 
   @Test
@@ -931,19 +928,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     NestedSet<Artifact> foundLinkInputs =
         starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINK_INPUTS);
     assertThat(ActionsTestUtil.baseArtifactNames(foundLinkInputs)).contains("foo.ast");
-  }
-
-  @Test
-  public void testStarlarkCanPassUsesSwiftFlag() throws Exception {
-    ConfiguredTarget starlarkTarget =
-        createObjcProviderStarlarkTarget(
-            "   created_provider = apple_common.new_objc_provider(uses_swift=True)",
-            "   return [created_provider]");
-
-    boolean usesSwift =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).is(ObjcProvider.Flag.USES_SWIFT);
-
-    assertThat(usesSwift).isTrue();
   }
 
   @Test

@@ -259,23 +259,13 @@ public interface AppleCommonApi<
   @StarlarkMethod(
       name = "new_objc_provider",
       doc = "Creates a new ObjcProvider instance.",
-      parameters = {
-        @Param(
-            name = "uses_swift",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc = "Whether this provider should enable Swift support.")
-      },
+      parameters = {},
       extraKeywords =
-          @Param(
-              name = "kwargs",
-              defaultValue = "{}",
-              doc = "Dictionary of arguments."),
+          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
       useStarlarkThread = true)
   // This method is registered statically for Starlark, and never called directly.
-  ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
+  ObjcProviderApi<?> newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "new_dynamic_framework_provider",

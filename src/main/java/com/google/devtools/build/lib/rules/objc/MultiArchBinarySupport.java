@@ -268,8 +268,7 @@ public class MultiArchBinarySupport {
             .addDeps(propagatedDeps)
             .addObjcProviders(additionalDepProviders)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setAlwayslink(false)
-            .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
+            .setAlwayslink(false);
 
     return commonBuilder.build();
   }

@@ -161,8 +161,7 @@ public class FakeAppleCommon
   }
 
   @Override
-  public ObjcProviderApi<?> newObjcProvider(
-      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) {
+  public ObjcProviderApi<?> newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread) {
     return new FakeObjcProvider();
   }
 

@@ -180,13 +180,10 @@ public class AppleStarlarkCommon
 
   @Override
   // This method is registered statically for Starlark, and never called directly.
-  public ObjcProvider newObjcProvider(
-      Boolean usesSwift, Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException {
+  public ObjcProvider newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
+      throws EvalException {
     ObjcProvider.StarlarkBuilder resultBuilder =
         new ObjcProvider.StarlarkBuilder(thread.getSemantics());
-    if (usesSwift) {
-      resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
-    }
     for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
       ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
       if (key != null) {
