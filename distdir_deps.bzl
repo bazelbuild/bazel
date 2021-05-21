@@ -32,16 +32,18 @@ DIST_DEPS = {
         ],
     },
     "bazel_toolchains": {
-        "archive": "b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0.tar.gz",
-        "sha256": "0fe656c3503ee318ba21e3147186b0959ddb8514e4826174e5c178cd1968bdb9",
-        "strip_prefix": "bazel-toolchains-b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0",
+        "archive": "bazel-toolchains-4.0.0.tar.gz",
+        "sha256": "1adf5db506a7e3c465a26988514cfc3971af6d5b3c2218925cd6e71ee443fc3f",
+        "strip_prefix": "bazel-toolchains-4.0.0",
         "urls": [
-            #TODO(ilist): mirror and update to 4.0.0 version once it is released
-            "https://github.com/bazelbuild/bazel-toolchains/archive/b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/4.0.0/bazel-toolchains-4.0.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/releases/download/4.0.0/bazel-toolchains-4.0.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
+        "patch_args": ["-p1"],
+        "patches": ["//third_party/bazel-toolchains:bazel-toolchains-4.0.0-fix-version-check.patch"],
     },
     # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/cc_configure.WORKSPACE.
     # Keep in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
