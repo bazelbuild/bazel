@@ -1460,8 +1460,12 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
     } else {
       // Skip over unknown attributes with a warning.  The JVM spec
       // says this is ok, so long as we handle the mandatory attributes.
-      fprintf(stderr, "ijar: skipping unknown attribute: \"%s\".\n",
-              attr_name.c_str());
+      // Don't even warn for the D8 desugar SynthesizedClass attribute. It is
+      // not relevant for ijar.
+      if (attr_name != "com.android.tools.r8.SynthesizedClass") {
+        fprintf(stderr, "ijar: skipping unknown attribute: \"%s\".\n",
+                attr_name.c_str());
+      }
       p += attribute_length;
     }
   }
