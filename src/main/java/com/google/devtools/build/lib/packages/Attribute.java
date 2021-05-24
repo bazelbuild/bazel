@@ -246,6 +246,12 @@ public final class Attribute implements Comparable<Attribute> {
      * analysis tests.
      */
     HAS_ANALYSIS_TEST_TRANSITION,
+
+    /**
+     * Signals that a dependency attribute is used as a tool (regardless of the actual configuration
+     * or transition). Cannot be used for non-dependency attributes.
+     */
+    IS_TOOL_DEPENDENCY,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -1067,6 +1073,13 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> nonconfigurable(String reason) {
       Preconditions.checkState(!reason.isEmpty());
       return setPropertyFlag(PropertyFlag.NONCONFIGURABLE, "nonconfigurable");
+    }
+
+    public Builder<TYPE> tool(String reason) {
+      Preconditions.checkState(
+          type.getLabelClass() == LabelClass.DEPENDENCY, "must be a label-valued type");
+      Preconditions.checkState(!reason.isEmpty());
+      return setPropertyFlag(PropertyFlag.IS_TOOL_DEPENDENCY, "is_tool_dependency");
     }
 
     /** Returns an {@link ImmutableAttributeFactory} that can be invoked to create attributes. */
@@ -2082,6 +2095,22 @@ public final class Attribute implements Comparable<Attribute> {
         || getPropertyFlag(PropertyFlag.NONCONFIGURABLE));
   }
 
+  /**
+   * Returns true if this attribute is used as a tool dependency, either because the attribute
+   * declares it directly (with {@link Attribute$Builder.tool}), or because the value's {@link
+   * TransitionFactory} declares it.
+   *
+   * <p>Non-dependency attributes will always return {@code false}.
+   */
+  public boolean isToolDependency() {
+    if (getType().getLabelClass() != LabelClass.DEPENDENCY) {
+      return false;
+    }
+    if (getPropertyFlag(PropertyFlag.IS_TOOL_DEPENDENCY)) {
+      return true;
+    }
+    return getTransitionFactory().isTool();
+  }
   /**
    * Returns a predicate that evaluates to true for rule classes that are allowed labels in this
    * attribute. If this is not a label or label-list attribute, the returned predicate always

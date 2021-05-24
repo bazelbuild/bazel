@@ -38,12 +38,7 @@ public abstract class DependencyFilter
       new DependencyFilter() {
         @Override
         public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
-          // getConfigurationTransition() is only defined for labels which introduce a dependency.
-          if (attribute.getType().getLabelClass() != LabelClass.DEPENDENCY) {
-            return true;
-          }
-
-          return !attribute.getTransitionFactory().isTool();
+          return !attribute.isToolDependency();
         }
       };
   /** Dependency predicate that excludes implicit dependencies */

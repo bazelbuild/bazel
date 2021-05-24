@@ -387,6 +387,9 @@ public class BaseRuleClasses {
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                   // This should be configurable to allow for complex types of restrictions.
+                  .tool(
+                      "target_compatible_with exists for constraint checking, not to create an"
+                          + " actual dependency")
                   .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
@@ -447,6 +450,9 @@ public class BaseRuleClasses {
               attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
+                  .tool(
+                      "exec_compatible_with exists for constraint checking, not to create an"
+                          + " actual dependency")
                   .value(ImmutableList.of()))
           .build();
     }

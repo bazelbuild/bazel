@@ -928,6 +928,20 @@ function test_query() {
   expect_log '^//target_skipping:genrule_foo1$'
 }
 
+# Regression test for http://b/189071321: --notool_deps should exclude constraints.
+function test_query_no_tools() {
+  write_query_test_targets
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel query \
+    --notool_deps \
+    'deps(//target_skipping:sh_foo1)' &> "${TEST_log}" \
+    || fail "Bazel query failed unexpectedly."
+  expect_log '^//target_skipping:sh_foo1$'
+  expect_log '^//target_skipping:genrule_foo1$'
+  expect_not_log '^//target_skipping:foo1$'
+}
+
 # Run a cquery on a target that is compatible. This should pass.
 function test_cquery_compatible_target() {
   write_query_test_targets

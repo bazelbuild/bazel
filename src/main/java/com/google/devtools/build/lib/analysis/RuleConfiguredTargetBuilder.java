@@ -348,7 +348,7 @@ public final class RuleConfiguredTargetBuilder {
       // not fail the overall build, since those dependencies should have their own builds
       // and tests that should surface any failing validations.
       Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
-      if (!attribute.getTransitionFactory().isTool()
+      if (!attribute.isToolDependency()
           && !attribute.isImplicit()
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 

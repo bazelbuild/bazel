@@ -759,7 +759,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         // Use the same implicit deps check that query uses. This facilitates running queries to
         // determine exactly which rules need to be constraint-annotated for depot migrations.
         if (!DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
-            || attrDef.getTransitionFactory().isTool()) {
+            || attrDef.isToolDependency()) {
           continue;
         }
       }
