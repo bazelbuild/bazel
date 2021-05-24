@@ -389,7 +389,7 @@ function test_failure_on_incompatible_top_level_target() {
 
 # Crudely validates that the build event protocol contains useful information
 # when targets are skipped due to incompatibilities.
-function atest_build_event_protocol() {
+function test_build_event_protocol() {
   cd target_skipping || fail "couldn't cd into workspace"
 
   bazel test \
