@@ -114,6 +114,7 @@ public class JavaProtoAspectCommon {
             .setOutput(outputJar)
             .addSourceJars(sourceJar)
             .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext))
+            .enableJspecify(false)
             .addDep(dep)
             .setCompilationStrictDepsMode(StrictDepsMode.ERROR);
     for (TransitiveInfoCollection t : getProtoRuntimeDeps()) {

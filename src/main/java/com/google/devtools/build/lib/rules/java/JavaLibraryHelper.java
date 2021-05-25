@@ -61,6 +61,7 @@ public final class JavaLibraryHelper {
   private final List<JavaCompilationArgsProvider> exports = new ArrayList<>();
   private JavaPluginInfo plugins = JavaPluginInfo.empty();
   private ImmutableList<String> javacOpts = ImmutableList.of();
+  private boolean enableJspecify = true;
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private final List<Artifact> additionalOutputs = new ArrayList<>();
 
@@ -146,6 +147,11 @@ public final class JavaLibraryHelper {
   /** Sets the compiler options. */
   public JavaLibraryHelper setJavacOpts(ImmutableList<String> javacOpts) {
     this.javacOpts = Preconditions.checkNotNull(javacOpts);
+    return this;
+  }
+
+  public JavaLibraryHelper enableJspecify(boolean enableJspecify) {
+    this.enableJspecify = enableJspecify;
     return this;
   }
 
@@ -250,7 +256,8 @@ public final class JavaLibraryHelper {
             javacOpts,
             attributes,
             javaToolchainProvider,
-            additionalInputForDatabinding);
+            additionalInputForDatabinding,
+            enableJspecify);
     helper.addLocalClassPathEntries(localClassPathEntries);
     JavaCompileOutputs<Artifact> outputs = helper.createOutputs(output);
     artifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
