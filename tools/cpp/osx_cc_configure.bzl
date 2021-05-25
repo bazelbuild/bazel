@@ -83,7 +83,7 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
              "https://github.com/bazelbuild/bazel/issues with the following:\n" +
              error_msg)
 
-def configure_osx_toolchain(repository_ctx, overriden_tools):
+def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on macOS.
 
     Args:
@@ -182,4 +182,4 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             },
         )
     else:
-        configure_unix_toolchain(repository_ctx, cpu_value = "darwin", overriden_tools = overriden_tools)
+        configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools = overriden_tools)
