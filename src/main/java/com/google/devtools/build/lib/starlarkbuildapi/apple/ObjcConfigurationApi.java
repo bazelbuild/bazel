@@ -106,14 +106,8 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   @StarlarkMethod(
       name = "should_strip_binary",
       structField = true,
-      doc = "Returns whether to perform symbol stripping on linked binaries.")
+      doc = "Returns whether to perform symbol and dead-code strippings on linked binaries.")
   boolean shouldStripBinary();
-
-  @StarlarkMethod(
-      name = "should_dead_code_strip_binary",
-      structField = true,
-      doc = "Returns whether to perform dead code elimination on linked binaries.")
-  boolean shouldDeadCodeStripBinary();
 
   @StarlarkMethod(
       name = "signing_certificate_name",

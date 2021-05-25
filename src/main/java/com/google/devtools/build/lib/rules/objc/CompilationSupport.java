@@ -552,11 +552,10 @@ public class CompilationSupport implements StarlarkValue {
             .addAll(OBJC_ACTIONS)
             .add(CppRuleClasses.LANG_OBJC);
 
-    ObjcConfiguration objcConfiguration = configuration.getFragment(ObjcConfiguration.class);
-    if (objcConfiguration.shouldDeadCodeStripBinary()) {
+    if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
       activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
     }
-    if (objcConfiguration.generateLinkmap()) {
+    if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
       activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
     }
     // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
@@ -1149,9 +1148,9 @@ public class CompilationSupport implements StarlarkValue {
    * <p>Dsym bundle is generated if {@link ObjcConfiguration#generateDsym()} is set.
    *
    * <p>When Bazel flags {@code --compilation_mode=opt} and {@code --objc_enable_binary_stripping}
-   * are specified, symbol stripping (using {@code /usr/bin/strip}) occurs. When Bazel {@code
-   * --compilation_mode=opt} is specified dead-code stripping (using linker flags: {@code
-   * -dead_strip}) occurs.
+   * are specified, additional optimizations will be performed on the linked binary: all-symbol
+   * stripping (using {@code /usr/bin/strip}) and dead-code stripping (using linker flags: {@code
+   * -dead_strip}).
    *
    * @param objcProvider common information about this rule's attributes and its dependencies
    * @param ccLinkingContexts the linking contexts from this rule's dependencies

@@ -188,21 +188,12 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   }
 
   /**
-   * Returns whether to perform symbol stripping on linked binaries. The stripping is performed iff
-   * --compilation_mode=opt and --objc_enable_binary_stripping are specified.
+   * Returns whether to perform symbol and dead-code strippings on linked binaries. The strippings
+   * are performed iff --compilation_mode=opt and --objc_enable_binary_stripping are specified.
    */
   @Override
   public boolean shouldStripBinary() {
     return this.enableBinaryStripping && getCompilationMode() == CompilationMode.OPT;
-  }
-
-  /**
-   * Returns whether to perform dead code elimination on linked binaries. The elimination is
-   * performed iff --compilation_mode=opt.
-   */
-  @Override
-  public boolean shouldDeadCodeStripBinary() {
-    return getCompilationMode() == CompilationMode.OPT;
   }
 
   /**
