@@ -69,4 +69,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
 
   @StarlarkMethod(name = "tools", doc = "The compilation tools.", structField = true)
   Depset getStarlarkTools();
+
+  @StarlarkMethod(name = "java_runtime", doc = "The java runtime information.", structField = true)
+  JavaRuntimeInfoApi getJavaRuntime();
 }
