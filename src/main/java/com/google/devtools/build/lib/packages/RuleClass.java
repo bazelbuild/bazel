@@ -2335,7 +2335,8 @@ public class RuleClass {
     // An instance of the built-in 'test_suite' rule with an undefined or empty 'tests' attribute
     // attribute gets an '$implicit_tests' attribute, whose value is a shared per-package list of
     // all test labels, populated later.
-    if (this.name.equals("test_suite")) {
+    // TODO(blaze-rules-team): This should be in test_suite's implementation, not here.
+    if (this.name.equals("test_suite") && !this.isStarlark()) {
       Attribute implicitTests = this.getAttributeByName("$implicit_tests");
       NonconfigurableAttributeMapper attributeMapper = NonconfigurableAttributeMapper.of(rule);
       if (implicitTests != null && attributeMapper.get("tests", BuildType.LABEL_LIST).isEmpty()) {
