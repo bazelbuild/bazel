@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -263,6 +267,18 @@ public class CommandLines {
       this.arguments = arguments;
       this.type = type;
       this.charset = charset;
+    }
+
+    /**
+     * Returns a cloned copy of this {@link ParamFileActionInput} replacing each command line
+     * argument with an adjusted version determined by a given function.
+     */
+    public ParamFileActionInput withAdjustedArgs(Function<String, String> adjuster) {
+      return new ParamFileActionInput(
+          paramFileExecPath,
+          stream(arguments).map(adjuster).collect(toImmutableList()),
+          type,
+          charset);
     }
 
     @Override
