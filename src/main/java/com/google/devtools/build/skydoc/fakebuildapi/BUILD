@@ -17,13 +17,10 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",

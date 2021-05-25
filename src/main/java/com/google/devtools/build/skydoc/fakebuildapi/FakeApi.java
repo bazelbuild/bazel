@@ -15,11 +15,9 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
-import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;
@@ -59,7 +57,6 @@ public final class FakeApi {
         env, new FakeStarlarkRuleFunctionsApi(rules, providers, aspects)); // e.g. rule func
     env.put("attr", new FakeStarlarkAttrModuleApi());
     env.put("struct", new FakeStructProviderApi());
-    new AppleBootstrap(new FakeAppleCommon()).addBindingsToBuilder(env);
     new ConfigBootstrap(
             new FakeConfigStarlarkCommon(), //
             new FakeConfigApi(),
