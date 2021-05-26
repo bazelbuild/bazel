@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
@@ -188,28 +187,6 @@ public class PackageFunction implements SkyFunction {
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.incrementalityIntent = incrementalityIntent;
-  }
-
-  @VisibleForTesting
-  public PackageFunction(
-      PackageFactory packageFactory,
-      CachingPackageLocator pkgLocator,
-      AtomicBoolean showLoadingProgress,
-      Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache,
-      Cache<PackageIdentifier, CompiledBuildFile> compiledBuildFileCache,
-      AtomicInteger numPackagesLoaded,
-      @Nullable BzlLoadFunction bzlLoadFunctionForInlining) {
-    this(
-        packageFactory,
-        pkgLocator,
-        showLoadingProgress,
-        packageFunctionCache,
-        compiledBuildFileCache,
-        numPackagesLoaded,
-        bzlLoadFunctionForInlining,
-        /*packageProgress=*/ null,
-        ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-        IncrementalityIntent.INCREMENTAL);
   }
 
   public void setBzlLoadFunctionForInliningForTesting(BzlLoadFunction bzlLoadFunctionForInlining) {

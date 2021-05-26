@@ -152,7 +152,18 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
             directories,
             /*bzlLoadFunctionForInlining=*/ null));
     skyFunctions.put(
-        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null));
+        SkyFunctions.PACKAGE,
+        new PackageFunction(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            /*packageProgress=*/ null,
+            PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
+            PackageFunction.IncrementalityIntent.INCREMENTAL));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));

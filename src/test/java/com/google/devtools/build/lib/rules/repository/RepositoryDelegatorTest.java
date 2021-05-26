@@ -170,7 +170,18 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(SkyFunctions.REPOSITORY_DIRECTORY, delegatorFunction)
                 .put(
                     SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null))
+                    new PackageFunction(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        /*packageProgress=*/ null,
+                        PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
+                            .INSTANCE,
+                        PackageFunction.IncrementalityIntent.INCREMENTAL))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
