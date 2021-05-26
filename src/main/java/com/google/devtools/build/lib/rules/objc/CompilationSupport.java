@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -176,8 +175,6 @@ public class CompilationSupport implements StarlarkValue {
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
   private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
-
-  private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
 
   private static final ImmutableList<String> OBJC_ACTIONS =
       ImmutableList.of(
@@ -558,14 +555,6 @@ public class CompilationSupport implements StarlarkValue {
     if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
       activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
     }
-    // Add a feature identifying the Xcode version so CROSSTOOL authors can enable flags for
-    // particular versions of Xcode. To ensure consistency across platforms, use exactly two
-    // components in the version number.
-    activatedCrosstoolSelectables.add(
-        XCODE_VERSION_FEATURE_NAME_PREFIX
-            + XcodeConfig.getXcodeConfigInfo(ruleContext)
-                .getXcodeVersion()
-                .toStringWithComponents(2));
 
     ImmutableSet.Builder<String> disabledFeatures =
         ImmutableSet.<String>builder().addAll(ruleContext.getDisabledFeatures());
