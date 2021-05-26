@@ -27,7 +27,7 @@ output base directory and thus survives Bazel server restarts.
 An in-memory graph of [actions](#action) and the [artifacts](#artifact) that
 these actions read and generate. The graph might include artifacts that exist as
 source files (for example, in the file system) as well as generated
-intermediate/final artifacts that are not mentioned in BUILD files. Produced
+intermediate/final artifacts that are not mentioned in `BUILD` files. Produced
 during the [analysis phase](#analysis-phase) and used during the [execution
 phase](#execution-phase).
 
@@ -47,7 +47,7 @@ invalidate individual actions deterministically.
 ### Analysis phase
 
 The second phase of a build. Processes the [target graph](#target-graph)
-specified in [BUILD files](#build-file) to produce an in-memory [action
+specified in [`BUILD` files](#build-file) to produce an in-memory [action
 graph](#action-graph) that determines the order of actions to run during the
 [execution phase](#execution-phase). This is the phase in which rule
 implementations are evaluated.
@@ -88,7 +88,7 @@ flags](#startup-flags) and [command flags](#command-flags), and to define common
 groups of options that can then be set together on the Bazel command line using
 a `--config` flag. Bazel can combine settings from multiple bazelrc files
 (systemwide, per-workspace, per-user, or from a custom location), and a
-bazelrc file may also import settings from other bazelrcs.
+`bazelrc` file may also import settings from other `bazelrc` files.
 
 ### &#66;laze
 
@@ -100,25 +100,25 @@ mono-repository.
 
 ### BUILD File
 
-A BUILD file is the main configuration file that tells Bazel what software
+A `BUILD` file is the main configuration file that tells Bazel what software
 outputs to build, what their dependencies are, and how to build them. Bazel
-takes a BUILD file as input and uses the file to create a graph of dependencies
+takes a `BUILD` file as input and uses the file to create a graph of dependencies
 and to derive the actions that must be completed to build intermediate and final
-software outputs. A BUILD file marks a directory and any sub-directories not
-containing a BUILD file as a [package](#package), and can contain
+software outputs. A `BUILD` file marks a directory and any sub-directories not
+containing a `BUILD` file as a [package](#package), and can contain
 [targets](#target) created by [rules](#rule). The file can also be named
-BUILD.bazel.
+`BUILD.bazel`.
 
 ### BUILD.bazel File
 
-See [BUILD File](#build-file). Takes precedence over a `BUILD` file in the same
+See [`BUILD` File](#build-file). Takes precedence over a `BUILD` file in the same
 directory.
 
 ### .bzl File
 
 A file that defines rules, [macros](#macro), and constants written in
-[Starlark](#starlark). These can then be imported into [BUILD
-files](#build-file) using the load() function.
+[Starlark](#starlark). These can then be imported into [`BUILD`
+files](#build-file) using the `load()` function.
 
 <!-- TODO: ### Build event protocol -->
 
@@ -301,15 +301,15 @@ build.
 
 An identifier for a [target](#target). A fully-qualified label such as
 `//path/to/package:target` consists of `//` to mark the workspace root
-directory, `path/to/package` as the directory that contains the [BUILD
+directory, `path/to/package` as the directory that contains the [`BUILD`
 file](#build-file) declaring the target, and `:target` as the name of the target
-declared in the aforementioned BUILD file. May also be prefixed with
+declared in the aforementioned `BUILD` file. May also be prefixed with
 `@my_repository//<..>` to indicate that the target is declared in an ]external
 repository] named `my_repository`.
 
 ### Loading phase
 
-The first phase of a build where Bazel parses `WORKSPACE`, `BUILD`, and [.bzl
+The first phase of a build where Bazel parses `WORKSPACE`, `BUILD`, and [`.bzl`
 files](#bzl-file) to create [packages](#package). [Macros](#macro) and certain
 functions like `glob()` are evaluated in this phase. Interleaved with the second
 phase of the build, the [analysis phase](#analysis-phase), to build up a [target
@@ -319,7 +319,7 @@ graph](#target-graph).
 
 A mechanism to compose multiple [rule](#rule) target declarations together under
 a single [Starlark](#starlark) function. Enables reusing common rule declaration
-patterns across BUILD files. Expanded to the underlying rule target declarations
+patterns across `BUILD` files. Expanded to the underlying rule target declarations
 during the [loading phase](#loading-phase).
 
 **See also:** [Macro documentation](skylark/macros.html)
@@ -353,7 +353,7 @@ target. [Rules](#rule) put their usual outputs in the "default output group"
 targets). The default output group is the output group whose
 [artifacts](#artifact) are built when a target is requested on the command line.
 Rules can define more named output groups that can be explicitly specified in
-[BUILD files](#build-file) (`filegroup` rule) or the command line
+[`BUILD` files](#build-file) (`filegroup` rule) or the command line
 (`--output_groups` flag).
 
 ### Output user root
@@ -366,10 +366,10 @@ also known as [output bases](#output-base).
 
 ### Package
 
-The set of [targets](#target) defined by a [BUILD file](#build-file). A
-package's name is the BUILD file's path relative to the workspace root. A
-package can contain subpackages, or subdirectories containing BUILD files, thus
-forming a package hierarchy.
+The set of [targets](#target) defined by a [`BUILD` file](#build-file). A
+package's name is the `BUILD` file's path relative to the workspace root. A
+package can contain subpackages, or subdirectories containing `BUILD` files,
+thus forming a package hierarchy.
 
 ### Package group
 
@@ -475,7 +475,7 @@ support the stamp attribute.
 The extension language for writing [rules](rules) and [macros](#macro). A
 restricted subset of Python (syntactically and grammatically) aimed for the
 purpose of configuration, and for better performance. Uses the [`.bzl`
-file](#bzl-file) extension. [BUILD files](#build-file) use an even more
+file](#bzl-file) extension. [`BUILD` files](#build-file) use an even more
 restricted version of Starlark (e.g. no `def` function definitions). Formerly
 known as Skylark.
 
@@ -497,8 +497,8 @@ command.
 
 A buildable unit. Can be a [rule](#rule) target, file target, or a [package
 group](#package-group). Rule targets are instantiated from rule declarations in
-[BUILD files](#build-file). Depending on the rule implementation, rule targets
-can also be testable or runnable. Every file used in BUILD files is a file
+[`BUILD` files](#build-file). Depending on the rule implementation, rule targets
+can also be testable or runnable. Every file used in `BUILD` files is a file
 target. Targets can depend on other targets via attributes (most commonly but
 not necessarily `deps`). A [configured target](#configured-target) is a pair of
 target and [build configuration](#configuration).
@@ -581,23 +581,3 @@ directory.
 Defines a directory to be a [workspace](#workspace). The file can be empty,
 although it usually contains external repository declarations to fetch
 additional dependencies from the network or local filesystem.
-
-## Contributing
-
-We welcome contributions to this glossary.
-
-The definitions should strive to be crisp, concise, and easy to understand.
-
-Principles:
-
-* Use the simplest words possible. Try to avoid technical jargon.
-* Use the simplest grammar possible. Try not to string too many concepts into a
-  sentence.
-* Make the last word of each sentence count.
-* Make each adjective *really* count.
-* Avoid adverbs.
-* Keep definitions as self-contained as possible.
-* Calibrate a word's value by considering what would be lost without it.
-* Hit core concepts foremost. Avoid pedantry.
-* Enlightening the reader is more important than being thorough.
-* Links can provide deeper dives, for those who want it.
