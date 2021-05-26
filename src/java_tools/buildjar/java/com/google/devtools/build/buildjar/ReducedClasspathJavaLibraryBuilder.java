@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.OptionsParser.ReduceClasspathMode;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
@@ -55,8 +56,9 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     BlazeJavacResult result =
         javacRunner.invokeJavac(build.toBlazeJavacArguments(compressedClasspath));
 
-    // If javac errored out because of missing entries on the classpath, give it another try.
-    boolean fallback = !result.isOk();
+    // If javac errored out and there's any chance that the cause was missing classpath entries,
+    // then give it another try with the full classpath.
+    boolean fallback = shouldFallBack(result);
     if (fallback) {
       if (build.reduceClasspathMode() == ReduceClasspathMode.BAZEL_REDUCED) {
         return BlazeJavacResult.fallback();
@@ -101,5 +103,15 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
 
     // Fall back to the regular compile, but add extra checks to catch transitive uses
     return javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
+  }
+
+  private static boolean shouldFallBack(BlazeJavacResult result) {
+    if (result.isOk()) {
+      return false;
+    }
+    if (result.diagnostics().stream().allMatch(d -> d.isJSpecifyDiagnostic())) {
+      return false;
+    }
+    return true;
   }
 }
