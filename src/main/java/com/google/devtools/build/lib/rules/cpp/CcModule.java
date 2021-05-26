@@ -605,62 +605,64 @@ public abstract class CcModule
 
     Artifact resolvedSymlinkDynamicLibrary = null;
     Artifact resolvedSymlinkInterfaceLibrary = null;
-    if (!featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-      if (dynamicLibrary != null) {
-        resolvedSymlinkDynamicLibrary = dynamicLibrary;
-        if (dynamicLibraryPathFragment != null) {
-          if (dynamicLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
-            throw Starlark.errorf(
-                "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
-                dynamicLibrary.getRootRelativePath());
-          }
-          dynamicLibrary =
-              SolibSymlinkAction.getDynamicLibrarySymlink(
-                  starlarkActionFactory.asActionRegistry(starlarkActionFactory),
-                  starlarkActionFactory.getActionConstructionContext(),
-                  ccToolchainProvider.getSolibDirectory(),
-                  dynamicLibrary,
-                  dynamicLibraryPathFragment);
-        } else {
-          dynamicLibrary =
-              SolibSymlinkAction.getDynamicLibrarySymlink(
-                  starlarkActionFactory.asActionRegistry(starlarkActionFactory),
-                  starlarkActionFactory.getActionConstructionContext(),
-                  ccToolchainProvider.getSolibDirectory(),
-                  dynamicLibrary,
-                  /* preserveName= */ true,
-                  /* prefixConsumer= */ true);
+    if (dynamicLibrary != null
+        && !featureConfiguration
+            .getFeatureConfiguration()
+            .isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+      resolvedSymlinkDynamicLibrary = dynamicLibrary;
+      if (dynamicLibraryPathFragment != null) {
+        if (dynamicLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
+          throw Starlark.errorf(
+              "dynamic_library must not be a symbolic link in the solib directory. Got '%s'",
+              dynamicLibrary.getRootRelativePath());
         }
+        dynamicLibrary =
+            SolibSymlinkAction.getDynamicLibrarySymlink(
+                starlarkActionFactory.asActionRegistry(starlarkActionFactory),
+                starlarkActionFactory.getActionConstructionContext(),
+                ccToolchainProvider.getSolibDirectory(),
+                dynamicLibrary,
+                dynamicLibraryPathFragment);
+      } else {
+        dynamicLibrary =
+            SolibSymlinkAction.getDynamicLibrarySymlink(
+                starlarkActionFactory.asActionRegistry(starlarkActionFactory),
+                starlarkActionFactory.getActionConstructionContext(),
+                ccToolchainProvider.getSolibDirectory(),
+                dynamicLibrary,
+                /* preserveName= */ true,
+                /* prefixConsumer= */ true);
       }
-      if (interfaceLibrary != null) {
-        resolvedSymlinkInterfaceLibrary = interfaceLibrary;
-        if (interfaceLibraryPathFragment != null) {
-          if (interfaceLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
-            throw Starlark.errorf(
-                "interface_library must not be a symbolic link in the solib directory. Got '%s'",
-                interfaceLibrary.getRootRelativePath());
-          }
-          interfaceLibrary =
-              SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionRegistry= */ starlarkActionFactory.asActionRegistry(
-                      starlarkActionFactory),
-                  /* actionConstructionContext= */ starlarkActionFactory
-                      .getActionConstructionContext(),
-                  ccToolchainProvider.getSolibDirectory(),
-                  interfaceLibrary,
-                  interfaceLibraryPathFragment);
-        } else {
-          interfaceLibrary =
-              SolibSymlinkAction.getDynamicLibrarySymlink(
-                  /* actionRegistry= */ starlarkActionFactory.asActionRegistry(
-                      starlarkActionFactory),
-                  /* actionConstructionContext= */ starlarkActionFactory
-                      .getActionConstructionContext(),
-                  ccToolchainProvider.getSolibDirectory(),
-                  interfaceLibrary,
-                  /* preserveName= */ true,
-                  /* prefixConsumer= */ true);
+    }
+    if (interfaceLibrary != null
+        && !featureConfiguration
+            .getFeatureConfiguration()
+            .isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+      resolvedSymlinkInterfaceLibrary = interfaceLibrary;
+      if (interfaceLibraryPathFragment != null) {
+        if (interfaceLibrary.getRootRelativePath().getPathString().startsWith("_solib_")) {
+          throw Starlark.errorf(
+              "interface_library must not be a symbolic link in the solib directory. Got '%s'",
+              interfaceLibrary.getRootRelativePath());
         }
+        interfaceLibrary =
+            SolibSymlinkAction.getDynamicLibrarySymlink(
+                /* actionRegistry= */ starlarkActionFactory.asActionRegistry(starlarkActionFactory),
+                /* actionConstructionContext= */ starlarkActionFactory
+                    .getActionConstructionContext(),
+                ccToolchainProvider.getSolibDirectory(),
+                interfaceLibrary,
+                interfaceLibraryPathFragment);
+      } else {
+        interfaceLibrary =
+            SolibSymlinkAction.getDynamicLibrarySymlink(
+                /* actionRegistry= */ starlarkActionFactory.asActionRegistry(starlarkActionFactory),
+                /* actionConstructionContext= */ starlarkActionFactory
+                    .getActionConstructionContext(),
+                ccToolchainProvider.getSolibDirectory(),
+                interfaceLibrary,
+                /* preserveName= */ true,
+                /* prefixConsumer= */ true);
       }
     }
     if (staticLibrary == null
