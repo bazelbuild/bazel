@@ -191,7 +191,7 @@ int portable_push_disable_sleep() {
     assert(g_sleep_state_assertion == kIOPMNullAssertionID);
     CFStringRef reasonForActivity = CFSTR("build.bazel");
 
-    IOReturn success = IOPMAssertionCreateWithName(
+    __unused IOReturn success = IOPMAssertionCreateWithName(
         kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, reasonForActivity,
         &g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
@@ -207,7 +207,7 @@ int portable_pop_disable_sleep() {
   g_sleep_state_stack -= 1;
   if (g_sleep_state_stack == 0) {
     assert(g_sleep_state_assertion != kIOPMNullAssertionID);
-    IOReturn success = IOPMAssertionRelease(g_sleep_state_assertion);
+    __unused IOReturn success = IOPMAssertionRelease(g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
     g_sleep_state_assertion = kIOPMNullAssertionID;
     log_if_possible("sleep assertion released");
