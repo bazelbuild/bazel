@@ -38,18 +38,3 @@ objc_library(
         "objc_dummy.mm",
     ],
 )
-
-filegroup(
-    name = "protobuf_compiler_wrapper",
-    srcs = ["protobuf_compiler_wrapper.sh"],
-)
-
-filegroup(
-    name = "protobuf_compiler_support",
-    srcs = ["protobuf_support"],
-)
-
-filegroup(
-    name = "protobuf_well_known_types",
-    srcs = ["dummy.proto"],
-)
