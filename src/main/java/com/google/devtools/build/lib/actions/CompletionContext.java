@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +51,8 @@ public class CompletionContext {
   private final boolean expandFilesets;
   private final boolean fullyResolveFilesetLinks;
 
-  private CompletionContext(
+  @VisibleForTesting
+  CompletionContext(
       Path execRoot,
       Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
@@ -109,7 +113,8 @@ public class CompletionContext {
     for (Artifact artifact : artifacts) {
       if (artifact.isMiddlemanArtifact()) {
         continue;
-      } else if (artifact.isFileset()) {
+      }
+      if (artifact.isFileset()) {
         if (expandFilesets) {
           visitFileset(
               artifact,
@@ -119,9 +124,17 @@ public class CompletionContext {
                   : RelativeSymlinkBehaviorWithoutError.RESOLVE);
         }
       } else if (artifact.isTreeArtifact()) {
+        if (FileArtifactValue.OMITTED_FILE_MARKER.equals(inputMap.getMetadata(artifact))) {
+          // Expansion can be missing for omitted tree artifacts -- skip the whole tree.
+          continue;
+        }
         ImmutableCollection<? extends Artifact> expandedArtifacts =
-            this.expandedArtifacts.get(artifact);
-        for (Artifact expandedArtifact : expandedArtifacts) {
+            checkNotNull(
+                this.expandedArtifacts.get(artifact),
+                "Missing expansion for tree artifact: %s",
+                artifact);
+        for (Artifact expandedArtifact :
+            checkNotNull(expandedArtifacts, "Missing expansion for tree artifact: %s", artifact)) {
           receiver.accept(expandedArtifact);
         }
       } else {
