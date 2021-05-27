@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.view.proto.Deps;
 import javax.annotation.Nullable;
 
 /** The outputs of a {@link JavaCompileAction}. */
@@ -29,33 +28,8 @@ public abstract class JavaCompileOutputs<T extends Artifact> {
   /** The output artifact for the manifest proto emitted from JavaBuilder */
   public abstract T manifestProto();
 
-  /**
-   * A {@link Deps.Dependencies} proto listing which classpath jars were actually read by a
-   * compilation. Also known as ".jdeps".
-   *
-   * <p>This version includes paths as Bazel and post-build consumers see it, for example <code>
-   * bazel-out/x86-fastbuild/bin/foo/foo.jar</code>. An alternate version, {@link
-   * #strippedDepsProto()}, excludes config prefixes from paths. For example, <code>
-   * bazel-out/bin/foo/foo.jar.</code>.
-   *
-   * <p>If enabled by {@link
-   * com.google.devtools.build.lib.exec.ExecutionOptions#pathAgnosticActions}, the initial executor
-   * action performing the compilation outputs the stripped version. This lets Java actions compiled
-   * for different CPUs share executor cache hits, since these actions are CPU-agnostic. Afterward,
-   * the in-process {@link JavaCompileAction} creates the full deps from the stripped ones: see
-   * {@link JavaCompileAction#createFullOutputDeps}.
-   *
-   * <p>See {@link com.google.devtools.build.lib.actions.PathStripper} for more context.
-   */
   @Nullable
   public abstract T depsProto();
-
-  /**
-   * The variation of {@link #depsProto()} that strips config prefixes from output paths. This is
-   * what actions running on the executor output. See {@link #depsProto()} for more context.
-   */
-  @Nullable
-  public abstract T strippedDepsProto();
 
   /** The generated class jar, or {@code null} if no annotation processing is expected. */
   @Nullable
@@ -90,8 +64,6 @@ public abstract class JavaCompileOutputs<T extends Artifact> {
     abstract Builder<T> manifestProto(T artifact);
 
     abstract Builder<T> depsProto(@Nullable T artifact);
-
-    abstract Builder<T> strippedDepsProto(@Nullable T artifact);
 
     abstract Builder<T> genClass(@Nullable T artifact);
 

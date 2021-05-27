@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,6 +46,7 @@ public class JavaCompileActionContext implements ActionContext {
     }
   }
 
+  @VisibleForTesting
   void insertDependencies(Artifact jdepsFile, Deps.Dependencies dependencies) {
     cache.put(jdepsFile, dependencies);
   }
