@@ -376,20 +376,15 @@ final class CompilationAttributes implements StarlarkValue {
    * Returns the exec paths of all header search paths that should be added to this target and
    * dependers on this target, obtained from the {@code includes} attribute.
    */
-  public NestedSet<PathFragment> headerSearchPaths(
-      PathFragment genfilesFragment, PathFragment binFragment, boolean hasSeparateGenfilesDir) {
+  public NestedSet<PathFragment> headerSearchPaths(PathFragment genfilesFragment) {
     NestedSetBuilder<PathFragment> paths = NestedSetBuilder.stableOrder();
     if (packageFragment.isPresent()) {
       PathFragment packageFrag = packageFragment.get();
       PathFragment genfilesFrag = genfilesFragment.getRelative(packageFrag);
-      PathFragment binFrag = binFragment.getRelative(packageFrag);
       for (PathFragment include : includes().toList()) {
         if (!include.isAbsolute()) {
           paths.add(packageFrag.getRelative(include));
-          if (hasSeparateGenfilesDir) {
-            paths.add(genfilesFrag.getRelative(include));
-          }
-          paths.add(binFrag.getRelative(include));
+          paths.add(genfilesFrag.getRelative(include));
         }
       }
     }
