@@ -50,9 +50,7 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.proto.Deps;
-import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
@@ -81,6 +79,7 @@ public class JavaHeaderCompileActionBuilder {
 
   private Artifact outputJar;
   @Nullable private Artifact outputDepsProto;
+  @Nullable private Artifact strippedOutputDepsProto;
   @Nullable private Artifact manifestOutput;
   @Nullable private Artifact gensrcOutputJar;
   @Nullable private Artifact resourceOutputJar;
@@ -111,6 +110,13 @@ public class JavaHeaderCompileActionBuilder {
   /** Sets the output jdeps file. */
   public JavaHeaderCompileActionBuilder setOutputDepsProto(@Nullable Artifact outputDepsProto) {
     this.outputDepsProto = outputDepsProto;
+    return this;
+  }
+
+  /** Sets the output jdeps file. */
+  public JavaHeaderCompileActionBuilder setStrippedOutputDepsProto(
+      @Nullable Artifact outputDepsProto) {
+    this.strippedOutputDepsProto = outputDepsProto;
     return this;
   }
 
@@ -304,6 +310,7 @@ public class JavaHeaderCompileActionBuilder {
         ImmutableSet.<Artifact>builder()
             .add(outputJar)
             .add(outputDepsProto)
+            .add(strippedOutputDepsProto)
             .addAll(additionalOutputs);
     Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput)
         .filter(x -> x != null)
@@ -331,7 +338,7 @@ public class JavaHeaderCompileActionBuilder {
             .addExecPath("--gensrc_output", gensrcOutputJar)
             .addExecPath("--resource_output", resourceOutputJar)
             .addExecPath("--output_manifest_proto", manifestOutput)
-            .addExecPath("--output_deps", outputDepsProto)
+            .addExecPath("--output_deps", strippedOutputDepsProto)
             .addExecPaths("--bootclasspath", bootclasspathEntries)
             .addExecPaths("--sources", sourceFiles)
             .addExecPaths("--source_jars", sourceJars)
@@ -356,17 +363,12 @@ public class JavaHeaderCompileActionBuilder {
 
     ImmutableMap<String, String> executionInfo =
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
-    Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
-    if (classpathMode == JavaClasspathMode.BAZEL) {
-      if (javaConfiguration.inmemoryJdepsFiles()) {
-        executionInfo =
-            ImmutableMap.of(
-                ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                outputDepsProto.getExecPathString());
-      }
-      resultConsumer = createResultConsumer(outputDepsProto);
+    if (javaConfiguration.inmemoryJdepsFiles()) {
+      executionInfo =
+          ImmutableMap.of(
+              ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+              strippedOutputDepsProto.getExecPathString());
     }
-
     if (useDirectClasspath) {
       NestedSet<Artifact> classpath;
       if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
@@ -379,11 +381,22 @@ public class JavaHeaderCompileActionBuilder {
       commandLine.addExecPaths("--classpath", classpath);
       commandLine.add("--reduce_classpath_mode", "NONE");
 
+      NestedSet<Artifact> allInputs = mandatoryInputs.build();
+      Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer =
+          createResultConsumer(
+              strippedOutputDepsProto,
+              outputDepsProto,
+              allInputs.toList(),
+              // If classPathMode == BAZEL, also make sure to inject the dependencies to be
+              // available to downstream actions. Else just do enough work to locally create the
+              // full .jdeps from the .stripped .jdeps produced on the executor.
+              /*insertDependencies=*/ classpathMode == JavaClasspathMode.BAZEL);
+
       ruleContext.registerAction(
           new SpawnAction(
               /* owner= */ ruleContext.getActionOwner(),
               /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-              /* inputs= */ mandatoryInputs.build(),
+              /* inputs= */ allInputs,
               /* outputs= */ outputs.build(),
               /* primaryOutput= */ outputJar,
               /* resourceSet= */ AbstractAction.DEFAULT_RESOURCE_SET,
@@ -414,7 +427,6 @@ public class JavaHeaderCompileActionBuilder {
       mandatoryInputs.addTransitive(plugins.processorClasspath());
       mandatoryInputs.addTransitive(plugins.data());
     }
-    mandatoryInputs.addTransitive(compileTimeDependencyArtifacts);
 
     commandLine.addAll(
         "--builtin_processors",
@@ -448,6 +460,7 @@ public class JavaHeaderCompileActionBuilder {
             /* configuration= */ ruleContext.getConfiguration(),
             /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
             /* outputDepsProto= */ outputDepsProto,
+            /* strippedOutputDepsProto= */ strippedOutputDepsProto,
             /* classpathMode= */ classpathMode));
   }
 
@@ -456,24 +469,22 @@ public class JavaHeaderCompileActionBuilder {
    * function to avoid capturing a data member, which would keep the entire builder instance alive.
    */
   private static Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> createResultConsumer(
-      Artifact outputDepsProto) {
+      Artifact strippedOutputDepsProto,
+      Artifact outputDepsProto,
+      Iterable<Artifact> inputs,
+      boolean insertDependencies) {
     return (Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> & Serializable)
         contextAndResults -> {
-          ActionExecutionContext context = contextAndResults.getFirst();
-          JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
-          if (javaContext == null) {
-            return;
-          }
           SpawnResult spawnResult = Iterables.getOnlyElement(contextAndResults.getSecond());
+          ActionExecutionContext context = contextAndResults.getFirst();
           try {
-            InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-            try (InputStream input =
-                inMemoryOutput == null
-                    ? context.getInputPath(outputDepsProto).getInputStream()
-                    : inMemoryOutput) {
-              javaContext.insertDependencies(
-                  outputDepsProto,
-                  Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry()));
+            Deps.Dependencies fullOutputDeps =
+                JavaCompileAction.createFullOutputDeps(
+                    spawnResult, strippedOutputDepsProto, outputDepsProto, inputs, context);
+            JavaCompileActionContext javaContext =
+                context.getContext(JavaCompileActionContext.class);
+            if (insertDependencies && javaContext != null) {
+              javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
             }
           } catch (IOException e) {
             // Left empty. If we cannot read the .jdeps file now, we will read it later or throw

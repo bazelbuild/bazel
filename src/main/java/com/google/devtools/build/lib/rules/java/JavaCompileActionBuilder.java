@@ -207,7 +207,6 @@ public final class JavaCompileActionBuilder {
 
     NestedSetBuilder<Artifact> mandatoryInputs = NestedSetBuilder.stableOrder();
     mandatoryInputs
-        .addTransitive(compileTimeDependencyArtifacts)
         .addTransitive(plugins.processorClasspath())
         .addTransitive(plugins.data())
         .addTransitive(extraData)
@@ -247,7 +246,7 @@ public final class JavaCompileActionBuilder {
                 .putAll(this.executionInfo)
                 .put(
                     ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                    outputs.depsProto().getExecPathString())
+                    outputs.strippedDepsProto().getExecPathString())
                 .build();
       }
     }
@@ -277,6 +276,7 @@ public final class JavaCompileActionBuilder {
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),
+        /* strippedOutputDepsProto= */ outputs.strippedDepsProto(),
         /* classpathMode= */ classpathMode);
   }
 
@@ -285,7 +285,12 @@ public final class JavaCompileActionBuilder {
         ImmutableSet.<Artifact>builder()
             .add(outputs.output())
             .addAll(additionalOutputs);
-    Stream.of(outputs.depsProto(), outputs.nativeHeader(), genSourceOutput, manifestOutput)
+    Stream.of(
+            outputs.strippedDepsProto(),
+            outputs.depsProto(),
+            outputs.nativeHeader(),
+            genSourceOutput,
+            manifestOutput)
         .filter(x -> x != null)
         .forEachOrdered(result::add);
     return result.build();
@@ -302,7 +307,8 @@ public final class JavaCompileActionBuilder {
     if (compressJar) {
       result.add("--compress_jar");
     }
-    result.addExecPath("--output_deps_proto", outputs.depsProto());
+    result.addExecPath("--output_deps_proto", outputs.strippedDepsProto());
+
     result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
     result.addExecPath("--system", bootClassPath.system());
     result.addExecPaths("--sourcepath", sourcePathEntries);

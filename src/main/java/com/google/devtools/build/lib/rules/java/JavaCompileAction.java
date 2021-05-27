@@ -75,15 +75,22 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -129,6 +136,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   private final NestedSet<Artifact> transitiveInputs;
   private final NestedSet<Artifact> dependencyArtifacts;
   private final Artifact outputDepsProto;
+  private final Artifact strippedOutputDepsProto;
   private final JavaClasspathMode classpathMode;
 
   @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
@@ -151,6 +159,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       BuildConfiguration configuration,
       NestedSet<Artifact> dependencyArtifacts,
       Artifact outputDepsProto,
+      Artifact strippedOutputDepsProto,
       JavaClasspathMode classpathMode) {
     super(
         owner,
@@ -158,6 +167,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
             .addTransitive(transitiveInputs)
+            .addTransitive(dependencyArtifacts)
             .build(),
         runfilesSupplier,
         outputs,
@@ -187,6 +197,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     this.transitiveInputs = transitiveInputs;
     this.dependencyArtifacts = dependencyArtifacts;
     this.outputDepsProto = outputDepsProto;
+    this.strippedOutputDepsProto = strippedOutputDepsProto;
     this.classpathMode = classpathMode;
   }
 
@@ -329,6 +340,15 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
             .addTransitive(transitiveInputs)
+            // Full spawn mode means classPathMode != JavaClasspathMode.BAZEL, which means
+            // JavaBuilder may read .jdeps files to perform classpath reduction on the executor. So
+            // make sure these files are staged as inputs to the executor action.
+            //
+            // Contrast this with getReducedSpawn, which reduces the classpath in the Blaze process
+            // *before* sending actions to the executor. In those cases we want to avoid staging
+            // .jdeps files, which have config prefixes in output paths, which compromise caching
+            // supported by JavaCompileOutputs#strippedDepsProto.
+            .addTransitive(dependencyArtifacts)
             .build());
   }
 
@@ -489,6 +509,17 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     public NestedSet<? extends ActionInput> getInputFiles() {
       return inputs;
     }
+
+    /**
+     * Remove the full .jdeps from the executor action's outputs. We create this file locally in
+     * Bazel from the stripped .jdeps. See {@link #createFullOutputDeps} for details.
+     */
+    @Override
+    public Collection<? extends ActionInput> getOutputFiles() {
+      return getOutputs().stream()
+          .filter(output -> !Objects.equals(output, JavaCompileAction.this.outputDepsProto))
+          .collect(Collectors.toList());
+    }
   }
 
   @VisibleForTesting
@@ -558,17 +589,78 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     return null;
   }
 
-  /** Reads the {@code .jdeps} output from the given spawn results. */
-  private Deps.Dependencies readOutputDepsProto(
-      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
-    SpawnResult spawnResult = Iterables.getOnlyElement(results);
-    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+  /**
+   * Generates a full .jdeps file (with config prefixes in paths) from the stripped version executor
+   * actions may create.
+   *
+   * <p>For example: {@code bazel-out/bin/foo/foo.jar -> bazel-out/x86-fastbuild/bin/foo/foo.jar }.
+   *
+   * <p>If the executor doesn't strip config prefixes (i.e. config stripping isn't turned on as a
+   * feature), this is a simple copy. See {@link JavaCompileOutputs#depsProto()} for details.
+   *
+   * @param spawnResult the action that created the {@link JavaCompileOutputs#strippedDepsProto()}
+   *     (.jdeps.stripped)
+   * @param strippedOutputDepsProto path to the {@link JavaCompileOutputs#strippedDepsProto()}
+   * @param fullOutputDepsProto path to the (uncreated) {@link JavaCompileOutputs#depsProto()}. This
+   *     is what this method creates.
+   * @param actionInputs all inputs to the current action
+   * @param actionExecutionContext the action execution context
+   * @return the full deps proto (also written to disk to satisfy the action's declared output)
+   */
+  static Deps.Dependencies createFullOutputDeps(
+      SpawnResult spawnResult,
+      Artifact strippedOutputDepsProto,
+      Artifact fullOutputDepsProto,
+      Iterable<Artifact> actionInputs,
+      ActionExecutionContext actionExecutionContext)
+      throws IOException {
+
+    PathFragment outputRoot = fullOutputDepsProto.getExecPath().subFragment(0, 1);
+    // Map each generated input's config-stripped path to its full path.
+    Map<PathFragment, PathFragment> strippedToFullPaths = new HashMap<>();
+    for (Artifact input : actionInputs) {
+      if (input.isSourceArtifact()) {
+        continue;
+      }
+      // Turns "bazel-out/x86-fastbuild/bin/foo" to "bazel-out/bin/foo".
+      PathFragment strippedPath = outputRoot.getRelative(input.getExecPath().subFragment(2));
+      // If an entry already exists, that means different inputs reduce to the same stripped path.
+      // That also means PathStripper would exempt this action from path stripping. So nothing will
+      // match this map, meaning the full .jdeps will be a trivial clone of the stripped one.
+      strippedToFullPaths.put(strippedPath, input.getExecPath());
+    }
+
+    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(strippedOutputDepsProto);
     try (InputStream input =
         inMemoryOutput == null
-            ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
+            ? actionExecutionContext.getInputPath(strippedOutputDepsProto).getInputStream()
             : inMemoryOutput) {
-      return Deps.Dependencies.parseFrom(input);
+      Deps.Dependencies strippedDeps =
+          Deps.Dependencies.parseFrom(input, ExtensionRegistry.getEmptyRegistry());
+      Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(strippedDeps);
+      for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
+        PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
+        PathFragment fullPath = strippedToFullPaths.get(pathOnExecutor);
+        dep.setPath(fullPath == null ? pathOnExecutor.getPathString() : fullPath.getPathString());
+      }
+      Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
+      FileSystemUtils.writeContent(
+          actionExecutionContext.getInputPath(fullOutputDepsProto), fullOutputDeps.toByteArray());
+      return fullOutputDeps;
+    }
+  }
+
+  /** Reads the full {@code .jdeps} output from the given spawn results. */
+  private Deps.Dependencies readFullOutputDeps(
+      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    try {
+      return createFullOutputDeps(
+          Iterables.getOnlyElement(results),
+          strippedOutputDepsProto,
+          outputDepsProto,
+          getInputs().toList(),
+          actionExecutionContext);
     } catch (IOException e) {
       throw new EnvironmentalExecException(
               e, createFailureDetail(".jdeps read IOException", Code.JDEPS_READ_IO_EXCEPTION))
@@ -619,11 +711,14 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         }
 
         List<SpawnResult> results = nextContinuation.get();
+        Deps.Dependencies dependencies = null;
+        if (outputDepsProto != null) {
+          dependencies = readFullOutputDeps(results, actionExecutionContext);
+        }
         if (reducedClasspath == null) {
           return ActionContinuationOrResult.of(ActionResult.create(results));
         }
 
-        Deps.Dependencies dependencies = readOutputDepsProto(results, actionExecutionContext);
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
               .getContext(JavaCompileActionContext.class)
@@ -701,11 +796,11 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
               actionExecutionContext, primaryResults, nextContinuation);
         }
         List<SpawnResult> fallbackResults = nextContinuation.get();
+        Deps.Dependencies fullDeps = readFullOutputDeps(fallbackResults, actionExecutionContext);
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
               .getContext(JavaCompileActionContext.class)
-              .insertDependencies(
-                  outputDepsProto, readOutputDepsProto(fallbackResults, actionExecutionContext));
+              .insertDependencies(outputDepsProto, fullDeps);
         }
         return ActionContinuationOrResult.of(
             ActionResult.create(

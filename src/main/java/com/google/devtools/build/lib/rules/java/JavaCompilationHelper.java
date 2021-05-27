@@ -170,24 +170,20 @@ public final class JavaCompilationHelper {
   }
 
   public JavaCompileOutputs<Artifact> createOutputs(Artifact output) {
+    PathFragment outputPath =
+        output.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout());
     JavaCompileOutputs.Builder<Artifact> builder =
         JavaCompileOutputs.builder()
             .output(output)
             .manifestProto(
                 deriveOutput(
-                    output,
-                    FileSystemUtils.appendExtension(
-                        output.getOutputDirRelativePath(
-                            getConfiguration().isSiblingRepositoryLayout()),
-                        "_manifest_proto")))
+                    output, FileSystemUtils.appendExtension(outputPath, "_manifest_proto")))
             .nativeHeader(deriveOutput(output, "-native-header"));
     if (generatesOutputDeps()) {
       builder.depsProto(
-          deriveOutput(
-              output,
-              FileSystemUtils.replaceExtension(
-                  output.getOutputDirRelativePath(getConfiguration().isSiblingRepositoryLayout()),
-                  ".jdeps")));
+          deriveOutput(output, FileSystemUtils.replaceExtension(outputPath, ".jdeps")));
+      builder.strippedDepsProto(
+          deriveOutput(output, FileSystemUtils.replaceExtension(outputPath, ".jdeps.stripped")));
     }
     if (usesAnnotationProcessing()) {
       builder.genClass(deriveOutput(output, "-gen")).genSource(deriveOutput(output, "-gensrc"));
@@ -235,6 +231,8 @@ public final class JavaCompilationHelper {
       resourceJars.add(turbineResources);
       Artifact turbineJar = turbineOutput(outputs.output(), "-turbine-apt.jar");
       Artifact turbineJdeps = turbineOutput(outputs.output(), "-turbine-apt.jdeps");
+      Artifact strippedTurbineJdeps =
+          turbineOutput(outputs.output(), "-turbine-apt.jdeps.stripped");
       Artifact turbineGensrc =
           outputs.genSource() != null
               ? outputs.genSource()
@@ -243,6 +241,7 @@ public final class JavaCompilationHelper {
       JavaHeaderCompileActionBuilder builder = getJavaHeaderCompileActionBuilder();
       builder.setOutputJar(turbineJar);
       builder.setOutputDepsProto(turbineJdeps);
+      builder.setStrippedOutputDepsProto(strippedTurbineJdeps);
       builder.setPlugins(plugins);
       builder.setResourceOutputJar(turbineResources);
       builder.setGensrcOutputJar(turbineGensrc);
@@ -496,6 +495,7 @@ public final class JavaCompilationHelper {
 
     Artifact headerJar = turbineOutput(runtimeJar, "-hjar.jar");
     Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
+    Artifact strippedHeaderDeps = turbineOutput(runtimeJar, "-hjar.jdeps.stripped");
 
     JavaTargetAttributes attributes = getAttributes();
 
@@ -505,6 +505,7 @@ public final class JavaCompilationHelper {
     JavaHeaderCompileActionBuilder builder = getJavaHeaderCompileActionBuilder();
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
+    builder.setStrippedOutputDepsProto(strippedHeaderDeps);
     builder.setPlugins(plugins);
     if (plugins
         .processorClasses()
