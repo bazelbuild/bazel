@@ -1071,8 +1071,9 @@ genrule(
   The <code>buildfiles(<var>x</var>)</code> operator returns the set
   of files that define the packages of each target in
   set <var>x</var>; in other words, for each package, its `BUILD` file,
-  plus any files it references via <code>load</code>. Note that this also returns the `BUILD` files
-  of the packages containing these <code>load</code>ed files.
+  plus any .bzl files it references via <code>load</code>. Note that this
+  also returns the `BUILD` files of the packages containing these
+  <code>load</code>ed files.
 </p>
 
 <p>
@@ -1093,6 +1094,15 @@ genrule(
   but this yields an incorrect result: while the result contains the
   majority of needed packages, those packages that contain only files
   that are <code>load()</code>'ed will be missing.
+</p>
+
+<p style="background-color:#cc6666;">
+  <strong>WARNING:</strong> Bazel pretends each <code>.bzl</code> file produced by
+  <code>buildfiles</code> has a corresponding target (for example, file <code>a/b.bzl</code> =>
+  target <code>//a:b.bzl</code>), but this isn't necessarily the case. Therefore,
+  <code>buildfiles</code> doesn't compose well with other query operators and its results can be
+  misleading when formatted in a structured way, such as
+  <code><a href='#output-xml'>--output=xml</a></code>.
 </p>
 
 <h3 id="rbuildfiles">Package definition files: rbuildfiles</h3>
@@ -1135,6 +1145,14 @@ genrule(
   Starlark files that are needed to load the packages of each target in
   set <var>x</var>. In other words, for each package, it returns the
   .bzl files that are referenced from its `BUILD` files.
+</p>
+
+<p style="background-color:#cc6666;">
+  <strong>WARNING:</strong> Bazel pretends each of these .bzl files has a corresponding target
+  (for example, file <code>a/b.bzl</code> => target <code>//a:b.bzl</code>), but this isn't
+  necessarily the case. Therefore, <code>loadfiles</code> doesn't compose well with other query
+  operators and its results can be misleading when formatted in a structured way, such as
+  <code><a href='#output-xml'>--output=xml</a></code>.
 </p>
 
 <h2 id='output-formats'>Output formats</h2>
