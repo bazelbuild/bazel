@@ -111,7 +111,7 @@ public class CommandFailureUtils {
 
     @Override
     public void describeCommandCwd(String cwd, StringBuilder message) {
-      message.append("cd ").append(cwd).append("\n");
+      message.append("cd ").append("/d ").append(cwd).append("\n");
     }
 
     @Override
