@@ -25,6 +25,7 @@ public class BlazeJavacResult {
   public enum Status {
     OK,
     ERROR,
+    CRASH,
     REQUIRES_FALLBACK,
   }
 

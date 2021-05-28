@@ -30,10 +30,12 @@ import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
+import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.CacheFSInfo;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.main.JavaCompiler;
+import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
@@ -120,13 +122,13 @@ public class BlazeJavacMain {
                   fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
                   context);
       try {
-        status = task.call() ? Status.OK : Status.ERROR;
+        status = fromResult(((JavacTaskImpl) task).doCall());
       } catch (PropagatedException e) {
         throw e.getCause();
       }
     } catch (Throwable t) {
       t.printStackTrace(errWriter);
-      status = Status.ERROR;
+      status = Status.CRASH;
     } finally {
       compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
       if (status == Status.OK) {
@@ -168,6 +170,20 @@ public class BlazeJavacMain {
         errOutput.toString(),
         compiler,
         builder.build());
+  }
+
+  private static Status fromResult(Result result) {
+    switch (result) {
+      case OK:
+        return Status.OK;
+      case ERROR:
+      case CMDERR:
+      case SYSERR:
+        return Status.ERROR;
+      case ABNORMAL:
+        return Status.CRASH;
+    }
+    throw new AssertionError(result);
   }
 
   private static boolean isWerror(WerrorCustomOption werrorCustom, FormattedDiagnostic diagnostic) {

@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.buildjar;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.OptionsParser.ReduceClasspathMode;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import java.io.IOException;
@@ -108,6 +108,9 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
   private static boolean shouldFallBack(BlazeJavacResult result) {
     if (result.isOk()) {
       return false;
+    }
+    if (result.status().equals(Status.CRASH)) {
+      return true;
     }
     if (result.diagnostics().stream().allMatch(d -> d.isJSpecifyDiagnostic())) {
       return false;
