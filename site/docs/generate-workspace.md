@@ -23,7 +23,7 @@ which includes:
 *   the `generated_java_libraries` macro that will contain a library for
     each maven_jar.
 
-## Install `generate_workspace`
+## Install generate_workspace
 
 Bazel's binary installer does not include `generate_workspace`. To be able to
 use this tool:

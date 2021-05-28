@@ -119,7 +119,7 @@ This can sometimes be reduced using a list comprehension:
 x = depset(transitive = [i.deps for i in inputs])
 ```
 
-## Use `ctx.actions.args()` for command lines
+## Use ctx.actions.args() for command lines
 
 When building command lines you should use [ctx.actions.args()](lib/Args.html).
 This defers expansion of any depsets to the execution phase.

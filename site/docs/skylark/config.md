@@ -79,7 +79,7 @@ writer have some debug mode that you'd like to turn on inside test rules,
 you don't want to give users the ability to indiscriminately turn on that
 feature inside other non-test rules.
 
-#### Using `ctx.build_setting_value`
+#### Using ctx.build_setting_value
 
 Like all rules, build setting rules have [implementation functions](rules.html#implementation-function).
 The basic Starlark-type value of the build settings can be accessed via the
@@ -371,7 +371,7 @@ label_flag(
 
 TODO(bazel-team): Expand supported build setting types.
 
-### Build settings and `select()`
+### Build settings and select()
 
 [End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/select_on_build_setting)
 

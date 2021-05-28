@@ -72,7 +72,8 @@ details.
 ### Using Bazel without Bash (MSYS2)
 
 <a name="bazel-build-without-bash"></a>
-#### `bazel build` without Bash
+
+#### Using bazel build without Bash
 
 Bazel versions before 1.0 used to require Bash to build some rules.
 
@@ -91,7 +92,7 @@ in the
 When built on Windows, **these rules do not require Bash**.
 
 <a name="bazel-test-without-bash"></a>
-#### `bazel test` without Bash
+#### Using bazel test without Bash
 
 Bazel versions before 1.0 used to require Bash to `bazel test` anything.
 
@@ -101,7 +102,7 @@ Starting with Bazel 1.0, you can test any rule without Bash, except when:
 - the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="bazel-run-without-bash"></a>
-#### `bazel run` without Bash
+#### Using bazel run without Bash
 
 Bazel versions before 1.0 used to require Bash to `bazel run` anything.
 
@@ -111,7 +112,7 @@ Starting with Bazel 1.0, you can run any rule without Bash, except when:
 - the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="sh-rules-without-bash"></a>
-#### `sh_binary` and `sh_*` rules, and `ctx.actions.run_shell()` without Bash
+#### Using sh_binary and sh_* rules, and ctx.actions.run_shell() without Bash
 
 You need Bash to build and test `sh_*` rules, and to build and test Starlark
 rules that use `ctx.actions.run_shell()` and `ctx.resolve_command()`. This

@@ -361,12 +361,14 @@ and encode some semantics into the name.
   </tr>
 </table>
 
-## Action config
+## Using action_config
 
-A `action_config` is a Starlark struct that describes a Bazel action
-by specifying the tool (binary) to invoke during the action and sets of flags,
-defined by features, that apply constraints to the action's execution. The
-`action_config()` constructor has the following parameters:
+The `action_config` is a Starlark struct that describes a Bazel
+action by specifying the tool (binary) to invoke during the action and sets of
+flags, defined by features. These flags apply constraints to the action's
+execution.
+
+The `action_config()` constructor has the following parameters:
 
 <table>
   <col width="300">
@@ -425,7 +427,7 @@ within the same toolchain. This prevents ambiguity in tool paths
 and enforces the intention behind `action_config` - that an action's properties
 are clearly described in a single place in the toolchain.
 
-### `tool`
+### Using tool constructor
 
 An`action_config` can specify a set of tools via its `tools` parameter.
 The `tool()` constructor takes in the following parameters:
@@ -449,7 +451,7 @@ The `tool()` constructor takes in the following parameters:
   <tr>
    <td><code>with_features</code>
    </td>
-   <td>A a list of feature sets out of which at least one must be satisfied
+   <td>A list of feature sets out of which at least one must be satisfied
        for this tool to apply.
    </td>
   </tr>
@@ -662,12 +664,12 @@ variable or its field using the `expand_if_available`, `expand_if_not_available`
 the build command only when a currently iterated library has an
 `is_whole_archive` field.
 
-## `CcToolchainConfigInfo` reference
+## CcToolchainConfigInfo reference
 
 This section provides a reference of build variables, features, and other
 information required to successfully configure C++ rules.
 
-### `CcToolchainConfigInfo` build variables
+### CcToolchainConfigInfo build variables
 
 The following is a reference of `CcToolchainConfigInfo` build variables.
 

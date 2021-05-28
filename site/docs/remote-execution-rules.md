@@ -108,7 +108,7 @@ one of the following:
     toolchain container) if it's stable enough and use toolchain rules to run it
     in your build.
 
-## Managing `configure`-style WORKSPACE rules
+## Managing configure-style WORKSPACE rules
 
 Bazel's `WORKSPACE` rules can be used for probing the host platform for tools
 and libraries required by the build, which, for local builds, is also Bazel's
