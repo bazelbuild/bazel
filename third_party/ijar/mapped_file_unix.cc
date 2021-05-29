@@ -19,6 +19,7 @@
 #include <sys/mman.h>
 
 #include <algorithm>
+#include <limits>
 
 #include "third_party/ijar/mapped_file.h"
 
