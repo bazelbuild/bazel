@@ -581,7 +581,7 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
 # building Bazel for.
 genrule(
     name = "filter_netty_dynamic_libs",
-    srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
+    srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.34.Final.jar"],
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
     cmd = "cp $< $@ && " +
           # Make sure we can write the output file, even if the input isn't writable.
@@ -594,7 +594,7 @@ genrule(
 distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
-    jars = ["netty/netty-all-4.1.48.Final.jar"],
+    jars = ["netty/netty-all-4.1.52.Final.jar"],
 )
 
 distrib_java_import(

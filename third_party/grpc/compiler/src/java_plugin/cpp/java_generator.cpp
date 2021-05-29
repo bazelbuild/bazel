@@ -713,11 +713,13 @@ static void PrintStub(
           if (client_streaming) {
             p->Print(
                 *vars,
-                "return asyncUnimplementedStreamingCall($method_method_name$(), responseObserver);\n");
+                "return io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall("
+                "$method_method_name$(), responseObserver);\n");
           } else {
             p->Print(
                 *vars,
-                "asyncUnimplementedUnaryCall($method_method_name$(), responseObserver);\n");
+                "io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall("
+                "$method_method_name$(), responseObserver);\n");
           }
           break;
         default:
@@ -729,10 +731,10 @@ static void PrintStub(
           GRPC_CODEGEN_CHECK(!client_streaming)
               << "Blocking client streaming interface is not available";
           if (server_streaming) {
-            (*vars)["calls_method"] = "blockingServerStreamingCall";
+            (*vars)["calls_method"] = "io.grpc.stub.ClientCalls.blockingServerStreamingCall";
             (*vars)["params"] = "request";
           } else {
-            (*vars)["calls_method"] = "blockingUnaryCall";
+            (*vars)["calls_method"] = "io.grpc.stub.ClientCalls.blockingUnaryCall";
             (*vars)["params"] = "request";
           }
           p->Print(
@@ -743,18 +745,18 @@ static void PrintStub(
         case ASYNC_CALL:
           if (server_streaming) {
             if (client_streaming) {
-              (*vars)["calls_method"] = "asyncBidiStreamingCall";
+              (*vars)["calls_method"] = "io.grpc.stub.ClientCalls.asyncBidiStreamingCall";
               (*vars)["params"] = "responseObserver";
             } else {
-              (*vars)["calls_method"] = "asyncServerStreamingCall";
+              (*vars)["calls_method"] = "io.grpc.stub.ClientCalls.asyncServerStreamingCall";
               (*vars)["params"] = "request, responseObserver";
             }
           } else {
             if (client_streaming) {
-              (*vars)["calls_method"] = "asyncClientStreamingCall";
+              (*vars)["calls_method"] = "io.grpc.stub.ClientCalls.asyncClientStreamingCall";
               (*vars)["params"] = "responseObserver";
             } else {
-              (*vars)["calls_method"] = "asyncUnaryCall";
+              (*vars)["calls_method"] = "io.grpc.stub.ClientCalls.asyncUnaryCall";
               (*vars)["params"] = "request, responseObserver";
             }
           }
@@ -769,7 +771,7 @@ static void PrintStub(
               << "Future interface doesn't support streaming. "
               << "client_streaming=" << client_streaming << ", "
               << "server_streaming=" << server_streaming;
-          (*vars)["calls_method"] = "futureUnaryCall";
+          (*vars)["calls_method"] = "io.grpc.stub.ClientCalls.futureUnaryCall";
           p->Print(
               *vars,
               "return $calls_method$(\n"
@@ -1031,15 +1033,15 @@ static void PrintBindServiceMethodBody(const ServiceDescriptor* service,
     bool server_streaming = method->server_streaming();
     if (client_streaming) {
       if (server_streaming) {
-        (*vars)["calls_method"] = "asyncBidiStreamingCall";
+        (*vars)["calls_method"] = "io.grpc.stub.ServerCalls.asyncBidiStreamingCall";
       } else {
-        (*vars)["calls_method"] = "asyncClientStreamingCall";
+        (*vars)["calls_method"] = "io.grpc.stub.ServerCalls.asyncClientStreamingCall";
       }
     } else {
       if (server_streaming) {
-        (*vars)["calls_method"] = "asyncServerStreamingCall";
+        (*vars)["calls_method"] = "io.grpc.stub.ServerCalls.asyncServerStreamingCall";
       } else {
-        (*vars)["calls_method"] = "asyncUnaryCall";
+        (*vars)["calls_method"] = "io.grpc.stub.ServerCalls.asyncUnaryCall";
       }
     }
     p->Print(*vars, ".addMethod(\n");
@@ -1160,33 +1162,7 @@ static void PrintService(const ServiceDescriptor* service,
 void PrintImports(Printer* p) {
   p->Print(
       "import static "
-      "io.grpc.MethodDescriptor.generateFullMethodName;\n"
-      "import static "
-      "io.grpc.stub.ClientCalls.asyncBidiStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ClientCalls.asyncClientStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ClientCalls.asyncServerStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ClientCalls.asyncUnaryCall;\n"
-      "import static "
-      "io.grpc.stub.ClientCalls.blockingServerStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ClientCalls.blockingUnaryCall;\n"
-      "import static "
-      "io.grpc.stub.ClientCalls.futureUnaryCall;\n"
-      "import static "
-      "io.grpc.stub.ServerCalls.asyncBidiStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ServerCalls.asyncClientStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ServerCalls.asyncServerStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ServerCalls.asyncUnaryCall;\n"
-      "import static "
-      "io.grpc.stub.ServerCalls.asyncUnimplementedStreamingCall;\n"
-      "import static "
-      "io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall;\n\n");
+      "io.grpc.MethodDescriptor.generateFullMethodName;\n\n");
 }
 
 void GenerateService(const ServiceDescriptor* service,
