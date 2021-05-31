@@ -68,6 +68,10 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
         JavaSourceJarsProvider.merge(
             ruleContext.getPrerequisites("deps", JavaSourceJarsProvider.class));
 
+    JavaRuleOutputJarsProvider outputJarsProvider =
+        JavaRuleOutputJarsProvider.merge(
+            ruleContext.getPrerequisites("deps", JavaRuleOutputJarsProvider.class));
+
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     filesToBuild.addAll(sourceJarsProvider.getSourceJars());
@@ -80,7 +84,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY);
+            .addProvider(JavaRuleOutputJarsProvider.class, outputJarsProvider);
 
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
