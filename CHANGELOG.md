@@ -1,3 +1,21 @@
+## Release 5.0.0-pre.20210510.2.1 (2021-05-31)
+
+```
+Baseline: 8a42645ec500874b0440475763ab680d5efc1e6a
+
+Cherry picks:
+
+   + e3c78c4eeaf4e8db3c22aa71c6c1578cb48c8dcc:
+     Ensure that test status artifacts are reported as top-level
+     artifacts.
+   + 1f52e9a58dd814f203797c5fbab44d9f4d53a43c:
+     Support rolling releases in Bazel release scripts.
+   + 2f72244183c8c3de722ff1d9e8b0b745d12cd528:
+     Fix syntax error in Bazel release scripts
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 5.0.0-pre.20210510.2 (2021-05-31)
 
 ```
