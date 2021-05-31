@@ -709,6 +709,42 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " frequency is based on the value of `--experimental_remote_cache_ttl`.")
   public boolean remoteCacheLeaseExtension;
 
+  @Option(
+      name = "remote_output_service",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A URI of a remote output service. A remote output service is a daemon that runs next "
+              + "to Bazel, managing the contents of the bazel-out/ directory. It may use systems "
+              + "like FUSE to add features such as snapshotting and lazy loading of objects stored "
+              + "in a remote Content Addressable Storage.")
+  public String remoteOutputService;
+
+  @Option(
+      name = "remote_output_service_output_path_prefix",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The path at which all output path directories are visible that are managed by the "
+              + "remote output service.")
+  public String remoteOutputServiceOutputPathPrefix;
+
+  @Option(
+      name = "remote_output_service_output_base_id",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The identifier of the workspace in which the build takes place. This value must be "
+              + "unique for every workspace built through the same remote output service, as it "
+              + "allows the remote output service to track state for multiple workspaces in "
+              + "parallel. By default, it is set to the MD5 sum of the path of the workspace. "
+              + "It may be necessary to override this value if the file system is virtualized "
+              + "and multiple workspaces are placed at the same path.")
+  public String remoteOutputServiceOutputBaseId;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 

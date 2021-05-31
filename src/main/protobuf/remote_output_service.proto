@@ -1,0 +1,320 @@
+// Copyright 2021 The Bazel Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package remote_output_service;
+
+import "build/bazel/remote/execution/v2/remote_execution.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.google.devtools.build.lib.remote";
+option java_outer_classname = "RemoteOutputServiceProto";
+option go_package = "remoteoutputservice";
+
+// The Remote Output Service may be used by users of the Remote
+// Execution API to construct a directory on the local system that
+// contains all output files of a build.
+//
+// Primitive implementations of this API may simply download files from
+// the Content Addressable Storage (CAS) and store them at their
+// designated location. Complex implementations may use a pseudo file
+// system (e.g., FUSE) to support deduplication, lazy loading and
+// snapshotting.
+//
+// Details:
+// https://github.com/bazelbuild/proposals/blob/master/designs/2021-02-09-remote-output-service.md
+// https://groups.google.com/g/remote-execution-apis/c/qOSWWwBLPzo
+// https://groups.google.com/g/bazel-dev/c/lKzENsNd1Do
+service RemoteOutputService {
+  // Methods that can be invoked at any point in time.
+
+  // Clean all data associated with a single output path, so that the
+  // next invocation of StartBuild() yields an empty output path. This
+  // may be implemented in a way that's faster than removing all of the
+  // files from the file system manually.
+  rpc Clean(CleanRequest) returns (google.protobuf.Empty);
+
+  // Signal that a new build is about to start.
+  //
+  // The client uses this call to obtain a directory where outputs of
+  // the build may be stored, called the output path. Based on the
+  // parameters provided, the remote output service may provide an empty
+  // output path, or one that has contents from a previous build of the
+  // same workspace.
+  //
+  // In case the output path contains data from a previous build, the
+  // remote output service is responsible for calling
+  // ContentAddressableStorage.FindMissingBlobs() for all of the objects
+  // that are stored remotely. This ensures that these objects don't
+  // disappear from the Content Addressable Storage while the build is
+  // running. Any files that are absent must be removed from the output
+  // path and reported through InitialOutputPathContents.modified_paths.
+  rpc StartBuild(StartBuildRequest) returns (StartBuildResponse);
+
+  // Methods that can only be invoked during a build.
+
+  // Create one or more files, directories or symbolic links in the
+  // output path.
+  rpc BatchCreate(BatchCreateRequest) returns (google.protobuf.Empty);
+
+  // Obtain the status of one or more files, directories or symbolic
+  // links that are stored in the input path.
+  rpc BatchStat(BatchStatRequest) returns (BatchStatResponse);
+
+  // Signal that a build has been completed.
+  rpc FinalizeBuild(FinalizeBuildRequest) returns (google.protobuf.Empty);
+}
+
+message CleanRequest {
+  // The output base identifier that was provided to
+  // StartBuildRequest.output_base_id whose data needs to be removed.
+  string output_base_id = 1;
+}
+
+message StartBuildRequest {
+  // A client-chosen value that uniquely identifies the workspace for
+  // which the build is being started.  This value must be set to ensure
+  // that the remote output service is capable of managing builds for
+  // distinct workspaces concurrently.
+  //
+  // This value must be a valid filename for the operating system on
+  // which the remote output service and client are being executed. This
+  // allows the remote output service to create one subdirectory per
+  // project that needs to be built.
+  //
+  // By default, Bazel sets this value to the MD5 sum of the absolute
+  // path of the workspace directory. This is generally sufficient,
+  // though a more complex scheme may necessary in case the file system
+  // namespace is virtualized.
+  //
+  // Starting a build finalizes any previous build with the same
+  // output_base_id that has not been finalized yet.
+  string output_base_id = 1;
+
+  // A client-chosen value that uniquely identifies this build. This
+  // value must be provided to most other methods to ensure that
+  // operations are targeted against the right output path.
+  string build_id = 2;
+
+  // The instance name that the client uses when communicating with the
+  // remote execution system. The remote output service uses this value
+  // when loading objects from the Content Addressable Storage.
+  string instance_name = 3;
+
+  // The digest function that the client uses when communicating with
+  // the remote execution system. The remote output service uses this
+  // value to ensure that FileStatus responses contain digests that were
+  // computed with right digest function.
+  build.bazel.remote.execution.v2.DigestFunction.Value digest_function = 4;
+
+  // The absolute path at which the remote output service exposes its
+  // output paths, as seen from the perspective of the client.
+  //
+  // This value needs to be provided by the client, because file system
+  // namespace virtualization may cause this directory to appear at a
+  // location that differs from the one used by the service.
+  //
+  // The purpose of this field is to ensure that the remote output
+  // service is capable of expanding symbolic links containing absolute
+  // paths.
+  string output_path_prefix = 5;
+
+  // A map of paths on the system that will become symbolic links
+  // pointing to locations inside the output path. Similar to
+  // output_path_prefix, this option is used to ensure the remote output
+  // service is capable of expanding symbolic links.
+  //
+  // Map keys are absolute paths, while map values are paths that are
+  // relative to the output path.
+  map<string, string> output_path_aliases = 6;
+}
+
+message InitialOutputPathContents {
+  // The identifier of a previously finalized build whose results are
+  // stored in the output path.
+  string build_id = 1;
+
+  // Paths that have been modified or removed since the build finalized.
+  //
+  // If the remote output service freezes the contents of the output
+  // path between builds, this field can be left empty.
+  repeated string modified_paths = 2;
+}
+
+message StartBuildResponse {
+  // If set, the contents of the output path are almost entirely
+  // identical on the results of a previous build. This information may
+  // be used by the client to prevent unnecessary scanning of the file
+  // system.
+  //
+  // Servers can leave this field unset in case the contents of the
+  // output path are empty, not based on a previous build, if no
+  // tracking of this information is performed, or if the number of
+  // changes made to the output path is too large to be expressed.
+  InitialOutputPathContents initial_output_path_contents = 1;
+
+  // A relative path that the client must append to
+  // StartBuildRequest.output_path_prefix to obtain the full path at
+  // which outputs of the build are stored.
+  //
+  // If the remote output service is incapable of storing the output of
+  // multiple builds, this string may be left empty.
+  string output_path_suffix = 2;
+}
+
+message BatchCreateRequest {
+  // The identifier of the build. The remote output service uses this to
+  // determine which output path needs to be modified.
+  string build_id = 1;
+
+  // A path relative to the root of the output path where files,
+  // symbolic links and directories need to be created.
+  string path_prefix = 2;
+
+  // Whether the contents of the path prefix should be removed prior to
+  // creating the specified files.
+  bool clean_path_prefix = 3;
+
+  // Files that need to be downloaded from the Content Addressable
+  // Storage.
+  //
+  // Any missing parent directories, including those in path_prefix, are
+  // created as well. If any of the parents refer to a non-directory
+  // file, they are replaced by an empty directory. If a file or
+  // directory already exists at the provided path, it is replaced.
+  //
+  // This means that symbolic links are not followed when evaluating
+  // path_prefix and OutputFile.path.
+  repeated build.bazel.remote.execution.v2.OutputFile files = 4;
+
+  // Symbolic links that need to be created.
+  //
+  // Any missing parent directories, including those in path_prefix, are
+  // created as well. If any of the parents refer to a non-directory
+  // file, they are replaced by an empty directory. If a file or
+  // directory already exists at the provided path, it is replaced.
+  //
+  // This means that symbolic links are not followed when evaluating
+  // path_prefix and OutputSymlink.path.
+  repeated build.bazel.remote.execution.v2.OutputSymlink symlinks = 5;
+
+  // Directories that need to be downloaded from the Content Addressable
+  // Storage.
+  //
+  // Any missing parent directories, including those in path_prefix, are
+  // created as well. If any of the parents refer to a non-directory
+  // file, they are replaced by an empty directory. Any file or
+  // directory that already exists at the provided path is replaced.
+  //
+  // This means that symbolic links are not followed when evaluating
+  // path_prefix and OutputDirectory.path.
+  repeated build.bazel.remote.execution.v2.OutputDirectory directories = 6;
+}
+
+message BatchStatRequest {
+  // The identifier of the build. The remote output service uses this to
+  // determine which output path needs to be inspected.
+  string build_id = 1;
+
+  // In case the path corresponds to a regular file, include the hash
+  // and size of the file in the response.
+  bool include_file_digest = 2;
+
+  // In case the path corresponds to a symbolic link, include the target
+  // of the symbolic link in the response.
+  bool include_symlink_target = 3;
+
+  // If the last component of the path corresponds to a symbolic link,
+  // return the status of the file at the target location.
+  //
+  // Symbolic links encountered before the last component of the path
+  // are always expanded, regardless of the value of this option.
+  bool follow_symlinks = 4;
+
+  // Paths whose status needs to be obtained.
+  repeated string paths = 5;
+}
+
+message BatchStatResponse {
+  // The status response for each of the requested paths, using the same
+  // order as requested. This means that this list has the same length
+  // as BatchStatRequest.paths.
+  repeated StatResponse responses = 1;
+}
+
+message StatResponse {
+  // The status of the file. If the file corresponding with the
+  // requested path does not exist, this field will be null.
+  FileStatus file_status = 1;
+}
+
+message FileStatus {
+  message File {
+    // The hash and size of the file. This field is only set when
+    // BatchStatRequest.include_file_digest is set.
+    build.bazel.remote.execution.v2.Digest digest = 1;
+  }
+
+  message Symlink {
+    // The target of the symbolic link. This field is only set when
+    // BatchStatRequest.include_symlink_target is set.
+    string target = 1;
+  }
+
+  message Directory {
+    // The time at which the directory contents were last modified.
+    google.protobuf.Timestamp last_modified_time = 1;
+  }
+
+  message External {
+    // The path relative to the root of the output path where the file
+    // is located. This path is absolute, or it is relative, starting
+    // with "../".
+    //
+    // The client can use this field to obtain the file status manually.
+    string next_path = 1;
+  }
+
+  oneof file_type {
+    // The path resolves to a regular file.
+    File file = 1;
+
+    // The path resolves to a symbolic link.
+    //
+    // This field may not be set if BatchStatRequest.follow_symlinks is
+    // set to true.
+    Symlink symlink = 2;
+
+    // The path resolves to a directory.
+    Directory directory = 3;
+
+    // The path resolves to a location outside the output path. The
+    // remote output service is unable to determine whether any file
+    // exists at the resulting path, and can therefore not obtain its
+    // status.
+    External external = 4;
+  }
+}
+
+message FinalizeBuildRequest {
+  // The identifier of the build that should be finalized.
+  string build_id = 1;
+
+  // Whether the build completed successfully. The remote output service
+  // may, for example, use this option to apply different retention
+  // policies that take the outcome of the build into account.
+  bool build_successful = 2;
+}

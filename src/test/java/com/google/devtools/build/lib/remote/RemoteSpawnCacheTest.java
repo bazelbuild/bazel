@@ -243,7 +243,8 @@ public class RemoteSpawnCacheTest {
                 null,
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null,
-                DUMMY_REMOTE_OUTPUT_CHECKER));
+                DUMMY_REMOTE_OUTPUT_CHECKER,
+                /* actionResultDownloader= */ null));
     return new RemoteSpawnCache(execRoot, options, /* verboseFailures= */ true, service);
   }
 

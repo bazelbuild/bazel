@@ -166,6 +166,7 @@ public class RemoteExecutionService {
   private final RemoteOptions remoteOptions;
   @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
+  @Nullable private final ActionResultDownloader actionResultDownloader;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, CompletableFuture<MerkleTree>> merkleTreeCache;
@@ -193,7 +194,8 @@ public class RemoteExecutionService {
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir,
-      @Nullable RemoteOutputChecker remoteOutputChecker) {
+      @Nullable RemoteOutputChecker remoteOutputChecker,
+      @Nullable ActionResultDownloader actionResultDownloader) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -204,6 +206,7 @@ public class RemoteExecutionService {
     this.remoteOptions = remoteOptions;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
+    this.actionResultDownloader = actionResultDownloader;
 
     Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
     // remoteMerkleTreesCacheSize = 0 means limitless.
@@ -1052,6 +1055,33 @@ public class RemoteExecutionService {
       throws InterruptedException, IOException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkNotNull(remoteCache, "remoteCache can't be null");
+
+    if (actionResultDownloader != null) {
+      // We have a remote output service process that can do the
+      // downloading for us.
+      ActionResult actionResult = result.actionResult;
+      List<ListenableFuture<Void>> downloads = new ArrayList<>();
+      downloads.add(actionResultDownloader.downloadActionResult(actionResult));
+
+      FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
+      FileOutErr tmpOutErr = outErr.childOutErr();
+      downloads.addAll(
+          remoteCache.downloadOutErr(
+              action.getRemoteActionExecutionContext(), actionResult, tmpOutErr));
+
+      try {
+        waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt=*/ true);
+        if (tmpOutErr != null) {
+          FileOutErr.dump(tmpOutErr, outErr);
+        }
+      } finally {
+        if (tmpOutErr != null) {
+          tmpOutErr.clearOut();
+          tmpOutErr.clearErr();
+        }
+      }
+      return null;
+    }
 
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(
