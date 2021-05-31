@@ -15,13 +15,20 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -58,10 +65,51 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
       })
-  public CompilationAttributes createCompilationAttributes(
-      StarlarkRuleContext starlarkRuleContext) {
-    return CompilationAttributes.Builder.fromRuleContext(starlarkRuleContext.getRuleContext())
-        .build();
+  public CompilationAttributes createCompilationAttributes(StarlarkRuleContext starlarkRuleContext)
+      throws EvalException {
+    CompilationAttributes.Builder builder = new CompilationAttributes.Builder();
+
+    CompilationAttributes.Builder.addHeadersFromRuleContext(
+        builder, starlarkRuleContext.getRuleContext());
+    CompilationAttributes.Builder.addIncludesFromRuleContext(
+        builder, starlarkRuleContext.getRuleContext());
+    CompilationAttributes.Builder.addSdkAttributesFromRuleContext(
+        builder, starlarkRuleContext.getRuleContext());
+    ImmutableMap<String, String> toolchainMap =
+        starlarkRuleContext
+            .getRuleContext()
+            .getPrerequisite("$cc_toolchain", TemplateVariableInfo.PROVIDER)
+            .getVariables();
+    ImmutableMap<String, String> starlarkRuleContextMap =
+        ImmutableMap.<String, String>builder().putAll(starlarkRuleContext.var()).build();
+    List<String> copts = new ArrayList<>();
+    for (String copt :
+        starlarkRuleContext.getRuleContext().attributes().get("copts", Type.STRING_LIST)) {
+      String expandedCopt = copt;
+      if (copt.contains("$(")) {
+        int beginning = copt.indexOf("$(");
+        int end = copt.indexOf(')', beginning);
+        String variable = copt.substring(beginning + 2, end);
+        String expandedVariable;
+        if (toolchainMap.containsKey(variable)) {
+          expandedVariable = toolchainMap.get(variable);
+        } else {
+          expandedVariable = starlarkRuleContextMap.get(variable);
+        }
+        expandedCopt = copt.replace("$(" + variable + ")", expandedVariable);
+      }
+      try {
+        ShellUtils.tokenize(copts, expandedCopt);
+      } catch (TokenizationException e) {
+        throw new EvalException(e);
+      }
+    }
+    CompilationAttributes.Builder.addCompileOptionsFromRuleContext(
+        builder, starlarkRuleContext.getRuleContext(), copts);
+    CompilationAttributes.Builder.addModuleOptionsFromRuleContext(
+        builder, starlarkRuleContext.getRuleContext());
+
+    return builder.build();
   }
 
   @StarlarkMethod(
@@ -181,12 +229,16 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
         @Param(name = "semantics", positional = false, named = true),
+        @Param(name = "compilation_attributes", positional = false, named = true),
       })
   public CompilationSupport createCompilationSupport(
-      StarlarkRuleContext starlarkRuleContext, CppSemantics cppSemantics)
+      StarlarkRuleContext starlarkRuleContext,
+      CppSemantics cppSemantics,
+      CompilationAttributes compilationAttributes)
       throws InterruptedException, EvalException {
     try {
       return new CompilationSupport.Builder(starlarkRuleContext.getRuleContext(), cppSemantics)
+          .setCompilationAttributes(compilationAttributes)
           .build();
     } catch (RuleErrorException e) {
       throw new EvalException(e);

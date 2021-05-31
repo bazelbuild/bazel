@@ -34,9 +34,11 @@ def _objc_import_impl(ctx):
         extra_import_libraries = ctx.files.archives,
     )
 
+    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
     compilation_support = objc_internal.create_compilation_support(
         ctx = ctx,
         semantics = semantics.get_semantics(),
+        compilation_attributes = compilation_attributes,
     )
 
     compilation_support.register_compile_and_archive_actions(common = common)
@@ -56,6 +58,7 @@ objc_import = rule(
                 default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
             ),
         },
+        common_attrs.LICENSES,
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.INCLUDE_SCANNING_RULE,

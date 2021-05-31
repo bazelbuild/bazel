@@ -127,4 +127,5 @@ common_attrs = struct(
     SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
     COPTS_RULE = _COPTS_RULE,
     X_C_RUNE_RULE = _X_C_RUNE_RULE,
+    LICENSES = semantics.get_licenses_attr(),
 )

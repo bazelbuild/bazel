@@ -190,7 +190,7 @@ final class CompilationAttributes implements StarlarkValue {
           this.enableModules);
     }
 
-    private static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("hdrs", BuildType.LABEL_LIST)) {
         NestedSetBuilder<Artifact> headers = NestedSetBuilder.stableOrder();
         for (Pair<Artifact, Label> header : CcCommon.getHeaders(ruleContext)) {
@@ -204,7 +204,7 @@ final class CompilationAttributes implements StarlarkValue {
       }
     }
 
-    private static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("includes", Type.STRING_LIST)) {
         NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
         includes.addAll(
@@ -223,7 +223,7 @@ final class CompilationAttributes implements StarlarkValue {
       }
     }
 
-    private static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
         NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
@@ -249,8 +249,17 @@ final class CompilationAttributes implements StarlarkValue {
     }
 
     private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
+      addCompileOptionsFromRuleContext(builder, ruleContext, /* copts= */ null);
+    }
+
+    static void addCompileOptionsFromRuleContext(
+        Builder builder, RuleContext ruleContext, Iterable<String> copts) {
       if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
-        builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
+        if (copts == null) {
+          builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
+        } else {
+          builder.addCopts(copts);
+        }
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
@@ -267,7 +276,8 @@ final class CompilationAttributes implements StarlarkValue {
       }
     }
 
-    private static void addModuleOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
+    protected static void addModuleOptionsFromRuleContext(
+        Builder builder, RuleContext ruleContext) {
       PathFragment packageFragment = ruleContext.getPackageDirectory();
       if (packageFragment != null) {
         builder.setPackageFragment(packageFragment);

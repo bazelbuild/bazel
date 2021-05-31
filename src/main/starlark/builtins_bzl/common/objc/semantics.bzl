@@ -14,6 +14,10 @@
 
 """Semantics for Bazel Objc rules"""
 
+def _get_licenses_attr():
+    # TODO(b/182226065): Change to applicable_licenses
+    return {}
+
 def _get_semantics():
     return _builtins.internal.bazel_objc_internal.semantics
 
@@ -23,4 +27,5 @@ def _get_repo():
 semantics = struct(
     get_semantics = _get_semantics,
     get_repo = _get_repo,
+    get_licenses_attr = _get_licenses_attr,
 )
