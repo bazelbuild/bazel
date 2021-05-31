@@ -215,7 +215,16 @@ public interface JavaCommonApi<
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
             defaultValue = "[]"),
-        @Param(name = "neverlink", positional = false, named = true, defaultValue = "False")
+        @Param(name = "neverlink", positional = false, named = true, defaultValue = "False"),
+        @Param(
+            name = "disable_annotation_processing",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            doc =
+                "Disables annotation processing in this compilation, causing any annotation"
+                    + " processors provided in plugins or in exported_plugins of deps to be"
+                    + " ignored.")
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -240,6 +249,7 @@ public interface JavaCommonApi<
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
       Boolean neverlink,
+      Boolean disableAnnotationProcessing,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -502,6 +512,7 @@ public interface JavaCommonApi<
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Sequence<String> getConstraints(JavaInfoT javaInfo);
 
+  // TODO(b/111090089): delete once java_common.compile(disable_annotation_processing) is available
   @StarlarkMethod(
       name = "experimental_disable_annotation_processing",
       doc =

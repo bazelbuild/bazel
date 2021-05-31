@@ -264,6 +264,7 @@ final class JavaInfoBuildHelper {
       ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       Boolean neverlink,
+      Boolean disableAnnotationProcessing,
       JavaSemantics javaSemantics,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -294,7 +295,11 @@ final class JavaInfoBuildHelper {
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-    helper.setPlugins(mergeExportedJavaPluginInfo(plugins, deps));
+    JavaPluginInfo pluginInfo = mergeExportedJavaPluginInfo(plugins, deps);
+    if (disableAnnotationProcessing) {
+      pluginInfo = pluginInfo.disableAnnotationProcessing();
+    }
+    helper.setPlugins(pluginInfo);
     helper.setNeverlink(neverlink);
 
     NestedSet<Artifact> localCompileTimeDeps =

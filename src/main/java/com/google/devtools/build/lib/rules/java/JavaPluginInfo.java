@@ -146,6 +146,16 @@ public abstract class JavaPluginInfo extends NativeInfo
     public boolean isEmpty() {
       return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
     }
+
+    private JavaPluginData disableAnnotationProcessing() {
+      return JavaPluginData.create(
+          /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
+          // Preserve the processor path, since it may contain Error Prone plugins which
+          // will be service-loaded by JavaBuilder.
+          processorClasspath(),
+          // Preserve data, which may be used by Error Prone plugins.
+          data());
+    }
   }
 
   public static JavaPluginInfo merge(JavaPluginInfo a, JavaPluginInfo b) {
@@ -190,5 +200,14 @@ public abstract class JavaPluginInfo extends NativeInfo
   public boolean hasProcessors() {
     // apiGeneratingPlugins is a subset of plugins, so checking if plugins is empty is sufficient
     return !plugins().processorClasses().isEmpty();
+  }
+
+  /**
+   * Returns a copy of this {@code JavaPluginInfo} with annotation processors disabled. Does not
+   * remove the processor path or data, which may be needed for Error Prone plugins.
+   */
+  public JavaPluginInfo disableAnnotationProcessing() {
+    return JavaPluginInfo.create(
+        plugins().disableAnnotationProcessing(), /* generatesApi= */ false);
   }
 }

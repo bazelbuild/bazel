@@ -591,20 +591,13 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
+    // TODO(b/111090089): delete once java_common.compile(disable_annotation_processing) is
+    // available
     public Builder experimentalDisableAnnotationProcessing() {
       JavaPluginInfo provider =
           (JavaPluginInfo) providerMap.getProvider(JavaPluginInfo.PROVIDER.getKey());
       if (provider != null) {
-        JavaPluginData plugins = provider.plugins();
-        providerMap.put(
-            JavaPluginInfo.create(
-                JavaPluginData.create(
-                    /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-                    // Preserve the processor path, since it may contain Error Prone plugins which
-                    // will be service-loaded by JavaBuilder.
-                    plugins.processorClasspath(),
-                    /* data= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)),
-                /* generatesApi= */ false));
+        providerMap.put(provider.disableAnnotationProcessing());
       }
       return this;
     }

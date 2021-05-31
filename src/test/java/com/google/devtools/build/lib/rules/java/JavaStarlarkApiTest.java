@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -3057,6 +3060,75 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(target.getInstrumentedFiles())).containsExactly("java/jni.cc");
     assertThat(prettyArtifactNames(target.getInstrumentationMetadataFiles()))
         .containsExactly("java/_objs/libjni.so/jni.gcno");
+  }
+
+  @Test
+  public void testSkipAnnotationProcessing() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    deps = [p[JavaInfo] for p in ctx.attr.deps],",
+        "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
+        "    disable_annotation_processing = True,",
+        "  )",
+        "  return struct(",
+        "    files = depset([output_jar]),",
+        "    providers = [compilation_provider]",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'deps': attr.label_list(providers=[JavaInfo]),",
+        "    'plugins': attr.label_list(providers=[JavaPluginInfo]),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_plugin(",
+        "  name = 'processor',",
+        "  srcs = ['processor.java'],",
+        "  processor_class = 'Foo',",
+        "  generates_api = 1,", // so Turbine would normally run it
+        "  data = ['processor_data.txt'],",
+        ")",
+        "java_library(",
+        "  name = 'exports_processor',",
+        "  exported_plugins = [':processor'],",
+        ")",
+        "java_custom_library(",
+        "  srcs = ['custom.java'],",
+        "  name = 'custom',",
+        "  deps = [':exports_processor'],",
+        "  plugins = [':processor'],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:custom");
+    assertNoEvents();
+
+    JavaCompileAction javacAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//foo:libcustom.jar");
+    assertThat(getProcessorNames(javacAction)).isEmpty();
+    assertThat(getProcessorPath(javacAction)).isNotEmpty();
+    assertThat(artifactFilesNames(javacAction.getInputs())).contains("processor_data.txt");
+
+    SpawnAction turbineAction =
+        (SpawnAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", target));
+    assertThat(turbineAction.getMnemonic()).isEqualTo("Turbine");
+    assertThat(turbineAction.getArguments()).doesNotContain("--processors");
   }
 
   private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {
