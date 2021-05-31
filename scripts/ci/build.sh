@@ -151,7 +151,7 @@ function release_to_github() {
     local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
         gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
 
-    local cmd = "GITHUB_TOKEN=\"${github_token}\" github-release \"bazelbuild/bazel\" \"${release_name}\" \"\" \"$(get_release_page)\" \"${artifact_dir}/*\""
+    local cmd="GITHUB_TOKEN=\"${github_token}\" github-release \"bazelbuild/bazel\" \"${release_name}\" \"\" \"$(get_release_page)\" \"${artifact_dir}/*\""
 
     if [ "$(is_rolling_release)" -eq 1 ]; then
         eval "${cmd} -prerelease"
