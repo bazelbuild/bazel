@@ -524,13 +524,15 @@ distrib_java_import(
     srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
 )
 
-java_import(
+distrib_java_import(
     name = "reactive_streams",
+    enable_distributions = ["debian"],
     jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "rxjava3",
+    enable_distributions = ["debian"],
     jars = ["rxjava3/rxjava-3.0.9.jar"],
     exports = [":reactive_streams"],
     deps = [":reactive_streams"],
