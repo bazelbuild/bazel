@@ -201,7 +201,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "   name = 'dummy_java_runtime_toolchain',",
         "   toolchain_type = ':runtime_toolchain_type',",
         "   toolchain = ':jdk',",
-        ")");
+        ")",
+        "java_plugins_flag_alias(name = 'java_plugins_flag_alias')");
 
     // Create a default Android target platform.
     // Any tests that create platforms should inherit from this.

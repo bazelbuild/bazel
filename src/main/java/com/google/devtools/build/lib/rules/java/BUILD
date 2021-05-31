@@ -20,6 +20,7 @@ java_library(
         "JavaPackageConfiguration.java",
         "JavaPackageConfigurationRule.java",
         "JavaPlugin.java",
+        "JavaPluginsFlagAliasRule.java",
         "JavaPrimaryClassProvider.java",
         "JavaRuntime.java",
         "JavaRuntimeAliasRule.java",
