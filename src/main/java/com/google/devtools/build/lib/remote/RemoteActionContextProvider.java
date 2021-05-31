@@ -47,6 +47,7 @@ final class RemoteActionContextProvider {
   @Nullable private final ListeningScheduledExecutorService retryScheduler;
   private final DigestUtil digestUtil;
   @Nullable private final Path logDir;
+  @Nullable private final ActionResultDownloader actionResultDownloader;
   private ImmutableSet<ActionInput> filesToDownload = ImmutableSet.of();
   private RemoteExecutionService remoteExecutionService;
 
@@ -57,7 +58,8 @@ final class RemoteActionContextProvider {
       @Nullable RemoteExecutionClient remoteExecutor,
       @Nullable ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
-      @Nullable Path logDir) {
+      @Nullable Path logDir,
+      @Nullable ActionResultDownloader actionResultDownloader) {
     this.executor = executor;
     this.env = Preconditions.checkNotNull(env, "env");
     this.remoteCache = remoteCache;
@@ -65,6 +67,7 @@ final class RemoteActionContextProvider {
     this.retryScheduler = retryScheduler;
     this.digestUtil = digestUtil;
     this.logDir = logDir;
+    this.actionResultDownloader = actionResultDownloader;
   }
 
   public static RemoteActionContextProvider createForPlaceholder(
@@ -78,7 +81,8 @@ final class RemoteActionContextProvider {
         /*remoteExecutor=*/ null,
         retryScheduler,
         digestUtil,
-        /*logDir=*/ null);
+        /*logDir=*/ null,
+        /*actionResultDownloader=*/ null);
   }
 
   public static RemoteActionContextProvider createForRemoteCaching(
@@ -86,7 +90,8 @@ final class RemoteActionContextProvider {
       CommandEnvironment env,
       RemoteCache remoteCache,
       ListeningScheduledExecutorService retryScheduler,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      ActionResultDownloader actionResultDownloader) {
     return new RemoteActionContextProvider(
         executor,
         env,
@@ -94,7 +99,8 @@ final class RemoteActionContextProvider {
         /*remoteExecutor=*/ null,
         retryScheduler,
         digestUtil,
-        /*logDir=*/ null);
+        /*logDir=*/ null,
+        actionResultDownloader);
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
@@ -104,9 +110,17 @@ final class RemoteActionContextProvider {
       RemoteExecutionClient remoteExecutor,
       ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
-      Path logDir) {
+      Path logDir,
+      ActionResultDownloader actionResultDownloader) {
     return new RemoteActionContextProvider(
-        executor, env, remoteCache, remoteExecutor, retryScheduler, digestUtil, logDir);
+        executor,
+        env,
+        remoteCache,
+        remoteExecutor,
+        retryScheduler,
+        digestUtil,
+        logDir,
+        actionResultDownloader);
   }
 
   private RemotePathResolver createRemotePathResolver() {
@@ -152,7 +166,8 @@ final class RemoteActionContextProvider {
               remoteCache,
               remoteExecutor,
               filesToDownload,
-              captureCorruptedOutputsDir);
+              captureCorruptedOutputsDir,
+              actionResultDownloader);
       env.getEventBus().register(remoteExecutionService);
     }
 

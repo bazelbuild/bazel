@@ -77,6 +77,7 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
+      Path execRoot, String relativeOutputPath,
       EventHandler eventHandler, UUID buildId, boolean finalizeActions) {
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
@@ -112,13 +113,6 @@ public class RemoteOutputService implements OutputService {
   @Override
   public void clean() {
     // Intentionally left empty.
-  }
-
-  @Override
-  public boolean isRemoteFile(Artifact artifact) {
-    Path path = artifact.getPath();
-    return path.getFileSystem() instanceof RemoteActionFileSystem
-        && ((RemoteActionFileSystem) path.getFileSystem()).isRemote(path);
   }
 
   @Override

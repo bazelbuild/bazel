@@ -269,6 +269,7 @@ public class ExecutionTool {
       try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
         modifiedOutputFiles =
             outputService.startBuild(
+                getExecRoot(), env.getDirectories().getRelativeOutputPath(),
                 env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
       }
     } else {
@@ -346,6 +347,7 @@ public class ExecutionTool {
       try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
         modifiedOutputFiles =
             outputService.startBuild(
+                getExecRoot(), env.getDirectories().getRelativeOutputPath(),
                 env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
       }
     } else {

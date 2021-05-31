@@ -162,6 +162,7 @@ public class RemoteExecutionService {
   private final RemoteOptions remoteOptions;
   @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
+  @Nullable private final ActionResultDownloader actionResultDownloader;
   private final ImmutableSet<PathFragment> filesToDownload;
   @Nullable private final Path captureCorruptedOutputsDir;
   private final Cache<Object, MerkleTree> merkleTreeCache;
@@ -186,7 +187,8 @@ public class RemoteExecutionService {
       @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       ImmutableSet<ActionInput> filesToDownload,
-      @Nullable Path captureCorruptedOutputsDir) {
+      @Nullable Path captureCorruptedOutputsDir,
+      @Nullable ActionResultDownloader actionResultDownloader) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -197,6 +199,7 @@ public class RemoteExecutionService {
     this.remoteOptions = remoteOptions;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
+    this.actionResultDownloader = actionResultDownloader;
 
     Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
     // remoteMerkleTreesCacheSize = 0 means limitless.
@@ -1004,6 +1007,33 @@ public class RemoteExecutionService {
       throws InterruptedException, IOException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkNotNull(remoteCache, "remoteCache can't be null");
+
+    if (actionResultDownloader != null) {
+      // We have a remote output service process that can do the
+      // downloading for us.
+      ActionResult actionResult = result.actionResult;
+      List<ListenableFuture<Void>> downloads = new ArrayList<>();
+      downloads.add(actionResultDownloader.downloadActionResult(actionResult));
+
+      FileOutErr outErr = action.spawnExecutionContext.getFileOutErr();
+      FileOutErr tmpOutErr = outErr.childOutErr();
+      downloads.addAll(
+          remoteCache.downloadOutErr(
+              action.remoteActionExecutionContext, actionResult, tmpOutErr));
+
+      try {
+        waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt=*/ true);
+        if (tmpOutErr != null) {
+          FileOutErr.dump(tmpOutErr, outErr);
+        }
+      } finally {
+        if (tmpOutErr != null) {
+          tmpOutErr.clearOut();
+          tmpOutErr.clearErr();
+        }
+      }
+      return null;
+    }
 
     ActionResultMetadata metadata;
     try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {

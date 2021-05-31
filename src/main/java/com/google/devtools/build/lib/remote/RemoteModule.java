@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.hash.Hashing.md5;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.DigestFunction;
@@ -93,6 +95,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import io.grpc.CallCredentials;
@@ -130,7 +133,9 @@ public final class RemoteModule extends BlazeModule {
   private RemoteActionContextProvider actionContextProvider;
   private RemoteActionInputFetcher actionInputFetcher;
   private RemoteOptions remoteOptions;
-  private RemoteOutputService remoteOutputService;
+  private OutputService remoteOutputService;
+  private GrpcRemoteOutputService.StateAcrossBuilds remoteOutputServiceStateAcrossBuilds =
+      new GrpcRemoteOutputService.StateAcrossBuilds();
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -240,7 +245,12 @@ public final class RemoteModule extends BlazeModule {
     RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
-            executorService, env, remoteCache, /* retryScheduler= */ null, digestUtil);
+            executorService,
+            env,
+            remoteCache,
+            /* retryScheduler= */ null,
+            digestUtil,
+            /* actionResultDownloader= */ null);
   }
 
   @Override
@@ -550,6 +560,46 @@ public final class RemoteModule extends BlazeModule {
             uploader.retain());
     uploader.release();
 
+    ActionResultDownloader actionResultDownloader = null;
+    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
+    if (remoteOptions.remoteOutputService != null) {
+      if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+        throw createOptionsExitException(
+            "If --remote_output_service is specified, --remote_download_outputs must be set to \"all\"",
+            FailureDetails.RemoteOptions.Code.OUTPUT_SERVICE_WITH_INCOMPATIBLE_REMOTE_OUTPUTS_MODE);
+      }
+      String outputBaseId = remoteOptions.remoteOutputServiceOutputBaseId;
+      if (Strings.isNullOrEmpty(outputBaseId)) {
+        outputBaseId = DigestUtil.hashCodeToString(md5().hashString(env.getWorkspace().toString(), UTF_8));
+      }
+      String outputPathPrefix = remoteOptions.remoteOutputServiceOutputPathPrefix;
+      if (Strings.isNullOrEmpty(outputPathPrefix)) {
+        throw createOptionsExitException(
+            "If --remote_output_service is specified, --remote_output_service_output_path_prefix must be set as well",
+            FailureDetails.RemoteOptions.Code.OUTPUT_SERVICE_WITHOUT_OUTPUT_PATH_REFIX);
+      }
+
+      ReferenceCountedChannel channel =
+          new ReferenceCountedChannel(
+              new GoogleChannelConnectionFactory(
+                  channelFactory,
+                  remoteOptions.remoteOutputService,
+                  remoteOptions.remoteProxy,
+                  authAndTlsOptions,
+                  ImmutableList.of(),
+                  maxConcurrencyPerConnection));
+      GrpcRemoteOutputService grpcRemoteOutputService = new GrpcRemoteOutputService(
+          remoteOutputServiceStateAcrossBuilds,
+          channel,
+          outputBaseId,
+          PathFragment.create(outputPathPrefix),
+          remoteOptions.remoteInstanceName,
+          digestUtil,
+          retrier);
+      remoteOutputService = grpcRemoteOutputService;
+      actionResultDownloader = grpcRemoteOutputService;
+    }
+
     if (enableRemoteExecution) {
       if (enableDiskCache) {
         try {
@@ -599,7 +649,8 @@ public final class RemoteModule extends BlazeModule {
               remoteExecutor,
               retryScheduler,
               digestUtil,
-              logDir);
+              logDir,
+              actionResultDownloader);
       repositoryRemoteExecutorFactoryDelegate.init(
           new RemoteRepositoryRemoteExecutorFactory(
               remoteCache,
@@ -629,7 +680,12 @@ public final class RemoteModule extends BlazeModule {
       RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
-              executorService, env, remoteCache, retryScheduler, digestUtil);
+              executorService,
+              env,
+              remoteCache,
+              retryScheduler,
+              digestUtil,
+              actionResultDownloader);
     }
 
     buildEventArtifactUploaderFactoryDelegate.init(
@@ -885,6 +941,16 @@ public final class RemoteModule extends BlazeModule {
     }
   }
 
+  @Override
+  public void commandComplete() {
+    if (remoteOutputService != null) {
+      if (remoteOutputService instanceof GrpcRemoteOutputService) {
+        ((GrpcRemoteOutputService) remoteOutputService).sendFinalizeBuild();
+      }
+      remoteOutputService = null;
+    }
+  }
+
   private void closeRpcLogFile() throws IOException {
     if (rpcLogFile != null) {
       AsynchronousFileOutputStream oldLogFile = rpcLogFile;
@@ -938,14 +1004,13 @@ public final class RemoteModule extends BlazeModule {
               actionContextProvider.getRemoteCache(),
               env.getExecRoot());
       builder.setActionInputPrefetcher(actionInputFetcher);
-      remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      ((RemoteOutputService) remoteOutputService).setActionInputFetcher(actionInputFetcher);
     }
   }
 
   @Override
   public OutputService getOutputService() {
-    Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
-    if (remoteOptions != null && !remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOutputService == null && remoteOptions != null && !remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       remoteOutputService = new RemoteOutputService();
     }
     return remoteOutputService;

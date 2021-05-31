@@ -392,6 +392,6 @@ public class RemoteActionInputFetcherTest {
     for (Map.Entry<Digest, ByteString> entry : cacheEntries.entrySet()) {
       cacheEntriesByteArray.put(entry.getKey(), entry.getValue().toByteArray());
     }
-    return new RemoteCache(new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil);
+    return new RemoteCache(new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil, null);
   }
 }
