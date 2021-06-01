@@ -122,14 +122,18 @@ class ParallelEvaluatorContext {
     }
   }
 
-  /** Signals all parents that this node is finished and enqueues any parents that are ready. */
-  void signalParentsAndEnqueueIfReady(SkyKey skyKey, Iterable<SkyKey> parents, Version version)
+  /**
+   * Signals all parents that this node is finished and enqueues any parents that are ready at the
+   * given evaluation priority.
+   */
+  void signalParentsAndEnqueueIfReady(
+      SkyKey skyKey, Iterable<SkyKey> parents, Version version, int evaluationPriority)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> batch = getBatchValues(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
       NodeEntry entry = Preconditions.checkNotNull(batch.get(parent), parent);
       if (entry.signalDep(version, skyKey)) {
-        getVisitor().enqueueEvaluation(parent, Integer.MAX_VALUE);
+        getVisitor().enqueueEvaluation(parent, evaluationPriority);
       }
     }
   }
