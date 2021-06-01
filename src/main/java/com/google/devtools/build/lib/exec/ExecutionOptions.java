@@ -444,32 +444,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean splitXmlGeneration;
 
   @Option(
-      name = "experimental_send_archived_tree_artifact_inputs",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      expansion = "--archived_tree_artifact_mnemonics_filter=.*",
-      deprecationWarning =
-          "Please use --archived_tree_artifact_mnemonics_filter=.* instead of this flag.",
-      help =
-          "Send input tree artifacts as a single archived file rather than sending each file in the"
-              + " artifact as a separate input.")
-  public Void ignoredEnableAllArchivedArtifacts;
-
-  @Option(
-      name = "noexperimental_send_archived_tree_artifact_inputs",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      expansion = "--archived_tree_artifact_mnemonics_filter=-.*",
-      deprecationWarning =
-          "Please use --archived_tree_artifact_mnemonics_filter=-.* instead of this flag.",
-      help =
-          "Send input tree artifacts as a single archived file rather than sending each file in the"
-              + " artifact as a separate input.")
-  public Void ignoredDisableAllArchivedArtifacts;
-
-  @Option(
       name = "experimental_path_agnostic_action",
       allowMultiple = true,
       defaultValue = "null",
