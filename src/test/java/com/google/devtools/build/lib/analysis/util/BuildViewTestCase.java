@@ -681,13 +681,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
       throws Exception {
     Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
-    for (ConfiguredTarget candidate : getDirectPrerequisites(target)) {
-      if (candidate.getLabel().equals(candidateLabel)) {
-        return candidate;
-      }
-    }
-
-    return null;
+    Optional<ConfiguredTarget> prereq =
+        getDirectPrerequisites(target).stream()
+            .filter(candidate -> candidate.getOriginalLabel().equals(candidateLabel))
+            .findFirst();
+    return prereq.orElse(null);
   }
 
   protected final ConfiguredTargetAndData getConfiguredTargetAndDataDirectPrerequisite(
