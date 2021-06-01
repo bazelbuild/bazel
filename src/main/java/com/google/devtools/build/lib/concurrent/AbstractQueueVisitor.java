@@ -103,8 +103,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   private final ExecutorService executorService;
 
-  private final boolean usingPriorityQueue;
-
   /**
    * Flag used to record when the main thread (the thread which called {@link #awaitQuiescence}) is
    * interrupted.
@@ -235,25 +233,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       boolean shutdownOnCompletion,
       boolean failFastOnException,
       ErrorClassifier errorClassifier) {
-    this(
-        executorService,
-        shutdownOnCompletion,
-        failFastOnException,
-        errorClassifier,
-        /*usingPriorityQueue=*/ false);
-  }
-
-  protected AbstractQueueVisitor(
-      ExecutorService executorService,
-      boolean shutdownOnCompletion,
-      boolean failFastOnException,
-      ErrorClassifier errorClassifier,
-      boolean usingPriorityQueue) {
     this.failFastOnException = failFastOnException;
     this.ownExecutorService = shutdownOnCompletion;
     this.executorService = Preconditions.checkNotNull(executorService);
     this.errorClassifier = Preconditions.checkNotNull(errorClassifier);
-    this.usingPriorityQueue = usingPriorityQueue;
   }
 
   @Override
@@ -282,9 +265,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   protected void executeWithExecutorService(Runnable runnable, ExecutorService executorService) {
-    if (usingPriorityQueue) {
-      Preconditions.checkState(runnable instanceof Comparable);
-    }
     WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
     try {
       // It's impossible for this increment to result in remainingTasks.get <= 0 because
