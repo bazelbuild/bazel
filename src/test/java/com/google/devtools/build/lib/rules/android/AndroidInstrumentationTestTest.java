@@ -152,21 +152,29 @@ public abstract class AndroidInstrumentationTestTest extends AndroidBuildViewTes
             .toList();
     assertThat(runfiles)
         .containsAtLeastElementsIn(
-            getHostConfiguredTarget("//tools/android/emulated_device:nexus_6")
+            getDirectPrerequisite(
+                    androidInstrumentationTest.getConfiguredTarget(),
+                    "//tools/android/emulated_device:nexus_6")
                 .getProvider(RunfilesProvider.class)
                 .getDefaultRunfiles()
                 .getAllArtifacts()
                 .toList());
+    // The dependency chain is ait -> host_fixture -> server
+    ConfiguredTarget hostFixture =
+        getDirectPrerequisite(
+            androidInstrumentationTest.getConfiguredTarget(), "//javatests/com/app:host_fixture");
     assertThat(runfiles)
         .containsAtLeastElementsIn(
-            getHostConfiguredTarget("//java/com/server")
+            getDirectPrerequisite(hostFixture, "//java/com/server")
                 .getProvider(RunfilesProvider.class)
                 .getDefaultRunfiles()
                 .getAllArtifacts()
                 .toList());
+
     assertThat(runfiles)
         .containsAtLeastElementsIn(
-            getHostConfiguredTarget(
+            getDirectPrerequisite(
+                    androidInstrumentationTest.getConfiguredTarget(),
                     androidInstrumentationTest
                         .getTarget()
                         .getAssociatedRule()
