@@ -24,6 +24,11 @@ public final class DirectoryListingHelper {
 
   private DirectoryListingHelper() {}
 
+  /** Shorthand for {@link Dirent} of {@link Dirent.Type#FILE} type with a given name. */
+  public static Dirent file(String name) {
+    return new Dirent(name, Dirent.Type.FILE);
+  }
+
   /** Shorthand for {@link Dirent} of {@link Dirent.Type#DIRECTORY} type with a given name. */
   public static Dirent directory(String name) {
     return new Dirent(name, Dirent.Type.DIRECTORY);
@@ -52,16 +57,19 @@ public final class DirectoryListingHelper {
       Path path, String prefix, ImmutableList.Builder<Dirent> entries) throws IOException {
     boolean isEmpty = true;
     for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
-      if (dirent.getType() == Dirent.Type.DIRECTORY) {
-        leafDirectoryEntriesInternal(
-            path.getChild(dirent.getName()),
-            prefix.isEmpty() ? dirent.getName() : prefix + "/" + dirent.getName(),
-            entries);
-      }
       isEmpty = false;
+      String entryName = prefix.isEmpty() ? dirent.getName() : prefix + "/" + dirent.getName();
+
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        leafDirectoryEntriesInternal(path.getChild(dirent.getName()), entryName, entries);
+        continue;
+      }
+
+      entries.add(new Dirent(entryName, dirent.getType()));
     }
 
-    if (isEmpty) {
+    // Skip adding the root if it's empty.
+    if (isEmpty && !prefix.isEmpty()) {
       entries.add(new Dirent(prefix, Dirent.Type.DIRECTORY));
     }
   }
