@@ -26,7 +26,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -320,7 +319,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
 
       for (ActionInput input : spawn.getInputFiles().toList()) {
-        if (input instanceof ParamFileActionInput) {
+        if (input instanceof VirtualActionInput) {
           VirtualActionInput virtualActionInput = (VirtualActionInput) input;
           Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
           if (outputPath.exists()) {
@@ -330,6 +329,9 @@ public class LocalSpawnRunner implements SpawnRunner {
           try (OutputStream outputStream = outputPath.getOutputStream()) {
             virtualActionInput.writeTo(outputStream);
           }
+          // Some of the virtual inputs are tools run as part of the execution, hence we need to set
+          // executable flag.
+          outputPath.setExecutable(true);
         }
       }
 
