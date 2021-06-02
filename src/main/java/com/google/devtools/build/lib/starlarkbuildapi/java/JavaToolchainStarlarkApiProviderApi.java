@@ -16,13 +16,17 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Provides access to information about the Java toolchain rule. Accessible as a 'java_toolchain'
@@ -72,4 +76,13 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
 
   @StarlarkMethod(name = "java_runtime", doc = "The java runtime information.", structField = true)
   JavaRuntimeInfoApi getJavaRuntime();
+
+  @StarlarkMethod(
+      name = "android_linter",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  @Nullable
+  StarlarkValue stalarkAndroidLinter(StarlarkThread thread) throws EvalException;
 }

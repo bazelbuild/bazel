@@ -15,15 +15,22 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
 
 /** The Android Lint part of {@code java_toolchain}. */
 @AutoValue
 @AutoCodec
-abstract class AndroidLintTool {
+abstract class AndroidLintTool implements StarlarkValue {
 
   abstract JavaToolchainTool tool();
 
@@ -54,5 +61,30 @@ abstract class AndroidLintTool {
       ImmutableList<String> options,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration) {
     return new AutoValue_AndroidLintTool(tool, options, packageConfiguration);
+  }
+
+  @StarlarkMethod(name = "tool", documented = false, structField = true)
+  public FilesToRunProvider starlarkTool() {
+    return tool().tool();
+  }
+
+  @StarlarkMethod(name = "jvm_opts", documented = false, structField = true)
+  public Sequence<String> starlarkJvmOpts() {
+    return StarlarkList.immutableCopyOf(tool().jvmOpts());
+  }
+
+  @StarlarkMethod(name = "data", documented = false, structField = true)
+  public Depset starlarkData() {
+    return Depset.of(Artifact.TYPE, tool().data());
+  }
+
+  @StarlarkMethod(name = "lint_opts", documented = false, structField = true)
+  public Sequence<String> starlarkLintOpts() {
+    return StarlarkList.immutableCopyOf(options());
+  }
+
+  @StarlarkMethod(name = "package_config", documented = false, structField = true)
+  public Sequence<?> starlarkPackageConfig() {
+    return StarlarkList.immutableCopyOf(packageConfiguration());
   }
 }
