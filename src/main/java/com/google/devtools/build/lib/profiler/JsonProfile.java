@@ -90,6 +90,9 @@ public final class JsonProfile {
         }
       }
     }
+    if (traceEvents == null) {
+      throw new IOException("Corrupted profile file: couldn't find 'traceEvents'.");
+    }
   }
 
   private static InputStream getInputStream(File profileFile) throws IOException {
