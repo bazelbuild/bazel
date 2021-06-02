@@ -25,7 +25,7 @@ exports_files(
 py_library(
     name = "archive",
     srcs = ["archive.py"],
-    srcs_version = "PY3",
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
 )
 
@@ -62,7 +62,7 @@ py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
     python_version = "PY3",
-    srcs_version = "PY3",
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
