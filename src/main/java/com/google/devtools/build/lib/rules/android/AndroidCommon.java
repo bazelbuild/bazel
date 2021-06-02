@@ -562,12 +562,7 @@ public class AndroidCommon {
       ImmutableList<Artifact> additionalArtifacts) {
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
-            ruleContext,
-            semantics,
-            javaCommon.getJavacOpts(),
-            attributes,
-            additionalArtifacts,
-            /*disableStrictDeps=*/ false);
+            ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setTargetLabel(ruleContext.getLabel());

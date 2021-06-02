@@ -605,8 +605,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             javaSemantics,
             javaCommon.getJavacOpts(),
             javaTargetAttributesBuilder,
-            additionalArtifacts,
-            /* disableStrictDeps= */ false);
+            additionalArtifacts);
 
     if (ruleContext.isAttrDefined("$junit", BuildType.LABEL)) {
       // JUnit jar must be ahead of android runtime jars since these contain stubbed definitions

@@ -69,28 +69,7 @@ public final class JavaCompilationHelper {
   private final StrictDepsMode strictJavaDeps;
   private final String fixDepsTool;
   private NestedSet<Artifact> localClassPathEntries = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private final boolean enableJspecify;
-
-  private JavaCompilationHelper(
-      RuleContext ruleContext,
-      JavaSemantics semantics,
-      ImmutableList<String> javacOpts,
-      JavaTargetAttributes.Builder attributes,
-      JavaToolchainProvider javaToolchainProvider,
-      ImmutableList<Artifact> additionalInputsForDatabinding,
-      boolean disableStrictDeps,
-      boolean enableJspecify) {
-    this.ruleContext = ruleContext;
-    this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
-    this.attributes = attributes;
-    this.customJavacOpts = javacOpts;
-    this.semantics = semantics;
-    this.additionalInputsForDatabinding = additionalInputsForDatabinding;
-    this.strictJavaDeps =
-        disableStrictDeps ? StrictDepsMode.OFF : getJavaConfiguration().getFilteredStrictJavaDeps();
-    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
-    this.enableJspecify = enableJspecify;
-  }
+  private boolean enableJspecify = true;
 
   public JavaCompilationHelper(
       RuleContext ruleContext,
@@ -98,17 +77,15 @@ public final class JavaCompilationHelper {
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      ImmutableList<Artifact> additionalInputsForDatabinding,
-      boolean enableJspecify) {
-    this(
-        ruleContext,
-        semantics,
-        javacOpts,
-        attributes,
-        javaToolchainProvider,
-        additionalInputsForDatabinding,
-        /* disableStrictDeps= */ false,
-        enableJspecify);
+      ImmutableList<Artifact> additionalInputsForDatabinding) {
+    this.ruleContext = ruleContext;
+    this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
+    this.attributes = attributes;
+    this.customJavacOpts = javacOpts;
+    this.semantics = semantics;
+    this.additionalInputsForDatabinding = additionalInputsForDatabinding;
+    this.strictJavaDeps = getJavaConfiguration().getFilteredStrictJavaDeps();
+    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
   }
 
   public JavaCompilationHelper(
@@ -122,8 +99,7 @@ public final class JavaCompilationHelper {
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        /* additionalInputsForDatabinding= */ ImmutableList.of(),
-        /* enableJspecify= */ true);
+        /* additionalInputsForDatabinding= */ ImmutableList.of());
   }
 
   public JavaCompilationHelper(
@@ -131,16 +107,18 @@ public final class JavaCompilationHelper {
       JavaSemantics semantics,
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
-      ImmutableList<Artifact> additionalInputsForDatabinding,
-      boolean disableStrictDeps) {
+      ImmutableList<Artifact> additionalInputsForDatabinding) {
     this(
         ruleContext,
         semantics,
         javacOpts,
         attributes,
         JavaToolchainProvider.from(ruleContext),
-        additionalInputsForDatabinding,
-        disableStrictDeps);
+        additionalInputsForDatabinding);
+  }
+
+  public void enableJspecify(boolean enableJspecify) {
+    this.enableJspecify = enableJspecify;
   }
 
   JavaTargetAttributes getAttributes() {

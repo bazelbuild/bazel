@@ -256,8 +256,8 @@ public final class JavaLibraryHelper {
             javacOpts,
             attributes,
             javaToolchainProvider,
-            additionalInputForDatabinding,
-            enableJspecify);
+            additionalInputForDatabinding);
+    helper.enableJspecify(enableJspecify);
     helper.addLocalClassPathEntries(localClassPathEntries);
     JavaCompileOutputs<Artifact> outputs = helper.createOutputs(output);
     artifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
