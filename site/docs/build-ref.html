@@ -974,3 +974,20 @@ data = glob(["testdata/**"])  # use this instead
       will fail and you will get a (probably cryptic) error message.
    </p>
 
+  <p>
+    Any external rule, such as a test, that needs to use multiple files must explicitly
+    declare its dependence on all of them. You can use <code>filegroup()</code> to group files
+    together in the BUILD file:
+  </p>
+
+  <pre>
+  filegroup(
+          name = 'my_data',
+          srcs = glob(['my_unittest_data/*'])
+  )
+  </pre>
+
+  <p>
+    You can then reference the label <code>my_data</code> as the data dependency in your test.
+  </p>
+
