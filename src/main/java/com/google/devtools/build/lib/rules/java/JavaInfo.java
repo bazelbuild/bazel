@@ -591,7 +591,7 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
-    // TODO(b/111090089): delete once java_common.compile(disable_annotation_processing) is
+    // TODO(b/111090089): delete once java_common.compile(enable_annotation_processing) is
     // available
     public Builder experimentalDisableAnnotationProcessing() {
       JavaPluginInfo provider =

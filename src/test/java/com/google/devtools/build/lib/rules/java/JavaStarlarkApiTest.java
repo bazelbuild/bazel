@@ -3076,7 +3076,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
         "    deps = [p[JavaInfo] for p in ctx.attr.deps],",
         "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
-        "    disable_annotation_processing = True,",
+        "    enable_annotation_processing = False,",
         "  )",
         "  return struct(",
         "    files = depset([output_jar]),",
