@@ -184,16 +184,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean deviceDebugEntitlements;
 
-  // TODO(b/63112347): Remove all references to this flag and delete it.
-  @Option(
-      name = "enable_apple_binary_native_protos",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help = "This flag is a no-op and will soon be deleted.")
-  public boolean enableAppleBinaryNativeProtos;
-
   @Option(
     name = "apple_sdk",
     defaultValue = "null",
