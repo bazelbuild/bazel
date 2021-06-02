@@ -1,4 +1,4 @@
-# Tests of Skylark 'int'
+# Tests of Starlark 'int'
 
 # basic arithmetic
 assert_eq(0 - 1, -1)

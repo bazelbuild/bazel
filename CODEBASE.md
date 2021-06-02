@@ -568,7 +568,7 @@ New providers implemented in Java should be implemented using `BuiltinProvider`.
 
 Configured targets are implemented as `RuleConfiguredTargetFactory`. There is a
 subclass for each rule class implemented in Java. Starlark configured targets
-are created through `SkylarkRuleConfiguredTargetUtil.buildRule()` .
+are created through `StarlarkRuleConfiguredTargetUtil.buildRule()` .
 
 Configured target factories should use `RuleConfiguredTargetBuilder` to
 construct their return value. It consists of the following things:
@@ -653,7 +653,7 @@ confusingly-named classes that participate in the process:
 
 1.  `AspectClass` is the implementation of the aspect. It can be either in Java
     (in which case it's a subclass) or in Starlark (in which case it's an
-    instance of `SkylarkAspectClass`). It's analogous to
+    instance of `StarlarkAspectClass`). It's analogous to
     `RuleConfiguredTargetFactory`.
 2.  `AspectDefinition` is the definition of the aspect; it includes the
     providers it requires, the providers it provides and contains a reference to
@@ -1551,7 +1551,7 @@ of individual repository definitions. It then appears in Skyframe as a member of
 *   `Package.repositoryMapping` which is used in the analysis phase (for
     resolving things like `$(location)` which are not parsed in the loading
     phase)
-*   `SkylarkImportLookupFunction` for resolving labels in load() statements
+*   `BzlLoadFunction` for resolving labels in load() statements
 
 ## JNI bits
 
