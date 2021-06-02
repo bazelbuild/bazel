@@ -371,6 +371,26 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   <a href="https://docs.bazel.build/versions/master/skylark/aspects.html#aspect-basics">dependency graph</a>.
 </p>
 
+<h3 id="linking-json-profile">Linking with the JSON profile</h3>
+<p>
+  While aquery provides information about the actions being run in a build (why they're being run,
+  their inputs/outputs), the <a href="https://docs.bazel.build/versions/master/skylark/performance.html#performance-profiling">JSON profile</a>
+  tells us the timing and duration of their execution.
+  It is possible to combine these 2 sets of information via a common denominator: an action's primary output.
+</p>
+
+<p>
+  To include actions' outputs in the JSON profile, generate the profile with
+  <code>--experimental_include_primary_output --noexperimental_slim_json_profile</code>.
+  Slim profiles are incompatible with the inclusion of primary outputs. An action's primary output
+  is included by default by aquery.
+</p>
+
+<p>
+  We don't currently provide a canonical tool to combine these 2 data sources, but you should be
+  able to build your own script with the above information.
+</p>
+
 <h2 id='known-issues'>Known issues</h2>
 
 <h3 id='shared-actions'>Handling shared actions</h3>
