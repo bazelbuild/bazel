@@ -631,7 +631,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.PLATFORM_MAPPING,
         new PlatformMappingFunction(ruleClassProvider.getConfigurationOptions()));
-    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
+    map.put(
+        SkyFunctions.ARTIFACT_NESTED_SET,
+        ArtifactNestedSetFunction.createInstance(valueBasedChangePruningEnabled()));
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -658,6 +660,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
     return new CollectPackagesUnderDirectoryFunction(directories);
+  }
+
+  protected boolean valueBasedChangePruningEnabled() {
+    return true;
   }
 
   @Nullable
