@@ -37,9 +37,6 @@ flags.DEFINE_string(
     ' value "portable", to get the value 2000-01-01, which is'
     ' is usable with non *nix OSes')
 
-flags.DEFINE_multi_string('empty_root_dir', [],
-                          'An empty dir to add to the layer')
-
 flags.DEFINE_multi_string('tar', [], 'A tar file to add to the layer')
 
 flags.DEFINE_multi_string(
@@ -138,69 +135,6 @@ class TarFile(object):
         gid=ids[1],
         uname=names[0],
         gname=names[1])
-
-  def add_empty_file(self,
-                     destfile,
-                     mode=None,
-                     ids=None,
-                     names=None,
-                     kind=tarfile.REGTYPE):
-    """Add a file to the tar file.
-
-    Args:
-       destfile: the name of the file in the layer
-       mode: force to set the specified mode, defaults to 644
-       ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership.
-       kind: type of the file. tarfile.DIRTYPE for directory.  An empty file
-         will be created as `destfile` in the layer.
-    """
-    dest = destfile.lstrip('/')  # Remove leading slashes
-    # If mode is unspecified, assume read only
-    if mode is None:
-      mode = 0o644
-    if ids is None:
-      ids = (0, 0)
-    if names is None:
-      names = ('', '')
-    dest = os.path.normpath(dest)
-    self.tarfile.add_file(
-        dest,
-        content='' if kind == tarfile.REGTYPE else None,
-        kind=kind,
-        mode=mode,
-        uid=ids[0],
-        gid=ids[1],
-        uname=names[0],
-        gname=names[1])
-
-  def add_empty_dir(self, destpath, mode=None, ids=None, names=None):
-    """Add a directory to the tar file.
-
-    Args:
-       destpath: the name of the directory in the layer
-       mode: force to set the specified mode, defaults to 644
-       ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership.  An empty
-         file will be created as `destfile` in the layer.
-    """
-    self.add_empty_file(
-        destpath, mode=mode, ids=ids, names=names, kind=tarfile.DIRTYPE)
-
-  def add_empty_root_dir(self, destpath, mode=None, ids=None, names=None):
-    """Add a directory to the root of the tar file.
-
-    Args:
-       destpath: the name of the directory in the layer
-       mode: force to set the specified mode, defaults to 644
-       ids: (uid, gid) for the file to set ownership
-       names: (username, groupname) for the file to set ownership.  An empty
-         directory will be created as `destfile` in the root layer.
-    """
-    original_root_directory = self.tarfile.root_directory
-    self.tarfile.root_directory = destpath
-    self.add_empty_dir(destpath, mode=mode, ids=ids, names=names)
-    self.tarfile.root_directory = original_root_directory
 
   def add_tar(self, tar):
     """Merge a tar file into the destination tar file.
@@ -317,8 +251,6 @@ def main(unused_argv):
     for f in FLAGS.file:
       (inf, tof) = unquote_and_split(f, '=')
       output.add_file(inf, tof, **file_attributes(tof))
-    for f in FLAGS.empty_root_dir:
-      output.add_empty_root_dir(f, **file_attributes(f))
     for tar in FLAGS.tar:
       output.add_tar(tar)
     for link in FLAGS.link:
