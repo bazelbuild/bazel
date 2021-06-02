@@ -44,8 +44,8 @@ import java.io.IOException;
 
 /** Module implementing the rule set of Bazel. */
 public final class BazelRulesModule extends BlazeModule {
-  /** This is where deprecated options go to die. */
-  public static final class GraveyardOptions extends OptionsBase {
+  /** This is where deprecated options only needed for the build command go to die. */
+  public static final class BuildGraveyardOptions extends OptionsBase {
     @Option(
         name = "incompatible_load_python_rules_from_bzl",
         defaultValue = "false",
@@ -502,7 +502,11 @@ public final class BazelRulesModule extends BlazeModule {
         },
         help = "No-op")
     public boolean dontUseJavaSourceInfoProvider;
+  }
 
+  /** This is where deprecated options which need to be available for all commands go to die. */
+  public static final class AllCommandGraveyardOptions extends OptionsBase {
+    // Historically passed to all Bazel commands by certain tools.
     @Option(
         name = "experimental_shadowed_action",
         defaultValue = "true",
@@ -546,8 +550,8 @@ public final class BazelRulesModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.of(GraveyardOptions.class)
-        : ImmutableList.of();
+        ? ImmutableList.of(BuildGraveyardOptions.class, AllCommandGraveyardOptions.class)
+        : ImmutableList.of(AllCommandGraveyardOptions.class);
   }
 
   private static void validateRemoteOutputsMode(CommandEnvironment env) throws AbruptExitException {
