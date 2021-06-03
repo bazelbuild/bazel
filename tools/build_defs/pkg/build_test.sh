@@ -106,14 +106,6 @@ function test_tar() {
   check_eq "./
 ./not-etc/
 ./not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
-  check_eq "drwxr-xr-x 0/0               0 2000-01-01 00:00 ./
--rwxrwxrwx 0/0               0 2000-01-01 00:00 ./a
--rwxrwxrwx 0/0               0 2000-01-01 00:00 ./b" \
-      "$(get_tar_verbose_listing test-tar-empty_files.tar)"
-  check_eq "drwxr-xr-x 0/0               0 2000-01-01 00:00 ./
-drwxrwxrwx 0/0               0 2000-01-01 00:00 ./tmp/
-drwxrwxrwx 0/0               0 2000-01-01 00:00 ./pmt/" \
-      "$(get_tar_verbose_listing test-tar-empty_dirs.tar)"
   check_eq \
     "drwxr-xr-x 0/0               0 1999-12-31 23:59 ./
 -r-xr-xr-x 0/0               2 1999-12-31 23:59 ./nsswitch.conf" \
