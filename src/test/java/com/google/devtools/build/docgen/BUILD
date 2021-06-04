@@ -13,21 +13,6 @@ filegroup(
 )
 
 java_test(
-    name = "DocumentationFailuresTests",
-    size = "medium",
-    shard_count = 1,
-    tags = ["docgen"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    visibility = ["//devtools/blaze/main:__pkg__"],
-    runtime_deps = [
-        ":documentation-failures-tests",
-        "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:junit4",
-    ],
-)
-
-java_test(
     name = "DocumentationTests",
     size = "medium",
     srcs = ["DocumentationTests.java"],
@@ -38,23 +23,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:junit4",
-    ],
-)
-
-java_library(
-    name = "documentation-failures-tests",
-    testonly = 1,
-    srcs = [
-        "StarlarkDocumentationFailuresTest.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
-        "//src/main/java/net/starlark/java/annot",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
     ],
 )
 
