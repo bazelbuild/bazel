@@ -45,6 +45,9 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
+import com.google.devtools.build.lib.exec.SpawnCheckingCache;
+import com.google.devtools.build.lib.exec.SpawnExecuting;
+import com.google.devtools.build.lib.exec.SpawnScheduling;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -143,7 +146,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     public void reportExecuting() {
-      context.report(ProgressStatus.EXECUTING, getName());
+      context.report(SpawnExecuting.create(getName()));
       reportedExecuting = true;
     }
 
@@ -165,8 +168,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
     boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
 
-    context.report(ProgressStatus.SCHEDULING, getName());
-
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
@@ -179,6 +180,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     Profiler prof = Profiler.instance();
     try {
+      context.report(SpawnCheckingCache.create(getName()));
+
       // Try to lookup the action in the action cache.
       RemoteActionResult cachedResult;
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
@@ -231,6 +234,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
                       .elapsed()
                       .minus(action.getNetworkTime().getDuration().minus(networkTimeStart)));
             }
+
+            context.report(SpawnScheduling.create(getName()));
 
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;
