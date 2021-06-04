@@ -310,10 +310,10 @@ public final class InvocationPolicyEnforcer {
    *
    * <p>None of the flagPolicies returned should be on expansion flags.
    */
-  private static List<FlagPolicyWithContext> expandPolicy(
+  private static ImmutableList<FlagPolicyWithContext> expandPolicy(
       FlagPolicyWithContext originalPolicy, OptionsParser parser, Level loglevel)
       throws OptionsParsingException {
-    List<FlagPolicyWithContext> expandedPolicies = new ArrayList<>();
+    ImmutableList.Builder<FlagPolicyWithContext> expandedPolicies = ImmutableList.builder();
 
     boolean isExpansion = originalPolicy.description.isExpansion();
     ImmutableList<ParsedOptionDescription> subflags =
@@ -396,7 +396,7 @@ public final class InvocationPolicyEnforcer {
       expandedPolicies.add(originalPolicy);
     }
 
-    return expandedPolicies;
+    return expandedPolicies.build();
   }
 
   /**
