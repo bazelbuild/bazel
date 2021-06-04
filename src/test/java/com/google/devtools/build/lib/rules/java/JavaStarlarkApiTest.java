@@ -2035,7 +2035,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
         "cc_library(name = 'native', srcs = ['cc/x.cc'])",
-        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
+        "java_library(name = 'jl', srcs = ['java/A.java'], deps = [':native'])",
         "cc_library(name = 'ccl', srcs = ['cc/x.cc'])",
         "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
         "java_library(name = 'jl_top', srcs = ['java/C.java'], deps = [':r'])");
@@ -2124,7 +2124,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
         "cc_binary(name = 'native.so', srcs = ['cc/x.cc'], linkshared = True)",
-        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native.so'])",
+        "java_library(name = 'jl', srcs = ['java/A.java'], deps = [':native.so'])",
         "my_rule(name = 'r', dep = ':jl')");
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");

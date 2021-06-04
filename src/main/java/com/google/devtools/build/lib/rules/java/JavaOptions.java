@@ -554,7 +554,7 @@ public class JavaOptions extends FragmentOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help = "When enabled the native libraries in the data attribute are not collected.")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean dontCollectDataLibraries;
 
   @Option(
@@ -657,7 +657,6 @@ public class JavaOptions extends FragmentOptions {
 
     host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
-    host.dontCollectDataLibraries = dontCollectDataLibraries;
     host.requireJavaPluginInfo = requireJavaPluginInfo;
 
     return host;

@@ -106,7 +106,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean disallowLegacyJavaToolchainFlags;
   private final boolean experimentalTurbineAnnotationProcessing;
   private final boolean experimentalEnableJspecify;
-  private final boolean dontCollectDataLibraries;
   private final boolean requireJavaPluginInfo;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
@@ -145,7 +144,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.addTestSupportToCompileTimeDeps = javaOptions.addTestSupportToCompileTimeDeps;
     this.runAndroidLint = javaOptions.runAndroidLint;
     this.limitAndroidLintToAndroidCompatible = javaOptions.limitAndroidLintToAndroidCompatible;
-    this.dontCollectDataLibraries = javaOptions.dontCollectDataLibraries;
     this.requireJavaPluginInfo = javaOptions.requireJavaPluginInfo;
 
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
@@ -396,10 +394,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean experimentalEnableJspecify() {
     return experimentalEnableJspecify;
-  }
-
-  public boolean dontCollectDataLibraries() {
-    return dontCollectDataLibraries;
   }
 
   public boolean requireJavaPluginInfo() {
