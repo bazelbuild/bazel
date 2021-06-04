@@ -270,6 +270,7 @@ public abstract class BuildIntegrationTestCase {
     }
     LoggingUtil.installRemoteLoggerForTesting(null);
     testRoot.deleteTreesBelow(); // (comment out during debugging)
+    Thread.interrupted(); // If there was a crash in test case, main thread was interrupted.
   }
 
   /**

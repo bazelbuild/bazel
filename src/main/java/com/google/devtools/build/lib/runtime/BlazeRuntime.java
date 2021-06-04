@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -172,6 +173,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final ImmutableList<OutputFormatter> queryOutputFormatters;
 
   private final AtomicReference<DetailedExitCode> storedExitCode = new AtomicReference<>();
+  // TODO(b/1030062): If multiple commands can ever run simultaneously, this should be a set of
+  //  threads, with threads removed in some after-command hook.
+  private volatile Thread commandThread = null;
 
   // We pass this through here to make it available to the MasterLogWriter.
   private final OptionsParsingResult startupOptionsProvider;
@@ -532,6 +536,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * @param options The CommonCommandOptions used by every command.
    */
   void beforeCommand(CommandEnvironment env, CommonCommandOptions options) {
+    commandThread = env.getCommandThread();
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       MemoryProfiler.instance()
@@ -549,6 +554,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   public void cleanUpForCrash(DetailedExitCode exitCode) {
     logger.atInfo().log("Cleaning up in crash: %s", exitCode);
     if (declareExitCode(exitCode)) {
+      Thread localThread = commandThread;
+      if (localThread != null) {
+        // Give shutdown hooks priority in JVM and stop generating more data for modules to consume.
+        localThread.interrupt();
+      }
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
@@ -573,6 +583,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // they can be trusted.  Instead, we call runtime#shutdownOnCrash() which attempts to cleanly
     // shut down those modules that might have something pending to do as a best-effort operation.
     shutDownModulesOnCrash(exitCode);
+  }
+
+  @Nullable
+  public DetailedExitCode getCrashExitCode() {
+    return storedExitCode.get();
   }
 
   private boolean declareExitCode(DetailedExitCode detailedExitCode) {
@@ -607,15 +622,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // Remove any filters that the command might have added to the reporter.
     env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
-    BlazeCommandResult afterCommandResult = null;
+    DetailedExitCode moduleExitCode = null;
     for (BlazeModule module : blazeModules) {
       try (SilentCloseable c = Profiler.instance().profile(module + ".afterCommand")) {
         module.afterCommand();
       } catch (AbruptExitException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
-        // It's not ideal but we can only return one exit code, so we just pick the code of the
-        // last exception.
-        afterCommandResult = BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+        logger.atWarning().withCause(e).log("While running afterCommand() on %s", module);
+        moduleExitCode = chooseMoreImportantWithFirstIfTie(moduleExitCode, e.getDetailedExitCode());
       }
     }
 
@@ -637,15 +651,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
       logger.atInfo().withCause(e).log("Interrupted in afterCommand");
-      afterCommandResult =
-          BlazeCommandResult.detailedExitCode(
+      moduleExitCode =
+          chooseMoreImportantWithFirstIfTie(
+              moduleExitCode,
               InterruptedFailureDetails.detailedExitCode("executor completion interrupted"));
       Thread.currentThread().interrupt();
     }
 
     BlazeCommandResult finalCommandResult;
-    if (!commandResult.getExitCode().isInfrastructureFailure() && afterCommandResult != null) {
-      finalCommandResult = afterCommandResult;
+    if (!commandResult.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
+      finalCommandResult = BlazeCommandResult.detailedExitCode(moduleExitCode);
     } else {
       finalCommandResult = commandResult;
     }

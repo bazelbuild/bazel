@@ -248,6 +248,8 @@ public class BlazeCommandDispatcherTest {
 
     BlazeCommandResult directResult =
         dispatch.exec(ImmutableList.of("testcommand"), "clientdesc", outErr);
+    // Clears interrupted status as a side effect.
+    assertThat(Thread.interrupted()).isTrue();
 
     CommandCompleteEvent commandCompleteEvent =
         crashCommand.commandCompleteEvent.get(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);

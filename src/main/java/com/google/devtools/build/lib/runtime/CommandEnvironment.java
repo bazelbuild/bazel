@@ -329,6 +329,10 @@ public class CommandEnvironment {
     return getRuntime().getClock();
   }
 
+  public Thread getCommandThread() {
+    return commandThread;
+  }
+
   public OptionsProvider getStartupOptionsProvider() {
     return getRuntime().getStartupOptionsProvider();
   }
