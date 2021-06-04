@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -53,24 +54,37 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
     CppOptions cppOptions = buildOptions.get(CppOptions.class);
     /*
      * The intended order of checks is:
-     *  - --android_platforms
-     *    - Split using the values of this flag as the target platform
-     *    - If this is unset, fall though.
-     *  - --fat_apk_cpus
-     *    - Split using the values of this flag as --cpu
-     *    - If this is unset, fall though.
-     *    - legacy, will eventually be removed
-     *  - --android_cpu
-     *    - Don't split, just use the value of this flag as --cpu
-     *    - If this is unset, fall though.
-     *    - legacy, will eventually be removed
-     *  - Default
-     *    - Don't split, using the same previously set --cpu and/or --platforms
+     *  - When --incompatible_enable_android_toolchain_resolution is set:
+     *    - --android_platforms
+     *      - Split using the values of this flag as the target platform
+     *      - If this is unset, use the first value from --platforms.
+     *        - If this isn't a valid Android platform, an error will be thrown during the build.
+     *  - Fall back to legacy flag logic:
+     *    - --fat_apk_cpus
+     *      - Split using the values of this flag as --cpu
+     *      - If this is unset, fall though.
+     *    - --android_cpu
+     *      - Don't split, just use the value of this flag as --cpu
+     *      - This will not update the output path to include "-android".
+     *      - If this is unset, fall though.
+     *    - Default
+     *      - This will not update the output path to include "-android".
+     *      - Don't split, using the same previously set --cpu value.
      */
-    if (androidOptions.incompatibleUseToolchainResolution
-        && !androidOptions.androidPlatforms.isEmpty()) {
-      return handleAndroidPlatforms(buildOptions, androidOptions, androidOptions.androidPlatforms);
-    } else if (!androidOptions.fatApkCpus.isEmpty()) {
+    if (androidOptions.incompatibleUseToolchainResolution) {
+      // Always use --android_platforms when toolchain resolution is enabled.
+      List<Label> platformsToSplit = androidOptions.androidPlatforms;
+      if (platformsToSplit.isEmpty()) {
+        // If --android_platforms is unset, instead use only the first value from --platforms.
+        Label targetPlatform =
+            Iterables.getFirst(buildOptions.get(PlatformOptions.class).platforms, null);
+        platformsToSplit = ImmutableList.of(targetPlatform);
+      }
+      return handleAndroidPlatforms(buildOptions, androidOptions, platformsToSplit);
+    }
+
+    // Fall back to the legacy flags.
+    if (!androidOptions.fatApkCpus.isEmpty()) {
       return handleFatApkCpus(buildOptions, androidOptions);
     } else if (!androidOptions.cpu.isEmpty()
         && androidOptions.androidCrosstoolTop != null
