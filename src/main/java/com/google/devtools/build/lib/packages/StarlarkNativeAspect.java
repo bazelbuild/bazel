@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 
 /** A natively-defined aspect that is may be referenced by Starlark attribute definitions. */
@@ -25,8 +27,13 @@ public abstract class StarlarkNativeAspect extends NativeAspectClass implements 
   }
 
   @Override
-  public void attachToAttribute(Attribute.Builder<?> attrBuilder) {
-    attrBuilder.aspect(this);
+  public void attachToAttribute(
+      String baseAspectName,
+      Attribute.Builder<?> builder,
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
+      ImmutableList<String> inheritedAttributeAspects)
+      throws EvalException {
+    builder.aspect(this, baseAspectName, inheritedRequiredProviders, inheritedAttributeAspects);
   }
 
   @Override

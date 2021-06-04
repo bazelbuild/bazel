@@ -466,6 +466,14 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
         @Param(name = "provides", named = true, defaultValue = "[]", doc = PROVIDES_DOC),
         @Param(
+            name = "requires",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkAspectApi.class)},
+            named = true,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REQUIRED_ASPECTS,
+            defaultValue = "[]",
+            valueWhenDisabled = "[]",
+            doc = "(Experimental) List of aspects required to be propagated before this aspect."),
+        @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
@@ -529,6 +537,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
+      Sequence<?> requiredAspects,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,

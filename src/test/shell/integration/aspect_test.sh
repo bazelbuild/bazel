@@ -441,4 +441,164 @@ EOF
   expect_not_log "my_aspect runs on target //${package}:target_with_c_indeps_not_reached"
 }
 
+function test_aspects_propagating_other_aspects() {
+  local package="a"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+prov_a = provider()
+
+def _required_aspect_impl(target, ctx):
+  print("required_aspect runs on target {}".format(target.label))
+  return []
+
+required_aspect = aspect(implementation = _required_aspect_impl,
+                         required_providers = [prov_a])
+
+def _base_aspect_impl(target, ctx):
+  print("base_aspect runs on target {}".format(target.label))
+  return []
+
+base_aspect = aspect(implementation = _base_aspect_impl,
+                     attr_aspects = ['dep'],
+                     requires = [required_aspect])
+
+def _rule_impl(ctx):
+  pass
+
+base_rule = rule(implementation = _rule_impl,
+                 attrs = {'dep': attr.label(aspects=[base_aspect])})
+
+dep_rule_without_providers = rule(implementation = _rule_impl,
+                                  attrs = {'dep': attr.label()})
+
+def _dep_rule_with_prov_a_impl(ctx):
+  return [prov_a()]
+
+dep_rule_with_prov_a = rule(implementation = _dep_rule_with_prov_a_impl,
+                            provides = [prov_a])
+
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//${package}:lib.bzl', 'base_rule', 'dep_rule_without_providers',
+                             'dep_rule_with_prov_a')
+
+base_rule(
+  name = 'main',
+  dep = ':dep_target_without_providers',
+)
+
+dep_rule_without_providers(
+  name = 'dep_target_without_providers',
+  dep = ':dep_target_without_providers_1'
+)
+
+dep_rule_without_providers(
+  name = 'dep_target_without_providers_1',
+  dep = ':dep_target_with_prov_a'
+)
+
+dep_rule_with_prov_a(
+  name = 'dep_target_with_prov_a',
+)
+
+EOF
+
+  bazel build "${package}:main" \
+      --experimental_required_aspects &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  # base_aspect will run on dep_target_without_providers,
+  # dep_target_without_providers_1 and dep_target_with_prov_a but
+  # required_aspect will only run on dep_target_with_prov_a because
+  # it satisfies its required providers
+  expect_log "base_aspect runs on target //${package}:dep_target_with_prov_a"
+  expect_log "base_aspect runs on target //${package}:dep_target_without_providers_1"
+  expect_log "base_aspect runs on target //${package}:dep_target_without_providers"
+  expect_log "required_aspect runs on target //${package}:dep_target_with_prov_a"
+  expect_not_log "required_aspect runs on target //${package}:dep_target_without_providers_1"
+  expect_not_log "required_aspect runs on target //${package}:dep_target_without_providers/"
+}
+
+function test_aspects_propagating_other_aspects_stack_of_required_aspects() {
+  local package="pkg"
+  mkdir -p "${package}"
+
+  cat > "${package}/lib.bzl" <<EOF
+
+def _aspect_a_impl(target, ctx):
+    print("Aspect 'a' applied on target: {}".format(target.label))
+    return []
+
+def _aspect_b_impl(target, ctx):
+    print("Aspect 'b' applied on target: {}".format(target.label))
+    return []
+
+def _aspect_c_impl(target, ctx):
+    print("Aspect 'c' applied on target: {}".format(target.label))
+    return []
+
+def r_impl(ctx):
+  return []
+
+aspect_c = aspect(implementation = _aspect_c_impl,
+                  attr_aspects = ["deps"])
+
+aspect_b = aspect(implementation = _aspect_b_impl,
+                  attr_aspects = ["deps"], requires = [aspect_c])
+
+aspect_a = aspect(implementation = _aspect_a_impl,
+                  attr_aspects = ["deps"], requires = [aspect_b])
+
+rule_r = rule(
+    implementation = r_impl,
+    attrs = {
+        "deps": attr.label_list(aspects = [aspect_a]),
+    }
+)
+
+EOF
+
+echo "inline int x() { return 42; }" > "${package}/x.h"
+  cat > "${package}/t.cc" <<EOF
+#include "${package}/x.h"
+
+int a() { return x(); }
+EOF
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:lib.bzl", "rule_r")
+
+cc_library(
+  name = "x",
+  hdrs  = ["x.h"],
+)
+
+cc_library(
+  name = "t",
+  srcs = ["t.cc"],
+  deps = [":x"],
+)
+
+rule_r(
+  name = "test",
+  deps = [":t"],
+)
+EOF
+
+  bazel build "${package}:test" \
+      --experimental_required_aspects &>"$TEST_log" \
+      || fail "Build failed but should have succeeded"
+
+  # Check that aspects: aspect_a, aspect_b, aspect_c were propagated to the
+  # dependencies of target test: t and x when only aspect_a is specified
+  # in the rule definition
+  expect_log_once "Aspect 'c' applied on target: //${package}:x"
+  expect_log_once "Aspect 'c' applied on target: //${package}:t"
+  expect_log_once "Aspect 'b' applied on target: //${package}:x"
+  expect_log_once "Aspect 'b' applied on target: //${package}:t"
+  expect_log_once "Aspect 'a' applied on target: //${package}:x"
+  expect_log_once "Aspect 'a' applied on target: //${package}:t"
+}
+
 run_suite "Tests for aspects"

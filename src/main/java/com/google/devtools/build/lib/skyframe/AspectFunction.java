@@ -219,7 +219,9 @@ final class AspectFunction implements SkyFunction {
           Aspect.forStarlark(
               starlarkAspect.getAspectClass(),
               starlarkAspect.getDefinition(key.getParameters()),
-              key.getParameters());
+              key.getParameters(),
+              key.getInheritedRequiredProviders(),
+              key.getInheritedAttributeAspects());
     } else {
       throw new IllegalStateException();
     }

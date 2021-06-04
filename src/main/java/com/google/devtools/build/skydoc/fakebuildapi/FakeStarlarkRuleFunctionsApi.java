@@ -183,6 +183,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
+      Sequence<?> requiredAspects,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,

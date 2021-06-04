@@ -22,6 +22,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -33,6 +34,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
+import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
@@ -54,6 +58,8 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -68,7 +74,6 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
@@ -90,7 +95,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.setSemantics(options); // for StarlarkThread
   }
 
-  @Rule public ExpectedException thrown = ExpectedException.none();
+  @org.junit.Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
   public final void createBuildFile() throws Exception {
@@ -404,6 +409,881 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "   pass",
         "my_aspect = aspect(implementation = _impl)",
         "attr.label_list(aspects = [my_aspect, 123])");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_stackOfRequiredAspects() throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])",
+        "a = attr.label_list(aspects = [aspect_a])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkDefinedAspect aspectC = (StarlarkDefinedAspect) ev.lookup("aspect_c");
+    assertThat(aspectC).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(aspectA.getAspectClass(), aspectB.getAspectClass(), aspectC.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_aspectRequiredByMultipleAspects()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_c])",
+        "a = attr.label_list(aspects = [aspect_a, aspect_b])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkDefinedAspect aspectC = (StarlarkDefinedAspect) ev.lookup("aspect_c");
+    assertThat(aspectC).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(aspectA.getAspectClass(), aspectB.getAspectClass(), aspectC.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_aspectRequiredByMultipleAspects2()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_d = aspect(implementation = _impl)",
+        "aspect_c = aspect(implementation = _impl, requires = [aspect_d])",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_d])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b, aspect_c])",
+        "a = attr.label_list(aspects = [aspect_a])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    StarlarkDefinedAspect aspectC = (StarlarkDefinedAspect) ev.lookup("aspect_c");
+    assertThat(aspectC).isNotNull();
+    StarlarkDefinedAspect aspectD = (StarlarkDefinedAspect) ev.lookup("aspect_d");
+    assertThat(aspectD).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(
+            aspectA.getAspectClass(),
+            aspectB.getAspectClass(),
+            aspectC.getAspectClass(),
+            aspectD.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_requireExistingAspect_passed() throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])",
+        "a = attr.label_list(aspects = [aspect_b, aspect_a])");
+    StarlarkAttrModule.Descriptor attr = (StarlarkAttrModule.Descriptor) ev.lookup("a");
+
+    StarlarkDefinedAspect aspectA = (StarlarkDefinedAspect) ev.lookup("aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkDefinedAspect aspectB = (StarlarkDefinedAspect) ev.lookup("aspect_b");
+    assertThat(aspectB).isNotNull();
+    List<AspectClass> expectedAspects =
+        Arrays.asList(aspectA.getAspectClass(), aspectB.getAspectClass());
+    assertThat(attr.build("xxx").getAspectClasses()).containsExactlyElementsIn(expectedAspects);
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_requireExistingAspect_failed() throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])",
+        "attr.label_list(aspects = [aspect_a, aspect_b])");
+
+    ev.assertContainsError(
+        String.format(
+            "aspect %s%%aspect_b was added before as a required aspect of aspect %s%%aspect_a",
+            FAKE_LABEL, FAKE_LABEL));
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritDefaultValues() throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    // aspect_b inherits the required providers and propagation attributes from aspect_a
+    Aspect aspectB = aspects.get(0);
+    assertThat(aspectB.getDescriptor().getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptAnyBuilder().build());
+    assertThat(aspectB.getDescriptor().getInheritedAttributeAspects()).isEmpty();
+
+    // aspect_a is not required by any other aspect so its does not inherit anything
+    Aspect aspectA = aspects.get(1);
+    assertThat(aspectA.getDescriptor().getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptNoneBuilder().build());
+    assertThat(aspectA.getDescriptor().getInheritedAttributeAspects()).isEmpty();
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritAttrAspectsFromSingleAspect()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  attr_aspects = ['extra_deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  attr_aspects = ['deps'])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs = {'a': attr.label_list(aspects = [aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectB = aspects.get(0);
+    assertThat(aspectB.getDescriptor().getInheritedAttributeAspects()).containsExactly("deps");
+    assertThat(aspectB.getDefinition().getRestrictToAttributes()).containsExactly("extra_deps");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritRequiredProvidersFromSingleAspect()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  required_providers= ['go'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  required_providers=[['java', cc], ['python']])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs = {'a': attr.label_list(aspects = [aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectB = aspects.get(0);
+    assertThat(aspectB.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python'");
+    assertThat(aspectB.getDefinition().getRequiredProviders().getDescription()).isEqualTo("'go'");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringExistingAspect_inheritAttrAspectsFromSingleAspect()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b],",
+        "                  attr_aspects = ['deps'])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs={'a': attr.label_list(aspects = [aspect_b, aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectB = aspects.get(0);
+    assertThat(aspectB.getDescriptor().getInheritedAttributeAspects()).containsExactly("deps");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringExistingAspect_inheritRequiredProvidersFromSingleAspect()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  required_providers=[['java', cc], ['python']])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_b, aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectB = aspects.get(0);
+    assertThat(aspectB.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python'");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritAttrAspectsFromMultipleAspects()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['deps'])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs={'a': attr.label_list(aspects = [aspect_a, aspect_b])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects())
+        .containsExactly("deps", "extra_deps");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritRequiredProvidersFromMultipleAspects()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=['go'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[['java', cc], ['python']])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs={'a': attr.label_list(aspects = [aspect_a, aspect_b])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python' or 'go'");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritAllAttrAspects() throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['*'])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_a, aspect_b])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects())
+        .isNull(); // propagate along all attributes '*'
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritAllRequiredProviders() throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers = [])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[['java', cc], ['python']])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_a, aspect_b])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptAnyBuilder().build());
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritAttrAspectsFromAspectsStack()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  attr_aspects = ['deps'])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects())
+        .containsExactly("deps", "extra_deps");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritRequiredProvidersFromAspectsStack()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=['go'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  required_providers=[['java', cc], ['python']])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python' or 'go'");
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritAllAttrAspectsFromAspectsStack()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['*'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  attr_aspects = ['deps'])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects())
+        .isNull(); // propagate along all attributes '*'
+  }
+
+  @Test
+  public void testAttrWithAspectRequiringAspects_inheritAllRequiredProvidersFromAspectsStack()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[cc])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  required_providers=[])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl, attrs={'a': attr.label_list(aspects = [aspect_a])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute a = rule.getRuleClassObject().getAttributeByName("a");
+    ImmutableList<Aspect> aspects = a.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptAnyBuilder().build());
+  }
+
+  /**
+   * An aspect required by different aspects in different attributes inherits the correct
+   * propagation attributes.
+   */
+  @Test
+  public void testAttrWithAspectRequiringAspects_aspectRequiredInMultipleAttrs_inheritAttrAspects()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs={'attr1': attr.label_list(aspects = [aspect_a]),",
+        "                      'attr2': attr.label_list(aspects = [aspect_b]),",
+        "                      'attr3': attr.label_list(aspects = [aspect_c])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute attr1 = rule.getRuleClassObject().getAttributeByName("attr1");
+    ImmutableList<Aspect> aspects = attr1.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects())
+        .containsExactly("extra_deps");
+
+    Attribute attr2 = rule.getRuleClassObject().getAttributeByName("attr2");
+    aspects = attr2.getAspects(rule);
+    aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects()).containsExactly("deps");
+
+    Attribute attr3 = rule.getRuleClassObject().getAttributeByName("attr3");
+    aspects = attr3.getAspects(rule);
+    aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects()).isEmpty();
+  }
+
+  /**
+   * An aspect required by different aspects in different attributes inherits the correct required
+   * providers.
+   */
+  @Test
+  public void
+      testAttrWithAspectRequiringAspects_aspectRequiredInMultipleAttrs_inheritRequiredProviders()
+          throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=['prov1', 'prov2'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[['prov3', 'prov4'], ['prov2']])",
+        "def impl(ctx):",
+        "   return None",
+        "my_rule = rule(impl,",
+        "               attrs={'attr1': attr.label_list(aspects = [aspect_a]),",
+        "                      'attr2': attr.label_list(aspects = [aspect_b]),",
+        "                      'attr3': attr.label_list(aspects = [aspect_c])})");
+    scratch.file("BUILD", "load(':lib.bzl', 'my_rule')", "my_rule(name = 'main')");
+
+    RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
+
+    Rule rule = ruleContext.getRule();
+    Attribute attr1 = rule.getRuleClassObject().getAttributeByName("attr1");
+    ImmutableList<Aspect> aspects = attr1.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['prov3', 'prov4'] or 'prov2'");
+
+    Attribute attr2 = rule.getRuleClassObject().getAttributeByName("attr2");
+    aspects = attr2.getAspects(rule);
+    aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['prov1', 'prov2']");
+
+    Attribute attr3 = rule.getRuleClassObject().getAttributeByName("attr3");
+    aspects = attr3.getAspects(rule);
+    aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptNoneBuilder().build());
+  }
+
+  /**
+   * An aspect required by different aspects in different rules inherits the correct propagation
+   * attributes.
+   */
+  @Test
+  public void testAttrWithAspectRequiringAspects_aspectRequiredInMultipleRules_inheritAttrAspects()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "def impl(ctx):",
+        "   return None",
+        "rule_1 = rule(impl,",
+        "               attrs={'attr': attr.label_list(aspects = [aspect_a])})",
+        "rule_2 = rule(impl,",
+        "               attrs={'attr': attr.label_list(aspects = [aspect_b])})");
+    scratch.file(
+        "BUILD",
+        "load(':lib.bzl', 'rule_1', 'rule_2')",
+        "rule_1(name = 't1')",
+        "rule_2(name = 't2')");
+
+    RuleContext ruleContext1 = createRuleContext("//:t1").getRuleContext();
+    RuleContext ruleContext2 = createRuleContext("//:t2").getRuleContext();
+
+    Rule rule = ruleContext1.getRule();
+    Attribute attr = rule.getRuleClassObject().getAttributeByName("attr");
+    ImmutableList<Aspect> aspects = attr.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects())
+        .containsExactly("extra_deps");
+
+    rule = ruleContext2.getRule();
+    attr = rule.getRuleClassObject().getAttributeByName("attr");
+    aspects = attr.getAspects(rule);
+    aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedAttributeAspects()).containsExactly("deps");
+  }
+
+  /**
+   * An aspect required by different aspects in different rules inherits the correct required
+   * providers.
+   */
+  @Test
+  public void
+      testAttrWithAspectRequiringAspects_aspectRequiredInMultipleRules_inheritRequiredProviders()
+          throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=['prov1', 'prov2'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[['prov3', 'prov4'], ['prov2']])",
+        "def impl(ctx):",
+        "   return None",
+        "rule_1 = rule(impl,",
+        "               attrs={'attr': attr.label_list(aspects = [aspect_a])})",
+        "rule_2 = rule(impl,",
+        "               attrs={'attr': attr.label_list(aspects = [aspect_b])})");
+    scratch.file(
+        "BUILD",
+        "load(':lib.bzl', 'rule_1', 'rule_2')",
+        "rule_1(name = 't1')",
+        "rule_2(name = 't2')");
+
+    RuleContext ruleContext1 = createRuleContext("//:t1").getRuleContext();
+    RuleContext ruleContext2 = createRuleContext("//:t2").getRuleContext();
+
+    Rule rule = ruleContext1.getRule();
+    Attribute attr = rule.getRuleClassObject().getAttributeByName("attr");
+    ImmutableList<Aspect> aspects = attr.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['prov3', 'prov4'] or 'prov2'");
+
+    rule = ruleContext2.getRule();
+    attr = rule.getRuleClassObject().getAttributeByName("attr");
+    aspects = attr.getAspects(rule);
+    aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['prov1', 'prov2']");
+  }
+
+  /**
+   * An aspect required by different aspects in different rules gets the correct parameters values
+   * from its base rule.
+   */
+  @Test
+  public void testAttrWithAspectRequiringAspects_aspectRequiredInMultipleRules_getParametersValues()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_c = aspect(implementation = _impl,",
+        "                  attrs = {'param': attr.string(values = ['v1', 'v2', 'v3'])})",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c])",
+        "def impl(ctx):",
+        "   return None",
+        "rule_1 = rule(impl,",
+        "               attrs={'attr': attr.label_list(aspects = [aspect_a]),",
+        "                      'param': attr.string()})",
+        "rule_2 = rule(impl,",
+        "               attrs={'attr': attr.label_list(aspects = [aspect_b]),",
+        "                      'param': attr.string()})");
+    scratch.file(
+        "BUILD",
+        "load(':lib.bzl', 'rule_1', 'rule_2')",
+        "rule_1(name = 't1', param = 'v1')",
+        "rule_2(name = 't2', param = 'v2')");
+
+    RuleContext ruleContext1 = createRuleContext("//:t1").getRuleContext();
+    RuleContext ruleContext2 = createRuleContext("//:t2").getRuleContext();
+
+    Rule rule = ruleContext1.getRule();
+    Attribute attr = rule.getRuleClassObject().getAttributeByName("attr");
+    ImmutableList<Aspect> aspects = attr.getAspects(rule);
+    Aspect aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDefinition().getAttributes().get("param").getDefaultValueUnchecked())
+        .isEqualTo("v1");
+
+    rule = ruleContext2.getRule();
+    attr = rule.getRuleClassObject().getAttributeByName("attr");
+    aspects = attr.getAspects(rule);
+    aspectC = aspects.get(0);
+    assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
+    assertThat(aspectC.getDefinition().getAttributes().get("param").getDefaultValueUnchecked())
+        .isEqualTo("v2");
+  }
+
+  /**
+   * Using the same attribute in multiple rules should not change the required aspect inherited
+   * propagation attributes.
+   */
+  @Test
+  public void testAttrWithAspectRequiringAspects_sameAttrInMultipleRules_inheritSameAttrAspects()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b],",
+        "                  attr_aspects = ['extra_deps'])",
+        "my_attr = attr.label_list(aspects = [aspect_a])",
+        "def impl(ctx):",
+        "   return None",
+        "rule_1 = rule(impl,",
+        "               attrs={'attr': my_attr})",
+        "rule_2 = rule(impl,",
+        "               attrs={'attr': my_attr})");
+    scratch.file(
+        "BUILD",
+        "load(':lib.bzl', 'rule_1', 'rule_2')",
+        "rule_1(name = 't1')",
+        "rule_2(name = 't2')");
+
+    RuleContext ruleContext1 = createRuleContext("//:t1").getRuleContext();
+    RuleContext ruleContext2 = createRuleContext("//:t2").getRuleContext();
+
+    Rule rule = ruleContext1.getRule();
+    Attribute attr = rule.getRuleClassObject().getAttributeByName("attr");
+    ImmutableList<Aspect> aspects = attr.getAspects(rule);
+    Aspect aspectB = aspects.get(0);
+    assertThat(aspectB.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_b");
+    assertThat(aspectB.getDescriptor().getInheritedAttributeAspects())
+        .containsExactly("extra_deps");
+
+    rule = ruleContext2.getRule();
+    attr = rule.getRuleClassObject().getAttributeByName("attr");
+    aspects = attr.getAspects(rule);
+    aspectB = aspects.get(0);
+    assertThat(aspectB.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_b");
+    assertThat(aspectB.getDescriptor().getInheritedAttributeAspects())
+        .containsExactly("extra_deps");
+  }
+
+  /**
+   * Using the same attribute in multiple rules should not change the required aspect inherited
+   * required providers.
+   */
+  @Test
+  public void
+      testAttrWithAspectRequiringAspects_sameAttrInMultipleRules_inheritSameRequiredProviders()
+          throws Exception {
+    setBuildLanguageOptions("--experimental_required_aspects=true");
+    scratch.file(
+        "lib.bzl",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b],",
+        "                  required_providers=[['prov3', 'prov4'], ['prov2']])",
+        "my_attr = attr.label_list(aspects = [aspect_a])",
+        "def impl(ctx):",
+        "   return None",
+        "rule_1 = rule(impl,",
+        "               attrs={'attr': my_attr})",
+        "rule_2 = rule(impl,",
+        "               attrs={'attr': my_attr})");
+    scratch.file(
+        "BUILD",
+        "load(':lib.bzl', 'rule_1', 'rule_2')",
+        "rule_1(name = 't1')",
+        "rule_2(name = 't2')");
+
+    RuleContext ruleContext1 = createRuleContext("//:t1").getRuleContext();
+    RuleContext ruleContext2 = createRuleContext("//:t2").getRuleContext();
+
+    Rule rule = ruleContext1.getRule();
+    Attribute attr = rule.getRuleClassObject().getAttributeByName("attr");
+    ImmutableList<Aspect> aspects = attr.getAspects(rule);
+    Aspect aspectB = aspects.get(0);
+    assertThat(aspectB.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_b");
+    assertThat(aspectB.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['prov3', 'prov4'] or 'prov2'");
+
+    rule = ruleContext2.getRule();
+    attr = rule.getRuleClassObject().getAttributeByName("attr");
+    aspects = attr.getAspects(rule);
+    aspectB = aspects.get(0);
+    assertThat(aspectB.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_b");
+    assertThat(aspectB.getDescriptor().getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['prov3', 'prov4'] or 'prov2'");
   }
 
   @Test
