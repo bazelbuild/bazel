@@ -14,30 +14,30 @@ information on macros and rules.
 language that defines how software is built, and as such it is both a
 programming and a configuration language.
 
-You will use Starlark to write BUILD files, macros, and build rules. Macros and
-rules are essentially meta-languages - they define how BUILD files are written.
-BUILD files are intended to be simple and repetitive.
+You will use Starlark to write `BUILD` files, macros, and build rules. Macros and
+rules are essentially meta-languages - they define how `BUILD` files are written.
+`BUILD` files are intended to be simple and repetitive.
 
 All software is read more often than it is written. This is especially true for
-Starlark, as engineers read BUILD files to understand dependencies of their
+Starlark, as engineers read `BUILD` files to understand dependencies of their
 targets and details of their builds. This reading will often happen in passing,
 in a hurry, or in parallel to accomplishing some other task. Consequently,
 simplicity and readability are very important so that users can parse and
-comprehend BUILD files quickly.
+comprehend `BUILD` files quickly.
 
-When a user opens a BUILD file, they quickly want to know the list of targets in
+When a user opens a `BUILD` file, they quickly want to know the list of targets in
 the file; or review the list of sources of that C++ library; or remove a
 dependency from that Java binary. Each time you add a layer of abstraction, you
 make it harder for a user to do these tasks.
 
-BUILD files are also analyzed and updated by many different tools. Tools may not
-be able to edit your BUILD file if it uses abstractions. Keeping your BUILD
+`BUILD` files are also analyzed and updated by many different tools. Tools may not
+be able to edit your `BUILD` file if it uses abstractions. Keeping your `BUILD`
 files simple will allow you to get better tooling. As a code base grows, it
-becomes more and more frequent to do changes across many BUILD files in order to
+becomes more and more frequent to do changes across many `BUILD` files in order to
 update a library or do a cleanup.
 
 **IMPORTANT:** Do not create a variable or macro just to avoid some amount of
-repetition in BUILD files. Your BUILD file should be easily readable both by
+repetition in `BUILD` files. Your `BUILD` file should be easily readable both by
 developers and tools. The
 [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle doesn't
 really apply here.
@@ -78,7 +78,7 @@ fields, should be documented using the `doc` argument.
 
 ### Line length
 
-As in BUILD files, there is no strict line length limit as labels can be long.
+As in `BUILD` files, there is no strict line length limit as labels can be long.
 When possible, try to use at most 79 characters per line.
 
 ### Keyword arguments
@@ -125,7 +125,7 @@ come from macro expansion. Finally, aspects are not aware of macros, so tooling
 depending on aspects (IDEs and others) might fail.
 
 A safe use for macros is leaf nodes, such as macros defining test permutations:
-in that case, only the "end users" of those targets need to know about those
+in that case, only the *end users* of those targets need to know about those
 additional nodes, and any build problems introduced by macros are never far from
 their usage.
 
@@ -135,8 +135,8 @@ For macros that define non-leaf nodes, follow these best practices:
     That target becomes that macro's _main target_.
 *   All other targets defined by a macro should have their names preceded with
     an underscore (`_`), followed by the name attribute. For instance, if the
-    macro is supplied with the name "resources", internal targets should have
-    names beginning with "_resources". They should also have restricted
+    macro is supplied with the name *resources*, internal targets should have
+    names beginning with *_resources*. They should also have restricted
     visibility.
 *   The `name` should only be used to derive names of targets defined by the
     macro, and not for anything else. For example, don't use the name to derive

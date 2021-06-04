@@ -87,7 +87,7 @@ workspace(name = "rules_mockascript")
 ### README
 
 At the top level, there should be a `README` that contains (at least) what
-users will need to copy-paste into their WORKSPACE file to use your rule.
+users will need to copy-paste into their `WORKSPACE` file to use your rule.
 In general, this will be a `http_archive` pointing to your GitHub release and
 a macro call that downloads/configures any tools your rule needs. For example,
 for the [Go
@@ -109,7 +109,7 @@ go_register_toolchains()
 If your rules depend on another repository's rules, specify that in the
 rules documentation (for example, see the
 [Skydoc rules](https://skydoc.bazel.build/docs/getting_started_stardoc.html),
-which depend on the Sass rules), and provide a WORKSPACE
+which depend on the Sass rules), and provide a `WORKSPACE`
 macro that will download all dependencies (see `rules_go` above).
 
 ### Rules
@@ -149,7 +149,7 @@ Please read
 for best practices, and to see what constraints are already present, and
 consider contributing your constraints there if they are language independent.
 Be mindful of introducing custom constraints, all users of your rules will
-use them to perform platform specific logic in their BUILD files (for example,
+use them to perform platform specific logic in their `BUILD` files (for example,
 using [selects](https://docs.bazel.build/versions/master/be/functions.html#select)).
 With custom constraints, you define a language that the whole Bazel ecosystem
 will speak.
@@ -166,10 +166,10 @@ dependencies will typically add this target to their `deps` attribute.
 #### Dependencies
 
 Your rules might have external dependencies. To make depending on your rules
-simpler, please provide a WORKSPACE macro that will declare dependencies on
+simpler, please provide a `WORKSPACE` macro that will declare dependencies on
 those external dependencies. Do not declare dependencies of tests there, only
 dependencies that rules require to work. Put development dependencies into the
-WORKSPACE file.
+`WORKSPACE` file.
 
 Create a file named `<LANG>/repositories.bzl` and provide a single entry point
 macro named `rules_<LANG>_dependencies`. Our directory will look as follows:
@@ -187,12 +187,12 @@ macro named `rules_<LANG>_dependencies`. Our directory will look as follows:
 
 #### Registering toolchains
 
-Your rules might also register toolchains. Please provide a separate WORKSPACE
+Your rules might also register toolchains. Please provide a separate `WORKSPACE`
 macro that registers these toolchains. This way users can decide to omit the
 previous macro and control dependencies manually, while still being allowed to
 register toolchains.
 
-Therefore add a WORKSPACE macro named `rules_<LANG>_toolchains` into
+Therefore add a `WORKSPACE` macro named `rules_<LANG>_toolchains` into
 `<LANG>/repositories.bzl` file.
 
 Note that in order to resolve toolchains in the analysis phase Bazel needs to
@@ -207,7 +207,7 @@ the latter will only be fetched when user actually needs to build `<LANG>` code.
 #### Release snippet
 
 In your release announcement provide a snippet that your users can copy-paste
-into their WORKSPACE file. This snippet in general will look as follows:
+into their `WORKSPACE` file. This snippet in general will look as follows:
 
 ```
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

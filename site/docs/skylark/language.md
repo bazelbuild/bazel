@@ -107,7 +107,7 @@ illegal, and 2) `*args` and `**kwargs` arguments are not allowed.
 * Global variables are immutable.
 
 * `for` statements are not allowed at the top-level. Use them within functions
-  instead. In BUILD files, you may use list comprehensions.
+  instead. In `BUILD` files, you may use list comprehensions.
 
 * `if` statements are not allowed at the top-level. However, `if` expressions
   can be used: `first = data[0] if len(data) > 0 else None`.

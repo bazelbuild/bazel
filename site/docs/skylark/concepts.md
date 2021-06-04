@@ -16,19 +16,19 @@ Bazel extensions are files ending in `.bzl`. Use a [load statement](
 
 Before learning the more advanced concepts, first:
 
-* Read about the [Starlark language](language.md), used in both the BUILD and
+* Read about the [Starlark language](language.md), used in both the `BUILD` and
   `.bzl` files.
 
 * Learn how you can [share variables](tutorial-sharing-variables.md) between two
-  BUILD files.
+  `BUILD` files.
 
 ## Macros and rules
 
 A [macro](macros.md) is a function that instantiates rules. It is useful when a
-BUILD file is getting too repetitive or too complex, as it allows you to reuse
-some code. The function is evaluated as soon as the BUILD file is read. After
-the evaluation of the BUILD file, Bazel has little information about macros: if
-your macro generates a `genrule`, Bazel will behave as if you wrote the
+`BUILD` file is getting too repetitive or too complex, as it allows you to reuse
+some code. The function is evaluated as soon as the `BUILD` file is read. After
+the evaluation of the `BUILD` file, Bazel has little information about macros:
+if your macro generates a `genrule`, Bazel will behave as if you wrote the
 `genrule`. As a result, `bazel query` will only list the generated `genrule`.
 
 A [rule](rules.md) is more powerful than a macro. It can access Bazel internals
@@ -45,8 +45,8 @@ rules.
 
 A build consists of three phases.
 
-* **Loading phase**. First, load and evaluate all extensions and all BUILD
-  files that are needed for the build. The execution of the BUILD files simply
+* **Loading phase**. First, load and evaluate all extensions and all `BUILD`
+  files that are needed for the build. The execution of the `BUILD` files simply
   instantiates rules (each time a rule is called, it gets added to a graph).
   This is where macros are evaluated.
 
