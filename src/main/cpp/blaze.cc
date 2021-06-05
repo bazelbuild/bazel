@@ -357,10 +357,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   startup_options.AddJVMArgumentPrefix(jvm_path.GetParent().GetParent(),
                                        &result);
 
-  result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
-  result.push_back("-XX:HeapDumpPath=" +
-                   startup_options.output_base.AsJvmArgument());
-
   // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
   if (!startup_options.GetEmbeddedJavabase().IsEmpty()) {
     // quiet warnings from com.google.protobuf.UnsafeUtil,

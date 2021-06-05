@@ -261,7 +261,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /**
    * For testing ONLY. Same as {@link #exec(InvocationPolicy, List, OutErr, LockingMode, String,
-   * long, Optional<List<Pair<String, String>>>)}, but automatically uses the current time.
+   * long, Optional, List)} but automatically uses the current time.
    */
   @VisibleForTesting
   public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
@@ -443,7 +443,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
-        runtime.getRetainedHeapLimiter().update(commonOptions, env.getCommandId(), reporter);
+        runtime.getRetainedHeapLimiter().update(commonOptions.oomMoreEagerlyThreshold);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -610,12 +610,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     } catch (Throwable e) {
       logger.atSevere().withCause(e).log("Shutting down due to exception");
       Crash crash = Crash.from(e);
-      bugReporter.handleCrash(
-          crash,
-          CrashContext.keepAlive()
-              .withArgs(args)
-              .withExtraOomInfo(commonOptions.oomMessage)
-              .reportingTo(reporter));
+      bugReporter.handleCrash(crash, CrashContext.keepAlive().withArgs(args));
       needToCallAfterCommand = false; // We are crashing.
       result = BlazeCommandResult.createShutdown(crash);
       return result;

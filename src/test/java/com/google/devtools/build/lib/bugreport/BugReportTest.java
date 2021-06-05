@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.bugreport;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -34,6 +36,8 @@ import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ExtensionRegistry;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -43,12 +47,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 import org.mockito.ArgumentCaptor;
 
 /** Tests for {@link BugReport}. */
-@RunWith(Parameterized.class)
+@RunWith(TestParameterInjector.class)
 public final class BugReportTest {
 
   private enum CrashType {
@@ -76,22 +78,14 @@ public final class BugReportTest {
     abstract Throwable createThrowable();
   }
 
-  @Parameters
-  public static CrashType[] params() {
-    return CrashType.values();
-  }
-
   @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
-  private final CrashType crashType;
   private final BlazeRuntimeInterface mockRuntime = mock(BlazeRuntimeInterface.class);
+
+  @TestParameter private CrashType crashType;
 
   private Path exitCodeFile;
   private Path failureDetailFile;
-
-  public BugReportTest(CrashType crashType) {
-    this.crashType = crashType;
-  }
 
   @Before
   public void setup() throws Exception {
@@ -158,12 +152,41 @@ public final class BugReportTest {
   }
 
   @Test
-  public void customEventHandler() {
+  public void customContext_setUpFront() {
     Throwable t = crashType.createThrowable();
     EventHandler handler = mock(EventHandler.class);
     ArgumentCaptor<Event> event = ArgumentCaptor.forClass(Event.class);
 
-    BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive().reportingTo(handler));
+    BugReport.handleCrash(
+        Crash.from(t),
+        CrashContext.keepAlive().withExtraOomInfo("Build fewer targets!").reportingTo(handler));
+    assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
+
+    verify(handler).handle(event.capture());
+    assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);
+    assertThat(event.getValue().getMessage()).contains(Throwables.getStackTraceAsString(t));
+
+    if (crashType == CrashType.OOM) {
+      assertThat(event.getValue().getMessage()).contains("Build fewer targets!");
+    } else {
+      assertThat(event.getValue().getMessage()).doesNotContain("Build fewer targets!");
+    }
+  }
+
+  @Test
+  public void customContext_filledInByRuntime() {
+    Throwable t = crashType.createThrowable();
+    EventHandler handler = mock(EventHandler.class);
+    ArgumentCaptor<Event> event = ArgumentCaptor.forClass(Event.class);
+    doAnswer(
+            inv ->
+                inv.getArgument(0, CrashContext.class)
+                    .withExtraOomInfo("Build fewer targets!")
+                    .reportingTo(handler))
+        .when(mockRuntime)
+        .fillInCrashContext(any());
+
+    BugReport.handleCrash(Crash.from(t), CrashContext.keepAlive());
     assertThrows(t.getClass(), BugReport::maybePropagateUnprocessedThrowableIfInTest);
 
     verify(handler).handle(event.capture());
