@@ -70,6 +70,7 @@ public final class JavaCompilationHelper {
   private final String fixDepsTool;
   private NestedSet<Artifact> localClassPathEntries = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private boolean enableJspecify = true;
+  private boolean enableDirectClasspath = true;
 
   public JavaCompilationHelper(
       RuleContext ruleContext,
@@ -129,6 +130,10 @@ public final class JavaCompilationHelper {
       }
     }
     return builtAttributes;
+  }
+
+  public void enableDirectClasspath(boolean enableDirectClasspath) {
+    this.enableDirectClasspath = enableDirectClasspath;
   }
 
   public RuleContext getRuleContext() {
@@ -491,6 +496,7 @@ public final class JavaCompilationHelper {
       // see b/31371210
       builder.addJavacOpt("-Aexperimental_turbine_hjar");
     }
+    builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
 
     artifactBuilder.setCompileTimeDependencies(headerDeps);

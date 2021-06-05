@@ -104,6 +104,8 @@ public class JavaHeaderCompileActionBuilder {
 
   private boolean enableHeaderCompilerDirect = true;
 
+  private boolean enableDirectClasspath = true;
+
   public JavaHeaderCompileActionBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
   }
@@ -246,6 +248,11 @@ public class JavaHeaderCompileActionBuilder {
     return this;
   }
 
+  public JavaHeaderCompileActionBuilder enableDirectClasspath(boolean enableDirectClasspath) {
+    this.enableDirectClasspath = enableDirectClasspath;
+    return this;
+  }
+
   /** Builds and registers the action for a header compilation. */
   public void build(JavaToolchainProvider javaToolchain) throws InterruptedException {
     checkNotNull(outputDepsProto, "outputDepsProto must not be null");
@@ -271,7 +278,7 @@ public class JavaHeaderCompileActionBuilder {
     // data or dependencies if there are no annotation processors to run. This differs from
     // javac where java_plugin may be used with processor_class unset to declare Error Prone
     // plugins.
-    boolean useDirectClasspath = plugins.processorClasses().isEmpty();
+    boolean useDirectClasspath = enableDirectClasspath && plugins.processorClasses().isEmpty();
 
     // Use the optimized 'direct' implementation if it is available, and either there are no
     // annotation processors or they are built in to the tool and listed in

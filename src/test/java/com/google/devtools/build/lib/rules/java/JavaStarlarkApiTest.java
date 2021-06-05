@@ -3114,21 +3114,36 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  name = 'custom',",
         "  deps = [':exports_processor'],",
         "  plugins = [':processor'],",
+        ")",
+        "java_custom_library(",
+        "  srcs = ['custom.java'],",
+        "  name = 'custom_noproc',",
         ")");
 
-    ConfiguredTarget target = getConfiguredTarget("//foo:custom");
+    ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
+    ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");
     assertNoEvents();
 
     JavaCompileAction javacAction =
         (JavaCompileAction) getGeneratingActionForLabel("//foo:libcustom.jar");
+    assertThat(javacAction.getMnemonic()).isEqualTo("Javac");
     assertThat(getProcessorNames(javacAction)).isEmpty();
     assertThat(getProcessorPath(javacAction)).isNotEmpty();
     assertThat(artifactFilesNames(javacAction.getInputs())).contains("processor_data.txt");
 
-    SpawnAction turbineAction =
-        (SpawnAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", target));
-    assertThat(turbineAction.getMnemonic()).isEqualTo("Turbine");
-    assertThat(turbineAction.getArguments()).doesNotContain("--processors");
+    JavaCompileAction turbineAction =
+        (JavaCompileAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", custom));
+    assertThat(turbineAction.getMnemonic()).isEqualTo("JavacTurbine");
+    List<String> args = turbineAction.getArguments();
+    assertThat(args).doesNotContain("--processors");
+
+    // enable_annotation_processing=False shouldn't disable direct classpaths if there are no
+    // annotation processors that need to be disabled
+    SpawnAction turbineActionNoProc =
+        (SpawnAction)
+            getGeneratingAction(getBinArtifact("libcustom_noproc-hjar.jar", customNoproc));
+    assertThat(turbineActionNoProc.getMnemonic()).isEqualTo("Turbine");
+    assertThat(turbineActionNoProc.getArguments()).doesNotContain("--processors");
   }
 
   private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {

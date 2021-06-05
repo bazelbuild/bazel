@@ -296,8 +296,12 @@ final class JavaInfoBuildHelper {
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
     JavaPluginInfo pluginInfo = mergeExportedJavaPluginInfo(plugins, deps);
-    if (!enableAnnotationProcessing) {
+    // Optimization: skip this if there are no annotation processors, to avoid unnecessarily
+    // disabling the direct classpath optimization if `enable_annotation_processor = False`
+    // but there aren't any annotation processors.
+    if (!enableAnnotationProcessing && !pluginInfo.plugins().processorClasses().isEmpty()) {
       pluginInfo = pluginInfo.disableAnnotationProcessing();
+      helper.enableDirectClasspath(false);
     }
     helper.setPlugins(pluginInfo);
     helper.setNeverlink(neverlink);
