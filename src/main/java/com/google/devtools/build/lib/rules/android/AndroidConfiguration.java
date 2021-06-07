@@ -888,18 +888,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean persistentBusyboxTools;
 
     @Option(
-        name = "incompatible_prohibit_aapt1",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        defaultValue = "true",
-        help = "Deprecated no-op.")
-    public boolean unusedIncompatibleProhibitAapt1;
-
-    @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
