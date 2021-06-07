@@ -263,10 +263,13 @@ that weren't subtracted. For example, if there were a target `//foo:all-apis`
 that among others depended on `//foo/bar:api`, then the latter would be built as
 part of building the former.
 
-Targets with `tags = ["manual"]` will not be included in wildcard target
-patterns (`...`, `:*`, `:all`, etc.). You should specify such test targets with
-explicit target patterns on the command line if you want Bazel to build/test
-them.
+Targets with `tags = ["manual"]` are not included in wildcard target patterns
+(`...`, `:*`, `:all`, etc.) when specified in commands like
+<code>bazel build</code> and <code>bazel test</code>; you should specify such
+test targets with explicit target patterns on the command line if you want Bazel
+to build/test them. In contrast, <code>bazel query</code> doesn't perform any
+such filtering automatically (that would defeat the purpose of
+<code>bazel query</code>).
 
 <a id="fetch"></a>
 ### Fetching external dependencies
