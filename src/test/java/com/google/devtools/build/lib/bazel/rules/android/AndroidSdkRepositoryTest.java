@@ -58,6 +58,11 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   }
 
   private void scratchBuildToolsDirectories(String... versions) throws Exception {
+    if (versions.length == 0) {
+      // Use a large version number here so that we don't have to update this test as
+      // AndroidSdkRepositoryFunction.MIN_BUILD_TOOLS_REVISION increases.
+      versions = new String[] {"400.0.0"};
+    }
     for (String version : versions) {
       scratch.dir("/sdk/build-tools/" + version);
     }
@@ -85,7 +90,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   @Test
   public void testGeneratedAarImport() throws Exception {
     scratchPlatformsDirectories(25);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "foo", "1.0.0", "aar");
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
@@ -107,7 +112,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   @Test
   public void testExportsExtrasLibraryArtifacts() throws Exception {
     scratchPlatformsDirectories(25);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "foo", "1.0.0", "aar");
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
@@ -127,7 +132,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   @Test
   public void testKnownSdkMavenRepositories() throws Exception {
     scratchPlatformsDirectories(25);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "a", "1.0.0", "jar");
     scratchExtrasLibrary("extras/android/m2repository", "com.android.support", "b", "1.0.0", "aar");
     scratchExtrasLibrary("extras/m2repository", "com.android.support", "c", "1.0.1", "aar");
@@ -158,7 +163,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   @Test
   public void testSystemImageDirectoriesAreFound() throws Exception {
     scratchPlatformsDirectories(25);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
@@ -193,7 +198,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   @Test
   public void testMalformedSystemImageDirectories() throws Exception {
     scratchPlatformsDirectories(25, 26);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     scratchSystemImagesDirectories("android-25/default/armeabi-v7a", "android-O/google_apis/x86");
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
@@ -208,9 +213,34 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBuildToolsVersion() throws Exception {
+    scratchPlatformsDirectories(25);
+    // Use large version numbers here so that we don't have to update this test as
+    // AndroidSdkRepositoryFunction.MIN_BUILD_TOOLS_REVISION increases.
+    scratchBuildToolsDirectories("400.0.1", "400.0.2", "400.0.3");
+    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
+        "android_sdk_repository(",
+        "    name = 'androidsdk',",
+        "    path = '/sdk',",
+        "    build_tools_version = '400.0.2',",
+        ")");
+    invalidatePackages();
+
+    ConfiguredTarget androidSdk = getConfiguredTarget("@androidsdk//:sdk");
+    assertThat(androidSdk).isNotNull();
+    assertThat(androidSdk.get(AndroidSdkProvider.PROVIDER).getBuildToolsVersion())
+        .isEqualTo("400.0.2");
+  }
+
+  @Test
   public void testBuildToolsHighestVersionDetection() throws Exception {
     scratchPlatformsDirectories(25);
-    scratchBuildToolsDirectories("26.0.1", "26.0.2");
+    // Use large version numbers here so that we don't have to update this test as
+    // AndroidSdkRepositoryFunction.MIN_BUILD_TOOLS_REVISION increases.
+    scratchBuildToolsDirectories("400.0.1", "400.0.2");
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
@@ -225,13 +255,13 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     ConfiguredTarget androidSdk = getConfiguredTarget("@androidsdk//:sdk");
     assertThat(androidSdk).isNotNull();
     assertThat(androidSdk.get(AndroidSdkProvider.PROVIDER).getBuildToolsVersion())
-        .isEqualTo("26.0.2");
+        .isEqualTo("400.0.2");
   }
 
   @Test
   public void testApiLevelHighestVersionDetection() throws Exception {
     scratchPlatformsDirectories(24, 25, 23);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
@@ -239,7 +269,6 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "android_sdk_repository(",
         "    name = 'androidsdk',",
         "    path = '/sdk',",
-        "    build_tools_version = '26.0.1',",
         ")");
     invalidatePackages();
 
@@ -253,7 +282,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   public void testMultipleAndroidSdkApiLevels() throws Exception {
     int[] apiLevels = {23, 24, 25};
     scratchPlatformsDirectories(apiLevels);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
@@ -262,7 +291,6 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    name = 'androidsdk',",
         "    path = '/sdk',",
         "    api_level = 24,",
-        "    build_tools_version = '26.0.1',",
         ")");
     invalidatePackages();
 
@@ -278,7 +306,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   @Test
   public void testMissingApiLevel() throws Exception {
     scratchPlatformsDirectories(24);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
@@ -287,7 +315,6 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "    name = 'androidsdk',",
         "    path = '/sdk',",
         "    api_level = 25,",
-        "    build_tools_version = '26.0.1',",
         ")");
     invalidatePackages();
     reporter.removeHandler(failFastHandler);
@@ -308,7 +335,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   @Test
   public void testFilesInSystemImagesDirectories() throws Exception {
     scratchPlatformsDirectories(24);
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     scratch.file("/sdk/system-images/.DS_Store");
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
@@ -325,7 +352,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
 
   @Test
   public void testMissingPlatformsDirectory() throws Exception {
-    scratchBuildToolsDirectories("26.0.1");
+    scratchBuildToolsDirectories();
     String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
