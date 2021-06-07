@@ -1,4 +1,4 @@
-# Lint as: python2, python3
+# Lint as: python3
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,10 +19,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import gzip
-import io
 import os
 import tarfile
-import six
 
 # Use a deterministic mtime that doesn't confuse other programs.
 # See: https://github.com/bazelbuild/bazel/issues/1299
@@ -58,7 +56,7 @@ class TarFileWriter(object):
       mode = 'w:'
     self.gz = compression in ['tgz', 'gz']
     self.name = name
-    self.root_directory = six.ensure_str(root_directory).rstrip('/')
+    self.root_directory = root_directory.rstrip('/')
 
     self.preserve_mtime = preserve_tar_mtimes
 
@@ -113,7 +111,7 @@ class TarFileWriter(object):
       TarFileWriter.Error: when the recursion depth has exceeded the
                            `depth` argument.
     """
-    if not (name == self.root_directory or six.ensure_str(name).startswith('/')
+    if not (name == self.root_directory or name.startswith('/')
             or name.startswith(self.root_directory + '/')):
       name = os.path.join(self.root_directory, name)
     if mtime is None:
@@ -126,7 +124,7 @@ class TarFileWriter(object):
       # The x bit is set only to if the read bit is set.
       dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
       self.add_file(
-          six.ensure_str(name) + '/',
+          name + '/',
           tarfile.DIRTYPE,
           uid=uid,
           gid=gid,
@@ -158,8 +156,7 @@ class TarFileWriter(object):
 
   def _addfile(self, info, fileobj=None):
     """Add a file in the tar file if there is no conflict."""
-    if not six.ensure_str(
-        info.name).endswith('/') and info.type == tarfile.DIRTYPE:
+    if not info.name.endswith('/') and info.type == tarfile.DIRTYPE:
       # Enforce the ending / for directories so we correctly deduplicate.
       info.name += '/'
     if info.name not in self.members:
@@ -172,7 +169,6 @@ class TarFileWriter(object):
   def add_file(self,
                name,
                kind=tarfile.REGTYPE,
-               content=None,
                link=None,
                file_content=None,
                uid=0,
@@ -186,7 +182,6 @@ class TarFileWriter(object):
     Args:
       name: the name of the file to add.
       kind: the type of the file to add, see tarfile.*TYPE.
-      content: a textual content to put in the file.
       link: if the file is a link, the destination of the link.
       file_content: file to read the content from. Provide either this
           one or `content` to specifies a content for the file.
@@ -235,11 +230,7 @@ class TarFileWriter(object):
       tarinfo.mode = mode
     if link:
       tarinfo.linkname = link
-    if content:
-      content_bytes = six.ensure_binary(content, 'utf-8')
-      tarinfo.size = len(content_bytes)
-      self._addfile(tarinfo, io.BytesIO(content_bytes))
-    elif file_content:
+    if file_content:
       with open(file_content, 'rb') as f:
         tarinfo.size = os.fstat(f.fileno()).st_size
         self._addfile(tarinfo, f)
@@ -274,7 +265,7 @@ class TarFileWriter(object):
     """
     if root and root[0] not in ['/', '.']:
       # Root prefix should start with a '/', adds it if missing
-      root = '/' + six.ensure_str(root)
+      root = '/' + root
     compression = os.path.splitext(tar)[-1][1:]
     if compression == 'tgz':
       compression = 'gz'
@@ -286,9 +277,9 @@ class TarFileWriter(object):
       # prevent performance issues due to accidentally-introduced seeks
       # during intar traversal by opening in "streaming" mode. gz, bz2
       # are supported natively by python 2.7 and 3.x
-      inmode = 'r|' + six.ensure_str(compression)
+      inmode = 'r|' + compression
     else:
-      inmode = 'r:' + six.ensure_str(compression)
+      inmode = 'r:' + compression
     intar = tarfile.open(name=tar, mode=inmode)
     for tarinfo in intar:
       if name_filter is None or name_filter(tarinfo.name):
