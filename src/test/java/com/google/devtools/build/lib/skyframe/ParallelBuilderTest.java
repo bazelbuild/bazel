@@ -45,8 +45,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -77,7 +75,6 @@ import org.junit.runners.JUnit4;
  * Test suite for ParallelBuilder.
  *
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ParallelBuilderTest extends TimestampBuilderTestCase {
 

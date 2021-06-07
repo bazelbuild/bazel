@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,7 +29,6 @@ import org.junit.runners.JUnit4;
  * Test the semantics of the compile_one_dependency flag: for each command-line argument (which must
  * be a source file path relative to the workspace) rebuild a single target that depends on it.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class CompileOneDependencyIntegrationTest extends GoogleBuildIntegrationTestCase {
 

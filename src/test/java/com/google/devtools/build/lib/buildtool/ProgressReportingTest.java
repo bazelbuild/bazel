@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -38,7 +36,6 @@ import org.junit.runners.JUnit4;
 /**
  * Test for progress reporting.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ProgressReportingTest extends BuildIntegrationTestCase {
   private enum PathOp {

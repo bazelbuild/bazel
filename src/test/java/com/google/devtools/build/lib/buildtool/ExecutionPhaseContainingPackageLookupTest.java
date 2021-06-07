@@ -18,8 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import java.io.IOException;
@@ -41,7 +39,6 @@ import org.junit.runners.JUnit4;
  *      and execution phase (ie: network disconnecting, credentials expiring, etc)</li>
  * </ul>
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ExecutionPhaseContainingPackageLookupTest extends IoHookTestCase {
 

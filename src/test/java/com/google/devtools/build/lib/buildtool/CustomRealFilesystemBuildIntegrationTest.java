@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -58,7 +56,6 @@ import org.junit.runner.RunWith;
  * Integration tests with a custom filesystem layer, for faking things like IOExceptions, on top of
  * the real unix filesystem (so we can execute actions).
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(TestParameterInjector.class)
 public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegrationTestCase {
 

@@ -19,8 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
@@ -29,7 +27,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for dangling symlinks. */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
 

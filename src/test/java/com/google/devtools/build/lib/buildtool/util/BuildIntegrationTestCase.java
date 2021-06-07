@@ -92,11 +92,9 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
-import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
@@ -129,7 +127,6 @@ import org.junit.Before;
  *
  * <p>All integration tests are at least size medium.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 public abstract class BuildIntegrationTestCase {
 
   /** Thrown when an integration test case fails. */

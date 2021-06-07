@@ -20,21 +20,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * An annotation class which we use to attach a little meta data to test
- * classes. For now, we use this to attach a {@link Suite}.
- */
+/** An annotation class which we use to attach a little meta data to test classes. */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
 public @interface TestSpec {
-
-  /**
-   * The size of the specified test, in terms of its resource consumption and
-   * execution time.
-   */
-  Suite size() default Suite.SMALL_TESTS;
-
   /**
    * An array of operating systems that the test can run under. If not specified, the test can
    * run under all operating systems.

@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,7 +25,6 @@ import org.junit.runners.JUnit4;
  * Regression test for Blaze crashing when the finishing time of a command is smaller than the
  * starting time according to the clock, which cannot be trusted to be non-decreasing in general.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class BogusExecutionTimeTest extends BuildIntegrationTestCase {
   private ManualClock clock;

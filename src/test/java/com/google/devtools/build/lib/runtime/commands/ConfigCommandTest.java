@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationDiffForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentDiffForOutput;
-import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.gson.Gson;
@@ -53,7 +51,6 @@ import org.junit.runners.JUnit4;
  * so the output formatter used doesn't affect those properties. We test with <code>--output=json
  * </code> for easy parsing.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ConfigCommandTest extends BuildIntegrationTestCase {
   private BlazeCommandDispatcher dispatcher;

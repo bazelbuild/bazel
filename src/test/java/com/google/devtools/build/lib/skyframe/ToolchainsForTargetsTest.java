@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -58,7 +56,6 @@ import org.junit.runners.JUnit4;
  * because that method needs a {@link SkyFunction.Environment} and Blaze's test infrastructure
  * doesn't support direct access to environments.
  */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class ToolchainsForTargetsTest extends AnalysisTestCase {
   /** Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair. */

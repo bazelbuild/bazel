@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.OS;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,8 +45,30 @@ public class BazelTestSuiteBuilder {
       new Predicate<Class<?>>() {
         @Override
         public boolean apply(Class<?> testClass) {
-          ImmutableSet<OS> supportedOs = ImmutableSet.copyOf(Suite.getSupportedOs(testClass));
+          ImmutableSet<OS> supportedOs = ImmutableSet.copyOf(getSupportedOs(testClass));
           return supportedOs.isEmpty() || supportedOs.contains(OS.getCurrent());
         }
       };
+
+  /** Given a class, determine the list of operating systems its tests can run under. */
+  private static OS[] getSupportedOs(Class<?> clazz) {
+    return getAnnotationElementOrDefault(clazz, "supportedOs");
+  }
+
+  /**
+   * Returns the value of the given element in the {@link TestSpec} annotation of the given class,
+   * or the default value of that element if the class doesn't have a {@link TestSpec} annotation.
+   */
+  @SuppressWarnings("unchecked")
+  private static <T> T getAnnotationElementOrDefault(Class<?> clazz, String elementName) {
+    TestSpec spec = clazz.getAnnotation(TestSpec.class);
+    try {
+      Method method = TestSpec.class.getMethod(elementName);
+      return spec != null ? (T) method.invoke(spec) : (T) method.getDefaultValue();
+    } catch (NoSuchMethodException e) {
+      throw new IllegalStateException("no such element " + elementName, e);
+    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+      throw new IllegalStateException("can't invoke accessor for element " + elementName, e);
+    }
+  }
 }

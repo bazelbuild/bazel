@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,7 +30,6 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link TargetSummaryPublisher}. */
 @RunWith(JUnit4.class)
-@TestSpec(size = Suite.SMALL_TESTS)
 public final class TargetSummaryEventTest {
   private static final String PATH = "package";
   private static final String TARGET_NAME = "name";

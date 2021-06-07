@@ -34,10 +34,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -53,7 +51,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Analysis caching tests. */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class AnalysisCachingTest extends AnalysisCachingTestBase {
 

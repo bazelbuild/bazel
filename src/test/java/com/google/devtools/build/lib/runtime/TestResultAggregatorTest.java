@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.stream.Stream;
@@ -41,7 +39,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link TestResultAggregator}. */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public final class TestResultAggregatorTest {
 

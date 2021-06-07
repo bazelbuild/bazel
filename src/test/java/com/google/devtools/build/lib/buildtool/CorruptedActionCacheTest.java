@@ -17,8 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -29,7 +27,6 @@ import org.junit.runners.JUnit4;
 /**
  * Validates corrupted action cache behavior.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
 

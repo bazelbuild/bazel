@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -24,7 +22,6 @@ import org.junit.runners.JUnit4;
 /**
  * Integration test for warnings issued when an artifact is a directory.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
 

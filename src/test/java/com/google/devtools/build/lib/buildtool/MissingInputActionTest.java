@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -36,7 +34,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests related to "missing input file" errors. */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(TestParameterInjector.class)
 public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
   @Override

@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -39,7 +37,6 @@ import org.junit.runners.JUnit4;
  * These tests belong to {@link TimestampBuilderTest}, but they're in a separate class for now
  * because they are a little slower.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   private Path cacheRoot;
