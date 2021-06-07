@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.util.OS;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -53,28 +52,6 @@ public enum Suite {
    */
   public static Suite getSize(Class<?> clazz) {
     return getAnnotationElementOrDefault(clazz, "size");
-  }
-
-  /**
-   * Given a class, determine the suite it belongs to.
-   */
-  public static String getSuiteName(Class<?> clazz) {
-    return getAnnotationElementOrDefault(clazz, "suite");
-  }
-
-  /**
-   * Given a class, determine if it is flaky.
-   */
-  public static boolean isFlaky(Class<?> clazz) {
-    return getAnnotationElementOrDefault(clazz, "flaky");
-  }
-
-  /**
-   * Given a class, determine if it can run in a remote execution environment or on the local
-   * machine only.
-   */
-  public static boolean isLocalOnly(Class<?> clazz) {
-    return getAnnotationElementOrDefault(clazz, "localOnly");
   }
 
   /**

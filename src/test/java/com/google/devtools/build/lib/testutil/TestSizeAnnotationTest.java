@@ -30,15 +30,8 @@ public class TestSizeAnnotationTest {
 
   }
 
-  @TestSpec(flaky = true)
-  private static class FlakyTestSpecAnnotation {
-
-  }
-
-  @TestSpec(suite = "foo")
-  private static class HasNoSizeAnnotationElement {
-
-  }
+  @TestSpec
+  private static class HasNoSizeAnnotationElement {}
 
   @TestSpec(size = Suite.SMALL_TESTS)
   private static class IsAnnotatedWithSmallSize {
@@ -122,15 +115,5 @@ public class TestSizeAnnotationTest {
   public void testHasSizeElementAndSuperclassHasAnnotationWithSizeElement() {
     assertThat(getSize(HasSizeElementAndSuperclassHasAnnotationWithSizeElement.class))
         .isEqualTo(Suite.LARGE_TESTS);
-  }
-
-  @Test
-  public void testIsNotFlaky() {
-    assertThat(Suite.isFlaky(HasNoTestSpecAnnotation.class)).isFalse();
-  }
-  
-  @Test
-  public void testIsFlaky() {
-    assertThat(Suite.isFlaky(FlakyTestSpecAnnotation.class)).isTrue();
   }
 }

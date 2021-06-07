@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.util.OS;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
@@ -35,24 +34,6 @@ public @interface TestSpec {
    * execution time.
    */
   Suite size() default Suite.SMALL_TESTS;
-
-  /**
-   * The name of the suite to which this test belongs.  Useful for creating
-   * test suites organised by function.
-   */
-  String suite() default "";
-
-  /**
-   * True, if the test will is not dependable because it has a chance to fail regardless of the
-   * code's correctness. If this is the case, the test should be fixed as soon as possible.
-   */
-  boolean flaky() default false;
-
-  /**
-   * True, if the test cannot run in a remote execution environment and has to run on the local
-   * machine.
-   */
-  boolean localOnly() default false;
 
   /**
    * An array of operating systems that the test can run under. If not specified, the test can

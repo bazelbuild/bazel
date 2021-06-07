@@ -42,7 +42,7 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link WindowsFileSystem}. */
 @RunWith(JUnit4.class)
-@TestSpec(localOnly = true, supportedOs = OS.WINDOWS)
+@TestSpec(supportedOs = OS.WINDOWS)
 public class WindowsFileSystemTest {
 
   private WindowsFileSystem fs;
