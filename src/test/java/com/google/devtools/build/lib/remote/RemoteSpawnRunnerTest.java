@@ -73,11 +73,11 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
-import com.google.devtools.build.lib.exec.SpawnCheckingCache;
-import com.google.devtools.build.lib.exec.SpawnExecuting;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
-import com.google.devtools.build.lib.exec.SpawnScheduling;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
@@ -1390,9 +1390,9 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(SpawnCheckingCache.create("remote"));
-    reportOrder.verify(policy, times(1)).report(SpawnScheduling.create("remote"));
-    reportOrder.verify(policy, times(1)).report(SpawnExecuting.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnCheckingCacheEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1414,7 +1414,7 @@ public class RemoteSpawnRunnerTest {
         .thenAnswer(
             invocationOnMock -> {
               OperationObserver receiver = invocationOnMock.getArgument(2);
-              verify(policy, never()).report(SpawnExecuting.create("remote"));
+              verify(policy, never()).report(SpawnExecutingEvent.create("remote"));
               receiver.onNext(Operation.getDefaultInstance());
               return succeeded;
             });
@@ -1428,8 +1428,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(SpawnScheduling.create("remote"));
-    reportOrder.verify(policy, times(1)).report(SpawnExecuting.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1458,7 +1458,7 @@ public class RemoteSpawnRunnerTest {
                               ExecuteOperationMetadata.newBuilder().setStage(Value.QUEUED).build()))
                       .build();
               receiver.onNext(queued);
-              verify(policy, never()).report(SpawnExecuting.create("remote"));
+              verify(policy, never()).report(SpawnExecutingEvent.create("remote"));
 
               Operation executing =
                   Operation.newBuilder()
@@ -1482,8 +1482,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(SpawnScheduling.create("remote"));
-    reportOrder.verify(policy, times(1)).report(SpawnExecuting.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1524,8 +1524,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(SpawnScheduling.create("remote"));
-    reportOrder.verify(policy, times(1)).report(SpawnExecuting.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1568,8 +1568,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(SpawnScheduling.create("remote"));
-    reportOrder.verify(policy, times(1)).report(SpawnExecuting.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1599,8 +1599,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(SpawnScheduling.create("remote"));
-    reportOrder.verify(policy, times(1)).report(SpawnExecuting.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {

@@ -45,9 +45,9 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
-import com.google.devtools.build.lib.exec.SpawnCheckingCache;
-import com.google.devtools.build.lib.exec.SpawnExecuting;
-import com.google.devtools.build.lib.exec.SpawnScheduling;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -146,7 +146,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     public void reportExecuting() {
-      context.report(SpawnExecuting.create(getName()));
+      context.report(SpawnExecutingEvent.create(getName()));
       reportedExecuting = true;
     }
 
@@ -180,7 +180,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     Profiler prof = Profiler.instance();
     try {
-      context.report(SpawnCheckingCache.create(getName()));
+      context.report(SpawnCheckingCacheEvent.create(getName()));
 
       // Try to lookup the action in the action cache.
       RemoteActionResult cachedResult;
@@ -235,7 +235,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                       .minus(action.getNetworkTime().getDuration().minus(networkTimeStart)));
             }
 
-            context.report(SpawnScheduling.create(getName()));
+            context.report(SpawnSchedulingEvent.create(getName()));
 
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;

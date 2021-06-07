@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
-import com.google.devtools.build.lib.exec.SpawnCheckingCache;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -296,7 +296,7 @@ public class RemoteSpawnCacheTest {
     assertThat(outErr.hasRecordedOutput()).isFalse();
     assertThat(outErr.hasRecordedStderr()).isFalse();
     assertThat(progressUpdates)
-        .containsExactly(SpawnCheckingCache.create("remote-cache"));
+        .containsExactly(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
@@ -341,7 +341,7 @@ public class RemoteSpawnCacheTest {
             eq(outputFiles),
             eq(outErr));
     assertThat(progressUpdates)
-        .containsExactly(SpawnCheckingCache.create("remote-cache"));
+        .containsExactly(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
@@ -509,7 +509,7 @@ public class RemoteSpawnCacheTest {
             eq(outputFiles),
             eq(outErr));
     assertThat(progressUpdates)
-        .containsExactly(SpawnCheckingCache.create("remote-cache"));
+        .containsExactly(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
@@ -551,7 +551,7 @@ public class RemoteSpawnCacheTest {
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
     assertThat(evt.getMessage()).contains("cache down");
     assertThat(progressUpdates)
-        .containsExactly(SpawnCheckingCache.create("remote-cache"));
+        .containsExactly(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
@@ -609,7 +609,7 @@ public class RemoteSpawnCacheTest {
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
     assertThat(evt.getMessage()).contains("UNAVAILABLE");
     assertThat(progressUpdates)
-        .containsExactly(SpawnCheckingCache.create("remote-cache"));
+        .containsExactly(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
@@ -679,7 +679,7 @@ public class RemoteSpawnCacheTest {
             eq(outputFiles),
             eq(outErr));
     assertThat(progressUpdates)
-        .containsExactly(SpawnCheckingCache.create("remote-cache"));
+        .containsExactly(SpawnCheckingCacheEvent.create("remote-cache"));
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
   }
 

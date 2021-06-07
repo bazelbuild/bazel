@@ -265,10 +265,10 @@ java_library(
 java_library(
     name = "spawn_runner",
     srcs = [
-        "SpawnCheckingCache.java",
-        "SpawnExecuting.java",
+        "SpawnCheckingCacheEvent.java",
+        "SpawnExecutingEvent.java",
         "SpawnRunner.java",
-        "SpawnScheduling.java",
+        "SpawnSchedulingEvent.java",
     ],
     deps = [
         ":tree_deleter",

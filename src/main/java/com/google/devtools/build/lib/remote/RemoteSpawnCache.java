@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
-import com.google.devtools.build.lib.exec.SpawnCheckingCache;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -96,7 +96,7 @@ final class RemoteSpawnCache implements SpawnCache {
     Profiler prof = Profiler.instance();
     if (options.remoteAcceptCached
         || (options.incompatibleRemoteResultsIgnoreDisk && useDiskCache(options))) {
-      context.report(SpawnCheckingCache.create("remote-cache"));
+      context.report(SpawnCheckingCacheEvent.create("remote-cache"));
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
       try {
