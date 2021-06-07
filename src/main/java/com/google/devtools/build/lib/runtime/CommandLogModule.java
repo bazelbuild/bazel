@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Supplier;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -28,6 +30,8 @@ import java.util.logging.Level;
 
 /** This module logs complete stdout / stderr output of Bazel to a local file. */
 public class CommandLogModule extends BlazeModule {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private CommandEnvironment env;
   private OutputStream logOutputStream;
 
@@ -76,13 +80,20 @@ public class CommandLogModule extends BlazeModule {
 
   @Override
   public void commandComplete() {
+    CommandEnvironment localEnv = this.env;
     this.env = null;
     if (logOutputStream != null) {
       try {
         logOutputStream.flush();
         logOutputStream.close();
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        logger.atWarning().withCause(e).log("I/O exception closing log");
+        String msg = "I/O exception closing log: " + e.getMessage();
+        if (localEnv != null) {
+          localEnv.getReporter().handle(Event.error(msg));
+        } else {
+          System.err.println(msg);
+        }
       } finally {
         logOutputStream = null;
       }
