@@ -14,7 +14,6 @@
 //
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
-import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -108,39 +107,17 @@ public class InMemoryFileInfo extends FileInfo {
     return out;
   }
 
-  /**
-   * A {@link ByteArrayOutputStream} which notifiers a callback when it has flushed its data.
-   */
+  /** A {@link ByteArrayOutputStream} which notifiers a callback when it has flushed its data. */
   public static class InMemoryOutputStream extends ByteArrayOutputStream {
     private final Consumer<byte[]> receiver;
-    private boolean closed = false;
 
     public InMemoryOutputStream(Consumer<byte[]> receiver) {
       this.receiver = receiver;
     }
 
     @Override
-    public void write(byte[] data) throws IOException {
-      Preconditions.checkState(!closed);
-      super.write(data);
-    }
-
-    @Override
-    public synchronized void write(int dataByte) {
-      Preconditions.checkState(!closed);
-      super.write(dataByte);
-    }
-
-    @Override
-    public synchronized void write(byte[] data, int offset, int length) {
-      Preconditions.checkState(!closed);
-      super.write(data, offset, length);
-    }
-
-    @Override
-    public synchronized void close() {
+    public void close() {
       flush();
-      closed = true;
     }
 
     @Override
