@@ -24,6 +24,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
@@ -215,6 +216,10 @@ final class UiStateTracker {
      */
     int runningStrategiesBitmap = 0;
 
+    private final Deque<String> runningProgress = new ArrayDeque<>();
+    private final Map<String, Long> progressNanoStartTimes = new TreeMap<>();
+    private final Map<String, ActionProgressEvent> progresses = new TreeMap<>();
+
     /** Starts tracking the state of an action. */
     ActionState(ActionExecutionMetadata action, long nanoStartTime) {
       this.action = action;
@@ -302,6 +307,27 @@ final class UiStateTracker {
       schedulingStrategiesBitmap &= ~id;
       runningStrategiesBitmap |= id;
       nanoStartTime = nanoChangeTime;
+    }
+
+    /**
+     * Handle the progress event for the action.
+     */
+    synchronized void onProgressEvent(ActionProgressEvent event, long nanoChangeTime) {
+      String id = event.getProgressId();
+      if (event.isFinished()) {
+        // a download is finished, clean it up
+        runningProgress.remove(id);
+        progressNanoStartTimes.remove(id);
+        progresses.remove(id);
+      } else if (runningProgress.contains(id)) {
+        // a new progress update on an already known, still running download
+        progresses.put(id, event);
+      } else {
+        // Start of a new download
+        runningProgress.add(id);
+        progresses.put(id, event);
+        progressNanoStartTimes.put(id, nanoChangeTime);
+      }
     }
 
     /** Generates a human-readable description of this action's state. */
@@ -537,6 +563,13 @@ final class UiStateTracker {
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).setRunning(event.getStrategy(), now);
+  }
+
+  void actionProgress(ActionProgressEvent event) {
+    ActionExecutionMetadata action = event.getActionMetadata();
+    Artifact actionId = event.getActionMetadata().getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).onProgressEvent(event, now);
   }
 
   void actionCompletion(ActionScanningCompletedEvent event) {
@@ -863,15 +896,21 @@ final class UiStateTracker {
         totalCount--;
         break;
       }
+      boolean hasMore = (count >= sampleSize && count < actualObservedActiveActionsCount);
       int width =
           targetWidth
               - 4
-              - ((count >= sampleSize && count < actualObservedActiveActionsCount)
-                  ? AND_MORE.length()
-                  : 0);
+              - (hasMore ? AND_MORE.length() : 0);
+      ActionState actionState = entry.getValue();
       terminalWriter
           .newline()
-          .append("    " + describeAction(entry.getValue(), nanoTime, width, toSkip));
+          .append("    " + describeAction(actionState, nanoTime, width, toSkip));
+      reportActionProgresses(
+          terminalWriter,
+          actionState,
+          "        ",
+          nanoTime,
+          targetWidth - ((hasMore ? AND_MORE.length() : 0)));
     }
     if (totalCount < actualObservedActiveActionsCount) {
       terminalWriter.append(AND_MORE);
@@ -1084,6 +1123,65 @@ final class UiStateTracker {
     }
   }
 
+  private void reportOneActionProgress(
+      AnsiTerminalWriter terminalWriter,
+      ActionState actionState,
+      String leftMargin,
+      long nanoTime,
+      int width,
+      String id,
+      String suffix)
+      throws IOException {
+    ActionProgressEvent download = actionState.progresses.get(id);
+    long nanoDownloadTime = nanoTime - actionState.progressNanoStartTimes.get(id);
+    long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
+
+    String progress = download.getProgress();
+    if (progress.isEmpty()) {
+      progress = id;
+    }
+
+    if (downloadSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
+      suffix = "; " + downloadSeconds + "s" + suffix;
+    }
+
+    int remainingWidth = width - leftMargin.length() - suffix.length();
+    if (remainingWidth < progress.length()) {
+      progress = progress.substring(0, remainingWidth - ELLIPSIS.length()) + ELLIPSIS;
+    }
+
+    terminalWriter
+        .newline()
+        .append(leftMargin)
+        .append(progress)
+        .append(suffix);
+  }
+
+  private void reportActionProgresses(
+      AnsiTerminalWriter terminalWriter, ActionState actionState, String leftMargin, long nanoTime, int width)
+      throws IOException {
+    int count = 0;
+    int progressCount = actionState.runningProgress.size();
+    String suffix = AND_MORE + " (" + progressCount + " progresses)";
+    for (String id : actionState.runningProgress) {
+      if (count >= sampleSize) {
+        break;
+      }
+      count++;
+      reportOneActionProgress(
+          terminalWriter,
+          actionState,
+          leftMargin,
+          nanoTime,
+          width,
+          id,
+          (count >= sampleSize && count < progressCount) ? suffix : "");
+    }
+    if (count < progressCount) {
+      terminalWriter.newline().append(leftMargin + suffix);
+    }
+  }
+
   synchronized void writeProgressBar(
       AnsiTerminalWriter rawTerminalWriter, boolean shortVersion, String timestamp)
       throws IOException {
@@ -1156,17 +1254,25 @@ final class UiStateTracker {
         terminalWriter.normal().append("  1 action");
         maybeShowRecentTest(
             terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
+        long nanoTime = clock.nanoTime();
         String statusMessage =
-            describeAction(oldestAction, clock.nanoTime(), targetWidth - 4, null);
+            describeAction(oldestAction, nanoTime, targetWidth - 4, null);
         terminalWriter.normal().newline().append("    " + statusMessage);
+        if (!shortVersion) {
+          reportActionProgresses(terminalWriter, oldestAction, "        ", nanoTime, targetWidth);
+        }
       } else {
+        long nanoTime = clock.nanoTime();
         String statusMessage =
             describeAction(
                 oldestAction,
-                clock.nanoTime(),
+                nanoTime,
                 targetWidth - terminalWriter.getPosition() - 1,
                 null);
         terminalWriter.normal().append(" " + statusMessage);
+        if (!shortVersion) {
+          reportActionProgresses(terminalWriter, oldestAction, "    ", nanoTime, targetWidth);
+        }
       }
     } else {
       if (shortVersion) {

@@ -50,6 +50,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.exec.SpawnProgressEvent;
+import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -91,6 +93,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -314,6 +317,12 @@ public class RemoteCache implements AutoCloseable {
     return actualPath.getParentDirectory().getRelative(actualPath.getBaseName() + ".tmp");
   }
 
+  interface DownloadProgressReporter {
+    void downloadStarted();
+
+    void downloadFinished();
+  }
+
   /**
    * Download the output files and directory trees of a remotely executed action to the local
    * machine, as well stdin / stdout to the given files.
@@ -330,7 +339,8 @@ public class RemoteCache implements AutoCloseable {
       RemotePathResolver remotePathResolver,
       ActionResult result,
       FileOutErr origOutErr,
-      OutputFilesLocker outputFilesLocker)
+      OutputFilesLocker outputFilesLocker,
+      Consumer<ProgressStatus> reporter)
       throws ExecException, IOException, InterruptedException {
     ActionResultMetadata metadata = parseActionResultMetadata(context, remotePathResolver, result);
 
@@ -347,7 +357,21 @@ public class RemoteCache implements AutoCloseable {
                             context,
                             remotePathResolver.localPathToOutputPath(file.path()),
                             toTmpDownloadPath(file.path()),
-                            file.digest());
+                            file.digest(),
+                            new DownloadProgressReporter() {
+                              private final String id = remotePathResolver.localPathToOutputPath(file.path());
+
+                              @Override
+                              public void downloadStarted() {
+                                reporter.accept(
+                                    SpawnProgressEvent.create(id, "Downloading " + id, false));
+                              }
+
+                              @Override
+                              public void downloadFinished() {
+                                reporter.accept(SpawnProgressEvent.create(id, "", true));
+                              }
+                            });
                     return Futures.transform(download, (d) -> file, directExecutor());
                   } catch (IOException e) {
                     return Futures.<FileMetadata>immediateFailedFuture(e);
@@ -499,10 +523,14 @@ public class RemoteCache implements AutoCloseable {
   }
 
   public ListenableFuture<Void> downloadFile(
-      RemoteActionExecutionContext context, String outputPath, Path localPath, Digest digest)
+      RemoteActionExecutionContext context,
+      String outputPath,
+      Path localPath,
+      Digest digest,
+      @Nullable DownloadProgressReporter reporter)
       throws IOException {
     SettableFuture<Void> outerF = SettableFuture.create();
-    ListenableFuture<Void> f = downloadFile(context, localPath, digest);
+    ListenableFuture<Void> f = downloadFile(context, localPath, digest, reporter);
     Futures.addCallback(
         f,
         new FutureCallback<Void>() {
@@ -529,6 +557,16 @@ public class RemoteCache implements AutoCloseable {
   /** Downloads a file (that is not a directory). The content is fetched from the digest. */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context, Path path, Digest digest) throws IOException {
+    return downloadFile(context, path, digest, null);
+  }
+
+  /** Downloads a file (that is not a directory). The content is fetched from the digest. */
+  public ListenableFuture<Void> downloadFile(
+      RemoteActionExecutionContext context,
+      Path path,
+      Digest digest,
+      @Nullable DownloadProgressReporter reporter)
+      throws IOException {
     Preconditions.checkNotNull(path.getParentDirectory()).createDirectoryAndParents();
     if (digest.getSizeBytes() == 0) {
       // Handle empty file locally.
@@ -549,6 +587,9 @@ public class RemoteCache implements AutoCloseable {
       return COMPLETED_SUCCESS;
     }
 
+    if (reporter != null) {
+      reporter.downloadStarted();
+    }
     OutputStream out = new LazyFileOutputStream(path);
     SettableFuture<Void> outerF = SettableFuture.create();
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
@@ -560,6 +601,9 @@ public class RemoteCache implements AutoCloseable {
             try {
               out.close();
               outerF.set(null);
+              if (reporter != null) {
+                reporter.downloadFinished();
+              }
             } catch (IOException e) {
               outerF.setException(e);
             } catch (RuntimeException e) {
@@ -572,6 +616,9 @@ public class RemoteCache implements AutoCloseable {
           public void onFailure(Throwable t) {
             try {
               out.close();
+              if (reporter != null) {
+                reporter.downloadFinished();
+              }
             } catch (IOException e) {
               if (t != e) {
                 t.addSuppressed(e);
@@ -1200,3 +1247,4 @@ public class RemoteCache implements AutoCloseable {
     }
   }
 }
+

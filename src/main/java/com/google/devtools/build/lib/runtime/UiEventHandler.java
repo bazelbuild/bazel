@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.CachingActionEvent;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -690,6 +691,13 @@ public final class UiEventHandler implements EventHandler {
   @AllowConcurrentEvents
   public void runningAction(RunningActionEvent event) {
     stateTracker.runningAction(event);
+    refresh();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionProgress(ActionProgressEvent event) {
+    stateTracker.actionProgress(event);
     refresh();
   }
 
