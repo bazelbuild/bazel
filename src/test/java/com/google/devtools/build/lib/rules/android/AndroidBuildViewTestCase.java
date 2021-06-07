@@ -384,14 +384,13 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected void checkProguardUse(
-      String target,
+      ConfiguredTarget binary,
       String artifact,
       boolean expectMapping,
       @Nullable Integer passes,
       boolean splitOptimizationPass,
       String... expectedlibraryJars)
       throws Exception {
-    ConfiguredTarget binary = getConfiguredTarget(target);
     assertProguardUsed(binary);
     assertProguardGenerated(binary);
 
