@@ -15,13 +15,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
 import java.util.List;
 
 /**
@@ -30,7 +28,7 @@ import java.util.List;
  */
 @Immutable
 @AutoCodec
-public final class CcNativeLibraryInfo implements CcNativeLibraryInfoApi {
+public final class CcNativeLibraryInfo {
 
   public static final CcNativeLibraryInfo EMPTY =
       new CcNativeLibraryInfo(NestedSetBuilder.emptySet(Order.LINK_ORDER));
@@ -49,11 +47,6 @@ public final class CcNativeLibraryInfo implements CcNativeLibraryInfoApi {
    */
   public NestedSet<LibraryToLink> getTransitiveCcNativeLibraries() {
     return transitiveCcNativeLibraries;
-  }
-
-  @Override
-  public Depset getTransitiveCcNativeLibrariesStarlark() {
-    return Depset.of(LibraryToLink.TYPE, getTransitiveCcNativeLibraries());
   }
 
   /** Merge several CcNativeLibraryInfo objects into one. */

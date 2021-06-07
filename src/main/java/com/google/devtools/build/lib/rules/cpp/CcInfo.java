@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
 import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -79,13 +78,6 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
   public CcNativeLibraryInfo getCcNativeLibraryInfo() {
     return ccNativeLibraryInfo;
-  }
-
-  @Override
-  public CcNativeLibraryInfoApi getCcNativeLibraryInfoFromStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getCcNativeLibraryInfo();
   }
 
   public static CcInfo merge(Collection<CcInfo> ccInfos) {
