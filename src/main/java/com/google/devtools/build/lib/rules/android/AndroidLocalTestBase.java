@@ -461,7 +461,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       builder.addArtifact(androidAllJarsPropertiesFile);
     }
 
-    builder.addArtifacts(getRuntimeJarsForTargets(getAndCheckTestSupport(ruleContext)));
+    // runtime jars always in naive link order, incompatible with compile order runfiles.
+    builder.addArtifacts(getRuntimeJarsForTargets(getAndCheckTestSupport(ruleContext)).toList());
 
     builder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
 
