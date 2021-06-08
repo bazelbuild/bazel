@@ -123,4 +123,7 @@ message SpawnExec {
   // Its semantics varies greatly depending on the status field.
   // Dependable: if status is empty, exit_code is guaranteed to be zero.
   int32 exit_code = 15;
+
+  // Was the Spawn result allowed to be cached remotely.
+  bool remote_cacheable = 16;
 }
