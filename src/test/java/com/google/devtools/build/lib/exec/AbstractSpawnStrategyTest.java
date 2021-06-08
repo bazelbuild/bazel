@@ -363,6 +363,7 @@ public class AbstractSpawnStrategyTest {
             .setExitCode(23)
             .setRemotable(true)
             .setCacheable(true)
+            .setRemoteCacheable(true)
             .setProgressMessage("my progress message")
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
@@ -489,6 +490,7 @@ public class AbstractSpawnStrategyTest {
         .setMnemonic("Mnemonic")
         .setRunner("runner")
         .setStatus("NON_ZERO_EXIT")
-        .setExitCode(23);
+        .setExitCode(23)
+        .setRemoteCacheable(true);
   }
 }
