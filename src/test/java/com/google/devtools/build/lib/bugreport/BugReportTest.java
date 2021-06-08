@@ -192,6 +192,12 @@ public final class BugReportTest {
     verify(handler).handle(event.capture());
     assertThat(event.getValue().getKind()).isEqualTo(EventKind.FATAL);
     assertThat(event.getValue().getMessage()).contains(Throwables.getStackTraceAsString(t));
+
+    if (crashType == CrashType.OOM) {
+      assertThat(event.getValue().getMessage()).contains("Build fewer targets!");
+    } else {
+      assertThat(event.getValue().getMessage()).doesNotContain("Build fewer targets!");
+    }
   }
 
   private void verifyExitCodeWritten(int exitCode) throws Exception {
