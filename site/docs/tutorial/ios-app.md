@@ -285,7 +285,7 @@ The `.ipa` file and other outputs are located in the
 
 ### Run and debug the app in the simulator
 
-You can now run the app from Xcode using the iOS Simulator. First, [generate an Xcode project using Tulsi](http://tulsi.bazel.io/).
+You can now run the app from Xcode using the iOS Simulator. First, [generate an Xcode project using Tulsi](http://tulsi.bazel.build/).
 
 Then, open the project in Xcode, choose an iOS Simulator as the runtime scheme,
 and click **Run**.
@@ -334,7 +334,7 @@ build for a specific SDK version, use the `--ios_sdk_version` option. The
 To specify a minimum required iOS version, add the `minimum_os_version`
 parameter to the `ios_application` build rule in your `BUILD` file.
 
-You can also use [Tulsi](http://tulsi.bazel.io/docs/gettingstarted.html) to
+You can also use [Tulsi](http://tulsi.bazel.build/docs/gettingstarted.html) to
 build your app using a GUI rather than the command line.
 
 ### Install the app on a device
