@@ -328,7 +328,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         return;
       }
 
-      // TODO(ulfjack): We should report more details to the UI.
       ExtendedEventHandler eventHandler = actionExecutionContext.getEventHandler();
       progress.postTo(eventHandler, action);
     }

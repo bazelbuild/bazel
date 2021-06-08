@@ -3,7 +3,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
 
 /**
- * Notifies that an in-flight action is making progress..
+ * Notifies that an in-flight action is making progress.
  */
 public class ActionProgressEvent implements ProgressLike {
   private final ActionExecutionMetadata action;

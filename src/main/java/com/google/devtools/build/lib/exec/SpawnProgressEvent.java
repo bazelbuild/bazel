@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 
+
+/** The {@link SpawnRunner} is making some progress. */
 @AutoValue
 public abstract class SpawnProgressEvent implements ProgressStatus {
 
@@ -26,8 +28,15 @@ public abstract class SpawnProgressEvent implements ProgressStatus {
     return new AutoValue_SpawnProgressEvent(resourceId, progress, finished);
   }
 
+  /**
+   * The id that uniquely determines the progress among all progress events for this spawn.
+   */
   abstract String progressId();
+
+  /** Human readable description of the progress */
   abstract String progress();
+
+  /** Whether the progress reported about is finished already */
   abstract boolean finished();
 
   @Override
