@@ -138,6 +138,7 @@ public class SpawnLogContext implements ActionContext {
       builder.setTimeoutMillis(timeout.toMillis());
     }
     builder.setCacheable(Spawns.mayBeCached(spawn));
+    builder.setRemoteCacheable(Spawns.mayBeCachedRemotely(spawn));
     builder.setExitCode(result.exitCode());
     builder.setRemoteCacheHit(result.isCacheHit());
     builder.setRunner(result.getRunnerName());

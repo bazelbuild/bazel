@@ -188,4 +188,17 @@ EOF
   grep "listedOutputs" output.json || fail "log does not contain listed outputs"
 }
 
+function test_no_remote_cache() {
+  cat > BUILD <<'EOF'
+genrule(
+      name = "action",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)",
+      tags = ["no-remote-cache"],
+)
+EOF
+  bazel build //:action --execution_log_json_file=output.json 2>&1 >> $TEST_log || fail "could not build"
+  grep "\"remoteCacheable\": false" output.json || fail "log does not contain valid remoteCacheable entry"
+}
+
 run_suite "execlog_tests"
