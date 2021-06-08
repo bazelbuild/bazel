@@ -55,42 +55,6 @@ genquery(
     scope = ["@bazel_tools//tools/jdk:current_java_toolchain"],
 )
 
-# Create dummy tools so we can do select to prevent building iOS target on
-# Linux.
-OSX_DUMMY_TARGETS = [
-    "src/tools/xcode/realpath/realpath",
-    "src/tools/xcode/stdredirect/StdRedirect.dylib",
-]
-
-[
-    genrule(
-        name = "dummy_darwin_tool_" + name.replace("/", "_"),
-        srcs = [],
-        outs = ["dummy_darwin_tools/" + name],
-        cmd = "touch $@",
-    )
-    for name in OSX_DUMMY_TARGETS
-]
-
-filegroup(
-    name = "darwin_tools",
-    srcs = [
-        "//src/tools/xcode/realpath:realpath",
-        "//tools/osx:xcode_locator.m",
-    ] + select({
-        "//src/conditions:iphonesdk": ["//src/tools/xcode/stdredirect:StdRedirect.dylib"],
-        "//conditions:default": [":dummy_darwin_tool_src_tools_xcode_stdredirect_StdRedirect.dylib"],
-    }),
-)
-
-filegroup(
-    name = "dummy_darwin_tools",
-    srcs = [
-        "dummy_darwin_tool_" + name.replace("/", "_")
-        for name in OSX_DUMMY_TARGETS
-    ],
-)
-
 py_library(
     name = "create_embedded_tools_lib",
     srcs = ["create_embedded_tools_lib.py"],
@@ -144,11 +108,9 @@ JAVA_TOOLS = [
                "//third_party/zlib:embedded_tools",
            ] + select({
                "//src/conditions:darwin": [
-                   ":darwin_tools",
+                   "//tools/osx:xcode_locator.m",
                ],
-               "//conditions:default": [
-                   ":dummy_darwin_tools",
-               ],
+               "//conditions:default": [],
            }) + select({
                "//src/conditions:windows": [
                    "//src/tools/launcher:launcher",
@@ -173,7 +135,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 470,
+    expect = 465,
     margin = 5,  # percentage
 )
 
@@ -493,9 +455,7 @@ filegroup(
         "//src/tools/workspacelog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
-        "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",
-        "//src/tools/xcode/stdredirect:srcs",
         "//src/tools/remote:srcs",
         "//tools/osx:srcs",
     ],
