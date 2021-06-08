@@ -829,6 +829,9 @@ message BuildMetrics {
     // remote cache hits, but excludes local action cache hits.
     int64 actions_executed = 2;
 
+    // The total number of remote cache hits.
+    int64 remote_cache_hits = 5;
+
     message ActionData {
       string mnemonic = 1;
 
