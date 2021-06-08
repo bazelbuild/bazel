@@ -84,12 +84,12 @@ class NodeEntryVisitor {
    * that have already started evaluating. Sprawl can be expensive because an incompletely evaluated
    * node keeps state in Skyframe, and often in external caches, that uses memory.
    *
-   * <p>In general, {@code evaluationPriority} should be maximal ({@link Integer#MAX_VALUE}) when
-   * restarting a node that has already started evaluation, and minimal when enqueueing a node that
-   * no other tasks depend on. Setting {@code evaluationPriority} to the same value for all children
-   * of a parent has good results experimentally, since it prioritizes batches of work that can be
-   * used together. Similarly, prioritizing deeper nodes (depth-first search of the evaluation
-   * graph) also has good results experimentally, since it minimizes sprawl.
+   * <p>In general, {@code evaluationPriority} should be higher when restarting a node that has
+   * already started evaluation, and lower when enqueueing a node that no other tasks depend on.
+   * Setting {@code evaluationPriority} to the same value for all children of a parent has good
+   * results experimentally, since it prioritizes batches of work that can be used together.
+   * Similarly, prioritizing deeper nodes (depth-first search of the evaluation graph) also has good
+   * results experimentally, since it minimizes sprawl.
    */
   void enqueueEvaluation(SkyKey key, int evaluationPriority) {
     if (shouldPreventNewEvaluations()) {
@@ -110,10 +110,14 @@ class NodeEntryVisitor {
   }
 
   /**
-   * Registers a listener with all passed futures that causes the node to be re-enqueued when all
-   * futures are completed.
+   * Registers a listener with all passed futures that causes the node to be re-enqueued (at the
+   * given {@code evaluationPriority}) when all futures are completed.
    */
-  void registerExternalDeps(SkyKey skyKey, NodeEntry entry, List<ListenableFuture<?>> externalDeps)
+  void registerExternalDeps(
+      SkyKey skyKey,
+      NodeEntry entry,
+      List<ListenableFuture<?>> externalDeps,
+      int evaluationPriority)
       throws InterruptedException {
     // Generally speaking, there is no ordering guarantee for listeners registered with a single
     // listenable future. If we used a listener here, there would be a potential race condition
@@ -127,7 +131,7 @@ class NodeEntryVisitor {
             .run(
                 () -> {
                   if (entry.signalDep(entry.getVersion(), null)) {
-                    enqueueEvaluation(skyKey, Integer.MAX_VALUE);
+                    enqueueEvaluation(skyKey, evaluationPriority);
                   }
                 },
                 MoreExecutors.directExecutor());

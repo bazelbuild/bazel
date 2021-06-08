@@ -26,6 +26,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.DualExecutorQueueVisitor;
@@ -221,17 +222,32 @@ abstract class AbstractParallelEvaluator {
     private int determineChildPriority() {
       // If this evaluation is already running at a high priority, its children should be evaluated
       // at an even higher priority - they are blocking a high priority node.
-      return evaluationPriority >= FIRST_RESTART_PRIORITY
-          ? evaluationPriority + 1
-          : globalEnqueuedIndex.incrementAndGet();
+      if (evaluationPriority >= FIRST_RESTART_PRIORITY) {
+        return evenHigherPriority();
+      }
+
+      int nextPriority = globalEnqueuedIndex.incrementAndGet();
+      if (nextPriority == FIRST_RESTART_PRIORITY) {
+        BugReport.sendBugReport(
+            new ArithmeticException("Child priority has reached restart priority"));
+      }
+      return nextPriority;
     }
 
     private int determineRestartPriority() {
       // Each time a node is restarted, its priority increases so that it doesn't get lost behind
       // other restarted nodes.
       return evaluationPriority >= FIRST_RESTART_PRIORITY
-          ? evaluationPriority + 1
+          ? evenHigherPriority()
           : FIRST_RESTART_PRIORITY;
+    }
+
+    private int evenHigherPriority() {
+      if (evaluationPriority == Integer.MAX_VALUE) {
+        BugReport.sendBugReport(new ArithmeticException("Priority has reached Integer.MAX_VALUE"));
+        return Integer.MAX_VALUE;
+      }
+      return evaluationPriority + 1;
     }
 
     /**
@@ -263,9 +279,7 @@ abstract class AbstractParallelEvaluator {
         case DONE:
           if (entry.signalDep(childEntry.getVersion(), child)) {
             if (enqueueParentIfReady) {
-              // Maximum priority, since this node has already started evaluation before, and we
-              // want it off our plate.
-              evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MAX_VALUE);
+              evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
             }
             return true;
           }
@@ -522,8 +536,7 @@ abstract class AbstractParallelEvaluator {
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           // If a previously requested dep is no longer done, restart this node from scratch.
           restart(skyKey, state);
-          // Top priority since this node has already been evaluating, so get it off our plate.
-          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MAX_VALUE);
+          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
         } finally {
           evaluatorContext
@@ -639,8 +652,7 @@ abstract class AbstractParallelEvaluator {
 
         if (maybeHandleRestart(skyKey, state, value)) {
           cancelExternalDeps(env);
-          // Top priority since this node has already been evaluating, so get it off our plate.
-          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, Integer.MAX_VALUE);
+          evaluatorContext.getVisitor().enqueueEvaluation(skyKey, determineRestartPriority());
           return;
         }
 
@@ -824,7 +836,9 @@ abstract class AbstractParallelEvaluator {
           // This is an exception to the rule above that there must not be code below the for
           // loop. It is safe because we call state.addExternalDep above, which prevents
           // re-enqueueing of the current node in the above loop if externalDeps != null.
-          evaluatorContext.getVisitor().registerExternalDeps(skyKey, state, externalDeps);
+          evaluatorContext
+              .getVisitor()
+              .registerExternalDeps(skyKey, state, externalDeps, determineRestartPriority());
         }
         // Do not put any code here! Any code here can race with a re-evaluation of this same node
         // in another thread.
