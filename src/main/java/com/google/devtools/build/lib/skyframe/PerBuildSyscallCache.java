@@ -26,7 +26,9 @@ import java.io.IOException;
 import java.util.Collection;
 
 /**
- * A per-build cache of filesystem operations for Skyframe invocations of legacy package loading.
+ * A per-build cache of filesystem operations.
+ *
+ * <p>Mostly used by non-Skyframe globbing and include parsing.
  */
 public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
 

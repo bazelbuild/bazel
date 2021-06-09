@@ -466,14 +466,14 @@ public final class PackageFactory {
         repositoryMapping);
   }
 
-  /** Returns a new {@link LegacyGlobber}. */
+  /** Returns a new {@link NonSkyframeGlobber}. */
   // Exposed to skyframe.PackageFunction.
-  public LegacyGlobber createLegacyGlobber(
+  public NonSkyframeGlobber createNonSkyframeGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
       ImmutableSet<PathFragment> ignoredGlobPrefixes,
       CachingPackageLocator locator) {
-    return new LegacyGlobber(
+    return new NonSkyframeGlobber(
         new GlobCache(
             packageDirectory,
             packageId,

@@ -387,11 +387,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   /** Regression test for unexpected exception type from PackageValue. */
   @Test
-  public void testDiscrepancyBetweenLegacyAndSkyframePackageLoadingErrors() throws Exception {
-    // Normally, legacy globbing and skyframe globbing share a cache for `readdir` filesystem calls.
-    // In order to exercise a situation where they observe different results for filesystem calls,
-    // we disable the cache. This might happen in a real scenario, e.g. if the cache hits a limit
-    // and evicts entries.
+  public void testDiscrepancyBetweenGlobbingErrors() throws Exception {
+    // Normally, non-Skyframe globbing and skyframe globbing share a cache for `readdir` filesystem
+    // calls. In order to exercise a situation where they observe different results for filesystem
+    // calls, we disable the cache. This might happen in a real scenario, e.g. if the cache hits a
+    // limit and evicts entries.
     getSkyframeExecutor().turnOffSyscallCacheForTesting();
     Path fooBuildFile =
         scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['bar/*.sh']))");
@@ -440,7 +440,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGlobOrderStableWithLegacyAndSkyframeComponents() throws Exception {
+  public void testGlobOrderStableWithNonSkyframeAndSkyframeComponents() throws Exception {
     scratch.file("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.txt']))");
     scratch.file("foo/b.txt");
     scratch.file("foo/a.config");
@@ -831,7 +831,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   // Regression test for Skyframe globbing incorrectly matching the package's directory path on
   // 'glob(['**'], exclude_directories = 0)'. We test for this directly by triggering
-  // hybrid globbing (gives coverage for both legacy globbing and skyframe globbing).
+  // hybrid globbing (gives coverage for both non-skyframe globbing and skyframe globbing).
   @Test
   public void testRecursiveGlobNeverMatchesPackageDirectory() throws Exception {
     scratch.file(
@@ -1261,19 +1261,19 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLegacyGlobbingEncountersSymlinkCycleAndThrowsIOException() throws Exception {
+  public void testNonSkyframeGlobbingEncountersSymlinkCycleAndThrowsIOException() throws Exception {
     reporter.removeHandler(failFastHandler);
     getSkyframeExecutor().turnOffSyscallCacheForTesting();
 
-    // When a package's BUILD file and the relevant filesystem state is such that legacy globbing
-    // will encounter an IOException due to a directory symlink cycle,
+    // When a package's BUILD file and the relevant filesystem state is such that non-Skyframe
+    // globbing will encounter an IOException due to a directory symlink cycle,
     Path fooBUILDPath = scratch.file("foo/BUILD", "glob(['cycle/**/foo.txt'])");
     Path fooCyclePath = fooBUILDPath.getParentDirectory().getChild("cycle");
     FileSystemUtils.ensureSymbolicLink(fooCyclePath, fooCyclePath);
     IOException ioExnFromFS =
         assertThrows(IOException.class, () -> fooCyclePath.statIfFound(Symlinks.FOLLOW));
     // And it is indeed the case that the FileSystem throws an IOException when the cycle's Path is
-    // stat'd (following symlinks, as legacy globbing does).
+    // stat'd (following symlinks, as non-Skyframe globbing does).
     assertThat(ioExnFromFS).hasMessageThat().contains("Too many levels of symbolic links");
 
     // Then, when we evaluate the PackageValue node for the Package in keepGoing mode,
@@ -1305,7 +1305,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // PackageFunction will observe cache hits from Skyframe globbing,
     //
     // And we also have our filesystem blow up if the directory symlink cycle is encountered (thus,
-    // the absence of a crash indicates the lack of legacy globbing),
+    // the absence of a crash indicates the lack of non-Skyframe globbing),
     fs.stubStatError(
         fooCyclePath,
         new IOException() {

@@ -18,21 +18,22 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Future;
 
-/** {@link Globber} that uses the legacy GlobCache. */
-public class LegacyGlobber implements Globber {
+/** {@link Globber} that uses {@link GlobCache} instead of Skyframe. */
+public class NonSkyframeGlobber implements Globber {
   private final GlobCache globCache;
 
-  LegacyGlobber(GlobCache globCache) {
+  NonSkyframeGlobber(GlobCache globCache) {
     this.globCache = globCache;
   }
 
-  private static class Token extends Globber.Token {
-    public final List<String> includes;
-    public final List<String> excludes;
-    public final boolean excludeDirs;
-    public final boolean allowEmpty;
+  /** The {@link Globber.Token} used by {@link NonSkyframeGlobber}. */
+  public static class Token extends Globber.Token {
+    private final List<String> includes;
+    private final List<String> excludes;
+    private final boolean excludeDirs;
+    private final boolean allowEmpty;
 
-    public Token(
+    private Token(
         List<String> includes, List<String> excludes, boolean excludeDirs, boolean allowEmpty) {
       this.includes = includes;
       this.excludes = excludes;
@@ -55,12 +56,12 @@ public class LegacyGlobber implements Globber {
   @Override
   public List<String> fetchUnsorted(Globber.Token token)
       throws BadGlobException, IOException, InterruptedException {
-    Token legacyToken = (Token) token;
+    Token ourToken = (Token) token;
     return globCache.globUnsorted(
-        legacyToken.includes,
-        legacyToken.excludes,
-        legacyToken.excludeDirs,
-        legacyToken.allowEmpty);
+        ourToken.includes,
+        ourToken.excludes,
+        ourToken.excludeDirs,
+        ourToken.allowEmpty);
   }
 
   @Override
