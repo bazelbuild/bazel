@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SymlinkEntryApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.errorprone.annotations.DoNotCall;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -783,18 +782,6 @@ public final class Runfiles implements RunfilesApi {
         addArtifact(artifact);
       }
       return this;
-    }
-
-    /**
-     * @deprecated Use {@link #addTransitiveArtifacts} instead, to prevent increased memory use.
-     *     <p>See also {@link Builder#addTransitiveArtifactsWrappedInStableOrder}
-     */
-    @Deprecated
-    @DoNotCall
-    public Builder addArtifacts(NestedSet<Artifact> artifacts) {
-      // Do not delete this method, or else addArtifacts(Iterable) calls with a NestedSet argument
-      // will not be flagged.
-      throw new UnsupportedOperationException("Call addTransitiveArtifacts instead");
     }
 
     /**
