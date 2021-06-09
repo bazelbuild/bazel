@@ -71,10 +71,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         JavaSourceJarsProvider.merge(
             ruleContext.getPrerequisites("deps", JavaSourceJarsProvider.class));
 
-    JavaRuleOutputJarsProvider outputJarsProvider =
-        JavaRuleOutputJarsProvider.merge(
-            ruleContext.getPrerequisites("deps", JavaRuleOutputJarsProvider.class));
-
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     filesToBuild.addAll(sourceJarsProvider.getSourceJars());
@@ -89,7 +85,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         JavaInfo.Builder.create()
             .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, outputJarsProvider)
+            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(
                 JavaCcInfoProvider.class, createCcLinkingInfo(ruleContext, ImmutableList.of()))
             .setJavaConstraints(ImmutableList.of("android"))

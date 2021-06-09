@@ -191,10 +191,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
                         .setClassJar(outputJar)
                         .setCompileJar(compileTimeJar)
                         .addSourceJar(sourceJar)
-                        .setCompileJdeps(
-                            generatedCompilationArgsProvider
-                                .getCompileTimeJavaDependencyArtifacts()
-                                .getSingleton())
                         .build())
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
