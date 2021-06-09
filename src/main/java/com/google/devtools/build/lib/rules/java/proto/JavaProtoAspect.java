@@ -224,10 +224,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                         .setClassJar(outputJar)
                         .setCompileJar(compileTimeJar)
                         .addSourceJar(sourceJar)
-                        .setCompileJdeps(
-                            generatedCompilationArgsProvider
-                                .getCompileTimeJavaDependencyArtifacts()
-                                .getSingleton())
                         .build())
                 .build();
         JavaSourceJarsProvider sourceJarsProvider =
