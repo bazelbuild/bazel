@@ -1163,6 +1163,7 @@ final class UiStateTracker {
     int count = 0;
     int progressCount = actionState.runningProgress.size();
     String suffix = AND_MORE + " (" + progressCount + " progresses)";
+    int sampleSize = 1;
     for (String id : actionState.runningProgress) {
       if (count >= sampleSize) {
         break;
@@ -1176,9 +1177,6 @@ final class UiStateTracker {
           width,
           id,
           (count >= sampleSize && count < progressCount) ? suffix : "");
-    }
-    if (count < progressCount) {
-      terminalWriter.newline().append(leftMargin + suffix);
     }
   }
 
