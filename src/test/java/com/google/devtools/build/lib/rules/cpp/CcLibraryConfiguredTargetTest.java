@@ -224,10 +224,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(archive, implSharedObject, implInterfaceSharedObject);
     assertThat(
             LibraryToLink.getDynamicLibrariesForLinking(
-                hello
-                    .get(CcInfo.PROVIDER)
-                    .getCcNativeLibraryInfo()
-                    .getTransitiveCcNativeLibraries()))
+                hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries()))
         .containsExactly(implInterfaceSharedObjectLink);
     assertThat(
             hello
@@ -270,10 +267,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(archive, sharedObject, implSharedObject);
     assertThat(
             LibraryToLink.getDynamicLibrariesForLinking(
-                hello
-                    .get(CcInfo.PROVIDER)
-                    .getCcNativeLibraryInfo()
-                    .getTransitiveCcNativeLibraries()))
+                hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries()))
         .containsExactly(sharedObjectLink);
     assertThat(
             hello

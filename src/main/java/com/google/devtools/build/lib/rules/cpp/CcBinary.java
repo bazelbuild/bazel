@@ -1217,6 +1217,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     builder.addAll(libraries);
     for (CcInfo dep : ruleContext.getPrerequisites("deps", CcInfo.PROVIDER)) {
       builder.addTransitive(dep.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+      builder.addTransitive(dep.getCcLinkingContext().getLibraries());
     }
     return builder.build();
   }

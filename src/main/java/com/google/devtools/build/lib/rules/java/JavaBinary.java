@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
@@ -732,14 +733,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     NestedSet<LibraryToLink> linkerInputs =
         NestedSetBuilder.fromNestedSets(
                 Streams.concat(
-                        JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps)
-                            .stream()
-                            .map(JavaCcInfoProvider::getCcInfo)
+                        AnalysisUtils.getProviders(deps, JavaInfo.PROVIDER).stream()
+                            .map(JavaInfo::getTransitiveNativeLibraries),
+                        AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
                             .map(CcInfo::getCcNativeLibraryInfo)
                             .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries),
                         AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-                            .map(CcInfo::getCcNativeLibraryInfo)
-                            .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries))
+                            .map(CcInfo::getCcLinkingContext)
+                            .map(CcLinkingContext::getLibraries))
                     .collect(toImmutableList()))
             .build();
 
