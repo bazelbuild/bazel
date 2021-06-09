@@ -430,10 +430,51 @@ public final class RemoteModuleTest {
       remoteModule.beforeCommand(env);
 
       assertThat(Thread.interrupted()).isFalse();
-      assertThat(remoteModule.getActionContextProvider()).isNull();
+      RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
+      assertThat(actionContextProvider).isNotNull();
+      assertThat(actionContextProvider.getRemoteCache()).isNull();
+      assertThat(actionContextProvider.getRemoteExecutionClient()).isNull();
     } finally {
       cacheServer.shutdownNow();
       cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
+  public void testLocalFallback_shouldIgnoreInaccessibleGrpcRemoteExecutor() throws Exception {
+    CapabilitiesImplBase executionServerCapabilitiesImpl =
+        new CapabilitiesImplBase() {
+          @Override
+          public void getCapabilities(
+              GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
+            responseObserver.onError(new UnsupportedOperationException());
+          }
+        };
+    String executionServerName = "execution-server";
+    Server executionServer = createFakeServer(executionServerName, executionServerCapabilitiesImpl);
+    executionServer.start();
+
+    try {
+      RemoteModule remoteModule = new RemoteModule();
+      RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+      remoteOptions.remoteExecutor = executionServerName;
+      remoteOptions.remoteLocalFallback = true;
+      remoteModule.setChannelFactory(
+          (target, proxy, options, interceptors) ->
+              InProcessChannelBuilder.forName(target).directExecutor().build());
+
+      CommandEnvironment env = createTestCommandEnvironment(remoteOptions);
+
+      remoteModule.beforeCommand(env);
+
+      assertThat(Thread.interrupted()).isFalse();
+      RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
+      assertThat(actionContextProvider).isNotNull();
+      assertThat(actionContextProvider.getRemoteCache()).isNull();
+      assertThat(actionContextProvider.getRemoteExecutionClient()).isNull();
+    } finally {
+      executionServer.shutdownNow();
+      executionServer.awaitTermination();
     }
   }
 

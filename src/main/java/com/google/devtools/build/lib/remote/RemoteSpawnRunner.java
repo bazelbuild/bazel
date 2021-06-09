@@ -359,7 +359,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean canExec(Spawn spawn) {
-    return Spawns.mayBeExecutedRemotely(spawn);
+    return remoteExecutionService.mayBeExecutedRemotely(spawn);
   }
 
   @Override

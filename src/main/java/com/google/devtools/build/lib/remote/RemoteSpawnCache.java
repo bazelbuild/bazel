@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -78,8 +77,10 @@ final class RemoteSpawnCache implements SpawnCache {
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-    if (!Spawns.mayBeCached(spawn)
-        || (!Spawns.mayBeCachedRemotely(spawn) && useRemoteCache(options))) {
+    boolean mayBeCached =
+        remoteExecutionService.mayBeCachedRemotely(spawn)
+            || (!useRemoteCache(options) && remoteExecutionService.mayBeCached(spawn));
+    if (!mayBeCached) {
       // returning SpawnCache.NO_RESULT_NO_STORE in case the caching is disabled or in case
       // the remote caching is disabled and the only configured cache is remote.
       return SpawnCache.NO_RESULT_NO_STORE;
