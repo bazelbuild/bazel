@@ -20,7 +20,7 @@ version: "4.1.0"
 
 # This must be kept in sync with //scripts/docs:doc_versions.bzl
 doc_versions:
-  - master
+  - main
   - 4.1.0
   - 4.0.0
   - 3.7.0
