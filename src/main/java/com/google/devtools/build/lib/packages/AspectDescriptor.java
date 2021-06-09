@@ -35,14 +35,23 @@ public final class AspectDescriptor {
 
   /**
    * Inherited required providers to enable aspects required by other aspects to be propagated along
-   * with their main aspect until they can be applied.
+   * with their main aspect until they can be applied. Null if the aspect does not inherit required
+   * providers.
    */
-  private final RequiredProviders inheritedRequiredProviders;
+  @Nullable private final RequiredProviders inheritedRequiredProviders;
+
   /**
    * Inherited required providers to enable aspects required by other aspects to be propagated along
-   * with their main aspect based on its propgation attributes.
+   * with their main aspect based on its propagation attributes.
    */
   @Nullable private final ImmutableSet<String> inheritedAttributeAspects;
+
+  /**
+   * False if the inherited propagation information have no effect, i.e. {@code
+   * inheritedRequiredProviders} accepts None and {@code inheritedAttributeAspects} is empty,
+   * whether these values are actually inherited or not.
+   */
+  private final boolean inheritsPropagationInfo;
 
   public AspectDescriptor(
       AspectClass aspectClass,
@@ -51,24 +60,32 @@ public final class AspectDescriptor {
       ImmutableSet<String> inheritedAttributeAspects) {
     this.aspectClass = aspectClass;
     this.aspectParameters = aspectParameters;
-    this.inheritedRequiredProviders = inheritedRequiredProviders;
-    this.inheritedAttributeAspects = inheritedAttributeAspects;
+    if (isEmptyInheritedRequiredProviders(inheritedRequiredProviders)
+        && isEmptyInheritedAttributeAspects(inheritedAttributeAspects)) {
+      this.inheritsPropagationInfo = false;
+      this.inheritedRequiredProviders = null;
+      this.inheritedAttributeAspects = null;
+    } else {
+      this.inheritsPropagationInfo = true;
+      this.inheritedRequiredProviders = inheritedRequiredProviders;
+      this.inheritedAttributeAspects = inheritedAttributeAspects;
+    }
   }
 
   public AspectDescriptor(AspectClass aspectClass, AspectParameters aspectParameters) {
     this(
         aspectClass,
         aspectParameters,
-        /*inheritedRequiredProviders=*/ RequiredProviders.acceptNoneBuilder().build(),
-        /*inheritedAttributeAspects=*/ ImmutableSet.of());
+        /*inheritedRequiredProviders=*/ null,
+        /*inheritedAttributeAspects=*/ null);
   }
 
   public AspectDescriptor(AspectClass aspectClass) {
     this(
         aspectClass,
         AspectParameters.EMPTY,
-        /*inheritedRequiredProviders=*/ RequiredProviders.acceptNoneBuilder().build(),
-        /*inheritedAttributeAspects=*/ ImmutableSet.of());
+        /*inheritedRequiredProviders=*/ null,
+        /*inheritedAttributeAspects=*/ null);
   }
 
   public AspectClass getAspectClass() {
@@ -79,16 +96,32 @@ public final class AspectDescriptor {
     return aspectParameters;
   }
 
+  @Nullable
   public RequiredProviders getInheritedRequiredProviders() {
     return inheritedRequiredProviders;
   }
 
   @Nullable
   public ImmutableSet<String> getInheritedAttributeAspects() {
+    if (!inheritsPropagationInfo) {
+      return ImmutableSet.of(); // because returnning null means propagate through all attr aspects
+    }
     return inheritedAttributeAspects;
   }
 
+  public boolean satisfiesInheritedRequiredProviders(AdvertisedProviderSet advertisedProviders) {
+    if (!inheritsPropagationInfo) {
+      return false;
+    }
+
+    return inheritedRequiredProviders.isSatisfiedBy(advertisedProviders);
+  }
+
   public boolean inheritedPropagateAlong(String attributeName) {
+    if (!inheritsPropagationInfo) {
+      return false;
+    }
+
     if (inheritedAttributeAspects != null) {
       return inheritedAttributeAspects.contains(attributeName);
     }
@@ -123,6 +156,17 @@ public final class AspectDescriptor {
     return getDescription();
   }
 
+  private static boolean isEmptyInheritedRequiredProviders(
+      RequiredProviders inheritedRequiredProviders) {
+    return (inheritedRequiredProviders == null
+        || inheritedRequiredProviders.equals(RequiredProviders.acceptNoneBuilder().build()));
+  }
+
+  private static boolean isEmptyInheritedAttributeAspects(
+      ImmutableSet<String> inheritedAttributeAspects) {
+    return (inheritedAttributeAspects == null || inheritedAttributeAspects.isEmpty());
+  }
+
   /**
    * Creates a presentable description of this aspect, available to Starlark via "Target.aspects".
    *
@@ -149,18 +193,17 @@ public final class AspectDescriptor {
       builder.append(']');
     }
 
-    if (inheritedAttributeAspects == null) {
-      builder.append("[*]");
-    } else if (!inheritedAttributeAspects.isEmpty()) {
-      builder.append(inheritedAttributeAspects);
-    }
+    if (inheritsPropagationInfo) {
+      if (inheritedAttributeAspects == null) {
+        builder.append("[*]");
+      } else {
+        builder.append(inheritedAttributeAspects);
+      }
 
-    if (!inheritedRequiredProviders.equals(RequiredProviders.acceptNoneBuilder().build())) {
       builder.append('[');
       builder.append(inheritedRequiredProviders);
       builder.append(']');
     }
-
     return builder.toString();
   }
 }

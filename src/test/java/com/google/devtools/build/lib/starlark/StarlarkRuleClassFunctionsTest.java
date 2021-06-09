@@ -563,8 +563,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     // aspect_a is not required by any other aspect so its does not inherit anything
     Aspect aspectA = aspects.get(1);
-    assertThat(aspectA.getDescriptor().getInheritedRequiredProviders())
-        .isEqualTo(RequiredProviders.acceptNoneBuilder().build());
+    assertThat(aspectA.getDescriptor().getInheritedRequiredProviders()).isNull();
     assertThat(aspectA.getDescriptor().getInheritedAttributeAspects()).isEmpty();
   }
 
@@ -1031,8 +1030,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     aspects = attr3.getAspects(rule);
     aspectC = aspects.get(0);
     assertThat(aspectC.getAspectClass().getName()).isEqualTo("//:lib.bzl%aspect_c");
-    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders())
-        .isEqualTo(RequiredProviders.acceptNoneBuilder().build());
+    assertThat(aspectC.getDescriptor().getInheritedRequiredProviders()).isNull();
   }
 
   /**

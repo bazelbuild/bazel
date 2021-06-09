@@ -82,7 +82,7 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
         new AspectDescriptor(
             Preconditions.checkNotNull(aspectClass),
             Preconditions.checkNotNull(parameters),
-            Preconditions.checkNotNull(inheritedRequiredProviders),
+            inheritedRequiredProviders,
             inheritedAttributeAspects);
     this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
   }

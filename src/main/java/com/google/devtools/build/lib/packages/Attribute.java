@@ -106,11 +106,21 @@ public final class Attribute implements Comparable<Attribute> {
       this.aspectClass = aspectClass;
       this.parametersExtractor = parametersExtractor;
       this.baseAspectName = baseAspectName;
-      this.inheritedRequiredProviders = ImmutableList.builder();
-      this.inheritedAttributeAspects = ImmutableList.builder();
+      this.inheritedRequiredProviders = null;
+      this.inheritedAttributeAspects = null;
       if (baseAspectName != null) {
-        updateInheritedRequiredProviders(inheritedRequiredProviders);
-        updateInheritedAttributeAspects(inheritedAttributeAspects);
+        if (inheritedRequiredProviders == null) {
+          // Should only happen during deserialization
+          inheritedAllProviders = true;
+        } else {
+          updateInheritedRequiredProviders(inheritedRequiredProviders);
+        }
+        if (inheritedAttributeAspects == null) {
+          // Should only happen during deserialization
+          inheritedAllAttributes = true;
+        } else {
+          updateInheritedAttributeAspects(inheritedAttributeAspects);
+        }
       }
     }
 
@@ -131,17 +141,25 @@ public final class Attribute implements Comparable<Attribute> {
     protected void updateInheritedRequiredProviders(
         ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders) {
       if (!inheritedAllProviders && !requiredProviders.isEmpty()) {
+        if (inheritedRequiredProviders == null) {
+          inheritedRequiredProviders = ImmutableList.builder();
+        }
         inheritedRequiredProviders.addAll(requiredProviders);
       } else {
         inheritedAllProviders = true;
+        inheritedRequiredProviders = null;
       }
     }
 
     protected void updateInheritedAttributeAspects(ImmutableList<String> attributeAspects) {
       if (!inheritedAllAttributes && !ALL_ATTR_ASPECTS.equals(attributeAspects)) {
+        if (inheritedAttributeAspects == null) {
+          inheritedAttributeAspects = ImmutableList.builder();
+        }
         inheritedAttributeAspects.addAll(attributeAspects);
       } else {
         inheritedAllAttributes = true;
+        inheritedAttributeAspects = null;
       }
     }
 
@@ -179,12 +197,12 @@ public final class Attribute implements Comparable<Attribute> {
     @VisibleForSerialization
     public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>>
         getInheritedRequiredProvidersList() {
-      return inheritedRequiredProviders.build();
+      return inheritedRequiredProviders == null ? null : inheritedRequiredProviders.build();
     }
 
     @VisibleForSerialization
     public ImmutableList<String> getInheritedAttributeAspectsList() {
-      return inheritedAttributeAspects.build();
+      return inheritedAttributeAspects == null ? null : inheritedAttributeAspects.build();
     }
 
     @VisibleForSerialization

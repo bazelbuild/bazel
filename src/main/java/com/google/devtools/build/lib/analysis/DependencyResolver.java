@@ -779,10 +779,7 @@ public abstract class DependencyResolver {
         toRule.getRuleClassObject().getAdvertisedProviders();
     for (Aspect aspect : aspects) {
       if (aspect.getDefinition().getRequiredProviders().isSatisfiedBy(advertisedProviders)
-          || aspect
-              .getDescriptor()
-              .getInheritedRequiredProviders()
-              .isSatisfiedBy(advertisedProviders)) {
+          || aspect.getDescriptor().satisfiesInheritedRequiredProviders(advertisedProviders)) {
         filteredAspectPath.add(aspect);
       }
     }

@@ -543,7 +543,6 @@ public class AttributeTest {
     assertThat(aspects).hasSize(1);
     AspectDescriptor aspectDescriptor = aspects.get(0).getDescriptor();
     assertThat(aspectDescriptor.getInheritedAttributeAspects()).isEmpty();
-    assertThat(aspectDescriptor.getInheritedRequiredProviders())
-        .isEqualTo(RequiredProviders.acceptNoneBuilder().build());
+    assertThat(aspectDescriptor.getInheritedRequiredProviders()).isNull();
   }
 }

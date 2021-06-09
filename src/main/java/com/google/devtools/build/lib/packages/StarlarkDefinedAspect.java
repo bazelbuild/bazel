@@ -278,33 +278,37 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
           "Aspects should be top-level values in extension files that define them.");
     }
 
-    ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>>
-        requiredAspectInheritedRequiredProviders = ImmutableList.builder();
-    ImmutableList.Builder<String> requiredAspectInheritedAttributeAspects = ImmutableList.builder();
-    if (baseAspectName == null) {
-      requiredAspectInheritedRequiredProviders.addAll(this.requiredProviders);
-      requiredAspectInheritedAttributeAspects.addAll(this.attributeAspects);
-    } else {
-      if (!requiredProviders.isEmpty() && !inheritedRequiredProviders.isEmpty()) {
-        requiredAspectInheritedRequiredProviders.addAll(inheritedRequiredProviders);
-        requiredAspectInheritedRequiredProviders.addAll(requiredProviders);
-      }
-      if (!ALL_ATTR_ASPECTS.equals(inheritedAttributeAspects)
-          && !ALL_ATTR_ASPECTS.equals(attributeAspects)) {
-        requiredAspectInheritedAttributeAspects.addAll(inheritedAttributeAspects);
-        requiredAspectInheritedAttributeAspects.addAll(attributeAspects);
+    if (!this.requiredAspects.isEmpty()) {
+      ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>>
+          requiredAspectInheritedRequiredProviders = ImmutableList.builder();
+      ImmutableList.Builder<String> requiredAspectInheritedAttributeAspects =
+          ImmutableList.builder();
+      if (baseAspectName == null) {
+        requiredAspectInheritedRequiredProviders.addAll(this.requiredProviders);
+        requiredAspectInheritedAttributeAspects.addAll(this.attributeAspects);
       } else {
-        requiredAspectInheritedAttributeAspects.add("*");
+        if (!requiredProviders.isEmpty() && !inheritedRequiredProviders.isEmpty()) {
+          requiredAspectInheritedRequiredProviders.addAll(inheritedRequiredProviders);
+          requiredAspectInheritedRequiredProviders.addAll(requiredProviders);
+        }
+        if (!ALL_ATTR_ASPECTS.equals(inheritedAttributeAspects)
+            && !ALL_ATTR_ASPECTS.equals(attributeAspects)) {
+          requiredAspectInheritedAttributeAspects.addAll(inheritedAttributeAspects);
+          requiredAspectInheritedAttributeAspects.addAll(attributeAspects);
+        } else {
+          requiredAspectInheritedAttributeAspects.add("*");
+        }
+      }
+
+      for (StarlarkAspect requiredAspect : requiredAspects) {
+        requiredAspect.attachToAttribute(
+            this.getName(),
+            builder,
+            requiredAspectInheritedRequiredProviders.build(),
+            requiredAspectInheritedAttributeAspects.build());
       }
     }
 
-    for (StarlarkAspect requiredAspect : requiredAspects) {
-      requiredAspect.attachToAttribute(
-          this.getName(),
-          builder,
-          requiredAspectInheritedRequiredProviders.build(),
-          requiredAspectInheritedAttributeAspects.build());
-    }
     builder.aspect(this, baseAspectName, inheritedRequiredProviders, inheritedAttributeAspects);
   }
 
