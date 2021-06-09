@@ -120,7 +120,7 @@ public class OptionsParser implements OptionsParsingResult {
 
   /** Returns the {@link OptionsData} associated with the given list of options classes. */
   static synchronized OptionsData getOptionsDataInternal(
-      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+      List<Class<? extends OptionsBase>> optionsClasses) {
     ImmutableList<Class<? extends OptionsBase>> immutableOptionsClasses =
         ImmutableList.copyOf(optionsClasses);
     OptionsData result = optionsData.get(immutableOptionsClasses);
@@ -137,8 +137,7 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /** Returns the {@link OptionsData} associated with the given options class. */
-  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
-      throws ConstructionException {
+  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass) {
     return getOptionsDataInternal(ImmutableList.of(optionsClass));
   }
 
@@ -693,11 +692,12 @@ public class OptionsParser implements OptionsParsingResult {
       ParsedOptionDescription optionToExpand, String source, List<String> args)
       throws OptionsParsingException {
     Preconditions.checkNotNull(
-        optionToExpand, "Option for expansion not specified for arglist " + args);
+        optionToExpand, "Option for expansion not specified for arglist %s", args);
     Preconditions.checkArgument(
         optionToExpand.getPriority().getPriorityCategory()
             != OptionPriority.PriorityCategory.DEFAULT,
-        "Priority cannot be default, which was specified for arglist " + args);
+        "Priority cannot be default, which was specified for arglist %s",
+        args);
     OptionsParserImplResult optionsParserImplResult =
         impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
     residue.addAll(optionsParserImplResult.getResidue());

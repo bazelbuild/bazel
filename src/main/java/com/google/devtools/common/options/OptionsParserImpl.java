@@ -29,6 +29,7 @@ import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -38,7 +39,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -141,7 +141,7 @@ class OptionsParserImpl {
    * this level.
    */
   private final Map<PriorityCategory, OptionPriority> nextPriorityPerPriorityCategory =
-      Stream.of(PriorityCategory.values())
+      Arrays.stream(PriorityCategory.values())
           .collect(Collectors.toMap(p -> p, OptionPriority::lowestOptionPriorityAtCategory));
 
   /**

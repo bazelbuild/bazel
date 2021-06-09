@@ -159,7 +159,7 @@ public final class OptionProcessor extends AbstractProcessor {
    *
    * <p>Static or final fields would cause issue with correct value assigning at the end of parsing.
    */
-  private void checkModifiers(VariableElement optionField) throws OptionProcessorException {
+  private static void checkModifiers(VariableElement optionField) throws OptionProcessorException {
     if (!optionField.getModifiers().contains(Modifier.PUBLIC)) {
       throw new OptionProcessorException(optionField, "@Option annotated fields should be public.");
     }
@@ -359,7 +359,7 @@ public final class OptionProcessor extends AbstractProcessor {
    * Check that the option lists at least one effect, and that no nonsensical combinations are
    * listed, such as having a known effect listed with UNKNOWN.
    */
-  private void checkEffectTagRationality(VariableElement optionField)
+  private static void checkEffectTagRationality(VariableElement optionField)
       throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     OptionEffectTag[] effectTags = annotation.effectTags();
@@ -392,7 +392,7 @@ public final class OptionProcessor extends AbstractProcessor {
    * Check that if the metadata tags listed by an option require the option to be unknown by the
    * average user, the same option will be omitted from documentation.
    */
-  private void checkMetadataTagAndCategoryRationality(VariableElement optionField)
+  private static void checkMetadataTagAndCategoryRationality(VariableElement optionField)
       throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     OptionMetadataTag[] metadataTags = annotation.metadataTags();
@@ -414,7 +414,7 @@ public final class OptionProcessor extends AbstractProcessor {
   private static final ImmutableList<String> DEPRECATED_CATEGORIES =
       ImmutableList.of("undocumented", "hidden", "internal");
 
-  private void checkOldCategoriesAreNotUsed(VariableElement optionField)
+  private static void checkOldCategoriesAreNotUsed(VariableElement optionField)
       throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     if (DEPRECATED_CATEGORIES.contains(annotation.category())) {
@@ -426,7 +426,7 @@ public final class OptionProcessor extends AbstractProcessor {
     }
   }
 
-  private void checkOptionName(VariableElement optionField) throws OptionProcessorException {
+  private static void checkOptionName(VariableElement optionField) throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
     String optionName = annotation.name();
     if (optionName.isEmpty()) {
