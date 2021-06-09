@@ -1,3 +1,20 @@
+## Release 5.0.0-pre.20210516.1 (2021-06-09)
+
+```
+Baseline: 275c54c982468b97611dc764c68daed8d7c45004
+
+Cherry picks:
+
+   + 1f52e9a58dd814f203797c5fbab44d9f4d53a43c:
+     Support rolling releases in Bazel release scripts.
+   + 2f72244183c8c3de722ff1d9e8b0b745d12cd528:
+     Fix syntax error in Bazel release scripts
+   + 4ef9c566c861848fef7907cf07a6e7d9d15cee7a:
+     Fix location of -prerelease option
+```
+
+This release contains contributions from many people at Google, as well as Keith Smiley, Niek Peeters.
+
 ## Release 5.0.0-pre.20210510.2.2 (2021-06-01)
 
 ```
