@@ -399,6 +399,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             "default_runfiles",
             "files",
             "files_to_run",
+            "kind",
             "label",
             "output_groups");
   }

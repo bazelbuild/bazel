@@ -74,6 +74,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   private static final ImmutableSet<String> SPECIAL_FIELD_NAMES =
       ImmutableSet.of(
           LABEL_FIELD,
+          KIND_FIELD,
           FILES_FIELD,
           DEFAULT_RUNFILES_FIELD,
           DATA_RUNFILES_FIELD,
@@ -147,6 +148,8 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     switch (name) {
       case LABEL_FIELD:
         return getLabel();
+      case KIND_FIELD:
+        return getRuleClassString();
       case ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
@@ -199,6 +202,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
             DATA_RUNFILES_FIELD,
             DEFAULT_RUNFILES_FIELD,
             LABEL_FIELD,
+            KIND_FIELD,
             FILES_FIELD,
             FilesToRunProvider.STARLARK_NAME));
     if (get(OutputGroupInfo.STARLARK_CONSTRUCTOR) != null) {
