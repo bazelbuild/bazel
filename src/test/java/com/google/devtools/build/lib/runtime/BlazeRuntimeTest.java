@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
@@ -91,12 +92,13 @@ public class BlazeRuntimeTest {
     EventBus eventBus = Mockito.mock(EventBus.class);
     OptionsParser options =
         OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build();
+    Thread commandThread = Mockito.mock(Thread.class);
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
             workspace,
             eventBus,
-            Thread.currentThread(),
+            commandThread,
             VersionCommand.class.getAnnotation(Command.class),
             options,
             ImmutableList.of(),
@@ -116,6 +118,8 @@ public class BlazeRuntimeTest {
                 .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
                 .build());
     assertThat(runtime.afterCommand(env, mainThreadCrash).getDetailedExitCode()).isEqualTo(oom);
+    // Confirm that runtime interrupted the command thread.
+    verify(commandThread).interrupt();
   }
 
   @Test
