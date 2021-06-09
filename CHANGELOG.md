@@ -1,3 +1,36 @@
+## Release 5.0.0-pre.20210520.7 (2021-06-09)
+
+```
+Baseline: e2ae73fe16cbedf095b9e6d5687b06ecf765d794
+
+Cherry picks:
+
+   + 0fdb485421f9d134f11103a36c48182769fb40d3:
+     Automated rollback of commit
+     f2230d8494e70f02b1e4fb082fcf8550aa684a40.
+   + 1f52e9a58dd814f203797c5fbab44d9f4d53a43c:
+     Support rolling releases in Bazel release scripts.
+   + 2f72244183c8c3de722ff1d9e8b0b745d12cd528:
+     Fix syntax error in Bazel release scripts
+   + 4ef9c566c861848fef7907cf07a6e7d9d15cee7a:
+     Fix location of -prerelease option
+   + a6dfd927c58c63275159858ac661a9b669594a0c:
+     Add --experimental_shadowed_action to graveyard options for all
+     commands.
+```
+
+Important changes:
+
+  - If all strategies of one branch (the local or remote execution
+    branch) of the `dynamic` strategy fail to even accept (via the
+    response they give from `canExec`) the action, `dynamic` will now
+    try to see if the other branch can accept it. (Trying to run it
+    and it failing will still cause a failure if it was the first
+    result, this is about strategies claiming they can't even try the
+    action)
+
+This release contains contributions from many people at Google, as well as Benedek Thaler.
+
 ## Release 5.0.0-pre.20210516.1 (2021-06-09)
 
 ```
