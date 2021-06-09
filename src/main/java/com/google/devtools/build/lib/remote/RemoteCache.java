@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDisplayString;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.Action;
@@ -93,7 +94,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -317,10 +320,40 @@ public class RemoteCache implements AutoCloseable {
     return actualPath.getParentDirectory().getRelative(actualPath.getBaseName() + ".tmp");
   }
 
-  interface DownloadProgressReporter {
-    void downloadStarted();
+  static class DownloadProgressReporter {
+    private final Consumer<ProgressStatus> reporter;
+    private final String id;
+    private final String totalSize;
+    private AtomicLong downloadedBytes = new AtomicLong(0);
 
-    void downloadFinished();
+    DownloadProgressReporter(Consumer<ProgressStatus> reporter, String id, long totalSize) {
+      this.reporter = reporter;
+      this.id = id;
+      this.totalSize = bytesCountToDisplayString(totalSize);
+    }
+
+    public void started() {
+      reportProgress(false);
+    }
+
+    public void downloadedBytes(int count) {
+      downloadedBytes.addAndGet(count);
+      reportProgress(false);
+    }
+
+    public void finished() {
+      reportProgress(true);
+    }
+
+    private void reportProgress(boolean finished) {
+      String progress =
+          String.format(
+              "Downloading %s [%s / %s]",
+              id,
+              bytesCountToDisplayString(downloadedBytes.get()),
+              totalSize);
+      reporter.accept(SpawnProgressEvent.create(id, progress, finished));
+    }
   }
 
   /**
@@ -358,20 +391,10 @@ public class RemoteCache implements AutoCloseable {
                             remotePathResolver.localPathToOutputPath(file.path()),
                             toTmpDownloadPath(file.path()),
                             file.digest(),
-                            new DownloadProgressReporter() {
-                              private final String id = remotePathResolver.localPathToOutputPath(file.path());
-
-                              @Override
-                              public void downloadStarted() {
-                                reporter.accept(
-                                    SpawnProgressEvent.create(id, "Downloading " + id, false));
-                              }
-
-                              @Override
-                              public void downloadFinished() {
-                                reporter.accept(SpawnProgressEvent.create(id, "", true));
-                              }
-                            });
+                            new DownloadProgressReporter(
+                                reporter,
+                                remotePathResolver.localPathToOutputPath(file.path()),
+                                file.digest().getSizeBytes()));
                     return Futures.transform(download, (d) -> file, directExecutor());
                   } catch (IOException e) {
                     return Futures.<FileMetadata>immediateFailedFuture(e);
@@ -587,10 +610,14 @@ public class RemoteCache implements AutoCloseable {
       return COMPLETED_SUCCESS;
     }
 
+    OutputStream out;
     if (reporter != null) {
-      reporter.downloadStarted();
+      reporter.started();
+      out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
+    } else {
+      out = new LazyFileOutputStream(path);
     }
-    OutputStream out = new LazyFileOutputStream(path);
+
     SettableFuture<Void> outerF = SettableFuture.create();
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
     Futures.addCallback(
@@ -602,7 +629,7 @@ public class RemoteCache implements AutoCloseable {
               out.close();
               outerF.set(null);
               if (reporter != null) {
-                reporter.downloadFinished();
+                reporter.finished();
               }
             } catch (IOException e) {
               outerF.setException(e);
@@ -617,7 +644,7 @@ public class RemoteCache implements AutoCloseable {
             try {
               out.close();
               if (reporter != null) {
-                reporter.downloadFinished();
+                reporter.finished();
               }
             } catch (IOException e) {
               if (t != e) {
@@ -1145,6 +1172,48 @@ public class RemoteCache implements AutoCloseable {
         .setMessage(message)
         .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /**
+   * Creates an {@link OutputStream} that report all the write operations with {@link DownloadProgressReporter}.
+   */
+  private static class ReportingOutputStream extends OutputStream {
+
+    private final OutputStream out;
+    private final DownloadProgressReporter reporter;
+
+    public ReportingOutputStream(OutputStream out, DownloadProgressReporter reporter) {
+      this.out = out;
+      this.reporter = reporter;
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      out.write(b);
+      reporter.downloadedBytes(b.length);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      out.write(b, off, len);
+      reporter.downloadedBytes(len);
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      out.write(b);
+      reporter.downloadedBytes(1);
+    }
+
+    @Override
+    public void flush() throws IOException {
+      out.flush();
+    }
+
+    @Override
+    public void close() throws IOException {
+      out.close();
+    }
   }
 
   /** In-memory representation of action result metadata. */

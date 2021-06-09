@@ -61,6 +61,7 @@ import com.google.rpc.Status;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -502,5 +503,24 @@ public final class Utils {
       Throwables.throwIfUnchecked(e);
       throw new AssertionError(e);
     }
+  }
+
+  public static String bytesCountToDisplayString(long bytes) {
+    Preconditions.checkArgument(bytes >= 0);
+
+    if (bytes < 1024) {
+      return bytes + " B";
+    }
+
+    String units = "KMGT";
+    int unitIndex = 0;
+
+    long value = bytes;
+    while ((unitIndex + 1) < units.length() && value >= (1 << 20)) {
+      value >>= 10;
+      unitIndex++;
+    }
+    DecimalFormat fmt = new DecimalFormat("0.#");
+    return String.format("%s %ciB", fmt.format(value / 1024.0), units.charAt(unitIndex));
   }
 }
