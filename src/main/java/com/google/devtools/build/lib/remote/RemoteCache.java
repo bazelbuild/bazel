@@ -344,8 +344,9 @@ public class RemoteCache implements AutoCloseable {
                     ListenableFuture<Void> download =
                         downloadFile(
                             context,
-                            remotePathResolver,
-                            file);
+                            remotePathResolver.localPathToOutputPath(file.path()),
+                            toTmpDownloadPath(file.path()),
+                            file.digest());
                     return Futures.transform(download, (d) -> file, directExecutor());
                   } catch (IOException e) {
                     return Futures.<FileMetadata>immediateFailedFuture(e);
@@ -493,12 +494,12 @@ public class RemoteCache implements AutoCloseable {
 
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
-      RemotePathResolver remotePathResolver,
-      FileMetadata file)
+      String outputPath,
+      Path localPath,
+      Digest digest)
       throws IOException {
     SettableFuture<Void> outerF = SettableFuture.create();
-    Path localPath = toTmpDownloadPath(file.path());
-    ListenableFuture<Void> f = downloadFile(context, localPath, file.digest());
+    ListenableFuture<Void> f = downloadFile(context, localPath, digest);
     Futures.addCallback(
         f,
         new FutureCallback<Void>() {
@@ -511,7 +512,7 @@ public class RemoteCache implements AutoCloseable {
           public void onFailure(Throwable throwable) {
             if (throwable instanceof OutputDigestMismatchException) {
               OutputDigestMismatchException e = ((OutputDigestMismatchException) throwable);
-              e.setOutputPath(remotePathResolver.localPathToOutputPath(file.path()));
+              e.setOutputPath(outputPath);
               e.setLocalPath(localPath);
             }
             outerF.setException(throwable);
