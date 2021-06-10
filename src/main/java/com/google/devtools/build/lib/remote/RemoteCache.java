@@ -377,9 +377,14 @@ public class RemoteCache implements AutoCloseable {
                 Path localPath = ((OutputDigestMismatchException) suppressed).getLocalPath();
                 Path dst = captureCorruptedOutputsDir.getRelative(outputPath);
                 dst.createDirectoryAndParents();
+
+                // Make sure dst is still under captureCorruptedOutputsDir, otherwise IllegalArgumentException will be
+                // thrown.
+                dst.relativeTo(captureCorruptedOutputsDir);
+
                 FileSystemUtils.copyFile(localPath, dst);
-              } catch (IOException ioEx) {
-                suppressed.addSuppressed(ioEx);
+              } catch (Exception ee) {
+                ee.addSuppressed(ee);
               }
             }
           }
