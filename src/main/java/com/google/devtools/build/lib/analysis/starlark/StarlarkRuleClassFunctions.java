@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -66,6 +68,7 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -411,14 +414,23 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       builder.setBuildSetting((BuildSetting) buildSetting);
     }
     if (!cfg.equals(Starlark.NONE)) {
-      if (!(cfg instanceof StarlarkDefinedConfigTransition)) {
+      if (cfg instanceof StarlarkDefinedConfigTransition) {
+        StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
+            (StarlarkDefinedConfigTransition) cfg;
+        builder.cfg(new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition));
+        builder.setHasStarlarkRuleTransition();
+      } else if (cfg instanceof PatchTransition) {
+        builder.cfg((PatchTransition) cfg);
+      } else if (cfg instanceof TransitionFactory) {
+        @SuppressWarnings("unchecked")
+        TransitionFactory<Rule> transitionFactory = (TransitionFactory<Rule>) cfg;
+        builder.cfg(transitionFactory);
+      } else {
+        // This is not technically true: it could also be a native transition, but this is the
+        // most likely error case.
         throw Starlark.errorf(
             "`cfg` must be set to a transition object initialized by the transition() function.");
       }
-      StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
-          (StarlarkDefinedConfigTransition) cfg;
-      builder.cfg(new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition));
-      builder.setHasStarlarkRuleTransition();
     }
 
     for (Object o : providesArg) {

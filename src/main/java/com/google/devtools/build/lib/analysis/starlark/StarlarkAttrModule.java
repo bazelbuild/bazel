@@ -233,7 +233,10 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       } else if (trans instanceof SplitTransition) {
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
       } else if (trans instanceof TransitionFactory) {
-        builder.cfg((TransitionFactory<AttributeTransitionData>) trans); // unchecked cast
+        @SuppressWarnings("unchecked")
+        TransitionFactory<AttributeTransitionData> transitionFactory =
+            (TransitionFactory<AttributeTransitionData>) trans;
+        builder.cfg(transitionFactory);
       } else if (trans instanceof StarlarkDefinedConfigTransition) {
         StarlarkDefinedConfigTransition starlarkDefinedTransition =
             (StarlarkDefinedConfigTransition) trans;
