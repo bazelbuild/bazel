@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/tools/launcher/util/data_parser.h"
@@ -45,12 +46,20 @@ static wstring GetRunfilesDir(const wchar_t* argv0) {
   wstring runfiles_dir;
   // If RUNFILES_DIR is already set (probably we are either in a test or in a
   // data dependency) then use it.
-  if (GetEnv(L"RUNFILES_DIR", &runfiles_dir)) {
-    return runfiles_dir;
+  if (!GetEnv(L"RUNFILES_DIR", &runfiles_dir)) {
+    // Otherwise this is probably a top-level non-test binary (e.g. a genrule
+    // tool) and should look for its runfiles beside the executable.
+    runfiles_dir = GetBinaryPathWithExtension(argv0) + L".runfiles";
   }
-  // Otherwise this is probably a top-level non-test binary (e.g. a genrule
-  // tool) and should look for its runfiles beside the executable.
-  return GetBinaryPathWithExtension(argv0) + L".runfiles";
+  // Make sure we return a normalized absolute path.
+  if (!blaze_util::IsAbsolute(runfiles_dir)) {
+    runfiles_dir = blaze_util::GetCwdW() + L"\\" + runfiles_dir;
+  }
+  wstring result;
+  if (!NormalizePath(runfiles_dir, &result)) {
+    die(L"GetRunfilesDir Failed");
+  }
+  return result;
 }
 
 BinaryLauncherBase::BinaryLauncherBase(
