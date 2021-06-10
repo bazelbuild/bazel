@@ -69,6 +69,15 @@ public interface AndroidStarlarkCommonApi<
   AndroidSplitTransitionApi getAndroidSplitTransition();
 
   @StarlarkMethod(
+      name = "android_platforms_transition",
+      doc =
+          "A configuration for rules that uses the --android_platforms flag instead of"
+              + " --platforms.",
+      documented = false,
+      structField = true)
+  AndroidPlatformsTransitionApi getAndroidPlatformsTransition();
+
+  @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",
       doc = "Takes a JavaInfo and converts it to an implicit exportable JavaInfo.",
       documented = false,

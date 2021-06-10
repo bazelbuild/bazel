@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidPlatformsTransitionApi;
 
 /**
  * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag to
@@ -32,7 +33,8 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
  * valid Android SDK via toolchain resolution. android_binary itself should only need the SDK, not
  * an NDK, so in theory every platform passed to "--android_platforms" should be equivalent.
  */
-public final class AndroidPlatformsTransition implements PatchTransition {
+public final class AndroidPlatformsTransition
+    implements PatchTransition, AndroidPlatformsTransitionApi {
 
   public static TransitionFactory<Rule> create() {
     return TransitionFactories.of(new AndroidPlatformsTransition());
