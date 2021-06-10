@@ -23,4 +23,4 @@ import net.starlark.java.eval.StarlarkValue;
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed.",
     documented = false)
-public interface AndroidSplitTransititionApi extends StarlarkValue {}
+public interface AndroidSplitTransitionApi extends StarlarkValue {}

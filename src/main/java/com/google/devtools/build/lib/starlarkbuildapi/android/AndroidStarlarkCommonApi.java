@@ -66,7 +66,7 @@ public interface AndroidStarlarkCommonApi<
               + "the --fat_apk_cpu and --android_crosstool_top flags.",
       documented = false,
       structField = true)
-  AndroidSplitTransititionApi getAndroidSplitTransition();
+  AndroidSplitTransitionApi getAndroidSplitTransition();
 
   @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",
