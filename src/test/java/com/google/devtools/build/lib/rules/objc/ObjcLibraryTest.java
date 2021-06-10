@@ -532,14 +532,40 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testCompilationActionsWithCopts() throws Exception {
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
-    createLibraryTargetWriter("//objc:lib")
-        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
-        .setAndCreateFiles("hdrs", "c.h")
-        .setList("copts", "-Ifoo", "--monkeys=$(TARGET_CPU)")
-        .write();
+
+    scratch.file(
+        "objc/defs.bzl",
+        "def _var_providing_rule_impl(ctx):",
+        "   return [",
+        "       platform_common.TemplateVariableInfo({",
+        "        'FOO': '$(BAR)',",
+        "        'BAR': ctx.attr.var_value,",
+        "        'BAZ': '$(FOO)',",
+        "      }),",
+        "   ]",
+        "var_providing_rule = rule(",
+        "   implementation = _var_providing_rule_impl,",
+        "   attrs = { 'var_value': attr.string() }",
+        ")");
+
+    scratch.file(
+        "objc/BUILD",
+        "load('//objc:defs.bzl', 'var_providing_rule')",
+        "var_providing_rule(",
+        "    name = 'set_foo_to_bar',",
+        "    var_value = 'bar',",
+        ")",
+        "objc_library(",
+        "    name = 'lib',",
+        "    srcs = ['a.m', 'b.m', 'private.h'],",
+        "    hdrs = ['c.h'],",
+        "    copts = ['-Ifoo', '--monkeys=$(TARGET_CPU)', '--gorillas=$(FOO),$(BAR),$(BAZ)'],",
+        "    toolchains = [':set_foo_to_bar']",
+        ")");
 
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-    assertThat(compileActionA.getArguments()).containsAtLeast("-Ifoo", "--monkeys=ios_i386");
+    assertThat(compileActionA.getArguments())
+        .containsAtLeast("-Ifoo", "--monkeys=ios_i386", "--gorillas=bar,bar,bar");
   }
 
   @Test

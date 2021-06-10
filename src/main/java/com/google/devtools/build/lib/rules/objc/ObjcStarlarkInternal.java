@@ -85,19 +85,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     List<String> copts = new ArrayList<>();
     for (String copt :
         starlarkRuleContext.getRuleContext().attributes().get("copts", Type.STRING_LIST)) {
-      String expandedCopt = copt;
-      if (copt.contains("$(")) {
-        int beginning = copt.indexOf("$(");
-        int end = copt.indexOf(')', beginning);
-        String variable = copt.substring(beginning + 2, end);
-        String expandedVariable;
-        if (toolchainMap.containsKey(variable)) {
-          expandedVariable = toolchainMap.get(variable);
-        } else {
-          expandedVariable = starlarkRuleContextMap.get(variable);
-        }
-        expandedCopt = copt.replace("$(" + variable + ")", expandedVariable);
-      }
+      String expandedCopt = expandCopt(copt, toolchainMap, starlarkRuleContextMap);
       try {
         ShellUtils.tokenize(copts, expandedCopt);
       } catch (TokenizationException e) {
@@ -110,6 +98,26 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         builder, starlarkRuleContext.getRuleContext());
 
     return builder.build();
+  }
+
+  private String expandCopt(
+      String copt,
+      ImmutableMap<String, String> toolchainMap,
+      ImmutableMap<String, String> contextMap) {
+    if (!copt.contains("$(")) {
+      return copt;
+    }
+    int beginning = copt.indexOf("$(");
+    int end = copt.indexOf(')', beginning);
+    String variable = copt.substring(beginning + 2, end);
+    String expandedVariable;
+    if (toolchainMap.containsKey(variable)) {
+      expandedVariable = toolchainMap.get(variable);
+    } else {
+      expandedVariable = contextMap.get(variable);
+    }
+    String expandedCopt = copt.replace("$(" + variable + ")", expandedVariable);
+    return expandCopt(expandedCopt, toolchainMap, contextMap);
   }
 
   @StarlarkMethod(
