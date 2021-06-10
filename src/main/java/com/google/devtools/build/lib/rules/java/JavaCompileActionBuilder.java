@@ -207,7 +207,6 @@ public final class JavaCompileActionBuilder {
 
     NestedSetBuilder<Artifact> mandatoryInputs = NestedSetBuilder.stableOrder();
     mandatoryInputs
-        .addTransitive(compileTimeDependencyArtifacts)
         .addTransitive(plugins.processorClasspath())
         .addTransitive(plugins.data())
         .addTransitive(extraData)

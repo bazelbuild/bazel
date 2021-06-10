@@ -75,10 +75,15 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -158,6 +163,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
             .addTransitive(transitiveInputs)
+            .addTransitive(dependencyArtifacts)
             .build(),
         runfilesSupplier,
         outputs,
@@ -329,6 +335,15 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(mandatoryInputs)
             .addTransitive(transitiveInputs)
+            // Full spawn mode means classPathMode != JavaClasspathMode.BAZEL, which means
+            // JavaBuilder may read .jdeps files to perform classpath reduction on the executor. So
+            // make sure these files are staged as inputs to the executor action.
+            //
+            // Contrast this with getReducedSpawn, which reduces the classpath in the Blaze process
+            // *before* sending actions to the executor. In those cases we want to avoid staging
+            // .jdeps files, which have config prefixes in output paths, which compromise caching
+            // possible by stripping prefixes on the executor.
+            .addTransitive(dependencyArtifacts)
             .build());
   }
 
@@ -558,17 +573,94 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     return null;
   }
 
-  /** Reads the {@code .jdeps} output from the given spawn results. */
-  private Deps.Dependencies readOutputDepsProto(
-      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
-    SpawnResult spawnResult = Iterables.getOnlyElement(results);
+  /**
+   * Locally rewrites a .jdeps file to replace missing config prefixes.
+   *
+   * <p>For example: {@code bazel-out/bin/foo/foo.jar -> bazel-out/x86-fastbuild/bin/foo/foo.jar}.
+   *
+   * <p>The executor may strip config prefixes from actions (i.e. remove {@code /x86-fastbuild/} or
+   * equivalent from all input and output paths, command lines, and input file contents). This
+   * provides better caching for actions that don't vary by --cpu or --compilation_mode. The full
+   * paths must be re-created in Bazel's output tree to keep correct builds. For example, if an
+   * otherwise cacheable action's input file *contents* differ across CPUs (like a CPU-dependent
+   * generated source file), Bazel needs to maintain distinct paths for each instance. These paths
+   * are chosen in Bazel's analysis phase, before it's possible to input contents. So all actions in
+   * the output tree must conservatively keep full paths.
+   *
+   * <p>So this method's ultimate purpose is to translate the executor-optimized version of a .jdeps
+   * to the original Bazel-safe version.
+   *
+   * <p>If the executor doesn't strip config prefixes (i.e. config stripping isn't turned on as a
+   * feature), this is a trivial copy.
+   *
+   * @param spawnResult the executor action that created the possibly stripped .jdeps output
+   * @param outputDepsProto path to the .jdeps output
+   * @param actionInputs all inputs to the current action
+   * @param actionExecutionContext the action execution context
+   * @return the full deps proto (also wdritten to disk to satisfy the action's declared output)
+   */
+  static Deps.Dependencies createFullOutputDeps(
+      SpawnResult spawnResult,
+      Artifact outputDepsProto,
+      NestedSet<Artifact> actionInputs,
+      ActionExecutionContext actionExecutionContext)
+      throws IOException {
+
+    // Get the executor-produce jdeps.
     InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
-    try (InputStream input =
+    InputStream inputStream =
         inMemoryOutput == null
             ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-            : inMemoryOutput) {
-      return Deps.Dependencies.parseFrom(input);
+            : inMemoryOutput;
+    Deps.Dependencies executorJdeps =
+        Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
+    inputStream.close();
+
+    // For each of the action's generated inputs, map its stripped path to its full path.
+    PathFragment outputRoot = outputDepsProto.getExecPath().subFragment(0, 1);
+    Map<PathFragment, PathFragment> strippedToFullPaths = new HashMap<>();
+    for (Artifact actionInput : actionInputs.toList()) {
+      if (actionInput.isSourceArtifact()) {
+        continue;
+      }
+      // Turns "bazel-out/x86-fastbuild/bin/foo" to "bazel-out/bin/foo".
+      PathFragment strippedPath = outputRoot.getRelative(actionInput.getExecPath().subFragment(2));
+      if (strippedToFullPaths.put(strippedPath, actionInput.getExecPath()) != null) {
+        // If an entry already exists, that means different inputs reduce to the same stripped path.
+        // That also means PathStripper would exempt this action from path stripping, so the
+        // executor-produced .jdeps already includes full paths. No need to update it.
+        return executorJdeps;
+      }
+    }
+
+    // Rewrite the .jdeps proto with full paths.
+    Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
+    for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
+      PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
+      PathFragment fullPath = strippedToFullPaths.get(pathOnExecutor);
+      dep.setPath(fullPath == null ? pathOnExecutor.getPathString() : fullPath.getPathString());
+    }
+    Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
+
+    // Write the updated proto back to the filesystem. If the executor produced in-memory-only
+    // outputs (see getInMemoryOutput above), the filesystem version doesn't exist and we can skip
+    // this. Note that in-memory and filesystem outputs aren't necessarily mutually exclusive.
+    Path fsPath = actionExecutionContext.getInputPath(outputDepsProto);
+    if (fsPath.exists()) {
+      fsPath.setWritable(true);
+      FileSystemUtils.writeContent(fsPath, fullOutputDeps.toByteArray());
+    }
+
+    return fullOutputDeps;
+  }
+
+  /** Reads the full {@code .jdeps} output from the given spawn results. */
+  private Deps.Dependencies readFullOutputDeps(
+      List<SpawnResult> results, ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException {
+    try {
+      return createFullOutputDeps(
+          Iterables.getOnlyElement(results), outputDepsProto, getInputs(), actionExecutionContext);
     } catch (IOException e) {
       throw new EnvironmentalExecException(
               e, createFailureDetail(".jdeps read IOException", Code.JDEPS_READ_IO_EXCEPTION))
@@ -619,11 +711,14 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         }
 
         List<SpawnResult> results = nextContinuation.get();
+        Deps.Dependencies dependencies = null;
+        if (outputDepsProto != null) {
+          dependencies = readFullOutputDeps(results, actionExecutionContext);
+        }
         if (reducedClasspath == null) {
           return ActionContinuationOrResult.of(ActionResult.create(results));
         }
 
-        Deps.Dependencies dependencies = readOutputDepsProto(results, actionExecutionContext);
         if (compilationType == CompilationType.TURBINE) {
           actionExecutionContext
               .getContext(JavaCompileActionContext.class)
@@ -705,7 +800,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
           actionExecutionContext
               .getContext(JavaCompileActionContext.class)
               .insertDependencies(
-                  outputDepsProto, readOutputDepsProto(fallbackResults, actionExecutionContext));
+                  outputDepsProto, readFullOutputDeps(fallbackResults, actionExecutionContext));
         }
         return ActionContinuationOrResult.of(
             ActionResult.create(
