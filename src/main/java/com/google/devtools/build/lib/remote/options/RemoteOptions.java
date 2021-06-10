@@ -89,6 +89,15 @@ public final class RemoteOptions extends OptionsBase {
   public boolean remoteExecutionKeepalive;
 
   @Option(
+      name = "experimental_remote_capture_corrupted_outputs",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help = "A path to a directory where the corrupted outputs will be captured to.")
+  public PathFragment remoteCaptureCorruptedOutputs;
+
+  @Option(
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",
