@@ -402,6 +402,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         linkingHelper.buildCcLinkingContextFromLibrariesToLink(
             neverLink ? ImmutableList.of() : libraryToLinks,
             compilationInfo.getCcCompilationContext());
+    CcNativeLibraryInfo ccNativeLibraryInfo =
+        CppHelper.collectNativeCcLibraries(ruleContext.getPrerequisites("deps"), libraryToLinks);
 
     /*
      * We always generate a static library, even if there aren't any source files.
@@ -496,6 +498,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 .setCcDebugInfoContext(
                     CppHelper.mergeCcDebugInfoContexts(
                         compilationInfo.getCcCompilationOutputs(), ccInfosFromDeps))
+                .setCcNativeLibraryInfo(ccNativeLibraryInfo)
                 .build())
         .addOutputGroups(
             CcCommon.mergeOutputGroups(ImmutableList.of(currentOutputGroups, outputGroups.build())))

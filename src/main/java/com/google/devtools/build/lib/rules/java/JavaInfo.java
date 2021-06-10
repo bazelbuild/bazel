@@ -390,15 +390,9 @@ public final class JavaInfo extends NativeInfo
 
   /** Returns the transitive set of CC native libraries required by the target. */
   public NestedSet<LibraryToLink> getTransitiveNativeLibraries() {
-    JavaCcInfoProvider javaCcInfo = getProvider(JavaCcInfoProvider.class);
-    if (javaCcInfo == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    CcInfo ccInfo = javaCcInfo.getCcInfo();
-    return NestedSetBuilder.fromNestedSet(
-            ccInfo.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries())
-        .addTransitive(ccInfo.getCcLinkingContext().getLibraries())
-        .build();
+    return getProviderAsNestedSet(
+        JavaCcInfoProvider.class,
+        x -> x.getCcInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
   }
 
   @Override
