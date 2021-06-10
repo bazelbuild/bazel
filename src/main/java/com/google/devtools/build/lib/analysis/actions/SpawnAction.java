@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -1317,54 +1316,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
       this.resultConsumer = resultConsumer;
       return this;
-    }
-  }
-
-  /**
-   * Command line implementation that optimises for containing executable args, command lines, and
-   * command lines spilled to param files.
-   */
-  static class SpawnActionCommandLine extends CommandLine {
-    private final Object[] values;
-
-    SpawnActionCommandLine(Object[] values) {
-      this.values = values;
-    }
-
-    @Override
-    public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-      return expandArguments(null);
-    }
-
-    @Override
-    public Iterable<String> arguments(ArtifactExpander artifactExpander)
-        throws CommandLineExpansionException, InterruptedException {
-      return expandArguments(artifactExpander);
-    }
-
-    private Iterable<String> expandArguments(@Nullable ArtifactExpander artifactExpander)
-        throws CommandLineExpansionException, InterruptedException {
-      ImmutableList.Builder<String> result = ImmutableList.builder();
-      int count = values.length;
-      for (int i = 0; i < count; ++i) {
-        Object value = values[i];
-        if (value instanceof String) {
-          result.add((String) value);
-        } else if (value instanceof Artifact) {
-          Artifact paramFile = (Artifact) value;
-          String flagFormatString = (String) values[++i];
-          result.add(
-              SingleStringArgFormatter.format(flagFormatString, paramFile.getExecPathString()));
-        } else if (value instanceof CommandLine) {
-          CommandLine commandLine = (CommandLine) value;
-          if (artifactExpander != null) {
-            result.addAll(commandLine.arguments(artifactExpander));
-          } else {
-            result.addAll(commandLine.arguments());
-          }
-        }
-      }
-      return result.build();
     }
   }
 
