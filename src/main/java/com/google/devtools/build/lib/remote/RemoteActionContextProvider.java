@@ -73,22 +73,37 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
         env, /*cache=*/ null, /*executor=*/ null, retryScheduler, digestUtil, /*logDir=*/ null);
   }
 
+  private static void maybeSetCaptureCorruptedOutputsDir(
+      RemoteOptions remoteOptions, RemoteCache remoteCache, Path workingDirectory) {
+    if (remoteOptions.remoteCaptureCorruptedOutputs != null
+        && !remoteOptions.remoteCaptureCorruptedOutputs.isEmpty()) {
+      remoteCache.setCaptureCorruptedOutputsDir(
+          workingDirectory.getRelative(remoteOptions.remoteCaptureCorruptedOutputs));
+    }
+  }
+
   public static RemoteActionContextProvider createForRemoteCaching(
       CommandEnvironment env,
+      RemoteOptions options,
       RemoteCache cache,
       ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil) {
+    maybeSetCaptureCorruptedOutputsDir(options, cache, env.getWorkingDirectory());
+
     return new RemoteActionContextProvider(
         env, cache, /*executor=*/ null, retryScheduler, digestUtil, /*logDir=*/ null);
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
       CommandEnvironment env,
+      RemoteOptions options,
       RemoteExecutionCache cache,
       RemoteExecutionClient executor,
       ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       Path logDir) {
+    maybeSetCaptureCorruptedOutputsDir(options, cache, env.getWorkingDirectory());
+
     return new RemoteActionContextProvider(
         env, cache, executor, retryScheduler, digestUtil, logDir);
   }
