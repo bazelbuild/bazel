@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -390,12 +391,7 @@ public final class Utils {
 
   public static void verifyBlobContents(Digest expected, Digest actual) throws IOException {
     if (!expected.equals(actual)) {
-      String msg =
-          String.format(
-              "Output download failed: Expected digest '%s/%d' does not match "
-                  + "received digest '%s/%d'.",
-              expected.getHash(), expected.getSizeBytes(), actual.getHash(), actual.getSizeBytes());
-      throw new IOException(msg);
+      throw new OutputDigestMismatchException(expected, actual);
     }
   }
 
