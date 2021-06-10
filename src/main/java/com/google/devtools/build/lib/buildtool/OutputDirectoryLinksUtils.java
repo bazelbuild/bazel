@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -187,6 +189,49 @@ public final class OutputDirectoryLinksUtils {
         workingDirectory);
   }
 
+  private static void removeAllSymlinks(
+      List<String> failures, Path workspace, Path outputBase, String symlinkPrefix) {
+
+    // Get the prefix directory relative to the workspace.
+    Path symlinkPrefixDirectory = workspace.getRelative(symlinkPrefix);
+    Path directoryWithSymlinks =
+        // Handle the special case when the prefix is just a path.
+        // Otherwise we need to go one level up.
+        symlinkPrefix.endsWith("/")
+            ? symlinkPrefixDirectory
+            // This will return the workspace if the prefix was not a directory.
+            : symlinkPrefixDirectory.getParentDirectory();
+    Preconditions.checkNotNull(
+        directoryWithSymlinks, "Invalid symlink_prefix provided: %s", symlinkPrefix);
+
+    // Try to get a list of all symlinks in the workspace.
+    Collection<Path> pathsInWorkspace;
+    try {
+      pathsInWorkspace = directoryWithSymlinks.getDirectoryEntries();
+    } catch (IOException e) {
+      failures.add(
+          String.format(
+              "Failed to list files under path %s: %s",
+              directoryWithSymlinks.getPathString(), e.getMessage()));
+      return;
+    }
+
+    // Iterate through all the files and delete any symbolic links that start with the prefix
+    // and point to the output directory.
+    for (Path entry : pathsInWorkspace) {
+      try {
+        if (entry.isSymbolicLink()
+            && entry.relativeTo(workspace).getPathString().startsWith(symlinkPrefix)
+            && entry.readSymbolicLink().startsWith(outputBase.asFragment())) {
+          logger.atFinest().log("Removing %s", entry);
+          entry.delete();
+        }
+      } catch (IOException e) {
+        failures.add(String.format("%s: %s", entry.getBaseName(), e.getMessage()));
+      }
+    }
+  }
+
   /**
    * Attempts to remove the convenience symlinks in the workspace directory.
    *
@@ -195,29 +240,40 @@ public final class OutputDirectoryLinksUtils {
    *
    * @param symlinkDefinitions extra symlink types added by the {@link ConfiguredRuleClassProvider}
    * @param workspace the runtime's workspace
+   * @param outputBase the runtime's output directory. Only used with
+   *     remove_all_convenience_symlinks.
    * @param eventHandler the error eventHandler
    * @param symlinkPrefix the symlink prefix which should be removed
    * @param productName the product name
+   * @param removeAllConvenienceSymlinks Delete all symlinks with the given prefix, not just
+   *     predefined links.
    */
   public static void removeOutputDirectoryLinks(
       Iterable<SymlinkDefinition> symlinkDefinitions,
       Path workspace,
+      Path outputBase,
       EventHandler eventHandler,
       String symlinkPrefix,
-      String productName) {
+      String productName,
+      boolean removeAllConvenienceSymlinks) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
     List<String> failures = new ArrayList<>();
 
     String workspaceBaseName = workspace.getBaseName();
-    for (SymlinkDefinition link : getAllLinkDefinitions(symlinkDefinitions)) {
-      removeLink(
-          workspace,
-          link.getLinkName(symlinkPrefix, productName, workspaceBaseName),
-          failures,
-          ImmutableList.builder(),
-          false);
+
+    if (removeAllConvenienceSymlinks) {
+      removeAllSymlinks(failures, workspace, outputBase, symlinkPrefix);
+    } else {
+      for (SymlinkDefinition link : getAllLinkDefinitions(symlinkDefinitions)) {
+        removeLink(
+            workspace,
+            link.getLinkName(symlinkPrefix, productName, workspaceBaseName),
+            failures,
+            ImmutableList.builder(),
+            false);
+      }
     }
 
     FileSystemUtils.removeDirectoryAndParents(workspace, PathFragment.create(symlinkPrefix));
