@@ -14,6 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
@@ -55,6 +56,12 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(
+            parser.asCompleteListOfParsedOptions().stream()
+                .map(ParsedOptionDescription::getCommandLineForm))
+        .containsExactly(
+            "--test_string=" + TEST_STRING_USER_VALUE, "--test_string=" + TEST_STRING_POLICY_VALUE)
+        .inOrder();
   }
 
   /**
@@ -408,7 +415,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
-  public void testSetValueWithImplicitlyRequiredFlags() throws Exception {
+  public void testSetValueOfImplicitlyRequiredFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
@@ -430,6 +437,27 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     testOptions = getTestOptions();
     assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
     assertThat(testOptions.implicitRequirementA).isEqualTo(TEST_STRING_POLICY_VALUE);
+  }
+
+  @Test
+  public void testSetValueWithImplicitlyRequiredFlags() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_implicit_requirement")
+        .getSetValueBuilder()
+        .addFlagValue(TEST_STRING_POLICY_VALUE);
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--implicit_requirement_a=" + TEST_STRING_USER_VALUE);
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.implicitRequirementA).isEqualTo(TEST_STRING_USER_VALUE);
+
+    enforcer.enforce(parser, BUILD_COMMAND);
+
+    testOptions = getTestOptions();
+    assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_POLICY_VALUE);
+    assertThat(testOptions.implicitRequirementA)
+        .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_REQUIRED);
   }
 
   @Test

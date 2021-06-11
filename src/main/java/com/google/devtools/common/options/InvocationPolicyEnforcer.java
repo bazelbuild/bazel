@@ -577,7 +577,8 @@ public final class InvocationPolicyEnforcer {
               valueDescription.getSourceString());
         }
 
-        parser.addOptionValueAtSpecificPriority(flagPolicy.origin, optionDefinition, flagValue);
+        parser.setOptionValueAtSpecificPriorityWithoutExpansion(
+            flagPolicy.origin, optionDefinition, flagValue);
       }
     }
   }
@@ -746,7 +747,8 @@ public final class InvocationPolicyEnforcer {
               policyType,
               policyValues);
           parser.clearValue(optionDefinition);
-          parser.addOptionValueAtSpecificPriority(origin, optionDefinition, newValue);
+          parser.setOptionValueAtSpecificPriorityWithoutExpansion(
+              origin, optionDefinition, newValue);
         } else {
           // The operation disallows the default value, but doesn't supply a new value.
           throw new OptionsParsingException(
@@ -799,7 +801,7 @@ public final class InvocationPolicyEnforcer {
                     + "specified by invocation policy. %sed values are: %s",
                 valueDescription.getValue(), option, newValue, policyType, policyValues);
             parser.clearValue(option);
-            parser.addOptionValueAtSpecificPriority(origin, option, newValue);
+            parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, option, newValue);
           } else if (useDefault) {
             applyUseDefaultOperation(parser, policyType + "Values", option, loglevel);
           } else {

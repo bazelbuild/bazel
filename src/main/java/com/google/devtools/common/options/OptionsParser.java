@@ -709,6 +709,9 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
+   * Sets provided value for a flag with a particular priority. This only sets the value of the flag
+   * itself and does not affect any of its implicit requirements or expansions.
+   *
    * @param origin the origin of this option instance, it includes the priority of the value. If
    *     other values have already been or will be parsed at a higher priority, they might override
    *     the provided value. If this option already has a value at this priority, this value will
@@ -716,10 +719,10 @@ public class OptionsParser implements OptionsParsingResult {
    * @param option the option to add the value for.
    * @param value the value to add at the given priority.
    */
-  void addOptionValueAtSpecificPriority(
+  void setOptionValueAtSpecificPriorityWithoutExpansion(
       OptionInstanceOrigin origin, OptionDefinition option, String value)
       throws OptionsParsingException {
-    impl.addOptionValueAtSpecificPriority(origin, option, value);
+    impl.setOptionValueAtSpecificPriorityWithoutExpansion(origin, option, value);
   }
 
   /**
