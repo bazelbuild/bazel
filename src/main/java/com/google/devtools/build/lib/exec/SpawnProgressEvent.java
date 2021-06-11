@@ -41,6 +41,6 @@ public abstract class SpawnProgressEvent implements ProgressStatus {
 
   @Override
   public void postTo(ExtendedEventHandler eventHandler, ActionExecutionMetadata action) {
-    eventHandler.post(new ActionProgressEvent(action, progressId(), progress(), finished()));
+    eventHandler.post(ActionProgressEvent.create(action, progressId(), progress(), finished()));
   }
 }

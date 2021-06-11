@@ -313,8 +313,8 @@ final class UiStateTracker {
      * Handle the progress event for the action.
      */
     synchronized void onProgressEvent(ActionProgressEvent event, long nanoChangeTime) {
-      String id = event.getProgressId();
-      if (event.isFinished()) {
+      String id = event.progressId();
+      if (event.finished()) {
         // a download is finished, clean it up
         runningProgress.remove(id);
         progressNanoStartTimes.remove(id);
@@ -566,8 +566,8 @@ final class UiStateTracker {
   }
 
   void actionProgress(ActionProgressEvent event) {
-    ActionExecutionMetadata action = event.getActionMetadata();
-    Artifact actionId = event.getActionMetadata().getPrimaryOutput();
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = event.action().getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).onProgressEvent(event, now);
   }
@@ -1136,7 +1136,7 @@ final class UiStateTracker {
     long nanoDownloadTime = nanoTime - actionState.progressNanoStartTimes.get(id);
     long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
 
-    String progress = download.getProgress();
+    String progress = download.progress();
     if (progress.isEmpty()) {
       progress = id;
     }
