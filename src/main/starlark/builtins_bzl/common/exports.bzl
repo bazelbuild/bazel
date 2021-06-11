@@ -24,7 +24,7 @@ exported_toplevels = {
     "_builtins_dummy": "overridden value",
 }
 exported_rules = {
-    "-objc_import": objc_import,
-    "-objc_library": objc_library,
+    "+objc_import": objc_import,
+    "+objc_library": objc_library,
 }
 exported_to_java = {}
