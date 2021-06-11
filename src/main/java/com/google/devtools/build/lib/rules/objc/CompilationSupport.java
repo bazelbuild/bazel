@@ -494,8 +494,6 @@ public class CompilationSupport implements StarlarkValue {
             ccToolchain,
             featureConfiguration,
             ruleContext,
-            /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ true,
             /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> nonArcOutputGroups =
@@ -506,8 +504,6 @@ public class CompilationSupport implements StarlarkValue {
             ccToolchain,
             featureConfiguration,
             ruleContext,
-            /* generateHeaderTokensGroup= */ true,
-            /* addSelfHeaderTokens= */ false,
             /* generateHiddenTopLevelGroup= */ true);
 
     Map<String, NestedSet<Artifact>> mergedOutputGroups =

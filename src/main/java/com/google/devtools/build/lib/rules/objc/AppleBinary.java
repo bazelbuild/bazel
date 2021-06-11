@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
@@ -220,13 +220,12 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     allLinkInputs.addAll(extraLinkInputs);
     allLinkopts.addAll(extraLinkopts);
 
-    ImmutableListMultimap<BuildConfiguration, OutputGroupInfo> buildConfigToOutputGroupInfoMap =
-        ruleContext.getPrerequisitesByConfiguration("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    ImmutableListMultimap<BuildConfiguration, CcInfo> buildConfigToCcInfoMap =
+        ruleContext.getPrerequisitesByConfiguration("deps", CcInfo.PROVIDER);
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (Map.Entry<BuildConfiguration, OutputGroupInfo> entry :
-        buildConfigToOutputGroupInfoMap.entries()) {
-      OutputGroupInfo dep = entry.getValue();
-      headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
+    for (Map.Entry<BuildConfiguration, CcInfo> entry : buildConfigToCcInfoMap.entries()) {
+      CcInfo dep = entry.getValue();
+      headerTokens.addTransitive(dep.getCcCompilationContext().getHeaderTokens());
     }
     outputGroupCollector.put(OutputGroupInfo.VALIDATION, headerTokens.build());
 

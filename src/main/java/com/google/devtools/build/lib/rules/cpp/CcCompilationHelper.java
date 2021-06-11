@@ -75,12 +75,6 @@ import javax.annotation.Nullable;
  * these require explicit calls to the corresponding setter methods.
  */
 public final class CcCompilationHelper {
-  /** Similar to {@code OutputGroupInfo.HIDDEN_TOP_LEVEL}, but specific to header token files. */
-  public static final String HIDDEN_HEADER_TOKENS =
-      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX
-          + "hidden_header_tokens"
-          + OutputGroupInfo.INTERNAL_SUFFIX;
-
   /**
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
@@ -812,7 +806,14 @@ public final class CcCompilationHelper {
     // Create compile actions (both PIC and no-PIC).
     CcCompilationOutputs ccOutputs = createCcCompileActions();
 
-    return new CompilationInfo(publicCompilationContext, ccOutputs);
+    if (cppConfiguration.processHeadersInDependencies()) {
+      return new CompilationInfo(
+          CcCompilationContext.createWithExtraHeaderTokens(
+              publicCompilationContext, ccOutputs.getHeaderTokenFiles()),
+          ccOutputs);
+    } else {
+      return new CompilationInfo(publicCompilationContext, ccOutputs);
+    }
   }
 
   public static Map<String, NestedSet<Artifact>> buildOutputGroups(
@@ -829,33 +830,21 @@ public final class CcCompilationHelper {
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
       RuleContext ruleContext,
-      boolean generateHeaderTokensGroup,
-      boolean addSelfHeaderTokens,
       boolean generateHiddenTopLevelGroup) {
     ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroupsBuilder = ImmutableMap.builder();
     outputGroupsBuilder.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
     boolean usePic = ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
-    outputGroupsBuilder.put(
-        OutputGroupInfo.FILES_TO_COMPILE,
-        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
+    NestedSet<Artifact> filesToCompile =
+        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic);
+    outputGroupsBuilder.put(OutputGroupInfo.FILES_TO_COMPILE, filesToCompile);
     outputGroupsBuilder.put(
         OutputGroupInfo.COMPILATION_PREREQUISITES,
         CcCommon.collectCompilationPrerequisites(ruleContext, ccCompilationContext));
-    if (generateHeaderTokensGroup) {
-      outputGroupsBuilder.put(
-          CcCompilationHelper.HIDDEN_HEADER_TOKENS,
-          CcCompilationHelper.collectHeaderTokens(
-              ruleContext,
-              ruleContext.getFragment(CppConfiguration.class),
-              ccCompilationOutputs,
-              addSelfHeaderTokens));
-    }
     if (generateHiddenTopLevelGroup) {
       outputGroupsBuilder.put(
           OutputGroupInfo.HIDDEN_TOP_LEVEL,
-          collectLibraryHiddenTopLevelArtifacts(
-              ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration));
+          collectLibraryHiddenTopLevelArtifacts(ruleContext, filesToCompile));
     }
     outputGroupsBuilder.putAll(
         CcCommon.createSaveFeatureStateArtifacts(
@@ -864,17 +853,10 @@ public final class CcCompilationHelper {
   }
 
   private static NestedSet<Artifact> collectLibraryHiddenTopLevelArtifacts(
-      RuleContext ruleContext,
-      CcToolchainProvider toolchain,
-      CcCompilationOutputs ccCompilationOutputs,
-      FeatureConfiguration featureConfiguration) {
+      RuleContext ruleContext, NestedSet<Artifact> filesToCompile) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
-    artifactsToForceBuilder.addTransitive(
-        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
+    artifactsToForceBuilder.addTransitive(filesToCompile);
     for (OutputGroupInfo dep :
         ruleContext.getPrerequisites("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       artifactsToForceBuilder.addTransitive(dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
@@ -1172,25 +1154,6 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.setPurpose(purpose);
     ccCompilationContextBuilder.addDependentCcCompilationContexts(deps);
     return ccCompilationContextBuilder;
-  }
-
-  /**
-   * Collects all preprocessed header files (*.h.processed) from dependencies and the current rule.
-   */
-  public static NestedSet<Artifact> collectHeaderTokens(
-      RuleContext ruleContext,
-      CppConfiguration cppConfiguration,
-      CcCompilationOutputs ccCompilationOutputs,
-      boolean addSelfTokens) {
-    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (OutputGroupInfo dep :
-        ruleContext.getPrerequisites("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
-      headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
-    }
-    if (addSelfTokens && cppConfiguration.processHeadersInDependencies()) {
-      headerTokens.addAll(ccCompilationOutputs.getHeaderTokenFiles());
-    }
-    return headerTokens.build();
   }
 
   public void registerAdditionalModuleMap(CppModuleMap cppModuleMap) {
