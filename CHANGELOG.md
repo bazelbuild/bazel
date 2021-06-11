@@ -1,3 +1,26 @@
+## Release 5.0.0-pre.20210604.6 (2021-06-11)
+
+```
+Baseline: d571c8976f279e4d485498d0875c85ae73aecc42
+
+Cherry picks:
+
+   + c367a7e027f351e8ffefabf919563abbb8c7d0e1:
+     Fix places where nodes were still being enqueued at
+     `Integer.MAX_VALUE` and add checks for overflow conditions.
+   + 260015df1524543d56b0dbff00958320cd58d166:
+     Automated rollback of commit
+     f1b37b5d610728634d92ef4ebd4d1435c0c8605d.
+```
+
+Important changes:
+
+  - Add `disable_annotation_processing` option to
+    `java_common.compile`, which disables any annotation processors
+    passed to `plugins` or in `exported_plugins` of `deps`
+
+This release contains contributions from many people at Google, as well as Dave MacLachlan, FaBrand, George Gensure, Jesse Chan, Keith Smiley, Kevin Hogeland, Uri Baghin, Xavier Bonaventura.
+
 ## Release 5.0.0-pre.20210520.7 (2021-06-09)
 
 ```
