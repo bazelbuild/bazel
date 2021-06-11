@@ -31,7 +31,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnCache;
-import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -52,6 +53,12 @@ import javax.annotation.Nullable;
 /** A remote {@link SpawnCache} implementation. */
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
 final class RemoteSpawnCache implements SpawnCache {
+
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("remote-cache");
+
+  private static final SpawnExecutingEvent SPAWN_EXECUTING_EVENT =
+      SpawnExecutingEvent.create("remote-cache");
 
   private final Path execRoot;
   private final RemoteOptions options;
@@ -96,7 +103,7 @@ final class RemoteSpawnCache implements SpawnCache {
     Profiler prof = Profiler.instance();
     if (options.remoteAcceptCached
         || (options.incompatibleRemoteResultsIgnoreDisk && useDiskCache(options))) {
-      context.report(ProgressStatus.CHECKING_CACHE, "remote-cache");
+      context.report(SPAWN_CHECKING_CACHE_EVENT);
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
       try {
@@ -149,6 +156,8 @@ final class RemoteSpawnCache implements SpawnCache {
         }
       }
     }
+
+    context.report(SPAWN_EXECUTING_EVENT);
 
     context.prefetchInputs();
 

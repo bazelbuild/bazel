@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CachingActionEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -194,6 +195,13 @@ final class UiStateTracker {
     boolean scanning;
 
     /**
+     * Bitmap of strategies that are checking the cache of this action.
+     *
+     * <p>If non-zero, implies that {@link #scanning} is false.
+     */
+    int cachingStrategiesBitmap = 0;
+
+    /**
      * Bitmap of strategies that are scheduling this action.
      *
      * <p>If non-zero, implies that {@link #scanning} is false.
@@ -227,7 +235,9 @@ final class UiStateTracker {
      * scheduled or running.
      */
     synchronized void setScanning(long nanoChangeTime) {
-      if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
+      if (cachingStrategiesBitmap == 0
+          && schedulingStrategiesBitmap == 0
+          && runningStrategiesBitmap == 0) {
         scanning = true;
         nanoStartTime = nanoChangeTime;
       }
@@ -240,8 +250,25 @@ final class UiStateTracker {
      * scheduled or running.
      */
     synchronized void setStopScanning(long nanoChangeTime) {
-      if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
+      if (cachingStrategiesBitmap == 0
+          && schedulingStrategiesBitmap == 0
+          && runningStrategiesBitmap == 0) {
         scanning = false;
+        nanoStartTime = nanoChangeTime;
+      }
+    }
+
+    /**
+     * Marks the action as caching with the given strategy.
+     *
+     * <p>Because we may receive events out of order, this does nothing if the action is already
+     * scheduled or running with this strategy.
+     */
+    synchronized void setCaching(String strategy, long nanoChangeTime) {
+      int id = strategyIds.getId(strategy);
+      if ((schedulingStrategiesBitmap & id) == 0 && (runningStrategiesBitmap & id) == 0) {
+        scanning = false;
+        cachingStrategiesBitmap |= id;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -256,6 +283,7 @@ final class UiStateTracker {
       int id = strategyIds.getId(strategy);
       if ((runningStrategiesBitmap & id) == 0) {
         scanning = false;
+        cachingStrategiesBitmap &= ~id;
         schedulingStrategiesBitmap |= id;
         nanoStartTime = nanoChangeTime;
       }
@@ -270,6 +298,7 @@ final class UiStateTracker {
     synchronized void setRunning(String strategy, long nanoChangeTime) {
       scanning = false;
       int id = strategyIds.getId(strategy);
+      cachingStrategiesBitmap &= ~id;
       schedulingStrategiesBitmap &= ~id;
       runningStrategiesBitmap |= id;
       nanoStartTime = nanoChangeTime;
@@ -281,6 +310,8 @@ final class UiStateTracker {
         return "Running";
       } else if (schedulingStrategiesBitmap != 0) {
         return "Scheduling";
+      } else if (cachingStrategiesBitmap != 0) {
+        return "Caching";
       } else if (scanning) {
         return "Scanning";
       } else {
@@ -487,6 +518,13 @@ final class UiStateTracker {
     getActionState(action, actionId, now).setStopScanning(now);
   }
 
+  void cachingAction(CachingActionEvent event) {
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = action.getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).setCaching(event.strategy(), now);
+  }
+
   void schedulingAction(SchedulingActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
@@ -656,6 +694,8 @@ final class UiStateTracker {
     String strategy = null;
     if (actionState.runningStrategiesBitmap != 0) {
       strategy = strategyIds.formatNames(actionState.runningStrategiesBitmap);
+    } else if (actionState.cachingStrategiesBitmap != 0) {
+      strategy = strategyIds.formatNames(actionState.cachingStrategiesBitmap);
     } else {
       String status = actionState.describe();
       if (status == null) {
