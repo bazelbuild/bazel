@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -81,10 +83,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    context.report(ProgressStatus.SCHEDULING, getName());
+    context.report(SpawnSchedulingEvent.create(getName()));
     try (ResourceHandle ignored =
         resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-      context.report(ProgressStatus.EXECUTING, getName());
+      context.report(SpawnExecutingEvent.create(getName()));
       SandboxedSpawn sandbox = prepareSpawn(spawn, context);
       return runSpawn(spawn, sandbox, context);
     } catch (IOException e) {

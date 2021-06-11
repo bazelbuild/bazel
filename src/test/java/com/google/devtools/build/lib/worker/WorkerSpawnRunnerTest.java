@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -137,7 +137,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
   }
 
   @Test
@@ -172,7 +172,7 @@ public class WorkerSpawnRunnerTest {
                 inputFileCache,
                 spawnMetrics));
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
     verify(worker, times(1)).putRequest(WorkRequest.newBuilder().setRequestId(0).build());
   }
 
@@ -225,7 +225,7 @@ public class WorkerSpawnRunnerTest {
                 spawnMetrics));
     secondResponseRequested.acquire();
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
     ArgumentCaptor<WorkRequest> argumentCaptor = ArgumentCaptor.forClass(WorkRequest.class);
     verify(worker, times(2)).putRequest(argumentCaptor.capture());
     assertThat(argumentCaptor.getAllValues().get(0))
@@ -273,7 +273,7 @@ public class WorkerSpawnRunnerTest {
                 spawnMetrics));
 
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
     ArgumentCaptor<WorkRequest> argumentCaptor = ArgumentCaptor.forClass(WorkRequest.class);
     verify(worker, times(1)).putRequest(argumentCaptor.capture());
     assertThat(argumentCaptor.getAllValues().get(0))
@@ -320,7 +320,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
-    verify(context, times(1)).report(ProgressStatus.EXECUTING, "worker");
+    verify(context, times(1)).report(SpawnExecutingEvent.create("worker"));
   }
 
   private void assertRecordedResponsethrowsException(String recordedResponse, String exceptionText)

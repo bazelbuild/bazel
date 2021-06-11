@@ -73,9 +73,11 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
-import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
@@ -1357,6 +1359,46 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
+  public void shouldReportCheckingCacheBeforeScheduling() throws Exception {
+    // Arrange
+    RemoteSpawnRunner runner = newSpawnRunner();
+    ExecuteResponse succeeded =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .build();
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
+    when(policy.getTimeout()).thenReturn(Duration.ZERO);
+
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenAnswer(
+            invocationOnMock -> {
+              OperationObserver receiver = invocationOnMock.getArgument(2);
+              receiver.onNext(Operation.getDefaultInstance());
+              return succeeded;
+            });
+
+    // Act
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+
+    // Assert
+    verify(executor)
+        .executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class));
+    InOrder reportOrder = inOrder(policy);
+    reportOrder.verify(policy, times(1)).report(SpawnCheckingCacheEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
+  }
+
+  @Test
   public void shouldReportExecutingStatusWithoutMetadata() throws Exception {
     RemoteSpawnRunner runner = newSpawnRunner();
     ExecuteResponse succeeded =
@@ -1375,7 +1417,7 @@ public class RemoteSpawnRunnerTest {
         .thenAnswer(
             invocationOnMock -> {
               OperationObserver receiver = invocationOnMock.getArgument(2);
-              verify(policy, never()).report(eq(ProgressStatus.EXECUTING), any(String.class));
+              verify(policy, never()).report(SpawnExecutingEvent.create("remote"));
               receiver.onNext(Operation.getDefaultInstance());
               return succeeded;
             });
@@ -1389,8 +1431,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1419,7 +1461,7 @@ public class RemoteSpawnRunnerTest {
                               ExecuteOperationMetadata.newBuilder().setStage(Value.QUEUED).build()))
                       .build();
               receiver.onNext(queued);
-              verify(policy, never()).report(eq(ProgressStatus.EXECUTING), any(String.class));
+              verify(policy, never()).report(SpawnExecutingEvent.create("remote"));
 
               Operation executing =
                   Operation.newBuilder()
@@ -1443,8 +1485,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1485,8 +1527,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1529,8 +1571,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   @Test
@@ -1560,8 +1602,8 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class));
     InOrder reportOrder = inOrder(policy);
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
-    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(SpawnSchedulingEvent.create("remote"));
+    reportOrder.verify(policy, times(1)).report(SpawnExecutingEvent.create("remote"));
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {

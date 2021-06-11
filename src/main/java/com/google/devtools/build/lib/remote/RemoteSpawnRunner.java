@@ -45,7 +45,10 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -80,6 +83,15 @@ import javax.annotation.Nullable;
 /** A client for the remote execution service. */
 @ThreadSafe
 public class RemoteSpawnRunner implements SpawnRunner {
+
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("remote");
+
+  private static final SpawnSchedulingEvent SPAWN_SCHEDULING_EVENT =
+      SpawnSchedulingEvent.create("remote");
+
+  private static final SpawnExecutingEvent SPAWN_EXECUTING_EVENT =
+      SpawnExecutingEvent.create("remote");
 
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
@@ -143,7 +155,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     public void reportExecuting() {
-      context.report(ProgressStatus.EXECUTING, getName());
+      context.report(SPAWN_EXECUTING_EVENT);
       reportedExecuting = true;
     }
 
@@ -165,8 +177,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
     boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
 
-    context.report(ProgressStatus.SCHEDULING, getName());
-
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
@@ -179,6 +189,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     Profiler prof = Profiler.instance();
     try {
+      context.report(SPAWN_CHECKING_CACHE_EVENT);
+
       // Try to lookup the action in the action cache.
       RemoteActionResult cachedResult;
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
@@ -231,6 +243,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
                       .elapsed()
                       .minus(action.getNetworkTime().getDuration().minus(networkTimeStart)));
             }
+
+            context.report(SPAWN_SCHEDULING_EVENT);
 
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;

@@ -48,8 +48,10 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
@@ -269,8 +271,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public void report(ProgressStatus state, String name) {
-      reportedStatus.add(state);
+    public void report(ProgressStatus progress) {
+      reportedStatus.add(progress);
     }
 
     @Override
@@ -387,7 +389,8 @@ public class LocalSpawnRunnerTest {
 
     assertThat(policy.lockOutputFilesCalled).isTrue();
     assertThat(policy.reportedStatus)
-        .containsExactly(ProgressStatus.SCHEDULING, ProgressStatus.EXECUTING).inOrder();
+        .containsExactly(SpawnSchedulingEvent.create("local"), SpawnExecutingEvent.create("local"))
+        .inOrder();
   }
 
   @Test

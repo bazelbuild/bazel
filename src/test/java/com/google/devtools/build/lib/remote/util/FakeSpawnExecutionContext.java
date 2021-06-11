@@ -120,7 +120,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public void report(ProgressStatus state, String name) {
+  public void report(ProgressStatus progress) {
     // Intentionally left empty.
   }
 
