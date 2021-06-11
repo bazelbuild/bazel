@@ -53,6 +53,8 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -67,7 +69,6 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -110,7 +111,7 @@ public class RemoteSpawnCacheTest {
   @Mock private RemoteCache remoteCache;
   private RemoteSpawnCache cache;
   private FileOutErr outErr;
-  private final List<Pair<ProgressStatus, String>> progressUpdates = new ArrayList<>();
+  private final List<ProgressStatus> progressUpdates = new ArrayList<>();
 
   private StoredEventHandler eventHandler = new StoredEventHandler();
 
@@ -164,8 +165,8 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
-        public void report(ProgressStatus state, String name) {
-          progressUpdates.add(Pair.of(state, name));
+        public void report(ProgressStatus progress) {
+          progressUpdates.add(progress);
         }
 
         @Override
@@ -294,8 +295,7 @@ public class RemoteSpawnCacheTest {
     // We expect the CachedLocalSpawnRunner to _not_ write to outErr at all.
     assertThat(outErr.hasRecordedOutput()).isFalse();
     assertThat(outErr.hasRecordedStderr()).isFalse();
-    assertThat(progressUpdates)
-        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+    assertThat(progressUpdates).containsExactly(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
@@ -340,7 +340,9 @@ public class RemoteSpawnCacheTest {
             eq(outputFiles),
             eq(outErr));
     assertThat(progressUpdates)
-        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+        .containsExactly(
+            SpawnCheckingCacheEvent.create("remote-cache"),
+            SpawnExecutingEvent.create("remote-cache"));
   }
 
   @Test
@@ -508,7 +510,9 @@ public class RemoteSpawnCacheTest {
             eq(outputFiles),
             eq(outErr));
     assertThat(progressUpdates)
-        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+        .containsExactly(
+            SpawnCheckingCacheEvent.create("remote-cache"),
+            SpawnExecutingEvent.create("remote-cache"));
   }
 
   @Test
@@ -550,7 +554,9 @@ public class RemoteSpawnCacheTest {
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
     assertThat(evt.getMessage()).contains("cache down");
     assertThat(progressUpdates)
-        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+        .containsExactly(
+            SpawnCheckingCacheEvent.create("remote-cache"),
+            SpawnExecutingEvent.create("remote-cache"));
   }
 
   @Test
@@ -608,7 +614,9 @@ public class RemoteSpawnCacheTest {
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
     assertThat(evt.getMessage()).contains("UNAVAILABLE");
     assertThat(progressUpdates)
-        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+        .containsExactly(
+            SpawnCheckingCacheEvent.create("remote-cache"),
+            SpawnExecutingEvent.create("remote-cache"));
   }
 
   @Test
@@ -678,7 +686,9 @@ public class RemoteSpawnCacheTest {
             eq(outputFiles),
             eq(outErr));
     assertThat(progressUpdates)
-        .containsExactly(Pair.of(ProgressStatus.CHECKING_CACHE, "remote-cache"));
+        .containsExactly(
+            SpawnCheckingCacheEvent.create("remote-cache"),
+            SpawnExecutingEvent.create("remote-cache"));
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
   }
 
