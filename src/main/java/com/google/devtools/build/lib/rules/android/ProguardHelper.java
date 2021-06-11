@@ -214,7 +214,7 @@ public final class ProguardHelper {
     }
 
     ImmutableSortedSet.Builder<Artifact> builder =
-        ImmutableSortedSet.orderedBy(Artifact.EXEC_PATH_COMPARATOR)
+        ImmutableSortedSet.<Artifact>naturalOrder()
             .addAll(localProguardSpecs)
             .addAll(specsToInclude);
     for (ProguardSpecProvider dep : proguardDeps) {

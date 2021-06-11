@@ -290,7 +290,7 @@ public class AndroidManifest {
     }
     switch (manifestMergerOrder) {
       case ALPHABETICAL:
-        return ImmutableSortedMap.copyOf(builder.build(), Artifact.EXEC_PATH_COMPARATOR);
+        return ImmutableSortedMap.copyOf(builder.build());
       case ALPHABETICAL_BY_CONFIGURATION:
         return ImmutableSortedMap.copyOf(builder.build(), Artifact.ROOT_RELATIVE_PATH_COMPARATOR);
       case DEPENDENCY:

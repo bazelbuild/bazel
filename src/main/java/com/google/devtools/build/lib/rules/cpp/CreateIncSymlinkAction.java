@@ -61,7 +61,7 @@ public final class CreateIncSymlinkAction extends AbstractAction {
         owner,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, symlinks.values()),
         ImmutableSet.copyOf(symlinks.keySet()));
-    this.symlinks = ImmutableSortedMap.copyOf(symlinks, Artifact.EXEC_PATH_COMPARATOR);
+    this.symlinks = ImmutableSortedMap.copyOf(symlinks);
     this.includePath = includePath;
   }
 
