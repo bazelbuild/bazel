@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,7 +54,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -166,7 +167,6 @@ public final class CompletionFunction<
     ValueT value = valueAndArtifactsToBuild.first;
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
 
-    // Avoid iterating over nested set twice.
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
     Map<SkyKey, ValueOrException2<ActionExecutionException, SourceArtifactException>> inputDeps =
         env.getValuesOrThrow(
@@ -174,7 +174,26 @@ public final class CompletionFunction<
             ActionExecutionException.class,
             SourceArtifactException.class);
 
+    boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
+
     ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
+    // Prepare an ActionInputMap for important artifacts separately, to be used by BEP events. The
+    // _validation output group can contain orders of magnitude more unimportant artifacts than
+    // there are important artifacts, and BEP events will retain the ActionInputMap until the
+    // event is delivered to transports. If the BEP events reference *all* artifacts it can increase
+    // heap high-watermark by multiple GB.
+    ActionInputMap importantInputMap;
+    Set<Artifact> importantArtifactSet;
+    if (allArtifactsAreImportant) {
+      importantArtifactSet = ImmutableSet.of();
+      importantInputMap = inputMap;
+    } else {
+      ImmutableList<Artifact> importantArtifacts =
+          artifactsToBuild.getImportantArtifacts().toList();
+      importantArtifactSet = new HashSet<>(importantArtifacts);
+      importantInputMap = new ActionInputMap(importantArtifacts.size());
+    }
+
     Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = new HashMap<>();
@@ -209,6 +228,22 @@ public final class CompletionFunction<
                 artifactValue,
                 env,
                 currentConsumer);
+            if (!allArtifactsAreImportant && importantArtifactSet.contains(input)) {
+              // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
+              // updates to the secondary collections passed in (eg. expandedArtifacts,
+              // topLevelFilesets). MetadataConsumerForMetrics.NO_OP is used to avoid
+              // double-counting.
+              ActionInputMapHelper.addToMap(
+                  importantInputMap,
+                  expandedArtifacts,
+                  archivedTreeArtifacts,
+                  expandedFilesets,
+                  topLevelFilesets,
+                  input,
+                  artifactValue,
+                  env,
+                  MetadataConsumerForMetrics.NO_OP);
+            }
           }
         }
       } catch (ActionExecutionException e) {
@@ -238,14 +273,14 @@ public final class CompletionFunction<
       }
     }
 
-    final CompletionContext ctx;
-    ctx =
+    CompletionContext ctx =
         CompletionContext.create(
             expandedArtifacts,
             expandedFilesets,
             key.topLevelArtifactContext().expandFilesets(),
             key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
             inputMap,
+            importantInputMap,
             pathResolverFactory,
             skyframeActionExecutor.getExecRoot(),
             workspaceNameValue.getName());

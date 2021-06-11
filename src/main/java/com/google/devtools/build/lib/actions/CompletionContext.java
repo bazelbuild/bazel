@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -47,7 +48,11 @@ public class CompletionContext {
   private final ArtifactPathResolver pathResolver;
   private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
-  private final ActionInputMap inputMap;
+  // Only contains the metadata for 'important' artifacts of the Target/Aspect that completed. Any
+  // 'unimportant' artifacts produced by internal output groups (most importantly, _validation) will
+  // not be included to avoid retaining many GB on the heap. This ActionInputMap must only be
+  // consulted with respect to known-important artifacts (eg. artifacts referenced in BEP).
+  private final ActionInputMap importantInputMap;
   private final boolean expandFilesets;
   private final boolean fullyResolveFilesetLinks;
 
@@ -57,14 +62,14 @@ public class CompletionContext {
       Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ArtifactPathResolver pathResolver,
-      ActionInputMap inputMap,
+      ActionInputMap importantInputMap,
       boolean expandFilesets,
       boolean fullyResolveFilesetLinks) {
     this.execRoot = execRoot;
     this.expandedArtifacts = expandedArtifacts;
     this.expandedFilesets = expandedFilesets;
     this.pathResolver = pathResolver;
-    this.inputMap = inputMap;
+    this.importantInputMap = importantInputMap;
     this.expandFilesets = expandFilesets;
     this.fullyResolveFilesetLinks = fullyResolveFilesetLinks;
   }
@@ -75,6 +80,7 @@ public class CompletionContext {
       boolean expandFilesets,
       boolean fullyResolveFilesetSymlinks,
       ActionInputMap inputMap,
+      ActionInputMap importantInputMap,
       PathResolverFactory pathResolverFactory,
       Path execRoot,
       String workspaceName) {
@@ -88,7 +94,7 @@ public class CompletionContext {
         expandedArtifacts,
         expandedFilesets,
         pathResolver,
-        inputMap,
+        importantInputMap,
         expandFilesets,
         fullyResolveFilesetSymlinks);
   }
@@ -98,8 +104,11 @@ public class CompletionContext {
   }
 
   /** Returns true if the given artifact is guaranteed to be a file (and not a directory). */
-  public boolean isOutputFile(Artifact artifact) {
-    FileArtifactValue metadata = inputMap.getMetadata(artifact);
+  public boolean isGuaranteedToBeOutputFile(Artifact artifact) {
+    FileArtifactValue metadata = importantInputMap.getMetadata(artifact);
+    // If we have no metadata for an output file that will be reported in BEP, return that the
+    // output is not guaranteed to be a file. (We expect this to happen for baseline_coverage.dat
+    // files when coverage is enabled.)
     if (metadata == null) {
       return false;
     }
@@ -124,7 +133,15 @@ public class CompletionContext {
                   : RelativeSymlinkBehaviorWithoutError.RESOLVE);
         }
       } else if (artifact.isTreeArtifact()) {
-        if (FileArtifactValue.OMITTED_FILE_MARKER.equals(inputMap.getMetadata(artifact))) {
+        FileArtifactValue treeArtifactMetadata = importantInputMap.getMetadata(artifact);
+        if (treeArtifactMetadata == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  String.format(
+                      "missing artifact metadata for tree artifact: %s",
+                      artifact.toDebugString())));
+        }
+        if (FileArtifactValue.OMITTED_FILE_MARKER.equals(treeArtifactMetadata)) {
           // Expansion can be missing for omitted tree artifacts -- skip the whole tree.
           continue;
         }
@@ -163,6 +180,7 @@ public class CompletionContext {
   /** A function that accepts an {@link Artifact}. */
   public interface ArtifactReceiver {
     void accept(Artifact artifact);
+
     void acceptFilesetMapping(Artifact fileset, PathFragment relName, Path targetFile);
   }
 
