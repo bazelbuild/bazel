@@ -58,12 +58,7 @@ public final class ActionInputHelper {
    * implement equality via path comparison. Since file caches are keyed by ActionInput, equality
    * checking does come up.
    */
-  private static class BasicActionInput implements ActionInput {
-    private final String path;
-
-    BasicActionInput(String path) {
-      this.path = Preconditions.checkNotNull(path);
-    }
+  private abstract static class BasicActionInput implements ActionInput {
 
     // TODO(lberki): Plumb this flag from InputTree.build() somehow.
     @Override
@@ -72,18 +67,8 @@ public final class ActionInputHelper {
     }
 
     @Override
-    public String getExecPathString() {
-      return path;
-    }
-
-    @Override
-    public PathFragment getExecPath() {
-      return PathFragment.create(path);
-    }
-
-    @Override
     public int hashCode() {
-      return path.hashCode();
+      return getExecPathString().hashCode();
     }
 
     @Override
@@ -91,18 +76,15 @@ public final class ActionInputHelper {
       if (this == other) {
         return true;
       }
-      if (other == null) {
+      if (!(other instanceof BasicActionInput)) {
         return false;
       }
-      if (!this.getClass().equals(other.getClass())) {
-        return false;
-      }
-      return this.path.equals(((BasicActionInput) other).path);
+      return getExecPathString().equals(((BasicActionInput) other).getExecPathString());
     }
 
     @Override
     public String toString() {
-      return "BasicActionInput: " + path;
+      return "BasicActionInput: " + getExecPathString();
     }
   }
 
@@ -113,7 +95,17 @@ public final class ActionInputHelper {
    * @return a ActionInput.
    */
   public static ActionInput fromPath(String path) {
-    return new BasicActionInput(path);
+    return new BasicActionInput() {
+      @Override
+      public String getExecPathString() {
+        return path;
+      }
+
+      @Override
+      public PathFragment getExecPath() {
+        return PathFragment.create(path);
+      }
+    };
   }
 
   /**
@@ -123,7 +115,17 @@ public final class ActionInputHelper {
    * @return a ActionInput.
    */
   public static ActionInput fromPath(PathFragment path) {
-    return fromPath(path.getPathString());
+    return new BasicActionInput() {
+      @Override
+      public String getExecPathString() {
+        return path.getPathString();
+      }
+
+      @Override
+      public PathFragment getExecPath() {
+        return path;
+      }
+    };
   }
 
   /**

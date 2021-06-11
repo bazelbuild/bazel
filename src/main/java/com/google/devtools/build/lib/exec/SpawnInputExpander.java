@@ -210,7 +210,7 @@ public class SpawnInputExpander {
       ActionInput artifact =
           value == null
               ? VirtualActionInput.EMPTY_MARKER
-              : ActionInputHelper.fromPath(execRoot.getRelative(value).getPathString());
+              : ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
       addMapping(inputMappings, mapping.getKey(), artifact, baseDirectory);
       }
   }
