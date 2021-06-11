@@ -292,12 +292,19 @@ public class DynamicSpawnStrategyUnitTest {
         new SpawnBuilder()
             .withOwnerPrimaryOutput(new SourceArtifact(rootDir, PathFragment.create("/foo"), null))
             .build();
+    SandboxedSpawnStrategy local = createMockSpawnStrategy();
+    SandboxedSpawnStrategy remote = createMockSpawnStrategy();
+    ActionExecutionContext actionExecutionContext = createMockActionExecutionContext(local, remote);
     AssertionError error =
         assertThrows(
             AssertionError.class,
             () ->
                 DynamicSpawnStrategy.waitBranches(
-                    Futures.immediateFuture(null), Futures.immediateFuture(null), spawn));
+                    Futures.immediateFuture(null),
+                    Futures.immediateFuture(null),
+                    spawn,
+                    new DynamicExecutionOptions(),
+                    actionExecutionContext));
     assertThat(error).hasMessageThat().contains("Neither branch of /foo completed.");
   }
 
