@@ -204,6 +204,9 @@ public class ActionGraphDump {
     if (actionOwner != null) {
       BuildEvent event = actionOwner.getConfiguration();
       actionBuilder.setConfigurationId(knownConfigurations.dataToIdAndStreamOutputProto(event));
+      if (actionOwner.getExecutionPlatform() != null) {
+        actionBuilder.setExecutionPlatform(actionOwner.getExecutionPlatform().label().toString());
+      }
 
       // Store aspects.
       // Iterate through the aspect path and dump the aspect descriptors.

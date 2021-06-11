@@ -116,6 +116,7 @@ EOF
   assert_contains "Mnemonic: Genrule" output
   assert_contains "Target: //$pkg:bar" output
   assert_contains "Configuration: .*-fastbuild" output
+  assert_contains "Execution platform: ${default_host_platform}" output
   # Only check that the inputs/outputs/command line/environment exist, but not
   # their actual contents since that would be too much.
   assert_contains "Inputs: \[" output
@@ -161,6 +162,7 @@ EOF
   assert_contains "label: \"dummy.txt\"" output
   assert_contains "mnemonic: \"Genrule\"" output
   assert_contains "mnemonic: \".*-fastbuild\"" output
+  assert_contains "execution_platform: \"${default_host_platform}\"" output
   assert_contains "echo unused" output
 }
 
@@ -190,6 +192,7 @@ EOF
   assert_contains "\"label\": \"dummy.txt\"" output
   assert_contains "\"mnemonic\": \"Genrule\"" output
   assert_contains "\"mnemonic\": \".*-fastbuild\"" output
+  assert_contains "\"executionPlatform\": \"${default_host_platform}\"" output
   assert_contains "echo unused" output
 }
 

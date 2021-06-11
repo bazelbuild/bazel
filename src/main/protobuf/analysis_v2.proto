@@ -100,6 +100,10 @@ message Action {
 
   // The id to an Artifact that is the primary output of this action.
   uint32 primary_output_id = 13;
+
+  // The execution platform for this action. Empty if the action has no
+  // execution platform.
+  string execution_platform = 14;
 }
 
 // Represents a single target (without configuration information) that is
