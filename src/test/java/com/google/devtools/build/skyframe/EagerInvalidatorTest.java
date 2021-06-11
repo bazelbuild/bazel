@@ -405,6 +405,22 @@ public class EagerInvalidatorTest {
     assertDirtyAndNotChanged(parent);
   }
 
+  @Test
+  public void deepGraph() throws Exception {
+    graph = new InMemoryGraphImpl();
+    int depth = 1 << 15;
+    SkyKey leafKey = GraphTester.nonHermeticKey(Integer.toString(depth));
+    for (int i = 0; i < depth; i++) {
+      tester
+          .getOrCreate(Integer.toString(i))
+          .addDependency(i + 1 == depth ? leafKey : GraphTester.skyKey(Integer.toString(i + 1)))
+          .setComputedValue(CONCATENATE);
+    }
+    tester.set(leafKey, new StringValue("leaf"));
+    eval(/*keepGoing=*/ false, GraphTester.skyKey(Integer.toString(0)));
+    invalidateWithoutError(new DirtyTrackingProgressReceiver(null), leafKey);
+  }
+
   private SkyKey[] constructLargeGraph(int size) {
     Random random = new Random(TestUtils.getRandomSeed());
     SkyKey[] values = new SkyKey[size];
