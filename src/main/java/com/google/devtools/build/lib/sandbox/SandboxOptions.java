@@ -19,9 +19,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
@@ -141,13 +143,14 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "sandbox_tmpfs_path",
       allowMultiple = true,
+      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "For sandboxed actions, mount an empty, writable directory at this path"
+          "For sandboxed actions, mount an empty, writable directory at this absolute path"
               + " (if supported by the sandboxing implementation, ignored otherwise).")
-  public List<String> sandboxTmpfsPath;
+  public List<PathFragment> sandboxTmpfsPath;
 
   @Option(
       name = "sandbox_writable_path",
