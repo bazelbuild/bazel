@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -124,8 +125,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private static final boolean VALIDATION_DEBUG_WARN = false;
 
-  private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
-  private static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
+  @VisibleForTesting public static final String CPP_COMPILE_MNEMONIC = "CppCompile";
+  @VisibleForTesting public static final String OBJC_COMPILE_MNEMONIC = "ObjcCompile";
 
   protected final Artifact outputFile;
   private final Artifact sourceFile;
@@ -1294,9 +1295,24 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return ccCompilationContext.getDeclaredIncludeSrcs();
   }
 
-  /** Estimates resource consumption when this action is executed locally. */
-  public ResourceSet estimateResourceConsumptionLocal() {
-    return AbstractAction.DEFAULT_RESOURCE_SET;
+  /**
+   * Estimates resource consumption when this action is executed locally. During investigation we
+   * found linear dependency between used memory by action and number of inputs. For memory
+   * estimation we are using form C + K * inputs, where C and K selected in such way, that more than
+   * 95% of actions used less than C + K * inputs MB of memory during execution.
+   */
+  public static ResourceSet estimateResourceConsumptionLocal(String mnemonic, OS os, int inputs) {
+    if (!CPP_COMPILE_MNEMONIC.equals(mnemonic)) {
+      return AbstractAction.DEFAULT_RESOURCE_SET;
+    }
+
+    switch (os) {
+      case DARWIN:
+      case LINUX:
+        return ResourceSet.createWithRamCpu(/* memoryMb= */ 80 + 0.7 * inputs, /* cpuUsage= */ 1);
+      default:
+        return AbstractAction.DEFAULT_RESOURCE_SET;
+    }
   }
 
   @Override
@@ -1519,7 +1535,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           executionInfo.build(),
           inputs,
           getOutputs(),
-          estimateResourceConsumptionLocal());
+          estimateResourceConsumptionLocal(
+              getMnemonic(), OS.getCurrent(), inputs.memoizedFlattenAndGetSize()));
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(

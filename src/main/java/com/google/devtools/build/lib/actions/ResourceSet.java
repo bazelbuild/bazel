@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Splitter;
+import com.google.common.primitives.Doubles;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
@@ -116,6 +117,30 @@ public class ResourceSet {
         + "Local tests: " + localTestCount + "\n";
   }
 
+  @Override
+  public boolean equals(Object that) {
+    if (that == null) {
+      return false;
+    }
+
+    if (!(that instanceof ResourceSet)) {
+      return false;
+    }
+
+    ResourceSet thatResourceSet = (ResourceSet) that;
+    return thatResourceSet.getMemoryMb() == getMemoryMb()
+        && thatResourceSet.getCpuUsage() == getCpuUsage()
+        && thatResourceSet.localTestCount == getLocalTestCount();
+  }
+
+  @Override
+  public int hashCode() {
+    int p = 239;
+    return Doubles.hashCode(getMemoryMb())
+        + Doubles.hashCode(getCpuUsage()) * p
+        + getLocalTestCount() * p * p;
+  }
+
   public static class ResourceSetConverter implements Converter<ResourceSet> {
     private static final Splitter SPLITTER = Splitter.on(',');
 
@@ -146,6 +171,5 @@ public class ResourceSet {
       return "comma-separated available amount of RAM (in MB), CPU (in cores) and "
           + "available I/O (1.0 being average workstation)";
     }
-
   }
 }
