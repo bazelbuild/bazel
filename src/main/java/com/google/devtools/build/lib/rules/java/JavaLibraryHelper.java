@@ -274,6 +274,8 @@ public final class JavaLibraryHelper {
     if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
       artifactsBuilder.addRuntimeJar(output);
       iJar = helper.createCompileTimeJarAction(output, artifactsBuilder);
+    } else if (!resources.isEmpty()) {
+      artifactsBuilder.addRuntimeJar(output);
     }
 
     if (createOutputSourceJar) {

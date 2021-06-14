@@ -340,7 +340,7 @@ final class JavaInfoBuildHelper {
 
     // When sources are not provided, the subsequent output Jar will be empty. As such, the output
     // Jar is omitted from the set of Runtime Jars.
-    if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
+    if (!sourceJars.isEmpty() || !sourceFiles.isEmpty() || !resources.isEmpty()) {
       javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
     }
 
