@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-workspace(name = "fine_grained_user_modules",
-managed_directories = {'@generated_node_modules': ['node_modules']})
+workspace(
+    name = "fine_grained_user_modules",
+    managed_directories = {"@generated_node_modules": ["node_modules"]},
+)
 
 load(":use_node_modules.bzl", "generate_fine_grained_node_modules")
 

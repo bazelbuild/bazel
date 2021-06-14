@@ -6,20 +6,62 @@ package(default_visibility = ["//visibility:public"])
 # TODO(apple-rules): Rename osx constraint to macOS.
 OSX_TOOLS_CONSTRAINTS = {
     "armeabi-v7a": ["@platforms//cpu:arm"],
-    "darwin_arm64": ["@platforms//os:osx", "@platforms//cpu:aarch64"],
-    "darwin_arm64e": ["@platforms//os:osx", "@platforms//cpu:aarch64"],
-    "darwin_x86_64": ["@platforms//os:osx", "@platforms//cpu:x86_64"],
-    "ios_arm64": ["@platforms//os:ios", "@platforms//cpu:aarch64"],
-    "ios_arm64e": ["@platforms//os:ios", "@platforms//cpu:aarch64"],
-    "ios_armv7": ["@platforms//os:ios", "@platforms//cpu:arm"],
-    "ios_i386": ["@platforms//os:ios", "@platforms//cpu:x86_32"],
-    "ios_x86_64": ["@platforms//os:ios", "@platforms//cpu:x86_64"],
-    "tvos_arm64": ["@platforms//os:ios", "@platforms//cpu:aarch64"],
-    "tvos_x86_64": ["@platforms//os:ios", "@platforms//cpu:x86_64"],
-    "watchos_arm64_32": ["@platforms//os:ios", "@platforms//cpu:aarch64"],
-    "watchos_armv7k": ["@platforms//os:ios", "@platforms//cpu:arm"],
-    "watchos_i386": ["@platforms//os:ios", "@platforms//cpu:x86_32"],
-    "watchos_x86_64": ["@platforms//os:ios", "@platforms//cpu:x86_64"],
+    "darwin_arm64": [
+        "@platforms//os:osx",
+        "@platforms//cpu:aarch64",
+    ],
+    "darwin_arm64e": [
+        "@platforms//os:osx",
+        "@platforms//cpu:aarch64",
+    ],
+    "darwin_x86_64": [
+        "@platforms//os:osx",
+        "@platforms//cpu:x86_64",
+    ],
+    "ios_arm64": [
+        "@platforms//os:ios",
+        "@platforms//cpu:aarch64",
+    ],
+    "ios_arm64e": [
+        "@platforms//os:ios",
+        "@platforms//cpu:aarch64",
+    ],
+    "ios_armv7": [
+        "@platforms//os:ios",
+        "@platforms//cpu:arm",
+    ],
+    "ios_i386": [
+        "@platforms//os:ios",
+        "@platforms//cpu:x86_32",
+    ],
+    "ios_x86_64": [
+        "@platforms//os:ios",
+        "@platforms//cpu:x86_64",
+    ],
+    "tvos_arm64": [
+        "@platforms//os:ios",
+        "@platforms//cpu:aarch64",
+    ],
+    "tvos_x86_64": [
+        "@platforms//os:ios",
+        "@platforms//cpu:x86_64",
+    ],
+    "watchos_arm64_32": [
+        "@platforms//os:ios",
+        "@platforms//cpu:aarch64",
+    ],
+    "watchos_armv7k": [
+        "@platforms//os:ios",
+        "@platforms//cpu:arm",
+    ],
+    "watchos_i386": [
+        "@platforms//os:ios",
+        "@platforms//cpu:x86_32",
+    ],
+    "watchos_x86_64": [
+        "@platforms//os:ios",
+        "@platforms//cpu:x86_64",
+    ],
 }
 
 OSX_DEVELOPER_PLATFORM_CPUS = [

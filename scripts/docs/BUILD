@@ -1,4 +1,4 @@
-load("//tools/python:private/defs.bzl", "py_library", "py_binary")
+load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 
 filegroup(
     name = "srcs",
