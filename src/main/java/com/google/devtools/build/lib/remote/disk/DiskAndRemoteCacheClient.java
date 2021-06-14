@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -142,11 +143,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
     Path tempPath = newTempPath();
     final OutputStream tempOut;
-    try {
-      tempOut = tempPath.getOutputStream();
-    } catch (IOException e) {
-      return Futures.immediateFailedFuture(e);
-    }
+    tempOut = new LazyFileOutputStream(tempPath);
 
     if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
       ListenableFuture<Void> download =
