@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -106,6 +108,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             Iterables.transform(
                 ccCompilationContext.getIncludeDirs(), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
+  }
+
+  @Test
+  public void testJ2ObjCAspectDisablesParseHeaders() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget j2objcAspectTarget =
+        getJ2ObjCAspectConfiguredTarget("//java/com/google/dummy/test:test");
+    CcCompilationContext ccCompilationContext =
+        j2objcAspectTarget.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+
+    assertThat(baseArtifactNames(ccCompilationContext.getHeaderTokens().toList()))
+        .doesNotContain("test.h.processed");
   }
 
   @Test
