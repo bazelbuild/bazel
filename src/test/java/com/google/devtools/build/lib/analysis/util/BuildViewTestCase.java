@@ -908,18 +908,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getGeneratingAction(outputName, filesToBuild, "filesToBuild");
   }
 
-  private static Artifact findArtifactNamed(
-      String name, NestedSet<Artifact> artifacts, Object context) {
-    return artifacts.toList().stream()
-        .filter(artifactNamed(name))
-        .findFirst()
-        .orElseThrow(
-            () ->
-                new NoSuchElementException(
-                    String.format(
-                        "Artifact named '%s' not found in %s (%s)", name, context, artifacts)));
-  }
-
   private Action getGeneratingAction(
       String outputName, NestedSet<Artifact> filesToBuild, String providerName) {
     return getGeneratingAction(findArtifactNamed(outputName, filesToBuild, providerName));
@@ -935,6 +923,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else {
       return null;
     }
+  }
+
+  private static Artifact findArtifactNamed(
+      String name, NestedSet<Artifact> artifacts, Object context) {
+    return artifacts.toList().stream()
+        .filter(artifactNamed(name))
+        .findFirst()
+        .orElseThrow(
+            () ->
+                new NoSuchElementException(
+                    String.format(
+                        "Artifact named '%s' not found in %s (%s)", name, context, artifacts)));
   }
 
   protected Action getGeneratingActionInOutputGroup(
