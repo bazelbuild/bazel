@@ -74,7 +74,6 @@ public final class Bazel {
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder
               .PostGCMemoryUseRecorderModule.class,
-          com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
           BazelBuiltinCommandModule.class);

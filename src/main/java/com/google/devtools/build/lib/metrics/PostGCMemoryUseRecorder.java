@@ -17,21 +17,15 @@ package com.google.devtools.build.lib.metrics;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
@@ -198,48 +192,6 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           .getPeakPostGcHeap()
           .map(peak -> print(StringUtilities.prettyPrintBytes(peak.bytes())))
           .orElseGet(() -> print("unknown"));
-    }
-  }
-
-  /** Module to run a full GC after a build is complete on a Blaze server. * */
-  public static final class GcAfterBuildModule extends BlazeModule {
-
-    private boolean forceGc = false;
-
-    /** Command options for forcing a GC after a build. * */
-    public static class Options extends OptionsBase {
-      @Option(
-          name = "experimental_force_gc_after_build",
-          defaultValue = "false",
-          documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-          effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-          help =
-              "If true calls System.gc() after a build to try and get a post-gc peak heap"
-                  + " measurement.")
-      public boolean experimentalForceGcAfterBuild;
-    }
-
-    @Override
-    public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-      return ImmutableList.of(Options.class);
-    }
-
-    @Override
-    public void beforeCommand(CommandEnvironment env) {
-      Options options = env.getOptions().getOptions(Options.class);
-      if (options != null
-          && ("test".equals(env.getCommand().name()) || "build".equals(env.getCommand().name()))) {
-        forceGc = options.experimentalForceGcAfterBuild;
-      } else {
-        forceGc = false;
-      }
-    }
-
-    @Override
-    public void afterCommand() {
-      if (forceGc && !PostGCMemoryUseRecorder.get().getPeakPostGcHeap().isPresent()) {
-        System.gc();
-      }
     }
   }
 
