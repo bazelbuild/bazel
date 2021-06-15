@@ -35,7 +35,9 @@ import net.starlark.java.annot.StarlarkMethod;
             + "<code>metadata_files</code></a> are passed to the test action as inputs, with the "
             + "manifest's path noted in the environment variable <code>COVERAGE_MANIFEST</code>. "
             + "The metadata files, but not the source files, are also passed to the test action "
-            + "as inputs.")
+            + "as inputs. When <code>InstrumentedFilesInfo</code> is returned by an "
+            + "<a href=\"../aspects.html\">aspect</a>'s implementation function, any "
+            + "<code>InstrumentedFilesInfo</code> from the base rule target is ignored.")
 public interface InstrumentedFilesInfoApi extends StructApi {
 
   @StarlarkMethod(

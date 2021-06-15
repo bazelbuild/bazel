@@ -25,8 +25,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -986,5 +988,147 @@ public class AspectTest extends AnalysisTestCase {
         .containsMatch(
             "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
                 + " attempted action: action 'Action for aspect .'");
+  }
+
+  @Test
+  public void aspectDuplicatesRuleProviderError() throws Exception {
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
+    scratch.file(
+        "aspect/build_defs.bzl",
+        "def _aspect_impl(target, ctx):",
+        "    return [DefaultInfo()]",
+        "",
+        "returns_default_info_aspect = aspect(implementation = _aspect_impl)",
+        "",
+        "def _rule_impl(ctx):",
+        "    pass",
+        "",
+        "duplicate_provider_aspect_applying_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {'to': attr.label(aspects = [returns_default_info_aspect])},",
+        ")");
+    scratch.file(
+        "aspect/BUILD",
+        "load('build_defs.bzl', 'duplicate_provider_aspect_applying_rule')",
+        "cc_library(name = 'rule_target')",
+        "duplicate_provider_aspect_applying_rule(name='applies_aspect', to=':rule_target')");
+    assertThat(
+            assertThrows(
+                AssertionError.class, () -> getConfiguredTarget("//aspect:applies_aspect")))
+        .hasMessageThat()
+        .contains("Provider DefaultInfo provided twice");
+  }
+
+  @Test
+  public void instrumentedFilesInfoFromBaseRuleAndAspectUsesAspect() throws Exception {
+    scratch.file(
+        "aspect/build_defs.bzl",
+        "def _instrumented_files_info_aspect_impl(target, ctx):",
+        "    return [coverage_common.instrumented_files_info(ctx, source_attributes=['a'])]",
+        "",
+        "instrumented_files_info_aspect = aspect(",
+        "    implementation = _instrumented_files_info_aspect_impl,",
+        ")",
+        "",
+        "def _no_instrumented_files_info_aspect_impl(target, ctx):",
+        "    return []",
+        "",
+        "no_instrumented_files_info_aspect = aspect(",
+        "    implementation = _no_instrumented_files_info_aspect_impl,",
+        ")",
+        "",
+        "def _applies_aspect_impl(ctx):",
+        "    return coverage_common.instrumented_files_info(ctx, dependency_attributes=['to'])",
+        "",
+        "instrumented_files_info_aspect_rule = rule(",
+        "    implementation = _applies_aspect_impl,",
+        "    attrs = {'to': attr.label(aspects = [instrumented_files_info_aspect])},",
+        ")",
+        "",
+        "no_instrumented_files_info_aspect_rule = rule(",
+        "    implementation = _applies_aspect_impl,",
+        "    attrs = {'to': attr.label(aspects = [no_instrumented_files_info_aspect])},",
+        ")",
+        "",
+        "def _base_rule_impl(ctx):",
+        "    return [coverage_common.instrumented_files_info(ctx, source_attributes=['b'])]",
+        "",
+        "base_rule = rule(",
+        "    implementation = _base_rule_impl,",
+        "    attrs = {'a': attr.label(allow_files=True), 'b': attr.label(allow_files=True)},",
+        ")",
+        "",
+        "def _base_rule_no_coverage_impl(ctx):",
+        "    return []",
+        "",
+        "base_rule_no_coverage = rule(",
+        "    implementation = _base_rule_no_coverage_impl,",
+        "    attrs = {'a': attr.label(allow_files=True), 'b': attr.label(allow_files=True)},",
+        ")");
+    scratch.file(
+        "aspect/BUILD",
+        "load(",
+        "    'build_defs.bzl',",
+        "    'base_rule',",
+        "    'base_rule_no_coverage',",
+        "    'instrumented_files_info_aspect_rule',",
+        "    'no_instrumented_files_info_aspect_rule',",
+        ")",
+        "",
+        "base_rule(",
+        "    name = 'rule_target',",
+        // Ends up in coverage sources when instrumented_files_info_aspect is applied
+        "    a = 'a',",
+        // Ends up in coverage sources for the base rule's InstrumentedFilesInfo is used
+        "    b = 'b',",
+        ")",
+        "",
+        "instrumented_files_info_aspect_rule(",
+        "    name='duplicate_instrumented_file_info',",
+        "    to=':rule_target',",
+        ")",
+        "",
+        "no_instrumented_files_info_aspect_rule(",
+        "    name='instrumented_file_info_from_base_target',",
+        "    to=':rule_target',",
+        ")",
+        "",
+        "base_rule_no_coverage(",
+        "    name = 'rule_target_no_coverage',",
+        // Ends up in coverage sources when instrumented_files_info_aspect is applied
+        "    a = 'a',",
+        // Ends up in coverage sources never
+        "    b = 'b',",
+        ")",
+        "",
+        "instrumented_files_info_aspect_rule(",
+        "    name='instrumented_files_info_only_from_aspect',",
+        "    to=':rule_target_no_coverage',",
+        ")",
+        "",
+        "no_instrumented_files_info_aspect_rule(",
+        "    name='no_instrumented_files_info',",
+        "    to=':rule_target_no_coverage',",
+        ")");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=.*");
+    update();
+    assertThat(getInstrumentedFiles("//aspect:rule_target")).containsExactly("b");
+    assertThat(getInstrumentedFiles("//aspect:duplicate_instrumented_file_info"))
+        .containsExactly("a");
+    assertThat(getInstrumentedFiles("//aspect:instrumented_file_info_from_base_target"))
+        .containsExactly("b");
+    assertThat(getInstrumentedFilesInfo("//aspect:rule_target_no_coverage")).isNull();
+    assertThat(getInstrumentedFiles("//aspect:instrumented_files_info_only_from_aspect"))
+        .containsExactly("a");
+    assertThat(getInstrumentedFiles("//aspect:no_instrumented_files_info")).isEmpty();
+  }
+
+  private List<String> getInstrumentedFiles(String label) throws InterruptedException {
+    return ActionsTestUtil.baseArtifactNames(
+        getInstrumentedFilesInfo(label).getInstrumentedFiles());
+  }
+
+  private InstrumentedFilesInfo getInstrumentedFilesInfo(String label) throws InterruptedException {
+    return getConfiguredTarget(label).get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
   }
 }

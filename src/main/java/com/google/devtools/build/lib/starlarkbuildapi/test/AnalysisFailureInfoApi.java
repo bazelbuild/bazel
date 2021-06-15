@@ -40,7 +40,8 @@ import net.starlark.java.eval.StarlarkValue;
             + " object describing the failure.</li> <li>If one or more of a target's dependencies"
             + " propagated <code>AnalysisFailureInfo</code>, then propagate a provider with"
             + " <code>causes</code> equal to the union of the <code>causes</code> of the "
-            + "dependencies.</li></ul>",
+            + "dependencies.</li></ul> If an aspect and the rule target that it is applied to both "
+            + "provide AnalysisFailureInfo, the instances are merged.",
     documented = false)
 public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFailureApi>
     extends StarlarkValue {

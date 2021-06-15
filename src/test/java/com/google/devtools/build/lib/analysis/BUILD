@@ -103,6 +103,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
