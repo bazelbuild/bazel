@@ -498,7 +498,6 @@ test_suite(
         ":windows_tests",
         "//src/test/cpp:all_windows_tests",
         "//src/test/java/com/google/devtools/build/android:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/docgen:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib:all_windows_tests",
         "//src/test/java/com/google/devtools/build/skyframe:all_windows_tests",
         "//src/test/java/com/google/devtools/common/options:all_windows_tests",
