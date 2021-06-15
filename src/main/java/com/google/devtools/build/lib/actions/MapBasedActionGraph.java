@@ -25,11 +25,15 @@ import javax.annotation.concurrent.ThreadSafe;
 public final class MapBasedActionGraph implements MutableActionGraph {
 
   private final ActionKeyContext actionKeyContext;
-  private final ConcurrentMap<OwnerlessArtifactWrapper, ActionAnalysisMetadata>
-      generatingActionMap = new ConcurrentHashMap<>();
+  private final ConcurrentMap<OwnerlessArtifactWrapper, ActionAnalysisMetadata> generatingActionMap;
 
   public MapBasedActionGraph(ActionKeyContext actionKeyContext) {
+    this(actionKeyContext, /*sizeHint=*/ 16);
+  }
+
+  public MapBasedActionGraph(ActionKeyContext actionKeyContext, int sizeHint) {
     this.actionKeyContext = actionKeyContext;
+    this.generatingActionMap = new ConcurrentHashMap<>(sizeHint);
   }
 
   @Override
@@ -42,13 +46,13 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   public void registerAction(ActionAnalysisMetadata action)
       throws ActionConflictException, InterruptedException {
     for (Artifact artifact : action.getOutputs()) {
-      OwnerlessArtifactWrapper wrapper = new OwnerlessArtifactWrapper(artifact);
-      ActionAnalysisMetadata previousAction = generatingActionMap.putIfAbsent(wrapper, action);
-      if (previousAction != null
-          && previousAction != action
-          && !Actions.canBeSharedLogForPotentialFalsePositives(
-              actionKeyContext, action, previousAction)) {
-        generatingActionMap.remove(wrapper, action);
+      ActionAnalysisMetadata previousAction =
+          generatingActionMap.putIfAbsent(new OwnerlessArtifactWrapper(artifact), action);
+      if (previousAction != null && previousAction != action) {
+        if (Actions.canBeSharedLogForPotentialFalsePositives(
+            actionKeyContext, action, previousAction)) {
+          return; // All outputs can be shared. No need to register the remaining outputs.
+        }
         throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
       }
     }

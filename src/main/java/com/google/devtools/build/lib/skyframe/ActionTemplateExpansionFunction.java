@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -43,7 +42,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -198,15 +196,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
    */
   private static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
       findArtifactPrefixConflicts(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
-    TreeMap<PathFragment, Artifact> artifactPathMap =
-        new TreeMap<>(Actions.comparatorForPrefixConflicts());
-    for (Artifact artifact : generatingActions.keySet()) {
-      artifactPathMap.put(artifact.getExecPath(), artifact);
-    }
-
     return Actions.findArtifactPrefixConflicts(
         new MapBasedImmutableActionGraph(generatingActions),
-        artifactPathMap,
+        generatingActions.keySet(),
         /*strictConflictChecks=*/ true);
   }
 

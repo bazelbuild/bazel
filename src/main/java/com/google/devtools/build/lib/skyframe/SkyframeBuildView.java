@@ -454,7 +454,10 @@ public final class SkyframeBuildView {
             skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys);
         ArtifactConflictFinder.ActionConflictsAndStats conflictsAndStats =
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
-                analysisTraversalResult.getActionShards(), strictConflictChecks, actionKeyContext);
+                analysisTraversalResult.getActionShards(),
+                analysisTraversalResult.getActionCount(),
+                strictConflictChecks,
+                actionKeyContext);
         BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics buildGraphMetrics =
             analysisTraversalResult
                 .getMetrics()
