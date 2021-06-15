@@ -316,7 +316,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    */
   @Test
   public void sameTransitionDifferentParameters() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
