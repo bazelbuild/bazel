@@ -367,5 +367,5 @@ exports_files(["file.cc.tpl"])
 
 *   Take a look at the [reference documentation for rules](rules.html#contents).
 *   Get familiar with [depsets](depsets.html).
-*   Check out the [examples repository](https://github.com/bazelbuild/examples/tree/master/rules)
+*   Check out the [examples repository](https://github.com/bazelbuild/examples/tree/HEAD/rules)
     which includes additional examples of rules.

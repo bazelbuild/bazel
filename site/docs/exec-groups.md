@@ -34,7 +34,7 @@ like linking in c++ builds without over-allocating to less demanding tasks.
 ## Defining execution groups
 
 During rule definition, rule authors can
-[declare](https://docs.bazel.build/versions/master/skylark/lib/globals.html#exec_group)
+[declare](https://docs.bazel.build/versions/main/skylark/lib/globals.html#exec_group)
 a set of execution groups. On each execution group, the rule author can specify
 everything needed to select an execution platform for that execution group,
 namely any constraints via `exec_compatible_with` and toolchain types via
@@ -61,9 +61,9 @@ my_rule = rule(
 
 In the code snippet above, you can see that tool dependencies can also specify
 transition for an exec group using the
-[`cfg`](https://docs.bazel.build/versions/master/skylark/lib/attr.html#label)
+[`cfg`](https://docs.bazel.build/versions/main/skylark/lib/attr.html#label)
 attribute param and the
-[`config`](https://docs.bazel.build/versions/master/skylark/lib/config.html)
+[`config`](https://docs.bazel.build/versions/main/skylark/lib/config.html)
 module. The module exposes an `exec` function which takes a single string
 parameter which is the name of the exec group for which the dependency should be
 built.
@@ -115,8 +115,8 @@ of:
 In the rule implementation, you can declare that actions should be run on the
 execution platform of an execution group. You can do this by using the `exec_group`
 param of action generating methods, specifically [`ctx.actions.run`]
-(https://docs.bazel.build/versions/master/skylark/lib/actions.html#run) and
-[`ctx.actions.run_shell`](https://docs.bazel.build/versions/master/skylark/lib/actions.html#run_shell).
+(https://docs.bazel.build/versions/main/skylark/lib/actions.html#run) and
+[`ctx.actions.run_shell`](https://docs.bazel.build/versions/main/skylark/lib/actions.html#run_shell).
 
 ```python
 # foo.bzl

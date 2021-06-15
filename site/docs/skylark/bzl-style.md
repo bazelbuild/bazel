@@ -10,7 +10,7 @@ category: extending
 This page covers basic style guidelines for Starlark and also includes
 information on macros and rules.
 
-[Starlark](https://docs.bazel.build/versions/master/skylark/language.html) is a
+[Starlark](https://docs.bazel.build/versions/main/skylark/language.html) is a
 language that defines how software is built, and as such it is both a
 programming and a configuration language.
 

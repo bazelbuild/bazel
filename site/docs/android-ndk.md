@@ -104,7 +104,7 @@ ABI](#configuring-the-target-abi).
 ## Example setup
 
 This example is available in the [Bazel examples
-repository](https://github.com/bazelbuild/examples/tree/master/android/ndk).
+repository](https://github.com/bazelbuild/examples/tree/HEAD/android/ndk).
 
 In the `BUILD.bazel` file, three targets are defined with the `android_binary`,
 `android_library`, and `cc_library` rules.
@@ -246,8 +246,8 @@ cc_library(
 ## Integration with platforms and toolchains
 
 Bazel's configuration model is moving towards
-[platforms](https://docs.bazel.build/versions/master/platforms.html) and
-[toolchains](https://docs.bazel.build/versions/master/toolchains.html). If your
+[platforms](https://docs.bazel.build/versions/main/platforms.html) and
+[toolchains](https://docs.bazel.build/versions/main/toolchains.html). If your
 build uses the `--platforms` flag to select for the architecture or operating system
 to build for, you will need to pass the `--extra_toolchains` flag to Bazel in
 order to use the NDK.

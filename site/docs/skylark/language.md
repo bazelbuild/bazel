@@ -97,7 +97,7 @@ definitions for constants, rules, macros, and functions.
 [Native functions](../be/functions.html) and [native rules](
 ../be/overview.html#language-specific-native-rules) are global symbols in
 `BUILD` files. `bzl` files need to load them using the [`native` module](
-https://docs.bazel.build/versions/master/skylark/lib/native.html).
+https://docs.bazel.build/versions/main/skylark/lib/native.html).
 
 There are two syntactic restrictions in `BUILD` files: 1) declaring functions is
 illegal, and 2) `*args` and `**kwargs` arguments are not allowed.

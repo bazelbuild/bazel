@@ -9,7 +9,7 @@ category: getting-started
 This page covers how to automatically update your Bazel version using Bazelisk.
 
 The Bazel project has a [backward compatibility
-policy](https://docs.bazel.build/versions/master/backward-compatibility.html)
+policy](https://docs.bazel.build/versions/main/backward-compatibility.html)
 (see [guidance for rolling out incompatible
 changes](https://www.bazel.build/maintaining/breaking-changes-guide.html) if you
 are the author of one). That page summarizes best practices on how to test and

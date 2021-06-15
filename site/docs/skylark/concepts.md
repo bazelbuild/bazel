@@ -86,7 +86,7 @@ them within reach:
 
 * The [API reference](lib/skylark-overview.html)
 
-* [Examples](https://github.com/bazelbuild/examples/tree/master/rules)
+* [Examples](https://github.com/bazelbuild/examples/tree/HEAD/rules)
 
 ## Going further
 

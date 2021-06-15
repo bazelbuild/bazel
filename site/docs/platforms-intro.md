@@ -444,7 +444,7 @@ contact
 [C++ Rules]: /versions/master/bazel-and-cpp.html
 [Android Rules]: /versions/master/bazel-and-android.html
 [Common Platform Declarations]: https://github.com/bazelbuild/platforms#motivation
-[select()]: https://docs.bazel.build/versions/master/configurable-attributes.html
+[select()]: https://docs.bazel.build/versions/main/configurable-attributes.html
 [select() Platforms]: configurable-attributes.md#platforms
 [platform Rule]: be/platform.html#platform
 [constraint_value Rule]: be/platform.html#constraint_value

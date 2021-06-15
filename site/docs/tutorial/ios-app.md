@@ -250,7 +250,7 @@ how to build the backend server.
 The built app is located in the `$WORKSPACE/bazel-bin` directory.
 
 Completed `WORKSPACE` and `BUILD` files for this tutorial are located in the
-[master branch](https://github.com/bazelbuild/examples/tree/master/tutorial)
+[master branch](https://github.com/bazelbuild/examples/tree/HEAD/tutorial)
 of the GitHub repo. You can compare your work to the completed files for
 additional help or troubleshooting.
 
@@ -355,6 +355,6 @@ Xcode may provide other information as to what has gone wrong.
 ## Further reading
 
 For more details, see
-[master branch](https://github.com/bazelbuild/examples/tree/master/tutorial)
+[master branch](https://github.com/bazelbuild/examples/tree/HEAD/tutorial)
 of the GitHub repo.
 

@@ -349,7 +349,7 @@ The primary difference is that the distribution directory requires manual
 preparation.
 
 Using the
-[`--distdir=/path/to-directory`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+[`--distdir=/path/to-directory`](https://docs.bazel.build/versions/main/command-line-reference.html#flag--distdir)
 option, you can specify additional read-only directories to look for files
 instead of fetching them. A file is taken from such a directory if the file name
 is equal to the base name of the URL and additionally the hash of the file is
@@ -376,7 +376,7 @@ containing these dependencies on a machine with network access, and then
 transfer them to the airgapped environment with an offline approach.
 
 To prepare the [distribution directory](distribution-files-directories), use the
-[`--distdir`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+[`--distdir`](https://docs.bazel.build/versions/main/command-line-reference.html#flag--distdir)
 flag. You will need to do this once for every new Bazel binary version, since
 the implicit dependencies can be different for every release.
 

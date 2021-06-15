@@ -21,7 +21,7 @@ assigned (but not chrooted to) a separate working directory under
 `<outputBase>/bazel-workers`.
 
 Using persistent workers is an
-[execution strategy](https://docs.bazel.build/versions/master/user-manual.html#strategy-options)
+[execution strategy](https://docs.bazel.build/versions/main/user-manual.html#strategy-options)
 that decreases start-up overhead, allows more JIT compilation, and enables
 caching of for example the abstract syntax trees in the action execution. This
 strategy achieves these improvements by sending multiple requests to a

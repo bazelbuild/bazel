@@ -130,7 +130,7 @@ For `rules_mockascript` that means there will be a directory named
 ### Constraints
 
 If your rule defines
-[toolchain](https://docs.bazel.build/versions/master/toolchains.html) rules,
+[toolchain](https://docs.bazel.build/versions/main/toolchains.html) rules,
 it's possible that you'll need to define custom `constraint_setting`s and/or
 `constraint_value`s. Put these into a `//<LANG>/constraints` package. Your
 directory structure will look like this:
@@ -150,7 +150,7 @@ for best practices, and to see what constraints are already present, and
 consider contributing your constraints there if they are language independent.
 Be mindful of introducing custom constraints, all users of your rules will
 use them to perform platform specific logic in their `BUILD` files (for example,
-using [selects](https://docs.bazel.build/versions/master/be/functions.html#select)).
+using [selects](https://docs.bazel.build/versions/main/be/functions.html#select)).
 With custom constraints, you define a language that the whole Bazel ecosystem
 will speak.
 

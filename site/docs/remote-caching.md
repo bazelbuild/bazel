@@ -37,7 +37,7 @@ The remote cache stores two types of data:
 
 Note that the remote cache additionally stores the stdout and stderr for every
 action. Inspecting the stdout/stderr of Bazel thus is not a good signal for
-[estimating cache hits](https://docs.bazel.build/versions/master/remote-caching-debug.html).
+[estimating cache hits](https://docs.bazel.build/versions/main/remote-caching-debug.html).
 
 ### How a build uses remote caching
 
@@ -321,9 +321,9 @@ build.
 An action definition contains environment variables. This can be a problem for
 sharing remote cache hits across machines. For example, environments with
 different `$PATH` variables won't share cache hits. Only environment variables
-explicitly whitelisted via `--action_env` are included in an action
+explicitly named via `--action_env` are included in an action
 definition. Bazel's Debian/Ubuntu package used to install `/etc/bazel.bazelrc`
-with a whitelist of environment variables including `$PATH`. If you are getting
+with a pre-defined list of environment variables including `$PATH`. If you are getting
 fewer cache hits than expected, check that your environment doesn't have an old
 `/etc/bazel.bazelrc` file.
 
@@ -349,8 +349,8 @@ must rebuild it before using remote cache.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html) in which he benchmarks remote caching in Bazel.
 
 
-[Adapting Rules for Remote Execution]: https://docs.bazel.build/versions/master/remote-execution-rules.html
-[Troubleshooting Remote Execution]: https://docs.bazel.build/versions/master/remote-execution-sandbox.html
+[Adapting Rules for Remote Execution]: https://docs.bazel.build/versions/main/remote-execution-rules.html
+[Troubleshooting Remote Execution]: https://docs.bazel.build/versions/main/remote-execution-sandbox.html
 [WebDAV module]: http://nginx.org/en/docs/http/ngx_http_dav_module.html
 [docker image]: https://hub.docker.com/r/buchgr/bazel-remote-cache/
 [bazel-remote]: https://github.com/buchgr/bazel-remote/

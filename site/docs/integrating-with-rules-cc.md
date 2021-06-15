@@ -11,20 +11,20 @@ This page describes how to integrate with C++ rules on various levels.
 
 Because of
 [ongoing migration of C++ rules](https://github.com/bazelbuild/bazel/issues/6516)
-to [platforms](https://docs.bazel.build/versions/master/platforms.html) and
-[toolchains](https://docs.bazel.build/versions/master/toolchains.html), you
+to [platforms](https://docs.bazel.build/versions/main/platforms.html) and
+[toolchains](https://docs.bazel.build/versions/main/toolchains.html), you
 should use the helper function available at
 [@bazel_tools//tools/cpp:toolchain_utils.bzl](https://source.bazel.build/bazel/+/master:tools/cpp/toolchain_utils.bzl;l=23),
 which works both when toolchains are disabled and enabled. To depend on a C++
 toolchain in your rule, add a
-[`Label`](https://docs.bazel.build/versions/master/skylark/lib/attr.html#label)
+[`Label`](https://docs.bazel.build/versions/main/skylark/lib/attr.html#label)
 attribute named `_cc_toolchain` and point it
 to `@bazel_tools//tools/cpp:current_cc_toolchain` (an instance of
 `cc_toolchain_alias` rule, that points to the currently selected C++ toolchain).
 Then, in the rule implementation, use
 [`find_cpp_toolchain(ctx)`](https://source.bazel.build/bazel/+/master:tools/cpp/toolchain_utils.bzl;l=23)
 to get the
-[`CcToolchainInfo`](https://docs.bazel.build/versions/master/skylark/lib/CcToolchainInfo.html).
+[`CcToolchainInfo`](https://docs.bazel.build/versions/main/skylark/lib/CcToolchainInfo.html).
 A complete working example can be found
 [in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/master/examples/write_cc_toolchain_cpu/write_cc_toolchain_cpu.bzl).
 
@@ -42,14 +42,14 @@ you need the following:
 
 * `features` and `action_configs` - these come from the `CcToolchainConfigInfo`
   and encapsulated in `CcToolchainInfo`
-* `FeatureConfiguration` - returned by [cc_common.configure_features](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#configure_features)
+* `FeatureConfiguration` - returned by [cc_common.configure_features](https://docs.bazel.build/versions/main/skylark/lib/cc_common.html#configure_features)
 * cc toolchain config variables - returned by
-  [cc_common.create_compile_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_compile_variables)
+  [cc_common.create_compile_variables](https://docs.bazel.build/versions/main/skylark/lib/cc_common.html#create_compile_variables)
   or
-  [cc_common.create_link_variables](https://docs.bazel.build/versions/master/skylark/lib/cc_common.html#create_link_variables).
+  [cc_common.create_link_variables](https://docs.bazel.build/versions/main/skylark/lib/cc_common.html#create_link_variables).
 
 There still are tool-specific getters, such as
-[compiler_executable](https://docs.bazel.build/versions/master/skylark/lib/CcToolchainInfo.html#compiler_executable).
+[compiler_executable](https://docs.bazel.build/versions/main/skylark/lib/CcToolchainInfo.html#compiler_executable).
 Prefer `get_tool_for_action` over these, as tool-specific getters will
 eventually be removed.
 
@@ -59,10 +59,10 @@ A complete working example can be found
 ## Implementing Starlark rules that depend on C++ rules and/or that C++ rules can depend on
 
 Most C++ rules provide
-[`CcInfo`](https://docs.bazel.build/versions/master/skylark/lib/CcInfo.html),
-a provider containing [`CompilationContext`](https://docs.bazel.build/versions/master/skylark/lib/CompilationContext.html)
+[`CcInfo`](https://docs.bazel.build/versions/main/skylark/lib/CcInfo.html),
+a provider containing [`CompilationContext`](https://docs.bazel.build/versions/main/skylark/lib/CompilationContext.html)
 and
-[`LinkingContext`](https://docs.bazel.build/versions/master/skylark/lib/LinkingContext.html).
+[`LinkingContext`](https://docs.bazel.build/versions/main/skylark/lib/LinkingContext.html).
 Through these it is possible to access information such as all transitive headers
 or libraries to link. From `CcInfo` and from the `CcToolchainInfo` custom
 Starlark rules should be able to get all the information they need.

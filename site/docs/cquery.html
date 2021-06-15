@@ -14,7 +14,7 @@ title: Cquery (configurable query)
 
 <p>
   It achieves this by running over the results of Bazel's
-  <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">analysis
+  <a href="https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model">analysis
     phase</a>, which integrates these effects. <code>query</code>, by constrast,
   runs over the results of Bazel's loading phase, before options are evaluated.
 </p>
@@ -100,7 +100,7 @@ $ bazel cquery "deps(//tree:ash)" --define species=excelsior --noimplicit_deps
 
 <p>
   <code>cquery</code> requires a target to run through the
-  <a href="https://docs.bazel.build/versions/master/skylark/concepts.html#evaluation-model">loading
+  <a href="https://docs.bazel.build/versions/main/skylark/concepts.html#evaluation-model">loading
   and analysis</a>
   phases. Unless otherwise specified, <code>cquery</code> parses the target(s)
   listed in the query
@@ -261,7 +261,7 @@ $ bazel cquery "config(//baz, 3732cc8)"
 
 <p>
   Often, the dependencies of configured targets go through
-  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">transitions</a>,
+  <a href="https://docs.bazel.build/versions/main/skylark/rules.html#configurations">transitions</a>,
   which causes their configuration to differ from their dependent. This flag allows you to query
   a target as if it were built as a dependency or a transitive dependency of another target. For
   example:
@@ -283,7 +283,7 @@ cc_library(
 
 <p>
   Genrules configure their tools in the
-  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host configuration</a>
+  <a href="https://docs.bazel.build/versions/main/skylark/rules.html#configurations">host configuration</a>
   so the following queries would produce the following outputs:
 </p>
 
@@ -342,7 +342,7 @@ cc_library(
   Setting this flag to false filters out all configured targets for which the
   path from the queried target to them crosses a transition between the target
   configuration and the
-  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">non-target configurations</a>.
+  <a href="https://docs.bazel.build/versions/main/skylark/rules.html#configurations">non-target configurations</a>.
   If the queried target is in the target configuration, setting <code>--notool_deps</code> will
   only return targets that also are in the target configuration. If the queried
   target is in a non-target configuration, setting <code>--notool_deps</code> will only return
@@ -353,7 +353,7 @@ cc_library(
 <h4><code>--include_aspects</code> (boolean, default=False)</h4>
 
 <p>
-  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">Aspects</a> can add
+  <a href="https://docs.bazel.build/versions/main/skylark/aspects.html">Aspects</a> can add
   additional dependencies to a build. By default, <code>cquery</code> doesn't follow aspects because
   they make the queryable graph bigger, which uses more memory. But following them produces more
   accurate results.
@@ -383,7 +383,7 @@ There are other options for exposing the results as well. </p>
 </pre>
 
 <p>
-  Configuration <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">transitions</a>
+  Configuration <a href="https://docs.bazel.build/versions/main/skylark/rules.html#configurations">transitions</a>
   are used to build targets underneath the top level targets in different configurations than the top
   level targets.
 </p>
@@ -460,12 +460,12 @@ There are other options for exposing the results as well. </p>
 
 <p>
   This output format calls a
-  <a href="https://docs.bazel.build/versions/master/skylark/language.html">Starlark</a>
+  <a href="https://docs.bazel.build/versions/main/skylark/language.html">Starlark</a>
   function for each configured target in the query result, and prints the value returned by the
   call. The <code>--starlark:file</code> flag specifies the location of a Starlark file that
   defines a function named <code>format</code> with a single parameter, <code>target</code>. This
   function is called for each
-  <a href="https://docs.bazel.build/versions/master/skylark/lib/Target.html">Target</a> in the
+  <a href="https://docs.bazel.build/versions/main/skylark/lib/Target.html">Target</a> in the
   query result. Alternatively, for convenience, you may specify just the body of a function
   declared as <code>def format(target): return expr</code> by using the
   <code>--starlark:expr</code> flag.
@@ -481,7 +481,7 @@ There are other options for exposing the results as well. </p>
 <h5 id='build_options'>build_options(target)</h5>
 <p>
   <code>build_options(target)</code> returns a map whose keys are build option identifiers (see
-  <a href="https://docs.bazel.build/versions/master/skylark/config.html">Configurations</a>)
+  <a href="https://docs.bazel.build/versions/main/skylark/config.html">Configurations</a>)
   and whose values are their Starlark values. Build options whose values are not legal Starlark
   values are omitted from this map.
 </p><p>
@@ -491,7 +491,7 @@ There are other options for exposing the results as well. </p>
 <h5 id='providers'>providers(target)</h5>
 <p>
   <code>providers(target)</code> returns a map whose keys are names of
-  <a href="https://docs.bazel.build/versions/master/skylark/rules.html#providers">providers</a>
+  <a href="https://docs.bazel.build/versions/main/skylark/rules.html#providers">providers</a>
   (for example, <code>"DefaultInfo"</code>) and whose values are their Starlark values. Providers
   whose values are not legal Starlark values are omitted from this map.
 </p>
@@ -693,7 +693,7 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
       previous commands and is therefore prone to picking up results from past
       queries. For example, <code>genquery</code> exerts a host transition on
       its <code>tools</code> attribute - that is, it configures its tools in the
-      <a href="https://docs.bazel.build/versions/master/skylark/rules.html#configurations">host
+      <a href="https://docs.bazel.build/versions/main/skylark/rules.html#configurations">host
       configuration</a>.
     </p>
 

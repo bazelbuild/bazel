@@ -132,9 +132,9 @@ dependencies.
 
 By default, external dependencies are fetched as needed during `bazel build`. If
 you would like to prefetch the dependencies needed for a specific set of targets, use
-[`bazel fetch`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
+[`bazel fetch`](https://docs.bazel.build/versions/main/command-line-reference.html#commands).
 To unconditionally fetch all external dependencies, use
-[`bazel sync`](https://docs.bazel.build/versions/master/command-line-reference.html#commands).
+[`bazel sync`](https://docs.bazel.build/versions/main/command-line-reference.html#commands).
 As fetched repositories are [stored in the output base](#layout), fetching
 happens per workspace.
 
