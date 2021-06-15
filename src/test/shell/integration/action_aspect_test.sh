@@ -306,21 +306,22 @@ EOF
   diff "${package}/run_1_timestamp" "${package}/run_2_timestamp" \
       || fail "Starlark action should not rerun after bazel shutdown"
 
-  # Test that the Starlark action would rerun if the inputs of the
-  # shadowed action changed
-  rm "${package}/x.h"
-  echo "inline int x() { return 0; }" > "${package}/x.h"
+# TODO(b/191195108): Disabled due to flakiness. Should be its own test as well.
+#   # Test that the Starlark action would rerun if the inputs of the
+#   # shadowed action changed
+#   rm "${package}/x.h"
+#   echo "inline int x() { return 0; }" > "${package}/x.h"
 
-  bazel build "${package}:a" \
-      --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out || \
-      fail "bazel build should've succeeded"
+#   bazel build "${package}:a" \
+#       --aspects="//${package}:lib.bzl%actions_test_aspect" \
+#       --output_groups=out || \
+#       fail "bazel build should've succeeded"
 
-  cp "bazel-bin/${package}/run_timestamp" "${package}/run_3_timestamp"
+#   cp "bazel-bin/${package}/run_timestamp" "${package}/run_3_timestamp"
 
-  diff "${package}/run_1_timestamp" "${package}/run_3_timestamp" \
-      && fail "Starlark action should rerun after shadowed action inputs change" \
-      || :
+#   diff "${package}/run_1_timestamp" "${package}/run_3_timestamp" \
+#       && fail "Starlark action should rerun after shadowed action inputs change" \
+#       || :
 }
 
 run_suite "Tests Starlark API pertaining to action inspection via aspect"
