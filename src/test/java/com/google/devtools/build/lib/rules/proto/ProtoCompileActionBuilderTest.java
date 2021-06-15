@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Deps;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -271,7 +271,7 @@ public class ProtoCompileActionBuilderTest {
     hasBeenCalled[0] = false;
 
     CharSequence outReplacement =
-        new LazyString() {
+        new OnDemandString() {
           @Override
           public String toString() {
             hasBeenCalled[0] = true;

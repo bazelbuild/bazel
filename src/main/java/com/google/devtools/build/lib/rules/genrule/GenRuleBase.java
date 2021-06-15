@@ -47,8 +47,8 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -180,8 +180,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     String messageAttr = ruleContext.attributes().get("message", Type.STRING);
     String message = messageAttr.isEmpty() ? "Executing genrule" : messageAttr;
     Label label = ruleContext.getLabel();
-    LazyString progressMessage =
-        new LazyString() {
+    OnDemandString progressMessage =
+        new OnDemandString() {
           @Override
           public String toString() {
             return message + " " + label;

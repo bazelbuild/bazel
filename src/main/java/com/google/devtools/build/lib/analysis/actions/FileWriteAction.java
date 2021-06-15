@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -171,7 +171,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
         Compression.ALLOW);
   }
 
-  private static final class CompressedString extends LazyString {
+  private static final class CompressedString extends OnDemandString {
     final byte[] bytes;
     final int uncompressedSize;
 

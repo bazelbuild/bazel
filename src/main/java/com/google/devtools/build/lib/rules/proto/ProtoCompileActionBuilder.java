@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -126,12 +126,12 @@ public class ProtoCompileActionBuilder {
   /** Static class to avoid keeping a reference to this builder after build() is called. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class LazyLangPluginFlag extends LazyString {
+  static class OnDemandLangPluginFlag extends OnDemandString {
     private final String langPrefix;
     private final Supplier<String> langPluginParameter;
 
     @AutoCodec.VisibleForSerialization
-    LazyLangPluginFlag(String langPrefix, Supplier<String> langPluginParameter) {
+    OnDemandLangPluginFlag(String langPrefix, Supplier<String> langPluginParameter) {
       this.langPrefix = langPrefix;
       this.langPluginParameter = langPluginParameter;
     }
@@ -144,13 +144,14 @@ public class ProtoCompileActionBuilder {
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class LazyCommandLineExpansion extends LazyString {
+  static class OnDemandCommandLineExpansion extends OnDemandString {
     // E.g., --java_out=%s
     private final String template;
     private final Map<String, ? extends CharSequence> variableValues;
 
     @AutoCodec.VisibleForSerialization
-    LazyCommandLineExpansion(String template, Map<String, ? extends CharSequence> variableValues) {
+    OnDemandCommandLineExpansion(
+        String template, Map<String, ? extends CharSequence> variableValues) {
       this.template = template;
       this.variableValues = variableValues;
     }
@@ -252,7 +253,7 @@ public class ProtoCompileActionBuilder {
     }
 
     if (langPluginParameter != null) {
-      result.addLazyString(new LazyLangPluginFlag(langPrefix, langPluginParameter));
+      result.addLazyString(new OnDemandLangPluginFlag(langPrefix, langPluginParameter));
     }
 
     result.addAll(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
@@ -521,7 +522,7 @@ public class ProtoCompileActionBuilder {
       ProtoLangToolchainProvider toolchain = invocation.toolchain;
 
       cmdLine.addLazyString(
-          new LazyCommandLineExpansion(
+          new OnDemandCommandLineExpansion(
               toolchain.commandLine(),
               ImmutableMap.of(
                   "OUT",

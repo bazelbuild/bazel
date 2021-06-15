@@ -22,7 +22,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link LazyStringListCodec}. */
 @RunWith(JUnit4.class)
-public class LazyStringListCodecTest {
+public class OnDemandStringListCodecTest {
   @Test
   public void testCodec() throws Exception {
     new SerializationTester(

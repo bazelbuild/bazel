@@ -16,12 +16,9 @@ package com.google.devtools.build.lib.util;
 
 /**
  * This class serves as a base implementation for a {@code CharSequence}
- * that delay string construction (mostly till the execution phase).
- *
- * They are not full implementations, they lack {@code #charAt(int)} and
- * {@code #subSequence(int, int)}.
+ * that delays string construction (mostly till the execution phase).
  */
-public abstract class LazyString implements CharSequence {
+public abstract class OnDemandString implements CharSequence {
 
   @Override
   public char charAt(int index) {

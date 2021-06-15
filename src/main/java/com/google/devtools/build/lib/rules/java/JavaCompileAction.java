@@ -74,7 +74,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -127,7 +127,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   private final CommandLine executableLine;
   private final CommandLine flagLine;
   private final BuildConfiguration configuration;
-  private final LazyString progressMessage;
+  private final OnDemandString progressMessage;
 
   private final NestedSet<Artifact> directJars;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -144,7 +144,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       ActionEnvironment env,
       NestedSet<Artifact> tools,
       RunfilesSupplier runfilesSupplier,
-      LazyString progressMessage,
+      OnDemandString progressMessage,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
@@ -392,7 +392,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
-  static class ProgressMessage extends LazyString {
+  static class ProgressMessage extends OnDemandString {
 
     private final String prefix;
     private final Artifact output;

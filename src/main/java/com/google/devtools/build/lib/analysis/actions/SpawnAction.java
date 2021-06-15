@@ -71,7 +71,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1171,7 +1171,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * formatting lazily. This helps save memory by delaying the construction of the progress
      * message string.
      *
-     * <p>If you cannot use simple formatting, try {@link Builder#setProgressMessage(LazyString)}.
+     * <p>If you cannot use simple formatting, try {@link
+     * Builder#setProgressMessage(OnDemandString)}.
      *
      * <p>If you must eagerly compute the string, use {@link Builder#setProgressMessageNonLazy}.
      */
@@ -1189,7 +1190,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @FormatMethod
     public Builder setProgressMessage(@FormatString String progressMessage, Object subject) {
       return setProgressMessage(
-          new LazyString() {
+          new OnDemandString() {
             @Override
             public String toString() {
               return String.format(progressMessage, subject);
@@ -1208,7 +1209,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setProgressMessage(
         @FormatString String progressMessage, Object subject0, Object subject1) {
       return setProgressMessage(
-          new LazyString() {
+          new OnDemandString() {
             @Override
             public String toString() {
               return String.format(progressMessage, subject0, subject1);
@@ -1228,7 +1229,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setProgressMessage(
         @FormatString String progressMessage, Object subject0, Object subject1, Object subject2) {
       return setProgressMessage(
-          new LazyString() {
+          new OnDemandString() {
             @Override
             public String toString() {
               return String.format(progressMessage, subject0, subject1, subject2);
@@ -1253,7 +1254,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Object subject2,
         Object subject3) {
       return setProgressMessage(
-          new LazyString() {
+          new OnDemandString() {
             @Override
             public String toString() {
               return String.format(progressMessage, subject0, subject1, subject2, subject3);
@@ -1267,7 +1268,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * <p>When possible, prefer use of one of the overloads that use {@link String#format}. If you
      * do use this overload, take care not to capture anything expensive.
      */
-    public Builder setProgressMessage(LazyString progressMessage) {
+    public Builder setProgressMessage(OnDemandString progressMessage) {
       this.progressMessage = progressMessage;
       return this;
     }

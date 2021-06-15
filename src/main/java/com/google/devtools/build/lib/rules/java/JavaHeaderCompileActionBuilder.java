@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
@@ -297,7 +297,7 @@ public class JavaHeaderCompileActionBuilder {
     ActionEnvironment actionEnvironment =
         ruleContext.getConfiguration().getActionEnvironment().addFixedVariables(UTF8_ENVIRONMENT);
 
-    LazyString progressMessage =
+    OnDemandString progressMessage =
         new ProgressMessage(
             /* prefix= */ "Compiling Java headers",
             /* output= */ outputJar,
