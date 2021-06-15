@@ -444,7 +444,7 @@ message Workspaces {
     WORKSPACES_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
 
     // See `managed_directories` in
-    // https://docs.bazel.build/versions/master/skylark/lib/globals.html#workspace.
+    // https://docs.bazel.build/versions/main/skylark/lib/globals.html#workspace.
     ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES = 3
         [(metadata) = { exit_code: 1 }];
     WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES = 4

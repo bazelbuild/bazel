@@ -290,7 +290,7 @@ message Rule {
   // BUILD file where the rule instance was instantiated. The line number will
   // be that of a rule invocation or macro call (that in turn invoked a
   // rule). See
-  // https://docs.bazel.build/versions/master/skylark/macros.html#macro-creation
+  // https://docs.bazel.build/versions/main/skylark/macros.html#macro-creation
   optional string location = 3;
 
   // All of the attributes that describe the rule.
@@ -481,7 +481,7 @@ message AllowedRuleClassInfo {
 }
 
 // This message represents a single attribute of a single rule.
-// See docs.bazel.build/versions/master/skylark/lib/attr.html.
+// See docs.bazel.build/versions/main/skylark/lib/attr.html.
 message AttributeDefinition {
   required string name = 1;  // e.g. "name", "srcs"
   required Attribute.Discriminator type = 2;

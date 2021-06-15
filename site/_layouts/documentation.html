@@ -2,7 +2,7 @@
 nav: docs
 ---
 
-<!-- /versions/master/foo/bar -> ["master", "foo", "bar"] -->
+<!-- /versions/main/foo/bar -> ["main", "foo", "bar"] -->
 <!-- /versions/0.12.3/baz.md -> ["0.12.3", "baz.md"] -->
 {% assign versioned_url_parts = page.url | split: '/' | shift | shift %}
 {% assign current_version = versioned_url_parts.first %}

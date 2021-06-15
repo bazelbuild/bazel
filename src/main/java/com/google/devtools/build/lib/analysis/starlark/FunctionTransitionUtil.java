@@ -125,7 +125,7 @@ public class FunctionTransitionUtil {
    * <p>Transitions can also explicitly set --platforms to be clear what platform they set.
    *
    * <p>Platform mappings:
-   * https://docs.bazel.build/versions/master/platforms-intro.html#platform-mappings.
+   * https://docs.bazel.build/versions/main/platforms-intro.html#platform-mappings.
    *
    * <p>This doesn't check that the changed value is actually different than the source (i.e.
    * setting {@code --cpu=foo} when {@code --cpu} is already {@code foo}). That could unnecessarily

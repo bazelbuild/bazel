@@ -41,7 +41,7 @@ message ModuleInfo {
 
 // Representation of a Starlark rule attribute type. These generally
 // have a one-to-one correspondence with functions defined at
-// https://docs.bazel.build/versions/master/skylark/lib/attr.html.
+// https://docs.bazel.build/versions/main/skylark/lib/attr.html.
 enum AttributeType {
   UNKNOWN = 0;
   // A special case of STRING; all rules have exactly one implicit
@@ -76,7 +76,7 @@ message RuleInfo {
 // Representation of a Starlark rule attribute definition, comprised of an
 // attribute name, and a schema defined by a call to one of the 'attr' module
 // methods enumerated at
-// https://docs.bazel.build/versions/master/skylark/lib/attr.html
+// https://docs.bazel.build/versions/main/skylark/lib/attr.html
 message AttributeInfo {
   // The name of the attribute.
   string name = 1;

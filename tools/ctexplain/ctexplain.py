@@ -29,7 +29,7 @@ Example:
 
   $ ctexplain -b "//mypkg:mybinary --define MY_FEATURE=1"
 
-Relevant terms in https://docs.bazel.build/versions/master/glossary.html:
+Relevant terms in https://docs.bazel.build/versions/main/glossary.html:
   "target", "configuration", "analysis phase", "configured target",
   "configuration trimming", "transition"
 

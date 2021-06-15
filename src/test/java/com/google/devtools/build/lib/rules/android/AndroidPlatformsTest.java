@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 
 /**
  * Tests Android support for Blaze's platforms API
- * (https://docs.bazel.build/versions/master/platforms-intro.html).
+ * (https://docs.bazel.build/versions/main/platforms-intro.html).
  *
  * <p>This only provides the first-level of testing: that <code>--platforms</code> settings directly
  * impact toolchain selection in expected ways. Devs can lean on this test for quick interactive

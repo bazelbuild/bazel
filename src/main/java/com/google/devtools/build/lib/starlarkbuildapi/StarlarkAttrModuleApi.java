@@ -92,7 +92,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
-      "<a href=\"https://docs.bazel.build/versions/master/skylark/rules.html#configurations\">"
+      "<a href=\"https://docs.bazel.build/versions/main/skylark/rules.html#configurations\">"
           + "Configuration</a> of the attribute. It can be either <code>\"host\"</code>, "
           + "<code>\"exec\"</code>, or <code>\"target\"</code>.";
 

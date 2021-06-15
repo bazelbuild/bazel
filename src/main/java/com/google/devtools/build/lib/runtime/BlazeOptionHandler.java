@@ -122,7 +122,7 @@ public final class BlazeOptionHandler {
               + "' command is only supported from within a workspace"
               + " (below a directory having a WORKSPACE file).\n"
               + "See documentation at"
-              + " https://docs.bazel.build/versions/master/build-ref.html#workspace";
+              + " https://docs.bazel.build/versions/main/build-ref.html#workspace";
       eventHandler.handle(Event.error(message));
       return createDetailedExitCode(message, Code.NOT_IN_WORKSPACE);
     }
@@ -168,7 +168,7 @@ public final class BlazeOptionHandler {
    * specific commands should have priority over the broader commands (say a "build" option that
    * conflicts with a "common" option should override the common one regardless of order.)
    *
-   * <p>For each command, the options are parsed in rc order. This uses the master rc file first,
+   * <p>For each command, the options are parsed in rc order. This uses the primary rc file first,
    * and follows import statements. This is the order in which they were passed by the client.
    */
   void parseRcOptions(

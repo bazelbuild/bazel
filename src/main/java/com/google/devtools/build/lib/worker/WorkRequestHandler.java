@@ -33,8 +33,8 @@ import java.util.function.BiFunction;
 
 /**
  * A helper class that handles WorkRequests
- * (https://docs.bazel.build/versions/master/persistent-workers.html), including multiplex workers
- * (https://docs.bazel.build/versions/master/multiplex-worker.html).
+ * (https://docs.bazel.build/versions/main/persistent-workers.html), including multiplex workers
+ * (https://docs.bazel.build/versions/main/multiplex-worker.html).
  */
 public class WorkRequestHandler implements AutoCloseable {
   /** Contains the logic for reading {@link WorkRequest}s and writing {@link WorkResponse}s. */

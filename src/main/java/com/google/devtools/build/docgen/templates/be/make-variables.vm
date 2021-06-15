@@ -113,7 +113,7 @@ title: Make Variables
 <ul><!--  keep alphabetically sorted  -->
   <li><code>COMPILATION_MODE</code>:
     <code>fastbuild</code>, <code>dbg</code>, or <code>opt</code>. (<a
-  href="https://docs.bazel.build/versions/master/user-manual.html#flag--compilation_mode">more
+  href="https://docs.bazel.build/versions/main/user-manual.html#flag--compilation_mode">more
   details</a>)
   </li>
 </ul>

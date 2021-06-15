@@ -188,7 +188,7 @@ public class DocgenConsts {
   // StarlarkDocumentationProcessor#parseOptions
 
   // Build Encyclopedia documentation root
-  public static String BeDocsRoot = "/versions/master/be";
+  public static String BeDocsRoot = "/versions/main/be";
 
   // Documentation files extension
   public static String documentationExtension = "html";
