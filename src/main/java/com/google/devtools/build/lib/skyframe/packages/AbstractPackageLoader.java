@@ -143,8 +143,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   protected final ExternalFilesHelper externalFilesHelper;
   protected final BlazeDirectories directories;
   private final HashFunction hashFunction;
-  private final int legacyGlobbingThreads;
-  @VisibleForTesting final ForkJoinPool forkJoinPoolForLegacyGlobbing;
+  private final int nonSkyframeGlobbingThreads;
+  @VisibleForTesting final ForkJoinPool forkJoinPoolForNonSkyframeGlobbing;
   private final int skyframeThreads;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
@@ -160,7 +160,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected Reporter commonReporter = new Reporter(new EventBus());
     protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
-    int legacyGlobbingThreads = 1;
+    int nonSkyframeGlobbingThreads = 1;
     int skyframeThreads = 1;
 
     protected Builder(
@@ -222,8 +222,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setLegacyGlobbingThreads(int numThreads) {
-      this.legacyGlobbingThreads = numThreads;
+    public Builder setNonSkyframeGlobbingThreads(int numThreads) {
+      this.nonSkyframeGlobbingThreads = numThreads;
       return this;
     }
 
@@ -267,10 +267,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     this.commonReporter = builder.commonReporter;
     this.extraSkyFunctions = ImmutableMap.copyOf(builder.extraSkyFunctions);
     this.pkgLocatorRef = builder.pkgLocatorRef;
-    this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
-    this.forkJoinPoolForLegacyGlobbing =
+    this.nonSkyframeGlobbingThreads = builder.nonSkyframeGlobbingThreads;
+    this.forkJoinPoolForNonSkyframeGlobbing =
         NamedForkJoinPool.newNamedPool(
-            "package-loader-globbing-pool", builder.legacyGlobbingThreads);
+            "package-loader-globbing-pool", builder.nonSkyframeGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
     this.directories = builder.directories;
     this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
@@ -285,7 +285,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     pkgFactory =
         new PackageFactory(
             ruleClassProvider,
-            forkJoinPoolForLegacyGlobbing,
+            forkJoinPoolForNonSkyframeGlobbing,
             getEnvironmentExtensions(),
             "PackageLoader",
             DefaultPackageSettings.INSTANCE,
@@ -326,7 +326,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   public void close() {
     // We don't use ForkJoinPool#shutdownNow since it has a performance bug. See
     // http://b/33482341#comment13.
-    forkJoinPoolForLegacyGlobbing.shutdown();
+    forkJoinPoolForNonSkyframeGlobbing.shutdown();
   }
 
   @Override
@@ -443,7 +443,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         CacheBuilder.newBuilder().build();
     AtomicReference<FilesystemCalls> syscallCacheRef =
         new AtomicReference<>(
-            PerBuildSyscallCache.newBuilder().setConcurrencyLevel(legacyGlobbingThreads).build());
+            PerBuildSyscallCache.newBuilder()
+                .setConcurrencyLevel(nonSkyframeGlobbingThreads)
+                .build());
     pkgFactory.setSyscalls(syscallCacheRef);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         MAX_DIRECTORIES_TO_EAGERLY_VISIT_IN_GLOBBING);

@@ -124,7 +124,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Override
   protected ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader) {
-    return ((BazelPackageLoader) packageLoader).forkJoinPoolForLegacyGlobbing;
+    return ((BazelPackageLoader) packageLoader).forkJoinPoolForNonSkyframeGlobbing;
   }
 
   @Test
