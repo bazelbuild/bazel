@@ -815,6 +815,47 @@ EOF
     2> "$TEST_log" || fail "Expected success"
 }
 
+# Regression test for b/191070494.
+function test_aquery_include_param_files_tree_artifact_writes_unexpanded_dir() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "${pkg}"/def.bzl <<'EOF'
+def _r(ctx):
+  dir = ctx.actions.declare_directory(ctx.label.name + "_dir")
+  ctx.actions.run_shell(outputs=[dir], command="touch %s/file" % dir.path)
+
+  param_file = ctx.actions.declare_file(ctx.label.name + "_param_file")
+  args = ctx.actions.args()
+  args.add_all([dir])
+  ctx.actions.write(param_file, args)
+
+  file = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.run_shell(
+      mnemonic = "Action",
+      outputs = [file],
+      inputs = [param_file],
+      command = "cp %s %s" % (param_file.path, file.path)
+  )
+  return DefaultInfo(files=depset([file]))
+
+r = rule(implementation=_r)
+EOF
+  cat > "${pkg}"/BUILD <<'EOF'
+load(":def.bzl", "r")
+r(name="a")
+EOF
+
+  bazel aquery --include_param_files \
+      "mnemonic(Action, //${pkg}:a)" > output 2> "${TEST_log}" \
+      || fail "Expected aquery to succeed"
+
+  cat output >> "${TEST_log}"
+  assert_matches \
+      "${PRODUCT_NAME}-out/[^/]+-fastbuild/bin/${pkg}/a_dir" \
+      "$(grep --after-context=1000 'Params File Content' output | tail -n +2 |
+          sed 's/^[[:space:]]\+//')"
+}
+
 function test_aquery_include_param_file_not_enabled_by_default() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -1342,6 +1383,11 @@ EOF
   bazel build --experimental_aquery_dump_after_build_format=text --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
     &> "$TEST_log" && fail "Expected success"
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
+}
+
+# Usage: assert_matches expected_pattern actual
+function assert_matches() {
+  [[ "$2" =~ $1 ]] || fail "Expected to match '$1', was: $2"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

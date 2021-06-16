@@ -106,14 +106,12 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    *
    * <p>2019-01-10, @leba: Using this method for aquery since it's not performance-critical and the
    * includeParamFile option is flag-guarded with warning regarding output size to user.
+   *
+   * <p>TODO(b/161359171): The list of arguments will be incorrect if the arguments contain tree
+   * artifacts.
    */
   public Iterable<String> getArguments()
       throws CommandLineExpansionException, InterruptedException {
-    Preconditions.checkState(
-        !hasInputArtifactToExpand,
-        "This action contains a CommandLine with TreeArtifacts: %s, which must be expanded using "
-        + "ArtifactExpander first before we can evaluate the CommandLine.",
-        getInputs());
     return commandLine.arguments();
   }
 
