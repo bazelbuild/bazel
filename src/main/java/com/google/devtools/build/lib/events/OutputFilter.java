@@ -42,10 +42,8 @@ public interface OutputFilter {
    */
   boolean showOutput(String tag);
 
-  /**
-   * An output filter using regular expression matching.
-   */
-  public static final class RegexOutputFilter implements OutputFilter {
+  /** An output filter using regular expression matching. */
+  final class RegexOutputFilter implements OutputFilter {
     /** Returns an output filter for the given regex (by compiling it). */
     public static OutputFilter forRegex(String regex) {
       return new RegexOutputFilter(Pattern.compile(regex));
