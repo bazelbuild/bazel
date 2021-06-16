@@ -844,6 +844,14 @@ public final class AndroidRuleClasses {
                   .cfg(ExecutionTransitionFactory.create())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(package_id) -->
+          Package ID to be assigned to resources in this binary.
+          <p>See AAPT2's <code>--package-id</code> argument for more information. This can (and
+          should) typically be left unset, resulting in the default value of 127
+          (<code>0x7F</code>).
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          // This is only implemented in Starlark, but is present here for doc generation.
+          .add(attr("package_id", INTEGER))
           .add(
               attr("application_resources", LABEL)
                   .mandatoryProviders(AndroidApplicationResourceInfo.PROVIDER.id())
