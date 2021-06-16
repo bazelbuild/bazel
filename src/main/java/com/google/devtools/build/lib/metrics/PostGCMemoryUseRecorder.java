@@ -213,6 +213,9 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
           defaultValue = "false",
           documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
           effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+          deprecationWarning =
+              "This flag will be deleted soon. Please use --bep_publish_used_heap_size_post_build"
+                  + " instead",
           help =
               "If true calls System.gc() after a build to try and get a post-gc peak heap"
                   + " measurement.")
