@@ -703,7 +703,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "lib_with_dash_static",
         // message:
         "in linkopts attribute of cc_library rule //badlib:lib_with_dash_static: "
-            + "Using '-static' here won't work. Did you mean to use 'linkstatic=1' instead?",
+            + "Using '-static' here won't work. Did you mean to use 'linkstatic=True' instead?",
         // build file:
         "cc_library(name = 'lib_with_dash_static',",
         "   srcs = [ 'ok.cc' ],",
