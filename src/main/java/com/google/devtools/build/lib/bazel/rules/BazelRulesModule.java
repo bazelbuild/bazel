@@ -515,17 +515,6 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
         help = "No-op")
     public boolean shadowedAction;
-
-    // TODO(b/191083907): delete
-    @Option(
-        name = "experimental_force_gc_after_build",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-        deprecationWarning =
-            "Use --bep_publish_used_heap_size_post_build instead: this flag is a no-op",
-        help = "No-op")
-    public boolean experimentalForceGcAfterBuild;
   }
 
   @Override

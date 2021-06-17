@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,17 +29,22 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -148,6 +157,150 @@ public final class SandboxHelpers {
         }
       }
     }
+  }
+
+  /**
+   * Cleans the existing sandbox at {@code root} to match the {@code inputs}, updating {@code
+   * inputsToCreate} and {@code dirsToCreate} to not contain existing inputs and dir. Existing
+   * directories or files that are either not needed {@code inputs} or doesn't have the right
+   * content or symlink destination are removed.
+   */
+  public static void cleanExisting(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir)
+      throws IOException {
+    // To avoid excessive scanning of dirsToCreate for prefix dirs, we prepopulate this set of
+    // prefixes.
+    Set<PathFragment> prefixDirs = new HashSet<>();
+    for (PathFragment dir : dirsToCreate) {
+      PathFragment parent = dir.getParentDirectory();
+      while (parent != null && !prefixDirs.contains(parent)) {
+        prefixDirs.add(parent);
+        parent = parent.getParentDirectory();
+      }
+    }
+
+    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+  }
+
+  /**
+   * Deletes unnecessary files/directories and updates the sets if something on disk is already
+   * correct and doesn't need any changes.
+   */
+  private static void cleanRecursively(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      Set<PathFragment> prefixDirs)
+      throws IOException {
+    Path execroot = workDir.getParentDirectory();
+    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      Path absPath = root.getChild(dirent.getName());
+      PathFragment pathRelativeToWorkDir;
+      if (absPath.startsWith(workDir)) {
+        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+        pathRelativeToWorkDir = absPath.relativeTo(workDir);
+      } else {
+        // path is not under workDir, which means it belongs to one of external repositories
+        // symlinked directly under execroot. Get the relative path based on there and prepend it
+        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+        pathRelativeToWorkDir =
+            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                absPath.relativeTo(execroot));
+      }
+      Optional<PathFragment> destination =
+          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
+      if (destination.isPresent()) {
+        if (SYMLINK.equals(dirent.getType())
+            && absPath.readSymbolicLink().equals(destination.get())) {
+          inputsToCreate.remove(pathRelativeToWorkDir);
+        } else {
+          absPath.delete();
+        }
+      } else if (DIRECTORY.equals(dirent.getType())) {
+        if (dirsToCreate.contains(pathRelativeToWorkDir)
+            || prefixDirs.contains(pathRelativeToWorkDir)) {
+          cleanRecursively(absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+          dirsToCreate.remove(pathRelativeToWorkDir);
+        } else {
+          absPath.deleteTree();
+        }
+      } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
+        absPath.delete();
+      }
+    }
+  }
+
+  /**
+   * Returns what the destination of the symlink {@code file} should be, according to {@code
+   * inputs}.
+   */
+  static Optional<PathFragment> getExpectedSymlinkDestination(
+      PathFragment fragment, SandboxInputs inputs) {
+    Path file = inputs.getFiles().get(fragment);
+    if (file != null) {
+      return Optional.of(file.asFragment());
+    }
+    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
+  }
+
+  /** Populates the provided sets with the inputs and directories that need to be created. */
+  public static void populateInputsAndDirsToCreate(
+      SandboxInputs inputs,
+      Set<PathFragment> workerFiles,
+      SandboxOutputs outputs,
+      Set<PathFragment> writableDirs,
+      Set<PathFragment> inputsToCreate,
+      LinkedHashSet<PathFragment> dirsToCreate) {
+    // Add all worker files, input files, and the parent directories.
+    for (PathFragment input :
+        Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet())) {
+      inputsToCreate.add(input);
+      dirsToCreate.add(input.getParentDirectory());
+    }
+
+    // And all parent directories of output files. Note that we don't add the files themselves --
+    // any pre-existing files that have the same path as an output should get deleted.
+    for (PathFragment file : outputs.files()) {
+      dirsToCreate.add(file.getParentDirectory());
+    }
+
+    // Add all output directories.
+    dirsToCreate.addAll(outputs.dirs());
+
+    // Add some directories that should be writable, and thus exist.
+    dirsToCreate.addAll(writableDirs);
+  }
+
+  /**
+   * Creates directory and all ancestors for it at a given path.
+   *
+   * <p>This method uses (and updates) the set of already known directories in order to minimize the
+   * I/O involved with creating directories. For example a path of {@code 1/2/3/4} created after
+   * {@code 1/2/3/5} only calls for creating {@code 1/2/3/5}. We can use the set of known
+   * directories to discover that {@code 1/2/3} already exists instead of deferring to the
+   * filesystem for it.
+   */
+  public static void createDirectoryAndParentsInSandboxRoot(
+      Path path, Set<Path> knownDirectories, Path sandboxExecRoot) throws IOException {
+    if (knownDirectories.contains(path)) {
+      return;
+    }
+    createDirectoryAndParentsInSandboxRoot(
+        checkNotNull(
+            path.getParentDirectory(),
+            "Path %s is not under/siblings of sandboxExecRoot: %s",
+            path,
+            sandboxExecRoot),
+        knownDirectories,
+        sandboxExecRoot);
+    path.createDirectory();
+    knownDirectories.add(path);
   }
 
   /** Wrapper class for the inputs of a sandbox. */

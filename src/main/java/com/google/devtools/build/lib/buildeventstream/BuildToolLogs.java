@@ -99,10 +99,9 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
                 : null;
         if (uri != null) {
           toolLogs.addLog(
-              BuildEventStreamProtos.File.newBuilder()
-                  .setName(name)
-                  .setUri(Futures.getDone(directFuture))
-                  .build());
+              BuildEventStreamProtos.File.newBuilder().setName(name).setUri(uri).build());
+        } else {
+          logger.atInfo().log("Dropped unfinished upload: %s (%s)", name, directFuture);
         }
       } catch (ExecutionException e) {
         logger.atWarning().withCause(e).log("Skipping build tool log upload %s", name);

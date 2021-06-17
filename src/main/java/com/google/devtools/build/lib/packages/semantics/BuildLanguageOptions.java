@@ -265,7 +265,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
 
   @Option(
       name = "experimental_exec_groups",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -734,7 +734,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-experimental_enable_android_migration_apis";
   public static final String INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER =
       "-incompatible_enable_exports_provider";
-  public static final String EXPERIMENTAL_EXEC_GROUPS = "-experimental_exec_groups";
+  public static final String EXPERIMENTAL_EXEC_GROUPS = "+experimental_exec_groups";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_NINJA_ACTIONS = "-experimental_ninja_actions";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";

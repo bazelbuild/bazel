@@ -143,6 +143,7 @@ public class ResourceLinker {
   private List<StaticLibrary> linkAgainst = ImmutableList.of();
 
   private String customPackage;
+  private Optional<Integer> packageId = Optional.empty();
   private boolean outputAsProto;
 
   private Revision buildToolsVersion;
@@ -212,6 +213,11 @@ public class ResourceLinker {
 
   public ResourceLinker customPackage(String customPackage) {
     this.customPackage = customPackage;
+    return this;
+  }
+
+  public ResourceLinker packageId(Optional<Integer> packageId) {
+    this.packageId = packageId;
     return this;
   }
 
@@ -410,6 +416,10 @@ public class ResourceLinker {
             .when(debug)
             .thenAdd("--debug-mode")
             .add("--custom-package", customPackage)
+            .when(packageId.isPresent())
+            .thenAdd("--package-id", "0x" + Integer.toHexString(packageId.orElse(0x7f)))
+            .when(packageId.map(id -> id < 0x7f).orElse(false))
+            .thenAdd("--allow-reserved-package-id")
             .when(densities.size() == 1)
             .thenAddRepeated("--preferred-density", densities)
             .add("--stable-ids", compiled.getStableIds())

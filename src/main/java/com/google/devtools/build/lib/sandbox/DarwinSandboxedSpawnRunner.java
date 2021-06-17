@@ -307,7 +307,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
-          statisticsPath) {
+          statisticsPath,
+          getSandboxOptions().reuseSandboxDirectories,
+          sandboxBase,
+          spawn.getMnemonic()) {
         @Override
         public void createFileSystem() throws IOException {
           super.createFileSystem();
