@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Verify;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.Fl
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.FlagPolicy.OperationCase;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.UseDefault;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
@@ -118,6 +120,15 @@ public final class InvocationPolicyEnforcer {
     if (invocationPolicy == null || invocationPolicy.getFlagPoliciesCount() == 0) {
       return;
     }
+
+    // TODO(b/186167747): Remove the warning once we migrate to the new enum.
+    invocationPolicy.getFlagPoliciesList().stream()
+        .filter(p -> p.hasSetValue() && p.getSetValue().getBehavior() == Behavior.UNDEFINED)
+        .findFirst()
+        .ifPresent(
+            policy ->
+                logger.atWarning().atMostEvery(5, MINUTES).log(
+                    "Invocation policy has missing/undefined behavior: %s", policy));
 
     // The effective policy returned is expanded, filtered for applicable commands, and cleaned of
     // redundancies and conflicts.
