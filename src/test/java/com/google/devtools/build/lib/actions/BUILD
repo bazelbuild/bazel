@@ -77,7 +77,6 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
-        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 

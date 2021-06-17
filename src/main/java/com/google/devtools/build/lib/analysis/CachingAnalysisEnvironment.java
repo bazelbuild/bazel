@@ -201,7 +201,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     }
     // The order of the artifacts.entrySet iteration is unspecified - we use a TreeMap here to
     // guarantee that the return value of this method is deterministic.
-    Map<Artifact, String> orphanArtifacts = new TreeMap<>();
+    Map<Artifact, String> orphanArtifacts = new TreeMap<>(Artifact.EXEC_PATH_COMPARATOR);
     for (Map.Entry<Artifact, Object> entry : artifacts.entrySet()) {
       Artifact a = entry.getKey();
       if (!a.isSourceArtifact() && !artifactsWithActions.contains(a)) {

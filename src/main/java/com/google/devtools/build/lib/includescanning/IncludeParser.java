@@ -298,7 +298,7 @@ class IncludeParser {
           continue;
         }
         if (hints == null) {
-          hints = ImmutableSortedSet.naturalOrder();
+          hints = ImmutableSortedSet.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
         }
         PathFragment relativePath = PathFragment.create(m.replaceFirst(rule.findRoot));
         logger.atFine().log(

@@ -123,10 +123,26 @@ public abstract class Artifact
     implements FileType.HasFileType,
         ActionInput,
         FileApi,
+        Comparable<Artifact>,
         CommandLineItem,
         SkyKey {
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
+
+  /** Compares artifact according to their exec paths. Sorts null values first. */
+  @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
+  public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
+      (a, b) -> {
+        if (a == b) {
+          return 0;
+        } else if (a == null) {
+          return -1;
+        } else if (b == null) {
+          return 1;
+        } else {
+          return a.execPath.compareTo(b.execPath);
+        }
+      };
 
   /** Compares artifact according to their root relative paths. Sorts null values first. */
   @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
@@ -196,10 +212,9 @@ public abstract class Artifact
     return Lists.transform(artifacts, Artifact::key);
   }
 
-  /** Pass-through override to make the method final. */
   @Override
-  public final int compareTo(ActionInput o) {
-    return ActionInput.super.compareTo(o);
+  public int compareTo(Artifact o) {
+    return EXEC_PATH_COMPARATOR.compare(this, o);
   }
 
   /** An object that can expand middleman and tree artifacts. */
