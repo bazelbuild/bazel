@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.SymlinkMetadata;
+import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionFileArtifactValue;
@@ -1097,57 +1098,6 @@ public class RemoteCache implements AutoCloseable {
         .setMessage(message)
         .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
         .build();
-  }
-
-  /**
-   * Creates an {@link OutputStream} that isn't actually opened until the first data is written.
-   * This is useful to only have as many open file descriptors as necessary at a time to avoid
-   * running into system limits.
-   */
-  private static class LazyFileOutputStream extends OutputStream {
-
-    private final Path path;
-    private OutputStream out;
-
-    public LazyFileOutputStream(Path path) {
-      this.path = path;
-    }
-
-    @Override
-    public void write(byte[] b) throws IOException {
-      ensureOpen();
-      out.write(b);
-    }
-
-    @Override
-    public void write(byte[] b, int off, int len) throws IOException {
-      ensureOpen();
-      out.write(b, off, len);
-    }
-
-    @Override
-    public void write(int b) throws IOException {
-      ensureOpen();
-      out.write(b);
-    }
-
-    @Override
-    public void flush() throws IOException {
-      ensureOpen();
-      out.flush();
-    }
-
-    @Override
-    public void close() throws IOException {
-      ensureOpen();
-      out.close();
-    }
-
-    private void ensureOpen() throws IOException {
-      if (out == null) {
-        out = path.getOutputStream();
-      }
-    }
   }
 
   /** In-memory representation of action result metadata. */
