@@ -66,6 +66,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

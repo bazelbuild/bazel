@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheStats;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;

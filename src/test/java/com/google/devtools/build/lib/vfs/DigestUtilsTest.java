@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Strings;
-import com.google.common.cache.CacheStats;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -182,11 +182,13 @@ public class DigestUtilsTest {
     FileSystemUtils.writeContentAsLatin1(file3, "and something else");
 
     byte[] digest1 = DigestUtils.getDigestWithManualFallback(file1, file1.getFileSize());
+    DigestUtils.cleanupCacheForTest();
     assertThat(getFastDigestCounter.get()).isEqualTo(1);
     assertThat(getDigestCounter.get()).isEqualTo(1);
     new CacheStatsChecker().evictionCount(0).hitCount(0).missCount(1).check();
 
     byte[] digest2 = DigestUtils.getDigestWithManualFallback(file1, file1.getFileSize());
+    DigestUtils.cleanupCacheForTest();
     assertThat(getFastDigestCounter.get()).isEqualTo(2);
     assertThat(getDigestCounter.get()).isEqualTo(1);
     new CacheStatsChecker().evictionCount(0).hitCount(1).missCount(1).check();
@@ -196,10 +198,12 @@ public class DigestUtilsTest {
     // Evict the digest for the previous file.
     DigestUtils.getDigestWithManualFallback(file2, file2.getFileSize());
     DigestUtils.getDigestWithManualFallback(file3, file3.getFileSize());
+    DigestUtils.cleanupCacheForTest();
     new CacheStatsChecker().evictionCount(1).hitCount(1).missCount(3).check();
 
     // And now try to recompute it.
     byte[] digest3 = DigestUtils.getDigestWithManualFallback(file1, file1.getFileSize());
+    DigestUtils.cleanupCacheForTest();
     new CacheStatsChecker().evictionCount(2).hitCount(1).missCount(4).check();
 
     assertThat(digest3).isEqualTo(digest1);

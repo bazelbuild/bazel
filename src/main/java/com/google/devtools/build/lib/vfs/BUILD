@@ -55,6 +55,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

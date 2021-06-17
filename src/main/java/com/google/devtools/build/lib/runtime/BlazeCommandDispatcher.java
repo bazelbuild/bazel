@@ -17,19 +17,17 @@ import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTIO
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Flushables;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -100,7 +98,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   private String shutdownReason = null;
   private OutputStream logOutputStream = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
-      CacheBuilder.newBuilder()
+      Caffeine.newBuilder()
           .build(
               new CacheLoader<BlazeCommand, OpaqueOptionsData>() {
                 @Override
@@ -728,12 +726,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   private OptionsParser createOptionsParser(BlazeCommand command)
       throws OptionsParser.ConstructionException {
     OpaqueOptionsData optionsData;
-    try {
-      optionsData = optionsDataCache.getUnchecked(command);
-    } catch (UncheckedExecutionException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), OptionsParser.ConstructionException.class);
-      throw new IllegalStateException(e);
-    }
+    optionsData = optionsDataCache.get(command);
     Command annotation = command.getClass().getAnnotation(Command.class);
     OptionsParser parser =
         OptionsParser.builder()
