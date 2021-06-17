@@ -327,7 +327,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         "x/BUILD",
         "cc_test(name='a', srcs=['a.cc'], features=['dynamic_link_test_srcs'])",
         "cc_binary(name='b', srcs=['a.cc'])",
-        "cc_test(name='c', srcs=['a.cc'], features=['dynamic_link_test_srcs'], linkstatic=1)");
+        "cc_test(name='c', srcs=['a.cc'], features=['dynamic_link_test_srcs'], linkstatic=True)");
     scratch.file("x/a.cc", "int main() {}");
     useConfiguration("--force_pic");
 

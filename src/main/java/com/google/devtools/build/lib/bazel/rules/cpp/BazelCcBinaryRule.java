@@ -62,7 +62,7 @@ public final class BazelCcBinaryRule implements RuleDefinition {
         <p>
           If you specify both <code>linkopts=['-static']</code> and <code>linkshared=True</code>,
           you get a single completely self-contained unit. If you specify both
-          <code>linkstatic=1</code> and <code>linkshared=True</code>, you get a single, mostly
+          <code>linkstatic=True</code> and <code>linkshared=True</code>, you get a single, mostly
           self-contained unit.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/

@@ -1551,7 +1551,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8");
     ConfiguredTarget target =
         scratchConfiguredTarget(
-            "a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'], linkstatic=1)");
+            "a", "foo", "cc_library(name = 'foo', srcs = ['foo.cc'], linkstatic=True)");
     Iterable<Artifact> libraries =
         target
             .get(CcInfo.PROVIDER)
@@ -1602,7 +1602,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     // Should error out.
     reporter.removeHandler(failFastHandler);
     scratchConfiguredTarget(
-        "b", "b", "cc_library(name='b', hdrs=['b.h'], srcs=['b.cc'], alwayslink=1)");
+        "b", "b", "cc_library(name='b', hdrs=['b.h'], srcs=['b.cc'], alwayslink=True)");
     assertContainsEvent(
         "alwayslink should not be True for a target with the disable_whole_archive_for_static_lib"
             + " feature enabled");

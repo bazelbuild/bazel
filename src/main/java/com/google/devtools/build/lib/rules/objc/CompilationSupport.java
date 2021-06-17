@@ -168,7 +168,7 @@ public class CompilationSupport implements StarlarkValue {
       NestedSetBuilder.create(
           Order.STABLE_ORDER, new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
-  /** Selects cc libraries that have alwayslink=1. */
+  /** Selects cc libraries that have alwayslink=True. */
   private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
       input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
 

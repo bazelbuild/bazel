@@ -281,7 +281,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // For cc_binary and cc_test rules, there is an implicit dependency on
     // the malloc library package, which is specified by the "malloc" attribute.
     // As the BUILD encyclopedia says, the "malloc" attribute should be ignored
-    // if linkshared=1.
+    // if linkshared=True.
     boolean linkshared = isLinkShared(ruleContext);
     if (!linkshared) {
       TransitiveInfoCollection malloc = CppHelper.mallocForTarget(ruleContext);
@@ -354,12 +354,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    // if cc_binary includes "linkshared=1", then gcc will be invoked with
+    // if cc_binary includes "linkshared=True", then gcc will be invoked with
     // linkopt "-shared", which causes the result of linking to be a shared
     // library.
     final Artifact binary;
 
-    // For linkshared=1 we used to force users to specify the file extension manually, as part of
+    // For linkshared=True we used to force users to specify the file extension manually, as part of
     // the target name.
     // This is no longer necessary, the toolchain can figure out the correct file extension.
     String targetName = ruleContext.getTarget().getName();

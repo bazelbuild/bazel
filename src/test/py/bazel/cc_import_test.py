@@ -22,9 +22,9 @@ from src.test.py.bazel import test_base
 class CcImportTest(test_base.TestBase):
 
   def createProjectFiles(self,
-                         alwayslink=0,
+                         alwayslink=False,
                          system_provided=0,
-                         linkstatic=1,
+                         linkstatic=True,
                          provide_header=True):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
@@ -90,7 +90,7 @@ class CcImportTest(test_base.TestBase):
         '}',
     ])
 
-    # For testing alwayslink=1
+    # For testing alwayslink=True
     self.ScratchFile('lib/a_al.cc', [
         'extern int global_variable;',
         'int init() {',
@@ -131,7 +131,7 @@ class CcImportTest(test_base.TestBase):
     return stdout[0]
 
   def testLinkStaticLibrary(self):
-    self.createProjectFiles(alwayslink=0, linkstatic=1)
+    self.createProjectFiles(alwayslink=False, linkstatic=True)
     bazel_bin = self.getBazelInfo('bazel-bin')
     suffix = '.exe' if self.IsWindows() else ''
 
@@ -146,7 +146,7 @@ class CcImportTest(test_base.TestBase):
     self.assertEqual(stdout[1], 'global : 0')
 
   def testAlwayslinkStaticLibrary(self):
-    self.createProjectFiles(alwayslink=1, linkstatic=1)
+    self.createProjectFiles(alwayslink=True, linkstatic=True)
     bazel_bin = self.getBazelInfo('bazel-bin')
     suffix = '.exe' if self.IsWindows() else ''
 
@@ -161,7 +161,7 @@ class CcImportTest(test_base.TestBase):
     self.assertEqual(stdout[1], 'global : 2')
 
   def testLinkSharedLibrary(self):
-    self.createProjectFiles(linkstatic=0)
+    self.createProjectFiles(linkstatic=False)
     bazel_bin = self.getBazelInfo('bazel-bin')
     suffix = '.exe' if self.IsWindows() else ''
 
@@ -179,7 +179,7 @@ class CcImportTest(test_base.TestBase):
   def testSystemProvidedSharedLibraryOnWinodws(self):
     if not self.IsWindows():
       return
-    self.createProjectFiles(system_provided=1, linkstatic=0)
+    self.createProjectFiles(system_provided=1, linkstatic=False)
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel(['build', '//main:B'])
@@ -204,7 +204,7 @@ class CcImportTest(test_base.TestBase):
   def testSystemProvidedSharedLibraryOnUnix(self):
     if not self.IsUnix():
       return
-    self.createProjectFiles(system_provided=1, linkstatic=0)
+    self.createProjectFiles(system_provided=1, linkstatic=False)
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     exit_code, _, stderr = self.RunBazel(['build', '//main:B'])

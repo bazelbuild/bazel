@@ -104,7 +104,7 @@ public class BazelJavaRuleClasses {
 
   static final ImmutableSet<String> ALLOWED_RULES_IN_DEPS =
       ImmutableSet.of(
-          "cc_binary", // NB: linkshared=1
+          "cc_binary", // NB: linkshared=True
           "cc_library",
           "genrule",
           "genproto", // TODO(bazel-team): we should filter using providers instead (starlark rule).

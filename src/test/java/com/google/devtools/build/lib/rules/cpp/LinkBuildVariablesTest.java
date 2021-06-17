@@ -637,8 +637,8 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         "x/BUILD",
         "cc_library(name='a', hdrs=['a.h'], srcs = ['a.cc'], "
             + " features=['disable_whole_archive_for_static_lib'])",
-        "cc_library(name='b', hdrs=['b.h'], srcs = ['b.cc'], alwayslink=1)",
-        "cc_binary(name = 'c.so', linkstatic=1, linkshared=1, deps=[':a', ':b'])");
+        "cc_library(name='b', hdrs=['b.h'], srcs = ['b.cc'], alwayslink=True)",
+        "cc_binary(name = 'c.so', linkstatic=True, linkshared=True, deps=[':a', ':b'])");
 
     ConfiguredTarget testTarget = getConfiguredTarget("//x:c.so");
     CcToolchainVariables testVariables =

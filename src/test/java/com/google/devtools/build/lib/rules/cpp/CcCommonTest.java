@@ -219,7 +219,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "statically",
             "cc_library(name = 'statically',",
             "           srcs = ['statically.cc'],",
-            "           linkstatic=1)");
+            "           linkstatic=True)");
     assertThat(
             statically
                 .get(CcInfo.PROVIDER)
@@ -516,7 +516,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "",
         "cc_test(name = 'testlib',",
         "       deps = [':lib1'],",
-        "       alwayslink=1)");
+        "       alwayslink=True)");
     reporter.removeHandler(failFastHandler);
     getPackageManager().getPackage(reporter, PackageIdentifier.createInMainRepo("cc/common"));
     assertContainsEvent(
@@ -663,7 +663,7 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_binary(name = 'wrapsophos',",
             "          srcs = [ 'wrapsophos.cc' ],",
             "          deps = [ ':sophosengine' ],",
-            "          linkstatic=1)");
+            "          linkstatic=True)");
 
     List<String> artifactNames = baseArtifactNames(getLinkerInputs(wrapsophos));
     assertThat(artifactNames).contains("libsavi.so");

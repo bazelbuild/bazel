@@ -32,7 +32,7 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=1, alwayslink=0)",
+        "cc_library(name='lib', srcs=['src.cc'], linkstatic=True, alwayslink=False)",
         "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
         "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 
@@ -49,7 +49,7 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=1, alwayslink=1)",
+        "cc_library(name='lib', srcs=['src.cc'], linkstatic=True, alwayslink=True)",
         "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
         "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 
@@ -66,7 +66,7 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=0, alwayslink=0)",
+        "cc_library(name='lib', srcs=['src.cc'], linkstatic=False, alwayslink=False)",
         "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
         "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 
@@ -86,7 +86,7 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=0, alwayslink=1)",
+        "cc_library(name='lib', srcs=['src.cc'], linkstatic=False, alwayslink=True)",
         "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
         "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
 

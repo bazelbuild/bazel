@@ -189,7 +189,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.createProjectFiles()
     bazel_bin = self.getBazelInfo('bazel-bin')
 
-    # Since linkstatic=0 is specified for //:C, it's dependencies should be
+    # Since linkstatic=False is specified for //:C, it's dependencies should be
     # dynamically linked.
     exit_code, _, stderr = self.RunBazel(['build', '//:C'])
     self.AssertExitCode(exit_code, 0, stderr)

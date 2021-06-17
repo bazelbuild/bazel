@@ -98,12 +98,12 @@ public abstract class NativeDepsHelper {
    * Creates an Action to create a dynamic library for Android by linking all native code (C/C++)
    * libraries in the transitive dependency closure of a rule.
    *
-   * <p>We link the native deps in the equivalent of linkstatic=1, linkshared=1 mode.
+   * <p>We link the native deps in the equivalent of linkstatic=True, linkshared=True mode.
    *
-   * <p>linkstatic=1 means mostly-static mode, i.e. we select the ".a" (or ".pic.a") files, but we
+   * <p>linkstatic=True means mostly-static mode, i.e. we select the ".a" (or ".pic.a") files, but we
    * don't include "-static" in linkopts.
    *
-   * <p>linkshared=1 means we prefer the ".pic.a" files to the ".a" files, and the LinkTargetType is
+   * <p>linkshared=True means we prefer the ".pic.a" files to the ".a" files, and the LinkTargetType is
    * set to DYNAMIC_LIBRARY which causes Link.java to include "-shared" in the linker options.
    *
    * <p>It is possible that this function may have no work to do if there are no native libraries in
@@ -111,7 +111,7 @@ public abstract class NativeDepsHelper {
    * shared libraries. In this case, this function returns {@code null}.
    *
    * @param ruleContext the rule context to determine the native deps library
-   * @param ccInfo the {@link CcInfo} for the rule, collected with linkstatic = 1 and linkshared = 1
+   * @param ccInfo the {@link CcInfo} for the rule, collected with linkstatic = True and linkshared = True
    * @param cppSemantics to use for linkstamp compiles
    * @return the native deps library, or null if there was no code which needed to be linked in the
    *     transitive closure.

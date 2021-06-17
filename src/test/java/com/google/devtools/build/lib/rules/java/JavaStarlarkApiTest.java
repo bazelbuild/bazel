@@ -2065,9 +2065,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
-        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=True, linkstatic=True)",
         "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
-        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=True, linkstatic=True)",
         "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
         "java_binary(name = 'binary', main_class = 'C', srcs = ['java/C.java'], deps = [':r'])");
 
@@ -2096,9 +2096,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
-        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=True, linkstatic=True)",
         "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
-        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
+        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=True, linkstatic=True)",
         "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
         "java_test(name = 'test', test_class='test', srcs = ['Test.java'], deps = [':r'])");
 
