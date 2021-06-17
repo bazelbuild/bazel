@@ -118,17 +118,16 @@ public class ArtifactTest {
         .isFalse();
   }
 
-  @SuppressWarnings("SelfComparison")
   @Test
   public void testComparison() {
     PathFragment aPath = PathFragment.create("src/a");
     PathFragment bPath = PathFragment.create("src/b");
     Artifact aArtifact = ActionsTestUtil.createArtifactWithRootRelativePath(rootDir, aPath);
     Artifact bArtifact = ActionsTestUtil.createArtifactWithRootRelativePath(rootDir, bPath);
-    assertThat(aArtifact.compareTo(bArtifact)).isEqualTo(-1);
-    assertThat(aArtifact.compareTo(aArtifact)).isEqualTo(0);
-    assertThat(bArtifact.compareTo(bArtifact)).isEqualTo(0);
-    assertThat(bArtifact.compareTo(aArtifact)).isEqualTo(1);
+    assertThat(Artifact.EXEC_PATH_COMPARATOR.compare(aArtifact, bArtifact)).isEqualTo(-1);
+    assertThat(Artifact.EXEC_PATH_COMPARATOR.compare(aArtifact, aArtifact)).isEqualTo(0);
+    assertThat(Artifact.EXEC_PATH_COMPARATOR.compare(bArtifact, bArtifact)).isEqualTo(0);
+    assertThat(Artifact.EXEC_PATH_COMPARATOR.compare(bArtifact, aArtifact)).isEqualTo(1);
   }
 
   @Test
