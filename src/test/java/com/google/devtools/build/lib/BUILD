@@ -22,6 +22,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/bugreport:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
         "//src/test/java/com/google/devtools/build/lib/cmdline:srcs",
+        "//src/test/java/com/google/devtools/build/lib/collect:srcs",
         "//src/test/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/test/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/test/java/com/google/devtools/build/lib/events:srcs",
@@ -96,61 +97,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:junit4",
         "//third_party:mockito",
-    ],
-)
-
-java_test(
-    name = "collect_test",
-    size = "small",
-    srcs = glob(["collect/*.java"]),
-    tags = [
-        "foundations",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":AllTests",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "collect_nestedset_test",
-    size = "small",
-    srcs = glob(["collect/nestedset/*.java"]),
-    tags = [
-        "foundations",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":AllTests",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:testutils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -290,9 +236,8 @@ test_suite(
 test_suite(
     name = "foundations",
     tests = [
-        ":collect_nestedset_test",
-        ":collect_test",
         "//src/test/java/com/google/devtools/build/lib/cmdline:CmdLineTests",
+        "//src/test/java/com/google/devtools/build/lib/collect:CollectTests",
         "//src/test/java/com/google/devtools/build/lib/concurrent:ConcurrentTests",
         "//src/test/java/com/google/devtools/build/lib/events:EventsTests",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtilTests",
