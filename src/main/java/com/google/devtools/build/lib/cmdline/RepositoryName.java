@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
@@ -30,7 +29,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 
 /** A human-readable name for the repository. */
@@ -80,21 +79,21 @@ public final class RepositoryName implements Serializable {
   }
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
-      CacheBuilder.newBuilder()
-        .weakValues()
-        .build(
-            new CacheLoader<String, RepositoryName>() {
-              @Override
-              public RepositoryName load(String name) throws LabelSyntaxException {
+      Caffeine.newBuilder()
+          .weakValues()
+          .build(
+              name -> {
                 String errorMessage = validate(name);
                 if (errorMessage != null) {
-                  errorMessage = "invalid repository name '"
-                      + StringUtilities.sanitizeControlChars(name) + "': " + errorMessage;
+                  errorMessage =
+                      "invalid repository name '"
+                          + StringUtilities.sanitizeControlChars(name)
+                          + "': "
+                          + errorMessage;
                   throw new LabelSyntaxException(errorMessage);
                 }
                 return new RepositoryName(StringCanonicalizer.intern(name));
-              }
-            });
+              });
 
   static {
     try {
@@ -114,9 +113,9 @@ public final class RepositoryName implements Serializable {
   public static RepositoryName create(String name) throws LabelSyntaxException {
     try {
       return repositoryNameCache.get(name);
-    } catch (ExecutionException e) {
+    } catch (CompletionException e) {
       Throwables.propagateIfPossible(e.getCause(), LabelSyntaxException.class);
-      throw new IllegalStateException("Failed to create RepositoryName from " + name, e);
+      throw e;
     }
   }
 
@@ -125,11 +124,7 @@ public final class RepositoryName implements Serializable {
    * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
    */
   public static RepositoryName createFromValidStrippedName(String name) {
-    try {
-      return repositoryNameCache.get("@" + name);
-    } catch (ExecutionException e) {
-      throw new IllegalArgumentException(e.getMessage());
-    }
+    return repositoryNameCache.get("@" + name);
   }
 
   /**
@@ -241,7 +236,7 @@ public final class RepositoryName implements Serializable {
    * ({@code "@"} becomes the empty string).
    */
   public String getCanonicalForm() {
-    return isMain() ? "" : getName();
+    return isMain() ? "" : name;
   }
 
   /**
