@@ -58,7 +58,7 @@ public class MetricsModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name()) ? ImmutableList.of(Options.class) : ImmutableList.of();
+    return ImmutableList.of(Options.class);
   }
 
   /**
@@ -74,7 +74,4 @@ public class MetricsModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     MetricsCollector.installInEnv(env, numAnalyses, numBuilds);
   }
-
-  @Override
-  public void afterCommand() {}
 }
