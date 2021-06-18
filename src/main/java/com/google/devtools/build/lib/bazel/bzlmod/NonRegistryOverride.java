@@ -15,15 +15,13 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkOverrideApi;
-
 /**
  * An override specifying that the module should not be retrieved from a registry or participate in
  * version resolution, and should be retrieved from another given source instead. To evaluate the
  * module file of such modules, we need to first fetch the entire module contents and find the
  * module file in the root of the module.
  */
-public interface NonRegistryOverride extends StarlarkOverrideApi {
+public interface NonRegistryOverride extends ModuleOverride {
 
   // TODO(wyv): getRepoSpec
 }

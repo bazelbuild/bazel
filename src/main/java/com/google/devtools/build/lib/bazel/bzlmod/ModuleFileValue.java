@@ -22,7 +22,6 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkOverrideApi;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -45,14 +44,14 @@ public abstract class ModuleFileValue implements SkyValue {
    * The overrides specified by the evaluated module file. The key is the module name and the value
    * is the override itself.
    */
-  public abstract ImmutableMap<String, StarlarkOverrideApi> getOverrides();
+  public abstract ImmutableMap<String, ModuleOverride> getOverrides();
 
   public static ModuleFileValue create(
-      Module module, ImmutableMap<String, StarlarkOverrideApi> overrides) {
+      Module module, ImmutableMap<String, ModuleOverride> overrides) {
     return new AutoValue_ModuleFileValue(module, overrides);
   }
 
-  public static Key key(ModuleKey moduleKey, @Nullable StarlarkOverrideApi override) {
+  public static Key key(ModuleKey moduleKey, @Nullable ModuleOverride override) {
     return Key.create(moduleKey, override);
   }
 
@@ -75,11 +74,11 @@ public abstract class ModuleFileValue implements SkyValue {
     abstract ModuleKey getModuleKey();
 
     @Nullable
-    abstract StarlarkOverrideApi getOverride();
+    abstract ModuleOverride getOverride();
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static Key create(ModuleKey moduleKey, @Nullable StarlarkOverrideApi override) {
+    static Key create(ModuleKey moduleKey, @Nullable ModuleOverride override) {
       return interner.intern(new AutoValue_ModuleFileValue_Key(moduleKey, override));
     }
 

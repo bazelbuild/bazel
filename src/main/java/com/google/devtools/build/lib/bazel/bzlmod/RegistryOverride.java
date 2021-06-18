@@ -15,13 +15,11 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkOverrideApi;
-
 /**
  * An override specifying that the module should still come from a registry, albeit with some other
  * properties overridden (such as which registry it comes from, whether patches are applied, etc.)
  */
-public interface RegistryOverride extends StarlarkOverrideApi {
+public interface RegistryOverride extends ModuleOverride {
 
   /**
    * The registry that should be used instead of the default list. Can be empty if there is no

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkOverrideApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -121,8 +120,8 @@ public class ModuleFileFunction implements SkyFunction {
     Module module = moduleFileGlobals.buildModule(null);
 
     // Check that overrides don't contain the root module itself.
-    ImmutableMap<String, StarlarkOverrideApi> overrides = moduleFileGlobals.buildOverrides();
-    StarlarkOverrideApi rootOverride = overrides.get(module.getName());
+    ImmutableMap<String, ModuleOverride> overrides = moduleFileGlobals.buildOverrides();
+    ModuleOverride rootOverride = overrides.get(module.getName());
     if (rootOverride != null) {
       throw errorf("invalid override for the root module found: %s", rootOverride);
     }
@@ -162,7 +161,7 @@ public class ModuleFileFunction implements SkyFunction {
 
   @Nullable
   private GetModuleFileResult getModuleFile(
-      ModuleKey key, @Nullable StarlarkOverrideApi override, Environment env)
+      ModuleKey key, @Nullable ModuleOverride override, Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.

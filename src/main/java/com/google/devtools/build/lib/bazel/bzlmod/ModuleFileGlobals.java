@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction.ModuleFileFunctionException;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.ModuleFileGlobalsApi;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkOverrideApi;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,7 +32,7 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
   private boolean moduleCalled = false;
   private final Module.Builder module = Module.builder();
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
-  private final Map<String, StarlarkOverrideApi> overrides = new HashMap<>();
+  private final Map<String, ModuleOverride> overrides = new HashMap<>();
 
   public ModuleFileGlobals() {}
 
@@ -57,11 +56,10 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
     }
   }
 
-  @Override
-  public void overrideDep(String name, StarlarkOverrideApi override) throws EvalException {
-    StarlarkOverrideApi existingOverride = overrides.putIfAbsent(name, override);
+  private void addOverride(String moduleName, ModuleOverride override) throws EvalException {
+    ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
-      throw Starlark.errorf("multiple overrides for dep %s found", name);
+      throw Starlark.errorf("multiple overrides for dep %s found", moduleName);
     }
   }
 
@@ -82,18 +80,25 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
   }
 
   @Override
-  public StarlarkOverrideApi singleVersionOverride(
-      String version, String registry, Iterable<?> patches, StarlarkInt patchStrip)
+  public void singleVersionOverride(
+      String moduleName,
+      String version,
+      String registry,
+      Iterable<?> patches,
+      StarlarkInt patchStrip)
       throws EvalException {
-    return SingleVersionOverride.create(
-        version,
-        registry,
-        checkAllStrings(patches, "patches"),
-        patchStrip.toInt("single_version_override.patch_strip"));
+    addOverride(
+        moduleName,
+        SingleVersionOverride.create(
+            version,
+            registry,
+            checkAllStrings(patches, "patches"),
+            patchStrip.toInt("single_version_override.patch_strip")));
   }
 
   @Override
-  public StarlarkOverrideApi archiveOverride(
+  public void archiveOverride(
+      String moduleName,
       Object urls,
       String integrity,
       String stripPrefix,
@@ -104,35 +109,39 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
         urls instanceof String
             ? ImmutableList.of((String) urls)
             : checkAllStrings((Iterable<?>) urls, "urls");
-    return ArchiveOverride.create(
-        urlList,
-        checkAllStrings(patches, "patches"),
-        integrity,
-        stripPrefix,
-        patchStrip.toInt("archive_override.patch_strip"));
+    addOverride(
+        moduleName,
+        ArchiveOverride.create(
+            urlList,
+            checkAllStrings(patches, "patches"),
+            integrity,
+            stripPrefix,
+            patchStrip.toInt("archive_override.patch_strip")));
   }
 
   @Override
-  public StarlarkOverrideApi gitOverride(
-      String remote, String commit, Iterable<?> patches, StarlarkInt patchStrip)
+  public void gitOverride(
+      String moduleName, String remote, String commit, Iterable<?> patches, StarlarkInt patchStrip)
       throws EvalException {
-    return GitOverride.create(
-        remote,
-        commit,
-        checkAllStrings(patches, "patches"),
-        patchStrip.toInt("git_override.patch_strip"));
+    addOverride(
+        moduleName,
+        GitOverride.create(
+            remote,
+            commit,
+            checkAllStrings(patches, "patches"),
+            patchStrip.toInt("git_override.patch_strip")));
   }
 
   @Override
-  public StarlarkOverrideApi localPathOverride(String path) {
-    return LocalPathOverride.create(path);
+  public void localPathOverride(String moduleName, String path) throws EvalException {
+    addOverride(moduleName, LocalPathOverride.create(path));
   }
 
   public Module buildModule(Registry registry) {
     return module.setDeps(ImmutableMap.copyOf(deps)).setRegistry(registry).build();
   }
 
-  public ImmutableMap<String, StarlarkOverrideApi> buildOverrides() {
+  public ImmutableMap<String, ModuleOverride> buildOverrides() {
     return ImmutableMap.copyOf(overrides);
   }
 }

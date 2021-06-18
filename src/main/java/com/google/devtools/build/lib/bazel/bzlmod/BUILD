@@ -40,6 +40,7 @@ java_library(
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",
         "ModuleFileValue.java",
+        "ModuleOverride.java",
         "NonRegistryOverride.java",
         "RegistryOverride.java",
         "SingleVersionOverride.java",

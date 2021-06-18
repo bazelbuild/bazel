@@ -91,33 +91,18 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
-      name = "override_dep",
-      doc =
-          " Specifies that a direct or indirect dependency should be overridden to act in some way"
-              + " other than the default. This directive can only be used by the root module; in"
-              + " other words, if a module specifies any overrides, it cannot be used as a"
-              + " dependency by others.",
-      parameters = {
-        @Param(
-            name = "name",
-            doc = "The name of the Bazel module dependency to apply an override to.",
-            named = true,
-            positional = false),
-        @Param(
-            name = "override",
-            doc = "The actual override to apply.",
-            named = true,
-            positional = false),
-      })
-  void overrideDep(String name, StarlarkOverrideApi override)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
       name = "single_version_override",
       doc =
-          "Specifies that the dependency should still come from a registry, but its version should"
-              + " be pinned, or its registry overridden, or a list of patches applied.",
+          "Specifies that a dependency should still come from a registry, but its version should"
+              + " be pinned, or its registry overridden, or a list of patches applied. This"
+              + " directive can only be used by the root module; in other words, if a module"
+              + " specifies any overrides, it cannot be used as a dependency by others.",
       parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
         @Param(
             name = "version",
             doc =
@@ -153,16 +138,27 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
             positional = false,
             defaultValue = "0"),
       })
-  StarlarkOverrideApi singleVersionOverride(
-      String version, String registry, Iterable<?> patches, StarlarkInt patchStrip)
+  void singleVersionOverride(
+      String moduleName,
+      String version,
+      String registry,
+      Iterable<?> patches,
+      StarlarkInt patchStrip)
       throws EvalException;
 
   @StarlarkMethod(
       name = "archive_override",
       doc =
           "Specifies that this dependency should come from an archive file (zip, gzip, etc) at a"
-              + " certain location, instead of from a registry.",
+              + " certain location, instead of from a registry. This directive can only be used by"
+              + " the root module; in other words, if a module specifies any overrides, it cannot"
+              + " be used as a dependency by others.",
       parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
         @Param(
             name = "urls",
             allowedTypes = {
@@ -201,7 +197,8 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
             positional = false,
             defaultValue = "0"),
       })
-  StarlarkOverrideApi archiveOverride(
+  void archiveOverride(
+      String moduleName,
       Object urls,
       String integrity,
       String stripPrefix,
@@ -211,8 +208,16 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
 
   @StarlarkMethod(
       name = "git_override",
-      doc = "Specifies that this dependency should come from a certain commit of a Git repository.",
+      doc =
+          "Specifies that a dependency should come from a certain commit of a Git repository. This"
+              + " directive can only be used by the root module; in other words, if a module"
+              + " specifies any overrides, it cannot be used as a dependency by others.",
       parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
         @Param(
             name = "remote",
             doc = "The URL of the remote Git repository.",
@@ -241,21 +246,29 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
             positional = false,
             defaultValue = "0"),
       })
-  StarlarkOverrideApi gitOverride(
-      String remote, String commit, Iterable<?> patches, StarlarkInt patchStrip)
+  void gitOverride(
+      String moduleName, String remote, String commit, Iterable<?> patches, StarlarkInt patchStrip)
       throws EvalException, ModuleFileFunctionExceptionT;
 
   @StarlarkMethod(
       name = "local_path_override",
-      doc = "Specifies that this dependency should come from a certain directory on local disk.",
+      doc =
+          "Specifies that a dependency should come from a certain directory on local disk. This"
+              + " directive can only be used by the root module; in other words, if a module"
+              + " specifies any overrides, it cannot be used as a dependency by others.",
       parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
         @Param(
             name = "path",
             doc = "The path to the directory where this module is.",
             named = true,
             positional = false),
       })
-  StarlarkOverrideApi localPathOverride(String path);
+  void localPathOverride(String moduleName, String path) throws EvalException;
 
   // TODO(wyv): multiple_version_override
 }

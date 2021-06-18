@@ -13,17 +13,14 @@
 // limitations under the License.
 //
 
-package com.google.devtools.build.lib.starlarkbuildapi.repository;
+package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.devtools.build.docgen.annot.DocCategory;
-import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
-
-/** Base interface for override objects. */
-@StarlarkBuiltin(
-    name = "override",
-    category = DocCategory.BUILTIN,
-    doc = "Overrides some information about a Bazel module dependency.")
-public interface StarlarkOverrideApi extends StarlarkValue {
+/**
+ * Represents an "override" applied to a particular module in the dependency graph. Must be of one
+ * of two categories: {@link RegistryOverride} and {@link NonRegistryOverride}. See there for
+ * further details.
+ */
+// This interface is not named "Override" because of the Java @Override annotation.
+public interface ModuleOverride {
   // This space intentionally left blank
 }

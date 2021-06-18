@@ -116,8 +116,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "module(name='A',version='0.1')",
         "bazel_dep(name='B',version='1.0')",
         "bazel_dep(name='C',version='2.0',repo_name='see')",
-        "override_dep(name='D', override=single_version_override(version='18'))",
-        "override_dep(name='E', override=local_path_override(path='somewhere/else'))");
+        "single_version_override(module_name='D',version='18')",
+        "local_path_override(module_name='E',path='somewhere/else')");
     FakeRegistry registry = registryFactory.newFakeRegistry();
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
@@ -146,7 +146,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='A')",
-        "override_dep(name='A', override=single_version_override(version='7'))");
+        "single_version_override(module_name='A',version='7')");
     FakeRegistry registry = registryFactory.newFakeRegistry();
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
