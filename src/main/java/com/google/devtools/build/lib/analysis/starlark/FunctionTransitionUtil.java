@@ -418,6 +418,7 @@ public class FunctionTransitionUtil {
         ImmutableList.sortedCopyOf(updatedAffectedByStarlarkTransition);
 
     // hash all relevant native option values;
+    boolean hasOutputDirectoryName = false;
     TreeMap<String, Object> toHash = new TreeMap<>();
     for (String nativeOption : updatedAffectedByStarlarkTransition) {
       Object value;
@@ -432,11 +433,23 @@ public class FunctionTransitionUtil {
         throw new RuntimeException(
             "IllegalAccess for option " + nativeOption + ": " + e.getMessage());
       }
+      if (nativeOption.equals("output directory name") && value != null) {
+        // output directory name overridden and will not include the transition directory
+        // name fragment. Build the hash from this value only to avoid configuration conflicts
+        // due to mismatching transition directory name fragments for a given output directory
+        // name.
+        hasOutputDirectoryName = true;
+        toHash.clear();
+        toHash.put(nativeOption, value);
+        break;
+      }
       toHash.put(nativeOption, value);
     }
 
     // hash all starlark options in map.
-    toOptions.getStarlarkOptions().forEach((opt, value) -> toHash.put(opt.toString(), value));
+    if (!hasOutputDirectoryName) {
+      toOptions.getStarlarkOptions().forEach((opt, value) -> toHash.put(opt.toString(), value));
+    }
     ImmutableList.Builder<String> hashStrs = ImmutableList.builderWithExpectedSize(toHash.size());
     for (Map.Entry<String, Object> singleOptionAndValue : toHash.entrySet()) {
       String toAdd = singleOptionAndValue.getKey() + "=" + singleOptionAndValue.getValue();
