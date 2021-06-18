@@ -358,7 +358,6 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/skyframe/packages:all_windows_tests",
     ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
