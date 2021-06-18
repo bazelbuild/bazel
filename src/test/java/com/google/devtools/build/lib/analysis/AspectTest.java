@@ -1117,7 +1117,7 @@ public class AspectTest extends AnalysisTestCase {
         .containsExactly("a");
     assertThat(getInstrumentedFiles("//aspect:instrumented_file_info_from_base_target"))
         .containsExactly("b");
-    assertThat(getInstrumentedFilesInfo("//aspect:rule_target_no_coverage")).isNull();
+    assertThat(getInstrumentedFiles("//aspect:rule_target_no_coverage")).isEmpty();
     assertThat(getInstrumentedFiles("//aspect:instrumented_files_info_only_from_aspect"))
         .containsExactly("a");
     assertThat(getInstrumentedFiles("//aspect:no_instrumented_files_info")).isEmpty();
@@ -1125,10 +1125,8 @@ public class AspectTest extends AnalysisTestCase {
 
   private List<String> getInstrumentedFiles(String label) throws InterruptedException {
     return ActionsTestUtil.baseArtifactNames(
-        getInstrumentedFilesInfo(label).getInstrumentedFiles());
-  }
-
-  private InstrumentedFilesInfo getInstrumentedFilesInfo(String label) throws InterruptedException {
-    return getConfiguredTarget(label).get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+        getConfiguredTarget(label)
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getInstrumentedFiles());
   }
 }

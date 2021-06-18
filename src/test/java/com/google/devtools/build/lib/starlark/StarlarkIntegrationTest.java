@@ -941,8 +941,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     // Current behavior is that nothing gets forwarded if IntstrumentedFilesInfo is not configured.
     // That means that source files are not collected for the coverage manifest unless the entire
     // dependency chain between the test and the source file explicitly configures coverage.
-    // New behavior is protected by --experimental_forward_instrumented_files_info_by_default.
-    useConfiguration("--collect_code_coverage");
+    // New behavior is controlled by --experimental_forward_instrumented_files_info_by_default,
+    // which is now on by default.
+    useConfiguration(
+        "--collect_code_coverage", "--noexperimental_forward_instrumented_files_info_by_default");
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:outer");
     InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
@@ -952,8 +954,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     // dependencies. Coverage still needs to be configured for rules that handle source files for
     // languages which support coverage instrumentation, but not every wrapper rule in the
     // dependency chain needs to configure that for instrumentation to be correct.
-    useConfiguration(
-        "--collect_code_coverage", "--experimental_forward_instrumented_files_info_by_default");
+    useConfiguration("--collect_code_coverage");
     target = getConfiguredTarget("//test/starlark:outer");
     provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
