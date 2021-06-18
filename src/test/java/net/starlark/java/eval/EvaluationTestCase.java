@@ -83,7 +83,7 @@ class EvaluationTestCase {
     return null; // no client data
   }
 
-  private StarlarkThread getStarlarkThread() {
+  StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
       this.thread = new StarlarkThread(mu, semantics);

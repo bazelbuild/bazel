@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.TestType;
 import com.sun.management.HotSpotDiagnosticMXBean;
@@ -170,7 +171,8 @@ public final class BugReport {
         }
 
         String crashMsg;
-        if (throwable instanceof OutOfMemoryError) {
+        // Might be a wrapped OOM - the detailed exit code reflects the root cause.
+        if (crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR)) {
           crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
           String heapDumpPath = ctx.getHeapDumpPath();
           if (heapDumpPath != null) {

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -27,7 +29,10 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
 // TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
-public final class BazelStarlarkContext implements RuleDefinitionEnvironment, Label.HasRepoMapping {
+public final class BazelStarlarkContext
+    implements RuleDefinitionEnvironment,
+        Label.HasRepoMapping,
+        StarlarkThread.UncheckedExceptionContext {
 
   /** The phase to which this Starlark thread belongs. */
   public enum Phase {
@@ -45,6 +50,7 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
   public void storeInThread(StarlarkThread thread) {
     thread.setThreadLocal(BazelStarlarkContext.class, this);
     thread.setThreadLocal(Label.HasRepoMapping.class, this);
+    thread.setUncheckedExceptionContext(this);
   }
 
   private final Phase phase;
@@ -88,7 +94,7 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
       HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
       @Nullable Label analysisRuleLabel) {
-    this.phase = phase;
+    this.phase = Preconditions.checkNotNull(phase);
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
     this.repoMapping = repoMapping;
@@ -145,6 +151,11 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
   @Nullable
   public Label getAnalysisRuleLabel() {
     return analysisRuleLabel;
+  }
+
+  @Override
+  public String getContextForUncheckedException() {
+    return firstNonNull(analysisRuleLabel, phase).toString();
   }
 
   /**
