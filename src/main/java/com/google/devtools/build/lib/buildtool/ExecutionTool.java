@@ -89,7 +89,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -108,7 +107,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -738,10 +736,6 @@ public class ExecutionTool {
     try {
       return env.getPersistentActionCache();
     } catch (IOException e) {
-      // TODO(bazel-team): (2010) Ideally we should just remove all cache data and reinitialize
-      // caches.
-      LoggingUtil.logToRemote(
-          Level.WARNING, "Failed to initialize action cache: " + e.getMessage(), e);
       String message =
           String.format(
               "Couldn't create action cache: %s. If error persists, use 'bazel clean'.",

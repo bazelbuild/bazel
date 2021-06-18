@@ -61,6 +61,6 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     assertThat(events.errors()).hasSize(1);
     events.assertContainsError("Error during action cache initialization");
     events.assertContainsError(
-        "Bazel will now reset action cache data, causing a full rebuild");
+        "Bazel will now reset action cache data, potentially causing rebuilds");
   }
 }

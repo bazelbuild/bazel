@@ -17,10 +17,15 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.PersistentMap;
@@ -51,6 +56,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @ConditionallyThreadSafe // condition: each instance must instantiated with
 // different cache root
 public class CompactPersistentActionCache implements ActionCache {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int SAVE_INTERVAL_SECONDS = 3;
   // Log if periodically saving the action cache incurs more than 5% overhead.
   private static final Duration MIN_TIME_FOR_LOGGING =
@@ -65,13 +71,20 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int VERSION = 12;
 
-  private final class ActionMap extends PersistentMap<Integer, byte[]> {
+  private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
+    private final PersistentStringIndexer indexer;
     private long nextUpdateSecs;
 
-    public ActionMap(Map<Integer, byte[]> map, Clock clock, Path mapFile, Path journalFile)
+    public ActionMap(
+        Map<Integer, byte[]> map,
+        PersistentStringIndexer indexer,
+        Clock clock,
+        Path mapFile,
+        Path journalFile)
         throws IOException {
       super(VERSION, map, mapFile, journalFile);
+      this.indexer = indexer;
       this.clock = clock;
       // Using nanoTime. currentTimeMillis may not provide enough granularity.
       nextUpdateSecs = TimeUnit.NANOSECONDS.toSeconds(clock.nanoTime()) + SAVE_INTERVAL_SECONDS;
@@ -149,13 +162,34 @@ public class CompactPersistentActionCache implements ActionCache {
     }
   }
 
-  private final PersistentMap<Integer, byte[]> map;
   private final PersistentStringIndexer indexer;
-
+  private final PersistentMap<Integer, byte[]> map;
+  private final ImmutableMap<MissReason, AtomicInteger> misses;
   private final AtomicInteger hits = new AtomicInteger();
-  private final Map<MissReason, AtomicInteger> misses = new EnumMap<>(MissReason.class);
 
-  public CompactPersistentActionCache(Path cacheRoot, Clock clock) throws IOException {
+  private CompactPersistentActionCache(
+      PersistentStringIndexer indexer,
+      PersistentMap<Integer, byte[]> map,
+      ImmutableMap<MissReason, AtomicInteger> misses) {
+    this.indexer = indexer;
+    this.map = map;
+    this.misses = misses;
+  }
+
+  public static CompactPersistentActionCache create(
+      Path cacheRoot, Clock clock, EventHandler reporterForInitializationErrors)
+      throws IOException {
+    return create(
+        cacheRoot, clock, reporterForInitializationErrors, /*alreadyFoundCorruption=*/ false);
+  }
+
+  private static CompactPersistentActionCache create(
+      Path cacheRoot,
+      Clock clock,
+      EventHandler reporterForInitializationErrors,
+      boolean alreadyFoundCorruption)
+      throws IOException {
+    PersistentMap<Integer, byte[]> map;
     Path cacheFile = cacheFile(cacheRoot);
     Path journalFile = journalFile(cacheRoot);
     Path indexFile = cacheRoot.getChild("filename_index_v" + VERSION + ".blaze");
@@ -163,29 +197,43 @@ public class CompactPersistentActionCache implements ActionCache {
     // will manually purge records from the action cache.
     Map<Integer, byte[]> backingMap = new HashMap<>();
 
+    PersistentStringIndexer indexer;
     try {
       indexer = PersistentStringIndexer.newPersistentStringIndexer(indexFile, clock);
     } catch (IOException e) {
-      renameCorruptedFiles(cacheRoot);
-      throw new IOException("Failed to load filename index data", e);
+      return logAndThrowOrRecurse(
+          cacheRoot,
+          clock,
+          "Failed to load filename index data",
+          e,
+          reporterForInitializationErrors,
+          alreadyFoundCorruption);
     }
 
     try {
-      map = new ActionMap(backingMap, clock, cacheFile, journalFile);
+      map = new ActionMap(backingMap, indexer, clock, cacheFile, journalFile);
     } catch (IOException e) {
-      renameCorruptedFiles(cacheRoot);
-      throw new IOException("Failed to load action cache data", e);
+      return logAndThrowOrRecurse(
+          cacheRoot,
+          clock,
+          "Failed to load action cache data",
+          e,
+          reporterForInitializationErrors,
+          alreadyFoundCorruption);
     }
 
     // Validate referential integrity between two collections.
     if (!map.isEmpty()) {
-      String integrityError = validateIntegrity(indexer.size(), map.get(VALIDATION_KEY));
-      if (integrityError != null) {
-        renameCorruptedFiles(cacheRoot);
-        throw new IOException("Failed action cache referential integrity check: " + integrityError);
+      try {
+        validateIntegrity(indexer.size(), map.get(VALIDATION_KEY));
+      } catch (IOException e) {
+        return logAndThrowOrRecurse(
+            cacheRoot, clock, null, e, reporterForInitializationErrors, alreadyFoundCorruption);
       }
     }
 
+    // Populate the map now, so that concurrent updates to the values can happen safely.
+    Map<MissReason, AtomicInteger> misses = new EnumMap<>(MissReason.class);
     for (MissReason reason : MissReason.values()) {
       if (reason == MissReason.UNRECOGNIZED) {
         // The presence of this enum value is a protobuf artifact and confuses our metrics
@@ -194,6 +242,35 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       misses.put(reason, new AtomicInteger(0));
     }
+    return new CompactPersistentActionCache(indexer, map, Maps.immutableEnumMap(misses));
+  }
+
+  private static CompactPersistentActionCache logAndThrowOrRecurse(
+      Path cacheRoot,
+      Clock clock,
+      String message,
+      IOException e,
+      EventHandler reporterForInitializationErrors,
+      boolean alreadyFoundCorruption)
+      throws IOException {
+    renameCorruptedFiles(cacheRoot);
+    if (message != null) {
+      e = new IOException(message, e);
+    }
+    logger.atWarning().withCause(e).log("Failed to load action cache");
+    reporterForInitializationErrors.handle(
+        Event.error(
+            "Error during action cache initialization: "
+                + e.getMessage()
+                + ". Corrupted files were renamed to '"
+                + cacheRoot
+                + "/*.bad'. "
+                + "Bazel will now reset action cache data, potentially causing rebuilds"));
+    if (alreadyFoundCorruption) {
+      throw e;
+    }
+    return create(
+        cacheRoot, clock, reporterForInitializationErrors, /*alreadyFoundCorruption=*/ true);
   }
 
   /**
@@ -213,31 +290,33 @@ public class CompactPersistentActionCache implements ActionCache {
     } catch (UnixGlob.BadPattern ex) {
       throw new IllegalStateException(ex); // can't happen
     } catch (IOException e) {
-      // do nothing
+      logger.atWarning().withCause(e).log("Unable to rename corrupted action cache files");
     }
   }
 
-  /**
-   * @return non-null error description if indexer contains no data or integrity check has failed,
-   *     and null otherwise
-   */
-  private static String validateIntegrity(int indexerSize, byte[] validationRecord) {
+  private static final String FAILURE_PREFIX = "Failed action cache referential integrity check: ";
+  /** Throws IOException if indexer contains no data or integrity check has failed. */
+  private static void validateIntegrity(int indexerSize, byte[] validationRecord)
+      throws IOException {
     if (indexerSize == 0) {
-      return "empty index";
+      throw new IOException(FAILURE_PREFIX + "empty index");
     }
     if (validationRecord == null) {
-      return "no validation record";
+      throw new IOException(FAILURE_PREFIX + "no validation record");
     }
     try {
       int validationSize = ByteBuffer.wrap(validationRecord).asIntBuffer().get();
-      if (validationSize <= indexerSize) {
-        return null;
-      } else {
-        return String.format("Validation mismatch: validation entry %d is too large " +
-                             "compared to index size %d", validationSize, indexerSize);
+      if (validationSize > indexerSize) {
+        throw new IOException(
+            String.format(
+                FAILURE_PREFIX
+                    + "Validation mismatch: validation entry %d is too large "
+                    + "compared to index size %d",
+                validationSize,
+                indexerSize));
       }
     } catch (BufferUnderflowException e) {
-      return e.getMessage();
+      throw new IOException(FAILURE_PREFIX + e.getMessage(), e);
     }
   }
 
