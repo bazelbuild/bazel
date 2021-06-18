@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
@@ -49,15 +48,10 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   private static final LoadingCache<
           NativeAspectClass, LoadingCache<AspectParameters, AspectDefinition>>
       definitionCache =
-          CacheBuilder.newBuilder()
+          Caffeine.newBuilder()
               .build(
-                  CacheLoader.from(
-                      nativeAspectClass ->
-                          CacheBuilder.newBuilder()
-                              .build(
-                                  CacheLoader.from(
-                                      aspectParameters ->
-                                          nativeAspectClass.getDefinition(aspectParameters)))));
+                  nativeAspectClass ->
+                      Caffeine.newBuilder().build(nativeAspectClass::getDefinition));
 
   private final AspectDescriptor aspectDescriptor;
   private final AspectDefinition aspectDefinition;
@@ -92,8 +86,7 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
       AspectParameters parameters,
       RequiredProviders inheritedRequiredProviders,
       ImmutableSet<String> inheritedAttributeAspects) {
-    AspectDefinition definition =
-        definitionCache.getUnchecked(nativeAspectClass).getUnchecked(parameters);
+    AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
     return new Aspect(
         nativeAspectClass,
         definition,
@@ -104,8 +97,7 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
 
   public static Aspect forNative(
       NativeAspectClass nativeAspectClass, AspectParameters parameters) {
-    AspectDefinition definition =
-        definitionCache.getUnchecked(nativeAspectClass).getUnchecked(parameters);
+    AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
     return new Aspect(nativeAspectClass, definition, parameters);
   }
 
