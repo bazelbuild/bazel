@@ -78,7 +78,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Servi
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
@@ -380,9 +380,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     ProtoLangToolchainProvider protoToolchain =
         ruleContext.getPrerequisite(J2OBJC_PROTO_TOOLCHAIN_ATTR, ProtoLangToolchainProvider.class);
-    // Avoid pulling in any generated files from blacklisted protos.
-    ProtoSourceFileBlacklist protoBlacklist =
-        new ProtoSourceFileBlacklist(ruleContext, protoToolchain.blacklistedProtos());
+    // Avoid pulling in any generated files from forbidden protos.
+    ProtoSourceFileExcludeList protoBlacklist =
+        new ProtoSourceFileExcludeList(ruleContext, protoToolchain.forbiddenProtos());
 
     ImmutableList<Artifact> filteredProtoSources =
         ImmutableList.copyOf(protoBlacklist.filter(protoSources));

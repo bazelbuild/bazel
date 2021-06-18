@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Servi
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
-import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileExcludeList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
@@ -277,14 +277,14 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         return false;
       }
 
-      final ProtoSourceFileBlacklist protoBlackList;
-      NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
-      blacklistedProtos.addTransitive(aspectCommon.getProtoToolchainProvider().blacklistedProtos());
-      blacklistedProtos.addTransitive(rpcSupport.getBlacklist(ruleContext));
+      NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
+      forbiddenProtos.addTransitive(aspectCommon.getProtoToolchainProvider().forbiddenProtos());
+      forbiddenProtos.addTransitive(rpcSupport.getForbiddenProtos(ruleContext));
 
-      protoBlackList = new ProtoSourceFileBlacklist(ruleContext, blacklistedProtos.build());
+      final ProtoSourceFileExcludeList protoExcludeList =
+          new ProtoSourceFileExcludeList(ruleContext, forbiddenProtos.build());
 
-      return protoBlackList.checkSrcs(
+      return protoExcludeList.checkSrcs(
           protoInfo.getOriginalDirectProtoSources(), "java_proto_library");
     }
 

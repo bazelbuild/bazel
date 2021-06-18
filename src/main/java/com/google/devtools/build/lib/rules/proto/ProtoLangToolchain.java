@@ -33,10 +33,10 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
     for (ProtoInfo protoInfo :
         ruleContext.getPrerequisites("blacklisted_protos", ProtoInfo.PROVIDER)) {
-      blacklistedProtos.addTransitive(protoInfo.getOriginalTransitiveProtoSources());
+      forbiddenProtos.addTransitive(protoInfo.getOriginalTransitiveProtoSources());
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
@@ -45,7 +45,7 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
                 ruleContext.attributes().get("command_line", Type.STRING),
                 ruleContext.getPrerequisite("plugin", FilesToRunProvider.class),
                 ruleContext.getPrerequisite("runtime"),
-                blacklistedProtos.build()))
+                forbiddenProtos.build()))
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();

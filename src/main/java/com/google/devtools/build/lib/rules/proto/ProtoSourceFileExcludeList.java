@@ -33,54 +33,51 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A blacklist of proto source files.
+ * A list proto source files to be excluded from code generation.
  *
  * <p>There are cases where we need to identify proto files that we should not create generated
  * files for. For example, we should not create generated code for google/protobuf/any.proto, which
- * is already baked into the language support libraries. This class provides us with the ability
- * to identify these proto files and avoid linking in their associated generated files.
+ * is already baked into the language support libraries. This class provides us with the ability to
+ * identify these proto files and avoid linking in their associated generated files.
  */
-public class ProtoSourceFileBlacklist {
+public class ProtoSourceFileExcludeList {
   private static final PathFragment BAZEL_TOOLS_PREFIX =
       PathFragment.create("external/bazel_tools/");
   private final RuleContext ruleContext;
-  private final ImmutableSet<PathFragment> blacklistProtoFilePaths;
+  private final ImmutableSet<PathFragment> noGenerateProtoFilePaths;
 
   /**
-   * Creates a proto source file blacklist.
+   * Creates a proto source file exclusion list.
    *
    * @param ruleContext the proto rule context.
-   * @param blacklistProtoFiles a list of blacklisted .proto files. The list will be iterated.
-   *     protos.
+   * @param noGenerateProtoFiles a list of .proto files. The list will be iterated.
    */
-  public ProtoSourceFileBlacklist(
-      RuleContext ruleContext, NestedSet<Artifact> blacklistProtoFiles) {
+  public ProtoSourceFileExcludeList(
+      RuleContext ruleContext, NestedSet<Artifact> noGenerateProtoFiles) {
     this.ruleContext = ruleContext;
-    ImmutableSet.Builder<PathFragment> blacklistProtoFilePathsBuilder =
+    ImmutableSet.Builder<PathFragment> noGenerateProtoFilePathsBuilder =
         new ImmutableSet.Builder<>();
-    for (Artifact blacklistProtoFile : blacklistProtoFiles.toList()) {
-      PathFragment execPath = blacklistProtoFile.getExecPath();
-      // For blacklisted protos bundled with the Bazel tools repository, their exec paths start
+    for (Artifact noGenerateProtoFile : noGenerateProtoFiles.toList()) {
+      PathFragment execPath = noGenerateProtoFile.getExecPath();
+      // For listed protos bundled with the Bazel tools repository, their exec paths start
       // with external/bazel_tools/. This prefix needs to be removed first, because the protos in
       // user repositories will not have that prefix.
       if (execPath.startsWith(BAZEL_TOOLS_PREFIX)) {
-        blacklistProtoFilePathsBuilder.add(execPath.relativeTo(BAZEL_TOOLS_PREFIX));
+        noGenerateProtoFilePathsBuilder.add(execPath.relativeTo(BAZEL_TOOLS_PREFIX));
       } else {
-        blacklistProtoFilePathsBuilder.add(execPath);
+        noGenerateProtoFilePathsBuilder.add(execPath);
       }
     }
-    blacklistProtoFilePaths = blacklistProtoFilePathsBuilder.build();
+    noGenerateProtoFilePaths = noGenerateProtoFilePathsBuilder.build();
   }
 
-  /**
-   * Filters the blacklisted protos from the given protos.
-   */
+  /** Filters the listed protos from the given protos. */
   public Iterable<Artifact> filter(Iterable<Artifact> protoFiles) {
     return Streams.stream(protoFiles).filter(f -> !isBlacklisted(f)).collect(toImmutableSet());
   }
 
   /**
-   * Checks the proto sources for mixing blacklisted and non-blacklisted protos in one single
+   * Checks the proto sources for mixing excluded and non-excluded protos in one single
    * proto_library rule. Registers an attribute error if proto mixing is detected.
    *
    * @param protoFiles the protos to filter.
@@ -88,39 +85,38 @@ public class ProtoSourceFileBlacklist {
    * @return whether the proto sources are clean without mixing.
    */
   public boolean checkSrcs(Iterable<Artifact> protoFiles, String topLevelProtoRuleName) {
-    List<Artifact> blacklisted = new ArrayList<>();
-    List<Artifact> nonBlacklisted = new ArrayList<>();
+    List<Artifact> excluded = new ArrayList<>();
+    List<Artifact> nonExcluded = new ArrayList<>();
     for (Artifact protoFile : protoFiles) {
       if (isBlacklisted(protoFile)) {
-        blacklisted.add(protoFile);
+        excluded.add(protoFile);
       } else {
-        nonBlacklisted.add(protoFile);
+        nonExcluded.add(protoFile);
       }
     }
-    if (!nonBlacklisted.isEmpty() && !blacklisted.isEmpty()) {
+    if (!nonExcluded.isEmpty() && !excluded.isEmpty()) {
       ruleContext.attributeError(
           "srcs",
           createBlacklistedProtosMixError(
-              Artifact.toRootRelativePaths(blacklisted),
-              Artifact.toRootRelativePaths(nonBlacklisted),
+              Artifact.toRootRelativePaths(excluded),
+              Artifact.toRootRelativePaths(nonExcluded),
               ruleContext.getLabel().toString(),
               topLevelProtoRuleName));
     }
 
-    return blacklisted.isEmpty();
+    return excluded.isEmpty();
   }
 
-  /**
-   * Returns whether the given proto file is blacklisted.
-   */
+  /** Returns whether the given proto file is excluded. */
   public boolean isBlacklisted(Artifact protoFile) {
-    return blacklistProtoFilePaths.contains(protoFile.getExecPath());
+    return noGenerateProtoFilePaths.contains(protoFile.getExecPath());
   }
 
   /**
    * Returns an attribute for the implicit dependency on blacklist proto filegroups.
+   *
    * @param attributeName the name of the attribute.
-   * @param blacklistFileGroups a list of labels pointin to the filegroups containing blacklisted
+   * @param blacklistFileGroups a list of labels pointin to the filegroups containing excluded
    *     protos.
    */
   public static Attribute.Builder<List<Label>> blacklistFilegroupAttribute(
@@ -132,7 +128,9 @@ public class ProtoSourceFileBlacklist {
 
   @VisibleForTesting
   public static String createBlacklistedProtosMixError(
-      Iterable<String> blacklisted, Iterable<String> nonBlacklisted, String protoLibraryRuleLabel,
+      Iterable<String> excluded,
+      Iterable<String> nonExcluded,
+      String protoLibraryRuleLabel,
       String topLevelProtoRuleName) {
     return String.format(
         "The 'srcs' attribute of '%s' contains protos for which '%s' "
@@ -140,7 +138,7 @@ public class ProtoSourceFileBlacklist {
             + "Separate '%1$s' into 2 proto_library rules.",
         protoLibraryRuleLabel,
         topLevelProtoRuleName,
-        Joiner.on(", ").join(blacklisted),
-        Joiner.on(", ").join(nonBlacklisted));
+        Joiner.on(", ").join(excluded),
+        Joiner.on(", ").join(nonExcluded));
   }
 }

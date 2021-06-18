@@ -183,7 +183,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       final String originalPattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<Target, E> callback,
       Class<E> exceptionClass)
@@ -194,7 +194,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
               originalPattern,
               directory,
               rulesOnly,
-              blacklistedSubdirectories,
+              forbiddenSubdirectories,
               excludedSubdirectories,
               callback,
               MoreExecutors.newDirectExecutorService())
@@ -211,7 +211,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       String originalPattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<Target, E> callback,
       Class<E> exceptionClass,
@@ -221,7 +221,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         originalPattern,
         directory,
         rulesOnly,
-        blacklistedSubdirectories,
+        forbiddenSubdirectories,
         excludedSubdirectories,
         callback,
         executor);
@@ -232,7 +232,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       String pattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<Target, E> callback,
       ListeningExecutorService executor) {
@@ -256,7 +256,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
           eventHandler,
           repository,
           pathFragment,
-          blacklistedSubdirectories,
+          forbiddenSubdirectories,
           excludedSubdirectories);
     } catch (TargetParsingException | QueryException e) {
       return Futures.immediateFailedFuture(e);

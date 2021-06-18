@@ -62,7 +62,7 @@ public class ObjectCodecRegistry {
       ImmutableSet<ObjectCodec<?>> memoizingCodecs,
       ImmutableList<Object> referenceConstants,
       ImmutableSortedSet<String> classNames,
-      ImmutableList<String> blacklistedClassNamePrefixes,
+      ImmutableList<String> excludedClassNamePrefixes,
       boolean allowDefaultCodec) {
     this.allowDefaultCodec = allowDefaultCodec;
 
@@ -84,9 +84,8 @@ public class ObjectCodecRegistry {
     this.referenceConstants = referenceConstants;
 
     this.classNames =
-        classNames
-            .stream()
-            .filter((str) -> isAllowed(str, blacklistedClassNamePrefixes))
+        classNames.stream()
+            .filter((str) -> isAllowed(str, excludedClassNamePrefixes))
             .collect(ImmutableList.toImmutableList());
     this.dynamicCodecs = createDynamicCodecs(this.classNames, nextTag);
   }
@@ -253,8 +252,7 @@ public class ObjectCodecRegistry {
     private final Map<Class<?>, ObjectCodec<?>> codecs = new HashMap<>();
     private final ImmutableList.Builder<Object> referenceConstantsBuilder = ImmutableList.builder();
     private final ImmutableSortedSet.Builder<String> classNames = ImmutableSortedSet.naturalOrder();
-    private final ImmutableList.Builder<String> blacklistedClassNamePrefixes =
-        ImmutableList.builder();
+    private final ImmutableList.Builder<String> excludedClassNamePrefixes = ImmutableList.builder();
     private boolean allowDefaultCodec = true;
 
     /**
@@ -311,8 +309,8 @@ public class ObjectCodecRegistry {
       return this;
     }
 
-    public Builder blacklistClassNamePrefix(String classNamePrefix) {
-      blacklistedClassNamePrefixes.add(classNamePrefix);
+    public Builder excludeClassNamePrefix(String classNamePrefix) {
+      excludedClassNamePrefixes.add(classNamePrefix);
       return this;
     }
 
@@ -321,7 +319,7 @@ public class ObjectCodecRegistry {
           ImmutableSet.copyOf(codecs.values()),
           referenceConstantsBuilder.build(),
           classNames.build(),
-          blacklistedClassNamePrefixes.build(),
+          excludedClassNamePrefixes.build(),
           allowDefaultCodec);
     }
   }
@@ -357,9 +355,9 @@ public class ObjectCodecRegistry {
   }
 
   private static boolean isAllowed(
-      String className, ImmutableList<String> blacklistedClassNamePefixes) {
-    for (String blacklistedClassNamePrefix : blacklistedClassNamePefixes) {
-      if (className.startsWith(blacklistedClassNamePrefix)) {
+      String className, ImmutableList<String> excludedClassNamePefixes) {
+    for (String excludedClassNamePrefix : excludedClassNamePefixes) {
+      if (className.startsWith(excludedClassNamePrefix)) {
         return false;
       }
     }

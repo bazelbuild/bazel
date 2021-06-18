@@ -40,15 +40,23 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
   @Nullable
   public abstract TransitiveInfoCollection runtime();
 
-  public abstract NestedSet<Artifact> blacklistedProtos();
+  /**
+   * This makes the blacklisted_protos member available in the provider. It can be removed after
+   * users are migrated and a sufficient time for Bazel rules to migrate has elapsed.
+   */
+  public NestedSet<Artifact> blacklistedProtos() {
+    return forbiddenProtos();
+  }
+
+  public abstract NestedSet<Artifact> forbiddenProtos();
 
   @AutoCodec.Instantiator
   public static ProtoLangToolchainProvider create(
       String commandLine,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
-      NestedSet<Artifact> blacklistedProtos) {
+      NestedSet<Artifact> forbiddenProtos) {
     return new AutoValue_ProtoLangToolchainProvider(
-        commandLine, pluginExecutable, runtime, blacklistedProtos);
+        commandLine, pluginExecutable, runtime, forbiddenProtos);
   }
 }

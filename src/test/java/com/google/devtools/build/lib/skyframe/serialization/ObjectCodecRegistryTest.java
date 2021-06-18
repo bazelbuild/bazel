@@ -141,21 +141,22 @@ public class ObjectCodecRegistryTest {
   }
 
   @Test
-  public void blacklistingPrefix() throws NoCodecException {
+  public void excludingPrefix() throws NoCodecException {
     ObjectCodecRegistry underTest = builderWithThisClass().build();
     CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(this);
     assertThat(descriptor).isNotNull();
     assertThat(descriptor.getCodec()).isInstanceOf(DynamicCodec.class);
-    ObjectCodecRegistry underTestWithBlacklist =
+    ObjectCodecRegistry underTestWithExcludeList =
         builderWithThisClass()
-            .blacklistClassNamePrefix(this.getClass().getPackage().getName())
+            .excludeClassNamePrefix(this.getClass().getPackage().getName())
             .build();
     assertThrows(
-        NoCodecException.class, () -> underTestWithBlacklist.getCodecDescriptorForObject(this));
-    ObjectCodecRegistry underTestWithWideBlacklist =
-        builderWithThisClass().blacklistClassNamePrefix("com").build();
+        NoCodecException.class, () -> underTestWithExcludeList.getCodecDescriptorForObject(this));
+    ObjectCodecRegistry underTestWithWideExcludeList =
+        builderWithThisClass().excludeClassNamePrefix("com").build();
     assertThrows(
-        NoCodecException.class, () -> underTestWithWideBlacklist.getCodecDescriptorForObject(this));
+        NoCodecException.class,
+        () -> underTestWithWideExcludeList.getCodecDescriptorForObject(this));
   }
 
   @Test

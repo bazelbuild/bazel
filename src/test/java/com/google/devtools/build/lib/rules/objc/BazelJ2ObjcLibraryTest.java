@@ -1030,7 +1030,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("tools/j2objc/proto_plugin_binary");
     scratch.file("tools/j2objc/alt_proto_runtime.h");
     scratch.file("tools/j2objc/alt_proto_runtime.m");
-    scratch.file("tools/j2objc/some_blacklisted_proto.proto");
+    scratch.file("tools/j2objc/proto_to_exclude.proto");
 
     scratch.overwriteFile(
         "tools/j2objc/BUILD",
@@ -1043,8 +1043,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    srcs = ['j2objc_wrapper.py'],",
         ")",
         "proto_library(",
-        "    name = 'blacklisted_protos',",
-        "    srcs = ['some_blacklisted_proto.proto'],",
+        "    name = 'excluded_protos',",
+        "    srcs = ['proto_to_exclude.proto'],",
         ")",
         "filegroup(",
         "    name = 'j2objc_header_map',",
@@ -1055,11 +1055,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
         "    plugin = ':alt_proto_plugin',",
         "    runtime = ':alt_proto_runtime',",
-        "    blacklisted_protos = [':blacklisted_protos'],",
+        "    blacklisted_protos = [':excluded_protos'],",
         ")",
         "proto_library(",
-        "   name = 'blacklisted_proto_library',",
-        "   srcs = ['some_blacklisted_proto.proto'],",
+        "   name = 'excluded_proto_library',",
+        "   srcs = ['proto_to_exclude.proto'],",
         ")",
         "objc_library(",
         "    name = 'alt_proto_runtime',",
@@ -1080,7 +1080,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "proto_library(",
         "    name = 'test_proto',",
         "    srcs = ['test.proto'],",
-        "    deps = ['//tools/j2objc:blacklisted_proto_library'],",
+        "    deps = ['//tools/j2objc:excluded_proto_library'],",
         ")",
         "java_proto_library(",
         "    name = 'test_java_proto',",

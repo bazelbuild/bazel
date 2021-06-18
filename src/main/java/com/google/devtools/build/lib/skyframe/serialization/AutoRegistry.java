@@ -41,7 +41,7 @@ public class AutoRegistry {
         || name.startsWith("net.starlark.java");
   }
 
-  /** Class name prefixes to blacklist for {@link DynamicCodec}. */
+  /** Class name prefixes to forbid for {@link DynamicCodec}. */
   private static final ImmutableList<String> CLASS_NAME_PREFIX_BLACKLIST =
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
@@ -90,7 +90,7 @@ public class AutoRegistry {
         registry.addReferenceConstant(constant);
       }
       for (String classNamePrefix : CLASS_NAME_PREFIX_BLACKLIST) {
-        registry.blacklistClassNamePrefix(classNamePrefix);
+        registry.excludeClassNamePrefix(classNamePrefix);
       }
       return registry.build();
     } catch (IOException | ReflectiveOperationException e) {

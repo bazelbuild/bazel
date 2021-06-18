@@ -1339,7 +1339,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     TriState override = ruleContext.attributes().get("incremental_dexing", BuildType.TRISTATE);
     AndroidConfiguration config = AndroidCommon.getAndroidConfig(ruleContext);
     // Ignore --incremental_dexing if the incremental_dexing attribute is set, but require the
-    // attribute to be YES for proguarded binaries and binaries with blacklisted dexopts.
+    // attribute to be YES for proguarded binaries and binaries with forbidden dexopts.
     if (isBinaryProguarded
         && override == TriState.YES
         && config.incrementalDexingShardsAfterProguard() <= 0) {
@@ -1355,25 +1355,24 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       if (isBinaryProguarded) {
         return override == TriState.YES || config.incrementalDexingAfterProguardByDefault();
       }
-      Iterable<String> blacklistedDexopts =
-          DexArchiveAspect.blacklistedDexopts(ruleContext, dexopts);
-      if (Iterables.isEmpty(blacklistedDexopts)) {
+      Iterable<String> forbiddenDexopts = DexArchiveAspect.forbiddenDexopts(ruleContext, dexopts);
+      if (Iterables.isEmpty(forbiddenDexopts)) {
         // target's dexopts are all compatible with incremental dexing.
         return true;
       } else if (override == TriState.YES) {
-        // target's dexopts include flags blacklisted with --non_incremental_per_target_dexopts. If
+        // target's dexopts include forbidden flags with --non_incremental_per_target_dexopts. If
         // incremental_dexing attribute is explicitly set for this target then we'll warn and
         // incrementally dex anyway.  Otherwise, just don't incrementally dex.
         Iterable<String> ignored =
             Iterables.filter(
-                blacklistedDexopts,
+                forbiddenDexopts,
                 Predicates.not(Predicates.in(config.getDexoptsSupportedInIncrementalDexing())));
         ruleContext.attributeWarning(
             "incremental_dexing",
             String.format(
                 "Using incremental dexing even though dexopts %s indicate this target "
                     + "may be unsuitable for incremental dexing for the moment.%s",
-                blacklistedDexopts,
+                forbiddenDexopts,
                 Iterables.isEmpty(ignored) ? "" : " Ignored dexopts: " + ignored));
         return true;
       } else {
@@ -2009,8 +2008,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // Native mode is not supported by Android devices running Android before v21.
       String runtime =
           AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar().getExecPathString();
-      for (String blacklistedRuntime : RUNTIMES_THAT_DONT_SUPPORT_NATIVE_MULTIDEXING) {
-        if (runtime.contains(blacklistedRuntime)) {
+      for (String forbiddenRuntime : RUNTIMES_THAT_DONT_SUPPORT_NATIVE_MULTIDEXING) {
+        if (runtime.contains(forbiddenRuntime)) {
           return false;
         }
       }

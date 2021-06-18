@@ -48,7 +48,7 @@ import java.util.List;
  */
 public class Filegroup implements RuleConfiguredTargetFactory {
 
-  /** Error message for output groups that are explicitly blacklisted for filegroup reference. */
+  /** Error message for output groups that are explicitly forbidden from filegroup reference. */
   public static final String ILLEGAL_OUTPUT_GROUP_ERROR =
       "Output group %s is not permitted for " + "reference in filegroups.";
 

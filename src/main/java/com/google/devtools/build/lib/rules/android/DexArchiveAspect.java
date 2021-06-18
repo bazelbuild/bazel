@@ -621,10 +621,10 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   /**
-   * Returns the subset of the given dexopts that are blacklisted from using incremental dexing by
+   * Returns the subset of the given dexopts that are forbidden from using incremental dexing by
    * default.
    */
-  static Iterable<String> blacklistedDexopts(RuleContext ruleContext, List<String> dexopts) {
+  static Iterable<String> forbiddenDexopts(RuleContext ruleContext, List<String> dexopts) {
     return Iterables.filter(
         dexopts,
         new FlagMatcher(

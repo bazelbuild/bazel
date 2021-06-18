@@ -154,7 +154,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   // Note that these configurations are virtual (they use only VFS)
-  private BuildConfigurationCollection masterConfig;
+  private BuildConfigurationCollection universeConfig;
 
   private AnalysisResult analysisResult;
   protected SkyframeExecutor skyframeExecutor = null;
@@ -313,19 +313,19 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   protected BuildConfigurationCollection getBuildConfigurationCollection() {
-    return masterConfig;
+    return universeConfig;
   }
 
   /**
-   * Returns the target configuration for the most recent build, as created in Blaze's
-   * master configuration creation phase.
+   * Returns the target configuration for the most recent build, as created in Blaze's primary
+   * configuration creation phase.
    */
   protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
-    return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
+    return Iterables.getOnlyElement(universeConfig.getTargetConfigurations());
   }
 
   protected BuildConfiguration getHostConfiguration() {
-    return masterConfig.getHostConfiguration();
+    return universeConfig.getHostConfiguration();
   }
 
   protected final void ensureUpdateWasCalled() {
@@ -405,7 +405,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       buildView.clearAnalysisCache(
           analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
     }
-    masterConfig = analysisResult.getConfigurationCollection();
+    universeConfig = analysisResult.getConfigurationCollection();
     return analysisResult;
   }
 
