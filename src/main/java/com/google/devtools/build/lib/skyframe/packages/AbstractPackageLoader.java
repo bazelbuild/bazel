@@ -444,7 +444,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     AtomicReference<FilesystemCalls> syscallCacheRef =
         new AtomicReference<>(
             PerBuildSyscallCache.newBuilder()
-                .setConcurrencyLevel(nonSkyframeGlobbingThreads)
+                .setInitialCapacity(nonSkyframeGlobbingThreads)
                 .build());
     pkgFactory.setSyscalls(syscallCacheRef);
     pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(

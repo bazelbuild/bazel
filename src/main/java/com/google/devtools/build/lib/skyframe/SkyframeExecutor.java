@@ -361,7 +361,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
   private PerBuildSyscallCache perBuildSyscallCache;
-  private int lastConcurrencyLevel = -1;
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
 
@@ -676,8 +675,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return BzlLoadFunction.create(this.pkgFactory, directories, getHashFunction(), bzlCompileCache);
   }
 
-  protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
-    return PerBuildSyscallCache.newBuilder().setConcurrencyLevel(concurrencyLevel).build();
+  protected PerBuildSyscallCache newPerBuildSyscallCache(int globbingThreads) {
+    return PerBuildSyscallCache.newBuilder().setInitialCapacity(globbingThreads).build();
   }
 
   /**
@@ -686,13 +685,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * <p>We cache the syscalls cache if possible because construction of the cache is surprisingly
    * expensive, and is on the critical path of null builds.
    */
-  protected final PerBuildSyscallCache getPerBuildSyscallCache(int concurrencyLevel) {
-    if (perBuildSyscallCache != null && lastConcurrencyLevel == concurrencyLevel) {
+  protected final PerBuildSyscallCache getPerBuildSyscallCache(int globbingThreads) {
+    if (perBuildSyscallCache == null) {
+      perBuildSyscallCache = newPerBuildSyscallCache(globbingThreads);
+    } else {
       perBuildSyscallCache.clear();
-      return perBuildSyscallCache;
     }
-    lastConcurrencyLevel = concurrencyLevel;
-    perBuildSyscallCache = newPerBuildSyscallCache(concurrencyLevel);
     return perBuildSyscallCache;
   }
 

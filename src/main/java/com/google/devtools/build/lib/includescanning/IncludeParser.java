@@ -248,7 +248,7 @@ class IncludeParser {
     void clearCachedLegacyHints() {
       fileLevelHintsCache.invalidateAll();
       syscallCache.set(
-          PerBuildSyscallCache.newBuilder().setConcurrencyLevel(HINTS_CACHE_CONCURRENCY).build());
+          PerBuildSyscallCache.newBuilder().setInitialCapacity(HINTS_CACHE_CONCURRENCY).build());
     }
 
     /** Returns the "file" type hinted inclusions for a given path, caching results by path. */

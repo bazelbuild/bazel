@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import static com.google.common.base.MoreObjects.firstNonNull;
+
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -30,7 +31,7 @@ import java.util.Collection;
  *
  * <p>Mostly used by non-Skyframe globbing and include parsing.
  */
-public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
+public final class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
 
   private final LoadingCache<Pair<Path, Symlinks>, Object> statCache;
 
@@ -51,14 +52,13 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
   }
 
   /** Builder for a per-build filesystem cache. */
-  public static class Builder {
+  public static final class Builder {
     private static final int UNSET = -1;
     private int maxStats = UNSET;
     private int maxReaddirs = UNSET;
-    private int concurrencyLevel = UNSET;
+    private int initialCapacity = UNSET;
 
-    private Builder() {
-    }
+    private Builder() {}
 
     /** Sets the upper bound of the 'stat' cache. This cache is unbounded by default. */
     public Builder setMaxStats(int maxStats) {
@@ -73,33 +73,34 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
     }
 
     /** Sets the concurrency level of the caches. */
-    public Builder setConcurrencyLevel(int concurrencyLevel) {
-      this.concurrencyLevel = concurrencyLevel;
+    public Builder setInitialCapacity(int initialCapacity) {
+      this.initialCapacity = initialCapacity;
       return this;
     }
 
     public PerBuildSyscallCache build() {
-      CacheBuilder<Object, Object> statCacheBuilder = CacheBuilder.newBuilder();
+      Caffeine<Object, Object> statCacheBuilder = Caffeine.newBuilder();
       if (maxStats != UNSET) {
-        statCacheBuilder = statCacheBuilder.maximumSize(maxStats);
+        statCacheBuilder.maximumSize(maxStats);
       }
-      CacheBuilder<Object, Object> readdirCacheBuilder = CacheBuilder.newBuilder();
+      Caffeine<Object, Object> readdirCacheBuilder = Caffeine.newBuilder();
       if (maxReaddirs != UNSET) {
-        readdirCacheBuilder = readdirCacheBuilder.maximumSize(maxReaddirs);
+        readdirCacheBuilder.maximumSize(maxReaddirs);
       }
-      if (concurrencyLevel != UNSET) {
-        statCacheBuilder = statCacheBuilder.concurrencyLevel(concurrencyLevel);
-        readdirCacheBuilder = readdirCacheBuilder.concurrencyLevel(concurrencyLevel);
+      if (initialCapacity != UNSET) {
+        statCacheBuilder.initialCapacity(initialCapacity);
+        readdirCacheBuilder.initialCapacity(initialCapacity);
       }
-      return new PerBuildSyscallCache(statCacheBuilder.build(newStatLoader()),
-          readdirCacheBuilder.build(newReaddirLoader()));
+      return new PerBuildSyscallCache(
+          statCacheBuilder.build(PerBuildSyscallCache::statImpl),
+          readdirCacheBuilder.build(PerBuildSyscallCache::readdirImpl));
     }
   }
 
   @Override
   @SuppressWarnings("unchecked")
   public Collection<Dirent> readdir(Path path) throws IOException {
-    Object result = readdirCache.getUnchecked(path);
+    Object result = readdirCache.get(path);
     if (result instanceof IOException) {
       throw (IOException) result;
     }
@@ -110,13 +111,13 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
     // Try to load a Symlinks.NOFOLLOW result first. Symlinks are rare and this enables sharing the
     // cache for all non-symlink paths.
-    Object result = statCache.getUnchecked(Pair.of(path, Symlinks.NOFOLLOW));
+    Object result = statCache.get(Pair.of(path, Symlinks.NOFOLLOW));
     if (result instanceof IOException) {
       throw (IOException) result;
     }
     FileStatus status = (FileStatus) result;
     if (status != NO_STATUS && symlinks == Symlinks.FOLLOW && status.isSymbolicLink()) {
-      result = statCache.getUnchecked(Pair.of(path, Symlinks.FOLLOW));
+      result = statCache.get(Pair.of(path, Symlinks.FOLLOW));
       if (result instanceof IOException) {
         throw (IOException) result;
       }
@@ -228,40 +229,24 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
     }
   }
 
-  /**
-   * A {@link CacheLoader} for a cache of stat calls. Input: (path, following_symlinks) Output:
-   * FileStatus
-   */
-  private static CacheLoader<Pair<Path, Symlinks>, Object> newStatLoader() {
-    return new CacheLoader<Pair<Path, Symlinks>, Object>() {
-      @Override
-      public Object load(Pair<Path, Symlinks> p) {
-        try {
-          FileStatus f = p.first.statIfFound(p.second);
-          return (f == null) ? NO_STATUS : f;
-        } catch (IOException e) {
-          return e;
-        }
-      }
-    };
+  /** Returns {@link FileStatus} or {@link IOException}. */
+  private static Object statImpl(Pair<Path, Symlinks> p) {
+    try {
+      FileStatus stat = p.first.statIfFound(p.second);
+      return firstNonNull(stat, NO_STATUS);
+    } catch (IOException e) {
+      return e;
+    }
   }
 
-  /**
-   * A {@link CacheLoader} for a cache of readdir calls. Input: path Output: Either Dirents or
-   * IOException.
-   */
-  private static CacheLoader<Path, Object> newReaddirLoader() {
-    return new CacheLoader<Path, Object>() {
-      @Override
-      public Object load(Path p) {
-        try {
-          // TODO(bazel-team): Consider storing the Collection of Dirent values more compactly
-          // by reusing DirectoryEntryListingStateValue#CompactSortedDirents.
-          return p.readdir(Symlinks.NOFOLLOW);
-        } catch (IOException e) {
-          return e;
-        }
-      }
-    };
+  /** Returns a collection of {@link Dirent} or {@link IOException}. */
+  private static Object readdirImpl(Path p) {
+    try {
+      // TODO(bazel-team): Consider storing the Collection of Dirent values more compactly by
+      // reusing DirectoryEntryListingStateValue#CompactSortedDirents.
+      return p.readdir(Symlinks.NOFOLLOW);
+    } catch (IOException e) {
+      return e;
+    }
   }
 }

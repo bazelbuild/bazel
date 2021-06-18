@@ -701,14 +701,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(
-                  tsgm, /* lastExecutionTimeRange= */ null, /* numThreads= */ 200)
+          new FilesystemValueChecker(tsgm, /*lastExecutionTimeRange=*/ null, /*numThreads=*/ 200)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
       diff =
           getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, /* fsvcThreads= */ 200);
     }
-    syscalls.set(getPerBuildSyscallCache(/*concurrencyLevel=*/ 42));
+    syscalls.set(getPerBuildSyscallCache(/*globbingThreads=*/ 42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
     recordingDiffer.inject(diff.changedKeysWithNewValues());
     // Blaze invalidates transient errors on every build.
