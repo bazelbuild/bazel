@@ -5,11 +5,13 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib/remote:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
