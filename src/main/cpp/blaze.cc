@@ -1714,14 +1714,19 @@ bool BlazeServer::Connect() {
   assert(!Connected());
 
   blaze_util::Path server_dir = output_base_.GetRelative("server");
-  std::string port;
-  std::string ipv4_prefix = "127.0.0.1:";
-  std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
-  std::string ipv6_prefix_2 = "[::1]:";
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("command_port"), &port)) {
+  command_server::ServerInfo server_info;
+  std::string bytes;
+  if (!blaze_util::ReadFile(server_dir.GetRelative("server_info.rawproto"),
+                            &bytes) ||
+      !server_info.ParseFromString(bytes)) {
     return false;
   }
+
+  const std::string port = server_info.address();
+  const std::string ipv4_prefix = "127.0.0.1:";
+  const std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
+  const std::string ipv6_prefix_2 = "[::1]:";
 
   // Make sure that we are being directed to localhost
   if (port.compare(0, ipv4_prefix.size(), ipv4_prefix) &&
@@ -1730,17 +1735,10 @@ bool BlazeServer::Connect() {
     return false;
   }
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("request_cookie"),
-                            &request_cookie_)) {
-    return false;
-  }
+  request_cookie_ = server_info.request_cookie();
+  response_cookie_ = server_info.response_cookie();
 
-  if (!blaze_util::ReadFile(server_dir.GetRelative("response_cookie"),
-                            &response_cookie_)) {
-    return false;
-  }
-
-  pid_t server_pid = GetServerPid(blaze_util::Path(server_dir));
+  const pid_t server_pid = server_info.pid();
   if (server_pid < 0) {
     return false;
   }
