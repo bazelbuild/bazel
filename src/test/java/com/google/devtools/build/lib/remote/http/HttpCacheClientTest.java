@@ -99,6 +99,7 @@ import org.mockito.Mockito;
 
 /** Tests for {@link HttpCacheClient}. */
 @RunWith(Parameterized.class)
+@SuppressWarnings("FutureReturnValueIgnored")
 public class HttpCacheClientTest {
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
@@ -226,7 +227,7 @@ public class HttpCacheClientTest {
   }
 
   @Parameters
-  public static Collection createInputValues() {
+  public static Collection<Object[]> createInputValues() {
     ArrayList<Object[]> parameters =
         new ArrayList<Object[]>(Arrays.asList(new Object[][] {{new InetTestServer()}}));
 
