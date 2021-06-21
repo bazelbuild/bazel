@@ -17,14 +17,14 @@ import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUnin
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
@@ -297,7 +297,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // Cache of parsed bzl files, for use when we're inlining BzlCompileFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
   private final Cache<BzlCompileValue.Key, BzlCompileValue> bzlCompileCache =
-      CacheBuilder.newBuilder().build();
+      Caffeine.newBuilder().build();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
@@ -1150,12 +1150,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   protected Cache<PackageIdentifier, LoadedPackageCacheEntry> newPkgFunctionCache() {
-    return CacheBuilder.newBuilder().build();
+    return Caffeine.newBuilder().build();
   }
 
   protected Cache<PackageIdentifier, PackageFunction.CompiledBuildFile>
       newCompiledBuildFileCache() {
-    return CacheBuilder.newBuilder().build();
+    return Caffeine.newBuilder().build();
   }
 
   private void setShowLoadingProgress(boolean showLoadingProgressValue) {

@@ -285,6 +285,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:guava-testlib",

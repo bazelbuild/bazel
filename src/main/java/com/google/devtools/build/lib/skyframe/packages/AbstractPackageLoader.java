@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -440,7 +440,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     AtomicReference<TimestampGranularityMonitor> tsgm =
         new AtomicReference<>(new TimestampGranularityMonitor(BlazeClock.instance()));
     Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
-        CacheBuilder.newBuilder().build();
+        Caffeine.newBuilder().build();
     AtomicReference<FilesystemCalls> syscallCacheRef =
         new AtomicReference<>(
             PerBuildSyscallCache.newBuilder()
@@ -485,7 +485,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
-                pkgFactory, directories, hashFunction, CacheBuilder.newBuilder().build()))
+                pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
@@ -500,7 +500,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 cachingPackageLocator,
                 /*showLoadingProgress=*/ new AtomicBoolean(false),
                 packageFunctionCache,
-                /*compiledBuildFileCache=*/ CacheBuilder.newBuilder().build(),
+                /*compiledBuildFileCache=*/ Caffeine.newBuilder().build(),
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
                 /*bzlLoadFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,

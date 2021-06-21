@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.CacheBuilderSpec;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
-import com.google.devtools.common.options.Converters.CacheBuilderSpecConverter;
+import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -283,11 +283,11 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "maximumSize=100000",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
-      converter = CacheBuilderSpecConverter.class,
+      converter = CaffeineSpecConverter.class,
       help =
           "Describes the cache used to store known regular directories as they're created. Parent"
               + " directories of output files are created on-demand during action execution.")
-  public CacheBuilderSpec directoryCreationCacheSpec;
+  public CaffeineSpec directoryCreationCacheSpec;
 
   @Option(
       name = "aspects",

@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 
+import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -308,16 +309,21 @@ public final class Converters {
 
   public static class LogLevelConverter implements Converter<Level> {
 
-    public static final Level[] LEVELS =
-        new Level[] {
-          Level.OFF, Level.SEVERE, Level.WARNING, Level.INFO, Level.FINE, Level.FINER, Level.FINEST
-        };
+    static final ImmutableList<Level> LEVELS =
+        ImmutableList.of(
+            Level.OFF,
+            Level.SEVERE,
+            Level.WARNING,
+            Level.INFO,
+            Level.FINE,
+            Level.FINER,
+            Level.FINEST);
 
     @Override
     public Level convert(String input) throws OptionsParsingException {
       try {
         int level = Integer.parseInt(input);
-        return LEVELS[level];
+        return LEVELS.get(level);
       } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
         throw new OptionsParsingException("Not a log level: " + input);
       }
@@ -325,7 +331,7 @@ public final class Converters {
 
     @Override
     public String getTypeDescription() {
-      return "0 <= an integer <= " + (LEVELS.length - 1);
+      return "0 <= an integer <= " + (LEVELS.size() - 1);
     }
   }
 
@@ -671,6 +677,26 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "Converts to a CacheBuilderSpec, or null if the input is empty";
+    }
+  }
+
+  /**
+   * A {@link Converter} for {@link com.github.benmanes.caffeine.cache.CaffeineSpec}. The spec may
+   * be empty, in which case this converter returns null.
+   */
+  public static final class CaffeineSpecConverter implements Converter<CaffeineSpec> {
+    @Override
+    public CaffeineSpec convert(String spec) throws OptionsParsingException {
+      try {
+        return CaffeineSpec.parse(spec);
+      } catch (IllegalArgumentException e) {
+        throw new OptionsParsingException("Failed to parse CaffeineSpec: " + e.getMessage(), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Converts to a CaffeineSpec, or null if the input is empty";
     }
   }
 }

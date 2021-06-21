@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheBuilderSpec;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Striped;
@@ -51,10 +51,10 @@ public final class ActionOutputDirectoryHelper {
     CREATED
   }
 
-  ActionOutputDirectoryHelper(CacheBuilderSpec cacheBuilderSpec) {
+  ActionOutputDirectoryHelper(CaffeineSpec cacheBuilderSpec) {
     knownDirectories =
-        CacheBuilder.from(cacheBuilderSpec)
-            .concurrencyLevel(Runtime.getRuntime().availableProcessors())
+        Caffeine.from(cacheBuilderSpec)
+            .initialCapacity(Runtime.getRuntime().availableProcessors())
             .<PathFragment, DirectoryState>build()
             .asMap();
   }

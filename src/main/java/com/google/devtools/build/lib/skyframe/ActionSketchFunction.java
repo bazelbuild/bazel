@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -59,10 +58,10 @@ public final class ActionSketchFunction implements SkyFunction {
   @AutoCodec
   static class SketchKey extends AbstractSkyKey<ActionLookupData> {
     private static final LoadingCache<ActionLookupData, SketchKey> keyCache =
-        CacheBuilder.newBuilder()
+        Caffeine.newBuilder()
             .weakKeys()
-            .concurrencyLevel(BlazeInterners.concurrencyLevel())
-            .build(CacheLoader.from(SketchKey::new));
+            .initialCapacity(BlazeInterners.concurrencyLevel())
+            .build(SketchKey::new);
 
     private SketchKey(ActionLookupData arg) {
       super(arg);
@@ -71,7 +70,7 @@ public final class ActionSketchFunction implements SkyFunction {
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static SketchKey create(ActionLookupData arg) {
-      return keyCache.getUnchecked(arg);
+      return keyCache.get(arg);
     }
 
     @Override

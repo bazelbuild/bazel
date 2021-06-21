@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.leafDirectoryEntries;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.cache.CacheBuilderSpec;
+import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -57,13 +57,13 @@ public class ActionOutputDirectoryHelperTest {
   }
 
   enum DirectoryCache {
-    CACHE_ENABLED(CacheBuilderSpec.parse("maximumSize=100000")),
-    CACHE_DISABLED(CacheBuilderSpec.disableCaching());
+    CACHE_ENABLED(CaffeineSpec.parse("maximumSize=100000")),
+    CACHE_DISABLED(CaffeineSpec.parse("maximumSize=0"));
 
     @SuppressWarnings("ImmutableEnumChecker")
-    final CacheBuilderSpec spec;
+    final CaffeineSpec spec;
 
-    DirectoryCache(CacheBuilderSpec spec) {
+    DirectoryCache(CaffeineSpec spec) {
       this.spec = spec;
     }
   }

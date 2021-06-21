@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -37,7 +36,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.lang.reflect.InvocationTargetException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** A builder for {@link BuildConfigurationValue} instances. */
@@ -49,15 +48,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final LoadingCache<FragmentKey, Fragment> fragmentCache =
-      CacheBuilder.newBuilder()
-          .weakValues()
-          .build(
-              new CacheLoader<FragmentKey, Fragment>() {
-                @Override
-                public Fragment load(FragmentKey key) throws InvalidConfigurationException {
-                  return makeFragment(key);
-                }
-              });
+      Caffeine.newBuilder().weakValues().build(BuildConfigurationFunction::makeFragment);
 
   public BuildConfigurationFunction(
       BlazeDirectories directories, RuleClassProvider ruleClassProvider) {
@@ -128,9 +119,9 @@ public final class BuildConfigurationFunction implements SkyFunction {
       FragmentKey fragmentKey = FragmentKey.create(trimmedOptions, fragmentClass);
       try {
         fragment = fragmentCache.get(fragmentKey);
-      } catch (ExecutionException e) {
+      } catch (CompletionException e) {
         Throwables.propagateIfPossible(e.getCause(), InvalidConfigurationException.class);
-        throw new IllegalStateException(e);
+        throw e;
       }
       if (fragment != NULL_MARKER) {
         fragments.put(fragmentClass, fragment);
