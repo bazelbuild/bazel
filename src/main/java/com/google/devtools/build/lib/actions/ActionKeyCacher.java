@@ -23,6 +23,15 @@ import javax.annotation.Nullable;
  */
 public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
 
+  /**
+   * Integer embedded in every action key.
+   *
+   * <p>The purpose of this member and associated property is to allow to easily invalidate the
+   * action cache in case we want to mitigate bugs resulting with false-sharing.
+   */
+  private static final int ACTION_KEY_UNIQUIFIER =
+      Integer.parseInt(System.getProperty("ACTION_KEY_UNIQUIFIER", "0"));
+
   @Nullable private volatile String cachedKey = null;
 
   @Override
@@ -61,6 +70,7 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
       }
 
       fp.addStringMap(getExecProperties());
+      fp.addInt(ACTION_KEY_UNIQUIFIER);
       // Compute the actual key and store it.
       return fp.hexDigestAndReset();
     } catch (CommandLineExpansionException e) {
