@@ -89,8 +89,8 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         return null;
       }
       PathFragment resolvedPathEntryFragment = resolvedPathEntry.asFragment();
-      // There's no good way to automatically detect network file systems. We rely on a blacklist
-      // for now (and maybe add a command-line option in the future?).
+      // There's no good way to automatically detect network file systems. We rely on a list of
+      // paths to exclude for now (and maybe add a command-line option in the future?).
       for (String prefix : excludedNetworkFileSystemsPrefixes) {
         if (resolvedPathEntryFragment.startsWith(PathFragment.create(prefix))) {
           return null;

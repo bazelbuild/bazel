@@ -73,7 +73,7 @@ public class ProtoSourceFileExcludeList {
 
   /** Filters the listed protos from the given protos. */
   public Iterable<Artifact> filter(Iterable<Artifact> protoFiles) {
-    return Streams.stream(protoFiles).filter(f -> !isBlacklisted(f)).collect(toImmutableSet());
+    return Streams.stream(protoFiles).filter(f -> !isExcluded(f)).collect(toImmutableSet());
   }
 
   /**
@@ -88,7 +88,7 @@ public class ProtoSourceFileExcludeList {
     List<Artifact> excluded = new ArrayList<>();
     List<Artifact> nonExcluded = new ArrayList<>();
     for (Artifact protoFile : protoFiles) {
-      if (isBlacklisted(protoFile)) {
+      if (isExcluded(protoFile)) {
         excluded.add(protoFile);
       } else {
         nonExcluded.add(protoFile);
@@ -108,7 +108,7 @@ public class ProtoSourceFileExcludeList {
   }
 
   /** Returns whether the given proto file is excluded. */
-  public boolean isBlacklisted(Artifact protoFile) {
+  public boolean isExcluded(Artifact protoFile) {
     return noGenerateProtoFilePaths.contains(protoFile.getExecPath());
   }
 
