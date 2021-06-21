@@ -34,6 +34,8 @@ java_library(
     name = "resolution",
     srcs = [
         "ArchiveOverride.java",
+        "DiscoveryFunction.java",
+        "DiscoveryValue.java",
         "GitOverride.java",
         "LocalPathOverride.java",
         "Module.java",
