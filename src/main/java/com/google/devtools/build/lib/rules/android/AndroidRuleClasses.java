@@ -561,7 +561,8 @@ public final class AndroidRuleClasses {
           .add(attr("crunch_png", BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(resource_configuration_filters) -->
           A list of resource configuration filters, such 'en' that will limit the resources in the
-          apk to only the ones in the 'en' configuration.
+          apk to only the ones in the 'en' configuration. To enable pseudolocalization, include the
+          <code>en_XA</code> and/or <code>ar_XB</code> pseudo-locales.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(shrink_resources) -->
