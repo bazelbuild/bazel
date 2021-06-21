@@ -1368,8 +1368,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     fp.addBytes(commandLineKey);
     fp.addBoolean(validateTopLevelHeaderInclusions);
 
-    actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
-    fp.addInt(0); // mark the boundary between input types
     actionKeyContext.addNestedSetToFingerprint(fp, mandatoryInputs);
     fp.addInt(0);
     actionKeyContext.addNestedSetToFingerprint(fp, prunableHeaders);
