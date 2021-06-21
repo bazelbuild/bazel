@@ -1143,6 +1143,7 @@ java_library(
     srcs = ["TransitiveInfoProviderEffectiveClassHelper.java"],
     deps = [
         ":transitive_info_provider",
+        "//third_party:caffeine",
         "//third_party:guava",
     ],
 )
