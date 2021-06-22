@@ -132,6 +132,32 @@ public class RemoteCache implements AutoCloseable {
     return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));
   }
 
+  /** Upload a local file to the remote cache. */
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      Path file
+  ) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+
+    return cacheProtocol.uploadFile(context, digest, file);
+  }
+
+  /** Upload sequence of bytes to the remote cache. */
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context,
+      Digest digest,
+      ByteString data
+  ) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+
+    return cacheProtocol.uploadBlob(context, digest, data);
+  }
+
   /**
    * Upload the result of a locally executed action to the remote cache.
    *
@@ -212,14 +238,14 @@ public class RemoteCache implements AutoCloseable {
     for (Digest digest : digestsToUpload) {
       Path file = digestToFile.get(digest);
       if (file != null) {
-        uploads.add(cacheProtocol.uploadFile(context, digest, file));
+        uploads.add(uploadFile(context, digest, file));
       } else {
         ByteString blob = digestToBlobs.get(digest);
         if (blob == null) {
           String message = "FindMissingBlobs call returned an unknown digest: " + digest;
           throw new IOException(message);
         }
-        uploads.add(cacheProtocol.uploadBlob(context, digest, blob));
+        uploads.add(uploadBlob(context, digest, blob));
       }
     }
 

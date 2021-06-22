@@ -1548,6 +1548,50 @@ public class RemoteCacheTests {
   }
 
   @Test
+  public void testUploadEmptyBlobAndFile() throws Exception {
+    // Test that uploading an empty BLOB/file does not try to perform an upload.
+    InMemoryRemoteCache remoteCache = newRemoteCache();
+    Digest emptyDigest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "");
+    Path file = execRoot.getRelative("file");
+
+    Utils.getFromFuture(remoteCache.uploadBlob(context, emptyDigest, ByteString.EMPTY));
+    assertThat(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest)))
+        .containsExactly(emptyDigest);
+
+    Utils.getFromFuture(remoteCache.uploadFile(context, emptyDigest, file));
+    assertThat(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest)))
+        .containsExactly(emptyDigest);
+  }
+
+  @Test
+  public void testUploadEmptyOutputs() throws Exception {
+    // Test that uploading an empty output does not try to perform an upload.
+
+    // arrange
+    Digest emptyDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "");
+    Path file = execRoot.getRelative("bar/test/wobble");
+    InMemoryRemoteCache remoteCache = newRemoteCache();
+    Action action = Action.getDefaultInstance();
+    ActionKey actionDigest = digestUtil.computeActionKey(action);
+    Command cmd = Command.getDefaultInstance();
+
+    // act
+    remoteCache.upload(
+        context,
+        remotePathResolver,
+        actionDigest,
+        action,
+        cmd,
+        ImmutableList.of(file),
+        new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
+
+    // assert
+    assertThat(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest)))
+        .containsExactly(emptyDigest);
+  }
+
+  @Test
   public void testUploadEmptyDirectory() throws Exception {
     // Test that uploading an empty directory works.
 
