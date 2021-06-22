@@ -337,7 +337,8 @@ public class BlazeJavacMain {
                   || name.startsWith("com.sun.tools.")
                   || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
                   || name.startsWith("dagger.model.")
-                  || name.startsWith("dagger.spi.")
+                  // TODO(b/191812726): Include dagger.spi.model before releasing it to SPI users.
+                  || (name.startsWith("dagger.spi.") && !name.startsWith("dagger.spi.model."))
                   || builtinProcessors.contains(name)) {
                 return Class.forName(name);
               }
