@@ -69,3 +69,12 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_library(
+    name = "repo_spec_values",
+    srcs = ["RepoSpec.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
