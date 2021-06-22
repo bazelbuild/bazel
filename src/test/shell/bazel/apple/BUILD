@@ -32,6 +32,7 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 3,
+    tags = ["no_windows"],
 )
 
 sh_test(
@@ -42,4 +43,5 @@ sh_test(
         ":objc-deps",
         "//src/test/shell/bazel:test-deps",
     ],
+    tags = ["no_windows"],
 )

@@ -55,7 +55,10 @@ java_test(
     name = "NinjaBlackBoxTest",
     timeout = "moderate",
     srcs = ["NinjaBlackBoxTest.java"],
-    tags = ["black_box_test"],
+    tags = [
+        "black_box_test",
+        "no_windows",
+    ],
     deps = [
         ":common_deps",
     ],

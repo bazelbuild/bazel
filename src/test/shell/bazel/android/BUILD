@@ -40,7 +40,7 @@ android_sh_test(
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
         "no-remote",
-        "no-windows",
+        "no_windows",
     ],
 )
 
@@ -70,7 +70,7 @@ android_sh_test(
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
         "no-remote",
-        "no-windows",
+        "no_windows",
     ],
 )
 
@@ -100,7 +100,7 @@ android_sh_test(
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
         "no-remote",
-        "no-windows",
+        "no_windows",
     ],
 )
 
@@ -119,7 +119,7 @@ android_sh_test(
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
         "no-remote",
-        "no-windows",
+        "no_windows",
     ],
 )
 
@@ -148,7 +148,7 @@ android_sh_test(
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
         "no-remote",
-        "no-windows",
+        "no_windows",
     ],
 )
 
@@ -165,7 +165,7 @@ android_sh_test(
     # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
         "no-remote",
-        "no-windows",
+        "no_windows",
     ],
 )
 
@@ -186,7 +186,7 @@ android_sh_test(
 test_suite(
     name = "all_windows_tests",
     tags = [
-        "-no-windows",
+        "-no_windows",
     ],
     visibility = ["//src/test/shell:__pkg__"],
 )
