@@ -1305,6 +1305,27 @@ public class RemoteCacheTests {
   }
 
   @Test
+  public void testDownloadEmptyOutErr() throws Exception {
+    // Test that downloading empty stdout/stderr does not try to perform a download.
+
+    InMemoryRemoteCache remoteCache = newRemoteCache();
+    Digest emptyDigest = digestUtil.compute(new byte[0]);
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.setStdoutDigest(emptyDigest);
+    result.setStderrDigest(emptyDigest);
+
+    RemoteCache.waitForBulkTransfer(
+        remoteCache.downloadOutErr(
+            context,
+            result.build(),
+            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr"))),
+        true);
+
+    assertThat(remoteCache.getNumSuccessfulDownloads()).isEqualTo(0);
+    assertThat(remoteCache.getNumFailedDownloads()).isEqualTo(0);
+  }
+
+  @Test
   public void testDownloadFileWithSymlinkTemplate() throws Exception {
     // Test that when a symlink template is provided, we don't actually download files to disk.
     // Instead, a symbolic link should be created that points to a location where the file may

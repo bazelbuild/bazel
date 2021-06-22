@@ -614,7 +614,15 @@ public class RemoteCache implements AutoCloseable {
     return outerF;
   }
 
-  private List<ListenableFuture<FileMetadata>> downloadOutErr(
+  private ListenableFuture<Void> downloadBlob(RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+
+    return cacheProtocol.downloadBlob(context, digest, out);
+  }
+
+  public List<ListenableFuture<FileMetadata>> downloadOutErr(
       RemoteActionExecutionContext context, ActionResult result, OutErr outErr) {
     List<ListenableFuture<FileMetadata>> downloads = new ArrayList<>();
     if (!result.getStdoutRaw().isEmpty()) {
@@ -627,7 +635,7 @@ public class RemoteCache implements AutoCloseable {
     } else if (result.hasStdoutDigest()) {
       downloads.add(
           Futures.transform(
-              cacheProtocol.downloadBlob(
+              downloadBlob(
                   context, result.getStdoutDigest(), outErr.getOutputStream()),
               (d) -> null,
               directExecutor()));
@@ -642,7 +650,7 @@ public class RemoteCache implements AutoCloseable {
     } else if (result.hasStderrDigest()) {
       downloads.add(
           Futures.transform(
-              cacheProtocol.downloadBlob(
+              downloadBlob(
                   context, result.getStderrDigest(), outErr.getErrorStream()),
               (d) -> null,
               directExecutor()));
