@@ -602,8 +602,9 @@ public final class PackageFactory {
         globber.runAsync(globs, ImmutableList.of(), /*excludeDirs=*/ true, allowEmpty);
         globber.runAsync(globsWithDirs, ImmutableList.of(), /*excludeDirs=*/ false, allowEmpty);
       } catch (BadGlobException ex) {
-        // Ignore exceptions.
-        // Errors will be properly reported when the actual globbing is done.
+        logger.atWarning().withCause(ex).log(
+            "Suppressing exception for globs=%s, globsWithDirs=%s", globs, globsWithDirs);
+        // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
       }
     }
 

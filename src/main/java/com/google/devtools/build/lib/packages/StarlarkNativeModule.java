@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.PackageFactory.getContext;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
@@ -55,6 +55,7 @@ import net.starlark.java.syntax.Location;
 /** The Starlark native module. */
 // TODO(cparsons): Move the definition of native.package() to this class.
 public class StarlarkNativeModule implements StarlarkNativeModuleApi {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * This map contains all the (non-rule) functions of the native module (keyed by their symbol
@@ -80,7 +81,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       StarlarkInt excludeDirs,
       Object allowEmptyArgument,
       StarlarkThread thread)
-      throws EvalException, ConversionException, InterruptedException {
+      throws EvalException, InterruptedException {
     BazelStarlarkContext.from(thread).checkLoadingPhase("native.glob");
     PackageContext context = getContext(thread);
 
@@ -104,6 +105,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
           context.globber.runAsync(includes, excludes, excludeDirs.signum() != 0, allowEmpty);
       matches = context.globber.fetchUnsorted(globToken);
     } catch (IOException e) {
+      logger.atWarning().withCause(e).log(
+          "Exception processing includes=%s, excludes=%s)", includes, excludes);
       String errorMessage =
           String.format(
               "error globbing [%s]%s: %s",
@@ -133,8 +136,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   }
 
   @Override
-  public Object existingRule(String name, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public Object existingRule(String name, StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rule");
     PackageContext context = getContext(thread);
     Target target = context.pkgBuilder.getTarget(name);
@@ -147,7 +149,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   */
   @Override
   public Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rules");
     PackageContext context = getContext(thread);
     Collection<Target> targets = context.pkgBuilder.getTargets();
