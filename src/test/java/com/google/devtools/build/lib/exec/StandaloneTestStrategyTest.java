@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -129,17 +130,19 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     public FakeActionExecutionContext(
         FileOutErr fileOutErr, SpawnStrategy spawnStrategy, BinTools binTools) {
-      this(fileOutErr, toContextRegistry(spawnStrategy, binTools, fileSystem, directories));
+      this(fileOutErr, toContextRegistry(spawnStrategy, binTools, fileSystem, directories), null);
     }
 
     public FakeActionExecutionContext(
-        FileOutErr fileOutErr, ActionContext.ActionContextRegistry actionContextRegistry) {
+        FileOutErr fileOutErr,
+        ActionContext.ActionContextRegistry actionContextRegistry,
+        MetadataHandler metadataHandler) {
       super(
           /*executor=*/ null,
           /*actionInputFileCache=*/ null,
           ActionInputPrefetcher.NONE,
           new ActionKeyContext(),
-          /*metadataHandler=*/ null,
+          /*metadataHandler=*/ metadataHandler,
           /*rewindingEnabled=*/ false,
           LostInputsCheck.NONE,
           fileOutErr,
@@ -177,7 +180,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
 
     @Override
     public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
-      return new FakeActionExecutionContext(fileOutErr, actionContextRegistry);
+      return new FakeActionExecutionContext(
+          fileOutErr, actionContextRegistry, getMetadataHandler());
+    }
+
+    @Override
+    public ActionExecutionContext withMetadataHandler(MetadataHandler metadataHandler) {
+      return new FakeActionExecutionContext(
+          getFileOutErr(), actionContextRegistry, metadataHandler);
     }
   }
 

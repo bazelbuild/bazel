@@ -407,6 +407,28 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         syscalls);
   }
 
+  /** Allows us to create a new context that overrides the MetadataHandler with another one. */
+  public ActionExecutionContext withMetadataHandler(MetadataHandler metadataHandler) {
+    return new ActionExecutionContext(
+        executor,
+        actionInputFileCache,
+        actionInputPrefetcher,
+        actionKeyContext,
+        metadataHandler,
+        rewindingEnabled,
+        lostInputsCheck,
+        fileOutErr,
+        eventHandler,
+        clientEnv,
+        topLevelFilesets,
+        artifactExpander,
+        env,
+        actionFileSystem,
+        skyframeDepsResult,
+        nestedSetExpander,
+        syscalls);
+  }
+
   /**
    * A way of checking whether any lost inputs have been detected during the execution of this
    * action.
