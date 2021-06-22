@@ -1,7 +1,11 @@
+package(default_visibility = ["//:__subpackages__"])
+
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
