@@ -13,10 +13,11 @@ filegroup(
 )
 
 java_library(
-    name = "r19",
+    name = "r20",
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r19",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/protobuf:crosstool_config_java_proto",
         "//third_party:guava",

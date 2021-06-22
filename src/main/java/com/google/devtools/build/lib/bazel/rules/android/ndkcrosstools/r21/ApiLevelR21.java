@@ -1,4 +1,4 @@
-// Copyright 2019 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r19;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r21;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.ApiLevel;
 import com.google.devtools.build.lib.events.EventHandler;
 
 /** Class which encodes information from the Android NDK makefiles about API levels. */
-final class ApiLevelR19 extends ApiLevel {
+final class ApiLevelR21 extends ApiLevel {
   /** This is the contents of {@code platforms/android-*} */
   private static final ImmutableListMultimap<String, String> API_LEVEL_TO_ARCHITECTURES =
       ImmutableListMultimap.<String, String>builder()
@@ -35,6 +35,8 @@ final class ApiLevelR19 extends ApiLevel {
           .putAll("26", "arm", "x86", "arm64", "x86_64")
           .putAll("27", "arm", "x86", "arm64", "x86_64")
           .putAll("28", "arm", "x86", "arm64", "x86_64")
+          .putAll("29", "arm", "x86", "arm64", "x86_64")
+          .putAll("30", "arm", "x86", "arm64", "x86_64")
           .build();
 
   /** This map fill in the gaps of {@code API_LEVEL_TO_ARCHITECTURES}. */
@@ -53,9 +55,11 @@ final class ApiLevelR19 extends ApiLevel {
           .put("26", "26")
           .put("27", "27")
           .put("28", "28")
+          .put("29", "29")
+          .put("30", "30")
           .build();
 
-  ApiLevelR19(EventHandler eventHandler, String repositoryName, String apiLevel) {
+  ApiLevelR21(EventHandler eventHandler, String repositoryName, String apiLevel) {
     super(API_LEVEL_TO_ARCHITECTURES, API_EQUIVALENCIES, eventHandler, repositoryName, apiLevel);
   }
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2021 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,31 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r18;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r21;
 
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.ApiLevel;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkMajorRevision;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r19.AndroidNdkCrosstoolsR19;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 
-/** Logic specific to Android NDK R18. */
-public class NdkMajorRevisionR18 implements NdkMajorRevision {
+/** Logic specific to Android NDK R21. */
+public class NdkMajorRevisionR21 implements NdkMajorRevision {
   private final String clangVersion;
 
-  public NdkMajorRevisionR18(String clangVersion) {
+  public NdkMajorRevisionR21(String clangVersion) {
     this.clangVersion = clangVersion;
   }
 
   @Override
   public CrosstoolRelease crosstoolRelease(
       NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
-    return AndroidNdkCrosstoolsR18.create(ndkPaths, stlImpl, hostPlatform, clangVersion);
+    // NDK r21 is the same as r19 for bazel, other than API level differences below.
+    return AndroidNdkCrosstoolsR19.create(ndkPaths, stlImpl, hostPlatform, clangVersion);
   }
 
   @Override
   public ApiLevel apiLevel(EventHandler eventHandler, String name, String apiLevel) {
-    return new ApiLevelR18(eventHandler, name, apiLevel);
+    return new ApiLevelR21(eventHandler, name, apiLevel);
   }
 }
