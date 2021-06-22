@@ -25,10 +25,10 @@ import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -93,7 +93,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.Dict;
@@ -118,7 +117,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
   // If we don't want to support old built-in rules and Starlark simultaneously
   // (except for transition phase) it's probably OK.
   private static final LoadingCache<String, Label> labelCache =
-      CacheBuilder.newBuilder()
+      Caffeine.newBuilder()
           .build(
               new CacheLoader<String, Label>() {
                 @Override
@@ -208,12 +207,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             attr("$test_wrapper", LABEL)
                 .cfg(HostTransition.createFactory())
                 .singleArtifact()
-                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_wrapper")))
+                .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
         .add(
             attr("$xml_writer", LABEL)
                 .cfg(HostTransition.createFactory())
                 .singleArtifact()
-                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:xml_writer")))
+                .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
         .add(
             attr("$test_runtime", LABEL_LIST)
                 .cfg(HostTransition.createFactory())
@@ -224,25 +223,24 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             attr("$test_setup_script", LABEL)
                 .cfg(HostTransition.createFactory())
                 .singleArtifact()
-                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:test_setup")))
+                .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
         .add(
             attr("$xml_generator_script", LABEL)
                 .cfg(HostTransition.createFactory())
                 .singleArtifact()
-                .value(
-                    labelCache.getUnchecked(toolsRepository + "//tools/test:test_xml_generator")))
+                .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
         .add(
             attr("$collect_coverage_script", LABEL)
                 .cfg(HostTransition.createFactory())
                 .singleArtifact()
-                .value(labelCache.getUnchecked(toolsRepository + "//tools/test:collect_coverage")))
+                .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
         // Input files for test actions collecting code coverage
         .add(
             attr(":coverage_support", LABEL)
                 .cfg(HostTransition.createFactory())
                 .value(
                     BaseRuleClasses.coverageSupportAttribute(
-                        labelCache.getUnchecked(
+                        labelCache.get(
                             toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
         // Used in the one-per-build coverage report generation action.
         .add(
@@ -250,7 +248,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                 .cfg(HostTransition.createFactory())
                 .value(
                     BaseRuleClasses.coverageReportGeneratorAttribute(
-                        labelCache.getUnchecked(
+                        labelCache.get(
                             toolsRepository
                                 + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
         .add(attr(":run_under", LABEL).value(RUN_UNDER))
@@ -950,7 +948,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                 .getUnambiguousCanonicalForm();
       }
       return labelCache.get(labelString);
-    } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
+    } catch (LabelValidator.BadLabelException | LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);
     }
   }

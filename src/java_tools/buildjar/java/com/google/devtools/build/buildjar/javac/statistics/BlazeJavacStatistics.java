@@ -13,15 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.buildjar.javac.statistics;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.util.Context;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
 /**
  * A class representing statistics for an invocation of {@link
@@ -35,20 +34,16 @@ public abstract class BlazeJavacStatistics {
 
   // Weak refs to contexts we've init'ed into
   private static final Cache<Context, Builder> contextsInitialized =
-      CacheBuilder.newBuilder().weakKeys().build();
+      Caffeine.newBuilder().weakKeys().build();
 
   public static void preRegister(Context context) {
-    try {
-      contextsInitialized.get(
-          context,
-          () -> {
-            Builder instance = newBuilder();
-            context.put(Builder.class, instance);
-            return instance;
-          });
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+    contextsInitialized.get(
+        context,
+        unused -> {
+          Builder instance = newBuilder();
+          context.put(Builder.class, instance);
+          return instance;
+        });
   }
 
   public static BlazeJavacStatistics empty() {

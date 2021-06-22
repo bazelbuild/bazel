@@ -22,7 +22,10 @@ java_library(
     name = "skyframe-objects",
     srcs = SKYFRAME_OBJECT_SRCS,
     visibility = ["//visibility:public"],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//third_party:caffeine",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

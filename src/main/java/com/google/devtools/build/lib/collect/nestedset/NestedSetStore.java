@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.Hashing;
@@ -156,15 +156,15 @@ public class NestedSetStore {
      * This is done because if the array is a transitive member, its future may be GC'd.
      */
     private final Cache<ByteString, Object> fingerprintToContents =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
+        Caffeine.newBuilder()
+            .initialCapacity(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakValues()
             .build();
 
     /** Object/Object[] contents to fingerprint. Maintained for fast fingerprinting. */
     private final Cache<Object[], FingerprintComputationResult> contentsToFingerprint =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
+        Caffeine.newBuilder()
+            .initialCapacity(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakKeys()
             .build();
 
@@ -180,13 +180,7 @@ public class NestedSetStore {
     @VisibleForTesting
     @Nullable
     Object putIfAbsent(ByteString fingerprint, ListenableFuture<Object[]> future) {
-      Object result;
-      // Guava's Cache doesn't have a #putIfAbsent method, so we emulate it here.
-      try {
-        result = fingerprintToContents.get(fingerprint, () -> future);
-      } catch (ExecutionException e) {
-        throw new IllegalStateException(e);
-      }
+      Object result = fingerprintToContents.get(fingerprint, unused -> future);
       if (result.equals(future)) {
         // This is the first request of this fingerprint. We should put it.
         putAsync(fingerprint, future);

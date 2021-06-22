@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -69,7 +69,7 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
    * first serialization will put N into this interner, and so the deserialization will reuse it.
    */
   private final Cache<EqualsWrapper, NestedSet<?>> interner =
-      CacheBuilder.newBuilder().weakValues().build();
+      Caffeine.newBuilder().weakValues().build();
 
   /** Creates a NestedSetCodecWithStore that will use the given {@link NestedSetStore}. */
   public NestedSetCodecWithStore(NestedSetStore nestedSetStore) {
@@ -156,11 +156,7 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
     } else {
       result = NestedSet.forDeserialization(order, depth, contents);
     }
-    try {
-      return interner.get(new EqualsWrapper(result), () -> result);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+    return interner.get(new EqualsWrapper(result), wrapper -> wrapper.nestedSet);
   }
 
   private static final class EqualsWrapper {

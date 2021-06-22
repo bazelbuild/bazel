@@ -16,10 +16,9 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.MoreObjects;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
 /**
@@ -40,8 +39,7 @@ import java.util.function.BiFunction;
  */
 public final class BuildOptionsCache<T> {
 
-  private final Cache<CacheKey, BuildOptions> cache =
-      CacheBuilder.newBuilder().softValues().build();
+  private final Cache<CacheKey, BuildOptions> cache = Caffeine.newBuilder().softValues().build();
 
   private final BiFunction<BuildOptionsView, T, BuildOptions> transition;
 
@@ -58,13 +56,9 @@ public final class BuildOptionsCache<T> {
    * @param context an additional object that affects the transition's result
    */
   public BuildOptions applyTransition(BuildOptionsView fromOptions, T context) {
-    try {
-      return cache.get(
-          new CacheKey(fromOptions.underlying().checksum(), context),
-          () -> transition.apply(fromOptions, context));
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+    return cache.get(
+        new CacheKey(fromOptions.underlying().checksum(), context),
+        unused -> transition.apply(fromOptions, context));
   }
 
   /**
