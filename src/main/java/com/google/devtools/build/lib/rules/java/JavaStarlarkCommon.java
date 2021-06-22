@@ -65,7 +65,6 @@ public class JavaStarlarkCommon
       Sequence<?> javacOpts, // <String> expected
       Sequence<?> deps, // <JavaInfo> expected
       Sequence<?> runtimeDeps, // <JavaInfo> expected
-      Sequence<?> experimentalLocalCompileTimeDeps, // <JavaInfo> expected
       Sequence<?> exports, // <JavaInfo> expected
       Sequence<?> plugins, // <JavaPluginInfo> expected
       Sequence<?> exportedPlugins, // <JavaPluginInfo> expected
@@ -126,10 +125,6 @@ public class JavaStarlarkCommon
             Sequence.cast(javacOpts, String.class, "javac_opts"),
             Sequence.cast(deps, JavaInfo.class, "deps"),
             Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-            Sequence.cast(
-                experimentalLocalCompileTimeDeps,
-                JavaInfo.class,
-                "experimental_local_compile_time_deps"),
             Sequence.cast(exports, JavaInfo.class, "exports"),
             pluginsParam,
             exportedPluginsParam,

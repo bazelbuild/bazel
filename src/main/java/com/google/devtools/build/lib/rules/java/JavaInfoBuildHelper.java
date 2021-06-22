@@ -252,7 +252,6 @@ final class JavaInfoBuildHelper {
       List<String> javacOpts,
       List<JavaInfo> deps,
       List<JavaInfo> runtimeDeps,
-      List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
       List<JavaPluginInfo> plugins,
       List<JavaPluginInfo> exportedPlugins,
@@ -306,12 +305,6 @@ final class JavaInfoBuildHelper {
     helper.setPlugins(pluginInfo);
     helper.setNeverlink(neverlink);
 
-    NestedSet<Artifact> localCompileTimeDeps =
-        JavaCompilationArgsProvider.merge(
-                streamProviders(experimentalLocalCompileTimeDeps, JavaCompilationArgsProvider.class)
-                    .collect(toImmutableList()))
-            .getTransitiveCompileTimeJars();
-
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
     if (outputSourceJar == null) {
@@ -330,8 +323,7 @@ final class JavaInfoBuildHelper {
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
             JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
-            ImmutableList.copyOf(annotationProcessorAdditionalInputs),
-            localCompileTimeDeps);
+            ImmutableList.copyOf(annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);

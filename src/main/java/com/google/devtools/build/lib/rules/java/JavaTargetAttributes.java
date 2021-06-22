@@ -441,38 +441,6 @@ public class JavaTargetAttributes {
     this.strictJavaDeps = strictJavaDeps;
   }
 
-  JavaTargetAttributes withAdditionalClassPathEntries(
-      NestedSet<Artifact> additionalClassPathEntries) {
-    NestedSet<Artifact> compileTimeClassPath =
-        NestedSetBuilder.fromNestedSet(additionalClassPathEntries)
-            .addTransitive(this.compileTimeClassPath)
-            .build();
-    NestedSet<Artifact> directJars =
-        NestedSetBuilder.fromNestedSet(additionalClassPathEntries)
-            .addTransitive(this.directJars)
-            .build();
-    return new JavaTargetAttributes(
-        sourceFiles,
-        runtimeClassPath,
-        compileTimeClassPath,
-        bootClassPath,
-        sourcePath,
-        nativeLibraries,
-        plugins,
-        resources,
-        resourceJars,
-        messages,
-        sourceJars,
-        classPathResources,
-        additionalOutputs,
-        directJars,
-        compileTimeDependencyArtifacts,
-        targetLabel,
-        injectingRuleKind,
-        excludedArtifacts,
-        strictJavaDeps);
-  }
-
   JavaTargetAttributes appendAdditionalTransitiveClassPathEntries(
       NestedSet<Artifact> additionalClassPathEntries) {
     NestedSet<Artifact> compileTimeClassPath =
