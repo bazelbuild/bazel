@@ -72,9 +72,6 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    *
    * In this case, this method returns a package identifier for foo/bar, even though that is not a
    * package. Callers need to look up the actual package if needed.
-   *
-   * @throws LabelSyntaxException if the exec path seems to be for an external repository that does
-   *     not have a valid repository name (see {@link RepositoryName#create})
    */
   public static PackageIdentifier discoverFromExecPath(
       PathFragment execPath, boolean forFiles, boolean siblingRepositoryLayout) {

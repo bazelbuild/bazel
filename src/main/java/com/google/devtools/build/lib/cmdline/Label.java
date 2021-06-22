@@ -618,6 +618,15 @@ public final class Label
     return hashCode(name, packageIdentifier);
   }
 
+  /**
+   * Specialization of {@link Arrays#hashCode()} that does not require constructing a 2-element
+   * array.
+   */
+  private static final int hashCode(Object obj1, Object obj2) {
+    int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
+    return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
+  }
+
   /** Two labels are equal iff both their name and their package name are equal. */
   @Override
   public boolean equals(Object other) {
@@ -695,14 +704,5 @@ public final class Label
   @Override
   public String expandToCommandLine() {
     return getCanonicalForm();
-  }
-
-  /**
-   * Specialization of {@link Arrays#hashCode()} that does not require constructing a 2-element
-   * array.
-   */
-  private static final int hashCode(Object obj1, Object obj2) {
-    int result = 31 + (obj1 == null ? 0 : obj1.hashCode());
-    return 31 * result + (obj2 == null ? 0 : obj2.hashCode());
   }
 }
