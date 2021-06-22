@@ -95,14 +95,22 @@ public class WorkerModule extends BlazeModule {
                 logFile.delete();
               } catch (IOException e) {
                 env.getReporter()
-                    .handle(Event.error("Could not delete old worker log: " + logFile));
+                    .handle(
+                        Event.error(
+                            String.format(
+                                "Could not delete old worker log '%s': %s",
+                                logFile, e.getMessage())));
               }
             }
           }
         }
       } catch (IOException e) {
         env.getReporter()
-            .handle(Event.error("Could not create base directory for workers: " + workerDir));
+            .handle(
+                Event.error(
+                    String.format(
+                        "Could not create worker base directory '%s': %s",
+                        workerDir, e.getMessage())));
       }
 
       shutdownPool(
