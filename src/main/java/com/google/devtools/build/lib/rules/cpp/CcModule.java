@@ -674,7 +674,6 @@ public abstract class CcModule
               + "dynamic_library and interface_library.");
     }
     return LibraryToLink.builder()
-        .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
         .setStaticLibrary(staticLibrary)
         .setPicStaticLibrary(picStaticLibrary)
         .setDynamicLibrary(dynamicLibrary)

@@ -20,6 +20,7 @@ import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -74,7 +75,21 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
   private LibraryToLink() {}
 
-  public abstract String getLibraryIdentifier();
+  @Nullable
+  public String getLibraryIdentifier() {
+    Artifact notNullArtifactForIdentifier = getStaticLibrary();
+    if (notNullArtifactForIdentifier == null) {
+      notNullArtifactForIdentifier = getPicStaticLibrary();
+    }
+    if (notNullArtifactForIdentifier == null) {
+      notNullArtifactForIdentifier = getDynamicLibrary();
+    }
+    if (notNullArtifactForIdentifier == null) {
+      notNullArtifactForIdentifier = getInterfaceLibrary();
+    }
+    Verify.verifyNotNull(notNullArtifactForIdentifier);
+    return CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier);
+  }
 
   @Nullable
   public abstract ImmutableList<Artifact> getObjectFiles();
@@ -268,8 +283,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   /** Builder for {@link LibraryToLink}. */
   public interface Builder {
 
-    AutoLibraryToLink.Builder setLibraryIdentifier(String libraryIdentifier);
-
     AutoLibraryToLink.Builder setStaticLibrary(Artifact staticLibrary);
 
     AutoLibraryToLink.Builder setObjectFiles(ImmutableList<Artifact> objectFiles);
@@ -373,7 +386,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
       @Override
       public final LibraryToLink build() {
         LibraryToLink result = autoBuild();
-        Preconditions.checkNotNull(result.getLibraryIdentifier(), result);
         Preconditions.checkState(
             (result.getObjectFiles() == null
                     && result.getLtoCompilationContext() == null
@@ -412,17 +424,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
             && result.getPicObjectFiles() == null
             && result.getPicLtoCompilationContext() == null) {
           Artifact staticLibrary = result.getStaticLibrary();
-          String libraryIdentifier = result.getLibraryIdentifier();
 
           // Try to reuse an existing instance if possible.
           StaticOnlyLibraryToLink existing =
               StaticOnlyLibraryToLink.cache.getIfPresent(staticLibrary);
-          if (existing != null && existing.getLibraryIdentifier().equals(libraryIdentifier)) {
+          if (existing != null) {
             return existing;
           }
 
-          return new AutoValue_LibraryToLink_StaticOnlyLibraryToLink(
-              result.getLibraryIdentifier(), result.getStaticLibrary());
+          return new AutoValue_LibraryToLink_StaticOnlyLibraryToLink(result.getStaticLibrary());
         }
 
         return result;
@@ -447,10 +457,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
             // action key's index may be stale (b/184948206).
             .weakKeys()
             .weakValues()
-            .build(
-                artifact ->
-                    new AutoValue_LibraryToLink_StaticOnlyLibraryToLink(
-                        CcLinkingOutputs.libraryIdentifierOf(artifact), artifact));
+            .build(AutoValue_LibraryToLink_StaticOnlyLibraryToLink::new);
 
     @Override // Remove @Nullable.
     public abstract Artifact getStaticLibrary();
@@ -528,9 +535,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     @Override
     public AutoLibraryToLink.Builder toBuilder() {
-      return builder()
-          .setStaticLibrary(getStaticLibrary())
-          .setLibraryIdentifier(getLibraryIdentifier());
+      return builder().setStaticLibrary(getStaticLibrary());
     }
 
     @Override
