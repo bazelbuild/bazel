@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,11 +38,11 @@ import java.util.Set;
  * functionality directly into {@link InMemoryNodeEntry} at the cost of increasing its size and
  * complexity even more.
  *
- * <p>The operations {@link #addReverseDeps}, {@link #checkReverseDep}, and {@link
- * #removeReverseDep} here are optimized for a done entry. Done entries rarely have rdeps added and
- * removed, but do have {@link Op#CHECK} operations performed frequently. As well, done node entries
- * may never have their data forcibly consolidated, since their reverse deps will only be retrieved
- * as a whole if they are marked dirty. Thus, we consolidate periodically.
+ * <p>The operations {@link #addReverseDep}, {@link #checkReverseDep}, and {@link #removeReverseDep}
+ * here are optimized for a done entry. Done entries rarely have rdeps added and removed, but do
+ * have {@link Op#CHECK} operations performed frequently. As well, done node entries may never have
+ * their data forcibly consolidated, since their reverse deps will only be retrieved as a whole if
+ * they are marked dirty. Thus, we consolidate periodically.
  *
  * <p>{@link InMemoryNodeEntry} manages pending reverse dep operations on a marked-dirty or
  * initially evaluating node itself, using similar logic tuned to those cases, and calls into {@link
@@ -52,28 +50,20 @@ import java.util.Set;
  * done.
  */
 abstract class ReverseDepsUtility {
-
-  private ReverseDepsUtility() {}
-
-  @VisibleForTesting static final int MAYBE_CHECK_THRESHOLD = 10;
-
   /**
    * We can store one type of operation bare in order to save memory. For done nodes, most
    * operations are CHECKS.
    */
   private static final OpToStoreBare DEFAULT_OP_TO_STORE_BARE = OpToStoreBare.CHECK;
 
-  private static void maybeDelayReverseDepOp(
-      InMemoryNodeEntry entry, Iterable<SkyKey> reverseDeps, Op op) {
+  private static void maybeDelayReverseDepOp(InMemoryNodeEntry entry, SkyKey reverseDep, Op op) {
     List<Object> consolidations = entry.getReverseDepsDataToConsolidateForReverseDepsUtil();
     int currentReverseDepSize = getCurrentReverseDepSize(entry);
     if (consolidations == null) {
       consolidations = new ArrayList<>(currentReverseDepSize);
       entry.setReverseDepsDataToConsolidateForReverseDepsUtil(consolidations);
     }
-    for (SkyKey reverseDep : reverseDeps) {
-      consolidations.add(KeyToConsolidate.create(reverseDep, op, DEFAULT_OP_TO_STORE_BARE));
-    }
+    consolidations.add(KeyToConsolidate.create(reverseDep, op, DEFAULT_OP_TO_STORE_BARE));
     // TODO(janakr): Should we consolidate more aggressively? This threshold can be customized.
     if (consolidations.size() >= currentReverseDepSize) {
       consolidateData(entry);
@@ -104,39 +94,33 @@ abstract class ReverseDepsUtility {
    * object directly instead of a wrapper list.
    */
   @SuppressWarnings("unchecked") // Cast to SkyKey and List.
-  static void addReverseDeps(InMemoryNodeEntry entry, Collection<SkyKey> newReverseDeps) {
-    if (newReverseDeps.isEmpty()) {
-      return;
-    }
+  static void addReverseDep(InMemoryNodeEntry entry, SkyKey newReverseDep) {
     List<Object> dataToConsolidate = entry.getReverseDepsDataToConsolidateForReverseDepsUtil();
     if (dataToConsolidate != null) {
-      maybeDelayReverseDepOp(entry, newReverseDeps, Op.ADD);
+      maybeDelayReverseDepOp(entry, newReverseDep, Op.ADD);
       return;
     }
     Object reverseDeps = entry.getReverseDepsRawForReverseDepsUtil();
     int reverseDepsSize = isSingleReverseDep(entry) ? 1 : ((List<SkyKey>) reverseDeps).size();
-    int newSize = reverseDepsSize + newReverseDeps.size();
-    if (newSize == 1) {
-      entry.setSingleReverseDepForReverseDepsUtil(Iterables.getOnlyElement(newReverseDeps));
-    } else if (reverseDepsSize == 0) {
-      entry.setReverseDepsForReverseDepsUtil(Lists.newArrayList(newReverseDeps));
+    if (reverseDepsSize == 0) {
+      entry.setSingleReverseDepForReverseDepsUtil(newReverseDep);
     } else if (reverseDepsSize == 1) {
-      List<SkyKey> newList = Lists.newArrayListWithExpectedSize(newSize);
+      List<SkyKey> newList = Lists.newArrayListWithExpectedSize(2);
       newList.add((SkyKey) reverseDeps);
-      newList.addAll(newReverseDeps);
+      newList.add(newReverseDep);
       entry.setReverseDepsForReverseDepsUtil(newList);
     } else {
-      ((List<SkyKey>) reverseDeps).addAll(newReverseDeps);
+      ((List<SkyKey>) reverseDeps).add(newReverseDep);
     }
   }
 
   static void checkReverseDep(InMemoryNodeEntry entry, SkyKey reverseDep) {
-    maybeDelayReverseDepOp(entry, ImmutableList.of(reverseDep), Op.CHECK);
+    maybeDelayReverseDepOp(entry, reverseDep, Op.CHECK);
   }
 
-  /** See {@code addReverseDeps} method. */
+  /** See {@link #addReverseDep} method. */
   static void removeReverseDep(InMemoryNodeEntry entry, SkyKey reverseDep) {
-    maybeDelayReverseDepOp(entry, ImmutableList.of(reverseDep), Op.REMOVE);
+    maybeDelayReverseDepOp(entry, reverseDep, Op.REMOVE);
   }
 
   static ImmutableSet<SkyKey> getReverseDeps(InMemoryNodeEntry entry) {
@@ -283,7 +267,7 @@ abstract class ReverseDepsUtility {
       SkyKey key = KeyToConsolidate.key(keyToConsolidate);
       switch (KeyToConsolidate.op(keyToConsolidate, DEFAULT_OP_TO_STORE_BARE)) {
         case REMOVE:
-          entry.setReverseDepsForReverseDepsUtil(ImmutableList.<SkyKey>of());
+          entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
           // Fall through to check.
         case CHECK:
           Preconditions.checkState(
@@ -363,7 +347,7 @@ abstract class ReverseDepsUtility {
 
   private static void writeReverseDepsSet(InMemoryNodeEntry entry, Set<SkyKey> reverseDepsAsSet) {
     if (reverseDepsAsSet.isEmpty()) {
-      entry.setReverseDepsForReverseDepsUtil(ImmutableList.<SkyKey>of());
+      entry.setReverseDepsForReverseDepsUtil(ImmutableList.of());
     } else if (reverseDepsAsSet.size() == 1) {
       entry.setSingleReverseDepForReverseDepsUtil(Iterables.getOnlyElement(reverseDepsAsSet));
     } else {
@@ -416,4 +400,6 @@ abstract class ReverseDepsUtility {
       Object arg4) {
     Preconditions.checkState(consistent, errorMessageTemplate, arg1, arg2, arg3, arg4);
   }
+
+  private ReverseDepsUtility() {}
 }

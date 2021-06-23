@@ -345,28 +345,34 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
-    boolean done = isDone();
-    if (reverseDep != null) {
-      if (done) {
-        if (keepReverseDeps()) {
-          ReverseDepsUtility.addReverseDeps(this, ImmutableList.of(reverseDep));
-        }
-      } else {
-        appendToReverseDepOperations(reverseDep, Op.ADD);
-      }
-    }
-    if (done) {
+  public DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
+    if ((reverseDep == null || !keepReverseDeps()) && isDone()) {
       return DependencyState.DONE;
     }
-    if (dirtyBuildingState == null) {
-      dirtyBuildingState = DirtyBuildingState.createNew();
+
+    synchronized (this) {
+      boolean done = isDone();
+      if (reverseDep != null) {
+        if (done) {
+          if (keepReverseDeps()) {
+            ReverseDepsUtility.addReverseDep(this, reverseDep);
+          }
+        } else {
+          appendToReverseDepOperations(reverseDep, Op.ADD);
+        }
+      }
+      if (done) {
+        return DependencyState.DONE;
+      }
+      if (dirtyBuildingState == null) {
+        dirtyBuildingState = DirtyBuildingState.createNew();
+      }
+      boolean wasEvaluating = dirtyBuildingState.isEvaluating();
+      if (!wasEvaluating) {
+        dirtyBuildingState.startEvaluating();
+      }
+      return wasEvaluating ? DependencyState.ALREADY_EVALUATING : DependencyState.NEEDS_SCHEDULING;
     }
-    boolean wasEvaluating = dirtyBuildingState.isEvaluating();
-    if (!wasEvaluating) {
-      dirtyBuildingState.startEvaluating();
-    }
-    return wasEvaluating ? DependencyState.ALREADY_EVALUATING : DependencyState.NEEDS_SCHEDULING;
   }
 
   /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
@@ -711,13 +717,15 @@ public class InMemoryNodeEntry implements NodeEntry {
     return toStringHelper().toString();
   }
 
+  // Only used for testing hooks.
   protected synchronized InMemoryNodeEntry cloneNodeEntry(InMemoryNodeEntry newEntry) {
-    // As this is temporary, for now let's limit to done nodes.
     Preconditions.checkState(isDone(), "Only done nodes can be copied: %s", this);
     newEntry.value = value;
     newEntry.lastChangedVersion = this.lastChangedVersion;
     newEntry.lastEvaluatedVersion = this.lastEvaluatedVersion;
-    ReverseDepsUtility.addReverseDeps(newEntry, ReverseDepsUtility.getReverseDeps(this));
+    for (SkyKey reverseDep : ReverseDepsUtility.getReverseDeps(this)) {
+      ReverseDepsUtility.addReverseDep(newEntry, reverseDep);
+    }
     newEntry.directDeps = directDeps;
     newEntry.dirtyBuildingState = null;
     return newEntry;
