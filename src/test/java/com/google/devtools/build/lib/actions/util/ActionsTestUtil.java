@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -79,6 +78,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.testing.actions.ArtifactExpanderHelper;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -174,7 +174,7 @@ public final class ActionsTestUtil {
         /*topLevelFilesets=*/ ImmutableMap.of(),
         actionGraph == null
             ? (artifact, output) -> {}
-            : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
+            : ArtifactExpanderHelper.actionGraphArtifactExpander(actionGraph),
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         NestedSetExpander.DEFAULT,

@@ -27,6 +27,7 @@ java_library(
         ],
         exclude = [
             "ActionInput.java",
+            "ActionInputHelper.java",
             "ActionLookupData.java",
             "ActionLookupKey.java",
             "AnalysisGraphStatsEvent.java",
@@ -132,6 +133,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "action_input_helper",
+    srcs = ["ActionInputHelper.java"],
+    deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
 )

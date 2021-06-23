@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.testing.actions.ArtifactExpanderHelper;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -226,8 +227,8 @@ public class ArtifactTest {
     List<Artifact> expanded = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     List<Artifact> original = getFooBarArtifacts(actionGraph, true);
-    Artifact.addExpandedArtifacts(original, expanded,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
+    Artifact.addExpandedArtifacts(
+        original, expanded, ArtifactExpanderHelper.actionGraphArtifactExpander(actionGraph));
 
     List<Artifact> manuallyExpanded = new ArrayList<>();
     for (Artifact artifact : original) {

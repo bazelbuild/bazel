@@ -1413,12 +1413,13 @@ public abstract class Artifact
   }
 
   /**
-   * Converts a collection of artifacts into the outputs computed by
-   * outputFormatter and adds them to a given collection. Middleman artifacts
-   * are ignored.
+   * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
+   * to a given collection. Middleman artifacts are ignored.
    */
-  static <E> void addNonMiddlemanArtifacts(Iterable<Artifact> artifacts,
-      Collection<? super E> output, Function<? super Artifact, E> outputFormatter) {
+  public static <E> void addNonMiddlemanArtifacts(
+      Iterable<Artifact> artifacts,
+      Collection<? super E> output,
+      Function<? super Artifact, E> outputFormatter) {
     for (Artifact artifact : artifacts) {
       if (MIDDLEMAN_FILTER.apply(artifact)) {
         output.add(outputFormatter.apply(artifact));

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -23,35 +21,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 /** Helper utility to create ActionInput instances. */
 public final class ActionInputHelper {
   private ActionInputHelper() {}
-
-  @VisibleForTesting
-  public static ArtifactExpander actionGraphArtifactExpander(ActionGraph actionGraph) {
-    return new ArtifactExpander() {
-      @Override
-      public void expand(Artifact mm, Collection<? super Artifact> output) {
-        // Skyframe is stricter in that it checks that "mm" is a input of the action, because
-        // it cannot expand arbitrary middlemen without access to a global action graph.
-        // We could check this constraint here too, but it seems unnecessary. This code is
-        // going away anyway.
-        Preconditions.checkArgument(mm.isMiddlemanArtifact(), "%s is not a middleman artifact", mm);
-        ActionAnalysisMetadata middlemanAction = actionGraph.getGeneratingAction(mm);
-        Preconditions.checkState(middlemanAction != null, mm);
-        // TODO(bazel-team): Consider expanding recursively or throwing an exception here.
-        // Most likely, this code will cause silent errors if we ever have a middleman that
-        // contains a middleman.
-        if (middlemanAction.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN) {
-          Artifact.addNonMiddlemanArtifacts(
-              middlemanAction.getInputs().toList(), output, Functions.<Artifact>identity());
-        }
-      }
-    };
-  }
 
   /**
    * Most ActionInputs are created and never used again. On the off chance that one is, however, we
