@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -49,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -66,19 +67,19 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     private TestSummary summary;
     private boolean built;
 
-    private Builder() {
-      summary = new TestSummary();
+    private Builder(ConfiguredTarget target) {
+      summary = new TestSummary(target);
       built = false;
     }
 
     void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
-      summary.shardRunStatuses =
-          MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
+      for (int i = 0; i < existingSummary.shardRunStatuses.size(); i++) {
+        summary.shardRunStatuses.get(i).addAll(existingSummary.shardRunStatuses.get(i));
+      }
       summary.firstStartTimeMillis = existingSummary.firstStartTimeMillis;
       summary.lastStopTimeMillis = existingSummary.lastStopTimeMillis;
       summary.totalRunDurationMillis = existingSummary.totalRunDurationMillis;
-      setTarget(existingSummary.target);
       setConfiguration(existingSummary.configuration);
       setStatus(existingSummary.status);
       addCoverageFiles(existingSummary.coverageFiles);
@@ -107,7 +108,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       if (built) {
         built = false;
         TestSummary lastSummary = summary;
-        summary = new TestSummary();
+        summary = new TestSummary(lastSummary.target);
         mergeFrom(lastSummary);
       }
     }
@@ -116,19 +117,13 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     // However, since it can alter the summary member, inlining it in an
     // assignment to a property of summary was unsafe.
     private void checkMutation(Object value) {
-      Preconditions.checkNotNull(value);
+      checkNotNull(value);
       checkMutation();
-    }
-
-    public Builder setTarget(ConfiguredTarget target) {
-      checkMutation(target);
-      summary.target = target;
-      return this;
     }
 
     public Builder setConfiguration(BuildConfiguration configuration) {
       checkMutation(configuration);
-      summary.configuration = Preconditions.checkNotNull(configuration, summary);
+      summary.configuration = checkNotNull(configuration, summary);
       return this;
     }
 
@@ -314,10 +309,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
      *
      * @return an immutable view of the statuses associated with the shard, with the new element.
      */
-    public List<BlazeTestStatus> addShardStatus(int shardNumber, BlazeTestStatus status) {
-      Preconditions.checkState(summary.shardRunStatuses.put(shardNumber, status),
-          "shardRunStatuses must allow duplicate statuses");
-      return ImmutableList.copyOf(summary.shardRunStatuses.get(shardNumber));
+    public ImmutableList<BlazeTestStatus> addShardStatus(int shardNumber, BlazeTestStatus status) {
+      List<BlazeTestStatus> statuses = summary.shardRunStatuses.get(shardNumber);
+      statuses.add(status);
+      return ImmutableList.copyOf(statuses);
     }
 
     /**
@@ -341,8 +336,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
      * incompletely-built TestSummary. Used to pass Builders around directly.
      */
     TestSummary peek() {
-      Preconditions.checkNotNull(summary.target, "Target cannot be null");
-      Preconditions.checkNotNull(summary.status, "Status cannot be null");
+      checkNotNull(summary.target, "Target cannot be null");
+      checkNotNull(summary.status, "Status cannot be null");
       return summary;
     }
 
@@ -358,12 +353,13 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     }
   }
 
-  private ConfiguredTarget target;
+  private final ConfiguredTarget target;
+  // Currently only populated if --runs_per_test_detects_flakes is enabled.
+  private final ImmutableList<ArrayList<BlazeTestStatus>> shardRunStatuses;
+
   private BuildConfiguration configuration;
   private BlazeTestStatus status;
   private boolean skipped;
-  // Currently only populated if --runs_per_test_detects_flakes is enabled.
-  private Multimap<Integer, BlazeTestStatus> shardRunStatuses = ArrayListMultimap.create();
   private int numCached;
   private int numLocalActionCached;
   private boolean actionRan;
@@ -384,14 +380,23 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Nullable private DetailedExitCode systemFailure;
 
   // Don't allow public instantiation; go through the Builder.
-  private TestSummary() {
+  private TestSummary(ConfiguredTarget target) {
+    this.target = target;
+    TestParams testParams = getTestParams();
+    shardRunStatuses =
+        createAndInitialize(
+            testParams.runsDetectsFlakes() ? Math.max(testParams.getShards(), 1) : 0);
   }
 
-  /**
-   * Creates a new Builder allowing construction of a new TestSummary object.
-   */
-  public static Builder newBuilder() {
-    return new Builder();
+  private static ImmutableList<ArrayList<BlazeTestStatus>> createAndInitialize(int sz) {
+    return Stream.generate(() -> new ArrayList<BlazeTestStatus>(1))
+        .limit(sz)
+        .collect(toImmutableList());
+  }
+
+  /** Creates a new Builder allowing construction of a new TestSummary object. */
+  public static Builder newBuilder(ConfiguredTarget target) {
+    return new Builder(target);
   }
 
   public Label getLabel() {
@@ -599,7 +604,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext converters) {
     PathConverter pathConverter = converters.pathConverter();
-    TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
+    TestParams testParams = getTestParams();
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder()
             .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
@@ -626,5 +631,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       }
     }
     return GenericBuildEvent.protoChaining(this).setTestSummary(summaryBuilder.build()).build();
+  }
+
+  private TestParams getTestParams() {
+    return checkNotNull(target.getProvider(TestProvider.class).getTestParams(), target);
   }
 }

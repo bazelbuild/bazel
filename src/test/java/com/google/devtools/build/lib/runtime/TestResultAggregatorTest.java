@@ -48,6 +48,7 @@ public final class TestResultAggregatorTest {
   public void configureMockParams() {
     when(mockParams.runsDetectsFlakes()).thenReturn(false);
     when(mockParams.getTimeout()).thenReturn(TestTimeout.LONG);
+    when(mockParams.getShards()).thenReturn(1);
   }
 
   @Test
@@ -113,8 +114,8 @@ public final class TestResultAggregatorTest {
 
   @Test
   public void cancelConcurrentTests_cancellationAfterPassIgnored() {
-    TestResultAggregator underTest = createAggregatorWithTestRuns(2);
     when(mockParams.runsDetectsFlakes()).thenReturn(true);
+    TestResultAggregator underTest = createAggregatorWithTestRuns(2);
 
     underTest.testEvent(
         testResult(

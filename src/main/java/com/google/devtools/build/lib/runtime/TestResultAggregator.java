@@ -65,8 +65,7 @@ final class TestResultAggregator {
       boolean skippedThisTest) {
     this.policy = policy;
     this.summary =
-        TestSummary.newBuilder()
-            .setTarget(target)
+        TestSummary.newBuilder(target)
             .setConfiguration(configuration)
             .setStatus(BlazeTestStatus.NO_STATUS)
             .setSkipped(skippedThisTest);

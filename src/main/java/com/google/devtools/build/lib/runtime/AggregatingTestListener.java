@@ -236,9 +236,8 @@ public final class AggregatingTestListener {
                 .setConfigurationKey(testTarget.getConfigurationKey())
                 .build();
         TestResultAggregator aggregator = aggregators.get(actualKey);
-        TestSummary.Builder summaryBuilder = TestSummary.newBuilder();
+        TestSummary.Builder summaryBuilder = TestSummary.newBuilder(testTarget);
         summaryBuilder.mergeFrom(aggregator.aggregateAndReportSummary(skipTargetsOnFailure));
-        summaryBuilder.setTarget(testTarget);
         summary = summaryBuilder.build();
       } else {
         TestResultAggregator aggregator = aggregators.get(asKey(testTarget));
@@ -255,7 +254,7 @@ public final class AggregatingTestListener {
         // just use NO_STATUS for all tests with failed validations for simplicity here (absent -k).
         // Events published on BEP are not affected by this, but validation failures are published
         // as separate events and are additionally accounted in TargetSummary BEP messages.
-        TestSummary.Builder summaryBuilder = TestSummary.newBuilder();
+        TestSummary.Builder summaryBuilder = TestSummary.newBuilder(summary.getTarget());
         summaryBuilder.mergeFrom(summary);
         summaryBuilder.setStatus(
             skipTargetsOnFailure
