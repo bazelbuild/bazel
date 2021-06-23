@@ -26,16 +26,21 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.BuiltinProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
@@ -45,11 +50,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * A provider that provides all linking and miscellaneous information in the transitive closure of
@@ -185,10 +193,16 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   static final Key<CcLinkingContext.Linkstamp> LINKSTAMP =
       new Key<>(STABLE_ORDER, "linkstamp", CcLinkingContext.Linkstamp.class);
 
+  static final Key<LinkerInput> LINKSTAMP_LINKER_INPUTS =
+      new Key<>(STABLE_ORDER, "linkstamp_linker_inputs", LinkerInput.class);
+
   /**
    * Linking options from dependencies.
    */
   public static final Key<String> LINKOPT = new Key<>(LINK_ORDER, "linkopt", String.class);
+
+  public static final Key<LinkerInput> CC_LINKER_INPUTS =
+      new Key<>(LINK_ORDER, "cc_linker_inputs", LinkerInput.class);
 
   /**
    * Link time artifacts from dependencies. These do not fall into any other category such as
@@ -332,7 +346,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ linkopt() {
-    return Depset.of(Depset.ElementType.STRING, get(LINKOPT));
+    return Depset.of(Depset.ElementType.STRING, getLinkopt());
   }
 
   @Override
@@ -353,7 +367,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset sdkFramework() {
     return (Depset)
-        ObjcProviderStarlarkConverters.convertToStarlark(SDK_FRAMEWORK, get(SDK_FRAMEWORK));
+        ObjcProviderStarlarkConverters.convertToStarlark(SDK_FRAMEWORK, getFrameworks());
   }
 
   @Override
@@ -407,7 +421,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           // Linkstamp is not exposed to Starlark. See commentary at its definition.
           LINKSTAMP,
           // Strict include is handled specially.
-          STRICT_INCLUDE);
+          STRICT_INCLUDE,
+          // Linker inputs avoid unnecessarily flattening nested sets
+          CC_LINKER_INPUTS,
+          LINKSTAMP_LINKER_INPUTS);
 
   /**
    * Set of {@link ObjcProvider} whose values are not subtracted via {@link #subtractSubtrees}.
@@ -472,6 +489,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @SuppressWarnings("unchecked")
   public <E> NestedSet<E> get(Key<E> key) {
     Preconditions.checkNotNull(key);
+    Preconditions.checkArgument(!key.equals(CC_LIBRARY));
+    Preconditions.checkArgument(!key.equals(LINKOPT));
+    Preconditions.checkArgument(!key.equals(LINKSTAMP));
+    Preconditions.checkArgument(!key.equals(SDK_FRAMEWORK));
     if (items.containsKey(key)) {
       return (NestedSet<E>) items.get(key);
     } else {
@@ -486,6 +507,110 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       return StarlarkList.immutableCopyOf((List) directItems.get(key));
     }
     return StarlarkList.empty();
+  }
+
+  @StarlarkMethod(name = "linker_inputs", documented = false, useStarlarkThread = true)
+  public Depset linkerInputsForStarlark(StarlarkThread thread) throws EvalException {
+    if (!isBuiltIn(thread)) {
+      throw Starlark.errorf("Cannot use builtin API");
+    }
+    return Depset.of(LinkerInput.TYPE, get(ObjcProvider.CC_LINKER_INPUTS));
+  }
+
+  @StarlarkMethod(name = "linkstamp_linker_inputs", documented = false, useStarlarkThread = true)
+  public Depset linkstampLinkerInputsForStarlark(StarlarkThread thread) throws EvalException {
+    if (!isBuiltIn(thread)) {
+      throw Starlark.errorf("Cannot use builtin API");
+    }
+    return Depset.of(LinkerInput.TYPE, get(ObjcProvider.LINKSTAMP_LINKER_INPUTS));
+  }
+
+  private static boolean isBuiltIn(StarlarkThread thread) {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    return label.getPackageIdentifier().getRepository().toString().equals("@_builtins");
+  }
+
+  @SuppressWarnings("unchecked")
+  public NestedSet<LibraryToLink> getTransitiveCcLibraries() {
+    NestedSetBuilder<LibraryToLink> builder = NestedSetBuilder.linkOrder();
+    if (items.containsKey(CC_LINKER_INPUTS)) {
+      for (LinkerInput linkerInput :
+          ((NestedSet<LinkerInput>) items.get(CC_LINKER_INPUTS)).toList()) {
+        builder.addAll(linkerInput.getLibraries());
+      }
+      return builder.build();
+    } else {
+      return NestedSetBuilder.emptySet(LINK_ORDER);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  public NestedSet<String> getLinkopt() {
+    NestedSetBuilder<String> builder = NestedSetBuilder.linkOrder();
+    if (items.containsKey(LINKOPT)) {
+      builder.addTransitive((NestedSet<String>) items.get(LINKOPT));
+    }
+
+    if (items.containsKey(CC_LINKER_INPUTS)) {
+      for (LinkerInput linkerInput :
+          ((NestedSet<LinkerInput>) items.get(CC_LINKER_INPUTS)).toList()) {
+        for (LinkOptions linkOptions : linkerInput.getUserLinkFlags()) {
+          ImmutableList<String> linkOpts = linkOptions.get();
+          ImmutableList.Builder<String> nonFrameworkLinkOpts = ImmutableList.builder();
+          for (UnmodifiableIterator<String> iterator = linkOpts.iterator(); iterator.hasNext(); ) {
+            String arg = iterator.next();
+            if (arg.equals("-framework") && iterator.hasNext()) {
+              iterator.next();
+            } else {
+              nonFrameworkLinkOpts.add(arg);
+            }
+          }
+          builder.addAll(nonFrameworkLinkOpts.build());
+        }
+      }
+    }
+    return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  public NestedSet<SdkFramework> getFrameworks() {
+    NestedSetBuilder<SdkFramework> builder = NestedSetBuilder.linkOrder();
+    if (items.containsKey(SDK_FRAMEWORK)) {
+      builder.addTransitive((NestedSet<SdkFramework>) items.get(SDK_FRAMEWORK));
+    }
+    if (items.containsKey(CC_LINKER_INPUTS)) {
+      for (LinkerInput linkerInput :
+          ((NestedSet<LinkerInput>) items.get(CC_LINKER_INPUTS)).toList()) {
+        for (LinkOptions linkOptions : linkerInput.getUserLinkFlags()) {
+          ImmutableList<String> linkOpts = linkOptions.get();
+          ImmutableList.Builder<SdkFramework> frameworkLinkOpts = ImmutableList.builder();
+          for (UnmodifiableIterator<String> iterator = linkOpts.iterator(); iterator.hasNext(); ) {
+            String arg = iterator.next();
+            if (arg.equals("-framework") && iterator.hasNext()) {
+              String framework = iterator.next();
+              frameworkLinkOpts.add(new SdkFramework(framework));
+            }
+          }
+          builder.addAll(frameworkLinkOpts.build());
+        }
+      }
+    }
+
+    return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  public NestedSet<Linkstamp> getLinkstamps() {
+    NestedSetBuilder<Linkstamp> builder = NestedSetBuilder.linkOrder();
+    if (items.containsKey(LINKSTAMP_LINKER_INPUTS)) {
+      for (LinkerInput linkerInput :
+          ((NestedSet<LinkerInput>) items.get(LINKSTAMP_LINKER_INPUTS)).toList()) {
+        builder.addAll(linkerInput.getLinkstamps());
+      }
+    }
+    return builder.build();
   }
 
   /**
@@ -523,7 +648,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   /** Returns the list of .a files required for linking that arise from cc libraries. */
   List<Artifact> getCcLibraries() {
     CcLinkingContext ccLinkingContext =
-        CcLinkingContext.builder().addLibraries(get(CC_LIBRARY).toList()).build();
+        CcLinkingContext.builder().addLibraries(getTransitiveCcLibraries().toList()).build();
     return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
   }
 
@@ -566,9 +691,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder(semantics);
     for (Key<?> key : items.keySet()) {
-      if (key == CC_LIBRARY) {
-        addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
-            ccLibraryNotYetLinked(avoidLibrariesSet));
+      if (key == CC_LINKER_INPUTS) {
+        addTransitiveAndFilter(
+            objcProviderBuilder, CC_LINKER_INPUTS, ccLibraryNotYetLinked(avoidLibrariesSet));
       } else if (key == LIBRARY) {
         addTransitiveAndFilter(objcProviderBuilder, LIBRARY, notContainedIn(avoidLibrariesSet));
       } else if (NON_SUBTRACTABLE_KEYS.contains(key)) {
@@ -603,32 +728,35 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * @param runfilesPaths if a given library has runfiles path present in this set, the predicate
    *     will return false
    */
-  private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
+  private static Predicate<LinkerInput> ccLibraryNotYetLinked(
       final HashSet<PathFragment> runfilesPaths) {
-    return libraryToLink -> !checkIfLibraryIsInPaths(libraryToLink, runfilesPaths);
+    return linkerInput -> !checkIfLibraryIsInPaths(linkerInput, runfilesPaths);
   }
 
   private static boolean checkIfLibraryIsInPaths(
-      LibraryToLink libraryToLink, HashSet<PathFragment> runfilesPaths) {
+      LinkerInput linkerInput, HashSet<PathFragment> runfilesPaths) {
     ImmutableList.Builder<PathFragment> libraryRunfilesPaths = ImmutableList.builder();
-    if (libraryToLink.getStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getPicStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getResolvedSymlinkDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getResolvedSymlinkInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(
-          libraryToLink.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
+    for (LibraryToLink libraryToLink : linkerInput.getLibraries()) {
+      if (libraryToLink.getStaticLibrary() != null) {
+        libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRunfilesPath());
+      }
+      if (libraryToLink.getPicStaticLibrary() != null) {
+        libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRunfilesPath());
+      }
+      if (libraryToLink.getDynamicLibrary() != null) {
+        libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRunfilesPath());
+      }
+      if (libraryToLink.getResolvedSymlinkDynamicLibrary() != null) {
+        libraryRunfilesPaths.add(
+            libraryToLink.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
+      }
+      if (libraryToLink.getInterfaceLibrary() != null) {
+        libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRunfilesPath());
+      }
+      if (libraryToLink.getResolvedSymlinkInterfaceLibrary() != null) {
+        libraryRunfilesPaths.add(
+            libraryToLink.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
+      }
     }
 
     return !Collections.disjoint(libraryRunfilesPaths.build(), runfilesPaths);

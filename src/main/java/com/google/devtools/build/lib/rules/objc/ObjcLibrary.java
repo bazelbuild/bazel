@@ -119,7 +119,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   private static CcLinkingContext buildCcLinkingContext(
       Label label, ObjcProvider objcProvider, SymbolGenerator<?> symbolGenerator) {
     List<Artifact> libraries = objcProvider.get(ObjcProvider.LIBRARY).toList();
-    List<LibraryToLink> ccLibraries = objcProvider.get(ObjcProvider.CC_LIBRARY).toList();
+    List<LibraryToLink> ccLibraries = objcProvider.getTransitiveCcLibraries().toList();
 
     Set<LibraryToLink> librariesToLink =
         CompactHashSet.createWithExpectedSize(libraries.size() + ccLibraries.size());
@@ -131,7 +131,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
       librariesToLink.add(convertToStaticLibrary(library));
     }
 
-    List<SdkFramework> sdkFrameworks = objcProvider.get(ObjcProvider.SDK_FRAMEWORK).toList();
+    List<SdkFramework> sdkFrameworks = objcProvider.getFrameworks().toList();
     ImmutableList.Builder<LinkOptions> userLinkFlags =
         ImmutableList.builderWithExpectedSize(sdkFrameworks.size());
     for (SdkFramework sdkFramework : sdkFrameworks) {
@@ -145,7 +145,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ImmutableList.copyOf(librariesToLink),
             userLinkFlags.build(),
             /*nonCodeInputs=*/ ImmutableList.of(),
-            objcProvider.get(ObjcProvider.LINKSTAMP).toList());
+            objcProvider.getLinkstamps().toList());
 
     return new CcLinkingContext(
         NestedSetBuilder.create(Order.LINK_ORDER, linkerInput), /*extraLinkTimeLibraries=*/ null);

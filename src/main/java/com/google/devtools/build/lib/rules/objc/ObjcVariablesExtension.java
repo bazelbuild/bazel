@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -225,7 +224,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringSequenceVariable(
         FORCE_LOAD_EXEC_PATHS_VARIABLE_NAME,
         Artifact.toExecPaths(forceLoadArtifacts));
-    builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, objcProvider.get(LINKOPT));
+    builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, objcProvider.getLinkopt());
     builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
 

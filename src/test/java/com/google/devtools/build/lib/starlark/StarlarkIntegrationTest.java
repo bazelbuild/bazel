@@ -3526,9 +3526,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
 
     // The modern key and the canonical legacy key "objc" are set to the one available ObjcProvider.
-    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromFoo.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
+    assertThat(providerFromModernKey.getLinkopt().toList()).containsExactly("foo");
+    assertThat(providerFromObjc.getLinkopt().toList()).containsExactly("foo");
+    assertThat(providerFromFoo.getLinkopt().toList()).containsExactly("foo");
   }
 
   @Test
@@ -3555,9 +3555,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromBah = (ObjcProvider) target.get("bah");
 
-    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("prov");
-    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("objc");
-    assertThat(providerFromBah.get(ObjcProvider.LINKOPT).toList()).containsExactly("bah");
+    assertThat(providerFromModernKey.getLinkopt().toList()).containsExactly("prov");
+    assertThat(providerFromObjc.getLinkopt().toList()).containsExactly("objc");
+    assertThat(providerFromBah.getLinkopt().toList()).containsExactly("bah");
   }
 
   @Test
@@ -3585,11 +3585,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
     ObjcProvider providerFromBar = (ObjcProvider) target.get("bar");
 
-    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("prov");
+    assertThat(providerFromModernKey.getLinkopt().toList()).containsExactly("prov");
     // The first defined provider is set to the legacy "objc" key.
-    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromFoo.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
-    assertThat(providerFromBar.get(ObjcProvider.LINKOPT).toList()).containsExactly("bar");
+    assertThat(providerFromObjc.getLinkopt().toList()).containsExactly("foo");
+    assertThat(providerFromFoo.getLinkopt().toList()).containsExactly("foo");
+    assertThat(providerFromBar.getLinkopt().toList()).containsExactly("bar");
   }
 
   @Test
