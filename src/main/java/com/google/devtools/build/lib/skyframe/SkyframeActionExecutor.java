@@ -705,6 +705,17 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  void checkMetadataCache(Action action, OutputStore outputStore) {
+    actionCacheChecker.loadOutputMetadata(action, outputStore);
+  }
+
+  void updateMetadataCache(Action action, ActionExecutionValue value) {
+    if (!actionCacheChecker.enabled()) {
+      return;
+    }
+    actionCacheChecker.updateMetadataCache(action, value);
+  }
+
   @Nullable
   List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
       throws AlreadyReportedActionExecutionException, InterruptedException {
@@ -869,7 +880,8 @@ public final class SkyframeActionExecutor {
         Environment env,
         Action action,
         ActionMetadataHandler metadataHandler,
-        Map<String, String> clientEnv)
+        Map<String, String> clientEnv,
+        ActionExecutionValue value)
         throws InterruptedException, ActionExecutionException;
   }
 
@@ -1284,7 +1296,8 @@ public final class SkyframeActionExecutor {
       @Override
       public ActionStepOrResult run(Environment env) {
         try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "postprocessing.run")) {
-          postprocessing.run(env, action, metadataHandler, actionExecutionContext.getClientEnv());
+          postprocessing.run(
+              env, action, metadataHandler, actionExecutionContext.getClientEnv(), value);
           if (env.valuesMissing()) {
             return this;
           }

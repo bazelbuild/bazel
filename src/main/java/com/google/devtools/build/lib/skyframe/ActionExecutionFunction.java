@@ -761,6 +761,10 @@ public class ActionExecutionFunction implements SkyFunction {
     ArtifactPathResolver pathResolver =
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
+
+    OutputStore outputStore = new OutputStore();
+    skyframeActionExecutor.checkMetadataCache(action, outputStore);
+
     ActionMetadataHandler metadataHandler =
         ActionMetadataHandler.create(
             state.inputArtifactData,
@@ -771,7 +775,8 @@ public class ActionExecutionFunction implements SkyFunction {
             pathResolver,
             skyframeActionExecutor.getExecRoot().asFragment(),
             PathFragment.create(directories.getRelativeOutputPath()),
-            expandedFilesets);
+            expandedFilesets,
+            outputStore);
 
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
@@ -881,7 +886,8 @@ public class ActionExecutionFunction implements SkyFunction {
         Environment env,
         Action action,
         ActionMetadataHandler metadataHandler,
-        Map<String, String> clientEnv)
+        Map<String, String> clientEnv,
+        ActionExecutionValue value)
         throws InterruptedException, ActionExecutionException {
       // TODO(b/160603797): For the sake of action key computation, we should not need
       //  state.filesetsInsideRunfiles. In fact, for the metadataHandler, we are guaranteed to not
@@ -910,6 +916,7 @@ public class ActionExecutionFunction implements SkyFunction {
         }
       }
       Preconditions.checkState(!env.valuesMissing(), action);
+      skyframeActionExecutor.updateMetadataCache(action, value);
       skyframeActionExecutor.updateActionCache(
           action,
           metadataHandler,

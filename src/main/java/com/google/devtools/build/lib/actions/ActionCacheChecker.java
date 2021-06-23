@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.OutputStore;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -440,6 +442,47 @@ public class ActionCacheChecker {
     }
     entry.getFileDigest();
     actionCache.put(key, entry);
+  }
+
+  public void loadOutputMetadata(Action action, OutputStore outputStore) {
+    if (!cacheConfig.enabled()) {
+      return;
+    }
+
+    for (Artifact output : action.getOutputs()) {
+      if (output.isTreeArtifact()) {
+        // TODO: handle tree artifact
+      } else {
+        FileArtifactValue metadata = actionCache.getFileMetadata(output);
+        // Only load remote metadata, metadata for local files should be reconstructed from local file system
+        if (metadata != null && metadata.isRemote()) {
+          outputStore.putArtifactData(output, metadata);
+        }
+      }
+    }
+  }
+
+  public void updateMetadataCache(Action action, ActionExecutionValue value) {
+    Preconditions.checkState(
+        cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
+
+    for (Map.Entry<Artifact, FileArtifactValue> entry : value.getAllFileValues().entrySet()) {
+      Artifact artifact = entry.getKey();
+      FileArtifactValue metadata = entry.getValue();
+
+      if (artifact.isTreeArtifact()) {
+        // TODO: handle tree artifact
+      } else {
+        // Only save remote metadata
+        if (metadata.isRemote()) {
+          actionCache.putFileMetadata(artifact, metadata);
+        } else {
+          // If metadata can be reconstructed locally, remove it from the cache to avoid the case that
+          // cached metadata is not up to date with local file system.
+          actionCache.removeFileMetadata(artifact);
+        }
+      }
+    }
   }
 
   @Nullable
