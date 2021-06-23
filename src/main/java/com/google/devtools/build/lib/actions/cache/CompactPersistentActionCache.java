@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
@@ -20,6 +21,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.clock.Clock;
@@ -66,6 +70,8 @@ public class CompactPersistentActionCache implements ActionCache {
   // between action cache and string indexer. Must be < 0 to avoid conflict with real action
   // cache records.
   private static final int VALIDATION_KEY = -10;
+
+  private static final String METADATA_SUFFIX = ":metadata";
 
   private static final int NO_INPUT_DISCOVERY_COUNT = -1;
 
@@ -330,14 +336,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public ActionCache.Entry get(String key) {
-    int index = indexer.getIndex(key);
-    if (index < 0) {
-      return null;
-    }
-    byte[] data;
-    synchronized (this) {
-      data = map.get(index);
-    }
+    byte[] data = getData(key);
     try {
       return data != null ? CompactPersistentActionCache.decode(indexer, data) : null;
     } catch (IOException e) {
@@ -348,9 +347,24 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public void put(String key, ActionCache.Entry entry) {
-    // Encode record. Note that both methods may create new mappings in the indexer.
-    int index = indexer.getOrCreateIndex(key);
     byte[] content = encode(indexer, entry);
+    putData(key, content);
+  }
+
+  private byte[] getData(String key) {
+    int index = indexer.getIndex(key);
+    if (index < 0) {
+      return null;
+    }
+    byte[] data;
+    synchronized (this) {
+      data = map.get(index);
+    }
+    return data;
+  }
+
+  private void putData(String key, byte[] content) {
+    int index = indexer.getOrCreateIndex(key);
 
     // Update validation record.
     ByteBuffer buffer = ByteBuffer.allocate(4); // size of int in bytes
@@ -368,9 +382,138 @@ public class CompactPersistentActionCache implements ActionCache {
     }
   }
 
-  @Override
-  public synchronized void remove(String key) {
+  private synchronized void removeData(String key) {
     map.remove(indexer.getIndex(key));
+  }
+
+  enum MetadataType {
+    Remote(1);
+
+    MetadataType(int id) {
+      this.id = id;
+    }
+
+    int id;
+  }
+
+  private static byte[] encodeMetadata(FileArtifactValue metadata) {
+    if (metadata instanceof RemoteFileArtifactValue) {
+      return encodeRemoteMetadata((RemoteFileArtifactValue) metadata);
+    }
+
+    throw new IllegalStateException(String.format("Unsupported metadata: %s", metadata));
+  }
+
+  private static FileArtifactValue decodeMetadata(byte[] data) throws IOException {
+    int type = VarInt.getVarInt(ByteBuffer.wrap(data));
+    if (type == MetadataType.Remote.id) {
+      return decodeRemoteMetadata(data);
+    }
+
+    throw new IOException(String.format("Unknown metadata type: %s", type));
+  }
+
+  private static byte[] encodeRemoteMetadata(RemoteFileArtifactValue value) {
+    try {
+      ByteArrayOutputStream sink = new ByteArrayOutputStream();
+      // type
+      VarInt.putVarInt(MetadataType.Remote.id, sink);
+
+      // digest
+      VarInt.putVarInt(value.getDigest().length, sink);
+      sink.write(value.getDigest());
+
+      // size
+      VarInt.putVarLong(value.getSize(), sink);
+
+      // locationIndex
+      VarInt.putVarInt(value.getLocationIndex(), sink);
+
+      // actionId
+      byte[] actionIdBytes = value.getActionId().getBytes(ISO_8859_1);
+      VarInt.putVarInt(actionIdBytes.length, sink);
+      sink.write(actionIdBytes);
+
+      return sink.toByteArray();
+    } catch (IOException e) {
+      // This Exception can never be thrown by ByteArrayOutputStream.
+      throw new AssertionError(e);
+    }
+  }
+
+  private static RemoteFileArtifactValue decodeRemoteMetadata(byte[] data) throws IOException {
+    try {
+      ByteBuffer source = ByteBuffer.wrap(data);
+
+      // type
+      int type = VarInt.getVarInt(source);
+      Preconditions.checkState(type == MetadataType.Remote.id, "Invalid metadata type");
+
+      // digest
+      byte[] digest = new byte[VarInt.getVarInt(source)];
+      source.get(digest);
+
+      // size
+      long size = VarInt.getVarLong(source);
+
+      // locationIndex
+      int locationIndex = VarInt.getVarInt(source);
+
+      // actionId
+      byte[] actionIdBytes = new byte[VarInt.getVarInt(source)];
+      source.get(actionIdBytes);
+      String actionId = new String(actionIdBytes, ISO_8859_1);
+
+      if (source.remaining() > 0) {
+        throw new IOException("serialized metadata has not been fully decoded");
+      }
+
+      return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
+    } catch (BufferUnderflowException e) {
+      throw new IOException("encoded metadata is incomplete", e);
+    }
+  }
+
+  @Override
+  public void putFileMetadata(Artifact artifact, FileArtifactValue metadata) {
+    checkArgument(
+        !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
+        "Must use putTreeMetadata to save tree artifacts and their children: %s",
+        artifact);
+    String key = artifact.getExecPathString() + METADATA_SUFFIX;
+    byte[] content = encodeMetadata(metadata);
+    putData(key, content);
+  }
+
+  @Override
+  public void removeFileMetadata(Artifact artifact) {
+    checkArgument(
+        !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
+        "Must use removeTreeMetadata to remote tree artifacts and their children: %s",
+        artifact);
+    String key = artifact.getExecPathString() + METADATA_SUFFIX;
+    removeData(key);
+  }
+
+  @Override
+  public FileArtifactValue getFileMetadata(Artifact artifact) {
+    checkArgument(
+        !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
+        "Must use getTreeMetadata to get tree artifacts and their children: %s",
+        artifact);
+    String key = artifact.getExecPathString() + METADATA_SUFFIX;
+    byte[] data = getData(key);
+    try {
+      return data != null ? decodeMetadata(data) : null;
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to decode metadata for %s", artifact);
+      return null;
+    }
+  }
+
+  @Override
+  public void remove(String key) {
+    removeData(key);
   }
 
   @Override
@@ -395,14 +538,26 @@ public class CompactPersistentActionCache implements ActionCache {
     int ct = 0;
     for (Map.Entry<Integer, byte[]> entry: map.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
+      String key = indexer.getStringForIndex(entry.getKey());
+      byte[] data = entry.getValue();
       String content;
       try {
-        content = decode(indexer, entry.getValue()).toString();
+        if (key.endsWith(METADATA_SUFFIX)) {
+          content = decodeMetadata(data).toString();
+        } else {
+          content = decode(indexer, entry.getValue()).toString();
+        }
       } catch (IOException e) {
         content = e + "\n";
       }
-      builder.append("-> ").append(indexer.getStringForIndex(entry.getKey())).append("\n")
-          .append(content).append("  packed_len = ").append(entry.getValue().length).append("\n");
+      builder
+          .append("-> ")
+          .append(key)
+          .append("\n")
+          .append(content)
+          .append("  packed_len = ")
+          .append(data.length)
+          .append("\n");
       if (++ct > size) {
         builder.append("...");
         break;
@@ -421,14 +576,27 @@ public class CompactPersistentActionCache implements ActionCache {
     out.println("Action cache (" + map.size() + " records):\n");
     for (Map.Entry<Integer, byte[]> entry: map.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
+      String key = indexer.getStringForIndex(entry.getKey());
+      byte[] data = entry.getValue();
       String content;
       try {
-        content = CompactPersistentActionCache.decode(indexer, entry.getValue()).toString();
+        if (key.endsWith(METADATA_SUFFIX)) {
+          content = decodeMetadata(data).toString();
+        } else {
+          content = decode(indexer, data).toString();
+        }
       } catch (IOException e) {
         content = e + "\n";
       }
-      out.println(entry.getKey() + ", " + indexer.getStringForIndex(entry.getKey()) + ":\n"
-          +  content + "\n      packed_len = " + entry.getValue().length + "\n");
+      out.println(
+          entry.getKey()
+              + ", "
+              + key
+              + ":\n"
+              + content
+              + "\n      packed_len = "
+              + data.length
+              + "\n");
     }
   }
 

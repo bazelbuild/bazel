@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * final {@link ActionExecutionValue}.
  */
 @ThreadSafe
-final class OutputStore {
+public final class OutputStore {
 
   private final ConcurrentMap<Artifact, FileArtifactValue> artifactData = new ConcurrentHashMap<>();
 
@@ -43,7 +43,7 @@ final class OutputStore {
     return artifactData.get(artifact);
   }
 
-  void putArtifactData(Artifact artifact, FileArtifactValue value) {
+  public void putArtifactData(Artifact artifact, FileArtifactValue value) {
     Preconditions.checkArgument(
         !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
         "%s should be stored in a TreeArtifactValue",
@@ -60,7 +60,7 @@ final class OutputStore {
     return treeArtifactData.get(artifact);
   }
 
-  void putTreeArtifactData(SpecialArtifact treeArtifact, TreeArtifactValue value) {
+  public void putTreeArtifactData(SpecialArtifact treeArtifact, TreeArtifactValue value) {
     Preconditions.checkArgument(treeArtifact.isTreeArtifact(), "%s is not a tree artifact");
     treeArtifactData.put(treeArtifact, value);
   }

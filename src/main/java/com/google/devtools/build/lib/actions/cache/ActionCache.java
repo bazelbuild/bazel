@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
  * to the string).
  */
 @ThreadCompatible
-public interface ActionCache {
+public interface ActionCache extends MetadataCache {
 
   /**
    * Updates the cache entry for the specified key.
