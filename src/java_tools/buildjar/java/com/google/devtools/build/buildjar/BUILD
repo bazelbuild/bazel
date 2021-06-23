@@ -106,6 +106,7 @@ java_binary(
 java_library(
     name = "javac_options",
     srcs = JAVAC_OPTIONS_SRCS,
+    visibility = ["//visibility:public"],
     deps = [
         "//third_party:auto_value",
         "//third_party:guava",
