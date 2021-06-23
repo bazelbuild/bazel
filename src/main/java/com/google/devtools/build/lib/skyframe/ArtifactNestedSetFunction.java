@@ -168,12 +168,14 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   }
 
   private List<SkyKey> getDepSkyKeys(ArtifactNestedSetKey skyKey) {
-    NestedSet<Artifact> set = skyKey.getSet();
-    List<SkyKey> keys = new ArrayList<>();
-    for (Artifact file : set.getLeaves()) {
+    List<Artifact> leaves = skyKey.getSet().getLeaves();
+    List<NestedSet<Artifact>> nonLeaves = skyKey.getSet().getNonLeaves();
+
+    List<SkyKey> keys = new ArrayList<>(leaves.size() + nonLeaves.size());
+    for (Artifact file : leaves) {
       keys.add(Artifact.key(file));
     }
-    for (NestedSet<Artifact> nonLeaf : set.getNonLeaves()) {
+    for (NestedSet<Artifact> nonLeaf : nonLeaves) {
       keys.add(
           nestedSetToSkyKey.get(nonLeaf.toNode(), node -> new ArtifactNestedSetKey(nonLeaf, node)));
     }
