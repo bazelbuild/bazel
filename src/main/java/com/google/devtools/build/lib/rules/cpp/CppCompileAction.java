@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -160,7 +161,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * The fingerprint of {@link #compileCommandLine}. This is computed lazily so that the command
    * line is not unnecessarily flattened outside of action execution.
    */
-  byte[] commandLineKey;
+  private byte[] commandLineKey;
 
   private final ImmutableMap<String, String> executionInfo;
   private final String actionName;
@@ -787,7 +788,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return result.build();
   }
 
-  private List<String> getCmdlineIncludes(List<String> args) {
+  private static ImmutableList<String> getCmdlineIncludes(List<String> args) {
     ImmutableList.Builder<String> cmdlineIncludes = ImmutableList.builder();
     for (Iterator<String> argi = args.iterator(); argi.hasNext(); ) {
       String arg = argi.next();
@@ -879,9 +880,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     ImmutableSet<Artifact> directoryInputs =
-        getInputs().toList().stream()
-            .filter(artifact -> artifact.isDirectory())
-            .collect(ImmutableSet.toImmutableSet());
+        getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
 
     CommandLine commandLine = compileCommandLine.getFilteredFeatureConfigurationCommandLine(this);
     ParamFileInfo paramFileInfo = null;
@@ -1052,7 +1051,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     errors.assertProblemFree(this, getSourceFile());
   }
 
-  Iterable<PathFragment> getValidationIgnoredDirs() {
+  private Iterable<PathFragment> getValidationIgnoredDirs() {
     List<PathFragment> cxxSystemIncludeDirs = getBuiltInIncludeDirectories();
     return Iterables.concat(cxxSystemIncludeDirs, ccCompilationContext.getSystemIncludeDirs());
   }
@@ -1547,32 +1546,28 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  @VisibleForTesting
-  public NestedSet<Artifact> discoverInputsFromShowIncludesFilters(
+  private NestedSet<Artifact> discoverInputsFromShowIncludesFilters(
       Path execRoot,
       ArtifactResolver artifactResolver,
       ShowIncludesFilter showIncludesFilterForStdout,
       ShowIncludesFilter showIncludesFilterForStderr,
       boolean siblingRepositoryLayout)
       throws ActionExecutionException {
-    ImmutableList.Builder<Path> dependencies = new ImmutableList.Builder<>();
-    dependencies.addAll(showIncludesFilterForStdout.getDependencies(execRoot));
-    dependencies.addAll(showIncludesFilterForStderr.getDependencies(execRoot));
-    HeaderDiscovery.Builder discoveryBuilder =
-        new HeaderDiscovery.Builder()
-            .setAction(this)
-            .setSourceFile(getSourceFile())
-            .setDependencies(dependencies.build())
-            .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-            .setAllowedDerivedInputs(getAllowedDerivedInputs());
-
-    if (needsIncludeValidation) {
-      discoveryBuilder.shouldValidateInclusions();
-    }
-
-    return discoveryBuilder
-        .build()
-        .discoverInputsFromDependencies(execRoot, artifactResolver, siblingRepositoryLayout);
+    Collection<Path> stdoutDeps = showIncludesFilterForStdout.getDependencies(execRoot);
+    Collection<Path> stderrDeps = showIncludesFilterForStderr.getDependencies(execRoot);
+    return HeaderDiscovery.discoverInputsFromDependencies(
+        this,
+        getSourceFile(),
+        needsIncludeValidation,
+        ImmutableList.<Path>builderWithExpectedSize(stdoutDeps.size() + stderrDeps.size())
+            .addAll(stdoutDeps)
+            .addAll(stderrDeps)
+            .build(),
+        getPermittedSystemIncludePrefixes(execRoot),
+        getAllowedDerivedInputs(),
+        execRoot,
+        artifactResolver,
+        siblingRepositoryLayout);
   }
 
   @VisibleForTesting
@@ -1584,22 +1579,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       boolean siblingRepositoryLayout)
       throws ActionExecutionException {
     Preconditions.checkNotNull(getDotdFile(), "Trying to scan .d file which is unset");
-    HeaderDiscovery.Builder discoveryBuilder =
-        new HeaderDiscovery.Builder()
-            .setAction(this)
-            .setSourceFile(getSourceFile())
-            .setDependencies(
-                processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies())
-            .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
-            .setAllowedDerivedInputs(getAllowedDerivedInputs());
-
-    if (needsIncludeValidation) {
-      discoveryBuilder.shouldValidateInclusions();
-    }
-
-    return discoveryBuilder
-        .build()
-        .discoverInputsFromDependencies(execRoot, artifactResolver, siblingRepositoryLayout);
+    return HeaderDiscovery.discoverInputsFromDependencies(
+        this,
+        getSourceFile(),
+        needsIncludeValidation,
+        processDepset(actionExecutionContext, execRoot, dotDContents).getDependencies(),
+        getPermittedSystemIncludePrefixes(execRoot),
+        getAllowedDerivedInputs(),
+        execRoot,
+        artifactResolver,
+        siblingRepositoryLayout);
   }
 
   public DependencySet processDepset(
@@ -1833,7 +1822,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     private final ShowIncludesFilter showIncludesFilterForStderr;
     private final SpawnContinuation spawnContinuation;
 
-    public CppCompileActionContinuation(
+    CppCompileActionContinuation(
         ActionExecutionContext actionExecutionContext,
         ActionExecutionContext spawnExecutionContext,
         ShowIncludesFilter showIncludesFilterForStdout,
