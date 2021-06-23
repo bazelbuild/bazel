@@ -749,7 +749,8 @@ public final class CcLinkingHelper {
           convertLibraryToLinkListToLinkerInputList(
               ccLinkingContext.getLibraries(),
               linkingMode != LinkingMode.DYNAMIC,
-              dynamicLinkType.isDynamicLibrary());
+              dynamicLinkType.isDynamicLibrary(),
+              featureConfiguration);
       dynamicLinkActionBuilder.addLinkParams(
           libraries,
           ccLinkingContext.getFlattenedUserLinkFlags(),
@@ -936,7 +937,10 @@ public final class CcLinkingHelper {
   }
 
   private static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLinkerInputList(
-      NestedSet<LibraryToLink> librariesToLink, boolean staticMode, boolean forDynamicLibrary) {
+      NestedSet<LibraryToLink> librariesToLink,
+      boolean staticMode,
+      boolean forDynamicLibrary,
+      FeatureConfiguration featureConfiguration) {
     ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
         ImmutableList.builder();
     for (LibraryToLink libraryToLink : librariesToLink.toList()) {
@@ -974,7 +978,8 @@ public final class CcLinkingHelper {
         } else if (libraryToLink.getDynamicLibrary() != null) {
           libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
         }
-        if (libraryToLinkToUse == null) {
+        if (libraryToLinkToUse == null
+            || !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER)) {
           if (forDynamicLibrary) {
             if (picStaticLibraryToLink != null) {
               libraryToLinkToUse = picStaticLibraryToLink;

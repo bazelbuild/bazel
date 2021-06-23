@@ -175,6 +175,11 @@ public class CcCommonTest extends BuildViewTestCase {
    */
   @Test
   public void testArchiveInCcLibrarySrcs() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     useConfiguration("--cpu=k8");
     ConfiguredTarget archiveInSrcsTest =
         scratchConfiguredTarget(

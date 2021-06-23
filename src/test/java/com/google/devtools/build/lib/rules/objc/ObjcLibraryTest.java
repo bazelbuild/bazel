@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -2233,5 +2234,32 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file("a/BUILD", "cc_toolchain_alias(name='alias')");
     getConfiguredTarget("//foo:starlark_lib");
     assertNoEvents();
+  }
+
+  @Test
+  public void testCcTestUsesStaticLibraries() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_test(",
+        "    name = 'test',",
+        "    deps = [':foo'],",
+        ")",
+        "objc_library(",
+        "    name = 'foo',",
+        "    deps = [':bar'],",
+        ")",
+        "cc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.a', 'bar.so'],",
+        ")");
+
+    assertThat(
+            artifactsToStrings(
+                getGeneratingAction(
+                        getConfiguredTarget("//x:test")
+                            .getProvider(FilesToRunProvider.class)
+                            .getExecutable())
+                    .getInputs()))
+        .contains("src x/bar.a");
   }
 }

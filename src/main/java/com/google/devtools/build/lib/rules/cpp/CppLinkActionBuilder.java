@@ -107,7 +107,6 @@ public class CppLinkActionBuilder {
   private final Set<Artifact> nonCodeInputs = new LinkedHashSet<>();
   private final NestedSetBuilder<LinkerInputs.LibraryToLink> libraries =
       NestedSetBuilder.linkOrder();
-  private final NestedSetBuilder<LibraryToLink> librariesToLink = NestedSetBuilder.linkOrder();
   private NestedSet<Artifact> linkerFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private Artifact runtimeMiddleman;
   private ArtifactCategory toolchainLibrariesType = null;
@@ -543,60 +542,9 @@ public class CppLinkActionBuilder {
     }
   }
 
-  private ImmutableList<LinkerInputs.LibraryToLink> collectLinkerInputs(
-      NestedSet<LibraryToLink> librariesToLink) {
-    ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
-        ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
-      LinkerInputs.LibraryToLink staticLibraryToLink =
-          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
-      LinkerInputs.LibraryToLink picStaticLibraryToLink =
-          libraryToLink.getPicStaticLibrary() == null
-              ? null
-              : libraryToLink.getPicStaticLibraryToLink();
-      LinkerInputs.LibraryToLink libraryToLinkToUse = null;
-      if (linkingMode == LinkingMode.STATIC) {
-        if (linkType.isDynamicLibrary()) {
-          if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          } else if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          }
-        } else {
-          if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          } else if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          }
-        }
-      }
-      if (libraryToLinkToUse == null) {
-        if (libraryToLink.getInterfaceLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
-        } else if (libraryToLink.getDynamicLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
-        }
-      }
-      Preconditions.checkNotNull(libraryToLinkToUse);
-      checkLibrary(libraryToLinkToUse);
-      librariesToLinkBuilder.add(libraryToLinkToUse);
-    }
-    return librariesToLinkBuilder.build();
-  }
-
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws InterruptedException, RuleErrorException {
-    NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = null;
-
-    if (librariesToLink.isEmpty()) {
-      originalUniqueLibraries = libraries.build();
-    } else {
-      Preconditions.checkState(libraries.isEmpty());
-      originalUniqueLibraries =
-          NestedSetBuilder.<LinkerInputs.LibraryToLink>linkOrder()
-              .addAll(collectLinkerInputs(librariesToLink.build()))
-              .build();
-    }
+    NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
 
     // Executable links do not have library identifiers.
     boolean hasIdentifier = (libraryIdentifier != null);
@@ -1355,7 +1303,6 @@ public class CppLinkActionBuilder {
    * libraries.
    */
   public CppLinkActionBuilder addLibraries(Collection<LinkerInputs.LibraryToLink> inputs) {
-    Preconditions.checkState(librariesToLink.isEmpty());
     for (LinkerInputs.LibraryToLink input : inputs) {
       checkLibrary(input);
       if (input.isMustKeepDebug()) {
@@ -1363,17 +1310,6 @@ public class CppLinkActionBuilder {
       }
     }
     this.libraries.addAll(inputs);
-    return this;
-  }
-
-  public CppLinkActionBuilder addLibrariesToLink(Iterable<LibraryToLink> inputs) {
-    Preconditions.checkState(libraries.isEmpty());
-    for (LibraryToLink input : inputs) {
-      if (input.getMustKeepDebug()) {
-        mustKeepDebug = true;
-      }
-    }
-    this.librariesToLink.addAll(inputs);
     return this;
   }
 

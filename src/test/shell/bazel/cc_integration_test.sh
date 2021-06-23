@@ -559,6 +559,8 @@ function test_cc_starlark_api_default_values() {
 
 
 function test_cc_starlark_api_link_static_false() {
+  [ "$PLATFORM" != "darwin" ] || return 0
+
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
 
