@@ -208,15 +208,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);
 
-      WorkerProtocolFormat protocolFormat = Spawns.getWorkerProtocolFormat(spawn);
-      if (!workerOptions.experimentalJsonWorkerProtocol) {
-        if (protocolFormat == WorkerProtocolFormat.JSON) {
-          throw new IOException(
-              "Persistent worker protocol format must be set to proto unless"
-                  + " --experimental_worker_allow_json_protocol is used");
-        }
-      }
-
       WorkerKey key =
           new WorkerKey(
               workerArgs,
@@ -228,7 +219,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               context.speculating(),
               multiplex && Spawns.supportsMultiplexWorkers(spawn),
               Spawns.supportsWorkerCancellation(spawn),
-              protocolFormat);
+              Spawns.getWorkerProtocolFormat(spawn));
 
       spawnMetrics =
           SpawnMetrics.Builder.forWorkerExec()
