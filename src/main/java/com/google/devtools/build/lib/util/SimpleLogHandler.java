@@ -502,7 +502,8 @@ public final class SimpleLogHandler extends Handler {
    *     configured in the JVM logging configuration
    * @param <T> value type
    */
-  private static @Nullable <T> T getConfiguredProperty(
+  @Nullable
+  private static <T> T getConfiguredProperty(
       @Nullable T builderValue,
       String configuredName,
       Function<String, T> parse,
@@ -719,11 +720,11 @@ public final class SimpleLogHandler extends Handler {
 
   private static final class Output {
     /** Log file currently in use. */
-    private @Nullable File file;
+    @Nullable private File file;
     /** Output stream for {@link #file} which counts the number of bytes written. */
-    private @Nullable CountingOutputStream stream;
+    @Nullable private CountingOutputStream stream;
     /** Writer for {@link #stream}. */
-    private @Nullable OutputStreamWriter writer;
+    @Nullable private OutputStreamWriter writer;
 
     public boolean isOpen() {
       return writer != null;
