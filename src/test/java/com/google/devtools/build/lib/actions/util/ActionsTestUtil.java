@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -780,6 +781,15 @@ public final class ActionsTestUtil {
       Iterable<? extends Artifact> artifacts, String suffix) {
     return getFirstArtifactMatching(
         artifacts, artifact -> artifact.getExecPath().getPathString().endsWith(suffix));
+  }
+
+  public static Artifact getFirstDerivedArtifactEndingWith(
+      NestedSet<? extends Artifact> artifacts, String suffix) {
+    return getFirstArtifactMatching(
+        artifacts.toList(),
+        artifact ->
+            artifact instanceof DerivedArtifact
+                && artifact.getExecPath().getPathString().endsWith(suffix));
   }
 
   /** Returns the first Artifact in the provided Iterable that matches the specified predicate. */

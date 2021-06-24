@@ -74,13 +74,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   static final RuleType RULE_TYPE = new OnlyNeedsSourcesRuleType("objc_library");
   private static final String WRAPPED_CLANG = "wrapped_clang";
-
-  /**
-   * Middleman artifact arising from //tools/osx/crosstool:link, containing tools that should be
-   * inputs to link actions.
-   */
-  private static final String CROSSTOOL_LINK_MIDDLEMAN = "tools_Sosx_Scrosstool_Clink";
-
   /** Creates an {@code objc_library} target writer. */
   @Override
   protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
@@ -878,7 +871,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 "-o",
                 Iterables.getOnlyElement(archiveAction.getOutputs()).getExecPathString()));
     assertThat(baseArtifactNames(archiveAction.getInputs()))
-        .containsAtLeast("a.o", "b.o", "lib-archive.objlist", CROSSTOOL_LINK_MIDDLEMAN);
+        .containsAtLeast("a.o", "b.o", "lib-archive.objlist", "ar", "libempty.a", "libtool");
     assertThat(baseArtifactNames(archiveAction.getOutputs())).containsExactly("liblib.a");
     assertRequiresDarwin(archiveAction);
   }

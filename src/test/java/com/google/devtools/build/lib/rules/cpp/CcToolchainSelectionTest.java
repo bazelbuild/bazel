@@ -57,7 +57,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             .getToolchainContext()
             .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
     CcToolchainProvider toolchain = (CcToolchainProvider) toolchainInfo.getValue("cc");
-    assertThat(toolchain.getCompilerFiles().getSingleton().getExecPathString()).endsWith("k8");
+    assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }
 
   @Test
