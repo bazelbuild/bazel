@@ -4,14 +4,10 @@ load("@rules_java//java:defs.bzl", "java_plugin")
 #   A preprocessor for the annotations used in the options parser.
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])  # Apache 2.0
-
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-    ),
-    visibility = ["//src/main/java/com/google/devtools/common/options:__pkg__"],
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_plugin(
