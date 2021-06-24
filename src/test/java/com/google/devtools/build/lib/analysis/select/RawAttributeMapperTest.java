@@ -68,9 +68,9 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
             () -> rawMapper.get("srcs", BuildType.LABEL_LIST));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "wrong type for attribute \"srcs\" in sh_binary rule //x:myrule: "
-                + "expected list(label), is SelectorList");
+        .contains(
+            "Unexpected configurable attribute \"srcs\" in sh_binary rule //x:myrule: "
+                + "expected list(label), is select");
   }
 
   @Override
@@ -102,9 +102,9 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
             () -> rawMapper.visitLabels());
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "wrong type for attribute \"srcs\" in sh_binary rule //x:myrule: "
-                + "expected list(label), is SelectorList");
+        .contains(
+            "Unexpected configurable attribute \"srcs\" in sh_binary rule //x:myrule: "
+                + "expected list(label), is select");
   }
 
   @Test

@@ -57,24 +57,24 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Nullable
   @Override
+  @SuppressWarnings("unchecked")
   public <T> T get(String attributeName, Type<T> type) {
     Object value = rule.getAttr(attributeName, type);
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     } else if (value instanceof Attribute.LateBoundDefault) {
       value = ((Attribute.LateBoundDefault) value).getDefault();
-    }
-    try {
-      return type.cast(value);
-    } catch (ClassCastException e) {
-      // getIndexWithTypeCheck checks the type is right, but unexpected configurable attributes
-      // can still trigger cast exceptions.
+    } else if (value instanceof SelectorList) {
       throw new IllegalArgumentException(
           String.format(
-              "wrong type for attribute \"%s\" in %s rule %s: expected %s, is %s",
-              attributeName, ruleClass, ruleLabel, type, value.getClass().getSimpleName()),
-          e);
+              "Unexpected configurable attribute \"%s\" in %s rule %s: expected %s, is %s",
+              attributeName, ruleClass, ruleLabel, type, value));
     }
+
+    // Hot code path - avoid the overhead of calling type.cast(value). The rule would have already
+    // failed on construction if one of its attributes was of the wrong type (inluding computed
+    // defaults).
+    return (T) value;
   }
 
   /**
