@@ -90,14 +90,6 @@ class WorkerParser {
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
-    WorkerProtocolFormat protocolFormat = Spawns.getWorkerProtocolFormat(spawn);
-    if (!workerOptions.experimentalJsonWorkerProtocol) {
-      if (protocolFormat == WorkerProtocolFormat.JSON) {
-        throw new IOException(
-            "Persistent worker protocol format must be set to proto unless"
-                + " --experimental_worker_allow_json_protocol is used");
-      }
-    }
     WorkerKey key =
         createWorkerKey(
             spawn,
@@ -108,7 +100,7 @@ class WorkerParser {
             workerFiles,
             workerOptions,
             context.speculating(),
-            protocolFormat);
+            Spawns.getWorkerProtocolFormat(spawn));
     return new WorkerConfig(key, flagFiles);
   }
 

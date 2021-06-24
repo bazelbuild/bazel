@@ -137,11 +137,6 @@ flag makes each worker request use a separate sandbox directory for all its
 inputs. Setting up the [sandbox](/docs/sandboxing) takes some extra time,
 especially on macOS, but gives a better correctness guarantee.
 
-You can use the `--experimental_worker_allow_json_protocol` flag to allow
-workers to communicate with Bazel through JSON instead of protocol buffers
-(protobuf). The worker and the rule that consumes it can then be modified to
-support JSON.
-
 The
 [`--worker_quit_after_build`](/reference/command-line-reference#flag--worker_quit_after_build)
 flag is mainly useful for debugging and profiling. This flag forces all workers
@@ -197,13 +192,13 @@ inputs: [
 ```
 
 The worker receives this on `stdin` in JSON format (because
-`requires-worker-protocol` is set to JSON, and
-`--experimental_worker_allow_json_protocol` is passed to the build to enable
-this option). The worker then performs the action, and sends a JSON-formatted
-`WorkResponse` to Bazel on its stdout. Bazel then parses this response and
-manually converts it to a `WorkResponse` proto. To communicate
-with the associated worker using binary-encoded protobuf instead of JSON,
-`requires-worker-protocol` would be set to `proto`, like this:
+`requires-worker-protocol` is set to JSON). Each WorkRequest json blob
+is separated by a newline. The worker then performs the action, and
+sends a JSON-formatted `WorkResponse` to Bazel on its stdout. Bazel then
+parses this response and manually converts it to a `WorkResponse` proto.
+To communicate with the associated worker using binary-encoded protobuf
+instead of JSON, `requires-worker-protocol` would be set to `proto` or
+omitted, like this:
 
 ```
   execution_requirements = {
