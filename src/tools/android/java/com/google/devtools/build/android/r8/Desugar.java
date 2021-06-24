@@ -25,9 +25,7 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
-import com.android.tools.r8.DiagnosticsLevel;
 import com.android.tools.r8.StringResource;
-import com.android.tools.r8.errors.DesugaredLibraryMismatchDiagnostic;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -425,14 +423,6 @@ public class Desugar {
                 missingTypeDiagnostic.getMissingType().getDescriptor()));
       }
       DiagnosticsHandler.super.warning(warning);
-    }
-
-    @Override
-    public DiagnosticsLevel modifyDiagnosticsLevel(DiagnosticsLevel level, Diagnostic diagnostic) {
-      if (diagnostic instanceof DesugaredLibraryMismatchDiagnostic) {
-        return DiagnosticsLevel.WARNING;
-      }
-      return level;
     }
   }
 
