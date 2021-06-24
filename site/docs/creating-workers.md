@@ -98,6 +98,9 @@ for cancel requests, see below).
 * JSON requests and responses are not preceded by a size indicator.
 * JSON requests uphold the same structure as the protobuf, but use standard
  JSON.
+* In order to maintain the same backward and forward compatibility
+  properties as protobuf, JSON workers must tolerate unknown fields in
+  these messages, and use the protobuf defaults for missing values.
 * Bazel stores requests as protobufs and converts them to JSON using
 [protobuf's JSON format](https://cs.opensource.google/protobuf/protobuf/+/master:java/util/src/main/java/com/google/protobuf/util/JsonFormat.java)
 
