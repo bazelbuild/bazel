@@ -81,10 +81,17 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
                    // (aka EOPNOTSUPP)
       exception_classname = "java/lang/UnsupportedOperationException";
       break;
+    case EINVAL:  // Invalid argument
+      exception_classname =
+          "com/google/devtools/build/lib/unix/InvalidArgumentIOException";
+      break;
+    case ELOOP:  // Too many symbolic links encountered
+      exception_classname =
+          "com/google/devtools/build/lib/vfs/FileSymlinkLoopException";
+      break;
     case EBADF:         // Bad file number or descriptor already closed.
     case ENAMETOOLONG:  // File name too long
     case ENODATA:    // No data available
-    case EINVAL:     // Invalid argument
 #if defined(EMULTIHOP)
     case EMULTIHOP:  // Multihop attempted
 #endif
@@ -98,7 +105,6 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
     case EROFS:      // Read-only file system
     case EEXIST:     // File exists
     case EMLINK:     // Too many links
-    case ELOOP:      // Too many symbolic links encountered
     case EISDIR:     // Is a directory
     case ENOTDIR:    // Not a directory
     case ENOTEMPTY:  // Directory not empty

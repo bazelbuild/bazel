@@ -18,7 +18,10 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
@@ -112,4 +115,30 @@ public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
     events.assertContainsError("Symlinking //foo:foo failed: missing input file '//foo:foo.sh'");
   }
+
+  @Test
+  public void globDanglingSymlink() throws Exception {
+    Path packageDirPath = write("foo/BUILD", "exports_files(glob(['*.txt']))").getParentDirectory();
+    write("foo/existing.txt");
+    Path badSymlink = packageDirPath.getChild("bad.txt");
+    FileSystemUtils.ensureSymbolicLink(badSymlink, "nope");
+    // Successful build: dangling symlinks in glob are ignored.
+    buildTarget("//foo:all");
+  }
+
+  @Test
+  public void globSymlinkCycle() throws Exception {
+    Path fooBuildFile = write("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.sh']))");
+    fooBuildFile
+        .getParentDirectory()
+        .getChild("foo.sh")
+        .createSymbolicLink(PathFragment.create("foo.sh"));
+    TargetParsingException e =
+        assertThrows(TargetParsingException.class, () -> buildTarget("//foo:foo"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.EVAL_GLOBS_SYMLINK_ERROR);
+  }
+
+  @Test
+  public void globMissingFile() throws Exception {}
 }

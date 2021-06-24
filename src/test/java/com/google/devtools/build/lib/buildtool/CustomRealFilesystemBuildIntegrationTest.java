@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -97,15 +96,18 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
   }
 
   @Test
-  public void globDanglingSymlink() throws Exception {
-    Path packageDirPath = write("foo/BUILD", "exports_files(glob(['*.txt']))").getParentDirectory();
-    write("foo/existing.txt");
-    Path badSymlink = packageDirPath.getChild("bad.txt");
-    FileSystemUtils.ensureSymbolicLink(badSymlink, "nope");
-    customFileSystem.alwaysError(badSymlink);
+  public void globIOException() throws Exception {
+    Path fooBuild = write("foo/BUILD", "exports_files(glob(['**/*.txt']))").getParentDirectory();
+    Path badDir = fooBuild.getChild("bad");
+    assertThat(badDir.createDirectory()).isTrue();
+    customFileSystem.alwaysError(badDir);
     TargetParsingException e =
         assertThrows(TargetParsingException.class, () -> buildTarget("//foo:all"));
-    assertThat(e).hasMessageThat().contains("no such package 'foo': error globbing [*.txt]: nope");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("no such package 'foo': error globbing [**/*.txt]: nope");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.GLOB_IO_EXCEPTION);
   }
 
   /**

@@ -344,9 +344,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       return PathFragment.create(NativePosixFiles.readlink(name));
-    } catch (IOException e) {
-      // EINVAL => not a symbolic link.  Anything else is a real error.
-      throw e.getMessage().endsWith("(Invalid argument)") ? new NotASymlinkException(path) : e;
+    } catch (InvalidArgumentIOException e) {
+      throw new NotASymlinkException(path, e);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_READLINK, name);
     }

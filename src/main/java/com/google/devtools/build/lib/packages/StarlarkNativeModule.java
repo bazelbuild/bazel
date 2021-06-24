@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
@@ -114,7 +115,16 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               excludes.isEmpty() ? "" : " - [" + Joiner.on(", ").join(excludes) + "]",
               e.getMessage());
       Location loc = thread.getCallerLocation();
-      Event error = Package.error(loc, errorMessage, Code.GLOB_IO_EXCEPTION);
+      Event error =
+          Package.error(
+              loc,
+              errorMessage,
+              // If there are other IOExceptions that can result from user error, they should be
+              // tested for here. Currently FileNotFoundException is not one of those, because globs
+              // only encounter that error in the presence of an inconsistent filesystem.
+              e instanceof FileSymlinkException
+                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
+                  : Code.GLOB_IO_EXCEPTION);
       context.eventHandler.handle(error);
       context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
       matches = ImmutableList.of();

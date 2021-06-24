@@ -52,7 +52,11 @@ public abstract class FileSystem {
    */
   protected static final class NotASymlinkException extends IOException {
     public NotASymlinkException(PathFragment path) {
-      super(path + " is not a symlink");
+      super(path.getPathString() + " is not a symlink");
+    }
+
+    public NotASymlinkException(PathFragment path, Throwable cause) {
+      super(path.getPathString() + " is not a symlink", cause);
     }
   }
 
@@ -354,7 +358,7 @@ public abstract class FileSystem {
     }
 
     if (maxLinks-- == 0) {
-      throw new IOException(naive + " (Too many levels of symbolic links)");
+      throw new FileSymlinkLoopException(naive);
     }
     if (linkTarget.isAbsolute()) {
       dir = PathFragment.createAlreadyNormalized(linkTarget.getDriveStr());
@@ -774,4 +778,5 @@ public abstract class FileSystem {
    * implement this in order to warm the filesystem's internal caches.
    */
   protected void prefetchPackageAsync(PathFragment path, int maxDirs) {}
+
 }

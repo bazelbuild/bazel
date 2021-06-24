@@ -1186,7 +1186,7 @@ message PackageLoading {
     PACKAGE_MISSING = 11 [(metadata) = { exit_code: 1 }];
     TARGET_MISSING = 12 [(metadata) = { exit_code: 1 }];
     NO_SUCH_THING = 13 [(metadata) = { exit_code: 1 }];
-    GLOB_IO_EXCEPTION = 14 [(metadata) = { exit_code: 1 }];
+    GLOB_IO_EXCEPTION = 14 [(metadata) = { exit_code: 36 }];
     DUPLICATE_LABEL = 15 [(metadata) = { exit_code: 1 }];
     INVALID_PACKAGE_SPECIFICATION = 16 [(metadata) = { exit_code: 1 }];
     SYNTAX_ERROR = 17 [(metadata) = { exit_code: 1 }];
