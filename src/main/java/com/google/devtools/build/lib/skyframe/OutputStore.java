@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,6 +39,9 @@ public final class OutputStore {
   private final ConcurrentMap<SpecialArtifact, TreeArtifactValue> treeArtifactData =
       new ConcurrentHashMap<>();
 
+  private final ConcurrentMap<TreeFileArtifact, FileArtifactValue> treeFileArtifactData =
+      new ConcurrentHashMap<>();
+
   @Nullable
   FileArtifactValue getArtifactData(Artifact artifact) {
     return artifactData.get(artifact);
@@ -49,6 +53,14 @@ public final class OutputStore {
         "%s should be stored in a TreeArtifactValue",
         artifact);
     artifactData.put(artifact, value);
+  }
+
+  public void putTreeFileArtifactData(TreeFileArtifact child, FileArtifactValue metadata) {
+    treeFileArtifactData.put(child, metadata);
+  }
+
+  public FileArtifactValue getTreeFileArtifactData(TreeFileArtifact child) {
+    return treeFileArtifactData.get(child);
   }
 
   ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
@@ -77,6 +89,7 @@ public final class OutputStore {
   void clear() {
     artifactData.clear();
     treeArtifactData.clear();
+    treeFileArtifactData.clear();
   }
 
   /**

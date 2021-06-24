@@ -343,16 +343,18 @@ final class ActionMetadataHandler implements MetadataHandler {
             return; // The final TreeArtifactValue does not contain child directories.
           }
           TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
-          FileArtifactValue metadata;
-          try {
-            metadata = constructFileArtifactValueFromFilesystem(child);
-          } catch (FileNotFoundException e) {
-            String errorMessage =
-                String.format(
-                    "Failed to resolve relative path %s inside TreeArtifact %s. "
-                        + "The associated file is either missing or is an invalid symlink.",
-                    parentRelativePath, treeDir);
-            throw new IOException(errorMessage, e);
+          FileArtifactValue metadata = store.getTreeFileArtifactData(child);
+          if (metadata == null) {
+            try {
+              metadata = constructFileArtifactValueFromFilesystem(child);
+            } catch (FileNotFoundException e) {
+              String errorMessage =
+                  String.format(
+                      "Failed to resolve relative path %s inside TreeArtifact %s. "
+                          + "The associated file is either missing or is an invalid symlink.",
+                      parentRelativePath, treeDir);
+              throw new IOException(errorMessage, e);
+            }
           }
 
           tree.putChild(child, metadata);

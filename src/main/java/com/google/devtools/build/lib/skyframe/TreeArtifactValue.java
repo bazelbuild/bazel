@@ -216,7 +216,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         : null;
   }
 
-  ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
+  public ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
     return childData;
   }
 
@@ -282,7 +282,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
       }
 
       @Override
-      ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
+      public ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
         throw new UnsupportedOperationException(toString());
       }
 
