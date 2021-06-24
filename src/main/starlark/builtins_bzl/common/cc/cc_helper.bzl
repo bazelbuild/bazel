@@ -71,9 +71,12 @@ def _find_cpp_toolchain(ctx):
 
     # Check the incompatible flag for toolchain resolution.
     if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if not "//tools/cpp:toolchain_type" in ctx.toolchains:
+        if not "@//tools/cpp:toolchain_type" in ctx.toolchains:
             fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
-        return ctx.toolchains["//tools/cpp:toolchain_type"]
+        toolchain_info = ctx.toolchains["@//tools/cpp:toolchain_type"]
+        if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
+            return toolchain_info.cc
+        return toolchain_info
 
     # Otherwise, fall back to the legacy attribute.
     if hasattr(ctx.attr, "_cc_toolchain"):
