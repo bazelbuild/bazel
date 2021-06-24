@@ -867,7 +867,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public void handleAnalysisInvalidatingChange() {
     super.handleAnalysisInvalidatingChange();
-    memoizingEvaluator.delete(ANALYSIS_INVALIDATING_PREDICATE);
+    deleteAnalysisNodes();
   }
 
   /**

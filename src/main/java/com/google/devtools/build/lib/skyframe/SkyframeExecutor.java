@@ -240,11 +240,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 public abstract class SkyframeExecutor implements WalkableGraphFactory, ConfigurationsCollector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
-  // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
-  protected static final Predicate<SkyKey> ANALYSIS_INVALIDATING_PREDICATE =
-      k -> (k instanceof ArtifactNestedSetKey || k instanceof ActionLookupKey);
-
   private final EvaluatorSupplier evaluatorSupplier;
   protected MemoizingEvaluator memoizingEvaluator;
   private final MemoizingEvaluator.EmittedEventState emittedEventState =
@@ -340,6 +335,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @VisibleForTesting boolean lastAnalysisDiscarded = false;
 
   private boolean analysisCacheDiscarded = false;
+  private boolean keepBuildConfigurationNodesWhenDiscardingAnalysis = false;
 
   private final ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions;
 
@@ -1102,6 +1098,26 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects);
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
+
+  protected final void deleteAnalysisNodes() {
+    memoizingEvaluator.delete(
+        keepBuildConfigurationNodesWhenDiscardingAnalysis
+            ? SkyframeExecutor::basicAnalysisInvalidatingPredicate
+            : SkyframeExecutor::fullAnalysisInvalidatingPredicate);
+  }
+
+  // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
+  // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
+  private static boolean basicAnalysisInvalidatingPredicate(SkyKey key) {
+    return key instanceof ArtifactNestedSetKey || key instanceof ActionLookupKey;
+  }
+
+  // We may also want to remove BuildConfigurationValue.Keys to fix a minor memory leak there.
+  private static boolean fullAnalysisInvalidatingPredicate(SkyKey key) {
+    return key instanceof ArtifactNestedSetKey
+        || key instanceof ActionLookupKey
+        || key instanceof BuildConfigurationValue.Key;
+  }
 
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
     WorkspaceStatusAction.Environment env =
@@ -2642,6 +2658,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     updateSkyFunctionsSemaphoreSize(options);
+    AnalysisOptions analysisOptions = options.getOptions(AnalysisOptions.class);
+    keepBuildConfigurationNodesWhenDiscardingAnalysis =
+        analysisOptions == null || analysisOptions.keepConfigNodes;
     syncPackageLoading(
         packageOptions,
         pathPackageLocator,

@@ -255,31 +255,12 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void compareConfigs() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
     analyzeTarget("--action_env=a=1", "--notrim_test_configuration");
-    analyzeTarget("--action_env=b=2", "--notrim_test_configuration");
-    String targetConfig1Hash = null;
-    String targetConfig2Hash = null;
-
-    // Find the two target configuration hashes.
-    for (JsonElement element :
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()) {
-      String configHash = element.getAsString();
-      ConfigurationForOutput config =
-          new Gson()
-              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
-      if (isTargetConfig(config)) {
-        if (targetConfig1Hash == null) {
-          targetConfig1Hash = config.configHash;
-        } else {
-          assertThat(targetConfig2Hash).isNull();
-          targetConfig2Hash = config.configHash;
-        }
-      }
-    }
-    assertThat(targetConfig1Hash).isNotNull();
-    assertThat(targetConfig2Hash).isNotNull();
+    String targetConfig1Hash = getTargetConfig().configHash;
+    analyzeTarget(
+        "--action_env=b=2",
+        "--notrim_test_configuration",
+        "--experimental_keep_config_nodes_on_analysis_discard");
+    String targetConfig2Hash = getTargetConfig().configHash;
 
     // Get their diff.
     String result = callConfigCommand(targetConfig1Hash, targetConfig2Hash).outAsLatin1();
@@ -303,29 +284,12 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void compareConfigsHashPrefix() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
     analyzeTarget("--action_env=a=1", "--notrim_test_configuration");
-    analyzeTarget("--action_env=b=2", "--notrim_test_configuration");
-    String targetConfig1Hash = null;
-    String targetConfig2Hash = null;
-
-    // Find the two target configuration hashes.
-    for (JsonElement element :
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()) {
-      String configHash = element.getAsString();
-      ConfigurationForOutput config =
-          new Gson()
-              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
-      if (isTargetConfig(config)) {
-        if (targetConfig1Hash == null) {
-          targetConfig1Hash = config.configHash;
-        } else {
-          assertThat(targetConfig2Hash).isNull();
-          targetConfig2Hash = config.configHash;
-        }
-      }
-    }
+    String targetConfig1Hash = getTargetConfig().configHash;
+    analyzeTarget(
+        "--action_env=b=2",
+        "--notrim_test_configuration",
+        "--experimental_keep_config_nodes_on_analysis_discard");
+    String targetConfig2Hash = getTargetConfig().configHash;
 
     String hashPrefix1 = targetConfig1Hash.substring(0, targetConfig1Hash.length() / 2);
     String hashPrefix2 = targetConfig2Hash.substring(0, targetConfig2Hash.length() / 2);
@@ -344,26 +308,11 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void compareConfigs_hostConfig() throws Exception {
     // Do not trim test configuration for now to make 'finding' the configurations easier.
     analyzeTarget("--action_env=a=1", "--notrim_test_configuration");
-    analyzeTarget("--action_env=b=2", "--notrim_test_configuration");
-    String targetConfigHash = null;
-
-    // Find a target configuration hash.
-    for (JsonElement element :
-        JsonParser.parseString(callConfigCommand().outAsLatin1())
-            .getAsJsonObject()
-            .get("configuration-IDs")
-            .getAsJsonArray()) {
-      String configHash = element.getAsString();
-      ConfigurationForOutput config =
-          new Gson()
-              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
-      if (isTargetConfig(config)) {
-        if (targetConfigHash == null) {
-          targetConfigHash = config.configHash;
-          break;
-        }
-      }
-    }
+    String targetConfigHash = getTargetConfig().configHash;
+    analyzeTarget(
+        "--action_env=b=2",
+        "--notrim_test_configuration",
+        "--experimental_keep_config_nodes_on_analysis_discard");
 
     ConfigurationDiffForOutput diff =
         new Gson()
@@ -384,6 +333,24 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     assertThat(isHostDiff).isPresent();
     assertThat(isHostDiff.get().getFirst()).isEqualTo("false");
     assertThat(isHostDiff.get().getSecond()).isEqualTo("true");
+  }
+
+  private ConfigurationForOutput getTargetConfig() throws Exception {
+    // Find a target configuration hash.
+    for (JsonElement element :
+        JsonParser.parseString(callConfigCommand().outAsLatin1())
+            .getAsJsonObject()
+            .get("configuration-IDs")
+            .getAsJsonArray()) {
+      String configHash = element.getAsString();
+      ConfigurationForOutput config =
+          new Gson()
+              .fromJson(callConfigCommand(configHash).outAsLatin1(), ConfigurationForOutput.class);
+      if (isTargetConfig(config)) {
+        return config;
+      }
+    }
+    throw new AssertionError("Should have found config hash");
   }
 
   @Test
