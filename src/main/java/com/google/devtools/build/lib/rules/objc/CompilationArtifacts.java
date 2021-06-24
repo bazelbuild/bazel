@@ -21,6 +21,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -149,5 +151,11 @@ final class CompilationArtifacts implements StarlarkValue {
    */
   Optional<Artifact> getArchive() {
     return archive;
+  }
+
+  @StarlarkMethod(name = "archive", documented = false, allowReturnNones = true, structField = true)
+  @Nullable
+  public Artifact getArchiveForStarlark() {
+    return archive.orNull();
   }
 }

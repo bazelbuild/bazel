@@ -47,36 +47,33 @@ def _create_common(ctx):
         alwayslink = ctx.attr.alwayslink,
         has_module_map = True,
     )
-    return common
+    return (common, compilation_artifacts)
 
-def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider):
-    libraries = objc_provider.library.to_list()
-    cc_libraries = objc_provider.cc_library.to_list()
+def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, compilation_artifacts, compilation_attributes):
+    libraries = []
+    if compilation_artifacts.archive != None:
+        library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, compilation_artifacts.archive)
+        libraries.append(library_to_link)
 
-    libraries_to_link = {}
-
-    for library in libraries:
-        library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, library)
-        libraries_to_link[library_to_link] = library_to_link
-
-    for library in cc_libraries:
-        library_to_link = _to_static_library(ctx, feature_configuration, cc_toolchain, library)
-        libraries_to_link[library_to_link] = library_to_link
-
-    sdk_frameworks = objc_provider.sdk_framework.to_list()
+    sdk_frameworks = compilation_attributes.sdk_framework.to_list()
     user_link_flags = []
     for sdk_framework in sdk_frameworks:
         user_link_flags.append(["-framework", sdk_framework])
 
-    linker_input = cc_common.create_linker_input(
-        owner = ctx.label,
-        libraries = depset(libraries_to_link.values()),
-        user_link_flags = user_link_flags,
-        linkstamps = depset(objc_provider.linkstamp.to_list()),
-    )
+    direct_linker_inputs = []
+    if len(user_link_flags) != 0 or len(libraries) != 0:
+        linker_input = cc_common.create_linker_input(
+            owner = ctx.label,
+            libraries = depset(libraries),
+            user_link_flags = user_link_flags,
+        )
+        direct_linker_inputs.append(linker_input)
+
+    cc_libraries = objc_provider.linker_inputs()
+    linkstamp_linker_inputs = objc_provider.linkstamp_linker_inputs()
 
     return cc_common.create_linking_context(
-        linker_inputs = depset([linker_input], order = "topological"),
+        linker_inputs = depset(direct = direct_linker_inputs, transitive = [cc_libraries, linkstamp_linker_inputs], order = "topological"),
     )
 
 def _static_library(
@@ -119,7 +116,7 @@ def _to_static_library(
 
 def _objc_library_impl(ctx):
     _validate_attributes(ctx)
-    common = _create_common(ctx)
+    (common, compilation_artifacts) = _create_common(ctx)
     files = []
     if common.compiled_archive != None:
         files.append(common.compiled_archive)
@@ -138,7 +135,7 @@ def _objc_library_impl(ctx):
     objc_provider = common.objc_provider
     feature_configuration = compilation_support.feature_configuration
     cc_toolchain = compilation_support.cc_toolchain
-    linking_context = _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider)
+    linking_context = _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, compilation_artifacts, compilation_attributes)
     cc_info = CcInfo(
         compilation_context = compilation_support.compilation_context,
         linking_context = linking_context,

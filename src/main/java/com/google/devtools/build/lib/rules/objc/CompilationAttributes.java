@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Provides a way to access attributes that are common to all compilation rules. */
@@ -366,6 +368,13 @@ final class CompilationAttributes implements StarlarkValue {
    */
   public NestedSet<SdkFramework> sdkFrameworks() {
     return this.sdkFrameworks;
+  }
+
+  @StarlarkMethod(name = "sdk_framework", documented = false, structField = true)
+  public Depset sdkFramework() {
+    return (Depset)
+        ObjcProviderStarlarkConverters.convertToStarlark(
+            ObjcProvider.SDK_FRAMEWORK, sdkFrameworks());
   }
 
   /**
