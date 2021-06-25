@@ -41,7 +41,7 @@ public abstract class RepoSpec {
   /** The builder for {@link RepoSpec} */
   @AutoValue.Builder
   public abstract static class Builder {
-    public abstract Builder setBzlFile(Optional<String> bzlFile);
+    public abstract Builder setBzlFile(String bzlFile);
 
     public abstract Builder setRuleClassName(String name);
 

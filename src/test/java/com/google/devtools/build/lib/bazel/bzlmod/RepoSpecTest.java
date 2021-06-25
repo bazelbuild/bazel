@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -44,7 +43,7 @@ public class RepoSpecTest {
   public void starlarkRepoSpecTest() {
     RepoSpec repoSpec =
         RepoSpec.builder()
-            .setBzlFile(Optional.of("//pkg:repo.bzl"))
+            .setBzlFile("//pkg:repo.bzl")
             .setRuleClassName("my_repo")
             .setAttributes(ImmutableMap.of("attr1", "foo", "attr2", "bar"))
             .build();
