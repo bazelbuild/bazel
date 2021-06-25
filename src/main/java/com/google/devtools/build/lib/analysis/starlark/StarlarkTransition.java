@@ -422,6 +422,31 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     return toReturn.build();
   }
 
+  /** Adds the default values for a transition's input build settings to its input build options. */
+  public static BuildOptions addDefaultStarlarkOptions(
+      BuildOptions fromOptions,
+      ConfigurationTransition transition,
+      Map<PackageValue.Key, PackageValue> buildSettingPackages)
+      throws TransitionException {
+    if (buildSettingPackages.isEmpty()) {
+      // No need to traverse the transition to find its Starlark flag inputs. There are none.
+      return fromOptions;
+    }
+    ImmutableMap<Label, Object> buildSettingDefaults =
+        getDefaultValues(buildSettingPackages, transition);
+    BuildOptions.Builder optionsWithDefaults = null;
+    for (Map.Entry<Label, Object> buildSettingDefault : buildSettingDefaults.entrySet()) {
+      Label buildSetting = buildSettingDefault.getKey();
+      if (!fromOptions.getStarlarkOptions().containsKey(buildSetting)) {
+        if (optionsWithDefaults == null) {
+          optionsWithDefaults = fromOptions.toBuilder();
+        }
+        optionsWithDefaults.addStarlarkOption(buildSetting, buildSettingDefault.getValue());
+      }
+    }
+    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
+  }
+
   /**
    * For a given transition, find all Starlark build settings that are input/output while applying
    * it, then return a map of their label to their default values.
@@ -434,7 +459,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    *     build settings *written* by relevant transitions) so do not iterate over for input
    *     packages.
    */
-  public static ImmutableMap<Label, Object> getDefaultValues(
+  private static ImmutableMap<Label, Object> getDefaultValues(
       Map<PackageValue.Key, PackageValue> buildSettingPackages, ConfigurationTransition root)
       throws TransitionException {
     HashMap<Label, Object> defaultValues = new HashMap<>();

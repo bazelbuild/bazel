@@ -203,17 +203,17 @@ public final class ConfigurationResolver {
       throws DependencyEvaluationException, InterruptedException, ValueMissingException {
     Map<String, BuildOptions> toOptions;
     try {
-      HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
-          StarlarkTransition.getBuildSettingPackages(env, dependencyKey.getTransition());
-      if (buildSettingPackages == null) {
-        throw new ValueMissingException();
-      }
       toOptions =
-          applyTransition(
+          applyTransitionWithSkyframe(
               getCurrentConfiguration().getOptions(),
               dependencyKey.getTransition(),
-              buildSettingPackages,
+              env,
               env.getListener());
+      if (toOptions == null) {
+        // TODO(b/192000405): refactor this into a simple null return. We don't need to trigger
+        // exceptions for standard control flow.
+        throw new ValueMissingException(); // Need more Skyframe deps for a Starlark transition.
+      }
     } catch (TransitionException e) {
       throw new DependencyEvaluationException(e);
     }
@@ -303,19 +303,12 @@ public final class ConfigurationResolver {
       ConfigurationTransition baseTransition = transitionFactory.create(transitionData);
       Map<String, BuildOptions> toOptions;
       try {
-        // TODO(jungjw): See if we can dedup getBuildSettingPackages implementations and put
-        //  this in applyTransition.
-        HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
-            StarlarkTransition.getBuildSettingPackages(env, baseTransition);
-        if (buildSettingPackages == null) {
-          throw new ValueMissingException();
-        }
         toOptions =
-            applyTransition(
-                getCurrentConfiguration().getOptions(),
-                baseTransition,
-                buildSettingPackages,
-                env.getListener());
+            applyTransitionWithSkyframe(
+                getCurrentConfiguration().getOptions(), baseTransition, env, env.getListener());
+        if (toOptions == null) {
+          throw new ValueMissingException(); // Need more Skyframe deps for a Starlark transition.
+        }
       } catch (TransitionException e) {
         throw new DependencyEvaluationException(e);
       }
@@ -330,63 +323,97 @@ public final class ConfigurationResolver {
   /**
    * Applies a configuration transition over a set of build options.
    *
-   * <p>prework - load all default values for read build settings in Starlark transitions (by
+   * <p>This is only for callers that can't use {@link #applyTransitionWithSkyframe}. The difference
+   * is {@link #applyTransitionWithSkyframe} internally computes {@code buildSettingPackages} with
+   * Skyframe, while this version requires it as a precomputed input.
+   *
+   * <p>prework - load all default values for reading build settings in Starlark transitions (by
    * design, {@link BuildOptions} never holds default values of build settings)
    *
    * <p>postwork - replay events/throw errors from transition implementation function and validate
-   * the outputs of the transition
+   * the outputs of the transition. This only applies to Starlark transitions.
    *
    * @return the build options for the transitioned configuration.
    */
-  @VisibleForTesting
-  public static Map<String, BuildOptions> applyTransition(
+  public static Map<String, BuildOptions> applyTransitionWithoutSkyframe(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
       Map<PackageValue.Key, PackageValue> buildSettingPackages,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
-    boolean doesStarlarkTransition = StarlarkTransition.doesStarlarkTransition(transition);
-    if (doesStarlarkTransition) {
-      fromOptions =
-          addDefaultStarlarkOptions(
-              fromOptions, StarlarkTransition.getDefaultValues(buildSettingPackages, transition));
+    if (StarlarkTransition.doesStarlarkTransition(transition)) {
+      return applyStarlarkTransition(fromOptions, transition, buildSettingPackages, eventHandler);
     }
+    return transition.apply(TransitionUtil.restrict(transition, fromOptions), eventHandler);
+  }
 
+  /**
+   * Applies a configuration transition over a set of build options.
+   *
+   * <p>Callers should use this over {@link #applyTransitionWithoutSkyframe}. Unlike that variation,
+   * this would may return null if it needs more Skyframe deps.
+   *
+   * <p>postwork - replay events/throw errors from transition implementation function and validate
+   * the outputs of the transition. This only applies to Starlark transitions.
+   *
+   * @return the build options for the transitioned configuration, or null if Skyframe dependencies
+   *     for build_setting default values for Starlark transitions. These can be read from their
+   *     respective packages.
+   */
+  @Nullable
+  public static Map<String, BuildOptions> applyTransitionWithSkyframe(
+      BuildOptions fromOptions,
+      ConfigurationTransition transition,
+      SkyFunction.Environment env,
+      ExtendedEventHandler eventHandler)
+      throws TransitionException, InterruptedException {
+    if (StarlarkTransition.doesStarlarkTransition(transition)) {
+      // TODO(blaze-team): find a way to dedupe this with SkyframeExecutor.getBuildSettingPackages.
+      Map<PackageValue.Key, PackageValue> buildSettingPackages =
+          StarlarkTransition.getBuildSettingPackages(env, transition);
+      return buildSettingPackages == null
+          ? null
+          : applyStarlarkTransition(fromOptions, transition, buildSettingPackages, eventHandler);
+    }
+    return transition.apply(TransitionUtil.restrict(transition, fromOptions), eventHandler);
+  }
+
+  /**
+   * Applies a Starlark transition.
+   *
+   * @param fromOptions source options before the transition
+   * @param transition the transition itself
+   * @param buildSettingPackages packages for build_settings read by the transition. This is used to
+   *     read default values for build_settings that aren't explicitly set on the build.
+   * @param eventHandler handler for errors evaluating the transition.
+   * @return transition output
+   */
+  private static Map<String, BuildOptions> applyStarlarkTransition(
+      BuildOptions fromOptions,
+      ConfigurationTransition transition,
+      Map<PackageValue.Key, PackageValue> buildSettingPackages,
+      ExtendedEventHandler eventHandler)
+      throws TransitionException, InterruptedException {
+    fromOptions =
+        StarlarkTransition.addDefaultStarlarkOptions(fromOptions, transition, buildSettingPackages);
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
         transition.apply(TransitionUtil.restrict(transition, fromOptions), handlerWithErrorStatus);
 
-    if (doesStarlarkTransition) {
-      // We use a temporary StoredEventHandler instead of the caller's event handler because
-      // StarlarkTransition.validate assumes no errors occurred. We need a StoredEventHandler to be
-      // able to check that, and fail out early if there are errors.
-      //
-      // TODO(bazel-team): harden StarlarkTransition.validate so we can eliminate this step.
-      // StarlarkRuleTransitionProviderTest#testAliasedBuildSetting_outputReturnMismatch shows the
-      // effect.
-      handlerWithErrorStatus.replayOn(eventHandler);
-      if (handlerWithErrorStatus.hasErrors()) {
-        throw new TransitionException("Errors encountered while applying Starlark transition");
-      }
-      result = StarlarkTransition.validate(transition, buildSettingPackages, result);
+    // We use a temporary StoredEventHandler instead of the caller's event handler because
+    // StarlarkTransition.validate assumes no errors occurred. We need a StoredEventHandler to be
+    // able to check that, and fail out early if there are errors.
+    //
+    // TODO(bazel-team): harden StarlarkTransition.validate so we can eliminate this step.
+    // StarlarkRuleTransitionProviderTest#testAliasedBuildSetting_outputReturnMismatch shows the
+    // effect.
+    handlerWithErrorStatus.replayOn(eventHandler);
+    if (handlerWithErrorStatus.hasErrors()) {
+      throw new TransitionException("Errors encountered while applying Starlark transition");
     }
+    result = StarlarkTransition.validate(transition, buildSettingPackages, result);
     return result;
-  }
-
-  private static BuildOptions addDefaultStarlarkOptions(
-      BuildOptions fromOptions, ImmutableMap<Label, Object> buildSettingDefaults) {
-    BuildOptions.Builder optionsWithDefaults = null;
-    for (Map.Entry<Label, Object> buildSettingDefault : buildSettingDefaults.entrySet()) {
-      Label buildSetting = buildSettingDefault.getKey();
-      if (!fromOptions.getStarlarkOptions().containsKey(buildSetting)) {
-        if (optionsWithDefaults == null) {
-          optionsWithDefaults = fromOptions.toBuilder();
-        }
-        optionsWithDefaults.addStarlarkOption(buildSetting, buildSettingDefault.getValue());
-      }
-    }
-    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   /**
