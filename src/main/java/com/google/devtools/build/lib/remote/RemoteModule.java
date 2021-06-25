@@ -223,7 +223,7 @@ public final class RemoteModule extends BlazeModule {
     RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
-            env, remoteOptions, remoteCache, /* retryScheduler= */ null, digestUtil);
+            env, remoteCache, /* retryScheduler= */ null, digestUtil);
   }
 
   @Override
@@ -530,7 +530,7 @@ public final class RemoteModule extends BlazeModule {
           new RemoteExecutionCache(cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
-              env, remoteOptions, remoteCache, remoteExecutor, retryScheduler, digestUtil, logDir);
+              env, remoteCache, remoteExecutor, retryScheduler, digestUtil, logDir);
       repositoryRemoteExecutorFactoryDelegate.init(
           new RemoteRepositoryRemoteExecutorFactory(
               remoteCache,
@@ -560,7 +560,7 @@ public final class RemoteModule extends BlazeModule {
       RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
-              env, remoteOptions, remoteCache, retryScheduler, digestUtil);
+              env, remoteCache, retryScheduler, digestUtil);
     }
 
     if (enableRemoteDownloader) {
