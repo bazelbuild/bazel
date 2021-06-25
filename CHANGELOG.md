@@ -1,3 +1,32 @@
+## Release 5.0.0-pre.20210615.3 (2021-06-25)
+
+```
+Baseline: e7bd0947ab552a26ec032d0f1a50ee15c8810f6c
+
+Cherry picks:
+
+   + 04bed291c9f56163ae4da3a358d71cf8399b47a4:
+     Disable shadowed_action part of action_aspect_test
+   + 367b19eb8821b4de738c6c994ba275c695f4726b:
+     Fix starlark action with shadowed_action inputs cache test
+   + 4acb9ae67a7135b2365b92e91601d4797adc2ad5:
+     Automated rollback of commit
+     03f6af623ae3de4a9b756b5235ebd31cc2faf762.
+```
+
+Incompatible changes:
+
+  - Native libraries in data attribute are not collected. See
+    https://github.com/bazelbuild/bazel/issues/13550 for details
+
+Important changes:
+
+  - Remove obsolete --incompatible_prohibit_aapt1
+  - The minimum Android build tools version for the Android rules is
+    now 30.0.0
+
+This release contains contributions from many people at Google, as well as Cameron Mulhern, Delwin9999, Keith Smiley.
+
 ## Release 5.0.0-pre.20210604.6 (2021-06-11)
 
 ```
