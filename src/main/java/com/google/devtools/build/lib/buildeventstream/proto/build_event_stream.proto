@@ -705,10 +705,12 @@ message TestSummary {
   // Overall status of test, accumulated over all runs, shards, and attempts.
   TestStatus overall_status = 5;
 
-  // Total number of runs
+  // Total number of shard attempts.
+  // E.g., if a target has 4 runs, 3 shards, each with 2 attempts,
+  // then total_run_count will be 4*3*2 = 24.
   int32 total_run_count = 1;
 
-  // Number of runs.
+  // Value of runs_per_test for the test.
   int32 run_count = 10;
 
   // Number of shards.
