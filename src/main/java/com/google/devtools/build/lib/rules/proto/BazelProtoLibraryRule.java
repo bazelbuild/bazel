@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -61,7 +63,12 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         <code>proto_library</code> targets.
         It may not depend on language-specific libraries.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(attr("deps", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
+        .override(attr("deps", LABEL_LIST)
+            .allowedFileTypes()
+            .mandatoryProvidersList(
+                ImmutableList.of(
+                    ImmutableList.of(
+                        StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(srcs) -->
         The list of <code>.proto</code> and <code>.protodevel</code> files that are
         processed to create the target. This is usually a non empty list. One usecase
@@ -77,7 +84,12 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         List of proto_library targets that can be referenced via "import public" in the proto
         source.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("exports", LABEL_LIST).allowedRuleClasses("proto_library").allowedFileTypes())
+        .add(attr("exports", LABEL_LIST)
+            .allowedFileTypes()
+            .mandatoryProvidersList(
+                ImmutableList.of(
+                    ImmutableList.of(
+                        StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey())))))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(strip_import_prefix) -->
         The prefix to strip from the paths of the .proto files in this rule.
 
@@ -101,7 +113,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         prefix is added.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("import_prefix", STRING))
-        .advertiseStarlarkProvider(ProtoInfo.PROVIDER.id())
+        .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey()))
         .build();
   }
 

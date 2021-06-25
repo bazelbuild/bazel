@@ -16,11 +16,17 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Info object propagating information about protocol buffer sources. */
 @StarlarkBuiltin(
@@ -35,11 +41,6 @@ import net.starlark.java.annot.StarlarkMethod;
             + "rules_proto</a>."
             + "</p>")
 public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
-  /** Provider class for {@link ProtoInfoApi} objects. */
-  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
-  interface ProtoInfoProviderApi extends ProviderApi {
-    // Currently empty. ProtoInfo cannot be created from Starlark at the moment.
-  }
 
   @StarlarkMethod(
       name = "transitive_imports",
@@ -105,4 +106,54 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
               + " as a source, that source file would be imported as 'import c/d.proto'",
       structField = true)
   String getDirectProtoSourceRoot();
+
+  /** Provider class for {@link ProtoInfoApi} objects. */
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
+  interface ProtoInfoProviderApi extends ProviderApi {
+
+    @StarlarkMethod(
+        name = "ProtoInfo",
+        doc = "The <code>ProtoInfo</code> constructor.",
+        parameters = {
+            @Param(
+                name = "proto_source_root",
+                allowedTypes = {@ParamType(type = String.class)},
+                named = true,
+                doc = "The directory relative to which the .proto files are defined."),
+            @Param(
+                name = "descriptor_set",
+                allowedTypes = { @ParamType(type = FileApi.class)},
+                named = true,
+                doc = "The FileDescriptorSet of the direct sources."),
+            @Param(
+                name = "sources",
+                allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+                named = true,
+                defaultValue = "[]",
+                doc = "Proto sources."),
+            @Param(
+                name = "deps",
+                allowedTypes = {@ParamType(type = Sequence.class, generic1 = ProtoInfoApi.class)},
+                named = true,
+                defaultValue = "[]",
+                doc = "Proto dependencies."),
+            @Param(
+                name = "exports",
+                allowedTypes = {@ParamType(type = Sequence.class, generic1 = ProtoInfoApi.class)},
+                named = true,
+                defaultValue = "[]",
+                doc = "Proto exports."),
+        },
+        selfCall = true,
+        useStarlarkThread = true)
+    @StarlarkConstructor
+    ProtoInfoApi<?> protoInfo(
+        String protoSourceRoot,
+        FileApi descriptorSet,
+        Sequence<?> sources,
+        Sequence<?> deps,
+        Sequence<?> exports,
+        StarlarkThread thread)
+        throws EvalException;
+  }
 }

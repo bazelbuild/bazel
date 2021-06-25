@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Utility functions for proto_library and proto aspect implementations.
@@ -107,9 +108,9 @@ public class ProtoCommon {
   }
 
   private static NestedSet<ProtoSource> computeTransitiveProtoSources(
-      ImmutableList<ProtoInfo> protoDeps, Library library) {
+      ImmutableList<ProtoInfo> protoDeps, ImmutableList<ProtoSource> protoSources) {
     NestedSetBuilder<ProtoSource> result = NestedSetBuilder.naiveLinkOrder();
-    result.addAll(library.getSources());
+    result.addAll(protoSources);
     for (ProtoInfo dep : protoDeps) {
       result.addTransitive(dep.getTransitiveSources());
     }
@@ -387,7 +388,31 @@ public class ProtoCommon {
 
     ImmutableList<ProtoSource> directSources = library.getSources();
     PathFragment directProtoSourceRoot = library.getSourceRoot();
-    NestedSet<ProtoSource> transitiveSources = computeTransitiveProtoSources(deps, library);
+    Artifact directDescriptorSet =
+        ruleContext.getGenfilesArtifact(
+            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
+
+    return createProtoInfo(
+        originalDirectProtoSources,
+        directSources,
+        deps,
+        exports,
+        directProtoSourceRoot,
+        directDescriptorSet,
+        Location.BUILTIN);
+  }
+
+  public static ProtoInfo createProtoInfo(
+      ImmutableList<Artifact> originalDirectProtoSources,
+      ImmutableList<ProtoSource> directSources,
+      ImmutableList<ProtoInfo> deps,
+      ImmutableList<ProtoInfo> exports,
+      PathFragment directProtoSourceRoot,
+      Artifact directDescriptorSet,
+      Location location) {
+
+    NestedSet<ProtoSource> transitiveSources =
+        computeTransitiveProtoSources(deps, directSources);
     NestedSet<Artifact> transitiveProtoSources =
         computeTransitiveProtoSourceArtifacts(directSources, deps);
     NestedSet<Artifact> transitiveOriginalProtoSources =
@@ -396,9 +421,6 @@ public class ProtoCommon {
         computeTransitiveProtoSourceRoots(deps, directProtoSourceRoot.getSafePathString());
     NestedSet<Artifact> strictImportableProtosForDependents =
         computeStrictImportableProtosForDependents(directSources, deps);
-    Artifact directDescriptorSet =
-        ruleContext.getGenfilesArtifact(
-            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
     NestedSet<Artifact> transitiveDescriptorSets =
         computeTransitiveDescriptorSets(directDescriptorSet, deps);
 
@@ -420,7 +442,8 @@ public class ProtoCommon {
         transitiveDescriptorSets,
         exportedSources,
         strictImportableSources,
-        publicImportSources);
+        publicImportSources,
+        location);
   }
 
   public static Runfiles.Builder createDataRunfilesProvider(

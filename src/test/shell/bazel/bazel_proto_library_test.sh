@@ -674,4 +674,89 @@ EOF
   bazel build //h || fail "build failed"
 }
 
+function test_starlark_protoinfo() {
+  write_workspace ""
+
+  mkdir -p x/proto/my
+
+  cat > x/proto/my/my.proto <<EOF
+syntax = "proto2";
+package my;
+message My {
+  optional int32 m = 1;
+}
+EOF
+
+  cat > x/proto/my/BUILD << EOF
+load('//x/proto:my_proto_library.bzl', 'my_proto_library')
+my_proto_library(
+  name = 'my_proto',
+  srcs = ['my.proto'],
+  strip_import_prefix='/x/proto',
+  visibility = ["//visibility:public"],
+)
+
+java_proto_library(
+  name = 'my_java_proto',
+  deps = [':my_proto'],
+)
+EOF
+
+  cat > x/proto/new.proto <<EOF
+syntax = "proto2";
+import "my/my.proto";
+message New {
+  optional int32 a = 1;
+  optional my.My m = 2;
+}
+EOF
+
+  cat > x/proto/BUILD << EOF
+proto_library(
+  name = 'new_proto',
+  srcs = ['new.proto'],
+  strip_import_prefix='/x/proto',
+  deps = ['//x/proto/my:my_proto'],
+)
+
+java_proto_library(
+  name = 'new_java_proto',
+  deps = [':new_proto'],
+)
+EOF
+
+  cat > x/proto/my_proto_library.bzl <<EOF
+def _my_proto_library_impl(ctx):
+    descriptor_set = ctx.actions.declare_file('descriptor-set.proto.bin')
+    ctx.actions.write(output = descriptor_set, content = 'descriptor set content')
+    proto_info = ProtoInfo(
+        descriptor_set = descriptor_set,
+        proto_source_root = 'x/proto',
+        sources = ctx.files.srcs,
+        deps = [dep[ProtoInfo] for dep in ctx.attr.deps],
+        exports = [export[ProtoInfo] for export in ctx.attr.exports],
+    )
+    return [
+        DefaultInfo(files = depset([ctx.outputs.descriptor_set])),
+        proto_info,
+    ]
+
+my_proto_library = rule(
+    attrs = {
+        'deps': attr.label_list(providers=[ProtoInfo]),
+        'exports': attr.label_list(providers=[ProtoInfo]),
+        'srcs': attr.label_list(allow_files=['.proto']),
+        "strip_import_prefix": attr.string(),
+     },
+    provides = [ProtoInfo],
+    outputs = {
+        "descriptor_set": "descriptor-set.proto.bin",
+    },
+    implementation = _my_proto_library_impl,
+)
+EOF
+  bazel build x/proto:new_java_proto x/proto/my:my_java_proto &> "$TEST_log" || fail "build failed"
+  expect_log "Build completed successfully"
+}
+
 run_suite "Integration tests for proto_library"

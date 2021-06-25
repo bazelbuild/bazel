@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -90,7 +91,8 @@ public class ProtoCompileActionBuilderTest {
         /* strictImportableSources */ NestedSetBuilder.wrap(
             Order.STABLE_ORDER, strictImportableSources),
         /* publicImportSources */ NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, publicImportProtoSources));
+            Order.STABLE_ORDER, publicImportProtoSources),
+        /* location */ Location.fromFileLineColumn("foo", 1, 2));
   }
 
   @Test
