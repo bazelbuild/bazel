@@ -34,18 +34,3 @@ java_test(
         "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
     ],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-)

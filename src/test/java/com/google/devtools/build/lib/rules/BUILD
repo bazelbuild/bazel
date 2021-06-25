@@ -56,30 +56,3 @@ java_test(
         "//third_party:truth",
     ],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/android:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/apple:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/config:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/cpp:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/filegroup:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/genquery:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/objc:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/platform:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/proto:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/python:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/repository:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules/test:all_windows_tests",
-    ],
-)

@@ -2108,27 +2108,6 @@ java_binary(
     ],
 )
 
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/build/android/desugar/classes_for_testing_type_inference:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/android/desugar/dependencies:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/android/desugar/io:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/android/desugar/runtime:all_windows_tests",
-    ],
-    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
-)
-
 java_test(
     name = "ClassSignatureParserTest",
     size = "small",

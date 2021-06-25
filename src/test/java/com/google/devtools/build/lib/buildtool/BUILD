@@ -654,21 +654,6 @@ java_test(
     ],
 )
 
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-)
-
 # TODO(b/19011399): Remove any manual tags used to disable the tests on bazel,
 #  and enable manual tests inside Google if appropriate.
 # Keep in sync with Copybara transformation that makes these tests manual.
