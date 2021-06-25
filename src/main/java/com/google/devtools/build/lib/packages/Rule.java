@@ -914,24 +914,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
-  private void checkForNullLabel(Label labelToCheck, Object context) {
-    if (labelToCheck == null) {
-      throw new IllegalStateException(String.format(
-          "null label in rule %s, %s", getLabel().toString(), context));
-    }
-  }
-
-  // Consistency check: check if this label contains any weird labels (i.e.
-  // null-valued, with a packageFragment that is null...). The bug that prompted
-  // the introduction of this code is #2210848 (NullPointerException in
-  // Package.checkForConflicts() ).
-  void checkForNullLabels() {
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .forEach(depEdge -> checkForNullLabel(depEdge.getLabel(), depEdge.getAttribute()));
-    getOutputFiles().forEach(outputFile -> checkForNullLabel(outputFile.getLabel(), "output file"));
-  }
-
   /**
    * Returns the Set of all tags exhibited by this target.  May be empty.
    */
