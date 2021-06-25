@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import java.util.ArrayList;
@@ -84,13 +83,9 @@ public final class CollectionUtils {
     return partitionWithComparator(elements, equivalenceRelation::compare);
   }
 
-  /**
-   * Returns the set of all elements in the given collection that appear more than once.
-   * @param input some collection.
-   * @return the set of repeated elements.  May return an empty set, but never null.
-   */
-  public static <T> Set<T> duplicatedElementsOf(Iterable<T> input) {
-    int count = Iterables.size(input);
+  /** Returns the set of all elements in the given list that appear more than once. */
+  public static <T> Set<T> duplicatedElementsOf(List<T> input) {
+    int count = input.size();
     if (count < 2) {
       return ImmutableSet.of();
     }

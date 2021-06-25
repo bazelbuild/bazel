@@ -1539,7 +1539,7 @@ public final class Attribute implements Comparable<Attribute> {
       this.dependencies = Ordering.natural().immutableSortedCopy(dependencies);
     }
 
-    <T> Iterable<T> getPossibleValues(Type<T> type, Rule rule) {
+    <T> List<T> getPossibleValues(Type<T> type, Rule rule) {
       final ComputedDefault owner = ComputedDefault.this;
       if (dependencies.isEmpty()) {
         AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
@@ -1758,7 +1758,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    <T> Iterable<T> getPossibleValues(Type<T> type, Rule rule) {
+    <T> List<T> getPossibleValues(Type<T> type, Rule rule) {
       List<T> result = new ArrayList<>(lookupTable.size());
       for (Object obj : lookupTable.values()) {
         result.add(type.cast(obj));

@@ -2415,9 +2415,18 @@ public class RuleClass {
    * @param eventHandler The eventHandler to use to report the duplicated deps.
    */
   private static void checkForDuplicateLabels(Rule rule, EventHandler eventHandler) {
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     for (Attribute attribute : rule.getAttributes()) {
-      if (attribute.getType() == BuildType.LABEL_LIST) {
-        checkForDuplicateLabels(rule, attribute, eventHandler);
+      if (attribute.getType() != BuildType.LABEL_LIST) {
+        continue;
+      }
+      Set<Label> duplicates = mapper.checkForDuplicateLabels(attribute);
+      for (Label label : duplicates) {
+        rule.reportError(
+            String.format(
+                "Label '%s' is duplicated in the '%s' attribute of rule '%s'",
+                label, attribute.getName(), rule.getName()),
+            eventHandler);
       }
     }
   }
@@ -2443,24 +2452,6 @@ public class RuleClass {
                          + "restricted, unencumbered, by_exception_only",
                          eventHandler);
       }
-    }
-  }
-
-  /**
-   * Report an error for each label that appears more than once in the given attribute
-   * of the given rule.
-   *
-   * @param rule The rule.
-   * @param attribute The attribute to check. Must exist in rule and be of type LABEL_LIST.
-   * @param eventHandler The eventHandler to use to report the duplicated deps.
-   */
-  private static void checkForDuplicateLabels(Rule rule, Attribute attribute,
-       EventHandler eventHandler) {
-    Set<Label> duplicates = AggregatingAttributeMapper.of(rule).checkForDuplicateLabels(attribute);
-    for (Label label : duplicates) {
-      rule.reportError(
-          String.format("Label '%s' is duplicated in the '%s' attribute of rule '%s'",
-          label, attribute.getName(), rule.getName()), eventHandler);
     }
   }
 

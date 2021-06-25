@@ -57,9 +57,12 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Nullable
   @Override
-  @SuppressWarnings("unchecked")
   public <T> T get(String attributeName, Type<T> type) {
-    Object value = rule.getAttr(attributeName, type);
+    return getFromRawAttributeValue(rule.getAttr(attributeName, type), attributeName, type);
+  }
+
+  @SuppressWarnings("unchecked")
+  final <T> T getFromRawAttributeValue(Object value, String attributeName, Type<T> type) {
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     } else if (value instanceof Attribute.LateBoundDefault) {

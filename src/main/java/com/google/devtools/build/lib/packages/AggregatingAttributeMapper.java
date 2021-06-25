@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
@@ -32,6 +34,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -41,11 +44,9 @@ import javax.annotation.Nullable;
  * values an attribute might take.
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
-  private final Rule rule;
 
   private AggregatingAttributeMapper(Rule rule) {
     super(rule);
-    this.rule = rule;
   }
 
   public static AggregatingAttributeMapper of(Rule rule) {
@@ -114,8 +115,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
-  public Set<Label> getReachableLabels(String attributeName, boolean includeSelectKeys) {
-    final ImmutableSet.Builder<Label> builder = ImmutableSet.<Label>builder();
+  public ImmutableSet<Label> getReachableLabels(String attributeName, boolean includeSelectKeys) {
+    ImmutableSet.Builder<Label> builder = ImmutableSet.builder();
     visitLabels(
         getAttributeDefinition(attributeName),
         includeSelectKeys,
@@ -123,65 +124,80 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     return builder.build();
   }
 
+  /** Returns the labels that appear multiple times in the same attribute value. */
+  @SuppressWarnings("unchecked")
+  public Set<Label> checkForDuplicateLabels(Attribute attribute) {
+    Type<List<Label>> attrType = BuildType.LABEL_LIST;
+    checkArgument(attribute.getType() == attrType, "Not a label list type: %s", attribute);
+    String attrName = attribute.getName();
+    Object rawVal = rule.getAttr(attrName, attrType);
+
+    // Plain old attribute (no selects).
+    if (!(rawVal instanceof SelectorList)) {
+      return checkForDuplicateLabels(
+          visitRawNonConfigurableAttributeValue(rawVal, attrName, attrType));
+    }
+
+    List<Selector<List<Label>>> selectors = ((SelectorList<List<Label>>) rawVal).getSelectors();
+
+    // "attr = select({...})" with just a single select.
+    if (selectors.size() == 1) {
+      return checkForDuplicateLabels(selectors.get(0).getEntries().values());
+    }
+
+    // Multiple selects concatenated together. It's expensive to iterate over every possible
+    // permutation of values, so instead check for duplicates within a single select branch while
+    // also collecting all labels for a cross-select duplicate check at the end. This is overly
+    // strict, since this counts values present in mutually exclusive select branches. We can
+    // presumably relax this if necessary, but doing so would incur some of the expense this code
+    // path avoids.
+    ImmutableSet.Builder<Label> duplicates = null;
+    List<Label> combinedLabels = new ArrayList<>(); // Labels that appear across all selectors.
+    for (Selector<List<Label>> selector : selectors) {
+      // Labels within a single selector. It's okay for there to be duplicates as long as
+      // they're in different selector paths (since only one path can actually get chosen).
+      Set<Label> selectorLabels = new LinkedHashSet<>();
+      for (List<Label> labelsInSelectorValue : selector.getEntries().values()) {
+        // Duplicates within a single select branch are not okay.
+        duplicates = addDuplicateLabels(duplicates, labelsInSelectorValue);
+        selectorLabels.addAll(labelsInSelectorValue);
+      }
+      combinedLabels.addAll(selectorLabels);
+    }
+    duplicates = addDuplicateLabels(duplicates, combinedLabels);
+
+    return duplicates == null ? ImmutableSet.of() : duplicates.build();
+  }
+
+  private static Set<Label> checkForDuplicateLabels(Collection<List<Label>> possibleLabels) {
+    switch (possibleLabels.size()) {
+      case 0:
+        return ImmutableSet.of();
+      case 1:
+        List<Label> onlyPossibility =
+            possibleLabels instanceof List
+                ? ((List<List<Label>>) possibleLabels).get(0) // Avoid overhead of list iterator.
+                : possibleLabels.iterator().next();
+        return CollectionUtils.duplicatedElementsOf(onlyPossibility);
+      default:
+        ImmutableSet.Builder<Label> duplicates = null;
+        for (List<Label> labels : possibleLabels) {
+          duplicates = addDuplicateLabels(duplicates, labels);
+        }
+        return duplicates == null ? ImmutableSet.of() : duplicates.build();
+    }
+  }
+
   private static ImmutableSet.Builder<Label> addDuplicateLabels(
-      ImmutableSet.Builder<Label> builder, List<Label> labels) {
+      @Nullable ImmutableSet.Builder<Label> builder, List<Label> labels) {
     Set<Label> duplicates = CollectionUtils.duplicatedElementsOf(labels);
     if (duplicates.isEmpty()) {
       return builder;
     }
     if (builder == null) {
-      builder = ImmutableSet.builderWithExpectedSize(duplicates.size());
+      builder = ImmutableSet.builder();
     }
-    builder.addAll(duplicates);
-    return builder;
-  }
-
-  /**
-   * Returns the labels that might appear multiple times in the same attribute value.
-   */
-  public Set<Label> checkForDuplicateLabels(Attribute attribute) {
-    String attrName = attribute.getName();
-    Type<?> attrType = attribute.getType();
-    ImmutableSet.Builder<Label> duplicates = null;
-
-    SelectorList<?> selectorList = getSelectorList(attribute.getName(), attrType);
-    if (selectorList == null || selectorList.getSelectors().size() == 1) {
-      // Three possible scenarios:
-      //  1) Plain old attribute (no selects). Without selects, visitAttribute runs efficiently.
-      //  2) Computed default, possibly depending on other attributes using select. In this case,
-      //     visitAttribute might be inefficient. But we have no choice but to iterate over all
-      //     possible values (since we have to compute them), so we take the efficiency hit.
-      //  3) "attr = select({...})". With just a single select, visitAttribute runs efficiently.
-      for (Object value : visitAttribute(attrName, attrType)) {
-        if (value != null) {
-          // TODO(bazel-team): Calculate duplicates directly using attrType.visitLabels in order to
-          // avoid intermediate collections here.
-          duplicates = addDuplicateLabels(duplicates, extractLabels(attrType, value));
-        }
-      }
-    } else {
-      // Multiple selects concatenated together. It's expensive to iterate over every possible
-      // value, so instead collect all labels across all the selects and check for duplicates.
-      // This is overly strict, since this counts duplicates across values. We can presumably
-      // relax this if necessary, but doing so would incur the value iteration expense this
-      // code path avoids.
-      List<Label> combinedLabels = new LinkedList<>(); // Labels that appear across all selectors.
-      for (Selector<?> selector : selectorList.getSelectors()) {
-        // Labels within a single selector. It's okay for there to be duplicates as long as
-        // they're in different selector paths (since only one path can actually get chosen).
-        Set<Label> selectorLabels = new LinkedHashSet<>();
-        for (Object selectorValue : selector.getEntries().values()) {
-          List<Label> labelsInSelectorValue = extractLabels(attrType, selectorValue);
-          // Duplicates within a single path are not okay.
-          duplicates = addDuplicateLabels(duplicates, labelsInSelectorValue);
-          Iterables.addAll(selectorLabels, labelsInSelectorValue);
-        }
-        combinedLabels.addAll(selectorLabels);
-      }
-      duplicates = addDuplicateLabels(duplicates, combinedLabels);
-    }
-
-    return duplicates == null ? ImmutableSet.of() : duplicates.build();
+    return builder.addAll(duplicates);
   }
 
   /**
@@ -259,21 +275,27 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *     more than one possible value is encountered. This parameter is respected on a best-effort
    *     basis - multiple values may still be returned if an unoptimized code path is visited.
    */
+  @SuppressWarnings("unchecked")
   public <T> Iterable<T> visitAttribute(
       String attributeName, Type<T> type, boolean mayTreatMultipleAsNone) {
+    Object rawVal = rule.getAttr(attributeName, type);
+
     // If this attribute value is configurable, visit all possible values.
-    SelectorList<T> selectorList = getSelectorList(attributeName, type);
-    if (selectorList != null) {
-      return getAllValues(selectorList.getSelectors(), type, mayTreatMultipleAsNone);
+    if (rawVal instanceof SelectorList) {
+      return getAllValues(((SelectorList<T>) rawVal).getSelectors(), type, mayTreatMultipleAsNone);
     }
 
+    return visitRawNonConfigurableAttributeValue(rawVal, attributeName, type);
+  }
+
+  private <T> List<T> visitRawNonConfigurableAttributeValue(
+      Object rawVal, String attributeName, Type<T> type) {
     // If this attribute is a computed default, feed it all possible value combinations of
     // its declared dependencies and return all computed results. For example, if this default
     // uses attributes x and y, x can configurably be x1 or x2, and y can configurably be y1
     // or y1, then compute default values for the (x1,y1), (x1,y2), (x2,y1), and (x2,y2) cases.
-    Attribute.ComputedDefault computedDefault = getComputedDefault(attributeName, type);
-    if (computedDefault != null) {
-      return computedDefault.getPossibleValues(type, rule);
+    if (rawVal instanceof Attribute.ComputedDefault) {
+      return ((Attribute.ComputedDefault) rawVal).getPossibleValues(type, rule);
     }
 
     if ("visibility".equals(attributeName) && type.equals(BuildType.NODEP_LABEL_LIST)) {
@@ -284,7 +306,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     }
 
     // For any other attribute, just return its direct value.
-    T value = get(attributeName, type);
+    T value = getFromRawAttributeValue(rawVal, attributeName, type);
     return value == null ? ImmutableList.of() : ImmutableList.of(value);
   }
 
@@ -314,7 +336,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     visitAttributesInner(
         attributes,
         depMaps,
-        new HashMap<String, Object>(attributes.size()),
+        Maps.newHashMapWithExpectedSize(attributes.size()),
         combinationsSoFar,
         limiter);
     return depMaps;
@@ -419,12 +441,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       }
 
       @Override
-      public Collection<DepEdge> visitLabels() throws InterruptedException {
+      public Collection<DepEdge> visitLabels() {
         return owner.visitLabels();
       }
 
       @Override
-      public Collection<DepEdge> visitLabels(Attribute attribute) throws InterruptedException {
+      public Collection<DepEdge> visitLabels(Attribute attribute) {
         return owner.visitLabels(attribute);
       }
 
@@ -475,19 +497,6 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         return owner.has(attrName, type);
       }
     };
-  }
-
-  private static ImmutableList<Label> extractLabels(Type<?> type, Object value) {
-    final ImmutableList.Builder<Label> result = ImmutableList.builder();
-    type.visitLabels(
-        (label, dummy) -> {
-          if (label != null) {
-            result.add(label);
-          }
-        },
-        value,
-        /*context=*/ null);
-    return result.build();
   }
 
   /**
@@ -550,7 +559,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     if (selectors.size() == 1) {
       // Optimize for common case.
       return selectors.get(0).getEntries().values().stream()
-          .filter(v -> v != null)
+          .filter(Objects::nonNull)
           .collect(ImmutableList.toImmutableList());
     }
 
