@@ -333,7 +333,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     ConfiguredTarget libTarget = getConfiguredTarget("//examples/apple_starlark:lib");
     ObjcProvider libObjcProvider = libTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(libObjcProvider.getLinkopt().toList()).contains("mock_linkopt");
+    assertThat(libObjcProvider.get(ObjcProvider.LINKOPT).toList()).contains("mock_linkopt");
   }
 
   @Test
@@ -909,7 +909,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             "   return [created_provider]");
 
     Iterable<String> foundLinkopts =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).getLinkopt().toList();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINKOPT).toList();
 
     assertThat(foundLinkopts).containsExactly("somelinkopt");
   }
@@ -940,7 +940,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             "   return [created_provider]");
 
     Iterable<String> foundLinkopts =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).getLinkopt().toList();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINKOPT).toList();
 
     assertThat(foundLinkopts).containsExactly("opt1", "opt2", "opt3");
   }

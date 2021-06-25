@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
@@ -21,6 +22,8 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKSTAMP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
@@ -33,13 +36,16 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -47,6 +53,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
@@ -333,12 +340,32 @@ public final class ObjcCommon implements StarlarkValue {
       }
 
       for (CcLinkingContext linkProvider : ccLinkingContexts) {
-        objcProvider.addAll(ObjcProvider.CC_LINKER_INPUTS, linkProvider.getLinkerInputs());
+        ImmutableList<String> linkOpts = linkProvider.getFlattenedUserLinkFlags();
+        ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
+        ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
+        // Add any framework flags as frameworks directly, rather than as linkopts.
+        for (UnmodifiableIterator<String> iterator = linkOpts.iterator(); iterator.hasNext(); ) {
+          String arg = iterator.next();
+          if (arg.equals("-framework") && iterator.hasNext()) {
+            String framework = iterator.next();
+            frameworkLinkOpts.add(new SdkFramework(framework));
+          } else {
+            nonFrameworkLinkOpts.add(arg);
+          }
+        }
+
+        objcProvider
+            .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
+            .addAll(LINKOPT, nonFrameworkLinkOpts.build())
+            .addTransitiveAndPropagate(
+                CC_LIBRARY,
+                NestedSetBuilder.<LibraryToLink>linkOrder()
+                    .addTransitive(linkProvider.getLibraries())
+                    .build());
       }
 
       for (CcLinkingContext ccLinkStampContext : ccLinkStampContexts) {
-        objcProvider.addAll(
-            ObjcProvider.LINKSTAMP_LINKER_INPUTS, ccLinkStampContext.getLinkerInputs());
+        objcProvider.addAll(LINKSTAMP, ccLinkStampContext.getLinkstamps());
       }
 
       if (compilationAttributes.isPresent()) {
