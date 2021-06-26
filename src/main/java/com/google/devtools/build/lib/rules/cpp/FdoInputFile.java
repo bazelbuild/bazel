@@ -88,9 +88,6 @@ public final class FdoInputFile implements HasFileType {
 
     if (isLabel) {
       Artifact artifact = ruleContext.getPrerequisiteArtifact("profile");
-      if (!artifact.isSourceArtifact()) {
-        ruleContext.attributeError("profile", " the target is not an input file");
-      }
       return new FdoInputFile(artifact, null);
     } else {
       if (!ruleContext.getFragment(CppConfiguration.class).isFdoAbsolutePathEnabled()) {
