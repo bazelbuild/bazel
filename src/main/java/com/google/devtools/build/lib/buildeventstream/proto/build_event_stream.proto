@@ -713,6 +713,11 @@ message TestSummary {
   // Value of runs_per_test for the test.
   int32 run_count = 10;
 
+  // Number of attempts.
+  // If there are a different number of attempts per shard, the highest attempt
+  // count across all shards for each run is used.
+  int32 attempt_count = 15;
+
   // Number of shards.
   int32 shard_count = 11;
 

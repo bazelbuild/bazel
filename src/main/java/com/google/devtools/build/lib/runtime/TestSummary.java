@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -315,6 +316,13 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return ImmutableList.copyOf(statuses);
     }
 
+    /** Records new attempts for the given shard of the target. */
+    public Builder addShardAttempts(int shardNumber, int newAtttempts) {
+      checkMutation();
+      summary.shardAttempts[shardNumber] += newAtttempts;
+      return this;
+    }
+
     /**
      * Returns the created TestSummary object.
      * Any actions following a build() will create another copy of the same values.
@@ -360,6 +368,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private BuildConfiguration configuration;
   private BlazeTestStatus status;
   private boolean skipped;
+  private final int[] shardAttempts;
   private int numCached;
   private int numLocalActionCached;
   private boolean actionRan;
@@ -383,9 +392,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private TestSummary(ConfiguredTarget target) {
     this.target = target;
     TestParams testParams = getTestParams();
-    shardRunStatuses =
-        createAndInitialize(
-            testParams.runsDetectsFlakes() ? Math.max(testParams.getShards(), 1) : 0);
+    int sz = Math.max(testParams.getShards(), 1);
+    shardAttempts = new int[sz];
+    shardRunStatuses = createAndInitialize(testParams.runsDetectsFlakes() ? sz : 0);
   }
 
   private static ImmutableList<ArrayList<BlazeTestStatus>> createAndInitialize(int sz) {
@@ -540,6 +549,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     return testTimes;
   }
 
+  public int getNumAttempts() {
+    return Arrays.stream(this.shardAttempts).max().getAsInt();
+  }
+
   public int getNumCached() {
     return numCached;
   }
@@ -610,6 +623,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
             .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
             .setTotalNumCached(getNumCached())
             .setTotalRunCount(totalRuns())
+            .setAttemptCount(getNumAttempts())
             .setRunCount(testParams.getRuns())
             .setShardCount(testParams.getShards())
             .setFirstStartTime(Timestamps.fromMillis(firstStartTimeMillis))
