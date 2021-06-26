@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -130,6 +131,7 @@ public abstract class Artifact
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
+  @SerializationConstant
   @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
   public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
       (a, b) -> {

@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -57,14 +59,14 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact c = ActionsTestUtil.createArtifact(root, "c");
     Artifact d = ActionsTestUtil.createArtifact(root, "d");
     CreateIncSymlinkAction action1 =
-        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b, c, d), includePath);
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(a, b, c, d), includePath);
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = ActionsTestUtil.createArtifact(root, "a");
     b = ActionsTestUtil.createArtifact(root, "b");
     c = ActionsTestUtil.createArtifact(root, "c");
     d = ActionsTestUtil.createArtifact(root, "d");
     CreateIncSymlinkAction action2 =
-        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(c, d, a, b), includePath);
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(c, d, a, b), includePath);
 
     assertThat(computeKey(action2)).isEqualTo(computeKey(action1));
   }
@@ -77,12 +79,12 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action1 =
-        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(a, b), includePath);
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = ActionsTestUtil.createArtifact(root, "a");
     b = ActionsTestUtil.createArtifact(root, "c");
     CreateIncSymlinkAction action2 =
-        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(a, b), includePath);
 
     assertThat(computeKey(action2)).isNotEqualTo(computeKey(action1));
   }
@@ -95,12 +97,12 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action1 =
-        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(a, b), includePath);
     // Can't reuse the artifacts here; that would lead to DuplicateArtifactException.
     a = ActionsTestUtil.createArtifact(root, "c");
     b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action2 =
-        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), includePath);
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(a, b), includePath);
 
     assertThat(computeKey(action2)).isNotEqualTo(computeKey(action1));
   }
@@ -114,8 +116,8 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Path symlink = rootDirectory.getRelative("out/a");
     Artifact a = ActionsTestUtil.createArtifact(root, symlink);
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
-    CreateIncSymlinkAction action = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
-        ImmutableMap.of(a, b), outputDir);
+    CreateIncSymlinkAction action =
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(a, b), outputDir);
     action.execute(makeDummyContext());
     symlink.stat(Symlinks.NOFOLLOW);
     assertThat(symlink.isSymbolicLink()).isTrue();
@@ -154,7 +156,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Artifact a = ActionsTestUtil.createArtifact(root, symlink);
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action =
-        new CreateIncSymlinkAction(NULL_ACTION_OWNER, ImmutableMap.of(a, b), outputDir);
+        new CreateIncSymlinkAction(NULL_ACTION_OWNER, symlinksMap(a, b), outputDir);
     Path extra = rootDirectory.getRelative("out/extra");
     FileSystemUtils.createEmptyFile(extra);
     assertThat(extra.exists()).isTrue();
@@ -170,5 +172,15 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();
+  }
+
+  private static ImmutableSortedMap<Artifact, Artifact> symlinksMap(Artifact... artifacts) {
+    checkArgument(artifacts.length % 2 == 0, "Odd number of arguments: %s", artifacts.length);
+    ImmutableSortedMap.Builder<Artifact, Artifact> symlinks =
+        ImmutableSortedMap.orderedBy(Artifact.EXEC_PATH_COMPARATOR);
+    for (int i = 0; i < artifacts.length; i += 2) {
+      symlinks.put(artifacts[i], artifacts[i + 1]);
+    }
+    return symlinks.build();
   }
 }

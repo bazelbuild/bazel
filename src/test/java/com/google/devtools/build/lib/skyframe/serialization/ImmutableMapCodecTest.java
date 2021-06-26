@@ -21,12 +21,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import java.util.Comparator;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,6 +39,15 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ImmutableMapCodec}. */
 @RunWith(JUnit4.class)
 public class ImmutableMapCodecTest {
+
+  @SuppressWarnings("unused")
+  @SerializationConstant
+  @VisibleForSerialization
+  static final Comparator<?> ORDERING_REVERSE_NATURAL = Ordering.natural().reverse();
+
+  @SerializationConstant @VisibleForSerialization
+  static final Comparator<String> HELLO_FIRST_COMPARATOR = selectedFirstComparator("hello");
+
   @Test
   public void smoke() throws Exception {
     new SerializationTester(
@@ -55,12 +69,34 @@ public class ImmutableMapCodecTest {
   }
 
   @Test
-  public void unnaturallySortedMapComesBackUnsortedInCorrectOrder() throws Exception {
-    ImmutableMap<?, ?> deserialized =
-        TestUtils.roundTrip(ImmutableSortedMap.reverseOrder().put("a", "b").put("c", "d").build());
-    assertThat(deserialized).isInstanceOf(ImmutableMap.class);
-    assertThat(deserialized).isNotInstanceOf(ImmutableSortedMap.class);
-    assertThat(deserialized).containsExactly("c", "d", "a", "b").inOrder();
+  public void immutableSortedMapRoundTripsWithTheSameComparator() throws Exception {
+    ImmutableSortedMap<?, ?> deserialized =
+        TestUtils.roundTrip(
+            ImmutableSortedMap.orderedBy(HELLO_FIRST_COMPARATOR)
+                .put("a", "b")
+                .put("hello", "there")
+                .build());
+
+    assertThat(deserialized).containsExactly("hello", "there", "a", "b");
+    assertThat(deserialized.comparator()).isSameInstanceAs(HELLO_FIRST_COMPARATOR);
+  }
+
+  @Test
+  public void immutableSortedMapUnserializableComparatorFails() {
+    Comparator<String> comparator = selectedFirstComparator("c");
+
+    NoCodecException thrown =
+        assertThrows(
+            NoCodecException.class,
+            () ->
+                TestUtils.roundTrip(
+                    ImmutableSortedMap.<String, String>orderedBy(comparator)
+                        .put("a", "b")
+                        .put("c", "d")
+                        .build()));
+    assertThat(thrown)
+        .hasMessageThat()
+        .startsWith("No default codec available for " + comparator.getClass().getCanonicalName());
   }
 
   @Test
@@ -100,6 +136,21 @@ public class ImmutableMapCodecTest {
     assertThat(expected)
         .hasMessageThat()
         .contains("Exception while deserializing value for key 'a'");
+  }
+
+  private static Comparator<String> selectedFirstComparator(String first) {
+    return (a, b) -> {
+      if (a.equals(b)) {
+        return 0;
+      }
+      if (a.equals(first)) {
+        return -1;
+      }
+      if (b.equals(first)) {
+        return 1;
+      }
+      return a.compareTo(b);
+    };
   }
 
   private static class Dummy {}
