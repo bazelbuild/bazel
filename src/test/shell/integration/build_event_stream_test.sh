@@ -1371,4 +1371,12 @@ EOF
       || fail "Couldn't find top-level named set"
 }
 
+function test_memory_profile() {
+  bazel build --build_event_text_file=bep.txt --memory_profile=/dev/null \
+      >& "$TEST_log" || fail "Expected success"
+  cp bep.txt "$TEST_log" || fail "cp failed"
+  # Non-zero used heap size.
+  expect_log 'used_heap_size_post_build: [1-9]'
+}
+
 run_suite "Integration tests for the build event stream"

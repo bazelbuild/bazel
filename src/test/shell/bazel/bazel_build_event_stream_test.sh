@@ -92,7 +92,6 @@ EOF
 
 #### TESTS #############################################################
 
-
 function test_fetch_test() {
   # We expect the "fetch" command to generate at least a minimally useful
   # build-event stream.

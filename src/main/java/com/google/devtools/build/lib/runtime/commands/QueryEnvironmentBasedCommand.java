@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.profiler.ProfilePhase;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -83,6 +85,11 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
                 /* showProgress= */ true,
                 /* id= */ null));
     BlazeCommandResult result = execInternal(env, options);
+    try {
+      Profiler.instance().markPhase(ProfilePhase.FINISH);
+    } catch (InterruptedException e) {
+      return reportAndCreateInterruptResult(env, "Profile finish operation interrupted");
+    }
     env.getEventBus()
         .post(
             new NoBuildRequestFinishedEvent(

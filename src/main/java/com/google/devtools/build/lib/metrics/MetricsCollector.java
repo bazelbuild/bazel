@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
@@ -249,6 +250,8 @@ class MetricsCollector {
       MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
       usedHeapSizePostBuild = memBean.getHeapMemoryUsage().getUsed();
       memoryMetrics.setUsedHeapSizePostBuild(usedHeapSizePostBuild);
+    } else if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
+      memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
     }
     PostGCMemoryUseRecorder.get()
         .getPeakPostGcHeap()
