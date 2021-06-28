@@ -601,6 +601,22 @@ public final class BuildType {
     }
   }
 
+  /** Lazy string message to pass as the {@code what} when converting a select branch value. */
+  private static final class SelectBranchMessage {
+    private final Object what;
+    private final Label key;
+
+    SelectBranchMessage(Object what, Label key) {
+      this.what = what;
+      this.key = key;
+    }
+
+    @Override
+    public String toString() {
+      return String.format("each branch in select expression of %s (including '%s')", what, key);
+    }
+  }
+
   /**
    * Special Type that represents a selector expression for configurable attributes. Holds a
    * mapping of {@code <Label, T>} entries, where keys are configurability patterns and values are
@@ -653,10 +669,7 @@ public final class BuildType {
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);
         } else {
-          String selectBranch = what == null
-              ? null
-              : String.format("each branch in select expression of %s (including '%s')",
-                  what.toString(), key.toString());
+          Object selectBranch = what == null ? null : new SelectBranchMessage(what, key);
           result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
         }
       }
