@@ -229,7 +229,6 @@ class ByteStreamUploader extends AbstractReferenceCounted {
    * @param chunker the data to upload.
    * @param forceUpload if {@code false} the blob is not uploaded if it has previously been
    *     uploaded, if {@code true} the blob is uploaded.
-   * @throws IOException when reading of the {@link Chunker}s input source fails
    */
   public ListenableFuture<Void> uploadBlobAsync(
       RemoteActionExecutionContext context, Digest digest, Chunker chunker, boolean forceUpload) {
