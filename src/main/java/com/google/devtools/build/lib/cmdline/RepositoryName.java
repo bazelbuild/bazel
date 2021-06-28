@@ -35,9 +35,14 @@ import java.util.regex.Pattern;
 /** A human-readable name for the repository. */
 @AutoCodec
 public final class RepositoryName implements Serializable {
+
   static final String DEFAULT_REPOSITORY = "";
-  @SerializationConstant public static final RepositoryName DEFAULT;
-  @SerializationConstant public static final RepositoryName MAIN;
+
+  @SerializationConstant
+  public static final RepositoryName DEFAULT = new RepositoryName(DEFAULT_REPOSITORY);
+
+  @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("@");
+
   private static final Pattern VALID_REPO_NAME = Pattern.compile("@[\\w\\-.]*");
 
   /** Helper for serializing {@link RepositoryName}. */
@@ -95,15 +100,6 @@ public final class RepositoryName implements Serializable {
                 return new RepositoryName(StringCanonicalizer.intern(name));
               });
 
-  static {
-    try {
-      DEFAULT = RepositoryName.create(RepositoryName.DEFAULT_REPOSITORY);
-      MAIN = RepositoryName.create("@");
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   /**
    * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
    *
@@ -111,6 +107,12 @@ public final class RepositoryName implements Serializable {
    */
   @AutoCodec.Instantiator
   public static RepositoryName create(String name) throws LabelSyntaxException {
+    if (name.isEmpty()) {
+      return DEFAULT;
+    }
+    if (name.equals("@")) {
+      return MAIN;
+    }
     try {
       return repositoryNameCache.get(name);
     } catch (CompletionException e) {
@@ -164,11 +166,9 @@ public final class RepositoryName implements Serializable {
     this.name = name;
   }
 
-  /**
-   * Performs validity checking.  Returns null on success, an error message otherwise.
-   */
+  /** Performs validity checking. Returns null on success, an error message otherwise. */
   static String validate(String name) {
-    if (name.isEmpty()) {
+    if (name.isEmpty() || name.equals("@")) {
       return null;
     }
 
