@@ -59,6 +59,7 @@ final class RetainedHeapLimiter implements NotificationListener {
   private static final long MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS = 60000;
 
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
+  private final AtomicBoolean heapLimiterTriggeredGc = new AtomicBoolean(false);
   private final ImmutableList<NotificationEmitter> tenuredGcEmitters;
   private OptionalInt occupiedHeapPercentageThreshold = OptionalInt.empty();
   private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
@@ -152,6 +153,7 @@ final class RetainedHeapLimiter implements NotificationListener {
     }
     // Get a local reference to guard against concurrent modifications.
     OptionalInt occupiedHeapPercentageThreshold = this.occupiedHeapPercentageThreshold;
+    boolean wasTriggered = heapLimiterTriggeredGc.getAndSet(false);
     if (!occupiedHeapPercentageThreshold.isPresent()) {
       // Presumably failure above to uninstall this listener, or a racy GC.
       logger.atInfo().atMostEvery(1, MINUTES).log(
@@ -176,7 +178,8 @@ final class RetainedHeapLimiter implements NotificationListener {
         continue;
       }
 
-      if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
+      boolean manualGc = info.getGcCause().equals("System.gc()");
+      if (manualGc && wasTriggered && !throwingOom.getAndSet(true)) {
         // Assume we got here from a GC initiated by the other branch.
         OutOfMemoryError oom =
             new OutOfMemoryError(
@@ -189,11 +192,13 @@ final class RetainedHeapLimiter implements NotificationListener {
         bugReporter.handleCrash(Crash.from(oom), CrashContext.halt());
       }
 
-      if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
-          > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
+      if (!manualGc
+          && System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
+              > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
         logger.atInfo().log(
             "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
             space.getUsed(), space.getMax());
+        heapLimiterTriggeredGc.set(true);
         // Force a full stop-the-world GC and see if it can get us below the threshold.
         System.gc();
         lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());

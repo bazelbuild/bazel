@@ -37,6 +37,7 @@ import java.lang.management.MemoryUsage;
 import javax.management.ListenerNotFoundException;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,6 +56,11 @@ public final class RetainedHeapLimiterTest {
   public void initMocks() {
     when(mockBean.getMemoryPoolNames()).thenReturn(new String[] {"not tenured", "CMS Old Gen"});
     when(mockUselessBean.getMemoryPoolNames()).thenReturn(new String[] {"assistant", "adjunct"});
+  }
+
+  @After
+  public void cleanUp() {
+    BugReport.maybePropagateUnprocessedThrowableIfInTest();
   }
 
   @Test
@@ -114,7 +120,10 @@ public final class RetainedHeapLimiterTest {
     RetainedHeapLimiter underTest =
         RetainedHeapLimiter.createFromBeans(
             ImmutableList.of(mockBean), BugReporter.defaultInstance());
-    underTest.update(100);
+    underTest.update(99);
+
+    // Triggers GC, and tells RetainedHeapLimiter to OOM if too much memory used next time.
+    underTest.handleNotification(percentUsedAfterOtherGc(100), null);
 
     underTest.handleNotification(percentUsedAfterForcedGc(89), null);
   }
@@ -126,6 +135,9 @@ public final class RetainedHeapLimiterTest {
             ImmutableList.of(mockBean), BugReporter.defaultInstance());
     underTest.update(90);
 
+    // Triggers GC, and tells RetainedHeapLimiter to OOM if too much memory used next time.
+    underTest.handleNotification(percentUsedAfterOtherGc(91), null);
+
     assertThrows(
         SecurityException.class, // From attempt to halt jvm in test.
         () -> underTest.handleNotification(percentUsedAfterForcedGc(91), null));
@@ -136,7 +148,45 @@ public final class RetainedHeapLimiterTest {
     assertThat(oom).hasMessageThat().contains("tenured space is more than 90% occupied");
   }
 
+  @Test
+  public void externalGcNoTrigger() throws Exception {
+    RetainedHeapLimiter underTest =
+        RetainedHeapLimiter.createFromBeans(
+            ImmutableList.of(mockBean), BugReporter.defaultInstance());
+    underTest.update(90);
+
+    // No trigger because cause was "System.gc()".
+    underTest.handleNotification(percentUsedAfterForcedGc(91), null);
+
+    // Proof: no OOM.
+    underTest.handleNotification(percentUsedAfterForcedGc(91), null);
+  }
+
+  @Test
+  public void triggerReset() throws Exception {
+    RetainedHeapLimiter underTest =
+        RetainedHeapLimiter.createFromBeans(
+            ImmutableList.of(mockBean), BugReporter.defaultInstance());
+    underTest.update(90);
+
+    underTest.handleNotification(percentUsedAfterOtherGc(91), null);
+
+    // Got under the threshold, so no OOM.
+    underTest.handleNotification(percentUsedAfterForcedGc(89), null);
+
+    // No OOM this time since wasn't triggered.
+    underTest.handleNotification(percentUsedAfterForcedGc(91), null);
+  }
+
   private static Notification percentUsedAfterForcedGc(int percentUsed) {
+    return percentUsedAfterGc(percentUsed, "System.gc()");
+  }
+
+  private static Notification percentUsedAfterOtherGc(int percentUsed) {
+    return percentUsedAfterGc(percentUsed, "other cause");
+  }
+
+  private static Notification percentUsedAfterGc(int percentUsed, String gcCause) {
     checkArgument(percentUsed >= 0 && percentUsed <= 100, percentUsed);
     MemoryUsage memoryUsage = mock(MemoryUsage.class);
     when(memoryUsage.getUsed()).thenReturn((long) percentUsed);
@@ -146,7 +196,7 @@ public final class RetainedHeapLimiterTest {
     when(gcInfo.getMemoryUsageAfterGc()).thenReturn(ImmutableMap.of("CMS Old Gen", memoryUsage));
 
     GarbageCollectionNotificationInfo notificationInfo =
-        new GarbageCollectionNotificationInfo("name", "action", "System.gc()", gcInfo);
+        new GarbageCollectionNotificationInfo("name", "action", gcCause, gcInfo);
 
     Notification notification =
         new Notification(
