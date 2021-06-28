@@ -149,18 +149,3 @@ java_library(
         "//third_party:truth",
     ],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-)

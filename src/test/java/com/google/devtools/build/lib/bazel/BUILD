@@ -34,22 +34,3 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/ninja:NinjaTests_lib",
     ],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/debug:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/execlog:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules:all_windows_tests",
-    ],
-)

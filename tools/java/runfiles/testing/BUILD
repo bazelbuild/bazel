@@ -52,19 +52,3 @@ java_library(
     exports = ["//third_party:guava"],
     deps = ["//third_party:guava"],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//tools/java/runfiles:__pkg__"],
-)

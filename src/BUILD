@@ -483,36 +483,6 @@ genrule(
     visibility = ["//:__pkg__"],
 )
 
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/cpp:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/android:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/skyframe:all_windows_tests",
-        "//src/test/java/com/google/devtools/common/options:all_windows_tests",
-        "//src/test/native/windows:all_windows_tests",
-        "//src/test/py/bazel:all_windows_tests",
-        "//src/test/res:all_windows_tests",
-        "//src/test/shell:all_windows_tests",
-        "//src/test/shell/bazel/android:all_windows_tests",
-        "//src/tools/launcher:all_windows_tests",
-        "//src/tools/singlejar:all_windows_tests",
-        "//third_party/def_parser:all_windows_tests",
-        "//tools:all_windows_tests",
-    ],
-)
-
 # config_setting alias left here because bazel-only third_party code is pointing to it
 alias(
     name = "windows",

@@ -52,24 +52,3 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/genrule:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/java:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/ninja:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:all_windows_tests",
-    ],
-)

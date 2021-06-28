@@ -91,22 +91,3 @@ sh_test(
         "no_windows",  # test asserts symlink behavior
     ],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/shell/bazel:all_windows_tests",
-        "//src/test/shell/integration:all_windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
-)
