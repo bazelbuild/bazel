@@ -156,36 +156,37 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
     } else {
       result = NestedSet.forDeserialization(order, depth, contents);
     }
-    return interner.get(new EqualsWrapper(result), wrapper -> wrapper.nestedSet);
+    return interner.get(new EqualsWrapper(result), unused -> result);
   }
 
   private static final class EqualsWrapper {
-    private final NestedSet<?> nestedSet;
+    private final Order order;
+    private final Object children;
 
     private EqualsWrapper(NestedSet<?> nestedSet) {
-      this.nestedSet = nestedSet;
+      // Unwrap the fields we need so that we don't strongly retain the NestedSet.
+      this.order = nestedSet.getOrder();
+      this.children = nestedSet.children;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public int hashCode() {
       int childrenHashCode;
-      if (nestedSet.children instanceof ListenableFuture
-          && ((ListenableFuture) nestedSet.children).isDone()) {
+      if (children instanceof ListenableFuture && ((ListenableFuture<?>) children).isDone()) {
         try {
-          childrenHashCode = Futures.getDone((ListenableFuture) nestedSet.children).hashCode();
+          childrenHashCode = Futures.getDone((ListenableFuture<?>) children).hashCode();
         } catch (ExecutionException e) {
           // If the future failed, we can treat it as unequal to all non-future NestedSet instances
           // (using the hashCode of the Future object) and hide the exception until the NestedSet is
           // truly needed (i.e. unrolled). Note that NestedSetStore already attaches a listener to
           // this future that sends a bug report if it fails.
-          childrenHashCode = nestedSet.children.hashCode();
+          childrenHashCode = children.hashCode();
         }
       } else {
-        childrenHashCode = nestedSet.children.hashCode();
+        childrenHashCode = children.hashCode();
       }
 
-      return 37 * nestedSet.getOrder().hashCode() + childrenHashCode;
+      return 37 * order.hashCode() + childrenHashCode;
     }
 
     private static boolean deserializingAndMaterializedSetsAreEqual(
@@ -212,21 +213,18 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       }
 
       // Both sets contain Object[] or both sets contain ListenableFuture<Object[]>
-      NestedSet<?> thatSet = ((EqualsWrapper) obj).nestedSet;
-      if (this.nestedSet.getOrder().equals(thatSet.getOrder())
-          && this.nestedSet.children.equals(thatSet.children)) {
+      EqualsWrapper that = (EqualsWrapper) obj;
+      if (this.order.equals(that.order) && this.children.equals(that.children)) {
         return true;
       }
 
       // One set contains Object[], while the other contains ListenableFuture<Object[]>
-      if (this.nestedSet.children instanceof ListenableFuture
-          && thatSet.children instanceof Object[]) {
+      if (this.children instanceof ListenableFuture && that.children instanceof Object[]) {
         return deserializingAndMaterializedSetsAreEqual(
-            (Object[]) thatSet.children, (ListenableFuture<Object[]>) this.nestedSet.children);
-      } else if (thatSet.children instanceof ListenableFuture
-          && this.nestedSet.children instanceof Object[]) {
+            (Object[]) that.children, (ListenableFuture<Object[]>) this.children);
+      } else if (that.children instanceof ListenableFuture && this.children instanceof Object[]) {
         return deserializingAndMaterializedSetsAreEqual(
-            (Object[]) this.nestedSet.children, (ListenableFuture<Object[]>) thatSet.children);
+            (Object[]) this.children, (ListenableFuture<Object[]>) that.children);
       } else {
         return false;
       }
