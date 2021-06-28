@@ -1066,14 +1066,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   static DetailedExitCode getPrioritizedDetailedExitCode(NestedSet<Cause> causes) {
-    DetailedExitCode[] prioritizedDetailedExitCodeWrapper = {null};
-    causes.forEachElement(
-        o -> true,
-        c ->
-            prioritizedDetailedExitCodeWrapper[0] =
-                DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                    prioritizedDetailedExitCodeWrapper[0], c.getDetailedExitCode()));
-    return prioritizedDetailedExitCodeWrapper[0];
+    DetailedExitCode prioritizedDetailedExitCode = null;
+    for (Cause c : causes.toList()) {
+      prioritizedDetailedExitCode =
+          DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
+              prioritizedDetailedExitCode, c.getDetailedExitCode());
+    }
+    return prioritizedDetailedExitCode;
   }
 
   /**
