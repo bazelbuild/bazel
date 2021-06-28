@@ -173,7 +173,7 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
             largestPackages.getExtremeElements().stream(),
             packagesWithMostTransitiveLoads.getExtremeElements().stream(),
             packagesWithMostOverhead.getExtremeElements().stream())
-        .map(c -> c.getPackageMetrics())
+        .map(PackageMetricsContainer::getPackageMetrics)
         .collect(toImmutableSet());
   }
 

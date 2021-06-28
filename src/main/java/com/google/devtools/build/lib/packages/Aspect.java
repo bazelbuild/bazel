@@ -153,7 +153,8 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   }
 
   /** {@link ObjectCodec} for {@link Aspect}. */
-  static class AspectCodec implements ObjectCodec<Aspect> {
+  @SuppressWarnings("unused") // Used reflectively.
+  private static final class AspectCodec implements ObjectCodec<Aspect> {
     @Override
     public Class<Aspect> getEncodedClass() {
       return Aspect.class;

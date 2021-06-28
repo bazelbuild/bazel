@@ -48,11 +48,9 @@ public final class AdvertisedProviderSet {
   }
 
   public static final AdvertisedProviderSet ANY =
-      new AdvertisedProviderSet(
-          true, ImmutableSet.<Class<?>>of(), ImmutableSet.<StarlarkProviderIdentifier>of());
+      new AdvertisedProviderSet(true, ImmutableSet.of(), ImmutableSet.of());
   public static final AdvertisedProviderSet EMPTY =
-      new AdvertisedProviderSet(
-          false, ImmutableSet.<Class<?>>of(), ImmutableSet.<StarlarkProviderIdentifier>of());
+      new AdvertisedProviderSet(false, ImmutableSet.of(), ImmutableSet.of());
 
   public static AdvertisedProviderSet create(
       ImmutableSet<Class<?>> builtinProviders,
@@ -79,7 +77,7 @@ public final class AdvertisedProviderSet {
     }
 
     AdvertisedProviderSet that = (AdvertisedProviderSet) obj;
-    return Objects.equals(this.canHaveAnyProvider, that.canHaveAnyProvider)
+    return this.canHaveAnyProvider == that.canHaveAnyProvider
         && Objects.equals(this.builtinProviders, that.builtinProviders)
         && Objects.equals(this.starlarkProviders, that.starlarkProviders);
   }
@@ -91,7 +89,7 @@ public final class AdvertisedProviderSet {
     }
     return String.format(
         "allowed built-in providers=%s, allowed Starlark providers=%s",
-        getBuiltinProviders(), getStarlarkProviders());
+        builtinProviders, starlarkProviders);
   }
 
   /** Checks whether the rule can have any provider.
@@ -124,9 +122,9 @@ public final class AdvertisedProviderSet {
    *       fingerprint (except for unintentional digest collisions).
    * </ul>
    *
-   * <p>In other words, {@link #fingerprint} is a proxy for {@link #equals}. These properties *do
-   * not* need to be maintained across Blaze versions (e.g. there's no need to worry about
-   * historical serialized fingerprints).
+   * <p>In other words, this method is a proxy for {@link #equals}. These properties *do not* need
+   * to be maintained across Blaze versions (e.g. there's no need to worry about historical
+   * serialized fingerprints).
    */
   public void fingerprint(Fingerprint fp) {
     fp.addBoolean(canHaveAnyProvider);
@@ -138,17 +136,6 @@ public final class AdvertisedProviderSet {
 
   public static Builder builder() {
     return new Builder();
-  }
-
-  /**
-   * Returns {@code true} if this provider set can have any provider, or if it advertises the
-   * specific built-in provider requested.
-   */
-  public boolean advertises(Class<?> builtinProviderClass) {
-    if (canHaveAnyProvider()) {
-      return true;
-    }
-    return builtinProviders.contains(builtinProviderClass);
   }
 
   /**
@@ -211,11 +198,6 @@ public final class AdvertisedProviderSet {
 
     public Builder addStarlark(StarlarkProviderIdentifier id) {
       starlarkProviders.add(id);
-      return this;
-    }
-
-    public Builder addStarlark(Provider.Key id) {
-      starlarkProviders.add(StarlarkProviderIdentifier.forKey(id));
       return this;
     }
   }

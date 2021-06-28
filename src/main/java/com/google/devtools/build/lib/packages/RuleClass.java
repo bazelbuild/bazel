@@ -222,7 +222,7 @@ public class RuleClass {
     INHERIT;
 
     /** Determine the correct value to use based on the current setting and the parent's value. */
-    public ToolchainResolutionMode apply(String name, ToolchainResolutionMode parent) {
+    ToolchainResolutionMode apply(String name, ToolchainResolutionMode parent) {
       if (this == INHERIT) {
         return parent;
       } else if (parent == INHERIT) {
@@ -237,7 +237,7 @@ public class RuleClass {
       return this;
     }
 
-    public boolean isActive() {
+    boolean isActive() {
       switch (this) {
         case ENABLED:
           return true;
@@ -259,7 +259,7 @@ public class RuleClass {
     INHERIT;
 
     /** Determine the correct value to use based on the current setting and the parent's value. */
-    public ToolchainTransitionMode apply(String name, ToolchainTransitionMode parent) {
+    ToolchainTransitionMode apply(String name, ToolchainTransitionMode parent) {
       if (this == INHERIT) {
         return parent;
       } else if (parent == INHERIT) {
@@ -274,7 +274,7 @@ public class RuleClass {
       return this;
     }
 
-    public boolean isActive() {
+    boolean isActive() {
       switch (this) {
         case ENABLED:
           return true;
@@ -549,12 +549,12 @@ public class RuleClass {
       public abstract void checkName(String name);
 
       /**
-       * Checks whether the given set of attributes contains all the required
-       * attributes for the current rule class type.
+       * Checks whether the given set of attributes contains all the required attributes for the
+       * current rule class type.
        *
        * @throws IllegalArgumentException if a required attribute is missing
        */
-      public abstract void checkAttributes(Map<String, Attribute> attributes);
+      protected abstract void checkAttributes(Map<String, Attribute> attributes);
     }
 
     /** A predicate that filters rule classes based on their names. */
@@ -723,17 +723,17 @@ public class RuleClass {
      */
     public static final String STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME = "build_setting_default";
 
-    public static final String STARLARK_BUILD_SETTING_HELP_ATTR_NAME = "help";
+    static final String STARLARK_BUILD_SETTING_HELP_ATTR_NAME = "help";
 
-    public static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
+    static final String BUILD_SETTING_DEFAULT_NONCONFIGURABLE =
         "Build setting defaults are referenced during analysis.";
 
     /** List of required attributes for normal rules, name and type. */
-    public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
+    static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
         ImmutableList.of(attr("tags", Type.STRING_LIST).build());
 
     /** List of required attributes for test rules, name and type. */
-    public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_TESTS =
+    static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_TESTS =
         ImmutableList.of(
             attr("tags", Type.STRING_LIST).build(),
             attr("size", Type.STRING).build(),
@@ -759,8 +759,7 @@ public class RuleClass {
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private TransitionFactory<Rule> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
-    private PredicateWithMessage<Rule> validityPredicate =
-        PredicatesWithMessage.<Rule>alwaysTrue();
+    private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
@@ -1035,7 +1034,7 @@ public class RuleClass {
      */
     public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
-          ImmutableSet.<Class<?>>copyOf(configurationFragments));
+          ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -1053,8 +1052,7 @@ public class RuleClass {
     public Builder requiresConfigurationFragments(ConfigurationTransition transition,
         Class<?>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
-          transition,
-          ImmutableSet.<Class<?>>copyOf(configurationFragments));
+          transition, ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -1175,7 +1173,7 @@ public class RuleClass {
      * #cfg(TransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      return cfg((TransitionFactory<Rule>) unused -> transition);
+      return cfg(unused -> transition);
     }
 
     /**
@@ -2112,7 +2110,7 @@ public class RuleClass {
     Rule rule =
         pkgBuilder.createRule(ruleLabel, this, location, callstack, implicitOutputsFunction);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
-    rule.populateOutputFilesUnchecked(NullEventHandler.INSTANCE, pkgBuilder);
+    rule.populateOutputFilesUnchecked(pkgBuilder);
     return rule;
   }
 
@@ -2335,7 +2333,7 @@ public class RuleClass {
     // attribute gets an '$implicit_tests' attribute, whose value is a shared per-package list of
     // all test labels, populated later.
     // TODO(blaze-rules-team): This should be in test_suite's implementation, not here.
-    if (this.name.equals("test_suite") && !this.isStarlark()) {
+    if (this.name.equals("test_suite") && !this.isStarlark) {
       Attribute implicitTests = this.getAttributeByName("$implicit_tests");
       NonconfigurableAttributeMapper attributeMapper = NonconfigurableAttributeMapper.of(rule);
       if (implicitTests != null && attributeMapper.get("tests", BuildType.LABEL_LIST).isEmpty()) {
@@ -2780,6 +2778,6 @@ public class RuleClass {
   // https://docs.google.com/document/d/1uwBuhAoBNrw8tmFs-NxlssI6VRolidGYdYqagLqHWt8/edit#
   // TODO(b/183637322) consider this further
   public boolean isBazelLicense() {
-    return getName().equals("_license") && hasAttr("license_kinds", BuildType.LABEL_LIST);
+    return name.equals("_license") && hasAttr("license_kinds", BuildType.LABEL_LIST);
   }
 }

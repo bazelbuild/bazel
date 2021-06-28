@@ -78,7 +78,7 @@ public final class OutputFile extends FileTarget {
 
   @Override
   public Rule getAssociatedRule() {
-    return getGeneratingRule();
+    return generatingRule;
   }
 
   @Override

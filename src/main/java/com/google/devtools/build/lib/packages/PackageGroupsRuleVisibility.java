@@ -27,7 +27,7 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
   private final PackageGroupContents directPackages;
   private final List<Label> declaredLabels;
 
-  public PackageGroupsRuleVisibility(Label ruleLabel, List<Label> labels) {
+  private PackageGroupsRuleVisibility(Label ruleLabel, List<Label> labels) {
     declaredLabels = ImmutableList.copyOf(labels);
     ImmutableList.Builder<PackageSpecification> directPackageBuilder = ImmutableList.builder();
     ImmutableList.Builder<Label> packageGroupBuilder = ImmutableList.builder();

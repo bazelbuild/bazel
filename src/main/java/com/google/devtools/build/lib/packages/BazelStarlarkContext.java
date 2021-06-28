@@ -103,11 +103,6 @@ public final class BazelStarlarkContext
     this.analysisRuleLabel = analysisRuleLabel;
   }
 
-  /** Returns the phase to which this Starlark thread belongs. */
-  public Phase getPhase() {
-    return phase;
-  }
-
   /** Returns the name of the tools repository, such as "@bazel_tools". */
   @Nullable
   @Override

@@ -82,7 +82,7 @@ public final class BuildType {
   @AutoCodec public static final Type<License> LICENSE = new LicenseType();
   /** The type of a single distribution. Only used internally, as a type symbol, not a converter. */
   @AutoCodec
-  public static final Type<DistributionType> DISTRIBUTION =
+  static final Type<DistributionType> DISTRIBUTION =
       new Type<DistributionType>() {
         @Override
         public DistributionType cast(Object value) {
@@ -147,7 +147,7 @@ public final class BuildType {
       Type<T> type, Object x, Object what, LabelConversionContext context)
       throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
-      return new SelectorList<T>(
+      return new SelectorList<>(
           ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
           what,
           context,
@@ -211,7 +211,7 @@ public final class BuildType {
       this.convertedLabelsInPackage = convertedLabelsInPackage;
     }
 
-    public Label getLabel() {
+    Label getLabel() {
       return label;
     }
 
@@ -221,16 +221,15 @@ public final class BuildType {
       // construction, and global Interner lookup. This approach tends to be very profitable
       // overall, since it's common for the targets in a single package to have duplicate
       // label-strings across all their attribute values.
-      Label label = convertedLabelsInPackage.get(input);
-      if (label == null) {
-        label = getLabel().getRelativeWithRemapping(input, getRepositoryMapping());
-        convertedLabelsInPackage.put(input, label);
+      Label converted = convertedLabelsInPackage.get(input);
+      if (converted == null) {
+        converted = label.getRelativeWithRemapping(input, repositoryMapping);
+        convertedLabelsInPackage.put(input, converted);
       }
-
-      return label;
+      return converted;
     }
 
-    public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
       return repositoryMapping;
     }
 
@@ -319,7 +318,7 @@ public final class BuildType {
       super(LABEL, valueType, LabelClass.DEPENDENCY);
     }
 
-    public static <ValueT> LabelKeyedDictType<ValueT> create(Type<ValueT> valueType) {
+    static <ValueT> LabelKeyedDictType<ValueT> create(Type<ValueT> valueType) {
       Preconditions.checkArgument(
           valueType.getLabelClass() == LabelClass.NONE
               || valueType.getLabelClass() == LabelClass.DEPENDENCY,
@@ -343,8 +342,7 @@ public final class BuildType {
       Map<Label, List<Object>> convertedFrom = new LinkedHashMap<>();
       for (Object original : input.keySet()) {
         Label label = LABEL.convert(original, what, context);
-        convertedFrom.computeIfAbsent(label, k -> new ArrayList<Object>());
-        convertedFrom.get(label).add(original);
+        convertedFrom.computeIfAbsent(label, k -> new ArrayList<>()).add(original);
       }
       Printer errorMessage = new Printer();
       errorMessage.append("duplicate labels");
@@ -373,9 +371,8 @@ public final class BuildType {
   }
 
   /**
-   * Like Label, LicenseType is a derived type, which is declared specially
-   * in order to allow syntax validation. It represents the licenses, as
-   * described in {@ref License}.
+   * Like Label, LicenseType is a derived type, which is declared specially in order to allow syntax
+   * validation. It represents the licenses, as described in {@link License}.
    */
   public static class LicenseType extends Type<License> {
     @Override
@@ -409,12 +406,11 @@ public final class BuildType {
   }
 
   /**
-   * Like Label, Distributions is a derived type, which is declared specially
-   * in order to allow syntax validation. It represents the declared distributions
-   * of a target, as described in {@ref License}.
+   * Like Label, Distributions is a derived type, which is declared specially in order to allow
+   * syntax validation. It represents the declared distributions of a target, as described in {@link
+   * License}.
    */
-  private static class Distributions extends
-      Type<Set<DistributionType>> {
+  private static class Distributions extends Type<Set<DistributionType>> {
     @SuppressWarnings("unchecked")
     @Override
     public Set<DistributionType> cast(Object value) {
@@ -491,7 +487,7 @@ public final class BuildType {
       try {
         // Enforce value is relative to the context.
         Label currentRule;
-        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
         if (context instanceof LabelConversionContext) {
           currentRule = ((LabelConversionContext) context).getLabel();
           repositoryMapping = ((LabelConversionContext) context).getRepositoryMapping();
@@ -525,7 +521,7 @@ public final class BuildType {
     SelectorList(
         List<Object> x, Object what, @Nullable LabelConversionContext context, Type<T> originalType)
         throws ConversionException {
-      if (x.size() > 1 && originalType.concat(ImmutableList.<T>of()) == null) {
+      if (x.size() > 1 && originalType.concat(ImmutableList.of()) == null) {
         throw new ConversionException(
             String.format("type '%s' doesn't support select concatenation", originalType));
       }
@@ -570,7 +566,7 @@ public final class BuildType {
      */
     public Set<Label> getKeyLabels() {
       ImmutableSet.Builder<Label> keys = ImmutableSet.builder();
-      for (Selector<T> selector : getSelectors()) {
+      for (Selector<T> selector : elements) {
         for (Label label : selector.getEntries().keySet()) {
           if (!Selector.isReservedLabel(label)) {
             keys.add(label);
@@ -627,7 +623,7 @@ public final class BuildType {
     @VisibleForTesting
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
-    public static final Label DEFAULT_CONDITION_LABEL =
+    static final Label DEFAULT_CONDITION_LABEL =
         Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;

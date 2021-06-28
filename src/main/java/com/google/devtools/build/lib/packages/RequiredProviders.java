@@ -144,7 +144,7 @@ public final class RequiredProviders {
       }
 
       @Override
-      public boolean satisfies(
+      boolean satisfies(
           Predicate<Class<? extends TransitiveInfoProvider>> hasBuiltinProvider,
           Predicate<StarlarkProviderIdentifier> hasStarlarkProvider,
           RequiredProviders requiredProviders,
@@ -204,7 +204,7 @@ public final class RequiredProviders {
     };
 
     /** Checks if {@code advertisedProviderSet} satisfies these {@code RequiredProviders} */
-    public abstract boolean satisfies(
+    protected abstract boolean satisfies(
         AdvertisedProviderSet advertisedProviderSet,
         RequiredProviders requiredProviders,
         Builder missing);

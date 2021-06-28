@@ -359,7 +359,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     if (val instanceof List) {
       List<Object> l = new ArrayList<>();
-      for (Object o : (List) val) {
+      for (Object o : (List<?>) val) {
         Object elt = starlarkifyValue(mu, o, pkg);
         if (elt == null) {
           continue;

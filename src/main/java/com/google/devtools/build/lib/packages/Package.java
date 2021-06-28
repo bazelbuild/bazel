@@ -868,7 +868,7 @@ public class Package {
     return error.withProperty(DetailedExitCode.class, createDetailedCode(error.toString(), code));
   }
 
-  public static DetailedExitCode createDetailedCode(String errorMessage, Code code) {
+  private static DetailedExitCode createDetailedCode(String errorMessage, Code code) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(errorMessage)
@@ -1324,7 +1324,7 @@ public class Package {
     }
 
     @Nullable
-    public FailureDetail getFailureDetail() {
+    FailureDetail getFailureDetail() {
       if (failureDetailOverride != null) {
         return failureDetailOverride;
       }

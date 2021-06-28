@@ -40,12 +40,12 @@ public final class StarlarkAspectClass implements AspectClass {
   }
 
   @Override
-  public final String getName() {
-    return getExtensionLabel() + "%" + getExportedName();
+  public String getName() {
+    return extensionLabel + "%" + exportedName;
   }
 
   @Override
-  public final boolean equals(Object o) {
+  public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
@@ -61,8 +61,8 @@ public final class StarlarkAspectClass implements AspectClass {
   }
 
   @Override
-  public final int hashCode() {
-    return Objects.hash(getExtensionLabel(), getExportedName());
+  public int hashCode() {
+    return Objects.hash(extensionLabel, exportedName);
   }
 
   @Override

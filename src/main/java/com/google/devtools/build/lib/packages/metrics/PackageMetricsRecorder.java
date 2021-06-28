@@ -22,7 +22,7 @@ import java.util.Map;
 public interface PackageMetricsRecorder {
 
   /** What type of packages are metrics being recorded for? */
-  public enum Type {
+  enum Type {
     ONLY_EXTREMES,
     ALL,
   }

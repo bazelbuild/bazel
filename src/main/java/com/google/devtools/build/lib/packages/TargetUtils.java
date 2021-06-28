@@ -290,9 +290,8 @@ public final class TargetUtils {
                     String.class,
                     "execution_requirements"));
 
-    Map<String, String> executionInfoBuilder = new HashMap<>();
     // adding filtered execution requirements to the execution info map
-    executionInfoBuilder.putAll(checkedExecutionRequirements);
+    Map<String, String> executionInfoBuilder = new HashMap<>(checkedExecutionRequirements);
 
     if (allowTagsPropagation) {
       Map<String, String> checkedTags = getExecutionInfo(rule);
@@ -307,7 +306,7 @@ public final class TargetUtils {
    * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
    * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
-  public static Map<String, String> filter(Map<String, String> executionInfo) {
+  private static Map<String, String> filter(Map<String, String> executionInfo) {
     return Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys);
   }
 

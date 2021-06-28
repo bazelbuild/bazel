@@ -72,14 +72,6 @@ public abstract class DependencyFilter
               || attribute.getName().equals("visibility");
         }
       };
-  /** Checks to see if the attribute has the isDirectCompileTimeInput property. */
-  public static final DependencyFilter DIRECT_COMPILE_TIME_INPUT =
-      new DependencyFilter() {
-        @Override
-        public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
-          return attribute.isDirectCompileTimeInput();
-        }
-      };
 
   /**
    * Returns true if a given attribute should be processed.

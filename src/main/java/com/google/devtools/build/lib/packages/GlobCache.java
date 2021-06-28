@@ -72,10 +72,9 @@ public class GlobCache {
    */
   private final Predicate<Path> childDirectoryPredicate;
 
-  /**
-   * System call caching layer.
-   */
-  private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
+  /** System call caching layer. */
+  private final AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
+
   private final int maxDirectoriesToEagerlyVisit;
 
   /** The thread pool for glob evaluation. */

@@ -126,7 +126,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     if (positional.length > 0) {
       throw Starlark.errorf("%s: unexpected positional arguments", getName());
     }

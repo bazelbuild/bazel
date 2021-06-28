@@ -86,7 +86,7 @@ import net.starlark.java.eval.StarlarkInt;
 // types, both Starlark and native.
 public abstract class Type<T> {
 
-  protected Type() {}
+  Type() {}
 
   /**
    * Converts a legal Starlark value x into an Java value of type T.
@@ -285,7 +285,7 @@ public abstract class Type<T> {
     }
 
     /** Contructs a conversion error. Throws NullPointerException if value is null. */
-    public ConversionException(Type<?> type, Object value, @Nullable Object what) {
+    ConversionException(Type<?> type, Object value, @Nullable Object what) {
       super(message(type, Preconditions.checkNotNull(value), what));
     }
 
@@ -523,7 +523,7 @@ public abstract class Type<T> {
       return new DictType<>(keyType, valueType, labelClass);
     }
 
-    protected DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
+    DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
       this.keyType = keyType;
       this.valueType = valueType;
       this.labelClass = labelClass;
@@ -738,7 +738,7 @@ public abstract class Type<T> {
         throws ConversionException {
       // TODO(adonovan): converge on Starlark.toIterable.
       if (x instanceof Sequence) {
-        return ((Sequence) x).getImmutableList();
+        return ((Sequence<Object>) x).getImmutableList();
       } else if (x instanceof List) {
         return (List<Object>) x;
       } else if (x instanceof Iterable) {

@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -86,7 +85,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
     RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-    Map<String, Object> kwargs = ImmutableMap.<String, Object>of("name", name, "path", ".");
+    Map<String, Object> kwargs = ImmutableMap.of("name", name, "path", ".");
     try {
       // This effectively adds a "local_repository(name = "<ws>", path = ".")"
       // definition to the WORKSPACE file.
@@ -110,7 +109,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   @Override
   public void dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     List<String> pathsList = Sequence.cast(paths, String.class, "paths");
     Set<String> set = Sets.newHashSet();
     for (String path : pathsList) {
@@ -245,7 +244,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   @Override
   public void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
@@ -254,7 +253,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   @Override
   public void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
@@ -289,7 +288,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
    * Returns true if the given name is a valid workspace name.
    */
   public static boolean isLegalWorkspaceName(String name) {
-    Matcher matcher = LEGAL_WORKSPACE_NAME.matcher(name);
-    return matcher.matches();
+    return LEGAL_WORKSPACE_NAME.matcher(name).matches();
   }
 }

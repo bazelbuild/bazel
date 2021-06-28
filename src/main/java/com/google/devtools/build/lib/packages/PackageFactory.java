@@ -111,7 +111,6 @@ public final class PackageFactory {
   }
 
   private final RuleFactory ruleFactory;
-  private final ImmutableMap<String, BuiltinRuleFunction> ruleFunctions;
   private final RuleClassProvider ruleClassProvider;
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
@@ -133,7 +132,7 @@ public final class PackageFactory {
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
   public abstract static class BuilderForTesting {
-    protected final String version = "test";
+    protected static final String VERSION = "test";
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
     protected PackageOverheadEstimator packageOverheadEstimator =
@@ -193,7 +192,6 @@ public final class PackageFactory {
       PackageOverheadEstimator packageOverheadEstimator,
       PackageLoadingListener packageLoadingListener) {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
-    this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
@@ -205,7 +203,7 @@ public final class PackageFactory {
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             ruleClassProvider,
-            ruleFunctions,
+            buildRuleFunctions(ruleFactory),
             this.environmentExtensions,
             newPackageFunction(packageArguments),
             version);

@@ -27,7 +27,7 @@ import java.util.Set;
  */
 @Immutable
 public abstract class FileTarget implements Target, FileType.HasFileType {
-  protected final Label label;
+  final Label label;
 
   /** Constructs a file with the given label, which must be in the given package. */
   FileTarget(Package pkg, Label label) {
@@ -61,7 +61,7 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
 
   @Override
   public String toString() {
-    return getTargetKind() + "(" + getLabel() + ")"; // Just for debugging
+    return getTargetKind() + "(" + label + ")"; // Just for debugging
   }
 
   @Override
