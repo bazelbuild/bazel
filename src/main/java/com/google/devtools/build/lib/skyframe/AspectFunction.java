@@ -201,7 +201,12 @@ final class AspectFunction implements SkyFunction {
     if (key.getAspectClass() instanceof NativeAspectClass) {
       NativeAspectClass nativeAspectClass = (NativeAspectClass) key.getAspectClass();
       aspectFactory = (ConfiguredAspectFactory) nativeAspectClass;
-      aspect = Aspect.forNative(nativeAspectClass, key.getParameters());
+      aspect =
+          Aspect.forNative(
+              nativeAspectClass,
+              key.getParameters(),
+              key.getInheritedRequiredProviders(),
+              key.getInheritedAttributeAspects());
     } else if (key.getAspectClass() instanceof StarlarkAspectClass) {
       StarlarkAspectClass starlarkAspectClass = (StarlarkAspectClass) key.getAspectClass();
       StarlarkDefinedAspect starlarkAspect;

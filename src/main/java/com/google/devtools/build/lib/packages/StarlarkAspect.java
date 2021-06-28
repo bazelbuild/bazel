@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
@@ -56,4 +57,7 @@ public interface StarlarkAspect extends StarlarkAspectApi {
 
   /** Returns the name of this aspect. */
   String getName();
+
+  /** Returns a function to extract the aspect parameters values from its base rule. */
+  Function<Rule, AspectParameters> getDefaultParametersExtractor();
 }

@@ -1191,7 +1191,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     public Builder<TYPE> aspect(
-        NativeAspectClass nativeAspect,
+        StarlarkNativeAspect nativeAspect,
         String baseAspectName,
         ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
         ImmutableList<String> inheritedAttributeAspects)
@@ -1206,7 +1206,7 @@ public final class Attribute implements Comparable<Attribute> {
         NativeRuleAspect nativeRuleAspect =
             new NativeRuleAspect(
                 nativeAspect,
-                EMPTY_FUNCTION,
+                nativeAspect.getDefaultParametersExtractor(),
                 baseAspectName,
                 inheritedRequiredProviders,
                 inheritedAttributeAspects);

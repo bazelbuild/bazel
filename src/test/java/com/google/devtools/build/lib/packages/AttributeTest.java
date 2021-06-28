@@ -344,13 +344,13 @@ public class AttributeTest {
     Attribute attr =
         attr("x", LABEL)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_1",
                 /** inheritedRequiredProviders= */
                 ImmutableList.of(),
                 inheritedAttributeAspects1)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_2",
                 /** inheritedRequiredProviders= */
                 ImmutableList.of(),
@@ -375,13 +375,13 @@ public class AttributeTest {
     Attribute attr =
         attr("x", LABEL)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_1",
                 inheritedRequiredProviders1,
                 /** inheritedAttributeAspects= */
                 ImmutableList.of())
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_2",
                 inheritedRequiredProviders2,
                 /** inheritedAttributeAspects= */
@@ -417,9 +417,9 @@ public class AttributeTest {
 
     Attribute attr =
         attr("x", LABEL)
-            .aspect(TestAspects.SIMPLE_ASPECT)
+            .aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect",
                 /** inheritedRequiredProviders = */
                 ImmutableList.of(),
@@ -441,9 +441,9 @@ public class AttributeTest {
 
     Attribute attr =
         attr("x", LABEL)
-            .aspect(TestAspects.SIMPLE_ASPECT)
+            .aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect",
                 inheritedRequiredProviders,
                 /** inheritedAttributeAspects= */
@@ -480,15 +480,15 @@ public class AttributeTest {
 
     Attribute attr =
         attr("x", LABEL)
-            .aspect(TestAspects.SIMPLE_ASPECT)
+            .aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_1",
                 /** inheritedRequiredProviders = */
                 ImmutableList.of(),
                 inheritedAttributeAspects1)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_2",
                 /** inheritedRequiredProviders = */
                 ImmutableList.of(),
@@ -511,15 +511,15 @@ public class AttributeTest {
 
     Attribute attr =
         attr("x", LABEL)
-            .aspect(TestAspects.SIMPLE_ASPECT)
+            .aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT)
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_1",
                 inheritedRequiredProviders1,
                 /** inheritedAttributeAspects= */
                 ImmutableList.of())
             .aspect(
-                TestAspects.SIMPLE_ASPECT,
+                TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
                 "base_aspect_2",
                 inheritedRequiredProviders2,
                 /** inheritedAttributeAspects= */

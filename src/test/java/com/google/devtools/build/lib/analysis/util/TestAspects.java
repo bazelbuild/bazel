@@ -46,18 +46,23 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.StarlarkNativeAspect;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.io.Serializable;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Various rule and aspect classes that aid in testing the aspect machinery.
@@ -251,14 +256,38 @@ public class TestAspects {
   public static final SimpleAspect SIMPLE_ASPECT = new SimpleAspect();
   public static final FooProviderAspect FOO_PROVIDER_ASPECT = new FooProviderAspect();
   public static final BarProviderAspect BAR_PROVIDER_ASPECT = new BarProviderAspect();
+  public static final SimpleStarlarkNativeAspect SIMPLE_STARLARK_NATIVE_ASPECT =
+      new SimpleStarlarkNativeAspect();
+  public static final ParametrizedAspectWithProvider
+      PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER = new ParametrizedAspectWithProvider();
 
   private static final AspectDefinition SIMPLE_ASPECT_DEFINITION =
       new AspectDefinition.Builder(SIMPLE_ASPECT).build();
-
   private static final AspectDefinition FOO_PROVIDER_ASPECT_DEFINITION =
       new AspectDefinition.Builder(FOO_PROVIDER_ASPECT).build();
   private static final AspectDefinition BAR_PROVIDER_ASPECT_DEFINITION =
       new AspectDefinition.Builder(BAR_PROVIDER_ASPECT).build();
+  private static final AspectDefinition SIMPLE_STARLARK_NATIVE_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(SIMPLE_STARLARK_NATIVE_ASPECT).build();
+
+  /** Simple StarlarkNativeAspect */
+  public static class SimpleStarlarkNativeAspect extends StarlarkNativeAspect
+      implements ConfiguredAspectFactory {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return SIMPLE_STARLARK_NATIVE_ASPECT_DEFINITION;
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTargetAndData ctadBase,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        String toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
+    }
+  }
 
   /**
    * A very simple aspect.
@@ -454,6 +483,49 @@ public class TestAspects {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION;
+    }
+  }
+
+  /**
+   * An aspect that has a definition depending on parameters provided by originating rule and
+   * advertises a simple provider.
+   */
+  public static class ParametrizedAspectWithProvider extends StarlarkNativeAspect
+      implements ConfiguredAspectFactory {
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      AspectDefinition.Builder builder =
+          new AspectDefinition.Builder(PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+      ImmutableCollection<String> aspectAttr = aspectParameters.getAttribute("aspect_attr");
+      if (aspectAttr != null) {
+        builder.add(
+            attr("aspect_attr", Type.STRING)
+                .allowedValues(new AllowedValueSet("v1", "v2"))
+                .value(aspectAttr.iterator().next()));
+      }
+      return builder.build();
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTargetAndData ctadBase,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        String toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
+    }
+
+    @Override
+    public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
+      return (Function<Rule, AspectParameters> & Serializable)
+          (@Nullable Rule rule) -> {
+            AttributeMap attributes = RawAttributeMapper.of(rule);
+            return new AspectParameters.Builder()
+                .addAttribute("aspect_attr", attributes.get("aspect_attr", Type.STRING))
+                .build();
+          };
     }
   }
 
