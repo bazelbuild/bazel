@@ -548,7 +548,7 @@ public final class JavaCompilationHelper {
                 .addInput(manifestProto)
                 .addInput(classJar)
                 .addOutput(genClassJar)
-                .addTransitiveInputs(hostJavabase.javaBaseInputsMiddleman())
+                .addTransitiveInputs(hostJavabase.javaBaseInputs())
                 .setJarExecutable(
                     JavaCommon.getHostJavaExecutable(hostJavabase),
                     getGenClassJar(ruleContext),

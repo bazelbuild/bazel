@@ -393,7 +393,7 @@ public class DeployArchiveBuilder {
           new SpawnAction.Builder()
               .useDefaultShellEnvironment()
               .addTransitiveInputs(inputs.build())
-              .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman())
+              .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs())
               .addOutput(outputJar)
               .setResources(DEPLOY_ACTION_RESOURCE_SET)
               .setJarExecutable(JavaCommon.getHostJavaExecutable(ruleContext), singlejar, jvmArgs)

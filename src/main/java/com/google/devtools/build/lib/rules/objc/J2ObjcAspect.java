@@ -571,7 +571,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addInputs(sources)
             .addInputs(sourceJars)
             .addTransitiveInputs(compileTimeJars)
-            .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman())
+            .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs())
             .addTransitiveInputs(depsHeaderMappingFiles)
             .addTransitiveInputs(depsClassMappingFiles)
             .addCommandLine(

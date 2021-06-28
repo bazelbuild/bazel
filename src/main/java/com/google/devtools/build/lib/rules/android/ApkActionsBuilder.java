@@ -391,7 +391,7 @@ public class ApkActionsBuilder {
               JavaCommon.getHostJavaExecutable(ruleContext),
               singleJar,
               JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman());
+          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs());
     } else {
       builder.setExecutable(singleJar);
     }

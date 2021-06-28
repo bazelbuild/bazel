@@ -107,7 +107,7 @@ public abstract class JavaToolchainTool {
       command.addExecPath(executable);
       inputs.addTransitive(tool().getFilesToRun());
     } else {
-      inputs.add(executable).addTransitive(toolchain.getJavaRuntime().javaBaseInputsMiddleman());
+      inputs.add(executable).addTransitive(toolchain.getJavaRuntime().javaBaseInputs());
       command
           .addPath(toolchain.getJavaRuntime().javaBinaryExecPathFragment())
           .addAll(toolchain.getJvmOptions())

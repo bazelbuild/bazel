@@ -212,7 +212,7 @@ public final class JavaCompileActionBuilder {
         .addTransitive(extraData)
         .addAll(sourceJars)
         .addAll(sourceFiles)
-        .addTransitive(toolchain.getJavaRuntime().javaBaseInputsMiddleman())
+        .addTransitive(toolchain.getJavaRuntime().javaBaseInputs())
         .addTransitive(bootClassPath.bootclasspath())
         .addAll(sourcePathEntries)
         .addAll(additionalInputs);

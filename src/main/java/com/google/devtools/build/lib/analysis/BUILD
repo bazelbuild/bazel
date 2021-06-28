@@ -50,7 +50,6 @@ java_library(
         ":buildinfo/build_info_collection",
         ":buildinfo/build_info_key",
         ":common_prerequisite_validator",
-        ":compilation_helper",
         ":config/auto_cpu_converter",
         ":config/build_configuration",
         ":config/build_configuration_option_details",
@@ -105,7 +104,6 @@ java_library(
         ":licenses_provider",
         ":make_environment_event",
         ":make_variable_supplier",
-        ":middleman_provider",
         ":no_build_event",
         ":no_build_request_finished_event",
         ":options_diff_predicate",
@@ -332,7 +330,6 @@ java_library(
         ":label_expander",
         ":licenses_provider",
         ":make_variable_supplier",
-        ":middleman_provider",
         ":options_diff_predicate",
         ":package_specification_provider",
         ":platform_options",
@@ -645,20 +642,6 @@ java_library(
 )
 
 java_library(
-    name = "compilation_helper",
-    srcs = ["CompilationHelper.java"],
-    deps = [
-        ":analysis_cluster",
-        ":file_provider",
-        ":transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "configurations_collector",
     srcs = [
         "ConfigurationsCollector.java",
@@ -893,18 +876,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "middleman_provider",
-    srcs = ["MiddlemanProvider.java"],
-    deps = [
-        ":transitive_info_provider",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
     ],
 )
 

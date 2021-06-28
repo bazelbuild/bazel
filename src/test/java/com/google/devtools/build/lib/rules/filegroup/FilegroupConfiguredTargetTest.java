@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -202,23 +201,5 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             String.format(Filegroup.ILLEGAL_OUTPUT_GROUP_ERROR, OutputGroupInfo.HIDDEN_TOP_LEVEL));
-  }
-
-  @Test
-  public void create_disableMiddlemanArtifact() throws Exception {
-    useConfiguration("--noexperimental_enable_aggregating_middleman");
-    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = ['foo/spam.txt'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:foo");
-
-    assertThat(target.getProvider(MiddlemanProvider.class)).isNull();
-  }
-
-  @Test
-  public void create_enableMiddlemanArtifact() throws Exception {
-    useConfiguration("--experimental_enable_aggregating_middleman");
-    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = ['foo/spam.txt'])");
-    ConfiguredTarget target = getConfiguredTarget("//foo:foo");
-
-    assertThat(target.getProvider(MiddlemanProvider.class)).isNotNull();
   }
 }

@@ -17,10 +17,8 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -89,11 +87,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         javaBinaryRunfilesPath.getParentDirectory().getParentDirectory();
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
-    NestedSet<Artifact> middleman =
-        configuration.enableAggregatingMiddleman()
-            ? CompilationHelper.getAggregatingMiddleman(
-                ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild)
-            : filesToBuild;
 
     // TODO(cushon): clean up uses of java_runtime in data deps and remove this
     Runfiles runfiles =
@@ -104,7 +97,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     JavaRuntimeInfo javaRuntime =
         JavaRuntimeInfo.create(
             filesToBuild,
-            middleman,
             javaHome,
             javaBinaryExecPath,
             javaHomeRunfilesPath,

@@ -309,7 +309,7 @@ public class FdoHelper {
         new SpawnAction.Builder()
             .addInput(profile1)
             .addInput(profile2)
-            .addTransitiveInputs(attributes.getAllFilesMiddleman())
+            .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(
@@ -446,7 +446,7 @@ public class FdoHelper {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addInput(rawProfileArtifact)
-            .addTransitiveInputs(attributes.getAllFilesMiddleman())
+            .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(

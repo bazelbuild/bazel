@@ -622,7 +622,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .addOutput(jsa)
         .addInput(classlist)
         .addInput(merged)
-        .addTransitiveInputs(javaRuntime.javaBaseInputsMiddleman());
+        .addTransitiveInputs(javaRuntime.javaBaseInputs());
     if (configFile != null) {
       spawnAction.addInput(configFile);
     }

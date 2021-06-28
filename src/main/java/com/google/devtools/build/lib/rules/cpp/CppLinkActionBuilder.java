@@ -108,7 +108,6 @@ public class CppLinkActionBuilder {
   private final NestedSetBuilder<LinkerInputs.LibraryToLink> libraries =
       NestedSetBuilder.linkOrder();
   private NestedSet<Artifact> linkerFiles = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private Artifact runtimeMiddleman;
   private ArtifactCategory toolchainLibrariesType = null;
   private NestedSet<Artifact> toolchainLibrariesInputs =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -913,9 +912,6 @@ public class CppLinkActionBuilder {
     if (shouldUseLinkDynamicLibraryTool()) {
       dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
     }
-    if (runtimeMiddleman != null) {
-      dependencyInputsBuilder.add(runtimeMiddleman);
-    }
     if (defFile != null) {
       dependencyInputsBuilder.add(defFile);
     }
@@ -1181,9 +1177,8 @@ public class CppLinkActionBuilder {
 
   /** Sets the C++ runtime library inputs for the action. */
   public CppLinkActionBuilder setRuntimeInputs(
-      ArtifactCategory runtimeType, Artifact middleman, NestedSet<Artifact> inputs) {
+      ArtifactCategory runtimeType, NestedSet<Artifact> inputs) {
     this.toolchainLibrariesType = runtimeType;
-    this.runtimeMiddleman = middleman;
     this.toolchainLibrariesInputs = inputs;
     return this;
   }

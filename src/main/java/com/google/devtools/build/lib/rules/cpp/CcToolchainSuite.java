@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -94,8 +93,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
             .addNativeDeclaredProvider(ccToolchainProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
             .setFilesToBuild(ccToolchainProvider.getAllFiles())
-            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
-            .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
+            .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     if (ccToolchainProvider.getLicensesProvider() != null) {
       builder.add(LicensesProvider.class, ccToolchainProvider.getLicensesProvider());

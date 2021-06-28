@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -41,9 +39,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
@@ -90,7 +86,6 @@ public class CcToolchainProviderHelper {
       return null;
     }
 
-    String purposePrefix = attributes.getPurposePrefix();
     String runtimeSolibDirBase = attributes.getRuntimeSolibDirBase();
     final PathFragment runtimeSolibDir =
         ruleContext.getBinFragment().getRelative(runtimeSolibDirBase);
@@ -104,27 +99,17 @@ public class CcToolchainProviderHelper {
     // Static runtime inputs.
     TransitiveInfoCollection staticRuntimeLib = attributes.getStaticRuntimeLib();
     final NestedSet<Artifact> staticRuntimeLinkInputs;
-    final Artifact staticRuntimeLinkMiddleman;
-    boolean enableAggregatingMiddleman = configuration.enableAggregatingMiddleman();
 
     if (staticRuntimeLib != null) {
       staticRuntimeLinkInputs = staticRuntimeLib.getProvider(FileProvider.class).getFilesToBuild();
-      staticRuntimeLinkMiddleman =
-          getStaticRuntimeLinkMiddleman(
-              ruleContext, purposePrefix, staticRuntimeLib, staticRuntimeLinkInputs);
-      Preconditions.checkState(
-          (staticRuntimeLinkMiddleman == null)
-              == (staticRuntimeLinkInputs.isEmpty() || !enableAggregatingMiddleman));
     } else {
       staticRuntimeLinkInputs = null;
-      staticRuntimeLinkMiddleman = null;
     }
 
     // Dynamic runtime inputs.
     TransitiveInfoCollection dynamicRuntimeLib = attributes.getDynamicRuntimeLib();
     NestedSet<Artifact> dynamicRuntimeLinkSymlinks;
     NestedSetBuilder<Artifact> dynamicRuntimeLinkInputs = NestedSetBuilder.stableOrder();
-    Artifact dynamicRuntimeLinkMiddleman;
     if (dynamicRuntimeLib != null) {
       NestedSetBuilder<Artifact> dynamicRuntimeLinkSymlinksBuilder = NestedSetBuilder.stableOrder();
       for (Artifact artifact :
@@ -145,20 +130,6 @@ public class CcToolchainProviderHelper {
     } else {
       dynamicRuntimeLinkSymlinks = null;
     }
-
-    dynamicRuntimeLinkMiddleman =
-        getDynamicRuntimeLinkMiddleman(
-            ruleContext,
-            purposePrefix,
-            runtimeSolibDirBase,
-            solibDirectory,
-            dynamicRuntimeLinkInputs);
-
-    Preconditions.checkState(
-        (dynamicRuntimeLinkMiddleman == null)
-            == (dynamicRuntimeLinkSymlinks == null
-                || dynamicRuntimeLinkSymlinks.isEmpty()
-                || !enableAggregatingMiddleman));
 
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(
@@ -193,7 +164,6 @@ public class CcToolchainProviderHelper {
         toolchainFeatures,
         toolsDirectory,
         attributes.getAllFiles(),
-        attributes.getFullInputsForCrosstool(),
         attributes.getCompilerFiles(),
         attributes.getCompilerFilesWithoutIncludes(),
         attributes.getStripFiles(),
@@ -207,9 +177,7 @@ public class CcToolchainProviderHelper {
         attributes.getLibc(),
         attributes.getTargetLibc(),
         staticRuntimeLinkInputs,
-        staticRuntimeLinkMiddleman,
         dynamicRuntimeLinkSymlinks,
-        dynamicRuntimeLinkMiddleman,
         runtimeSolibDir,
         ccCompilationContext,
         attributes.isSupportsParamFiles(),
@@ -260,55 +228,6 @@ public class CcToolchainProviderHelper {
         getStarlarkValueForTool(Tool.STRIP, toolPaths),
         getStarlarkValueForTool(Tool.LD, toolPaths),
         getStarlarkValueForTool(Tool.GCOV, toolPaths));
-  }
-
-  @Nullable
-  @VisibleForTesting
-  static Artifact getDynamicRuntimeLinkMiddleman(
-      RuleContext ruleContext,
-      String purposePrefix,
-      String runtimeSolibDirBase,
-      String solibDirectory,
-      NestedSetBuilder<Artifact> dynamicRuntimeLinkInputs) {
-    BuildConfiguration configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
-    boolean enableAggregatingMiddleman = configuration.enableAggregatingMiddleman();
-
-    if (dynamicRuntimeLinkInputs.isEmpty() || !enableAggregatingMiddleman) {
-      return null;
-    }
-    List<Artifact> dynamicRuntimeLinkMiddlemanSet =
-        CppHelper.getAggregatingMiddlemanForCppRuntimes(
-            ruleContext,
-            purposePrefix + "dynamic_runtime_link",
-            dynamicRuntimeLinkInputs.build(),
-            solibDirectory,
-            runtimeSolibDirBase,
-            configuration);
-    return dynamicRuntimeLinkMiddlemanSet.isEmpty()
-        ? null
-        : Iterables.getOnlyElement(dynamicRuntimeLinkMiddlemanSet);
-  }
-
-  @Nullable
-  @VisibleForTesting
-  static Artifact getStaticRuntimeLinkMiddleman(
-      RuleContext ruleContext,
-      String purposePrefix,
-      TransitiveInfoCollection staticRuntimeLib,
-      NestedSet<Artifact> staticRuntimeLinkInputs) {
-    boolean enableAggregatingMiddleman =
-        Preconditions.checkNotNull(ruleContext.getConfiguration()).enableAggregatingMiddleman();
-
-    if (staticRuntimeLinkInputs.isEmpty() || !enableAggregatingMiddleman) {
-      return null;
-    }
-
-    NestedSet<Artifact> staticRuntimeLinkMiddlemanSet =
-        CompilationHelper.getAggregatingMiddleman(
-            ruleContext, purposePrefix + "static_runtime_link", staticRuntimeLib);
-    return staticRuntimeLinkMiddlemanSet.isEmpty()
-        ? null
-        : staticRuntimeLinkMiddlemanSet.getSingleton();
   }
 
   /**

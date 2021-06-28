@@ -719,7 +719,6 @@ public final class CcLinkingHelper {
       try {
         dynamicLinkActionBuilder.setRuntimeInputs(
             ArtifactCategory.DYNAMIC_LIBRARY,
-            ccToolchain.getDynamicRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
             ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
         throw ruleErrorConsumer.throwWithRuleError(e);
@@ -728,7 +727,6 @@ public final class CcLinkingHelper {
       try {
         dynamicLinkActionBuilder.setRuntimeInputs(
             ArtifactCategory.STATIC_LIBRARY,
-            ccToolchain.getStaticRuntimeLinkMiddleman(ruleErrorConsumer, featureConfiguration),
             ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
         throw ruleErrorConsumer.throwWithRuleError(e);

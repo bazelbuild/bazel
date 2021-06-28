@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -112,8 +111,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(ccToolchainProvider)
         .addNativeDeclaredProvider(toolchain)
         .addNativeDeclaredProvider(templateVariableInfo)
-        .setFilesToBuild(ccToolchainProvider.getAllFiles())
-        .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()));
+        .setFilesToBuild(ccToolchainProvider.getAllFiles());
     return ruleConfiguredTargetBuilder.build();
   }
 

@@ -95,7 +95,7 @@ public class ResourceJarActionBuilder {
               javaToolchain.getJavaRuntime().javaBinaryExecPathFragment(),
               singleJar,
               javaToolchain.getJvmOptions())
-          .addTransitiveInputs(javaToolchain.getJavaRuntime().javaBaseInputsMiddleman());
+          .addTransitiveInputs(javaToolchain.getJavaRuntime().javaBaseInputs());
     } else {
       builder.setExecutable(singleJar);
     }
