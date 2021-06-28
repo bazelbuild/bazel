@@ -50,7 +50,10 @@ java_library(
         "ModuleFileValue.java",
         "ModuleOverride.java",
         "NonRegistryOverride.java",
+        "ParsedVersion.java",
         "RegistryOverride.java",
+        "SelectionFunction.java",
+        "SelectionValue.java",
         "SingleVersionOverride.java",
     ],
     deps = [

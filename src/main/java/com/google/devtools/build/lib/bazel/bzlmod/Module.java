@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import java.util.Map;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /**
@@ -52,8 +54,20 @@ public abstract class Module {
   public abstract Builder toBuilder();
 
   /** Returns a new, empty {@link Builder}. */
-  static Builder builder() {
+  public static Builder builder() {
     return new AutoValue_Module.Builder();
+  }
+
+  /**
+   * Returns a new {@link Module} with all values in {@link #getDeps} transformed using the given
+   * function.
+   */
+  public Module withDepKeysTransformed(UnaryOperator<ModuleKey> transform) {
+    ImmutableMap.Builder<String, ModuleKey> newDeps = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, ModuleKey> entry : getDeps().entrySet()) {
+      newDeps.put(entry.getKey(), transform.apply(entry.getValue()));
+    }
+    return toBuilder().setDeps(newDeps.build()).build();
   }
 
   /** Builder type for {@link Module}. */

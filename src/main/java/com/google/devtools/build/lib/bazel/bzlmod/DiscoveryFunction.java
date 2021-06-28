@@ -77,24 +77,22 @@ public class DiscoveryFunction implements SkyFunction {
 
   private static Module rewriteDepKeys(
       Module module, ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    ImmutableMap.Builder<String, ModuleKey> newDeps = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, ModuleKey> entry : module.getDeps().entrySet()) {
-      ModuleKey depKey = entry.getValue();
-      String newVersion = depKey.getVersion();
+    return module.withDepKeysTransformed(
+        depKey -> {
+          String newVersion = depKey.getVersion();
 
-      @Nullable ModuleOverride override = overrides.get(depKey.getName());
-      if (override instanceof NonRegistryOverride || rootModuleName.equals(depKey.getName())) {
-        newVersion = "";
-      } else if (override instanceof SingleVersionOverride) {
-        String overrideVersion = ((SingleVersionOverride) override).getVersion();
-        if (!overrideVersion.isEmpty()) {
-          newVersion = overrideVersion;
-        }
-      }
+          @Nullable ModuleOverride override = overrides.get(depKey.getName());
+          if (override instanceof NonRegistryOverride || rootModuleName.equals(depKey.getName())) {
+            newVersion = "";
+          } else if (override instanceof SingleVersionOverride) {
+            String overrideVersion = ((SingleVersionOverride) override).getVersion();
+            if (!overrideVersion.isEmpty()) {
+              newVersion = overrideVersion;
+            }
+          }
 
-      newDeps.put(entry.getKey(), ModuleKey.create(depKey.getName(), newVersion));
-    }
-    return module.toBuilder().setDeps(newDeps.build()).build();
+          return ModuleKey.create(depKey.getName(), newVersion);
+        });
   }
 
   @Nullable
