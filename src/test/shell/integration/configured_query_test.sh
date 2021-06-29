@@ -1289,4 +1289,27 @@ EOF
   expect_log "@repo//:japanese"
 }
 
+function test_test_arg_in_bazelrc() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat >$pkg/BUILD <<EOF
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+
+  touch $pkg/test.sh
+  chmod +x $pkg/test.sh
+
+  output_before="$(bazel cquery "//$pkg:test")"
+
+  add_to_bazelrc "test --test_arg=foo"
+
+  output_after="$(bazel cquery "//$pkg:test")"
+
+  assert_not_equals "${output_before}" "${output_after}"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
