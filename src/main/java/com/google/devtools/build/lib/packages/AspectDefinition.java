@@ -243,7 +243,7 @@ public final class AspectDefinition {
       Aspect aspect,
       DependencyFilter dependencyFilter,
       BiConsumer<Attribute, Label> consumer) {
-    LabelVisitor<Attribute> labelVisitor =
+    LabelVisitor labelVisitor =
         (label, aspectAttribute) -> {
           Label repositoryRelativeLabel = maybeGetRepositoryRelativeLabel(from, label);
           if (repositoryRelativeLabel == null) {

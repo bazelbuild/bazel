@@ -162,11 +162,11 @@ public abstract class Type<T> {
   public abstract T getDefaultValue();
 
   /**
-   * Function accepting a (potentially null) {@link Label} and an arbitrary context object. Used by
-   * {@link #visitLabels}.
+   * Function accepting a (potentially null) {@link Label} and a (potentially null) {@link
+   * Attribute} provided as context. Used by {@link #visitLabels}.
    */
-  public interface LabelVisitor<C> {
-    void visit(@Nullable Label label, @Nullable C context);
+  public interface LabelVisitor {
+    void visit(@Nullable Label label, @Nullable Attribute context);
   }
 
   /**
@@ -174,12 +174,12 @@ public abstract class Type<T> {
    * with {@code value}, which is assumed an instance of this {@link Type}.
    *
    * <p>This is used to support reliable label visitation in {@link
-   * com.google.devtools.build.lib.packages.AbstractAttributeMapper#visitLabels}. To preserve that
-   * reliability, every type should faithfully define its own instance of this method. In other
-   * words, be careful about defining default instances in base types that get auto-inherited by
-   * their children. Keep all definitions as explicit as possible.
+   * com.google.devtools.build.lib.packages.AttributeMap#visitLabels}. To preserve that reliability,
+   * every type should faithfully define its own instance of this method. In other words, be careful
+   * about defining default instances in base types that get auto-inherited by their children. Keep
+   * all definitions as explicit as possible.
    */
-  public abstract <C> void visitLabels(LabelVisitor<C> visitor, Object value, @Nullable C context);
+  public abstract void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context);
 
   /** Classifications of labels by their usage. */
   public enum LabelClass {
@@ -300,7 +300,7 @@ public abstract class Type<T> {
    *                                                                  *
    ********************************************************************/
 
-  private static class ObjectType extends Type<Object> {
+  private static final class ObjectType extends Type<Object> {
     @Override
     public Object cast(Object value) {
       return value;
@@ -313,8 +313,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -328,7 +327,7 @@ public abstract class Type<T> {
   }
 
   // A Starlark integer in the signed 32-bit range (like Java int).
-  private static class IntegerType extends Type<StarlarkInt> {
+  private static final class IntegerType extends Type<StarlarkInt> {
     @Override
     public StarlarkInt cast(Object value) {
       // This cast will fail if passed a java.lang.Integer,
@@ -342,8 +341,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -384,7 +382,7 @@ public abstract class Type<T> {
     }
   }
 
-  private static class BooleanType extends Type<Boolean> {
+  private static final class BooleanType extends Type<Boolean> {
     @Override
     public Boolean cast(Object value) {
       return (Boolean) value;
@@ -396,8 +394,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -434,7 +431,7 @@ public abstract class Type<T> {
     }
   }
 
-  private static class StringType extends Type<String> {
+  private static final class StringType extends Type<String> {
     @Override
     public String cast(Object value) {
       return (String) value;
@@ -446,8 +443,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -494,7 +490,7 @@ public abstract class Type<T> {
     private final LabelClass labelClass;
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {
       if (labelClass != LabelClass.NONE) {
         for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
           keyType.visitLabels(visitor, entry.getKey(), context);
@@ -614,7 +610,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {
       if (elemType.getLabelClass() == LabelClass.NONE) {
         return;
       }

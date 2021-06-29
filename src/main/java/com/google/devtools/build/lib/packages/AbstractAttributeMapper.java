@@ -174,7 +174,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   private Collection<DepEdge> visitLabels(Iterable<Attribute> attributes) {
     List<DepEdge> edges = new ArrayList<>();
-    Type.LabelVisitor<Attribute> visitor =
+    Type.LabelVisitor visitor =
         (label, attribute) -> {
           if (label != null) {
             Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
@@ -194,7 +194,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   /** Visits all labels reachable from the given attribute. */
-  void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor) {
+  void visitLabels(Attribute attribute, Type.LabelVisitor visitor) {
     Type<?> type = attribute.getType();
     Object value = get(attribute.getName(), type);
     if (value != null) { // null values are particularly possible for computed defaults.

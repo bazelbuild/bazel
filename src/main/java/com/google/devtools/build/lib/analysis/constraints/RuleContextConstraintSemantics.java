@@ -435,9 +435,9 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       EnvironmentCollection staticEnvironments,
       EnvironmentCollection.Builder refinedEnvironments,
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits) {
-    Set<EnvironmentWithGroup> refinedEnvironmentsSoFar = new LinkedHashSet<>();
     // Start with the full set of static environments:
-    refinedEnvironmentsSoFar.addAll(staticEnvironments.getGroupedEnvironments());
+    Set<EnvironmentWithGroup> refinedEnvironmentsSoFar =
+        new LinkedHashSet<>(staticEnvironments.getGroupedEnvironments());
     Set<EnvironmentLabels> groupsWithEnvironmentsRemoved = new LinkedHashSet<>();
     // Maps the label results of getUnsupportedEnvironments() to EnvironmentWithGroups. We can't
     // have that method just return EnvironmentWithGroups because it also collects group defaults,
@@ -838,7 +838,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    */
   private static void addSelectValuesToSet(BuildType.Selector<?> select, final Set<Label> set) {
     Type<?> type = select.getOriginalType();
-    LabelVisitor<?> visitor = (label, dummy) -> set.add(label);
+    LabelVisitor visitor = (label, dummy) -> set.add(label);
     for (Object value : select.getEntries().values()) {
       type.visitLabels(visitor, value, /*context=*/ null);
     }
@@ -929,8 +929,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
     ImmutableList<ConfiguredTarget> incompatibleDependencies =
         prerequisiteMap.values().stream()
             .map(value -> checkForIncompatibility(value.getConfiguredTarget()))
-            .filter(result -> result.isIncompatible())
-            .map(result -> result.underlyingTarget())
+            .filter(IncompatibleCheckResult::isIncompatible)
+            .map(IncompatibleCheckResult::underlyingTarget)
             .collect(toImmutableList());
     if (!incompatibleDependencies.isEmpty()) {
       return createIncompatibleConfiguredTarget(ruleContext, incompatibleDependencies, null);

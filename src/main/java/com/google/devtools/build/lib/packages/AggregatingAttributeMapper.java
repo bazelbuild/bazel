@@ -69,12 +69,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * {@link #visitAttribute}'s documentation. So we want to avoid that code path when possible.
    */
   @Override
-  protected void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor) {
+  protected void visitLabels(Attribute attribute, Type.LabelVisitor visitor) {
     visitLabels(attribute, true, visitor);
   }
 
   private void visitLabels(
-      Attribute attribute, boolean includeSelectKeys, Type.LabelVisitor<Attribute> visitor) {
+      Attribute attribute, boolean includeSelectKeys, Type.LabelVisitor visitor) {
     Type<?> type = attribute.getType();
     SelectorList<?> selectorList = getSelectorList(attribute.getName(), type);
     if (selectorList == null) {
