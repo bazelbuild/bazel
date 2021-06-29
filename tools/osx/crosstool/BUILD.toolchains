@@ -2,6 +2,8 @@ load(":osx_archs.bzl", "OSX_TOOLS_ARCHS")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["osx_archs.bzl"])
+
 # Target constraints for each arch.
 # TODO(apple-rules): Rename osx constraint to macOS.
 OSX_TOOLS_CONSTRAINTS = {
