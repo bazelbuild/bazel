@@ -17,9 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import java.util.LinkedList;
 import java.util.List;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 
@@ -106,6 +108,35 @@ class EvaluationTestCase {
       fail("Expected error '" + msg + "' but got no error");
     } catch (SyntaxError.Exception | EvalException e) {
       assertThat(e).hasMessageThat().isEqualTo(msg);
+    }
+  }
+
+  /**
+   * Verifies that a piece of Starlark code fails at the specifed location with either a {@link
+   * SyntaxError} or an {@link EvalException} having the specified error message.
+   *
+   * <p>For a {@link SyntaxError}, the location checked is the first reported error's location. For
+   * an {@link EvalException}, the location checked is the location of the innermost stack frame.
+   *
+   * @param failingLine 1-based line where the error is expected
+   * @param failingColumn 1-based column where the error is expected.
+   */
+  final void checkEvalErrorAtLocation(
+      String msg, int failingLine, int failingColumn, String... input) throws Exception {
+    try {
+      exec(input);
+      fail("Expected error '" + msg + "' but got no error");
+    } catch (SyntaxError.Exception e) {
+      assertThat(e).hasMessageThat().isEqualTo(msg);
+      Location location = e.errors().get(0).location();
+      assertThat(location.line()).isEqualTo(failingLine);
+      assertThat(location.column()).isEqualTo(failingColumn);
+    } catch (EvalException e) {
+      assertThat(e).hasMessageThat().isEqualTo(msg);
+      assertThat(e.getCallStack()).isNotEmpty();
+      Location location = Iterables.getLast(e.getCallStack()).location;
+      assertThat(location.line()).isEqualTo(failingLine);
+      assertThat(location.column()).isEqualTo(failingColumn);
     }
   }
 
@@ -201,6 +232,22 @@ class EvaluationTestCase {
       return this;
     }
 
+    /**
+     * Evaluates an expression and checks whether it fails with the expected error at the expected
+     * location.
+     *
+     * <p>See {@link #checkEvalErrorAtLocation} for how an error's location is determined.
+     *
+     * @param failingLine 1-based line where the error is expected.
+     * @param failingColumn 1-based column where the error is expected.
+     */
+    Scenario testIfExactErrorAtLocation(
+        String expectedError, int failingLine, int failingColumn, String... lines)
+        throws Exception {
+      runTest(errorTestableAtLocation(expectedError, failingLine, failingColumn, lines));
+      return this;
+    }
+
     /** Evaluates the expresson and checks whether it fails with the expected error. */
     Scenario testIfErrorContains(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(false, expectedError, lines));
@@ -229,6 +276,25 @@ class EvaluationTestCase {
           } else {
             checkEvalErrorContains(error, lines);
           }
+        }
+      };
+    }
+
+    /**
+     * Creates a Testable that checks whether the evaluation of the given expression fails with the
+     * expected evaluation error in the expected location.
+     *
+     * <p>See {@link #checkEvalErrorAtLocation} for how an error's location is determined.
+     *
+     * @param failingLine 1-based line where the error is expected.
+     * @param failingColumn 1-based column where the error is expected.
+     */
+    private Testable errorTestableAtLocation(
+        final String error, final int failingLine, final int failingColumn, final String... lines) {
+      return new Testable() {
+        @Override
+        public void run() throws Exception {
+          checkEvalErrorAtLocation(error, failingLine, failingColumn, lines);
         }
       };
     }
