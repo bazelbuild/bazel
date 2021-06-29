@@ -284,7 +284,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public Collection<String> getClientEnvironmentVariables() {
     return env.getInheritedEnv();
   }
 

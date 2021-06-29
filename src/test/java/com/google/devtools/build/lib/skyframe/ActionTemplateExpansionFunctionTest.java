@@ -68,6 +68,7 @@ import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -480,7 +481,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
-    public Iterable<String> getClientEnvironmentVariables() {
+    public Collection<String> getClientEnvironmentVariables() {
       return ImmutableList.of();
     }
 

@@ -229,12 +229,13 @@ public class ActionCacheCheckerTest {
 
   @Test
   public void testDifferentEnvironment() throws Exception {
-    Action action = new NullAction() {
-      @Override
-      public Iterable<String> getClientEnvironmentVariables() {
-        return ImmutableList.of("used-var");
-      }
-    };
+    Action action =
+        new NullAction() {
+          @Override
+          public ImmutableList<String> getClientEnvironmentVariables() {
+            return ImmutableList.of("used-var");
+          }
+        };
     Map<String, String> clientEnv = new HashMap<>();
     clientEnv.put("unused-var", "1");
     runAction(action, clientEnv);  // Not cached.

@@ -221,7 +221,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public Iterable<String> getClientEnvironmentVariables() {
+    public Collection<String> getClientEnvironmentVariables() {
       return ImmutableSet.of();
     }
 

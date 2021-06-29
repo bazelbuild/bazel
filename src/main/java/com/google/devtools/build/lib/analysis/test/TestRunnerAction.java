@@ -24,7 +24,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttempt
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -79,7 +78,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
+import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -147,7 +149,7 @@ public class TestRunnerAction extends AbstractAction
    * The set of environment variables that are inherited from the client environment. These are
    * handled explicitly by the ActionCacheChecker and so don't have to be included in the cache key.
    */
-  private final ImmutableIterable<String> requiredClientEnvVariables;
+  private final Collection<String> requiredClientEnvVariables;
 
   private final boolean cancelConcurrentTestsOnSuccess;
 
@@ -246,11 +248,10 @@ public class TestRunnerAction extends AbstractAction
 
     this.extraTestEnv = extraTestEnv;
     this.requiredClientEnvVariables =
-        ImmutableIterable.from(
-            Iterables.concat(
-                configuration.getActionEnvironment().getInheritedEnv(),
-                configuration.getTestActionEnvironment().getInheritedEnv(),
-                this.extraTestEnv.getInheritedEnv()));
+        LazySetConcatenation.from(
+            configuration.getActionEnvironment().getInheritedEnv(),
+            configuration.getTestActionEnvironment().getInheritedEnv(),
+            this.extraTestEnv.getInheritedEnv());
     this.cancelConcurrentTestsOnSuccess = cancelConcurrentTestsOnSuccess;
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
@@ -672,7 +673,7 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public Collection<String> getClientEnvironmentVariables() {
     return requiredClientEnvVariables;
   }
 
@@ -1259,6 +1260,52 @@ public class TestRunnerAction extends AbstractAction
         return new AutoValue_TestRunnerAction_RunAttemptsContinuation_TestRunnerSpawnAndMaxAttempts(
             spawn, maxAttempts);
       }
+    }
+  }
+
+  private static class LazySetConcatenation extends AbstractCollection<String> {
+    private final ImmutableSet<String> first;
+    private final ImmutableSet<String> second;
+    private final ImmutableSet<String> third;
+
+    static Collection<String> from(
+        ImmutableSet<String> first, ImmutableSet<String> second, ImmutableSet<String> third) {
+      boolean firstEmpty = first.isEmpty();
+      boolean secondEmpty = second.isEmpty();
+      boolean thirdEmpty = third.isEmpty();
+      if (firstEmpty && secondEmpty) {
+        return third;
+      }
+      if (firstEmpty && thirdEmpty) {
+        return second;
+      }
+      if (secondEmpty && thirdEmpty) {
+        return first;
+      }
+
+      return new LazySetConcatenation(first, second, third);
+    }
+
+    private LazySetConcatenation(
+        ImmutableSet<String> first, ImmutableSet<String> second, ImmutableSet<String> third) {
+      this.first = first;
+      this.second = second;
+      this.third = third;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return Iterators.concat(first.iterator(), second.iterator(), third.iterator());
+    }
+
+    @Override
+    public int size() {
+      return first.size() + second.size() + third.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return false;
     }
   }
 }

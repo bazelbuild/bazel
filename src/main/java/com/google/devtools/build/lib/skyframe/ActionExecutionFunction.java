@@ -182,19 +182,26 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     // Look up the parts of the environment that influence the action.
-    Map<SkyKey, SkyValue> clientEnvLookup =
-        env.getValues(
-            Iterables.transform(
-                action.getClientEnvironmentVariables(), ClientEnvironmentFunction::key));
-    if (env.valuesMissing()) {
-      return null;
-    }
-    Map<String, String> clientEnv = new HashMap<>();
-    for (Map.Entry<SkyKey, SkyValue> entry : clientEnvLookup.entrySet()) {
-      ClientEnvironmentValue envValue = (ClientEnvironmentValue) entry.getValue();
-      if (envValue.getValue() != null) {
-        clientEnv.put((String) entry.getKey().argument(), envValue.getValue());
+    Collection<String> clientEnvironmentVariables = action.getClientEnvironmentVariables();
+    Map<String, String> clientEnv;
+    if (!clientEnvironmentVariables.isEmpty()) {
+      Map<SkyKey, SkyValue> clientEnvLookup =
+          env.getValues(
+              Iterables.transform(clientEnvironmentVariables, ClientEnvironmentFunction::key));
+      if (env.valuesMissing()) {
+        return null;
       }
+      ImmutableMap.Builder<String, String> builder =
+          ImmutableMap.builderWithExpectedSize(clientEnvLookup.size());
+      for (Map.Entry<SkyKey, SkyValue> entry : clientEnvLookup.entrySet()) {
+        ClientEnvironmentValue envValue = (ClientEnvironmentValue) entry.getValue();
+        if (envValue.getValue() != null) {
+          builder.put((String) entry.getKey().argument(), envValue.getValue());
+        }
+      }
+      clientEnv = builder.build();
+    } else {
+      clientEnv = ImmutableMap.of();
     }
 
     ActionSketch sketch = null;

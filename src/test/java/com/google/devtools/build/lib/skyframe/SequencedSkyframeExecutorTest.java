@@ -1222,7 +1222,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public Iterable<String> getClientEnvironmentVariables() {
+    public ImmutableList<String> getClientEnvironmentVariables() {
       return ImmutableList.of();
     }
 

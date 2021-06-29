@@ -299,7 +299,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<String> getClientEnvironmentVariables() {
+  public ImmutableList<String> getClientEnvironmentVariables() {
     return ImmutableList.of();
   }
 
