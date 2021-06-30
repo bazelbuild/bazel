@@ -1823,33 +1823,35 @@ public class Package {
       if (existing != null) {
         throw nameConflict(rule, existing);
       }
-      Map<String, OutputFile> outputFiles = new HashMap<>();
 
-      for (OutputFile outputFile : rule.getOutputFiles()) {
+      List<OutputFile> outputFiles = rule.getOutputFiles();
+      Map<String, OutputFile> outputFilesByName =
+          Maps.newHashMapWithExpectedSize(outputFiles.size());
+
+      for (OutputFile outputFile : outputFiles) {
         String outputFileName = outputFile.getName();
-        if (outputFiles.put(outputFileName, outputFile) != null) { // dups within a single rule:
-          throw duplicateOutputFile(outputFile, outputFile);
+        if (outputFilesByName.put(outputFileName, outputFile) != null) {
+          throw duplicateOutputFile(outputFile, outputFile); // Duplicate within a single rule.
         }
         existing = targets.get(outputFileName);
         if (existing != null) {
           throw duplicateOutputFile(outputFile, existing);
         }
 
-        // Check if this output file is the prefix of an already existing one
+        // Check if this output file is the prefix of an already existing one.
         if (outputFilePrefixes.containsKey(outputFileName)) {
           throw conflictingOutputFile(outputFile, outputFilePrefixes.get(outputFileName));
         }
 
-        // Check if a prefix of this output file matches an already existing one
+        // Check if a prefix of this output file matches an already existing one.
         PathFragment outputFileFragment = PathFragment.create(outputFileName);
         int segmentCount = outputFileFragment.segmentCount();
         for (int i = 1; i < segmentCount; i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
-          if (outputFiles.containsKey(prefix)) {
-            throw conflictingOutputFile(outputFile, outputFiles.get(prefix));
+          if (outputFilesByName.containsKey(prefix)) {
+            throw conflictingOutputFile(outputFile, outputFilesByName.get(prefix));
           }
-          if (targets.containsKey(prefix)
-              && targets.get(prefix) instanceof OutputFile) {
+          if (targets.get(prefix) instanceof OutputFile) {
             throw conflictingOutputFile(outputFile, (OutputFile) targets.get(prefix));
           }
 
@@ -1857,7 +1859,7 @@ public class Package {
         }
       }
 
-      checkForInputOutputConflicts(rule, outputFiles.keySet());
+      checkForInputOutputConflicts(rule, outputFilesByName.keySet());
     }
 
     /**
