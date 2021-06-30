@@ -638,6 +638,11 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
       PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
       PathFragment fullPath = strippedToFullPaths.get(pathOnExecutor);
+      if (fullPath == null && pathOnExecutor.subFragment(0, 1).equals(outputRoot)) {
+        // The stripped path -> full path map failed, which means the paths weren't stripped. Fast-
+        // return the original jdeps to save unnecessary CPU time.
+        return executorJdeps;
+      }
       dep.setPath(fullPath == null ? pathOnExecutor.getPathString() : fullPath.getPathString());
     }
     Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
