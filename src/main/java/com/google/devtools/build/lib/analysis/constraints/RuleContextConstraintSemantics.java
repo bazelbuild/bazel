@@ -805,28 +805,29 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    * Returns the deps for this attribute that only appear in selects.
    *
    * <p>For example:
+   *
    * <pre>
    *     deps = [":a"] + select({"//foo:cond": [":b"]}) + select({"//conditions:default": [":c"]})
    * </pre>
    *
    * returns {@code [":b"]}. Even though {@code [":c"]} also appears in a select, that's a
-   * degenerate case with only one always-chosen condition. So that's considered the same as
-   * an unconditional dep.
+   * degenerate case with only one always-chosen condition. So that's considered the same as an
+   * unconditional dep.
    *
    * <p>Note that just because a dep only appears in selects for this attribute doesn't mean it
    * won't appear unconditionally in another attribute.
    */
-  private static Set<Label> getDepsOnlyInSelects(RuleContext ruleContext, String attr,
-      Type<?> attrType) {
+  private static <T> Set<Label> getDepsOnlyInSelects(
+      RuleContext ruleContext, String attr, Type<T> attrType) {
     Rule rule = ruleContext.getRule();
     if (!rule.isConfigurableAttribute(attr) || !BuildType.isLabelType(attrType)) {
       return ImmutableSet.of();
     }
     Set<Label> unconditionalDeps = new LinkedHashSet<>();
     Set<Label> selectableDeps = new LinkedHashSet<>();
-    BuildType.SelectorList<?> selectList = (BuildType.SelectorList<?>)
-        RawAttributeMapper.of(rule).getRawAttributeValue(rule, attr);
-    for (BuildType.Selector<?> select : selectList.getSelectors()) {
+    BuildType.SelectorList<T> selectList =
+        RawAttributeMapper.of(rule).getSelectorList(attr, attrType);
+    for (BuildType.Selector<T> select : selectList.getSelectors()) {
       addSelectValuesToSet(select, select.isUnconditional() ? unconditionalDeps : selectableDeps);
     }
     return Sets.difference(selectableDeps, unconditionalDeps);
@@ -836,10 +837,10 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    * Adds all label values from the given select to the given set. Automatically handles different
    * value types (e.g. labels vs. label lists).
    */
-  private static void addSelectValuesToSet(BuildType.Selector<?> select, final Set<Label> set) {
-    Type<?> type = select.getOriginalType();
+  private static <T> void addSelectValuesToSet(BuildType.Selector<T> select, Set<Label> set) {
+    Type<T> type = select.getOriginalType();
     LabelVisitor visitor = (label, dummy) -> set.add(label);
-    for (Object value : select.getEntries().values()) {
+    for (T value : select.getEntries().values()) {
       type.visitLabels(visitor, value, /*context=*/ null);
     }
   }

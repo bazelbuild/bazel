@@ -100,7 +100,8 @@ public final class BuildType {
         }
 
         @Override
-        public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
+        public void visitLabels(
+            LabelVisitor visitor, DistributionType value, @Nullable Attribute context) {}
 
         @Override
         public String toString() {
@@ -188,8 +189,8 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {
-      for (Label label : cast(value).getLabels()) {
+    public void visitLabels(LabelVisitor visitor, FilesetEntry value, @Nullable Attribute context) {
+      for (Label label : value.getLabels()) {
         visitor.visit(label, context);
       }
     }
@@ -260,8 +261,8 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {
-      visitor.visit(cast(value), context);
+    public void visitLabels(LabelVisitor visitor, Label value, @Nullable Attribute context) {
+      visitor.visit(value, context);
     }
 
     @Override
@@ -395,7 +396,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
+    public void visitLabels(LabelVisitor visitor, License value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -432,7 +433,8 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
+    public void visitLabels(
+        LabelVisitor visitor, Set<DistributionType> value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -457,8 +459,8 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {
-      visitor.visit(cast(value), context);
+    public void visitLabels(LabelVisitor visitor, Label value, @Nullable Attribute context) {
+      visitor.visit(value, context);
     }
 
     @Override
@@ -772,7 +774,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
+    public void visitLabels(LabelVisitor visitor, TriState value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {

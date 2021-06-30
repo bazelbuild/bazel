@@ -259,8 +259,13 @@ public final class AspectDefinition {
       if (type.getLabelClass() != LabelClass.DEPENDENCY) {
         continue;
       }
-      type.visitLabels(labelVisitor, aspectAttribute.getDefaultValue(from), aspectAttribute);
+      visitSingleAttribute(from, aspectAttribute, aspectAttribute.getType(), labelVisitor);
     }
+  }
+
+  private static <T> void visitSingleAttribute(
+      Rule from, Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
+    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(from)), attribute);
   }
 
   public static Builder builder(AspectClass aspectClass) {

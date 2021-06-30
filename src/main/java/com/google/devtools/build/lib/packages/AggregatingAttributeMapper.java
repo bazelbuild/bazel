@@ -69,38 +69,38 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * {@link #visitAttribute}'s documentation. So we want to avoid that code path when possible.
    */
   @Override
-  protected void visitLabels(Attribute attribute, Type.LabelVisitor visitor) {
-    visitLabels(attribute, true, visitor);
+  <T> void visitLabels(Attribute attribute, Type<T> type, Type.LabelVisitor visitor) {
+    visitLabels(attribute, type, /*includeSelectKeys=*/ true, visitor);
   }
 
-  private void visitLabels(
-      Attribute attribute, boolean includeSelectKeys, Type.LabelVisitor visitor) {
-    Type<?> type = attribute.getType();
-    SelectorList<?> selectorList = getSelectorList(attribute.getName(), type);
+  private <T> void visitLabels(
+      Attribute attribute, Type<T> type, boolean includeSelectKeys, Type.LabelVisitor visitor) {
+    SelectorList<T> selectorList = getSelectorList(attribute.getName(), type);
     if (selectorList == null) {
       if (type.getLabelClass().equals(LabelClass.NONE)) {
         return; // Skip non-label attributes for performance.
       }
-      if (getComputedDefault(attribute.getName(), attribute.getType()) != null) {
+      if (getComputedDefault(attribute.getName(), type) != null) {
         // Computed defaults are a special pain: we have no choice but to iterate through their
         // (computed) values and look for labels.
-        for (Object value : visitAttribute(attribute.getName(), attribute.getType())) {
+        for (T value : visitAttribute(attribute.getName(), type)) {
           if (value != null) {
             type.visitLabels(visitor, value, attribute);
           }
         }
       } else {
-        super.visitLabels(attribute, visitor);
+        super.visitLabels(attribute, type, visitor);
       }
     } else {
-      for (Selector<?> selector : selectorList.getSelectors()) {
-        for (Map.Entry<Label, ?> selectorEntry : selector.getEntries().entrySet()) {
+      for (Selector<T> selector : selectorList.getSelectors()) {
+        for (Map.Entry<Label, T> selectorEntry : selector.getEntries().entrySet()) {
           if (includeSelectKeys && !BuildType.Selector.isReservedLabel(selectorEntry.getKey())) {
             visitor.visit(selectorEntry.getKey(), attribute);
           }
-          Object value = selector.isValueSet(selectorEntry.getKey())
-              ? selectorEntry.getValue()
-              : attribute.getDefaultValue(null);
+          T value =
+              selector.isValueSet(selectorEntry.getKey())
+                  ? selectorEntry.getValue()
+                  : type.cast(attribute.getDefaultValue(null));
           type.visitLabels(visitor, value, attribute);
         }
       }
@@ -116,11 +116,10 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * @param includeSelectKeys whether to include config_setting keys for configurable attributes
    */
   public ImmutableSet<Label> getReachableLabels(String attributeName, boolean includeSelectKeys) {
+    Attribute attribute = getAttributeDefinition(attributeName);
     ImmutableSet.Builder<Label> builder = ImmutableSet.builder();
     visitLabels(
-        getAttributeDefinition(attributeName),
-        includeSelectKeys,
-        (label, attribute) -> builder.add(label));
+        attribute, attribute.getType(), includeSelectKeys, (label, attr) -> builder.add(label));
     return builder.build();
   }
 
