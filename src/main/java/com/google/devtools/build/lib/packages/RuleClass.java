@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -1176,7 +1177,8 @@ public class RuleClass {
      * #cfg(TransitionFactory)}.
      */
     public Builder cfg(PatchTransition transition) {
-      return cfg(unused -> transition);
+      // Make sure this is cast to Serializable to avoid autocodec serialization errors.
+      return cfg((TransitionFactory<Rule> & Serializable) unused -> transition);
     }
 
     /**
