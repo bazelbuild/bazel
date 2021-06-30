@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.packages.Attribute.ComputationLimiter;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -73,30 +74,66 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     visitLabels(attribute, type, /*includeSelectKeys=*/ true, visitor);
   }
 
+  @SuppressWarnings("unchecked")
   private <T> void visitLabels(
       Attribute attribute, Type<T> type, boolean includeSelectKeys, Type.LabelVisitor visitor) {
-    SelectorList<T> selectorList = getSelectorList(attribute.getName(), type);
-    if (selectorList == null) {
-      if (type.getLabelClass().equals(LabelClass.NONE)) {
-        return; // Skip non-label attributes for performance.
-      }
-      if (getComputedDefault(attribute.getName(), type) != null) {
-        // Computed defaults are a special pain: we have no choice but to iterate through their
-        // (computed) values and look for labels.
-        for (T value : visitAttribute(attribute.getName(), type)) {
-          if (value != null) {
-            type.visitLabels(visitor, value, attribute);
-          }
+    String name = attribute.getName();
+
+    // The only way for LabelClass.NONE to contain labels is in select keys.
+    if (type.getLabelClass() == LabelClass.NONE) {
+      if (includeSelectKeys && attribute.isConfigurable()) {
+        SelectorList<T> selectorList = getSelectorList(name, type);
+        if (selectorList != null) {
+          visitLabelsInSelect(
+              selectorList,
+              attribute,
+              type,
+              visitor,
+              /*includeKeys=*/ true,
+              /*includeValues=*/ false);
         }
-      } else {
-        super.visitLabels(attribute, type, visitor);
+      }
+      return;
+    }
+
+    Object rawVal = rule.getAttr(name, type);
+    if (rawVal instanceof SelectorList) {
+      visitLabelsInSelect(
+          (SelectorList<T>) rawVal,
+          attribute,
+          type,
+          visitor,
+          includeSelectKeys,
+          /*includeValues=*/ true);
+    } else if (rawVal instanceof ComputedDefault) {
+      // Computed defaults are a special pain: we have no choice but to iterate through their
+      // (computed) values and look for labels.
+      for (T value : ((ComputedDefault) rawVal).getPossibleValues(type, rule)) {
+        if (value != null) {
+          type.visitLabels(visitor, value, attribute);
+        }
       }
     } else {
-      for (Selector<T> selector : selectorList.getSelectors()) {
-        for (Map.Entry<Label, T> selectorEntry : selector.getEntries().entrySet()) {
-          if (includeSelectKeys && !BuildType.Selector.isReservedLabel(selectorEntry.getKey())) {
-            visitor.visit(selectorEntry.getKey(), attribute);
-          }
+      T value = getFromRawAttributeValue(rawVal, name, type);
+      if (value != null) {
+        type.visitLabels(visitor, value, attribute);
+      }
+    }
+  }
+
+  private static <T> void visitLabelsInSelect(
+      SelectorList<T> selectorList,
+      Attribute attribute,
+      Type<T> type,
+      Type.LabelVisitor visitor,
+      boolean includeKeys,
+      boolean includeValues) {
+    for (Selector<T> selector : selectorList.getSelectors()) {
+      for (Map.Entry<Label, T> selectorEntry : selector.getEntries().entrySet()) {
+        if (includeKeys && !Selector.isReservedLabel(selectorEntry.getKey())) {
+          visitor.visit(selectorEntry.getKey(), attribute);
+        }
+        if (includeValues) {
           T value =
               selector.isValueSet(selectorEntry.getKey())
                   ? selectorEntry.getValue()
