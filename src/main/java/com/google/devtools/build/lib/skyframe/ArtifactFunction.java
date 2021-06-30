@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.actions.MiddlemanType.RUNFILES_MIDDLEMAN;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +34,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -143,7 +144,7 @@ class ArtifactFunction implements SkyFunction {
             artifactDependencies);
     FileArtifactValue individualMetadata = actionValue.getExistingFileArtifactValue(artifact);
     if (isAggregatingValue(action)) {
-      return createAggregatingValue(artifact, action, individualMetadata, env);
+      return createRunfilesArtifactValue(artifact, action, individualMetadata, env);
     }
     return individualMetadata;
   }
@@ -340,7 +341,7 @@ class ArtifactFunction implements SkyFunction {
   }
 
   @Nullable
-  private static AggregatingArtifactValue createAggregatingValue(
+  private static RunfilesArtifactValue createRunfilesArtifactValue(
       Artifact artifact,
       ActionAnalysisMetadata action,
       FileArtifactValue value,
@@ -367,9 +368,9 @@ class ArtifactFunction implements SkyFunction {
       } else if (inputValue instanceof TreeArtifactValue) {
         directoryInputsBuilder.add(Pair.of(input, (TreeArtifactValue) inputValue));
       } else {
-        // We do not recurse in aggregating middleman artifacts.
+        // We do not recurse in middleman artifacts.
         Preconditions.checkState(
-            !(inputValue instanceof AggregatingArtifactValue),
+            !(inputValue instanceof RunfilesArtifactValue),
             "%s %s %s",
             artifact,
             action,
@@ -386,24 +387,16 @@ class ArtifactFunction implements SkyFunction {
             Comparator.comparing(pair -> pair.getFirst().getExecPathString()),
             directoryInputsBuilder.build());
 
-    return (action.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN)
-        ? new AggregatingArtifactValue(fileInputs, directoryInputs, value)
-        : new RunfilesArtifactValue(fileInputs, directoryInputs, value);
+    return new RunfilesArtifactValue(fileInputs, directoryInputs, value);
   }
 
   /**
    * Returns whether this value needs to contain the data of all its inputs. Currently only tests to
-   * see if the action is an aggregating or runfiles middleman action. However, may include Fileset
-   * artifacts in the future.
+   * see if the action is a runfiles middleman action. However, may include Fileset artifacts in the
+   * future.
    */
   private static boolean isAggregatingValue(ActionAnalysisMetadata action) {
-    switch (action.getActionType()) {
-      case AGGREGATING_MIDDLEMAN:
-      case RUNFILES_MIDDLEMAN:
-        return true;
-      default:
-        return false;
-    }
+    return action.getActionType() == RUNFILES_MIDDLEMAN;
   }
 
   @Override

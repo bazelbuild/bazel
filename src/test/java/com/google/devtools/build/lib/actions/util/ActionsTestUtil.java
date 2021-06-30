@@ -79,7 +79,6 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.testing.actions.ArtifactExpanderHelper;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -173,9 +172,7 @@ public final class ActionsTestUtil {
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
         /*topLevelFilesets=*/ ImmutableMap.of(),
-        actionGraph == null
-            ? (artifact, output) -> {}
-            : ArtifactExpanderHelper.actionGraphArtifactExpander(actionGraph),
+        (artifact, output) -> {},
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         NestedSetExpander.DEFAULT,
@@ -513,7 +510,8 @@ public final class ActionsTestUtil {
 
     @Override
     public MiddlemanType getActionType() {
-      return middleman ? MiddlemanType.AGGREGATING_MIDDLEMAN : super.getActionType();
+      // RUNFILES_MIDDLEMAN is chosen arbitrarily among the middleman types.
+      return middleman ? MiddlemanType.RUNFILES_MIDDLEMAN : super.getActionType();
     }
 
     @Override

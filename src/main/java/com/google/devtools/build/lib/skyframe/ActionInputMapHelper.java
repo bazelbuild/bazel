@@ -75,9 +75,13 @@ final class ActionInputMapHelper {
       Environment env,
       MetadataConsumerForMetrics consumer)
       throws InterruptedException {
-    if (value instanceof AggregatingArtifactValue) {
-      AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
-      for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getFileArtifacts()) {
+    if (value instanceof RunfilesArtifactValue) {
+      // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
+      // being that the MANIFEST file contains absolute paths that don't work with remote execution.
+      // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
+      // which contains all artifacts in the runfiles tree minus the MANIFEST file.
+      RunfilesArtifactValue runfilesArtifactValue = (RunfilesArtifactValue) value;
+      for (Pair<Artifact, FileArtifactValue> entry : runfilesArtifactValue.getFileArtifacts()) {
         Artifact artifact = entry.first;
         inputMap.put(artifact, entry.getSecond(), /*depOwner=*/ key);
         if (artifact.isFileset()) {
@@ -91,7 +95,7 @@ final class ActionInputMapHelper {
           consumer.accumulate(entry.getSecond());
         }
       }
-      for (Pair<Artifact, TreeArtifactValue> entry : aggregatingValue.getTreeArtifacts()) {
+      for (Pair<Artifact, TreeArtifactValue> entry : runfilesArtifactValue.getTreeArtifacts()) {
         expandTreeArtifactAndPopulateArtifactData(
             entry.getFirst(),
             Preconditions.checkNotNull(entry.getSecond()),
@@ -103,20 +107,7 @@ final class ActionInputMapHelper {
       }
       // We have to cache the "digest" of the aggregating value itself, because the action cache
       // checker may want it.
-      inputMap.put(key, aggregatingValue.getMetadata(), /*depOwner=*/ key);
-      // While not obvious at all this code exists to ensure that we don't expand the
-      // .runfiles/MANIFEST file into the inputs. The reason for that being that the MANIFEST
-      // file contains absolute paths that don't work with remote execution.
-      // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
-      // which contains all artifacts in the runfiles tree minus the MANIFEST file.
-      // TODO(buchgr): Clean this up and get rid of the RunfilesArtifactValue type.
-      if (!(value instanceof RunfilesArtifactValue)) {
-        ImmutableList.Builder<Artifact> expansionBuilder = ImmutableList.builder();
-        for (Pair<Artifact, FileArtifactValue> pair : aggregatingValue.getFileArtifacts()) {
-          expansionBuilder.add(Preconditions.checkNotNull(pair.getFirst()));
-        }
-        expandedArtifacts.put(key, expansionBuilder.build());
-      }
+      inputMap.put(key, runfilesArtifactValue.getMetadata(), /*depOwner=*/ key);
     } else if (value instanceof TreeArtifactValue) {
       TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
       expandTreeArtifactAndPopulateArtifactData(

@@ -100,9 +100,8 @@ import net.starlark.java.eval.Starlark;
  *   <li>A directory of unknown contents, but not a TreeArtifact. This is a legacy facility and
  *       should not be used by any new rule implementations. In particular, the file system cache
  *       integrity checks fail for directories.
- *   <li>An 'aggregating middleman' special Artifact, which may be expanded using a {@link
- *       ArtifactExpander} at Action execution time. This is used by a handful of rules to save
- *       memory.
+ *   <li>A middleman special Artifact, which may be expanded using a {@link ArtifactExpander} at
+ *       Action execution time. This is used by a handful of rules to save memory.
  *   <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
  *       ignored by the build system. They are useful for files which change frequently but do not
  *       affect the result of a build, such as timestamp files.
@@ -184,9 +183,8 @@ public abstract class Artifact
 
   /**
    * Returns a {@link SkyKey} that, when built, will produce this artifact. For source artifacts and
-   * generated artifacts that may aggregate other artifacts (middleman, since they may be
-   * aggregating middlemen, and tree), returns the artifact itself. For normal generated artifacts,
-   * returns the key of the generating action.
+   * generated artifacts that may aggregate other artifacts, returns the artifact itself. For normal
+   * generated artifacts, returns the key of the generating action.
    *
    * <p>Callers should use this method (or the related ones below) in preference to directly
    * requesting an {@link Artifact} to be built by Skyframe, since ordinary derived artifacts should
@@ -225,8 +223,8 @@ public abstract class Artifact
     /**
      * Expands the given artifact, and populates "output" with the result.
      *
-     * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true.
-     * Only aggregating middlemen and tree artifacts are expanded.
+     * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true. Only
+     * middlemen and tree artifacts are expanded.
      */
     void expand(Artifact artifact, Collection<? super Artifact> output);
 
@@ -1491,10 +1489,7 @@ public abstract class Artifact
     return Joiner.on(delimiter).join(toRootRelativePaths(artifacts));
   }
 
-  /**
-   * Adds a collection of artifacts to a given collection, with {@link
-   * MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions expanded once.
-   */
+  /** Adds a collection of artifacts to a given collection, with middleman actions expanded once. */
   static void addExpandedArtifacts(
       Iterable<Artifact> artifacts,
       Collection<? super Artifact> output,

@@ -421,7 +421,6 @@ java_library(
     srcs = ["ActionInputMapHelper.java"],
     deps = [
         ":action_execution_value",
-        ":aggregating_artifact_value",
         ":metadata_consumer_for_metrics",
         ":runfiles_artifact_value",
         ":tree_artifact_value",
@@ -756,8 +755,8 @@ java_library(
 )
 
 java_library(
-    name = "aggregating_artifact_value",
-    srcs = ["AggregatingArtifactValue.java"],
+    name = "runfiles_artifact_value",
+    srcs = ["RunfilesArtifactValue.java"],
     deps = [
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -789,7 +788,6 @@ java_library(
     deps = [
         ":action_execution_value",
         ":action_template_expansion_value",
-        ":aggregating_artifact_value",
         ":coverage_report_value",
         ":detailed_exceptions",
         ":metadata_consumer_for_metrics",
@@ -2259,19 +2257,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "runfiles_artifact_value",
-    srcs = ["RunfilesArtifactValue.java"],
-    deps = [
-        ":aggregating_artifact_value",
-        ":tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",
     ],
 )

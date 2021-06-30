@@ -95,7 +95,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
-        "//src/main/java/com/google/devtools/build/lib/testing/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/unix:srcs",
         "//src/main/java/com/google/devtools/build/lib/unsafe:srcs",
