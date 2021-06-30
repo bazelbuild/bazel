@@ -1547,6 +1547,17 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
+     * Return true if {@link getDefault} can be safely called with a RawAttributeMapper.
+     *
+     * <p>Notably, this means {@link getDefault} does not call {@link AttributeMapper#get} on any
+     * configurable attributes as they could potentially contain a SelectorList. In practice, only
+     * call get on nonconfigurable() attributes unless you really know what you are doing.
+     */
+    public boolean resolvableWithRawAttributes() {
+      return false;
+    }
+
+    /**
      * Returns the value this {@link ComputedDefault} evaluates to, given the inputs contained in
      * {@code rule}.
      */

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
@@ -84,10 +84,8 @@ import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -188,8 +186,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         .add(
             attr("timeout", STRING)
                 .taggable()
-                .nonconfigurable("used in loading phase rule validation logic")
-                .value(timeoutAttribute))
+                .nonconfigurable("policy decision: should be consistent across configurations")
+                .value(TIMEOUT_DEFAULT))
         .add(
             attr("flaky", BOOLEAN)
                 .value(false)
@@ -255,22 +253,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         .add(attr(":run_under", LABEL).value(RUN_UNDER))
         .build();
   }
-
-  @AutoCodec @AutoCodec.VisibleForSerialization
-  static final Attribute.ComputedDefault timeoutAttribute =
-      new Attribute.ComputedDefault() {
-        @Override
-        public Object getDefault(AttributeMap rule) {
-          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-          if (size != null) {
-            String timeout = size.getDefaultTimeout().toString();
-            if (timeout != null) {
-              return timeout;
-            }
-          }
-          return "illegal";
-        }
-      };
 
   @Override
   public Provider provider(String doc, Object fields, StarlarkThread thread) throws EvalException {

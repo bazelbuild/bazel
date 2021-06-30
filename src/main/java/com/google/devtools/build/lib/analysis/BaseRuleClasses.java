@@ -66,6 +66,11 @@ public class BaseRuleClasses {
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageDefaultTestOnly();
         }
+
+        @Override
+        public boolean resolvableWithRawAttributes() {
+          return true;
+        }
       };
 
   @AutoCodec @AutoCodec.VisibleForSerialization
@@ -74,6 +79,32 @@ public class BaseRuleClasses {
         @Override
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageDefaultDeprecation();
+        }
+
+        @Override
+        public boolean resolvableWithRawAttributes() {
+          return true;
+        }
+      };
+
+  @AutoCodec
+  public static final Attribute.ComputedDefault TIMEOUT_DEFAULT =
+      new Attribute.ComputedDefault() {
+        @Override
+        public Object getDefault(AttributeMap rule) {
+          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+          if (size != null) {
+            String timeout = size.getDefaultTimeout().toString();
+            if (timeout != null) {
+              return timeout;
+            }
+          }
+          return "illegal";
+        }
+
+        @Override
+        public boolean resolvableWithRawAttributes() {
+          return true;
         }
       };
 
@@ -170,20 +201,7 @@ public class BaseRuleClasses {
               attr("timeout", STRING)
                   .taggable()
                   .nonconfigurable("policy decision: should be consistent across configurations")
-                  .value(
-                      new Attribute.ComputedDefault() {
-                        @Override
-                        public Object getDefault(AttributeMap rule) {
-                          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                          if (size != null) {
-                            String timeout = size.getDefaultTimeout().toString();
-                            if (timeout != null) {
-                              return timeout;
-                            }
-                          }
-                          return "illegal";
-                        }
-                      }))
+                  .value(TIMEOUT_DEFAULT))
           .add(
               attr("flaky", BOOLEAN)
                   .value(false)
