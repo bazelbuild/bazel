@@ -388,9 +388,8 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
     assertContainsEvent(
         String.format(
-            "in feature_flags attribute of %s rule //java/com/google/android/foo:foo: the"
-                + " feature_flags attribute is not available in package"
-                + " 'java/com/google/android/foo'",
+            "in %s rule //java/com/google/android/foo:foo:"
+                + " the attribute feature_flags is not available in this package",
             getRuleName()));
   }
 

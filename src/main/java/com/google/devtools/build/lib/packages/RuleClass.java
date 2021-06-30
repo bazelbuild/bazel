@@ -753,7 +753,8 @@ public class RuleClass {
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
-    private boolean hasFunctionTransitionAllowlist = false;
+    private final ImmutableList.Builder<AllowlistChecker> allowlistCheckers =
+        ImmutableList.builder();
     private boolean hasStarlarkRuleTransition = false;
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
@@ -871,6 +872,8 @@ public class RuleClass {
           attributes.put(attrName, attribute);
         }
 
+        allowlistCheckers.addAll(parent.getAllowlistCheckers());
+
         advertisedProviders.addParent(parent.getAdvertisedProviders());
       }
       // TODO(bazel-team): move this testonly attribute setting to somewhere else
@@ -955,7 +958,7 @@ public class RuleClass {
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
-          hasFunctionTransitionAllowlist,
+          allowlistCheckers.build(),
           ignoreLicenses,
           implicitOutputsFunction,
           transitionFactory,
@@ -1410,12 +1413,9 @@ public class RuleClass {
       return this;
     }
 
-    /**
-     * This rule class has the _allowlist_function_transition attribute. Intended only for Starlark
-     * rules.
-     */
-    public <TypeT> Builder setHasFunctionTransitionAllowlist() {
-      this.hasFunctionTransitionAllowlist = true;
+    /** Add an allowlistChecker to be checked as part of the rule implementation. */
+    public Builder addAllowlistChecker(AllowlistChecker allowlistChecker) {
+      this.allowlistCheckers.add(allowlistChecker);
       return this;
     }
 
@@ -1630,7 +1630,7 @@ public class RuleClass {
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
-  private final boolean hasFunctionTransitionAllowlist;
+  private final ImmutableList<AllowlistChecker> allowlistCheckers;
   private final boolean ignoreLicenses;
   private final boolean hasAspects;
 
@@ -1767,7 +1767,7 @@ public class RuleClass {
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
-      boolean hasFunctionTransitionAllowlist,
+      ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
       TransitionFactory<Rule> transitionFactory,
@@ -1820,7 +1820,7 @@ public class RuleClass {
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
-    this.hasFunctionTransitionAllowlist = hasFunctionTransitionAllowlist;
+    this.allowlistCheckers = allowlistCheckers;
     this.ignoreLicenses = ignoreLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
@@ -2729,9 +2729,9 @@ public class RuleClass {
     return hasAnalysisTestTransition;
   }
 
-  /** Returns true if this rule class has the _allowlist_function_transition attribute. */
-  public boolean hasFunctionTransitionAllowlist() {
-    return hasFunctionTransitionAllowlist;
+  /** Returns a list of AllowlistChecker to check. */
+  public ImmutableList<AllowlistChecker> getAllowlistCheckers() {
+    return allowlistCheckers;
   }
 
   /**

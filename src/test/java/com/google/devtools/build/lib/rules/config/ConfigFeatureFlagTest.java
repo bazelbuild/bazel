@@ -409,7 +409,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:flag")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: the config_feature_flag rule is not available in "
-        + "package 'test'");
+            + "this package");
   }
 
   @Test

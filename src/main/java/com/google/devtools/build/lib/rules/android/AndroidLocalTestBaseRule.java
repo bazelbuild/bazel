@@ -91,6 +91,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
                 .nonconfigurable("defines an aspect of configuration")
                 .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
         .add(AndroidFeatureFlagSetProvider.getAllowlistAttribute(environment))
+        .addAllowlistChecker(AndroidFeatureFlagSetProvider.CHECK_ALLOWLIST_IF_TRIGGERED)
         // TODO(b/38314524): Move $android_resources_busybox and :android_sdk to a separate
         // rule so they're not defined in multiple places
         .add(

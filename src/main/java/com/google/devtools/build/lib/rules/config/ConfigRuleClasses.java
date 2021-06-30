@@ -26,11 +26,14 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -392,6 +395,14 @@ public class ConfigRuleClasses {
   public static final class ConfigFeatureFlagRule implements RuleDefinition {
     public static final String RULE_NAME = "config_feature_flag";
 
+    @SerializationConstant @VisibleForSerialization
+    static final AllowlistChecker ALWAYS_CHECK_ALLOWLIST =
+        AllowlistChecker.builder()
+            .setAllowlistAttr(ConfigFeatureFlag.ALLOWLIST_NAME)
+            .setErrorMessage("the config_feature_flag rule is not available in this package")
+            .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE)
+            .build();
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -405,6 +416,7 @@ public class ConfigRuleClasses {
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(attr("default_value", STRING).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(ConfigFeatureFlag.getAllowlistAttribute(env))
+          .addAllowlistChecker(ALWAYS_CHECK_ALLOWLIST)
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
           .build();
     }

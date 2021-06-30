@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -87,6 +88,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -111,7 +113,6 @@ import net.starlark.java.syntax.Location;
 
 /** A helper class to provide an easier API for Starlark rule definitions. */
 public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Artifact> {
-
   // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
   // rules to Starlark extensions. Using the same instance would require a large refactoring.
   // If we don't want to support old built-in rules and Starlark simultaneously
@@ -800,7 +801,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             continue;
           }
           hasFunctionTransitionAllowlist = true;
-          builder.setHasFunctionTransitionAllowlist();
         }
 
         try {
@@ -812,16 +812,18 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       }
       // TODO(b/121385274): remove when we stop allowlisting starlark transitions
       if (hasStarlarkDefinedTransition) {
-        if (!starlarkLabel.getRepository().getName().equals("@_builtins")
-            && !hasFunctionTransitionAllowlist) {
-          errorf(
-              handler,
-              "Use of Starlark transition without allowlist attribute"
-                  + " '_allowlist_function_transition'. See Starlark transitions documentation"
-                  + " for details and usage: %s %s",
-              builder.getRuleDefinitionEnvironmentLabel(),
-              builder.getType());
-          return;
+        if (!starlarkLabel.getRepository().getName().equals("@_builtins")) {
+          if (!hasFunctionTransitionAllowlist) {
+            errorf(
+                handler,
+                "Use of Starlark transition without allowlist attribute"
+                    + " '_allowlist_function_transition'. See Starlark transitions documentation"
+                    + " for details and usage: %s %s",
+                builder.getRuleDefinitionEnvironmentLabel(),
+                builder.getType());
+            return;
+          }
+          builder.addAllowlistChecker(FUNCTION_TRANSITION_ALLOWLIST_CHECKER);
         }
       } else {
         if (hasFunctionTransitionAllowlist) {
@@ -876,6 +878,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       return true;
     }
   }
+
+  @SerializationConstant
+  static final AllowlistChecker FUNCTION_TRANSITION_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr(FunctionSplitTransitionAllowlist.NAME)
+          .setErrorMessage("Non-allowlisted use of Starlark transition")
+          .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE_OR_DEFINITION)
+          .build();
 
   @Override
   public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)

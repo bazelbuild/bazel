@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Info;
@@ -117,6 +118,12 @@ public final class RuleConfiguredTargetBuilder {
     if (ruleContext.getConfiguration().enforceConstraints()) {
       checkConstraints();
     }
+
+    for (AllowlistChecker allowlistChecker :
+        ruleContext.getRule().getRuleClassObject().getAllowlistCheckers()) {
+      handleAllowlistChecker(allowlistChecker);
+    }
+
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return null;
     }
@@ -270,6 +277,35 @@ public final class RuleConfiguredTargetBuilder {
         providers,
         generatingActions.getActions(),
         generatingActions.getArtifactsByOutputLabel());
+  }
+
+  /** Actually process */
+  private void handleAllowlistChecker(AllowlistChecker allowlistChecker) {
+    if (allowlistChecker.attributeSetTrigger() != null
+        && !ruleContext
+            .getRule()
+            .isAttributeValueExplicitlySpecified(allowlistChecker.attributeSetTrigger())) {
+      return;
+    }
+    boolean passing = false;
+    switch (allowlistChecker.locationCheck()) {
+      case INSTANCE:
+        passing = Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr());
+        break;
+      case DEFINITION:
+        passing =
+            Allowlist.isAvailableBasedOnRuleLocation(ruleContext, allowlistChecker.allowlistAttr());
+        break;
+      case INSTANCE_OR_DEFINITION:
+        passing =
+            Allowlist.isAvailable(ruleContext, allowlistChecker.allowlistAttr())
+                || Allowlist.isAvailableBasedOnRuleLocation(
+                    ruleContext, allowlistChecker.allowlistAttr());
+        break;
+    }
+    if (!passing) {
+      ruleContext.ruleError(allowlistChecker.errorMessage());
+    }
   }
 
   /**

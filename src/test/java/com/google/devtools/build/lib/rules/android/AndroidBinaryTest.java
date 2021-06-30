@@ -3652,9 +3652,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
     assertContainsEvent(
-        "in feature_flags attribute of android_binary rule //java/com/google/android/foo:foo: "
-            + "the feature_flags attribute is not available in package "
-            + "'java/com/google/android/foo'");
+        "in android_binary rule //java/com/google/android/foo:foo: "
+            + "the attribute feature_flags is not available in this package");
   }
 
   @Test
