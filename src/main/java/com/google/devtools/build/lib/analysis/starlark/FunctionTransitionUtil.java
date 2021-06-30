@@ -37,6 +37,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -251,7 +252,7 @@ public class FunctionTransitionUtil {
    * Apply the transition dictionary to the build option, using optionInfoMap to look up the option
    * info.
    *
-   * @param buildOptionsToTransition the pre-transition build options
+   * @param fromOptions the pre-transition build options
    * @param newValues a map of option name: option value entries to override current option values
    *     in the buildOptions param
    * @param optionInfoMap a map of all native options (name -> OptionInfo) present in {@code
@@ -262,35 +263,38 @@ public class FunctionTransitionUtil {
    * @throws ValidationException If a requested option field is inaccessible
    */
   private static BuildOptions applyTransition(
-      BuildOptions buildOptionsToTransition,
+      BuildOptions fromOptions,
       Map<String, Object> newValues,
       Map<String, OptionInfo> optionInfoMap,
       StarlarkDefinedConfigTransition starlarkTransition)
       throws ValidationException {
-    BuildOptions buildOptions = buildOptionsToTransition.clone();
-    // The names and values of options that are different after this transition.
+    // toOptions being null means the transition hasn't changed anything. We avoid preemptively
+    // cloning it from fromOptions since options cloning is an expensive operation.
+    BuildOptions toOptions = null;
+    // The names and values of options (Starlark + native) that are different after this transition.
     Set<String> convertedNewValues = new HashSet<>();
+    // Starlark options that are different after this transition. We collect all of them, then clone
+    // the build options once with all cumulative changes. Native option changes, in contrast, are
+    // set directly in the BuildOptions instance. The former approach is preferred since it makes
+    // BuildOptions objects more immutable. Native options use the latter approach for legacy
+    // reasons. While not preferred, direct mutation doesn't require expensive cloning.
+    Map<Label, Object> changedStarlarkOptions = new LinkedHashMap<>();
     for (Map.Entry<String, Object> entry : newValues.entrySet()) {
       String optionName = entry.getKey();
       Object optionValue = entry.getValue();
 
       if (!optionName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+        // The transition changes a Starlark option.
         Object oldValue =
-            buildOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
+            fromOptions.getStarlarkOptions().get(Label.parseAbsoluteUnchecked(optionName));
         if ((oldValue == null && optionValue != null)
             || (oldValue != null && optionValue == null)
             || (oldValue != null && !oldValue.equals(optionValue))) {
-          // TODO(bazel-team): Figure out if we need to create a whole new build options every
-          // time. Can we just keep track of the running changes and actually build a new build
-          // options after this loop?
-          buildOptions =
-              BuildOptions.builder()
-                  .merge(buildOptions)
-                  .addStarlarkOption(Label.parseAbsoluteUnchecked(optionName), optionValue)
-                  .build();
+          changedStarlarkOptions.put(Label.parseAbsoluteUnchecked(optionName), optionValue);
           convertedNewValues.add(optionName);
         }
       } else {
+        // The transition changes a native option.
         optionName = optionName.substring(COMMAND_LINE_OPTION_PREFIX.length());
 
         // Convert NoneType to null.
@@ -306,7 +310,6 @@ public class FunctionTransitionUtil {
           OptionInfo optionInfo = optionInfoMap.get(optionName);
           OptionDefinition def = optionInfo.getDefinition();
           Field field = def.getField();
-          FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
           if (def.getType() == List.class && optionValue instanceof List && !def.allowsMultiple()) {
@@ -346,11 +349,14 @@ public class FunctionTransitionUtil {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
-          Object oldValue = field.get(options);
+          Object oldValue = field.get(fromOptions.get(optionInfo.getOptionClass()));
           if ((oldValue == null && convertedValue != null)
               || (oldValue != null && convertedValue == null)
               || (oldValue != null && !oldValue.equals(convertedValue))) {
-            field.set(options, convertedValue);
+            if (toOptions == null) {
+              toOptions = fromOptions.clone();
+            }
+            field.set(toOptions.get(optionInfo.getOptionClass()), convertedValue);
             convertedNewValues.add(entry.getKey());
           }
 
@@ -367,18 +373,24 @@ public class FunctionTransitionUtil {
       }
     }
 
-    CoreOptions buildConfigOptions;
-    buildConfigOptions = buildOptions.get(CoreOptions.class);
-
+    if (!changedStarlarkOptions.isEmpty()) {
+      toOptions =
+          BuildOptions.builder()
+              .merge(toOptions == null ? fromOptions.clone() : toOptions)
+              .addStarlarkOptions(changedStarlarkOptions)
+              .build();
+    }
+    if (toOptions == null) {
+      return fromOptions;
+    }
     if (starlarkTransition.isForAnalysisTesting()) {
       // We need to record every time we change a configuration option.
       // see {@link #updateOutputDirectoryNameFragment} for usage.
       convertedNewValues.add("//command_line_option:evaluating for analysis test");
-      buildConfigOptions.evaluatingForAnalysisTest = true;
+      toOptions.get(CoreOptions.class).evaluatingForAnalysisTest = true;
     }
-    updateOutputDirectoryNameFragment(convertedNewValues, optionInfoMap, buildOptions);
-
-    return buildOptions;
+    updateOutputDirectoryNameFragment(convertedNewValues, optionInfoMap, toOptions);
+    return toOptions;
   }
 
   /**
