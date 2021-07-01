@@ -19,10 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -45,7 +48,7 @@ import javax.annotation.Nullable;
  * to the string).
  */
 @ThreadCompatible
-public interface ActionCache extends MetadataCache {
+public interface ActionCache {
 
   /**
    * Updates the cache entry for the specified key.
@@ -62,6 +65,24 @@ public interface ActionCache extends MetadataCache {
    * Removes entry from cache
    */
   void remove(String key);
+
+  /** Updates metadata of output files */
+  void putFileMetadata(Artifact artifact, FileArtifactValue metadata);
+
+  /** Removes metadata of output files from cache */
+  void removeFileMetadata(Artifact artifact);
+
+  /** Returns the metadata of output file, if any, or null if not found. */
+  FileArtifactValue getFileMetadata(Artifact artifact);
+
+  /** Updates metadata of output directories */
+  void putTreeMetadata(SpecialArtifact artifact, TreeArtifactValue metadata);
+
+  /** Removes metadata of output directories from cache */
+  void removeTreeMetadata(SpecialArtifact artifact);
+
+  /** Returns the metadata of output directory, if any, or null if not found. */
+  TreeArtifactValue getTreeMetadata(SpecialArtifact artifact);
 
   /**
    * An entry in the ActionCache that contains all action input and output

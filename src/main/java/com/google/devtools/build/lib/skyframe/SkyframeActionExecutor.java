@@ -699,15 +699,8 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  void checkMetadataCache(Action action, OutputStore outputStore) {
+  void loadOutputMetadataFromActionCache(Action action, OutputStore outputStore) {
     actionCacheChecker.loadOutputMetadata(action, outputStore);
-  }
-
-  void updateMetadataCache(Action action, ActionExecutionValue value) {
-    if (!actionCacheChecker.enabled()) {
-      return;
-    }
-    actionCacheChecker.updateMetadataCache(action, value);
   }
 
   @Nullable
@@ -873,8 +866,7 @@ public final class SkyframeActionExecutor {
         Environment env,
         Action action,
         ActionMetadataHandler metadataHandler,
-        Map<String, String> clientEnv,
-        ActionExecutionValue value)
+        Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException;
   }
 
@@ -1290,7 +1282,7 @@ public final class SkyframeActionExecutor {
       public ActionStepOrResult run(Environment env) {
         try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "postprocessing.run")) {
           postprocessing.run(
-              env, action, metadataHandler, actionExecutionContext.getClientEnv(), value);
+              env, action, metadataHandler, actionExecutionContext.getClientEnv());
           if (env.valuesMissing()) {
             return this;
           }
