@@ -69,6 +69,13 @@ public interface AppleCommonApi<
   StructApi getPlatformTypeStruct();
 
   @StarlarkMethod(
+      name = "apple_crosstool_transition",
+      doc = "Testing the Apple crosstool transition",
+      documented = false,
+      structField = true)
+  Object getAppleCrosstoolTransition();
+
+  @StarlarkMethod(
       name = "platform",
       doc =
           "An enum-like struct that contains the following fields corresponding to Apple "

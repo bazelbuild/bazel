@@ -64,6 +64,11 @@ public class AppleStarlarkCommon
         XcodeConfigInfo,
         ApplePlatform> {
 
+  @Override
+  public Object getAppleCrosstoolTransition() {
+    return AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION;
+  }
+
   @VisibleForTesting
   public static final String DEPRECATED_KEY_ERROR =
       "Key '%s' no longer supported in ObjcProvider (use CcInfo instead).";

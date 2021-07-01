@@ -55,7 +55,9 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
         library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, compilation_artifacts.archive)
         libraries.append(library_to_link)
 
-    sdk_frameworks = compilation_attributes.sdk_framework.to_list()
+    libraries.extend(objc_provider.cc_library.to_list())
+
+    sdk_frameworks = objc_provider.sdk_framework.to_list()
     user_link_flags = []
     for sdk_framework in sdk_frameworks:
         user_link_flags.append(["-framework", sdk_framework])
@@ -66,14 +68,12 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
             owner = ctx.label,
             libraries = depset(libraries),
             user_link_flags = user_link_flags,
+            linkstamps = objc_provider.linkstamp,
         )
         direct_linker_inputs.append(linker_input)
 
-    cc_libraries = objc_provider.linker_inputs()
-    linkstamp_linker_inputs = objc_provider.linkstamp_linker_inputs()
-
     return cc_common.create_linking_context(
-        linker_inputs = depset(direct = direct_linker_inputs, transitive = [cc_libraries, linkstamp_linker_inputs], order = "topological"),
+        linker_inputs = depset(direct = direct_linker_inputs, order = "topological"),
     )
 
 def _static_library(
@@ -309,7 +309,7 @@ objc_library = rule(
         common_attrs.X_C_RUNE_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    cfg = apple_crosstool_transition,
+    cfg = _builtins.toplevel.apple_common.apple_crosstool_transition,
     toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
     incompatible_use_toolchain_transition = True,
 )

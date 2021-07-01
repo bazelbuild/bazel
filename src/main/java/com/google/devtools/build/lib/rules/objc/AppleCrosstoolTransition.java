@@ -30,18 +30,19 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Transition that produces a configuration that causes c++ toolchain selection to use the CROSSTOOL
  * given in apple_crosstool_top.
  */
-public final class AppleCrosstoolTransition implements PatchTransition {
+public final class AppleCrosstoolTransition implements PatchTransition, StarlarkValue {
 
   /** A singleton instance of AppleCrosstoolTransition. */
   @SerializationConstant
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
 
-  private AppleCrosstoolTransition() {}
+  public AppleCrosstoolTransition() {}
 
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
