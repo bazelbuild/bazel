@@ -63,7 +63,7 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
         user_link_flags.append(["-framework", sdk_framework])
 
     direct_linker_inputs = []
-    if len(user_link_flags) != 0 or len(libraries) != 0:
+    if len(user_link_flags) != 0 or len(libraries) != 0 or objc_provider.linkstamp:
         linker_input = cc_common.create_linker_input(
             owner = ctx.label,
             libraries = depset(libraries),
