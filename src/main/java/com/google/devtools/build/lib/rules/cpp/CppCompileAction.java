@@ -1301,14 +1301,28 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * 95% of actions used less than C + K * inputs MB of memory during execution.
    */
   public static ResourceSet estimateResourceConsumptionLocal(String mnemonic, OS os, int inputs) {
-    if (!CPP_COMPILE_MNEMONIC.equals(mnemonic)) {
+    if (mnemonic == null) {
       return AbstractAction.DEFAULT_RESOURCE_SET;
     }
 
-    switch (os) {
-      case DARWIN:
-      case LINUX:
-        return ResourceSet.createWithRamCpu(/* memoryMb= */ 80 + 0.7 * inputs, /* cpuUsage= */ 1);
+    switch (mnemonic) {
+      case CPP_COMPILE_MNEMONIC:
+        switch (os) {
+          case DARWIN:
+          case LINUX:
+            return ResourceSet.createWithRamCpu(
+                /* memoryMb= */ 80 + 0.7 * inputs, /* cpuUsage= */ 1);
+          default:
+            return AbstractAction.DEFAULT_RESOURCE_SET;
+        }
+      case OBJC_COMPILE_MNEMONIC:
+        switch (os) {
+          case DARWIN:
+            return ResourceSet.createWithRamCpu(
+                /* memoryMb= */ 80 + 0.2 * inputs, /* cpuUsage= */ 1);
+          default:
+            return AbstractAction.DEFAULT_RESOURCE_SET;
+        }
       default:
         return AbstractAction.DEFAULT_RESOURCE_SET;
     }
