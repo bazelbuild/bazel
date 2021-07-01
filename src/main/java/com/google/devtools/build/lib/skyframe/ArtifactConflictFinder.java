@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
-import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -104,25 +102,14 @@ class ArtifactConflictFinder {
       Sharder<ActionLookupValue> actionShards,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
       throws InterruptedException {
-    ThrowableRecordingRunnableWrapper wrapper =
-        new ThrowableRecordingRunnableWrapper(
-            "ArtifactConflictFinder#constructActionGraphAndPathMap");
-
     ExecutorService executor =
         Executors.newFixedThreadPool(
             NUM_JOBS,
             new ThreadFactoryBuilder().setNameFormat("ActionLookupValue Processor %d").build());
     for (List<ActionLookupValue> shard : actionShards) {
-      executor.execute(
-          wrapper.wrap(() -> actionRegistration(shard, actionGraph, artifacts, badActionMap)));
+      executor.execute(() -> actionRegistration(shard, actionGraph, artifacts, badActionMap));
     }
-    boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);
-    Throwable firstThrownError = wrapper.getFirstThrownError();
-    if (firstThrownError != null) {
-      Throwables.throwIfUnchecked(firstThrownError);
-      throw new IllegalStateException(firstThrownError);
-    }
-    if (interrupted) {
+    if (ExecutorUtil.interruptibleShutdown(executor)) {
       throw new InterruptedException();
     }
   }

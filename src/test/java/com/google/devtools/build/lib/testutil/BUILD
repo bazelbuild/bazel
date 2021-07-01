@@ -99,8 +99,18 @@ java_library(
     name = "TestRunnableWrapper",
     srcs = ["TestRunnableWrapper.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        ":ThrowingRecordableRunnableWrapper",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "ThrowingRecordableRunnableWrapper",
+    srcs = ["ThrowableRecordingRunnableWrapper.java"],
+    deps = [
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

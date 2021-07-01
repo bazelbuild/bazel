@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.concurrent;
+package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Preconditions;
 import com.google.common.flogger.GoogleLogger;
@@ -19,13 +19,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
- * A class that wraps Runnables and records the first Throwable thrown by the wrapped Runnables
- * when they are run.
+ * A class that wraps Runnables and records the first Throwable thrown by the wrapped Runnables when
+ * they are run. Only for use in testing.
  */
 public class ThrowableRecordingRunnableWrapper {
-
   private final String name;
-  private AtomicReference<Throwable> errorRef = new AtomicReference<>();
+  private final AtomicReference<Throwable> errorRef = new AtomicReference<>();
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
