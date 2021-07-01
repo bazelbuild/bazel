@@ -30,14 +30,20 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutedActionMetadata;
+import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
+import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.SymlinkNode;
+import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +51,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -52,6 +59,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -61,10 +69,9 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata;
-import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.DirectoryMetadata;
-import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.FileMetadata;
-import com.google.devtools.build.lib.remote.RemoteCache.ActionResultMetadata.SymlinkMetadata;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -87,6 +94,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
 import java.io.IOException;
@@ -94,9 +102,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
@@ -215,6 +225,10 @@ public class RemoteExecutionService {
       this.command = command;
       this.action = action;
       this.actionKey = actionKey;
+    }
+
+    public RemoteActionExecutionContext getRemoteActionExecutionContext() {
+      return remoteActionExecutionContext;
     }
 
     /**
@@ -341,6 +355,26 @@ public class RemoteExecutionService {
       return actionResult.getExitCode();
     }
 
+    public List<OutputFile> getOutputFiles() {
+      return actionResult.getOutputFilesList();
+    }
+
+    public List<OutputSymlink> getOutputFileSymlinks() {
+      return actionResult.getOutputFileSymlinksList();
+    }
+
+    public List<OutputDirectory> getOutputDirectories() {
+      return actionResult.getOutputDirectoriesList();
+    }
+
+    public int getOutputDirectoriesCount() {
+      return actionResult.getOutputDirectoriesCount();
+    }
+
+    public List<OutputSymlink> getOutputDirectorySymlinks() {
+      return actionResult.getOutputDirectorySymlinksList();
+    }
+
     /**
      * Returns the freeform informational message with details on the execution of the action that
      * may be displayed to the user upon failure or when requested explicitly.
@@ -381,6 +415,22 @@ public class RemoteExecutionService {
     @Nullable
     public ExecuteResponse getResponse() {
       return executeResponse;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (!(object instanceof RemoteActionResult)) {
+        return false;
+      }
+
+      RemoteActionResult that = (RemoteActionResult) object;
+      return Objects.equals(actionResult, that.actionResult)
+          && Objects.equals(executeResponse, that.executeResponse);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(actionResult, executeResponse);
     }
   }
 
@@ -452,21 +502,21 @@ public class RemoteExecutionService {
   }
 
   private void deletePartialDownloadedOutputs(
-      RemoteActionResult result, @Nullable FileOutErr tmpOutErr, Exception e) throws ExecException {
+      RemoteActionResult result, FileOutErr tmpOutErr, Exception e) throws ExecException {
     try {
       // Delete any (partially) downloaded output files.
       for (OutputFile file : result.actionResult.getOutputFilesList()) {
         toTmpDownloadPath(remotePathResolver.outputPathToLocalPath(file.getPath())).delete();
       }
+
       for (OutputDirectory directory : result.actionResult.getOutputDirectoriesList()) {
         // Only delete the directories below the output directories because the output
         // directories will not be re-created
         remotePathResolver.outputPathToLocalPath(directory.getPath()).deleteTreesBelow();
       }
-      if (tmpOutErr != null) {
-        tmpOutErr.clearOut();
-        tmpOutErr.clearErr();
-      }
+
+      tmpOutErr.clearOut();
+      tmpOutErr.clearErr();
     } catch (IOException ioEx) {
       ioEx.addSuppressed(e);
 
@@ -554,13 +604,12 @@ public class RemoteExecutionService {
       for (FileMetadata file : directory.files()) {
         TreeFileArtifact child =
             TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
-        RemoteActionFileArtifactValue value =
-            new RemoteActionFileArtifactValue(
+        RemoteFileArtifactValue value =
+            new RemoteFileArtifactValue(
                 DigestUtil.toBinaryDigest(file.digest()),
                 file.digest().getSizeBytes(),
                 /*locationIndex=*/ 1,
-                context.getRequestMetadata().getActionId(),
-                file.isExecutable());
+                context.getRequestMetadata().getActionId());
         tree.putChild(child, value);
       }
       metadataInjector.injectTree(parent, tree.build());
@@ -582,6 +631,190 @@ public class RemoteExecutionService {
     }
   }
 
+  /** In-memory representation of action result metadata. */
+  static class ActionResultMetadata {
+
+    static class SymlinkMetadata {
+      private final Path path;
+      private final PathFragment target;
+
+      private SymlinkMetadata(Path path, PathFragment target) {
+        this.path = path;
+        this.target = target;
+      }
+
+      public Path path() {
+        return path;
+      }
+
+      public PathFragment target() {
+        return target;
+      }
+    }
+
+    static class FileMetadata {
+      private final Path path;
+      private final Digest digest;
+      private final boolean isExecutable;
+
+      private FileMetadata(Path path, Digest digest, boolean isExecutable) {
+        this.path = path;
+        this.digest = digest;
+        this.isExecutable = isExecutable;
+      }
+
+      public Path path() {
+        return path;
+      }
+
+      public Digest digest() {
+        return digest;
+      }
+
+      public boolean isExecutable() {
+        return isExecutable;
+      }
+    }
+
+    static class DirectoryMetadata {
+      private final ImmutableList<FileMetadata> files;
+      private final ImmutableList<SymlinkMetadata> symlinks;
+
+      private DirectoryMetadata(
+          ImmutableList<FileMetadata> files, ImmutableList<SymlinkMetadata> symlinks) {
+        this.files = files;
+        this.symlinks = symlinks;
+      }
+
+      public ImmutableList<FileMetadata> files() {
+        return files;
+      }
+
+      public ImmutableList<SymlinkMetadata> symlinks() {
+        return symlinks;
+      }
+    }
+
+    private final ImmutableMap<Path, FileMetadata> files;
+    private final ImmutableMap<Path, SymlinkMetadata> symlinks;
+    private final ImmutableMap<Path, DirectoryMetadata> directories;
+
+    private ActionResultMetadata(
+        ImmutableMap<Path, FileMetadata> files,
+        ImmutableMap<Path, SymlinkMetadata> symlinks,
+        ImmutableMap<Path, DirectoryMetadata> directories) {
+      this.files = files;
+      this.symlinks = symlinks;
+      this.directories = directories;
+    }
+
+    @Nullable
+    public FileMetadata file(Path path) {
+      return files.get(path);
+    }
+
+    @Nullable
+    public DirectoryMetadata directory(Path path) {
+      return directories.get(path);
+    }
+
+    public Collection<FileMetadata> files() {
+      return files.values();
+    }
+
+    public ImmutableSet<Entry<Path, DirectoryMetadata>> directories() {
+      return directories.entrySet();
+    }
+
+    public Collection<SymlinkMetadata> symlinks() {
+      return symlinks.values();
+    }
+  }
+
+  private DirectoryMetadata parseDirectory(
+      Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) {
+    ImmutableList.Builder<FileMetadata> filesBuilder = ImmutableList.builder();
+    for (FileNode file : dir.getFilesList()) {
+      filesBuilder.add(
+          new FileMetadata(
+              parent.getRelative(file.getName()), file.getDigest(), file.getIsExecutable()));
+    }
+
+    ImmutableList.Builder<SymlinkMetadata> symlinksBuilder = ImmutableList.builder();
+    for (SymlinkNode symlink : dir.getSymlinksList()) {
+      symlinksBuilder.add(
+          new SymlinkMetadata(
+              parent.getRelative(symlink.getName()), PathFragment.create(symlink.getTarget())));
+    }
+
+    for (DirectoryNode directoryNode : dir.getDirectoriesList()) {
+      Path childPath = parent.getRelative(directoryNode.getName());
+      Directory childDir =
+          Preconditions.checkNotNull(childDirectoriesMap.get(directoryNode.getDigest()));
+      DirectoryMetadata childMetadata = parseDirectory(childPath, childDir, childDirectoriesMap);
+      filesBuilder.addAll(childMetadata.files());
+      symlinksBuilder.addAll(childMetadata.symlinks());
+    }
+
+    return new DirectoryMetadata(filesBuilder.build(), symlinksBuilder.build());
+  }
+
+  ActionResultMetadata parseActionResultMetadata(RemoteAction action, RemoteActionResult result)
+      throws IOException, InterruptedException {
+    checkNotNull(remoteCache, "remoteCache can't be null");
+
+    Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
+        Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
+    for (OutputDirectory dir : result.getOutputDirectories()) {
+      dirMetadataDownloads.put(
+          remotePathResolver.outputPathToLocalPath(dir.getPath()),
+          Futures.transform(
+              remoteCache.downloadBlob(action.remoteActionExecutionContext, dir.getTreeDigest()),
+              (treeBytes) -> {
+                try {
+                  return Tree.parseFrom(treeBytes);
+                } catch (InvalidProtocolBufferException e) {
+                  throw new RuntimeException(e);
+                }
+              },
+              directExecutor()));
+    }
+
+    waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt=*/ true);
+
+    ImmutableMap.Builder<Path, DirectoryMetadata> directories = ImmutableMap.builder();
+    for (Map.Entry<Path, ListenableFuture<Tree>> metadataDownload :
+        dirMetadataDownloads.entrySet()) {
+      Path path = metadataDownload.getKey();
+      Tree directoryTree = getFromFuture(metadataDownload.getValue());
+      Map<Digest, Directory> childrenMap = new HashMap<>();
+      for (Directory childDir : directoryTree.getChildrenList()) {
+        childrenMap.put(digestUtil.compute(childDir), childDir);
+      }
+
+      directories.put(path, parseDirectory(path, directoryTree.getRoot(), childrenMap));
+    }
+
+    ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
+    for (OutputFile outputFile : result.getOutputFiles()) {
+      Path localPath = remotePathResolver.outputPathToLocalPath(outputFile.getPath());
+      files.put(
+          localPath,
+          new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
+    }
+
+    ImmutableMap.Builder<Path, SymlinkMetadata> symlinks = ImmutableMap.builder();
+    Iterable<OutputSymlink> outputSymlinks =
+        Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
+    for (OutputSymlink symlink : outputSymlinks) {
+      Path localPath = remotePathResolver.outputPathToLocalPath(symlink.getPath());
+      symlinks.put(
+          localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
+    }
+
+    return new ActionResultMetadata(files.build(), symlinks.build(), directories.build());
+  }
+
   /**
    * Download the output files and directory trees of a remotely executed action, as well stdin /
    * stdout to the local machine.
@@ -600,9 +833,7 @@ public class RemoteExecutionService {
 
     ActionResultMetadata metadata;
     try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
-      metadata =
-          remoteCache.parseActionResultMetadata(
-              action.remoteActionExecutionContext, remotePathResolver, result.actionResult);
+      metadata = parseActionResultMetadata(action, result);
     }
 
     FileOutErr outErr = action.spawnExecutionContext.getFileOutErr();
@@ -639,9 +870,12 @@ public class RemoteExecutionService {
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
-    downloadsBuilder.addAll(
+    List<ListenableFuture<Void>> outErrDownloads =
         remoteCache.downloadOutErr(
-            action.remoteActionExecutionContext, result.actionResult, tmpOutErr));
+            action.remoteActionExecutionContext, result.actionResult, tmpOutErr);
+    for (ListenableFuture<Void> future : outErrDownloads) {
+      downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+    }
 
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
     try (SilentCloseable c = Profiler.instance().profile("Remote.download")) {
@@ -660,24 +894,25 @@ public class RemoteExecutionService {
     // strategy.
     action.spawnExecutionContext.lockOutputFiles();
 
-    moveOutputsToFinalLocation(downloads);
+    if (downloadOutputs) {
+      moveOutputsToFinalLocation(downloads);
 
-    List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
-    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      entry.getKey().createDirectoryAndParents();
-      symlinksInDirectories.addAll(entry.getValue().symlinks());
-    }
+      List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
+      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+        // For empty output directories, create the empty directory itself
+        entry.getKey().createDirectoryAndParents();
+        symlinksInDirectories.addAll(entry.getValue().symlinks());
+      }
 
-    Iterable<SymlinkMetadata> symlinks =
-        Iterables.concat(metadata.symlinks(), symlinksInDirectories);
+      Iterable<SymlinkMetadata> symlinks =
+          Iterables.concat(metadata.symlinks(), symlinksInDirectories);
 
-    // Create the symbolic links after all downloads are finished, because dangling symlinks
-    // might not be supported on all platforms
-    createSymlinks(symlinks);
-
-    ActionInput inMemoryOutput = null;
-    Digest inMemoryOutputDigest = null;
-    if (!downloadOutputs) {
+      // Create the symbolic links after all downloads are finished, because dangling symlinks
+      // might not be supported on all platforms
+      createSymlinks(symlinks);
+    } else {
+      ActionInput inMemoryOutput = null;
+      Digest inMemoryOutputDigest = null;
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.spawn);
 
       for (ActionInput output : action.spawn.getOutputFiles()) {
@@ -696,16 +931,16 @@ public class RemoteExecutionService {
           injectRemoteArtifact(action, (Artifact) output, metadata);
         }
       }
-    }
 
-    try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
-      if (inMemoryOutput != null) {
-        ListenableFuture<byte[]> inMemoryOutputDownload =
-            remoteCache.downloadBlob(action.remoteActionExecutionContext, inMemoryOutputDigest);
-        waitForBulkTransfer(
-            ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
-        byte[] data = getFromFuture(inMemoryOutputDownload);
-        return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
+      try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
+        if (inMemoryOutput != null) {
+          ListenableFuture<byte[]> inMemoryOutputDownload =
+              remoteCache.downloadBlob(action.remoteActionExecutionContext, inMemoryOutputDigest);
+          waitForBulkTransfer(
+              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
+          byte[] data = getFromFuture(inMemoryOutputDownload);
+          return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
+        }
       }
     }
 
@@ -733,7 +968,7 @@ public class RemoteExecutionService {
   /**
    * Upload inputs of a remote action to remote cache if they are not presented already.
    *
-   * <p>Must be called before calling {@link #execute}.
+   * <p>Must be called before calling {@link #executeRemotely}.
    */
   public void uploadInputsIfNotPresent(RemoteAction action)
       throws IOException, InterruptedException {
@@ -754,7 +989,7 @@ public class RemoteExecutionService {
    * @param acceptCachedResult tells remote execution server whether it should used cached result.
    * @param observer receives status updates during the execution.
    */
-  public RemoteActionResult execute(
+  public RemoteActionResult executeRemotely(
       RemoteAction action, boolean acceptCachedResult, OperationObserver observer)
       throws IOException, InterruptedException {
     checkNotNull(remoteExecutor, "remoteExecutor can't be null");
