@@ -62,6 +62,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    return delegateFs.createWritableDirectory(toDelegatePath(path));
+  }
+
+  @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     delegateFs.createDirectoryAndParents(toDelegatePath(path));
   }

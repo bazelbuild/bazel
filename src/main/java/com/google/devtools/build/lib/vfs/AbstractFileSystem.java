@@ -101,6 +101,21 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
+  @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    FileStatus stat = statNullable(path, /*followSymlinks=*/ false);
+    if (stat == null) {
+      return createDirectory(path);
+    }
+
+    if (!stat.isDirectory()) {
+      throw new IOException(path + " (Not a directory)");
+    }
+
+    chmod(path, 0777);
+    return false;
+  }
+
   /**
    * Returns either normal or profiled FileOutputStream. Should be used by subclasses to create
    * default OutputStream instance.

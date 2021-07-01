@@ -221,17 +221,9 @@ public final class ActionOutputDirectoryHelper {
         knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
         continue;
       }
-      FileStatus stat = path.statNullable(Symlinks.NOFOLLOW);
-      if (stat != null && !stat.isDirectory()) {
-        throw new IOException(dir + " is not a regular directory");
-      }
-      if (stat == null) {
-        parentCreated = true;
-        path.createDirectory();
-        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
-      } else {
-        knownDirectories.put(path.asFragment(), DirectoryState.FOUND);
-      }
+      boolean createdNew = path.createWritableDirectory();
+      knownDirectories.put(
+          path.asFragment(), createdNew ? DirectoryState.CREATED : DirectoryState.FOUND);
     }
   }
 

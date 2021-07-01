@@ -653,6 +653,64 @@ public abstract class FileSystemTest {
     assertThat(e).hasMessageThat().endsWith(" (Not a directory)");
   }
 
+  @Test
+  public void testCreateWritableDirectoryCreatesNewDirectory() throws Exception {
+    Path dir = absolutize("dir");
+
+    boolean result = dir.createWritableDirectory();
+
+    assertThat(result).isTrue();
+    assertThat(dir.isReadable()).isTrue();
+    assertThat(dir.isWritable()).isTrue();
+    assertThat(dir.isExecutable()).isTrue();
+    assertThat(dir.isDirectory(Symlinks.NOFOLLOW)).isTrue();
+  }
+
+  @Test
+  public void testCreateWritableDirectoryUpdatesPermissions() throws Exception {
+    Path dir = absolutize("dir");
+    dir.createDirectory();
+    dir.setWritable(false);
+    dir.setReadable(false);
+
+    boolean result = dir.createWritableDirectory();
+
+    assertThat(result).isFalse();
+    assertThat(dir.isReadable()).isTrue();
+    assertThat(dir.isWritable()).isTrue();
+    assertThat(dir.isExecutable()).isTrue();
+    assertThat(dir.isDirectory(Symlinks.NOFOLLOW)).isTrue();
+  }
+
+  @Test
+  public void testCreateWritableDirectoryUnderNonExistentParentFails() throws Exception {
+    Path dir = absolutize("nonexistent/dir");
+    assertThrows(FileNotFoundException.class, dir::createWritableDirectory);
+  }
+
+  @Test
+  public void testCreateWritableDirectoryOverExistingFileFails() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+    file.setExecutable(false);
+
+    IOException e = assertThrows(IOException.class, file::createWritableDirectory);
+
+    assertThat(e).hasMessageThat().isEqualTo(file + " (Not a directory)");
+    assertThat(file.isExecutable()).isFalse();
+  }
+
+  @Test
+  public void testCreateWritableDirectoryUnderExistingFileFails() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+    Path dir = absolutize("file/dir");
+
+    IOException e = assertThrows(IOException.class, dir::createWritableDirectory);
+
+    assertThat(e).hasMessageThat().endsWith("(Not a directory)");
+  }
+
   // Test directory contents
   @Test
   public void testCreateMultipleChildren() throws Exception {

@@ -326,6 +326,11 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    return NativePosixFiles.mkdirWritable(path.toString());
+  }
+
+  @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     NativePosixFiles.mkdirs(path.toString(), 0777);
   }

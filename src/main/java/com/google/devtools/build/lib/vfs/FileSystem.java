@@ -178,6 +178,15 @@ public abstract class FileSystem {
   public abstract boolean createDirectory(PathFragment path) throws IOException;
 
   /**
+   * Creates a writable directory at a given path or makes existing directory writable if it is
+   * already present. Returns whether a new directory was created.
+   *
+   * <p>This method is not atomic -- concurrent modifications for the same path will result in
+   * undefined behavior.
+   */
+  protected abstract boolean createWritableDirectory(PathFragment path) throws IOException;
+
+  /**
    * Creates all directories up to the path. See {@link Path#createDirectoryAndParents} for
    * specification.
    */

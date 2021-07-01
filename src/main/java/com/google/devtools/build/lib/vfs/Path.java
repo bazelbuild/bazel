@@ -437,6 +437,20 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
+   * Creates a writable directory or ensures an existing one at current path is writable. Does not
+   * follow symlinks. Returns whether a new directory has been created (including false if it only
+   * adjusts permissions for an existing directory).
+   *
+   * <p>Returns normally iff directory at current path exists and is writable.
+   *
+   * <p>This operation is not atomic -- concurrent modifications of the path will result in
+   * undefined behavior.
+   */
+  public boolean createWritableDirectory() throws IOException {
+    return fileSystem.createWritableDirectory(asFragment());
+  }
+
+  /**
    * Ensures that the directory with the name of the current path and all its ancestor directories
    * exist.
    *

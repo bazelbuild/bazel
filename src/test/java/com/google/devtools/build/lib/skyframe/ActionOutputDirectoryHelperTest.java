@@ -126,6 +126,22 @@ public class ActionOutputDirectoryHelperTest {
   }
 
   @Test
+  public void createOutputDirectories_makesOutputDirectoryWritable() throws Exception {
+    ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();
+    Artifact fileOutput = createOutput("dir/file");
+    Path parentDir = fileOutput.getPath().getParentDirectory();
+    parentDir.createDirectoryAndParents();
+    parentDir.setWritable(false);
+    parentDir.setExecutable(false);
+
+    outputDirectoryHelper.createOutputDirectories(ImmutableSet.of(fileOutput));
+
+    assertThat(parentDir.isReadable()).isTrue();
+    assertThat(parentDir.isWritable()).isTrue();
+    assertThat(parentDir.isExecutable()).isTrue();
+  }
+
+  @Test
   public void createActionFsOutputDirectories_createsExpectedDirectoriesInActionFs(
       @TestParameter OutputSet outputSet) throws Exception {
     ActionOutputDirectoryHelper outputDirectoryHelper = createActionOutputDirectoryHelper();

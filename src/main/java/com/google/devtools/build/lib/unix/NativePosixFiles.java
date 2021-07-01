@@ -157,6 +157,15 @@ public final class NativePosixFiles {
       throws IOException;
 
   /**
+   * Makes sure a writable directory exists at a given path. Returns whether a new directory was
+   * created.
+   *
+   * <p>Unlike {@link #mkdir}, it fails if a file/symlink at a given path already exists. If a
+   * directory is already present, it will make sure it is writable and return false.
+   */
+  public static native boolean mkdirWritable(String path);
+
+  /**
    * Implements (effectively) mkdir -p.
    *
    * @param path the directory to recursively create.
