@@ -604,6 +604,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             Starlark.type(o));
       }
     }
+
+    if (applyToGeneratingRules && !requiredProvidersArg.isEmpty()) {
+      throw Starlark.errorf(
+          "An aspect cannot simultaneously have required providers and apply to generating rules.");
+    }
+
     return new StarlarkDefinedAspect(
         implementation,
         attrAspects.build(),

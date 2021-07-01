@@ -2524,6 +2524,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void aspectRequiredProvidersNotAllowedWithApplyToGeneratingRules() throws Exception {
+    ev.checkEvalErrorContains(
+        "An aspect cannot simultaneously have required providers and apply to generating rules.",
+        "prov = provider()",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   required_providers = [prov],",
+        "   apply_to_generating_rules = True",
+        ")");
+  }
+
+  @Test
   public void aspectRequiredProvidersSingle() throws Exception {
     evalAndExport(
         ev,
