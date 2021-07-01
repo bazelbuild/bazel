@@ -629,9 +629,7 @@ sample_rule(
 EOF
 
   # Build the target, using debug messages to verify the correct platform was selected.
-  bazel build \
-    --experimental_exec_groups \
-    //${pkg}/demo:use &> $TEST_log || fail "Build failed"
+  bazel build //${pkg}/demo:use &> $TEST_log || fail "Build failed"
   cat bazel-bin/${pkg}/demo/use.log >> $TEST_log
   cat bazel-bin/${pkg}/demo/use_extra.log >> $TEST_log
   expect_log "hi from use, toolchain says foo"
@@ -688,9 +686,7 @@ sample_rule(
 EOF
 
   # Build the target, using debug messages to verify the correct platform was selected.
-  bazel build \
-    --experimental_exec_groups \
-    //${pkg}/demo:use &> $TEST_log || fail "Build failed"
+  bazel build //${pkg}/demo:use &> $TEST_log || fail "Build failed"
   cat bazel-bin/${pkg}/demo/use.log >> $TEST_log
   cat bazel-bin/${pkg}/demo/use_extra.log >> $TEST_log
   expect_log "hi from use, toolchain says bar"

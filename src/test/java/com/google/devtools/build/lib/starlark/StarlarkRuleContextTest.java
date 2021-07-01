@@ -3041,7 +3041,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "something/BUILD",
         "load('//something:defs.bzl', 'use_exec_groups')",
         "use_exec_groups(name = 'nectarine')");
-    setBuildLanguageOptions("--experimental_exec_groups=true");
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");
@@ -3103,7 +3102,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "constraint_value(name = 'extra', constraint_setting = ':setting')",
         "load('//something:defs.bzl', 'use_exec_groups')",
         "use_exec_groups(name = 'nectarine')");
-    setBuildLanguageOptions("--experimental_exec_groups=true");
     useConfiguration(
         "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
         "--platforms=//platform:platform_1");

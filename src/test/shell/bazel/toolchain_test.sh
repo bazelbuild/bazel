@@ -1931,8 +1931,7 @@ load("//toolchain:rule_use_toolchain.bzl", "use_toolchain")
 use_toolchain(name = "use")
 EOF
 
-  bazel cquery "deps(//demo:use, 1)" --experimental_exec_groups \
-    &> $TEST_log || fail "Build failed"
+  bazel cquery "deps(//demo:use, 1)" &> $TEST_log || fail "Build failed"
   expect_log "<toolchain_context.resolved_labels: //toolchain:test_toolchain"
   expect_log "<ctx.exec_groups: group>"
   expect_log "//:test_toolchain_impl_1"

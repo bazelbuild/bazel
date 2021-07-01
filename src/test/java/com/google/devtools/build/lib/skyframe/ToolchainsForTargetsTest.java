@@ -355,7 +355,6 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
         "load('//toolchain:exec_group_rule.bzl', 'my_exec_group_rule')",
         "my_exec_group_rule(name = 'a')");
 
-    useConfiguration("--experimental_exec_groups");
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
         getToolchainCollection("//a");
     assertThat(toolchainCollection).isNotNull();
@@ -415,7 +414,7 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
         "load('//toolchain:exec_group_rule.bzl', 'my_exec_group_rule')",
         "my_exec_group_rule(name = 'a')");
 
-    useConfiguration("--experimental_exec_groups", "--extra_toolchains=//extra:toolchain");
+    useConfiguration("--extra_toolchains=//extra:toolchain");
     ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
         getToolchainCollection("//a");
     assertThat(toolchainCollection).isNotNull();
