@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -418,6 +419,36 @@ public class ActionCacheCheckerTest {
     @Override
     public void remove(String key) {
       delegate.remove(key);
+    }
+
+    @Override
+    public void putFileMetadata(Artifact artifact, FileArtifactValue metadata) {
+      delegate.putFileMetadata(artifact, metadata);
+    }
+
+    @Override
+    public void removeFileMetadata(Artifact artifact) {
+      delegate.removeFileMetadata(artifact);
+    }
+
+    @Override
+    public FileArtifactValue getFileMetadata(Artifact artifact) {
+      return delegate.getFileMetadata(artifact);
+    }
+
+    @Override
+    public void putTreeMetadata(SpecialArtifact artifact, TreeArtifactValue metadata) {
+      delegate.putTreeMetadata(artifact, metadata);
+    }
+
+    @Override
+    public void removeTreeMetadata(SpecialArtifact artifact) {
+      delegate.removeTreeMetadata(artifact);
+    }
+
+    @Override
+    public TreeArtifactValue getTreeMetadata(SpecialArtifact artifact) {
+      return delegate.getTreeMetadata(artifact);
     }
 
     @Override
