@@ -8,7 +8,7 @@ title: Build Event Protocol
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
-(BEP) allows third party programs to gain insight into a Bazel invocation. For
+(BEP) allows third-party programs to gain insight into a Bazel invocation. For
 example, you could use the BEP to gather information for an IDE
 plugin or a dashboard that displays build results.
 
