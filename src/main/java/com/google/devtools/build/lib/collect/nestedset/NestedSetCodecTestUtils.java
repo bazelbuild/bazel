@@ -114,9 +114,7 @@ public class NestedSetCodecTestUtils {
   }
 
   private static void verifyStructure(Object lhs, Object rhs) {
-    if (lhs == NestedSet.EMPTY_CHILDREN) {
-      assertThat(rhs).isSameInstanceAs(NestedSet.EMPTY_CHILDREN);
-    } else if (lhs instanceof Object[]) {
+    if (lhs instanceof Object[]) {
       assertThat(rhs).isInstanceOf(Object[].class);
       Object[] lhsArray = (Object[]) lhs;
       Object[] rhsArray = (Object[]) rhs;
@@ -124,6 +122,10 @@ public class NestedSetCodecTestUtils {
       assertThat(rhsArray).hasLength(n);
       for (int i = 0; i < n; ++i) {
         verifyStructure(lhsArray[i], rhsArray[i]);
+      }
+      if (lhsArray.length == 0) {
+        // Verify empty-children is optimized - we're not creating multiple empty arrays.
+        assertThat(lhsArray).isSameInstanceAs(rhsArray);
       }
     } else {
       assertThat(lhs).isEqualTo(rhs);

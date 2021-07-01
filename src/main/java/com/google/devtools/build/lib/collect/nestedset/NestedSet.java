@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.ByteString;
@@ -77,55 +79,61 @@ import javax.annotation.Nullable;
 @SuppressWarnings("unchecked")
 @AutoCodec
 public final class NestedSet<E> {
-  // The set's order and approximate depth, packed to save space.
-  //
-  // The low 2 bits contain the Order.ordinal value.
-  //
-  // The high 30 bits, of which only about 12 are really necessary, contain the
-  // depth of the set; see getApproxDepth. Because the union constructor discards
-  // the depths of all but the deepest nonleaf child, the sets returned by
-  // getNonLeaves have inaccurate depths that may overapproximate the true depth.
-  private final int depthAndOrder;
 
-  // children contains the "direct" elements and "transitive" nested sets.
-  // Direct elements are never arrays.
-  // Transitive elements may be arrays, but singletons are replaced by their sole element
-  // (thus transitive arrays always contain at least two logical elements).
-  // The relative order of direct and transitive is determined by the Order.
-  // All empty sets have children==EMPTY_CHILDREN, not null.
-  //
-  // Please be careful to use the terms of the conceptual model in the API documentation,
-  // and the terms of the physical representation in internal comments. They are not the same.
-  // In graphical terms, the "direct" elements are the graph successors that are leaves,
-  // and the "transitive" elements are the graph successors that are non-leaves, and
-  // non-leaf nodes have an out-degree of at least 2.
-  //
-  // TODO(adonovan): rename this field and all accessors that use the same format to
-  // something less suggestive such as 'repr' or 'impl', and rename all uses of children
-  // meaning "logical graph successors" to 'successors'.
-  final Object children;
-
-  // memo is a compact encoding of facts computed by a complete traversal.
-  // It is lazily populated by lockedExpand.
-  //
-  // Its initial bytes are a bitfield that indicates whether the ith node
-  // encountered in a preorder traversal should be visited, or skipped because
-  // that subgraph would contribute nothing to the flattening as it contains only
-  // elements previously seen in the traversal.
-  //
-  // Its final bytes are a reverse varint (base 128) encoding of the size of the set.
-  //
-  // There may be unused bytes between the two encodings.
-  //
-  // All NestedSets of depth < 3, that is, those whose successors are all leaves,
-  // share the empty NO_MEMO array.
-  @Nullable private byte[] memo;
-
-  // NO_MEMO is the distinguished memo for all nodes of depth < 2, that is,
-  // leaf nodes and nodes whose successors are all leaf nodes.
+  /**
+   * Sentinel {@link #memo} value for all leaf nodes and nodes whose successors are all leaf nodes.
+   */
   private static final byte[] NO_MEMO = {};
 
-  @AutoCodec static final Object[] EMPTY_CHILDREN = {};
+  @VisibleForSerialization @SerializationConstant static final Object[] EMPTY_CHILDREN = {};
+
+  /**
+   * The set's order and approximate depth, packed to save space.
+   *
+   * <p>The low 2 bits contain the Order.ordinal value.
+   *
+   * <p>The high 30 bits, of which only about 12 are really necessary, contain the depth of the set;
+   * see getApproxDepth. Because the union constructor discards the depths of all but the deepest
+   * nonleaf child, the sets returned by getNonLeaves have inaccurate depths that may
+   * overapproximate the true depth.
+   */
+  private final int depthAndOrder;
+
+  /**
+   * Contains the "direct" elements and "transitive" nested sets.
+   *
+   * <p>Direct elements are never arrays. Transitive elements may be arrays, but singletons are
+   * replaced by their sole element (thus transitive arrays always contain at least two logical
+   * elements).
+   *
+   * <p>The relative order of direct and transitive is determined by the Order.
+   *
+   * <p>All empty sets have the value {@link #EMPTY_CHILDREN}, not null.
+   *
+   * <p>Please be careful to use the terms of the conceptual model in the API documentation, and the
+   * terms of the physical representation in internal comments. They are not the same. In graphical
+   * terms, the "direct" elements are the graph successors that are leaves, and the "transitive"
+   * elements are the graph successors that are non-leaves, and non-leaf nodes have an out-degree of
+   * at least 2.
+   */
+  final Object children;
+
+  /**
+   * Optimized encoding of instance traversal metadata and set size, or the sentinel {@link
+   * #NO_MEMO} for all leaf nodes and nodes whose successors are all leaf nodes.
+   *
+   * <p>The initial bytes are a bitset encoding whether the node at the corresponding offset in a
+   * preorder traversal should be taken (true) or skipped since it wouldn't yield any elements not
+   * already encountered (false).
+   *
+   * <p>The following bytes encode set size in a reverse varint encoding scheme.
+   *
+   * <p>Unused bytes may follow either of the encoded values.
+   *
+   * <p>All instances of depth < 3, that is, those whose successors are all leaves, share the empty
+   * {@link #NO_MEMO} array.
+   */
+  @Nullable private byte[] memo;
 
   /** Construct an empty NestedSet. Should only be called by Order's class initializer. */
   NestedSet(Order order) {
@@ -661,24 +669,22 @@ public final class NestedSet<E> {
     sets.add(children);
     memo = new byte[3 + Math.min(ceildiv(children.length, 8), 8)]; // (+3 for size: a guess)
     int pos = walk(sets, members, children, /*pos=*/ 0);
-    int bytes = ceildiv(pos, 8);
 
-    // Append (nonzero) size to memo, in reverse varint encoding:
-    // 7 bits at a time, least significant first.
-    // Only the first encoded byte's top bit is set.
-    //
-    // We resize memo if it is too small or much too large.
-    // There may be unused bytes between the replay memo (at the start)
-    // and the size (at the end).
+    // Append (nonzero) size to memo, in reverse varint encoding (7 bits at a time, least
+    // significant first). Only the first encoded byte's top bit is set.
     int size = members.size();
-    Preconditions.checkState(0 < size);
-    int nsize = varintlen(size);
-    int ideal = bytes + nsize;
-    if (!(memo.length - 16 < ideal && ideal <= memo.length)) {
-      memo = Arrays.copyOf(memo, ideal);
+    Preconditions.checkState(0 < size, "Size must be positive, was %s", size);
+    int sizeVarIntLen = varintlen(size);
+    int memoOffset = ceildiv(pos, 8);
+    int idealMemoSize = memoOffset + sizeVarIntLen;
+
+    // Resize memo if it's too small or far too big.
+    if (memo.length < idealMemoSize || memo.length - 16 >= idealMemoSize) {
+      memo = Arrays.copyOf(memo, idealMemoSize);
     }
+
     for (byte top = (byte) 0x80; size > 0; top = 0) {
-      memo[bytes++] = (byte) ((byte) (size & 0x7f) | top);
+      memo[memoOffset++] = (byte) ((byte) (size & 0x7f) | top);
       size >>>= 7;
     }
 
@@ -726,13 +732,13 @@ public final class NestedSet<E> {
             pos = prepos + 1;
           }
         } else {
-          ++pos;
+          pos++;
         }
       } else {
         if (members.add((E) child)) {
           memo[pos >> 3] |= (byte) (1 << (pos & 7));
         }
-        ++pos;
+        pos++;
       }
     }
     return pos;
