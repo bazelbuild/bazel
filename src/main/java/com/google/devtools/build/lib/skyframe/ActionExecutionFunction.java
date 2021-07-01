@@ -763,7 +763,7 @@ public class ActionExecutionFunction implements SkyFunction {
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
     OutputStore outputStore = new OutputStore();
-    skyframeActionExecutor.checkMetadataCache(action, outputStore);
+    skyframeActionExecutor.loadOutputMetadataFromActionCache(action, outputStore);
 
     ActionMetadataHandler metadataHandler =
         ActionMetadataHandler.create(
@@ -886,8 +886,7 @@ public class ActionExecutionFunction implements SkyFunction {
         Environment env,
         Action action,
         ActionMetadataHandler metadataHandler,
-        Map<String, String> clientEnv,
-        ActionExecutionValue value)
+        Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException {
       // TODO(b/160603797): For the sake of action key computation, we should not need
       //  state.filesetsInsideRunfiles. In fact, for the metadataHandler, we are guaranteed to not
@@ -916,7 +915,6 @@ public class ActionExecutionFunction implements SkyFunction {
         }
       }
       Preconditions.checkState(!env.valuesMissing(), action);
-      skyframeActionExecutor.updateMetadataCache(action, value);
       skyframeActionExecutor.updateActionCache(
           action,
           metadataHandler,

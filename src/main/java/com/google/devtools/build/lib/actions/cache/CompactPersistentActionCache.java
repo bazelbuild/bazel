@@ -625,7 +625,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public void putTreeMetadata(SpecialArtifact artifact, TreeArtifactValue metadata) {
-    Preconditions.checkArgument(
+    checkArgument(
         artifact.isTreeArtifact(), "artifact must be a tree artifact: %s", artifact);
 
     String key = artifact.getExecPathString() + METADATA_SUFFIX;
@@ -641,7 +641,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public TreeArtifactValue getTreeMetadata(SpecialArtifact artifact) {
-    Preconditions.checkArgument(
+    checkArgument(
         artifact.isTreeArtifact(), "artifact must be a tree artifact: %s", artifact);
     String key = artifact.getExecPathString() + METADATA_SUFFIX;
     byte[] data = getData(key);
