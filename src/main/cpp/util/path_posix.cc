@@ -156,7 +156,7 @@ Path Path::GetRelative(const std::string &r) const {
 
   Path path = Path(JoinPath(path_, r), &error);
   if (!error.empty()) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Get relative path failed";
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Get relative path failed" << error;
   }
   return path;
 }
@@ -166,7 +166,7 @@ Path Path::Canonicalize() const {
     Path path = Path(MakeCanonical(path_.c_str()), &error);
 
     if (!error.empty()) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Canonicalize failed";
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Canonicalize failed" << error;
     }
     return path;
 }
