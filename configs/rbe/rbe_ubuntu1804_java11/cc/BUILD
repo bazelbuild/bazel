@@ -150,3 +150,8 @@ cc_toolchain(
 )
 
 armeabi_cc_toolchain_config(name = "stub_armeabi-v7a")
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//configs/rbe:__subpackages__"],
+)

@@ -36,6 +36,31 @@ function generate() {
     --output_config_path=configs/rbe/$TOOLCHAIN_NAME \
     --exec_os=linux \
     --target_os=linux
+
+  BUILD_FILES=( "cc/BUILD" "config/BUILD" "java/BUILD" )
+  # add filegroup srcs
+  for BUILD_FILE in "${BUILD_FILES[@]}"
+  do
+    cat >> configs/rbe/$TOOLCHAIN_NAME/$BUILD_FILE <<EOF
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//configs/rbe:__subpackages__"],
+)
+EOF
+  done
+
+  cat >> configs/rbe/$TOOLCHAIN_NAME/BUILD <<EOF
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//configs/rbe/$TOOLCHAIN_NAME/cc:srcs",
+        "//configs/rbe/$TOOLCHAIN_NAME/java:srcs",
+        "//configs/rbe/$TOOLCHAIN_NAME/config:srcs",
+    ],
+    visibility = ["//configs/rbe:__subpackages__"],
+)
+EOF
 }
 
 generate rbe_ubuntu1604_java8 gcr.io/bazel-public/ubuntu1604-bazel-java8:latest

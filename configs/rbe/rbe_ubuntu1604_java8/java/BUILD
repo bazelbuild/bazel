@@ -22,3 +22,8 @@ java_runtime(
     srcs = [],
     java_home = "/usr/lib/jvm/java-8-openjdk-amd64",
 )
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//configs/rbe:__subpackages__"],
+)

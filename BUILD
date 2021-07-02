@@ -22,6 +22,7 @@ filegroup(
         ],
     ) + [
         "//:WORKSPACE.filtered",
+        "//configs:srcs",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",

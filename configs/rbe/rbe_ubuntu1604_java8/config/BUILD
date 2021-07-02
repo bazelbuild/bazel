@@ -46,3 +46,8 @@ platform(
         "OSFamily": "Linux",
     },
 )
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//configs/rbe:__subpackages__"],
+)
