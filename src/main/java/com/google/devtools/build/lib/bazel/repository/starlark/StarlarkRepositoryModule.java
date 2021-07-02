@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -36,6 +37,8 @@ import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleFactory;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
@@ -50,8 +53,11 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Location;
 
 /**
  * The Starlark module containing the definition of {@code repository_rule} function to define a
@@ -119,7 +125,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
           "A callable value that may be invoked during evaluation of the WORKSPACE file to"
               + " instantiate and return a repository rule.")
   private static final class RepositoryRuleFunction
-      implements StarlarkCallable, StarlarkExportable {
+      implements StarlarkCallable, StarlarkExportable, BzlmodRepoRuleCreator {
     private final RuleClass.Builder builder;
     private final StarlarkCallable implementation;
     private Label extensionLabel;
@@ -212,6 +218,23 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
+    }
+
+    @Override
+    public Rule createRule(
+        Package.Builder packageBuilder,
+        StarlarkSemantics semantics,
+        Map<String, Object> kwargs,
+        EventHandler handler)
+        throws InterruptedException, InvalidRuleException {
+      RuleClass ruleClass = builder.build(exportedName, exportedName);
+      BuildLangTypedAttributeValuesMap attributeValues =
+          new BuildLangTypedAttributeValuesMap(kwargs);
+      ImmutableList.Builder<CallStackEntry> callStack = ImmutableList.builder();
+      // TODO(pcloudy): Optimize the callstack
+      callStack.add(new CallStackEntry("RepositoryRuleFunction.createRule", Location.BUILTIN));
+      return RuleFactory.createRule(
+          packageBuilder, ruleClass, attributeValues, handler, semantics, callStack.build());
     }
   }
 

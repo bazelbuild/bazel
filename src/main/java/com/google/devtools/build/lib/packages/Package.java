@@ -420,7 +420,7 @@ public class Package {
     this.packageDirectory = filename.asPath().getParentDirectory();
     String baseName = filename.getRootRelativePath().getBaseName();
 
-    if (isWorkspaceFile(baseName)) {
+    if (isWorkspaceFile(baseName) || isModuleDotBazelFile(baseName)) {
       Preconditions.checkState(
           packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
       this.sourceRoot = Optional.empty();
@@ -483,6 +483,10 @@ public class Package {
   private static boolean isWorkspaceFile(String baseFileName) {
     return baseFileName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
         || baseFileName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString());
+  }
+
+  private static boolean isModuleDotBazelFile(String baseFileName) {
+    return baseFileName.equals(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getPathString());
   }
 
   /** Returns the list of transitive closure of the Starlark file dependencies of this package. */

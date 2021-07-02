@@ -57,6 +57,8 @@ public final class BazelStarlarkEnvironment {
   private final ImmutableMap<String, Object> workspaceBzlEnv;
   /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
   private final ImmutableMap<String, Object> builtinsBzlEnv;
+  /** The top-level predeclared symbols for a bzl module in the Bzlmod system. */
+  private final ImmutableMap<String, Object> bzlmodBzlEnv;
 
   BazelStarlarkEnvironment(
       RuleClassProvider ruleClassProvider,
@@ -73,6 +75,9 @@ public final class BazelStarlarkEnvironment {
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
     this.workspaceBzlEnv = createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
+    // TODO(pcloudy): this should be a bzlmod specific environment, but keep using the workspace
+    // envirnment until we implement module rules.
+    this.bzlmodBzlEnv = createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
     this.builtinsBzlEnv =
         createBuiltinsBzlEnv(
             ruleClassProvider, uninjectedBuildBzlNativeBindings, uninjectedBuildBzlEnv);
@@ -124,6 +129,11 @@ public final class BazelStarlarkEnvironment {
   /** Returns the environment for bzl files in the {@code @_builtins} pseudo-repository. */
   public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
     return builtinsBzlEnv;
+  }
+
+  /** Returns the environment for Bzlmod-loaded bzl files. */
+  public ImmutableMap<String, Object> getBzlmodBzlEnv() {
+    return bzlmodBzlEnv;
   }
 
   /**

@@ -17,6 +17,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_creator",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",

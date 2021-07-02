@@ -440,7 +440,7 @@ public final class PackageFactory {
     }
   }
 
-  @VisibleForTesting // exposed to WorkspaceFileFunction
+  @VisibleForTesting // exposed to WorkspaceFileFunction and BzlmodRepoRuleFunction
   public Package.Builder newExternalPackageBuilder(
       RootedPath workspacePath, String workspaceName, StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
