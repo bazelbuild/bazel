@@ -138,7 +138,6 @@ java_library(
         "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
         "BigIntegerFingerprintUtils.java",
-        "BinaryPredicate.java",
         "CPU.java",
         "CanonicalStringIndexer.java",
         "ClassName.java",

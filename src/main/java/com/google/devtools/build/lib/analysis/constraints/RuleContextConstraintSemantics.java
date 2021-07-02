@@ -72,7 +72,6 @@ import javax.annotation.Nullable;
 
 /** Implementation of {@link ConstraintSemantics} using {@link RuleContext} to check constraints. */
 public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleContext> {
-  public RuleContextConstraintSemantics() {}
 
   /**
    * Logs an error message that the current rule violates constraints.
@@ -758,7 +757,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       if (!attrDef.checkConstraintsOverride()) {
         // Use the same implicit deps check that query uses. This facilitates running queries to
         // determine exactly which rules need to be constraint-annotated for depot migrations.
-        if (!DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
+        if (!DependencyFilter.NO_IMPLICIT_DEPS.test(ruleContext.getRule(), attrDef)
             || attrDef.isToolDependency()) {
           continue;
         }

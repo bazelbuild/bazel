@@ -252,7 +252,7 @@ public final class AspectDefinition {
           consumer.accept(aspectAttribute, repositoryRelativeLabel);
         };
     for (Attribute aspectAttribute : aspect.getDefinition().attributes.values()) {
-      if (!dependencyFilter.apply(aspect, aspectAttribute)) {
+      if (!dependencyFilter.test(aspect, aspectAttribute)) {
         continue;
       }
       Type<?> type = aspectAttribute.getType();

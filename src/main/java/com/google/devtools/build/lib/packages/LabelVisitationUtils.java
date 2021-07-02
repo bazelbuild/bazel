@@ -22,7 +22,8 @@ import javax.annotation.Nullable;
  * that are entailed by the values of the {@link Target}'s attributes. Notably, this does *not*
  * include aspect-entailed deps.
  */
-public class LabelVisitationUtils {
+public final class LabelVisitationUtils {
+
   private LabelVisitationUtils() {}
 
   /** Interface for processing the {@link Label} of dep, one at a time. */
@@ -81,7 +82,7 @@ public class LabelVisitationUtils {
       return;
     }
     Attribute visibilityAttribute = ruleClass.getAttributeByName("visibility");
-    if (edgeFilter.apply(rule, visibilityAttribute)) {
+    if (edgeFilter.test(rule, visibilityAttribute)) {
       visitTargetVisibility(rule, visibilityAttribute, labelProcessor);
     }
   }
@@ -89,7 +90,7 @@ public class LabelVisitationUtils {
   private static void visitRule(
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
     for (DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-      if (edgeFilter.apply(rule, depEdge.getAttribute())) {
+      if (edgeFilter.test(rule, depEdge.getAttribute())) {
         labelProcessor.process(rule, depEdge.getAttribute(), depEdge.getLabel());
       }
     }

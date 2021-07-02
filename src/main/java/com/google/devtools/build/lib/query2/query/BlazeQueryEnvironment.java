@@ -192,7 +192,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       } else if (target instanceof Rule) {
         Rule rule = (Rule) target;
-        for (Label label : rule.getLabels(dependencyFilter)) {
+        for (Label label : rule.getSortedLabels(dependencyFilter)) {
           if (!packages.contains(label.getPackageIdentifier())) {
             continue;  // don't cause additional package loading
           }
@@ -367,9 +367,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
     @Override
     public void edge(Target from, Attribute attribute, Target to) {
-      Preconditions.checkState(attribute == null ||
-          dependencyFilter.apply(((Rule) from), attribute),
-          "Disallowed edge from LabelVisitor: %s --> %s", from, to);
+      Preconditions.checkState(
+          attribute == null || dependencyFilter.test((Rule) from, attribute),
+          "Disallowed edge from LabelVisitor: %s --> %s",
+          from,
+          to);
       makeEdge(from, to);
       errorObserver.edge(from, attribute, to);
     }

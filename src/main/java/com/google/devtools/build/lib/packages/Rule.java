@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -396,7 +395,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return attributes;
   }
 
-  /********************************************************************
+  /*
+   *******************************************************************
    * Attribute accessor functions.
    *
    * The below provide access to attribute definitions and other generic
@@ -406,11 +406,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * X for Rule Y?"), go through {@link RuleContext#attributes}. If no
    * RuleContext is available, create a localized {@link AbstractAttributeMapper}
    * instance instead.
-   ********************************************************************/
+   *******************************************************************
+   */
 
   /**
-   * Returns the default value for the attribute {@code attrName}, which may be
-   * of any type, but must exist (an exception is thrown otherwise).
+   * Returns the default value for the attribute {@code attrName}, which may be of any type, but
+   * must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
     Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
@@ -601,37 +602,37 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns a new Collection containing all Labels that match a given Predicate, not including
-   * outputs.
+   * Returns a sorted set containing all labels that match a given {@link DependencyFilter}, not
+   * including outputs.
    *
-   * @param predicate A binary predicate that determines if a label should be included in the
-   *     result. The predicate is evaluated with this rule and the attribute that contains the
-   *     label. The label will be contained in the result iff (the predicate returned {@code true}
-   *     and the labels are not outputs)
+   * @param filter A dependency filter that determines whether a label should be included in the
+   *     result. {@link DependencyFilter#test} is called with this rule and the attribute that
+   *     contains the label. The label will be contained in the result iff the predicate returns
+   *     {@code true} <em>and</em> the label is not an output.
    */
-  public Collection<Label> getLabels(BinaryPredicate<? super Rule, Attribute> predicate) {
-    return ImmutableSortedSet.copyOf(getTransitions(predicate).values());
+  public ImmutableSortedSet<Label> getSortedLabels(DependencyFilter filter) {
+    return ImmutableSortedSet.copyOf(getTransitions(filter).values());
   }
 
   /**
-   * Returns a new Multimap containing all attributes that match a given Predicate and corresponding
-   * labels, not including outputs.
+   * Returns a {@link Multimap} containing all non-output labels matching a given {@link
+   * DependencyFilter}, keyed by the corresponding attribute.
    *
-   * @param predicate A binary predicate that determines if a label should be included in the
-   *     result. The predicate is evaluated with this rule and the attribute that contains the
-   *     label. The label will be contained in the result iff (the predicate returned {@code true}
-   *     and the labels are not outputs)
+   * <p>Labels that appear in multiple attributes will be mapped from each of their corresponding
+   * attributes, provided they pass the {@link DependencyFilter}.
+   *
+   * @param filter A dependency filter that determines whether a label should be included in the
+   *     result. {@link DependencyFilter#test} is called with this rule and the attribute that
+   *     contains the label. The label will be contained in the result iff the predicate returns
+   *     {@code true} <em>and</em> the label is not an output.
    */
-  public Multimap<Attribute, Label> getTransitions(
-      final BinaryPredicate<? super Rule, Attribute> predicate) {
-    final Multimap<Attribute, Label> transitions = HashMultimap.create();
+  public Multimap<Attribute, Label> getTransitions(DependencyFilter filter) {
+    Multimap<Attribute, Label> transitions = HashMultimap.create();
     // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
     // be visited may depend on the calling context. We shouldn't implicitly decide this for
     // the caller.
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .stream()
-        .filter(depEdge -> predicate.apply(Rule.this, depEdge.getAttribute()))
+    AggregatingAttributeMapper.of(this).visitLabels().stream()
+        .filter(depEdge -> filter.test(Rule.this, depEdge.getAttribute()))
         .forEach(depEdge -> transitions.put(depEdge.getAttribute(), depEdge.getLabel()));
     return transitions;
   }
