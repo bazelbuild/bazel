@@ -429,108 +429,37 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * configurable attribute that's not in {@code directMap} causes an {@link
    * IllegalArgumentException} to be thrown.
    */
-  AttributeMap createMapBackedAttributeMap(final Map<String, Object> directMap) {
-    final AggregatingAttributeMapper owner = AggregatingAttributeMapper.this;
-    return new AttributeMap() {
+  AttributeMap createMapBackedAttributeMap(Map<String, Object> directMap) {
+    AggregatingAttributeMapper owner = this;
+    return new DelegatingAttributeMapper(owner) {
 
       @Override
+      @Nullable
       public <T> T get(String attributeName, Type<T> type) {
         owner.checkType(attributeName, type);
         if (getNonConfigurableAttributes().contains(attributeName)) {
           return owner.get(attributeName, type);
         }
-        if (!directMap.containsKey(attributeName)) {
-          throw new IllegalArgumentException(
-              "attribute \""
-                  + attributeName
-                  + "\" isn't available in this computed default context");
+
+        Object val = directMap.get(attributeName);
+        if (val == null) {
+          checkArgument(
+              directMap.containsKey(attributeName),
+              "attribute \"%s\" isn't available in this computed default context",
+              attributeName);
+          return null;
         }
-        return type.cast(directMap.get(attributeName));
+        return type.cast(val);
       }
 
       @Override
-      public boolean isConfigurable(String attributeName) {
-        return owner.isConfigurable(attributeName);
-      }
-
-      @Override
-      public String getName() {
-        return owner.getName();
-      }
-
-      @Override
-      public Label getLabel() {
-        return owner.getLabel();
-      }
-
-      @Override
-      public String getRuleClassName() {
-        return owner.getRuleClassName();
-      }
-
-      @Override
-      public Iterable<String> getAttributeNames() {
-        return ImmutableList.<String>builder()
+      public ImmutableList<String> getAttributeNames() {
+        List<String> nonConfigurableAttributes = getNonConfigurableAttributes();
+        return ImmutableList.<String>builderWithExpectedSize(
+                directMap.size() + nonConfigurableAttributes.size())
             .addAll(directMap.keySet())
-            .addAll(getNonConfigurableAttributes())
+            .addAll(nonConfigurableAttributes)
             .build();
-      }
-
-      @Override
-      public Collection<DepEdge> visitLabels() {
-        return owner.visitLabels();
-      }
-
-      @Override
-      public Collection<DepEdge> visitLabels(Attribute attribute) {
-        return owner.visitLabels(attribute);
-      }
-
-      @Override
-      public String getPackageDefaultHdrsCheck() {
-        return owner.getPackageDefaultHdrsCheck();
-      }
-
-      @Override
-      public Boolean getPackageDefaultTestOnly() {
-        return owner.getPackageDefaultTestOnly();
-      }
-
-      @Override
-      public String getPackageDefaultDeprecation() {
-        return owner.getPackageDefaultDeprecation();
-      }
-
-      @Override
-      public ImmutableList<String> getPackageDefaultCopts() {
-        return owner.getPackageDefaultCopts();
-      }
-
-      @Nullable
-      @Override
-      public Type<?> getAttributeType(String attrName) {
-        return owner.getAttributeType(attrName);
-      }
-
-      @Nullable
-      @Override
-      public Attribute getAttributeDefinition(String attrName) {
-        return owner.getAttributeDefinition(attrName);
-      }
-
-      @Override
-      public boolean isAttributeValueExplicitlySpecified(String attributeName) {
-        return owner.isAttributeValueExplicitlySpecified(attributeName);
-      }
-
-      @Override
-      public boolean has(String attrName) {
-        return owner.has(attrName);
-      }
-
-      @Override
-      public <T> boolean has(String attrName, Type<T> type) {
-        return owner.has(attrName, type);
       }
     };
   }
