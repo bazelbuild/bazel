@@ -65,7 +65,6 @@ public abstract class ModuleFileValue implements SkyValue {
   }
 
   /** {@link SkyKey} for {@link ModuleFileValue} computation. */
-  @AutoCodec.VisibleForSerialization
   @AutoCodec
   @AutoValue
   abstract static class Key implements SkyKey {
@@ -76,7 +75,6 @@ public abstract class ModuleFileValue implements SkyValue {
     @Nullable
     abstract ModuleOverride getOverride();
 
-    @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(ModuleKey moduleKey, @Nullable ModuleOverride override) {
       return interner.intern(new AutoValue_ModuleFileValue_Key(moduleKey, override));
