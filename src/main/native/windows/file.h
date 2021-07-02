@@ -38,9 +38,8 @@ bool IsDeveloperModeEnabled();
 DWORD DetermineSymlinkPrivilegeFlag();
 
 // The flag SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE requires
-// developer mode to be enabled. If it is not enabled, or the current
-// version of Windows does not support it, do not use the flag.
-// The process will need to be run with elevated privileges.
+// developer mode to be enabled. If it is not enabled, do not use the
+// flag. The process will need to be run with elevated privileges.
 const DWORD symlinkPrivilegeFlag = DetermineSymlinkPrivilegeFlag();
 
 template <typename char_type>

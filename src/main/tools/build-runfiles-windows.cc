@@ -336,6 +336,14 @@ class RunfilesCreator {
         if (!CreateSymbolicLinkW(
                 it.first.c_str(), it.second.c_str(),
                 bazel::windows::symlinkPrivilegeFlag | create_dir)) {
+          if (GetLastError() == ERROR_INVALID_PARAMETER) {
+            // We are on a version of Windows that does not support this flag.
+            // Retry without the flag and return to error handling if necessary.
+            if (CreateSymbolicLinkW(it.first.c_str(), it.second.c_str(),
+                                    create_dir)) {
+              return;
+            }
+          }
           if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD) {
             die(L"CreateSymbolicLinkW failed:\n%hs\n",
                 "Bazel needs to create symlinks to build the runfiles tree.\n"
