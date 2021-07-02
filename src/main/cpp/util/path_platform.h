@@ -24,7 +24,7 @@ namespace blaze_util {
 class Path {
  public:
   Path() {}
-  explicit Path(const std::string &path);
+  explicit Path(const std::string &path, std::string* error);
   bool operator==(const Path &o) const { return path_ == o.path_; }
   bool operator!=(const Path &o) const { return path_ != o.path_; }
   bool operator<(const Path &o) const { return path_ < o.path_; }

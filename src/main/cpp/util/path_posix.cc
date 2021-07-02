@@ -138,7 +138,7 @@ std::string TestOnly_NormalizeAbsPath(const std::string &s) {
   return NormalizeAbsPath(s);
 }
 
-Path::Path(const std::string &path)
+Path::Path(const std::string &path, std::string* error)
     : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
 
 bool Path::IsNull() const { return path_ == "/dev/null"; }

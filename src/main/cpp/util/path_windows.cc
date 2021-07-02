@@ -468,28 +468,38 @@ static char GetCurrentDrive() {
   return 'a' + wdrive - offset;
 }
 
-Path::Path(const std::string& path) {
+Path::Path(const std::string& path, std::string* errorText) {
   if (path.empty()) {
     return;
   } else if (IsDevNull(path.c_str())) {
     path_ = L"NUL";
   } else {
-    std::string error;
-    if (!AsAbsoluteWindowsPath(path, &path_, &error)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Path::Path(" << path
-          << "): AsAbsoluteWindowsPath failed: " << error;
+    if (!AsAbsoluteWindowsPath(path, &path_, errorText)) {
+        return;
     }
   }
 }
 
 Path Path::GetRelative(const std::string& r) const {
+
+  std::string error;
   if (r.empty()) {
     return *this;
   } else if (IsDevNull(r.c_str())) {
-    return Path(L"NUL");
+    std::string nullPath = "NUL";
+    Path path = Path(nullPath, &error);
+    if (!error.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+                << "GetRelative failed " << error;
+    }
+    return path;
   } else if (IsAbsolute(r)) {
-    return Path(r);
+    Path path = Path(r, &error);
+    if (!error.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+                << "GetRelative failed " << error;
+    }
+    return path;
   } else {
     std::string error;
     std::wstring new_path;
@@ -498,12 +508,26 @@ Path Path::GetRelative(const std::string& r) const {
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "Path::GetRelative failed: " << error;
     }
-    return Path(new_path);
+
+    std::string new_path_std;
+    WcsToUtf8(new_path, &new_path_std);
+    Path path = Path(new_path_std, &error);
+    if (!error.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+                << "GetRelative failed " << error;
+    }
+    return path;
   }
 }
 
 Path Path::Canonicalize() const {
-  return Path(MakeCanonical(WstringToCstring(path_).c_str()));
+  std::string errorText;
+  Path path = Path(MakeCanonical(WstringToCstring(path_).c_str()), &errorText);
+  if (!errorText.empty()) {
+      std::string nullPath = "Nul";
+      return Path(nullPath, &errorText);
+  }
+  return path;
 }
 
 Path Path::GetParent() const { return Path(SplitPathW(path_).first); }

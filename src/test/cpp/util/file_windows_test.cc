@@ -320,7 +320,8 @@ TEST_F(FileWindowsTest, TestMtimeHandling) {
   const char* tempdir_cstr = getenv("TEST_TMPDIR");
   ASSERT_NE(tempdir_cstr, nullptr);
   ASSERT_NE(tempdir_cstr[0], 0);
-  Path tempdir(tempdir_cstr);
+  std::string error;
+  Path tempdir(tempdir_cstr, &error);
 
   Path target = tempdir.GetRelative("target" TOSTRING(__LINE__));
   EXPECT_TRUE(CreateDirectoryW(target.AsNativePath().c_str(), nullptr));

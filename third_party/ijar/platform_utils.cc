@@ -102,7 +102,12 @@ bool write_file(const char* path, unsigned int perm, const void* data,
 }
 
 bool read_file(const char* path, void* buffer, size_t size) {
-  return blaze_util::ReadFile(path, buffer, size);
+  std::string errorText;
+  bool success = blaze_util::ReadFile(path, buffer, size, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return success;
 }
 
 string get_cwd() { return blaze_util::GetCwd(); }

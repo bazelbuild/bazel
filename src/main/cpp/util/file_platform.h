@@ -98,7 +98,7 @@ bool ReadFile(const Path &path, std::string *content, int max_size = 0);
 // Reads up to `size` bytes from the file `filename` into `data`.
 // There must be enough memory allocated at `data`.
 // Returns true on success, false on error.
-bool ReadFile(const std::string &filename, void *data, size_t size);
+bool ReadFile(const std::string &filename, void *data, size_t size, std::string* error);
 bool ReadFile(const Path &filename, void *data, size_t size);
 
 // Writes `size` bytes from `data` into file `filename` and chmods it to `perm`.

@@ -387,8 +387,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   set<string> java_library_paths;
   std::stringstream java_library_path;
   java_library_path << "-Djava.library.path=";
+  std::string errorText;
   blaze_util::Path real_install_dir =
-      blaze_util::Path(startup_options.install_base);
+      blaze_util::Path(startup_options.install_base, &errorText);
+
+  if (!errorText.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+  }
 
   for (const auto &it : archive_contents) {
     if (IsSharedLibrary(it)) {
@@ -899,7 +904,13 @@ static void StartServerAndConnect(
 }
 
 static void BlessFiles(const string &embedded_binaries) {
-  blaze_util::Path embedded_binaries_(embedded_binaries);
+
+  std::string errorText;
+  blaze_util::Path embedded_binaries_(embedded_binaries, &errorText);
+
+  if (!errorText.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+  }
 
   // Set the timestamps of the extracted files to the future and make sure (or
   // at least as sure as we can...) that the files we have written are actually
@@ -913,7 +924,12 @@ static void BlessFiles(const string &embedded_binaries) {
   std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
   set<blaze_util::Path> synced_directories;
   for (const auto &f : extracted_files) {
-    blaze_util::Path it(f);
+
+    blaze_util::Path it(f, &errorText);
+
+    if (!errorText.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+    }
 
     // Set the time to a distantly futuristic value so we can observe tampering.
     // Note that keeping a static, deterministic timestamp, such as the default
@@ -1012,7 +1028,11 @@ static DurationMillis ExtractData(const string &self_path,
           << "install base directory '" << install_base
           << "' could not be created. It exists but is not a directory.";
     }
-    blaze_util::Path install_dir(install_base);
+    std::string errorText;
+    blaze_util::Path install_dir(install_base, &errorText);
+    if (!errorText.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+    }
     // Check that all files are present and have timestamps from BlessFiles().
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
@@ -1208,7 +1228,12 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
     // find install bases that haven't been used for a long time
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    if (!mtime->SetToNow(blaze_util::Path(startup_options.install_base))) {
+    std::string errorText;
+    blaze_util::Path path = blaze_util::Path(startup_options.install_base, &errorText);
+    if (!errorText.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+    }
+    if (!mtime->SetToNow(path)) {
       string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << startup_options.install_base
@@ -1253,8 +1278,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     // cases, it's better to assume that everything is alright if we can't get
     // the cwd.
 
+    std::string errorText;
+    blaze_util::Path path = blaze_util::Path(workspace, &errorText);
+    if (!errorText.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+    }
+
     if (server_cwd != nullptr &&
-        (*server_cwd != blaze_util::Path(workspace) ||  // changed
+        (*server_cwd != path ||  // changed
          server_cwd->Contains(" (deleted)"))) {         // deleted.
       // There's a distant possibility that the two paths look the same yet are
       // actually different because the two processes have different mount
@@ -1333,8 +1364,13 @@ static void UpdateConfiguration(const string &install_md5,
       BAZEL_DIE(blaze_exit_code::BAD_ARGV)
           << "exec-server requires --output_base";
     }
+    std::string errorText;
     startup_options->output_base = blaze_util::Path(
-        blaze::GetHashedBaseDir(startup_options->output_user_root, workspace));
+        blaze::GetHashedBaseDir(startup_options->output_user_root, workspace), &errorText);
+
+    if (!errorText.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+    }
   }
 
   if (!blaze_util::PathExists(startup_options->output_base)) {
@@ -1636,8 +1672,13 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     UnlimitCoredumps();
   }
 
+  std::string errorText;
   blaze::CreateSecureOutputRoot(
-      blaze_util::Path(startup_options->output_user_root));
+      blaze_util::Path(startup_options->output_user_root, &errorText));
+
+  if (!errorText.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+  }
 
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
@@ -2094,7 +2135,12 @@ unsigned int BlazeServer::Communicate(
     // Execute the requested program, but before doing so, flush everything
     // we still have to say.
     fflush(nullptr);
-    ExecuteRunRequest(blaze_util::Path(request.argv(0)), argv);
+    std::string errorText;
+    ExecuteRunRequest(blaze_util::Path(request.argv(0), &errorText), argv);
+
+    if (!errorText.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << errorText;
+    }
   }
 
   if (final_response.has_failure_detail()) {

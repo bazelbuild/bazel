@@ -259,7 +259,13 @@ bool ReadFile(const string& filename, string* content, int max_size) {
     content->clear();
     return true;
   }
-  return ReadFile(Path(filename), content, max_size);
+  std::string errorText;
+  Path path = Path(filename, &errorText);
+  if (!errorText.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+              << "ReadFile failed " << errorText;
+  }
+  return ReadFile(path, content, max_size);
 }
 
 bool ReadFile(const Path& path, std::string* content, int max_size) {
@@ -284,8 +290,12 @@ bool ReadFile(const Path& path, std::string* content, int max_size) {
   return ReadFrom(handle, content, max_size);
 }
 
-bool ReadFile(const string& filename, void* data, size_t size) {
-  return ReadFile(Path(filename), data, size);
+bool ReadFile(const string& filename, void* data, size_t size, std::string* error) {
+  Path path = Path(filename, error);
+  if (!error->empty()) {
+      return false;
+  }
+  return ReadFile(path, data, size);
 }
 
 bool ReadFile(const Path& path, void* data, size_t size) {
@@ -313,7 +323,12 @@ bool WriteFile(const void* data, size_t size, const string& filename,
   if (IsDevNull(filename.c_str())) {
     return true;  // mimic write(2) behavior with /dev/null
   }
-  return WriteFile(data, size, Path(filename), perm);
+  std::string errorText;
+  Path path = Path(filename, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return WriteFile(data, size, path, perm);
 }
 
 bool WriteFile(const void* data, size_t size, const Path& path,
@@ -403,7 +418,12 @@ bool UnlinkPath(const string& file_path) {
   if (IsDevNull(file_path.c_str())) {
     return false;
   }
-  return UnlinkPath(Path(file_path));
+  std::string errorText;
+  Path path = Path(file_path, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return UnlinkPath(path);
 }
 
 bool UnlinkPath(const Path& path) { return UnlinkPathW(path.AsNativePath()); }
@@ -449,7 +469,14 @@ bool ReadDirectorySymlink(const blaze_util::Path& name, string* result) {
   return true;
 }
 
-bool PathExists(const string& path) { return PathExists(Path(path)); }
+bool PathExists(const string& path) {
+    std::string errorText;
+    Path pathObj = Path(path, &errorText);
+    if (!errorText.empty()) {
+        return false;
+    }
+    return PathExists(pathObj);
+}
 
 bool PathExists(const Path& path) {
   if (path.IsEmpty()) {
@@ -502,7 +529,12 @@ static bool CanReadFileW(const wstring& path) {
 }
 
 bool CanReadFile(const std::string& path) {
-  return CanReadFile(Path(path));
+  std::string errorText;
+  Path pathObj = Path(path, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return CanReadFile(pathObj);
 }
 
 bool CanReadFile(const Path& path) {
@@ -510,7 +542,12 @@ bool CanReadFile(const Path& path) {
 }
 
 bool CanExecuteFile(const std::string& path) {
-  return CanExecuteFile(Path(path));
+  std::string errorText;
+  Path pathObj = Path(path, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return CanExecuteFile(pathObj);
 }
 
 bool CanExecuteFile(const Path& path) {
@@ -524,7 +561,12 @@ bool CanExecuteFile(const Path& path) {
 }
 
 bool CanAccessDirectory(const std::string& path) {
-  return CanAccessDirectory(Path(path));
+  std::string errorText;
+  Path pathObj = Path(path, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return CanAccessDirectory(pathObj);
 }
 
 bool CanAccessDirectory(const Path& path) {
@@ -582,7 +624,14 @@ bool IsDirectoryW(const wstring& path) {
          (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
-bool IsDirectory(const string& path) { return IsDirectory(Path(path)); }
+bool IsDirectory(const string& path) {
+    std::string errorText;
+    Path pathObj = Path(path, &errorText);
+    if (!errorText.empty()) {
+        return false;
+    }
+    return IsDirectory(pathObj);
+}
 
 bool IsDirectory(const Path& path) {
   if (path.IsEmpty() || path.IsNull()) {
@@ -720,7 +769,12 @@ static bool RemoveRecursivelyW(const wstring& path) {
 }
 
 bool RemoveRecursively(const string& path) {
-  return RemoveRecursivelyW(Path(path).AsNativePath());
+  std::string errorText;
+  Path pathObj = Path(path, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return RemoveRecursivelyW(pathObj.AsNativePath());
 }
 
 static inline void ToLowerW(WCHAR* p) {

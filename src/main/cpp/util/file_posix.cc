@@ -277,7 +277,7 @@ bool ReadFile(const Path &path, std::string *content, int max_size) {
   return ReadFile(path.AsNativePath(), content, max_size);
 }
 
-bool ReadFile(const string &filename, void *data, size_t size) {
+bool ReadFile(const string &filename, void *data, size_t size, std::string* error) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
   bool result = ReadFrom(fd, data, size);

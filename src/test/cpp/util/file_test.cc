@@ -100,15 +100,16 @@ TEST(FileTest, TestReadFileIntoBuffer) {
 
   char buffer[30];
   memset(buffer, 0, 30);
-  ASSERT_TRUE(ReadFile(filename, buffer, 5));
+  std::string error;
+  ASSERT_TRUE(ReadFile(filename, buffer, 5, &error));
   ASSERT_EQ(string("hello"), string(buffer));
 
   memset(buffer, 0, 30);
-  ASSERT_TRUE(ReadFile(filename, buffer, 30));
+  ASSERT_TRUE(ReadFile(filename, buffer, 30, &error));
   ASSERT_EQ(string("hello world"), string(buffer));
 
   buffer[0] = 'x';
-  ASSERT_TRUE(ReadFile("/dev/null", buffer, 42));
+  ASSERT_TRUE(ReadFile("/dev/null", buffer, 42, &error));
   ASSERT_EQ('x', buffer[0]);
 }
 
@@ -154,7 +155,8 @@ TEST(FileTest, TestMtimeHandling) {
   const char* tempdir_cstr = getenv("TEST_TMPDIR");
   ASSERT_NE(tempdir_cstr, nullptr);
   ASSERT_NE(tempdir_cstr[0], 0);
-  Path tempdir(tempdir_cstr);
+  std::string error;
+  Path tempdir(tempdir_cstr, &error);
 
   std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
   // Assert that a directory is always untampered with. (We do
