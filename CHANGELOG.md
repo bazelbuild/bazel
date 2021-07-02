@@ -1,3 +1,26 @@
+## Release 5.0.0-pre.20210623.2 (2021-07-02)
+
+```
+Baseline: 8b453331163378071f1cfe0ae7c74d551c21b834
+
+Cherry picks:
+
+   + 223113c9202e8f338b183d1736d97327d28241ea:
+     Automated rollback of commit
+     ae2a6a2dc909e468a284913c410fde995cf51095.
+```
+
+Important changes:
+
+  - Adds --experimental_reuse_sandbox_directories flag to reuse
+    already-created non-worker sandboxes with cleanup.
+  - --experimental_force_gc_after_build is deprecated and will be
+    removed soon. Use --bep_publish_used_heap_size_post_build instead
+  - Forward coverage-instrumented files from non-tool dependencies by
+    default.
+
+This release contains contributions from many people at Google, as well as David Ostrovsky, Johannes Abt, Masoud Koleini, Pras Velagapudi.
+
 ## Release 5.0.0-pre.20210615.3 (2021-06-25)
 
 ```
