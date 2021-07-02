@@ -262,8 +262,8 @@ bool ReadFile(const string& filename, string* content, int max_size) {
   std::string errorText;
   Path path = Path(filename, &errorText);
   if (!errorText.empty()) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-              << "ReadFile failed " << errorText;
+      // We want to ignore the try-imports with Unix style paths on Windows.
+      return false;
   }
   return ReadFile(path, content, max_size);
 }
