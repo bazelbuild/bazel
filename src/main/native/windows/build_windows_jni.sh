@@ -44,7 +44,7 @@ VSVARS=""
 # location. Check BAZEL_VS and BAZEL_VC first.
 if [ -n "${BAZEL_VC+set}" ]; then
   VSVARS="${BAZEL_VC}/VCVARSALL.BAT"
-  # Check if BAZEL_VC points to Visual C++ Build Tools 2017
+  # Check if BAZEL_VC points to Visual C++ Build Tools 2019
   if [ ! -f "${VSVARS}" ]; then
     VSVARS="${BAZEL_VC}/Auxiliary/Build/VCVARSALL.BAT"
   fi
@@ -61,10 +61,10 @@ else
   VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
 fi
 
-# Check if Visual Studio 2017 is installed. Look for it at the default
+# Check if Visual Studio 2019 is installed. Look for it at the default
 # locations.
 if [ ! -f "${VSVARS}" ]; then
-  VSVARS="C:/Program Files (x86)/Microsoft Visual Studio/2017/"
+  VSVARS="C:/Program Files (x86)/Microsoft Visual Studio/2019/"
   VSEDITION="BuildTools"
   if [ -d "${VSVARS}Enterprise" ]; then
     VSEDITION="Enterprise"
