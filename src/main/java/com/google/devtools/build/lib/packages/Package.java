@@ -23,6 +23,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -137,7 +137,7 @@ public class Package {
   private ImmutableMap<String, String> makeEnv;
 
   /** The collection of all targets defined in this package, indexed by name. */
-  private ImmutableSortedKeyMap<String, Target> targets;
+  private ImmutableSortedMap<String, Target> targets;
 
   /**
    * Default visibility for rules that do not specify it.
@@ -445,7 +445,7 @@ public class Package {
     }
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
-    this.targets = ImmutableSortedKeyMap.copyOf(builder.targets);
+    this.targets = ImmutableSortedMap.copyOf(builder.targets);
     this.defaultVisibility = builder.defaultVisibility;
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
@@ -600,7 +600,7 @@ public class Package {
   }
 
   /** Returns an (immutable, ordered) view of all the targets belonging to this package. */
-  public ImmutableSortedKeyMap<String, Target> getTargets() {
+  public ImmutableSortedMap<String, Target> getTargets() {
     return targets;
   }
 
