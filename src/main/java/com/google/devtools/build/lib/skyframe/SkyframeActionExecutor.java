@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -116,6 +117,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -148,6 +150,7 @@ public final class SkyframeActionExecutor {
   private final MetadataConsumerForMetrics outputArtifactsSeen;
   private final MetadataConsumerForMetrics outputArtifactsFromActionCache;
   private final AtomicReference<FilesystemCalls> syscalls;
+  private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
   private Reporter reporter;
   private Map<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
@@ -220,7 +223,8 @@ public final class SkyframeActionExecutor {
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
       PathFragment relativeOutputPath,
-      AtomicReference<FilesystemCalls> syscalls) {
+      AtomicReference<FilesystemCalls> syscalls,
+      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
@@ -228,6 +232,7 @@ public final class SkyframeActionExecutor {
     this.sourceRootSupplier = sourceRootSupplier;
     this.relativeOutputPath = relativeOutputPath;
     this.syscalls = syscalls;
+    this.threadStateReceiverFactory = threadStateReceiverFactory;
   }
 
   SharedActionCallback getSharedActionCallback(
@@ -447,7 +452,7 @@ public final class SkyframeActionExecutor {
             topLevelFilesets,
             actionFileSystem,
             skyframeDepsResult,
-            syscalls);
+            actionLookupData);
 
     if (actionCacheChecker.isActionExecutionProhibited(action)) {
       // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail the
@@ -514,7 +519,7 @@ public final class SkyframeActionExecutor {
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      AtomicReference<FilesystemCalls> syscalls)
+      ActionLookupData actionLookupData)
       throws InterruptedException {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
@@ -550,7 +555,8 @@ public final class SkyframeActionExecutor {
         actionFileSystem,
         skyframeDepsResult,
         nestedSetExpander,
-        syscalls.get());
+        syscalls.get(),
+        threadStateReceiverFactory.apply(actionLookupData));
   }
 
   private static void closeContext(
@@ -752,7 +758,8 @@ public final class SkyframeActionExecutor {
             env,
             actionFileSystem,
             nestedSetExpander,
-            syscalls.get());
+            syscalls.get(),
+            threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
           actionFileSystem,

@@ -20,9 +20,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -101,10 +103,19 @@ public class GlobCache {
       final CachingPackageLocator locator,
       AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
       Executor globExecutor,
-      int maxDirectoriesToEagerlyVisit) {
+      int maxDirectoriesToEagerlyVisit,
+      ThreadStateReceiver threadStateReceiverForMetrics) {
     this.packageDirectory = Preconditions.checkNotNull(packageDirectory);
     this.packageId = Preconditions.checkNotNull(packageId);
-    this.globExecutor = Preconditions.checkNotNull(globExecutor);
+    Preconditions.checkNotNull(globExecutor);
+    this.globExecutor =
+        command ->
+            globExecutor.execute(
+                () -> {
+                  try (SilentCloseable ignored = threadStateReceiverForMetrics.started()) {
+                    command.run();
+                  }
+                });
     this.syscalls = syscalls == null ? new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS) : syscalls;
     this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
 

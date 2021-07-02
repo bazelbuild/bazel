@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -120,7 +121,8 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             NestedSetExpander.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS);
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @Test

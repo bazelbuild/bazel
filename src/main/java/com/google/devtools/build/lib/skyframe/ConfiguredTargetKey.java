@@ -83,7 +83,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   @Nullable
-  ToolchainContextKey getToolchainContextKey() {
+  public ToolchainContextKey getToolchainContextKey() {
     return null;
   }
 
@@ -166,7 +166,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     }
 
     @Override
-    final ToolchainContextKey getToolchainContextKey() {
+    public final ToolchainContextKey getToolchainContextKey() {
       return toolchainContextKey;
     }
   }

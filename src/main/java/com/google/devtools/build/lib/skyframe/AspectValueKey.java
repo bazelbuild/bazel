@@ -85,16 +85,35 @@ public final class AspectValueKey {
             .build());
   }
 
+  /** Common superclass for {@link AspectKey} and {@link TopLevelAspectsKey}. */
+  public abstract static class AspectBaseKey implements ActionLookupKey {
+    private final ConfiguredTargetKey baseConfiguredTargetKey;
+    private final int hashCode;
+
+    private AspectBaseKey(ConfiguredTargetKey baseConfiguredTargetKey, int hashCode) {
+      this.baseConfiguredTargetKey = baseConfiguredTargetKey;
+      this.hashCode = hashCode;
+    }
+
+    /** Returns the key for the base configured target for this aspect. */
+    public final ConfiguredTargetKey getBaseConfiguredTargetKey() {
+      return baseConfiguredTargetKey;
+    }
+
+    @Override
+    public final int hashCode() {
+      return hashCode;
+    }
+  }
+
   // Specific subtypes of aspect keys.
 
   /** Represents an aspect applied to a particular target. */
   @AutoCodec
-  public static final class AspectKey implements ActionLookupKey {
-    private final ConfiguredTargetKey baseConfiguredTargetKey;
+  public static final class AspectKey extends AspectBaseKey {
     private final ImmutableList<AspectKey> baseKeys;
     @Nullable private final BuildConfigurationValue.Key aspectConfigurationKey;
     private final AspectDescriptor aspectDescriptor;
-    private final int hashCode;
 
     private AspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
@@ -102,11 +121,10 @@ public final class AspectValueKey {
         AspectDescriptor aspectDescriptor,
         @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
         int hashCode) {
+      super(baseConfiguredTargetKey, hashCode);
       this.baseKeys = baseKeys;
       this.aspectConfigurationKey = aspectConfigurationKey;
-      this.baseConfiguredTargetKey = baseConfiguredTargetKey;
       this.aspectDescriptor = aspectDescriptor;
-      this.hashCode = hashCode;
     }
 
     @AutoCodec.VisibleForSerialization
@@ -143,7 +161,7 @@ public final class AspectValueKey {
 
     @Override
     public Label getLabel() {
-      return baseConfiguredTargetKey.getLabel();
+      return getBaseConfiguredTargetKey().getLabel();
     }
 
     public AspectClass getAspectClass() {
@@ -204,16 +222,6 @@ public final class AspectValueKey {
       return aspectConfigurationKey;
     }
 
-    /** Returns the key for the base configured target for this aspect. */
-    public ConfiguredTargetKey getBaseConfiguredTargetKey() {
-      return baseConfiguredTargetKey;
-    }
-
-    @Override
-    public int hashCode() {
-      return hashCode;
-    }
-
     @Override
     public boolean equals(Object other) {
       if (this == other) {
@@ -223,10 +231,10 @@ public final class AspectValueKey {
         return false;
       }
       AspectKey that = (AspectKey) other;
-      return hashCode == that.hashCode
+      return hashCode() == that.hashCode()
           && Objects.equal(baseKeys, that.baseKeys)
           && Objects.equal(aspectConfigurationKey, that.aspectConfigurationKey)
-          && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
+          && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
           && Objects.equal(aspectDescriptor, that.aspectDescriptor);
     }
 
@@ -249,7 +257,7 @@ public final class AspectValueKey {
           + " "
           + aspectConfigurationKey
           + " "
-          + baseConfiguredTargetKey
+          + getBaseConfiguredTargetKey()
           + " "
           + aspectDescriptor.getParameters();
     }
@@ -263,7 +271,7 @@ public final class AspectValueKey {
       return createAspectKey(
           ConfiguredTargetKey.builder()
               .setLabel(label)
-              .setConfigurationKey(baseConfiguredTargetKey.getConfigurationKey())
+              .setConfigurationKey(getBaseConfiguredTargetKey().getConfigurationKey())
               .build(),
           newBaseKeys.build(),
           aspectDescriptor,
@@ -273,11 +281,9 @@ public final class AspectValueKey {
 
   /** The key for top level aspects specified by --aspects option on a top level target. */
   @AutoCodec
-  public static final class TopLevelAspectsKey implements ActionLookupKey {
+  public static final class TopLevelAspectsKey extends AspectBaseKey {
     private final ImmutableList<AspectClass> topLevelAspectsClasses;
     private final Label targetLabel;
-    private final ConfiguredTargetKey baseConfiguredTargetKey;
-    private final int hashCode;
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
@@ -298,10 +304,9 @@ public final class AspectValueKey {
         Label targetLabel,
         ConfiguredTargetKey baseConfiguredTargetKey,
         int hashCode) {
+      super(baseConfiguredTargetKey, hashCode);
       this.topLevelAspectsClasses = topLevelAspectsClasses;
       this.targetLabel = targetLabel;
-      this.baseConfiguredTargetKey = baseConfiguredTargetKey;
-      this.hashCode = hashCode;
     }
 
     @Override
@@ -318,17 +323,8 @@ public final class AspectValueKey {
       return targetLabel;
     }
 
-    ConfiguredTargetKey getBaseConfiguredTargetKey() {
-      return baseConfiguredTargetKey;
-    }
-
     String getDescription() {
       return topLevelAspectsClasses + " on " + getLabel();
-    }
-
-    @Override
-    public int hashCode() {
-      return hashCode;
     }
 
     @Override
@@ -340,9 +336,9 @@ public final class AspectValueKey {
         return false;
       }
       TopLevelAspectsKey that = (TopLevelAspectsKey) o;
-      return hashCode == that.hashCode
+      return hashCode() == that.hashCode()
           && Objects.equal(targetLabel, that.targetLabel)
-          && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
+          && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
           && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses);
     }
   }

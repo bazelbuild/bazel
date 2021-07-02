@@ -27,6 +27,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -513,7 +514,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
-                IncrementalityIntent.NON_INCREMENTAL))
+                IncrementalityIntent.NON_INCREMENTAL,
+                k -> ThreadStateReceiver.NULL_INSTANCE))
         .putAll(extraSkyFunctions);
     return builder.build();
   }

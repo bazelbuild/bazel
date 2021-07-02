@@ -295,6 +295,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 getExtraSkyFunctions(),
                 /*customDirtinessCheckers=*/ ImmutableList.of(),
                 /*managedDirectoriesKnowledge=*/ null,
+                SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(

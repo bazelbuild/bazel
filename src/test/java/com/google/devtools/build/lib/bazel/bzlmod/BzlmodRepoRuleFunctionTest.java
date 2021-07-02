@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -138,17 +139,18 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(
-                        /* packageFactory= */ null,
-                        /* pkgLocator= */ null,
-                        /* showLoadingProgress= */ null,
-                        /* packageFunctionCache= */ null,
-                        /* compiledBuildFileCache= */ null,
-                        /* numPackagesLoaded= */ null,
-                        /* bzlLoadFunctionForInlining= */ null,
-                        /* packageProgress= */ null,
+                        /*packageFactory=*/ null,
+                        /*pkgLocator=*/ null,
+                        /*showLoadingProgress=*/ null,
+                        /*packageFunctionCache=*/ null,
+                        /*compiledBuildFileCache=*/ null,
+                        /*numPackagesLoaded=*/ null,
+                        /*bzlLoadFunctionForInlining=*/ null,
+                        /*packageProgress=*/ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
-                        PackageFunction.IncrementalityIntent.INCREMENTAL))
+                        PackageFunction.IncrementalityIntent.INCREMENTAL,
+                        ignored -> ThreadStateReceiver.NULL_INSTANCE))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(

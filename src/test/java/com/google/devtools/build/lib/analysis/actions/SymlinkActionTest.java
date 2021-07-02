@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
@@ -102,7 +103,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 /*actionFileSystem=*/ null,
                 /*skyframeDepsResult=*/ null,
                 NestedSetExpander.DEFAULT,
-                UnixGlob.DEFAULT_SYSCALLS));
+                UnixGlob.DEFAULT_SYSCALLS,
+                ThreadStateReceiver.NULL_INSTANCE));
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(output.isSymbolicLink()).isTrue();
     assertThat(output.resolveSymbolicLinks()).isEqualTo(input);

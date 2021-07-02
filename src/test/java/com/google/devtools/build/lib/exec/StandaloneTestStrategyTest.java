@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -153,7 +154,8 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           /*actionFileSystem=*/ null,
           /*skyframeDepsResult=*/ null,
           NestedSetExpander.DEFAULT,
-          UnixGlob.DEFAULT_SYSCALLS);
+          UnixGlob.DEFAULT_SYSCALLS,
+          ThreadStateReceiver.NULL_INSTANCE);
       this.actionContextRegistry = actionContextRegistry;
     }
 

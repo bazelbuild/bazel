@@ -28,6 +28,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -89,6 +90,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -118,6 +120,8 @@ public class PackageFunction implements SkyFunction {
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
   private final IncrementalityIntent incrementalityIntent;
+
+  private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics;
 
   /**
    * CompiledBuildFile holds information extracted from the BUILD syntax tree before it was
@@ -178,7 +182,8 @@ public class PackageFunction implements SkyFunction {
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
-      IncrementalityIntent incrementalityIntent) {
+      IncrementalityIntent incrementalityIntent,
+      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics) {
     this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
@@ -189,6 +194,7 @@ public class PackageFunction implements SkyFunction {
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.incrementalityIntent = incrementalityIntent;
+    this.threadStateReceiverFactoryForMetrics = threadStateReceiverFactoryForMetrics;
   }
 
   public void setBzlLoadFunctionForInliningForTesting(BzlLoadFunction bzlLoadFunctionForInlining) {
@@ -526,7 +532,8 @@ public class PackageFunction implements SkyFunction {
               starlarkBuiltinsValue,
               preludeLabel,
               packageLookupValue.getRoot(),
-              env);
+              env,
+              key);
       if (packageCacheEntry == null) {
         return null; // skyframe restart
       }
@@ -1201,13 +1208,15 @@ public class PackageFunction implements SkyFunction {
       PackageIdentifier packageId,
       ImmutableSet<PathFragment> repositoryIgnoredPatterns,
       Root packageRoot,
-      SkyFunction.Environment env) {
+      Environment env,
+      SkyKey keyForMetrics) {
     NonSkyframeGlobber nonSkyframeGlobber =
         packageFactory.createNonSkyframeGlobber(
             buildFilePath.getParentDirectory(),
             packageId,
             repositoryIgnoredPatterns,
-            packageLocator);
+            packageLocator,
+            threadStateReceiverFactoryForMetrics.apply(keyForMetrics));
     switch (incrementalityIntent) {
       case INCREMENTAL:
         return new SkyframeHybridGlobber(packageId, packageRoot, env, nonSkyframeGlobber);
@@ -1240,7 +1249,8 @@ public class PackageFunction implements SkyFunction {
       StarlarkBuiltinsValue starlarkBuiltinsValue,
       @Nullable Label preludeLabel,
       Root packageRoot,
-      Environment env)
+      Environment env,
+      SkyKey keyForMetrics)
       throws InterruptedException, PackageFunctionException {
 
     // TODO(adonovan): opt: evaluate splitting this part out as a separate Skyframe
@@ -1347,7 +1357,12 @@ public class PackageFunction implements SkyFunction {
       if (compiled.ok()) {
         GlobberWithSkyframeGlobDeps globber =
             makeGlobber(
-                buildFilePath.asPath(), packageId, repositoryIgnoredPatterns, packageRoot, env);
+                buildFilePath.asPath(),
+                packageId,
+                repositoryIgnoredPatterns,
+                packageRoot,
+                env,
+                keyForMetrics);
 
         pkgBuilder.setGeneratorMap(compiled.generatorMap);
 

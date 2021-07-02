@@ -76,6 +76,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final ArtifactPathResolver pathResolver;
   private final NestedSetExpander nestedSetExpander;
   private final FilesystemCalls syscalls;
+  private final ThreadStateReceiver threadStateReceiverForMetrics;
 
   private ActionExecutionContext(
       Executor executor,
@@ -94,7 +95,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       NestedSetExpander nestedSetExpander,
-      FilesystemCalls syscalls) {
+      FilesystemCalls syscalls,
+      ThreadStateReceiver threadStateReceiverForMetrics) {
     this.actionInputFileCache = actionInputFileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
@@ -110,6 +112,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.env = env;
     this.actionFileSystem = actionFileSystem;
     this.skyframeDepsResult = skyframeDepsResult;
+    this.threadStateReceiverForMetrics = threadStateReceiverForMetrics;
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
         executor == null ? null : executor.getExecRoot());
@@ -133,7 +136,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
       NestedSetExpander nestedSetExpander,
-      FilesystemCalls syscalls) {
+      FilesystemCalls syscalls,
+      ThreadStateReceiver threadStateReceiverForMetrics) {
     this(
         executor,
         actionInputFileCache,
@@ -151,7 +155,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         skyframeDepsResult,
         nestedSetExpander,
-        syscalls);
+        syscalls,
+        threadStateReceiverForMetrics);
   }
 
   public static ActionExecutionContext forInputDiscovery(
@@ -168,7 +173,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       Environment env,
       @Nullable FileSystem actionFileSystem,
       NestedSetExpander nestedSetExpander,
-      FilesystemCalls syscalls) {
+      FilesystemCalls syscalls,
+      ThreadStateReceiver threadStateReceiverForMetrics) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,
@@ -186,7 +192,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         /*skyframeDepsResult=*/ null,
         nestedSetExpander,
-        syscalls);
+        syscalls,
+        threadStateReceiverForMetrics);
   }
 
   public ActionInputPrefetcher getActionInputPrefetcher() {
@@ -370,6 +377,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return syscalls;
   }
 
+  public ThreadStateReceiver getThreadStateReceiverForMetrics() {
+    return threadStateReceiverForMetrics;
+  }
+
   @Override
   public void close() throws IOException {
     // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
@@ -404,7 +415,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         skyframeDepsResult,
         nestedSetExpander,
-        syscalls);
+        syscalls,
+        threadStateReceiverForMetrics);
   }
 
   /** Allows us to create a new context that overrides the MetadataHandler with another one. */
@@ -426,7 +438,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionFileSystem,
         skyframeDepsResult,
         nestedSetExpander,
-        syscalls);
+        syscalls,
+        threadStateReceiverForMetrics);
   }
 
   /**

@@ -56,6 +56,7 @@ java_library(
             "ResourceSet.java",
             "PackageRootResolver.java",
             "PackageRoots.java",
+            "ThreadStateReceiver.java",
             "cache/MetadataDigestUtils.java",
         ],
     ),
@@ -71,6 +72,7 @@ java_library(
         ":localhost_capacity",
         ":middleman_type",
         ":package_roots",
+        ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -322,6 +324,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "thread_state_receiver",
+    srcs = ["ThreadStateReceiver.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//third_party:jsr305",
     ],
 )

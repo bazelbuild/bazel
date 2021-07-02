@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
@@ -359,6 +360,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
 
+  private final SkyKeyStateReceiver skyKeyStateReceiver;
+
   private PerBuildSyscallCache perBuildSyscallCache;
 
   private final PathResolverFactory pathResolverFactory = new PathResolverFactoryImpl();
@@ -418,6 +421,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       @Nullable PackageProgressReceiver packageProgress,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
@@ -426,6 +430,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.pkgFactory = pkgFactory;
     this.shouldUnblockCpuWorkWhenFetchingDeps = shouldUnblockCpuWorkWhenFetchingDeps;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
+    this.skyKeyStateReceiver = skyKeyStateReceiver;
     this.bugReporter = bugReporter;
     this.pkgFactory.setSyscalls(syscalls);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -452,7 +457,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             statusReporterRef,
             this::getPathEntries,
             PathFragment.create(directories.getRelativeOutputPath()),
-            syscalls);
+            syscalls,
+            skyKeyStateReceiver::makeThreadStateReceiver);
     this.artifactFactory =
         new ArtifactFactory(
             /* execRootParent= */ directories.getExecRootBase(),
@@ -547,7 +553,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             actionOnIOExceptionReadingBuildFile,
             tracksStateForIncrementality()
                 ? IncrementalityIntent.INCREMENTAL
-                : IncrementalityIntent.NON_INCREMENTAL));
+                : IncrementalityIntent.NON_INCREMENTAL,
+            skyKeyStateReceiver::makeThreadStateReceiver));
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
@@ -3028,12 +3035,29 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     @Override
+    public void stateStarting(SkyKey skyKey, NodeState nodeState) {
+      if (NodeState.COMPUTE.equals(nodeState)) {
+        skyKeyStateReceiver.computationStarted(skyKey);
+      }
+    }
+
+    @Override
+    public void stateEnding(SkyKey skyKey, NodeState nodeState, long elapsedTimeNanos) {
+      if (NodeState.COMPUTE.equals(nodeState)) {
+        skyKeyStateReceiver.computationEnded(skyKey);
+      }
+    }
+
+    @Override
     public void evaluated(
         SkyKey skyKey,
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
         EvaluationState state) {
+      if (EvaluationState.BUILT.equals(state)) {
+        skyKeyStateReceiver.evaluated(skyKey);
+      }
       if (ignoreInvalidations) {
         return;
       }
@@ -3199,5 +3223,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setEventHandler(eventHandler)
             .build();
     return buildDriver.evaluate(roots, evaluationContext);
+  }
+
+  /** Receiver for successfully evaluated/doing computation {@link SkyKey}s. */
+  public interface SkyKeyStateReceiver {
+    SkyKeyStateReceiver NULL_INSTANCE = new SkyKeyStateReceiver() {};
+
+    /** Called when {@code key}'s associated {@link SkyFunction#compute} is called. */
+    default void computationStarted(SkyKey key) {}
+
+    /** Called when {@code key}'s associated {@link SkyFunction#compute} has finished. */
+    default void computationEnded(SkyKey key) {}
+
+    /** Called when {@code key} has been evaluated and has a value. */
+    default void evaluated(SkyKey key) {}
+
+    default ThreadStateReceiver makeThreadStateReceiver(SkyKey key) {
+      return ThreadStateReceiver.NULL_INSTANCE;
+    }
   }
 }

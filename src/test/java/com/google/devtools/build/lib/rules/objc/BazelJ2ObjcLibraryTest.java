@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -807,7 +808,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             NestedSetExpander.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS);
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -866,7 +868,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             NestedSetExpander.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS);
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();

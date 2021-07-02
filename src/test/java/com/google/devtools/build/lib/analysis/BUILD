@@ -44,6 +44,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/binary_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/compression",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
