@@ -152,10 +152,24 @@ bool Path::Contains(const std::string &s) const {
 }
 
 Path Path::GetRelative(const std::string &r) const {
-  return Path(JoinPath(path_, r));
+  std::string error;
+
+  Path path = Path(JoinPath(path_, r), &error);
+  if (!error.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Get relative path failed";
+  }
+  return path;
 }
 
-Path Path::Canonicalize() const { return Path(MakeCanonical(path_.c_str())); }
+Path Path::Canonicalize() const {
+    std::string error;
+    Path path = Path(MakeCanonical(path_.c_str()), &error);
+
+    if (!error.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Canonicalize failed";
+    }
+    return path;
+}
 
 Path Path::GetParent() const { return Path(SplitPath(path_).first); }
 
