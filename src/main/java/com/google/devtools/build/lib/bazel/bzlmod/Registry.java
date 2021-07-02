@@ -32,5 +32,10 @@ public interface Registry {
   Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
 
-  // TODO(wyv): getRepoSpec
+  /**
+   * Retrieves the {@link RepoSpec} object that indicates how the contents of the module identified
+   * by {@code key} should be materialized as a repo (with name {@code repoName}).
+   */
+  RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException;
 }

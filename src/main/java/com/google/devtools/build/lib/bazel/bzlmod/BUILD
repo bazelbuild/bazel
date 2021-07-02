@@ -15,10 +15,12 @@ filegroup(
 java_library(
     name = "common",
     srcs = [
+        "ArchiveRepoSpecBuilder.java",
         "ModuleKey.java",
         "RepoSpec.java",
     ],
     deps = [
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -27,12 +29,17 @@ java_library(
 java_library(
     name = "registry",
     srcs = [
+        "IndexRegistry.java",
         "Registry.java",
         "RegistryFactory.java",
+        "RegistryFactoryImpl.java",
     ],
     deps = [
         ":common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:gson",
+        "//third_party:guava",
     ],
 )
 

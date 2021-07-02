@@ -23,7 +23,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

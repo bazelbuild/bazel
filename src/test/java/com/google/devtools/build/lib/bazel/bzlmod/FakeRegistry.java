@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -46,6 +47,14 @@ public class FakeRegistry implements Registry {
   @Override
   public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
     return Optional.ofNullable(modules.get(key));
+  }
+
+  @Override
+  public RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler) {
+    return RepoSpec.builder()
+        .setRuleClassName("fake_rule")
+        .setAttributes(ImmutableMap.<String, Object>of("repo_name", repoName))
+        .build();
   }
 
   /** Fake {@link RegistryFactory} that only supports {@link FakeRegistry}. */

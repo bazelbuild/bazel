@@ -42,6 +42,8 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
       throw Starlark.errorf("the module() directive can only be called once");
     }
     moduleCalled = true;
+    // TODO(wyv): add validation logic for name (alphanumerical) and version (use ParsedVersion) &
+    //   others in the future
     module.setName(name).setVersion(version);
     // TODO(wyv): compatibility level
   }
@@ -51,6 +53,8 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
     if (repoName.isEmpty()) {
       repoName = name;
     }
+    // TODO(wyv): add validation logic for name (alphanumerical), version (use ParsedVersion),
+    //   and repoName (RepositoryName?)
     if (deps.putIfAbsent(repoName, ModuleKey.create(name, version)) != null) {
       throw Starlark.errorf("a bazel_dep with the repo name %s already exists", repoName);
     }
