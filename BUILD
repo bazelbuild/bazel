@@ -3,6 +3,7 @@
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@bazel_toolchains//rules/exec_properties:exec_properties.bzl", "create_rbe_exec_properties_dict")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
@@ -207,18 +208,11 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
 [
     platform(
         name = platform_name + "_platform",
-        parents = ["@" + platform_name + "//config:platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "dockerNetwork"
-                value: "standard"
-            }
-            properties: {
-                name: "dockerPrivileged"
-                value: "true"
-            }
-            """,
+        exec_properties = create_rbe_exec_properties_dict(
+            docker_network = "standard",
+            docker_privileged = True,
+        ),
+        parents = ["//configs/rbe/" + platform_name + "/config:platform"],
     )
     for platform_name in REMOTE_PLATFORMS
 ]
@@ -231,14 +225,10 @@ REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")
         constraint_values = [
             "//:highcpu_machine",
         ],
+        exec_properties = create_rbe_exec_properties_dict(
+            gce_machine_type = "e2-highcpu-32",
+        ),
         parents = ["//:" + platform_name + "_platform"],
-        remote_execution_properties = """
-            {PARENT_REMOTE_EXECUTION_PROPERTIES}
-            properties: {
-                name: "gceMachineType"
-                value: "e2-highcpu-32"
-            }
-            """,
     )
     for platform_name in REMOTE_PLATFORMS
 ]

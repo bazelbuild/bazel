@@ -278,29 +278,9 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+load("@bazel_toolchains//repositories:repositories.bzl", bazel_toolchains_repositories = "repositories")
 
-rbe_autoconfig(
-    name = "rbe_ubuntu1804_java11",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1804-bazel-java11",
-    tag = "latest",
-)
-
-rbe_autoconfig(
-    name = "rbe_ubuntu1604_java8",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1604-bazel-java8",
-    tag = "latest",
-)
-
-# Creates toolchain configuration for remote execution with BuildKite CI
-# for rbe_ubuntu1604.
-# To run the tests with RBE on BuildKite CI uncomment the two lines below
-# load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
-# rbe_autoconfig(name = "buildkite_config")
+bazel_toolchains_repositories()
 
 http_archive(
     name = "com_google_googletest",
