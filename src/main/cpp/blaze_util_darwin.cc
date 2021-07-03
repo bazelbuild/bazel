@@ -157,8 +157,14 @@ std::unique_ptr<blaze_util::Path> GetProcessCWD(int pid) {
           pid, PROC_PIDVNODEPATHINFO, 0, &info, sizeof(info)) != sizeof(info)) {
     return nullptr;
   }
-  return std::unique_ptr<blaze_util::Path>(
-      new blaze_util::Path(string(info.pvi_cdir.vip_path)));
+  std::string error;
+  auto path = std::unique_ptr<blaze_util::Path>(
+      new blaze_util::Path(string(info.pvi_cdir.vip_path), &error));
+
+  if (!error.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "GetProcessCWD failed" << error;
+  }
+  return path;
 }
 
 bool IsSharedLibrary(const string &filename) {
