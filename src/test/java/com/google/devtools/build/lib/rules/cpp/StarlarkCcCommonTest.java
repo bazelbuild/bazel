@@ -5886,6 +5886,47 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+   public void testPdbProducedForLinkOnWindowsDll() throws Exception {
+     getAnalysisMock()
+             .ccSupport()
+             .setupCcToolchainConfig(
+                     mockToolsConfig,
+                     CcToolchainConfig.builder()
+                             .withFeatures(
+                                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                                     CppRuleClasses.TARGETS_WINDOWS,
+                                     CppRuleClasses.GENERATE_PDB_FILE,
+                                     CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+     setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
+     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+     assertThat(target).isNotNull();
+     Sequence<Artifact> debugFiles = (Sequence<Artifact>) getMyInfoFromTarget(target).getValue("debug_files");
+     assertThat(debugFiles).isNotEmpty();
+     Artifact pdbFile = debugFiles.get(0);
+     assertThat(pdbFile.getPath().getPathString()).contains(".pdb");
+   }
+
+   @Test
+   public void testPdbProducedForLinkOnWindowsExe() throws Exception {
+     getAnalysisMock()
+             .ccSupport()
+             .setupCcToolchainConfig(
+                     mockToolsConfig,
+                     CcToolchainConfig.builder()
+                             .withFeatures(
+                                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                                     CppRuleClasses.TARGETS_WINDOWS,
+                                     CppRuleClasses.GENERATE_PDB_FILE,
+                                     CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+     setupTestTransitiveLink(scratch, "output_type = 'executable'");
+     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+     assertThat(target).isNotNull();
+     Sequence debug_files = (Sequence) getMyInfoFromTarget(target).getValue("debug_files");
+     assertThat(debug_files).isNotEmpty();
+   }
+
+
+  @Test
   public void testTransitiveLinkForExecutable() throws Exception {
     setupTestTransitiveLink(scratch, "output_type = 'executable'");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
@@ -6319,7 +6360,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    return [",
         "      MyInfo(",
         "          library=linking_outputs.library_to_link,",
-        "          executable=linking_outputs.executable",
+        "          executable=linking_outputs.executable,",
+        "          debug_files=linking_outputs.debug_files,",
         "      ),",
         "    ]",
         "cc_bin = rule(",

@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Interface for a structured representation of the linking outputs of a C++ rule. */
@@ -49,4 +51,13 @@ public interface CcLinkingOutputsApi<
       documented = true)
   @Nullable
   FileT getExecutable();
+
+  @StarlarkMethod(
+           name = "debug_files",
+           structField = true,
+           allowReturnNones = true,
+           doc = "List of debug files generated for the linked executable.",
+           documented = true)
+  @Nullable
+  Sequence<FileT> getDebugFilesForStarlark();
 }

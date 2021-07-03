@@ -2360,6 +2360,7 @@ public abstract class CcModule
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
                     && CppHelper.useInterfaceSharedLibraries(
                         cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
+            .emitPdbFile(actualFeatureConfiguration.isEnabled(CppRuleClasses.GENERATE_PDB_FILE))
             .addLinkerOutputs(linkerOutputs);
     if (staticLinkTargetType != null) {
       helper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
