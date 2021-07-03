@@ -286,7 +286,12 @@ bool ReadFile(const string &filename, void *data, size_t size, std::string* erro
 }
 
 bool ReadFile(const Path &filename, void *data, size_t size) {
-  return ReadFile(filename.AsNativePath(), data, size);
+  std::string error;
+  bool success = ReadFile(filename.AsNativePath(), data, size, &error);
+  if (!error.empty()) {
+      return false;
+  }
+  return success;
 }
 
 bool WriteFile(const void *data, size_t size, const string &filename,
