@@ -89,6 +89,9 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   @Nullable
   public abstract LtoCompilationContext getPicLtoCompilationContext();
 
+  @Nullable
+  public abstract ImmutableList<Artifact> getDebugFiles();
+
   public abstract AutoLibraryToLink.Builder toBuilder();
 
   @Override
@@ -151,6 +154,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return Dict.immutableCopyOf(getPicSharedNonLtoBackends());
   }
 
+  @Override
+  public final Sequence<Artifact> getDebugFilesForStarlark() {
+    ImmutableList<Artifact> debugFiles = getDebugFiles();
+    return debugFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(debugFiles);
+  }
+
   LinkerInputs.LibraryToLink getStaticLibraryToLink() {
     return LinkerInputs.newInputLibrary(
         Preconditions.checkNotNull(getStaticLibrary(), this),
@@ -162,7 +171,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getLtoCompilationContext(),
         getSharedNonLtoBackends(),
         getMustKeepDebug(),
-        getDisableWholeArchive());
+        getDisableWholeArchive(),
+        getDebugFiles());
   }
 
   LinkerInputs.LibraryToLink getPicStaticLibraryToLink() {
@@ -176,7 +186,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getPicLtoCompilationContext(),
         getPicSharedNonLtoBackends(),
         getMustKeepDebug(),
-        getDisableWholeArchive());
+        getDisableWholeArchive(),
+        getDebugFiles());
   }
 
   LinkerInputs.LibraryToLink getDynamicLibraryToLink() {
@@ -193,7 +204,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         LtoCompilationContext.EMPTY,
         /*sharedNonLtoBackends=*/ ImmutableMap.of(),
         getMustKeepDebug(),
-        getDisableWholeArchive());
+        getDisableWholeArchive(),
+        getDebugFiles());
   }
 
   LinkerInputs.LibraryToLink getInterfaceLibraryToLink() {
@@ -210,7 +222,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         LtoCompilationContext.EMPTY,
         /*sharedNonLtoBackends=*/ ImmutableMap.of(),
         getMustKeepDebug(),
-        getDisableWholeArchive());
+        getDisableWholeArchive(),
+        getDebugFiles());
   }
 
   // TODO(plf): This is just needed for Go, do not expose to Starlark and try to remove it. This was
@@ -292,6 +305,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     AutoLibraryToLink.Builder setDisableWholeArchive(boolean disableWholeArchive);
 
+    AutoLibraryToLink.Builder setDebugFiles(ImmutableList<Artifact> debugFiles);
+
     LibraryToLink build();
   }
 
@@ -325,6 +340,10 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     @Override // Remove @StarlarkMethod.
     public abstract boolean getAlwayslink();
+
+    @Nullable
+    @Override // Remove @StarlarkMethod.
+    public abstract ImmutableList<Artifact> getDebugFiles();
 
     @Memoized
     @Override

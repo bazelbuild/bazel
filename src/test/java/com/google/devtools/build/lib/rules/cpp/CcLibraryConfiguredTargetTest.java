@@ -501,6 +501,39 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testWindowsPDBFileOutputGroup() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
+                    CppRuleClasses.GENERATE_PDB_FILE,
+                    CppRuleClasses.TARGETS_WINDOWS)
+                .withArtifactNamePatterns(
+                    ImmutableList.of("dynamic_library", "", ".dll")));
+    useConfiguration();
+
+    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+
+    assertThat(
+            artifactsToStrings(getOutputGroup(hello, "debug_files")))
+        .containsExactly("bin hello/hello_9a9972c34e.pdb");
+
+    ConfiguredTarget helloStatic = getConfiguredTarget("//hello:hello_static");
+
+    assertThat(
+            artifactsToStrings(getOutputGroup(helloStatic, "debug_files")))
+        .isEmpty();
+  }
+
+  @Test
   public void testWrongObjectFileArtifactNamePattern() throws Exception {
     checkWrongExtensionInArtifactNamePattern(
         "object_file",

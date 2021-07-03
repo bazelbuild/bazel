@@ -666,6 +666,9 @@ public class CppLinkActionBuilder {
             .addAll(objectArtifacts.toList())
             .addAll(linkstampObjectArtifacts.toList())
             .build();
+
+    ImmutableList<Artifact> debugFileArtifacts = debugFileOutputs.build();
+
     final LinkerInputs.LibraryToLink outputLibrary =
         linkType.isExecutable()
             ? null
@@ -680,7 +683,9 @@ public class CppLinkActionBuilder {
                     ? ltoCompilationContext
                     : LtoCompilationContext.EMPTY,
                 createSharedNonLtoArtifacts(isLtoIndexing),
-                /* mustKeepDebug= */ false);
+                /* mustKeepDebug= */ false,
+                /* disableWholeArchive= */ false,
+                debugFileArtifacts);
     final LinkerInputs.LibraryToLink interfaceOutputLibrary =
         (interfaceOutput == null)
             ? null
@@ -691,7 +696,9 @@ public class CppLinkActionBuilder {
                 combinedObjectArtifacts,
                 ltoCompilationContext,
                 /* sharedNonLtoBackends= */ null,
-                /* mustKeepDebug= */ false);
+                /* mustKeepDebug= */ false,
+                /* disableWholeArchive= */ false,
+                debugFileArtifacts);
 
     @Nullable Artifact thinltoParamFile = null;
     @Nullable Artifact thinltoMergedObjectFile = null;
