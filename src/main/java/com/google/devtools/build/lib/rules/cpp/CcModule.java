@@ -2156,6 +2156,7 @@ public abstract class CcModule
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibsObject,
       Object linkerOutputsObject,
+      Object defFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     if (checkObjectsBound(
@@ -2243,6 +2244,7 @@ public abstract class CcModule
             .addAdditionalLinkstampDefines(asStringImmutableList(additionalLinkstampDefines))
             .setWillOnlyBeLinkedIntoDynamicLibraries(
                 convertFromNoneable(onlyForDynamicLibsObject, false))
+            .setDefFile(convertFromNoneable(defFile, /* defaultValue= */ null))
             .emitInterfaceSharedLibraries(
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)

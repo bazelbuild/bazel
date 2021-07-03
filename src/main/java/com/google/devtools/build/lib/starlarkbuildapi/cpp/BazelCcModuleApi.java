@@ -509,7 +509,17 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             allowedTypes = {@ParamType(type = Sequence.class)},
-            defaultValue = "unbound")
+            defaultValue = "unbound"),
+        @Param(
+            name = "def_file",
+            doc = "Optional .def file path.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            })
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -535,6 +545,7 @@ public interface BazelCcModuleApi<
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
       Object linkerOutputs,
+      Object defFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
