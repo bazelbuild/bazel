@@ -171,7 +171,14 @@ Path Path::Canonicalize() const {
     return path;
 }
 
-Path Path::GetParent() const { return Path(SplitPath(path_).first); }
+Path Path::GetParent() const {
+    std::error;
+    Path path = Path(SplitPath(path_).first, &error);
+    if (!error.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "GetParent failed" << error;
+    }
+    return path;
+}
 
 std::string Path::AsPrintablePath() const { return path_; }
 
