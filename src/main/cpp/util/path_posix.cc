@@ -172,7 +172,7 @@ Path Path::Canonicalize() const {
 }
 
 Path Path::GetParent() const {
-    std::error;
+    std::string error;
     Path path = Path(SplitPath(path_).first, &error);
     if (!error.empty()) {
         BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "GetParent failed" << error;
