@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -113,6 +114,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -268,11 +270,8 @@ public class ActionExecutionFunction implements SkyFunction {
       env.getValues(state.allInputs.packageLookupsRequested);
       Preconditions.checkState(!env.valuesMissing(), "%s %s", action, state);
     }
-    CheckInputResults checkedInputs = null;
-    @Nullable
-    ImmutableSet<Artifact> mandatoryInputs =
-        action.discoversInputs() ? action.getMandatoryInputs().toSet() : null;
 
+    CheckInputResults checkedInputs = null;
     NestedSet<Artifact> allInputs = state.allInputs.getAllInputs();
 
     Iterable<SkyKey> depKeys = getInputDepKeys(allInputs, state);
@@ -290,9 +289,7 @@ public class ActionExecutionFunction implements SkyFunction {
     try {
       if (previousExecution == null && !state.hasArtifactData()) {
         // Do we actually need to find our metadata?
-        checkedInputs =
-            checkInputs(
-                env, action, inputDeps, allInputs, mandatoryInputs, depKeys, actionLookupData);
+        checkedInputs = checkInputs(env, action, inputDeps, allInputs, depKeys, actionLookupData);
       }
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
@@ -572,7 +569,6 @@ public class ActionExecutionFunction implements SkyFunction {
               action,
               inputDeps,
               allInputs,
-              action.discoversInputs() ? action.getMandatoryInputs().toSet() : null,
               requestedSkyKeys,
               lostInputsAndOwnersSoFar,
               actionLookupDataForError);
@@ -1094,7 +1090,6 @@ public class ActionExecutionFunction implements SkyFunction {
                   ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
-      ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       ActionLookupData actionLookupDataForError)
       throws ActionExecutionException, InterruptedException {
@@ -1103,7 +1098,6 @@ public class ActionExecutionFunction implements SkyFunction {
         action,
         inputDeps,
         allInputs,
-        mandatoryInputs,
         requestedSkyKeys,
         ActionInputMap::new,
         CheckInputResults::new,
@@ -1124,7 +1118,6 @@ public class ActionExecutionFunction implements SkyFunction {
                   ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
-      ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       Collection<ActionInput> lostInputs,
       ActionLookupData actionLookupDataForError)
@@ -1138,7 +1131,6 @@ public class ActionExecutionFunction implements SkyFunction {
         action,
         inputDeps,
         allInputs,
-        mandatoryInputs,
         requestedSkyKeys,
         ignoredInputDepsSize -> new ActionInputDepOwnerMap(lostInputs),
         (actionInputMapSink,
@@ -1148,6 +1140,29 @@ public class ActionExecutionFunction implements SkyFunction {
             topLevelFilesets) -> actionInputMapSink,
         /*allowValuesMissingEarlyReturn=*/ false,
         actionLookupDataForError);
+  }
+
+  private static Predicate<Artifact> makeMandatoryInputPredicate(Action action) {
+    if (!action.discoversInputs()) {
+      return Predicates.alwaysTrue();
+    }
+
+    return new Predicate<Artifact>() {
+      // Lazily flatten the NestedSet in case the predicate is never needed. It's only used in the
+      // exceptional case of a missing artifact.
+      private ImmutableSet<Artifact> mandatoryInputs = null;
+
+      @Override
+      public boolean test(Artifact input) {
+        if (!input.isSourceArtifact()) {
+          return true;
+        }
+        if (mandatoryInputs == null) {
+          mandatoryInputs = action.getMandatoryInputs().toSet();
+        }
+        return mandatoryInputs.contains(input);
+      }
+    };
   }
 
   /**
@@ -1165,14 +1180,13 @@ public class ActionExecutionFunction implements SkyFunction {
                   ArtifactNestedSetEvalException>>
           inputDeps,
       NestedSet<Artifact> allInputs,
-      ImmutableSet<Artifact> mandatoryInputs,
       Iterable<SkyKey> requestedSkyKeys,
       IntFunction<S> actionInputMapSinkFactory,
       AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
       boolean allowValuesMissingEarlyReturn,
       ActionLookupData actionLookupDataForError)
       throws ActionExecutionException, InterruptedException {
-
+    Predicate<Artifact> isMandatoryInput = makeMandatoryInputPredicate(action);
     ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler =
         new ActionExecutionFunctionExceptionHandler(
             Suppliers.memoize(
@@ -1191,7 +1205,7 @@ public class ActionExecutionFunction implements SkyFunction {
                 }),
             inputDeps,
             action,
-            mandatoryInputs,
+            isMandatoryInput,
             requestedSkyKeys,
             env.valuesMissing());
 
@@ -1218,7 +1232,7 @@ public class ActionExecutionFunction implements SkyFunction {
     for (Artifact input : allInputsList) {
       SkyValue value = ArtifactNestedSetFunction.getInstance().getValueForKey(Artifact.key(input));
       if (value == null) {
-        if (mandatoryInputs == null || mandatoryInputs.contains(input)) {
+        if (isMandatoryInput.test(input)) {
           BugReport.sendBugReport(
               new IllegalStateException(
                   String.format(
@@ -1228,7 +1242,7 @@ public class ActionExecutionFunction implements SkyFunction {
         continue;
       }
       if (value instanceof MissingArtifactValue) {
-        if (actionExecutionFunctionExceptionHandler.isMandatory(input)) {
+        if (isMandatoryInput.test(input)) {
           actionExecutionFunctionExceptionHandler.accumulateMissingFileArtifactValue(
               input, (MissingArtifactValue) value);
           continue;
@@ -1438,7 +1452,7 @@ public class ActionExecutionFunction implements SkyFunction {
                 SourceArtifactException, ActionExecutionException, ArtifactNestedSetEvalException>>
         inputDeps;
     private final Action action;
-    private final Set<Artifact> mandatoryInputs;
+    private final Predicate<Artifact> isMandatoryInput;
     private final Iterable<SkyKey> requestedSkyKeys;
     private final boolean valuesMissing;
     List<LabelCause> missingArtifactCauses = Lists.newArrayListWithCapacity(0);
@@ -1454,13 +1468,13 @@ public class ActionExecutionFunction implements SkyFunction {
                     ArtifactNestedSetEvalException>>
             inputDeps,
         Action action,
-        Set<Artifact> mandatoryInputs,
+        Predicate<Artifact> isMandatoryInput,
         Iterable<SkyKey> requestedSkyKeys,
         boolean valuesMissing) {
       this.skyKeyToDerivedArtifactSetForExceptions = skyKeyToDerivedArtifactSetForExceptions;
       this.inputDeps = inputDeps;
       this.action = action;
-      this.mandatoryInputs = mandatoryInputs;
+      this.isMandatoryInput = isMandatoryInput;
       this.requestedSkyKeys = requestedSkyKeys;
       this.valuesMissing = valuesMissing;
     }
@@ -1540,7 +1554,7 @@ public class ActionExecutionFunction implements SkyFunction {
         return;
       }
 
-      if (isMandatory((Artifact) key)) {
+      if (isMandatoryInput.test((Artifact) key)) {
         missingArtifactCauses.add(
             createLabelCauseNullOwnerOk(
                 (Artifact) key,
@@ -1586,15 +1600,9 @@ public class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    boolean isMandatory(Artifact input) {
-      return !input.isSourceArtifact()
-          || mandatoryInputs == null
-          || mandatoryInputs.contains(input);
-    }
-
     private void handleActionExecutionExceptionPerArtifact(
         Artifact input, ActionExecutionException e) {
-      if (isMandatory(input)) {
+      if (isMandatoryInput.test(input)) {
         // Prefer a catastrophic exception as the one we propagate.
         if (firstActionExecutionException == null
             || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
