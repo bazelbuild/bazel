@@ -571,13 +571,21 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                               DynamicSpawnStrategy.this.options,
                               actionExecutionContext,
                               spawn));
+                } catch (DynamicInterruptedException e) {
+                  // This exception can be thrown due to races in stopBranch(), in which case
+                  // the branch that lost the race may not have been cancelled yet. Cancel it here
+                  // to prevent the listener from cross-cancelling.
+                  localBranch.cancel(true);
+                  throw e;
                 } catch (
                     @SuppressWarnings("InterruptedExceptionSwallowed")
                     Throwable e) {
                   if (options.debugSpawnScheduler) {
                     logger.atInfo().log(
-                        "Local branch of %s failed with %s",
-                        spawn.getResourceOwner().prettyPrint(), e.getMessage());
+                        "Local branch of %s failed with %s: '%s'",
+                        spawn.getResourceOwner().prettyPrint(),
+                        e.getClass().getSimpleName(),
+                        e.getMessage());
                   }
                   throw e;
                 } finally {
@@ -627,13 +635,21 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                                   spawn));
                   delayLocalExecution.set(true);
                   return spawnResults;
+                } catch (DynamicInterruptedException e) {
+                  // This exception can be thrown due to races in stopBranch(), in which case
+                  // the branch that lost the race may not have been cancelled yet. Cancel it here
+                  // to prevent the listener from cross-cancelling.
+                  remoteBranch.cancel(true);
+                  throw e;
                 } catch (
                     @SuppressWarnings("InterruptedExceptionSwallowed")
                     Throwable e) {
                   if (options.debugSpawnScheduler) {
                     logger.atInfo().log(
-                        "Remote branch of %s failed with %s",
-                        spawn.getResourceOwner().prettyPrint(), e.getMessage());
+                        "Remote branch of %s failed with %s: '%s'",
+                        spawn.getResourceOwner().prettyPrint(),
+                        e.getClass().getSimpleName(),
+                        e.getMessage());
                   }
                   throw e;
                 } finally {
