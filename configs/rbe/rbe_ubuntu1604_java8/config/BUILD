@@ -23,13 +23,13 @@ toolchain(
     exec_compatible_with = [
         "@bazel_tools//platforms:linux",
         "@bazel_tools//platforms:x86_64",
-        "@bazel_tools//tools/cpp:clang",
+        "@bazel_tools//tools/cpp:gcc",
     ],
     target_compatible_with = [
         "@bazel_tools//platforms:linux",
         "@bazel_tools//platforms:x86_64",
     ],
-    toolchain = "//configs/rbe/rbe_ubuntu1604_java8/cc:cc-compiler-k8",
+    toolchain = "//./rbe_ubuntu1604_java8/cc:cc-compiler-k8",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
@@ -39,7 +39,7 @@ platform(
     constraint_values = [
         "@bazel_tools//platforms:linux",
         "@bazel_tools//platforms:x86_64",
-        "@bazel_tools//tools/cpp:clang",
+        "@bazel_tools//tools/cpp:gcc",
     ],
     exec_properties = {
         "container-image": "docker://gcr.io/bazel-public/ubuntu1604-bazel-java8@sha256:135cb1647b54893531bf220001b07ac34bd2963a59af69659257cc1f121c9958",
