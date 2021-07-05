@@ -44,7 +44,7 @@ import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.syntax.Location;
 
 /**
- * Look up the {link@ RepoSpec} of a given repository name and create its repository rule instance.
+ * Looks up the {@link RepoSpec} of a given repository name and create its repository rule instance.
  */
 public final class BzlmodRepoRuleFunction implements SkyFunction {
 
