@@ -423,15 +423,14 @@ public class BuildRequestOptions extends OptionsBase {
               + "https://github.com/bazelbuild/bazel/issues/8651")
   public boolean incompatibleSkipGenfilesSymlink;
 
+  // TODO(b/149551585): Clean up rc files and remove this option.
   @Option(
       name = "experimental_nested_set_as_skykey_threshold",
       defaultValue = "1",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help =
-          "If this flag is set with a non-zero value, NestedSets whose size exceeds the threshold"
-              + " will be evaluated as a unit on Skyframe.")
+      help = "No-op scheduled for removal.")
   public int nestedSetAsSkyKeyThreshold;
 
   @Option(

@@ -396,7 +396,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 

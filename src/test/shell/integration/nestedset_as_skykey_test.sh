@@ -21,21 +21,21 @@
 # --- begin runfiles.bash initialization ---
 set -euo pipefail
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  if [[ -f "$TEST_SRCDIR/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$TEST_SRCDIR/MANIFEST"
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
   elif [[ -f "$0.runfiles/MANIFEST" ]]; then
     export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$TEST_SRCDIR/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
-    export RUNFILES_DIR="$TEST_SRCDIR"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
   fi
 fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
 elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
             "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
 else
-  echo >&2 "ERROR: cannot find //third_party/bazel/tools/bash/runfiles:runfiles.bash"
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
   exit 1
 fi
 # --- end runfiles.bash initialization ---
@@ -124,65 +124,6 @@ EOF
 
 #### TESTS #############################################################
 
-function test_threshold_successfully_builds() {
-  export DONT_SANITY_CHECK_SERIALIZATION=1
-
-  cat > foo/BUILD <<EOF
-load(":foo.bzl", "foo_library", "foo_binary")
-py_binary(
-    name = "foocc",
-    srcs = ["foocc.py"],
-)
-
-foo_library(
-    name = "a",
-    srcs = ["1.a"],
-)
-
-foo_library(
-    name = "b",
-    srcs = ["1.b"],
-    deps = [":a"],
-)
-foo_binary(
-    name = "c",
-    srcs = ["c.foo"],
-    deps = [":b"],
-)
-EOF
-  touch foo/1.a foo/1.b foo/c.foo
-
-  bazel build //foo:c &> "$TEST_log"|| fail "build failed"
-  regular=$(bazel dump --skyframe summary)
-  bazel clean
-
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c \
-    &> "$TEST_log"|| fail "build failed"
-  with_flag=$(bazel dump --skyframe summary)
-
-  [[ regular != $with_flag ]] || fail "number of nodes and edges on skyframe should be different"
-}
-
-function test_options_changed() {
-  export DONT_SANITY_CHECK_SERIALIZATION=1
-  cat > foo/BUILD <<EOF
-load(":foo.bzl", "foo_library", "foo_binary")
-
-foo_library(
-    name = "a",
-    srcs = ["1.a"],
-)
-EOF
-  touch foo/1.a
-
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:a \
-    &> "$TEST_log" || fail "build failed"
-
-  bazel build --experimental_nested_set_as_skykey_threshold=0 //foo:a \
-    &> "$TEST_log" || fail "build failed"
-  expect_log "ArtifactNestedSetFunction options changed. Resetting evaluator..."
-}
-
 function test_dirty_file() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
   cat > foo/BUILD <<EOF
@@ -210,12 +151,10 @@ foo_binary(
 EOF
   touch foo/1.a foo/1.b foo/c.foo
 
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c \
-    &> "$TEST_log" || fail "build failed"
+  bazel build //foo:c &> "$TEST_log" || fail "build failed"
   # Deliberately breaking the file.
   echo omgomgomg >> foo/foocc.py
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c \
-    &> "$TEST_log" && fail "Expected failure"
+  bazel build //foo:c &> "$TEST_log" && fail "Expected failure"
 
   true  # reset the last exit code so the test won't be considered failed
 }
@@ -241,8 +180,7 @@ cc_binary(
 EOF
   touch foo/bar.cc
 
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
-    &> "$TEST_log" && fail "Expected failure"
+  bazel build //foo:foo &> "$TEST_log" && fail "Expected failure"
 
   exit_code=$?
   [[ $exit_code -eq 1 ]] || fail "Unexpected exit code: $exit_code"
@@ -270,12 +208,10 @@ java_library(
 EOF
   echo "randomstuffs" > foo/bar.java
 
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
-    &> "$TEST_log" && fail "Expected failure"
+  bazel build //foo:foo &> "$TEST_log" && fail "Expected failure"
 
   # Verify that the incremental run prints the expected failure message.
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
-    &> "$TEST_log" && fail "Expected failure"
+  bazel build //foo:foo &> "$TEST_log" && fail "Expected failure"
 
 
   expect_log "ERROR"

@@ -27,15 +27,15 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests related to "missing input file" errors. */
-@RunWith(TestParameterInjector.class)
-public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
+@RunWith(JUnit4.class)
+public final class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
+
   @Override
   protected BlazeModule getBuildInfoModule() {
     return new BazelWorkspaceStatusModule();
@@ -149,9 +149,7 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
   }
 
   @Test
-  public void allErrorsAggregated(@TestParameter({"0", "1"}) int nestedSetOnSkyframe)
-      throws Exception {
-    addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
+  public void allErrorsAggregated() throws Exception {
     write(
         "foo/BUILD",
         "genrule(name = 'foo', srcs = [':in', ':genin'], outs = ['out'], cmd = 'touch $@')",
@@ -169,13 +167,7 @@ public class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
     this.outErr = outErr;
     addOptions("--keep_going");
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
-    if (nestedSetOnSkyframe == 0) {
-      assertThat(outErr.errAsLatin1())
-          .contains("Executing genrule //foo:foo failed: missing input file '//foo:in'");
-      assertThat(targetCompleteEventRef.get().getRootCauses().toList()).hasSize(2);
-    } else {
-      assertThat(targetCompleteEventRef.get().getRootCauses().toList()).hasSize(1);
-    }
+    assertThat(targetCompleteEventRef.get().getRootCauses().toList()).hasSize(1);
     assertThat(outErr.errAsLatin1()).contains("Executing genrule //foo:gen failed");
   }
 }

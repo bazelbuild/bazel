@@ -243,16 +243,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    // If the ArtifactNestedSetFunction options changed between builds, it's necessary to reset the
-    // evaluator to avoid dependency inconsistencies in Skyframe.
-    // Resetting the evaluator creates new instances of the SkyFunctions, hence also wiping
-    // various state maps in ActionExecutionFunction and ArtifactNestedSetFunction.
-    boolean nestedSetAsSkyKeyOptionsChanged = nestedSetAsSkyKeyOptionsChanged(options);
-    if (evaluatorNeedsReset || nestedSetAsSkyKeyOptionsChanged) {
-      if (nestedSetAsSkyKeyOptionsChanged) {
-        eventHandler.handle(
-            Event.info("ArtifactNestedSetFunction options changed. Resetting evaluator..."));
-      }
+    if (evaluatorNeedsReset) {
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();

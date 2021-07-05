@@ -148,13 +148,11 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
   }
 
   @Test
-  public void incrementalNonMandatoryInputIOException(
-      @TestParameter boolean keepGoing, @TestParameter({"0", "1"}) int nestedSetOnSkyframe)
+  public void incrementalNonMandatoryInputIOException(@TestParameter boolean keepGoing)
       throws Exception {
     RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();
     addOptions("--features=cc_include_scanning");
     addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
     write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
     Path fooHFile = write("foo/foo.h", "//thisisacomment");
@@ -448,8 +446,6 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
         "cc_library(name = 'lib', srcs = [':tree'])",
         "genrule(name = 'top', srcs = [':lib'], outs = ['out'], cmd = 'touch $@')");
     customFileSystem.errorOnDirectory("mytree");
-    // Make sure we take default codepath in ActionExecutionFunction.
-    addOptions("--experimental_nested_set_as_skykey_threshold=1");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);

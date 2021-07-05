@@ -95,8 +95,6 @@ final class ArtifactNestedSetFunction implements SkyFunction {
 
   private static ArtifactNestedSetFunction singleton = null;
 
-  private static Integer sizeThreshold = null;
-
   private ArtifactNestedSetFunction(Supplier<ArtifactNestedSetValue> valueSupplier) {
     this.valueSupplier = valueSupplier;
   }
@@ -219,34 +217,6 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
-  }
-
-  /**
-   * Get the threshold to which we evaluate a NestedSet as a Skykey. If sizeThreshold is unset,
-   * return the default value of 0.
-   */
-  static int getSizeThreshold() {
-    return sizeThreshold == null ? 0 : sizeThreshold;
-  }
-
-  /**
-   * Updates the sizeThreshold value if the existing value differs from newValue.
-   *
-   * @param newValue The new value from --experimental_nested_set_as_skykey_threshold.
-   * @return whether an update was made.
-   */
-  static boolean sizeThresholdUpdated(int newValue) {
-    // If this is the first time the value is set, it's not considered "updated".
-    if (sizeThreshold == null) {
-      sizeThreshold = newValue;
-      return false;
-    }
-
-    if (sizeThreshold == newValue || (sizeThreshold <= 0 && newValue <= 0)) {
-      return false;
-    }
-    sizeThreshold = newValue;
-    return true;
   }
 
   /** Mainly used for error bubbling when evaluating direct/transitive children. */
