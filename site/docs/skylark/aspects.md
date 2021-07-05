@@ -49,7 +49,7 @@ Bazel analyzes this dependency graph by calling an implementation function of
 the corresponding [rule](rules.md) (in this case "java_library") for every
 target in the above example. Rule implementation functions generate actions that
 build artifacts, such as `.jar` files, and pass information, such as locations
-and names of those artifacts, to the dependencies of those targets in
+and names of those artifacts, to the reverse dependencies of those targets in
 [providers](rules.md#providers).
 
 Aspects are similar to rules in that they have an implementation function that
@@ -312,7 +312,7 @@ def _file_count_aspect_impl(target, ctx):
 ```
 
 Just like a rule implementation function, an aspect implementation function
-returns a struct of providers that are accessible to its dependencies.
+returns a struct of providers that are accessible to its reverse dependencies.
 
 In this example, the ``FileCountInfo`` is defined as a provider that has one
 field ``count``. It is best practice to explicitly define the fields of a
