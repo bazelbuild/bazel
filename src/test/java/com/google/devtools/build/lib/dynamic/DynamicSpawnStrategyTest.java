@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.dynamic;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static junit.framework.TestCase.fail;
 import static org.junit.Assert.assertThrows;
 
@@ -571,6 +572,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void actionSucceedsIfLocalExecutionSucceedsEvenIfRemoteRunsNothing() throws Exception {
+    assume().that(legacyBehavior).isFalse();
     MockSpawnStrategy localStrategy = new MockSpawnStrategy("MockLocalSpawnStrategy");
 
     MockSpawnStrategy remoteStrategy =
@@ -592,6 +594,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void actionSucceedsIfRemoteExecutionSucceedsEvenIfLocalRunsNothing() throws Exception {
+    assume().that(legacyBehavior).isFalse();
     MockSpawnStrategy localStrategy =
         new MockSpawnStrategy("MockLocalSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
 
@@ -723,6 +726,7 @@ public class DynamicSpawnStrategyTest {
 
   @Test
   public void actionFailsIfLocalAndRemoteRunNothing() throws Exception {
+    assume().that(legacyBehavior).isFalse();
     MockSpawnStrategy localStrategy =
         new MockSpawnStrategy("MockLocalSpawnStrategy", DoExec.NOTHING, DoExec.NOTHING, false);
 
