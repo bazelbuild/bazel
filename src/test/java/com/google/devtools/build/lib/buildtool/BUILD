@@ -436,6 +436,7 @@ java_test(
 java_test(
     name = "OutputArtifactConflictTest",
     srcs = ["OutputArtifactConflictTest.java"],
+    shard_count = 3,
     tags = [
         "manual",
         "no_windows",
