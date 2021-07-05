@@ -19,7 +19,8 @@
 
 set -eu
 
-BASEDIR=$(dirname $BASH_SOURCE)
+cd $(dirname $BASH_SOURCE)/../..
+BASEDIR=configs/rbe
 
 BAZEL_VERSION=4.1.0
 
@@ -40,7 +41,7 @@ function generate() {
 
   # HACK: @bazel_tools/tools/cpp:clang is currently hardcoded in rbe_configs_gen
   # since clang is the default compiler for linux. As we use --cpp_env_json to
-  # override the default compiler to gcc. We also need to replace clang with gcc
+  # override the default compiler to gcc, we also need to replace clang with gcc
   # here.
   #
   # TODO: Add support for customizing execution_constrains to rbe_configs_gen.

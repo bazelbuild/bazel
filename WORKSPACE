@@ -278,8 +278,6 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-load("@bazel_toolchains//repositories:repositories.bzl", bazel_toolchains_repositories = "repositories")
-
 http_archive(
     name = "com_google_googletest",
     sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",

@@ -29,7 +29,7 @@ toolchain(
         "@bazel_tools//platforms:linux",
         "@bazel_tools//platforms:x86_64",
     ],
-    toolchain = "//./rbe_ubuntu1804_java11/cc:cc-compiler-k8",
+    toolchain = "//configs/rbe/rbe_ubuntu1804_java11/cc:cc-compiler-k8",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
