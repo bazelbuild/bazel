@@ -137,6 +137,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
               .setInterfaceLibrary(interfaceLibrary)
               .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
               .setAlwayslink(alwaysLink)
+              .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactToLink))
               .build();
       ccLinkingContext =
           CcLinkingContext.builder()
