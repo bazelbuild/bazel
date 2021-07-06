@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -58,6 +59,7 @@ import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
@@ -215,6 +217,19 @@ final class UiStateTracker {
      */
     int runningStrategiesBitmap = 0;
 
+    private static class ProgressState {
+      final String id;
+      final long nanoStartTime;
+      ActionProgressEvent latestEvent;
+
+      private ProgressState(String id, long nanoStartTime) {
+        this.id = id;
+        this.nanoStartTime = nanoStartTime;
+      }
+    }
+
+    private final LinkedHashMap<String, ProgressState> runningProgresses = new LinkedHashMap<>();
+
     /** Starts tracking the state of an action. */
     ActionState(ActionExecutionMetadata action, long nanoStartTime) {
       this.action = action;
@@ -302,6 +317,20 @@ final class UiStateTracker {
       schedulingStrategiesBitmap &= ~id;
       runningStrategiesBitmap |= id;
       nanoStartTime = nanoChangeTime;
+    }
+
+    /** Handles the progress event for the action. */
+    synchronized void onProgressEvent(ActionProgressEvent event, long nanoChangeTime) {
+      String id = event.progressId();
+      if (event.finished()) {
+        // a progress is finished, clean it up
+        runningProgresses.remove(id);
+        return;
+      }
+
+      ProgressState state =
+          runningProgresses.computeIfAbsent(id, key -> new ProgressState(key, nanoChangeTime));
+      state.latestEvent = event;
     }
 
     /** Generates a human-readable description of this action's state. */
@@ -539,6 +568,13 @@ final class UiStateTracker {
     getActionState(action, actionId, now).setRunning(event.getStrategy(), now);
   }
 
+  void actionProgress(ActionProgressEvent event) {
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = event.action().getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).onProgressEvent(event, now);
+  }
+
   void actionCompletion(ActionScanningCompletedEvent event) {
     Action action = event.getAction();
     Artifact actionId = action.getPrimaryOutput();
@@ -668,6 +704,29 @@ final class UiStateTracker {
     return message.append(allReported ? "]" : postfix).toString();
   }
 
+  private String describeActionProgress(ActionState action, int desiredWidth) {
+    if (action.runningProgresses.isEmpty()) {
+      return "";
+    }
+
+    ActionState.ProgressState state =
+        action.runningProgresses.entrySet().iterator().next().getValue();
+    ActionProgressEvent event = state.latestEvent;
+    String message = event.progress();
+    if (message.isEmpty()) {
+      message = state.id;
+    }
+
+    message = "; " + message;
+
+    if (desiredWidth <= 0 || message.length() <= desiredWidth) {
+      return message;
+    }
+
+    message = message.substring(0, desiredWidth - ELLIPSIS.length()) + ELLIPSIS;
+    return message;
+  }
+
   // Describe an action by a string of the desired length; if describing that action includes
   // describing other actions, add those to the to set of actions to skip in further samples of
   // actions.
@@ -721,9 +780,24 @@ final class UiStateTracker {
       message = action.prettyPrint();
     }
 
-    if (desiredWidth <= 0) {
-      return prefix + message + postfix;
+    String progress = describeActionProgress(actionState, 0);
+
+    if (desiredWidth <= 0
+        || (prefix.length() + message.length() + progress.length() + postfix.length())
+            <= desiredWidth) {
+      return prefix + message + progress + postfix;
     }
+
+    // We have to shorten the progress to fit into the line.
+    int remainingWidthForProgress =
+        desiredWidth - prefix.length() - message.length() - postfix.length();
+    int minWidthForProgress = 7; // "; " + at least two character + "..."
+    if (remainingWidthForProgress >= minWidthForProgress) {
+      progress = describeActionProgress(actionState, remainingWidthForProgress);
+      return prefix + message + progress + postfix;
+    }
+
+    // We have to skip the progress to fit into the line.
     if (prefix.length() + message.length() + postfix.length() <= desiredWidth) {
       return prefix + message + postfix;
     }

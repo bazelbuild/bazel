@@ -274,13 +274,13 @@ public class RemoteSpawnCacheTest {
               }
             })
         .when(remoteCache)
-        .download(any(), any(), eq(actionResult), eq(outErr), any());
+        .download(any(), any(), eq(actionResult), eq(outErr), any(), any());
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isTrue();
     SpawnResult result = entry.getResult();
     // All other methods on RemoteActionCache have side effects, so we verify all of them.
-    verify(remoteCache).download(any(), any(), eq(actionResult), eq(outErr), any());
+    verify(remoteCache).download(any(), any(), eq(actionResult), eq(outErr), any(), any());
     verify(remoteCache, never())
         .upload(
             any(RemoteActionExecutionContext.class),
@@ -644,7 +644,7 @@ public class RemoteSpawnCacheTest {
             });
     doThrow(new CacheNotFoundException(digest))
         .when(remoteCache)
-        .download(any(), any(), eq(actionResult), eq(outErr), any());
+        .download(any(), any(), eq(actionResult), eq(outErr), any(), any());
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();

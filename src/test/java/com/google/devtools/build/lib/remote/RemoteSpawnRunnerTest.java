@@ -380,6 +380,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             any(ActionResult.class),
             eq(outErr),
+            any(),
             any());
   }
 
@@ -710,6 +711,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(result),
             any(FileOutErr.class),
+            any(),
             any());
     verify(cache, never())
         .downloadFile(any(RemoteActionExecutionContext.class), any(Path.class), any(Digest.class));
@@ -750,6 +752,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(result),
             any(FileOutErr.class),
+            any(),
             any());
     verify(cache, never())
         .downloadFile(any(RemoteActionExecutionContext.class), any(Path.class), any(Digest.class));
@@ -776,6 +779,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(cachedResult),
             any(FileOutErr.class),
+            any(),
             any());
     ActionResult execResult = ActionResult.newBuilder().setExitCode(31).build();
     ExecuteResponse succeeded = ExecuteResponse.newBuilder().setResult(execResult).build();
@@ -791,6 +795,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(execResult),
             any(FileOutErr.class),
+            any(),
             any());
 
     Spawn spawn = newSimpleSpawn();
@@ -840,6 +845,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(cachedResult),
             any(FileOutErr.class),
+            any(),
             any());
     doNothing()
         .when(cache)
@@ -848,6 +854,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(execResult),
             any(FileOutErr.class),
+            any(),
             any());
 
     Spawn spawn = newSimpleSpawn();
@@ -917,6 +924,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(cachedResult),
             any(FileOutErr.class),
+            any(),
             any());
   }
 
@@ -967,6 +975,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(cachedResult),
             any(FileOutErr.class),
+            any(),
             any());
     verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
@@ -1012,6 +1021,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             eq(cachedResult),
             any(FileOutErr.class),
+            any(),
             any());
     verify(localRunner, never()).exec(eq(spawn), eq(policy));
   }
@@ -1178,6 +1188,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             any(ActionResult.class),
             eq(outErr),
+            any(),
             any());
   }
 
@@ -1224,6 +1235,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             any(ActionResult.class),
             eq(outErr),
+            any(),
             any());
   }
 
@@ -1276,6 +1288,7 @@ public class RemoteSpawnRunnerTest {
             any(RemotePathResolver.class),
             any(ActionResult.class),
             eq(outErr),
+            any(),
             any());
   }
 
@@ -1307,7 +1320,7 @@ public class RemoteSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(Status.SUCCESS);
 
     // assert
-    verify(cache).download(any(), any(), eq(succeededAction), eq(outErr), any());
+    verify(cache).download(any(), any(), eq(succeededAction), eq(outErr), any(), any());
     verify(cache, never())
         .downloadMinimal(
             any(), any(), eq(succeededAction), anyCollection(), any(), any(), any(), any());

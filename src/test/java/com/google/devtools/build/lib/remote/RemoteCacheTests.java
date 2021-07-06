@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.RemoteCache.OutputFilesLocker;
 import com.google.devtools.build.lib.remote.RemoteCache.UploadManifest;
+import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -102,6 +103,7 @@ import org.mockito.MockitoAnnotations;
 public class RemoteCacheTests {
 
   @Mock private OutputFilesLocker outputFilesLocker;
+  private final ProgressStatusListener progressStatusListener = progress -> {};
 
   private RemoteActionExecutionContext context;
   private RemotePathResolver remotePathResolver;
@@ -614,7 +616,13 @@ public class RemoteCacheTests {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputFileSymlinksBuilder().setPath("a/b/link").setTarget("../../foo");
     // Doesn't check for dangling links, hence download succeeds.
-    cache.download(context, remotePathResolver, result.build(), null, outputFilesLocker);
+    cache.download(
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        outputFilesLocker,
+        progressStatusListener);
     Path path = execRoot.getRelative("a/b/link");
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../../foo"));
@@ -627,7 +635,13 @@ public class RemoteCacheTests {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectorySymlinksBuilder().setPath("a/b/link").setTarget("foo");
     // Doesn't check for dangling links, hence download succeeds.
-    cache.download(context, remotePathResolver, result.build(), null, outputFilesLocker);
+    cache.download(
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        outputFilesLocker,
+        progressStatusListener);
     Path path = execRoot.getRelative("a/b/link");
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("foo"));
@@ -647,7 +661,13 @@ public class RemoteCacheTests {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
     // Doesn't check for dangling links, hence download succeeds.
-    cache.download(context, remotePathResolver, result.build(), null, outputFilesLocker);
+    cache.download(
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        outputFilesLocker,
+        progressStatusListener);
     Path path = execRoot.getRelative("dir/link");
     assertThat(path.isSymbolicLink()).isTrue();
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../foo"));
@@ -664,7 +684,12 @@ public class RemoteCacheTests {
             IOException.class,
             () ->
                 cache.download(
-                    context, remotePathResolver, result.build(), null, outputFilesLocker));
+                    context,
+                    remotePathResolver,
+                    result.build(),
+                    null,
+                    outputFilesLocker,
+                    progressStatusListener));
     assertThat(expected).hasMessageThat().contains("/abs/link");
     assertThat(expected).hasMessageThat().contains("absolute path");
     verify(outputFilesLocker).lock();
@@ -680,7 +705,12 @@ public class RemoteCacheTests {
             IOException.class,
             () ->
                 cache.download(
-                    context, remotePathResolver, result.build(), null, outputFilesLocker));
+                    context,
+                    remotePathResolver,
+                    result.build(),
+                    null,
+                    outputFilesLocker,
+                    progressStatusListener));
     assertThat(expected).hasMessageThat().contains("/abs/link");
     assertThat(expected).hasMessageThat().contains("absolute path");
     verify(outputFilesLocker).lock();
@@ -703,7 +733,12 @@ public class RemoteCacheTests {
             IOException.class,
             () ->
                 cache.download(
-                    context, remotePathResolver, result.build(), null, outputFilesLocker));
+                    context,
+                    remotePathResolver,
+                    result.build(),
+                    null,
+                    outputFilesLocker,
+                    progressStatusListener));
     assertThat(expected.getSuppressed()).isEmpty();
     assertThat(expected).hasMessageThat().contains("dir/link");
     assertThat(expected).hasMessageThat().contains("/foo");
@@ -727,7 +762,14 @@ public class RemoteCacheTests {
     result.addOutputFiles(OutputFile.newBuilder().setPath("otherfile").setDigest(otherFileDigest));
     assertThrows(
         BulkTransferException.class,
-        () -> cache.download(context, remotePathResolver, result.build(), null, outputFilesLocker));
+        () ->
+            cache.download(
+                context,
+                remotePathResolver,
+                result.build(),
+                null,
+                outputFilesLocker,
+                progressStatusListener));
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
     assertThat(execRoot.getRelative("outputdir").exists()).isTrue();
     assertThat(execRoot.getRelative("outputdir/outputfile").exists()).isFalse();
@@ -765,7 +807,8 @@ public class RemoteCacheTests {
                     remotePathResolver,
                     result,
                     new FileOutErr(stdout, stderr),
-                    outputFilesLocker));
+                    outputFilesLocker,
+                    progressStatusListener));
     assertThat(downloadException.getSuppressed()).hasLength(1);
     assertThat(cache.getNumSuccessfulDownloads()).isEqualTo(2);
     assertThat(cache.getNumFailedDownloads()).isEqualTo(1);
@@ -801,7 +844,8 @@ public class RemoteCacheTests {
                     remotePathResolver,
                     result,
                     new FileOutErr(stdout, stderr),
-                    outputFilesLocker));
+                    outputFilesLocker,
+                    progressStatusListener));
 
     assertThat(e.getSuppressed()).hasLength(2);
     assertThat(e.getSuppressed()[0]).isInstanceOf(IOException.class);
@@ -837,7 +881,8 @@ public class RemoteCacheTests {
                     remotePathResolver,
                     result,
                     new FileOutErr(stdout, stderr),
-                    outputFilesLocker));
+                    outputFilesLocker,
+                    progressStatusListener));
 
     for (Throwable t : downloadException.getSuppressed()) {
       assertThat(t).isInstanceOf(IOException.class);
@@ -873,7 +918,8 @@ public class RemoteCacheTests {
                     remotePathResolver,
                     result,
                     new FileOutErr(stdout, stderr),
-                    outputFilesLocker));
+                    outputFilesLocker,
+                    progressStatusListener));
 
     assertThat(e.getSuppressed()).isEmpty();
     assertThat(Throwables.getRootCause(e)).hasMessageThat().isEqualTo("reused interruption");
@@ -902,7 +948,8 @@ public class RemoteCacheTests {
             .setStderrDigest(digestStderr)
             .build();
 
-    cache.download(context, remotePathResolver, result, spyOutErr, outputFilesLocker);
+    cache.download(
+        context, remotePathResolver, result, spyOutErr, outputFilesLocker, progressStatusListener);
 
     verify(spyOutErr, Mockito.times(2)).childOutErr();
     verify(spyChildOutErr).clearOut();
@@ -945,7 +992,14 @@ public class RemoteCacheTests {
             .build();
     assertThrows(
         BulkTransferException.class,
-        () -> cache.download(context, remotePathResolver, result, spyOutErr, outputFilesLocker));
+        () ->
+            cache.download(
+                context,
+                remotePathResolver,
+                result,
+                spyOutErr,
+                outputFilesLocker,
+                progressStatusListener));
     verify(spyOutErr, Mockito.times(2)).childOutErr();
     verify(spyChildOutErr).clearOut();
     verify(spyChildOutErr).clearErr();
@@ -982,7 +1036,13 @@ public class RemoteCacheTests {
 
     // act
 
-    remoteCache.download(context, remotePathResolver, r, new FileOutErr(), outputFilesLocker);
+    remoteCache.download(
+        context,
+        remotePathResolver,
+        r,
+        new FileOutErr(),
+        outputFilesLocker,
+        progressStatusListener);
 
     // assert
 
@@ -1365,7 +1425,12 @@ public class RemoteCacheTests {
     // act
     RemoteCache remoteCache = newRemoteCache(cas);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        outputFilesLocker,
+        progressStatusListener);
 
     // assert
     assertThat(digestUtil.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
@@ -1390,7 +1455,12 @@ public class RemoteCacheTests {
     // act
     RemoteCache remoteCache = newRemoteCache(map);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        outputFilesLocker,
+        progressStatusListener);
 
     // assert
     assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
@@ -1435,7 +1505,12 @@ public class RemoteCacheTests {
     // act
     RemoteCache remoteCache = newRemoteCache(map);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        outputFilesLocker,
+        progressStatusListener);
 
     // assert
     assertThat(digestUtil.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
@@ -1486,7 +1561,12 @@ public class RemoteCacheTests {
     // act
     RemoteCache remoteCache = newRemoteCache(map);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        outputFilesLocker,
+        progressStatusListener);
 
     // assert
     assertThat(digestUtil.compute(execRoot.getRelative("a/bar/foo/file"))).isEqualTo(fileDigest);
