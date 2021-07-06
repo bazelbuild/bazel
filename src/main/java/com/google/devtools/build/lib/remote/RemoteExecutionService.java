@@ -385,7 +385,8 @@ public class RemoteExecutionService {
           remotePathResolver,
           result.actionResult,
           action.spawnExecutionContext.getFileOutErr(),
-          action.spawnExecutionContext::lockOutputFiles);
+          action.spawnExecutionContext::lockOutputFiles,
+          action.spawnExecutionContext::report);
     } else {
       PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.spawn);
       inMemoryOutput =

@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -61,6 +62,7 @@ import com.google.rpc.Status;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Locale;
@@ -508,5 +510,31 @@ public final class Utils {
       Throwables.throwIfUnchecked(e);
       throw new AssertionError(e);
     }
+  }
+
+  private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
+
+  /**
+   * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.
+   *
+   * <p>Negative numbers are not allowed.
+   */
+  public static String bytesCountToDisplayString(long bytes) {
+    Preconditions.checkArgument(bytes >= 0);
+
+    if (bytes < 1024) {
+      return bytes + " B";
+    }
+
+    int unitIndex = 0;
+    long value = bytes;
+    while ((unitIndex + 1) < UNITS.size() && value >= (1 << 20)) {
+      value >>= 10;
+      unitIndex++;
+    }
+
+    // Format as single digit decimal number, but skipping the trailing .0.
+    DecimalFormat fmt = new DecimalFormat("0.#");
+    return String.format("%s %s", fmt.format(value / 1024.0), UNITS.get(unitIndex));
   }
 }
