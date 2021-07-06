@@ -553,11 +553,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  public CcLinkingHelper setPdbFile(Artifact pdbFile) {
-    this.pdbFile = pdbFile;
-    return this;
-  }
-
   public CcLinkingHelper setDefFile(Artifact defFile) {
     this.defFile = defFile;
     return this;
@@ -818,6 +813,8 @@ public final class CcLinkingHelper {
     LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
     LinkerInputs.LibraryToLink interfaceLibrary = dynamicLinkAction.getInterfaceOutputLibrary();
 
+    ccLinkingOutputs.addDebugFiles(dynamicLinkActionBuilder.getDebugFiles());
+
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
     // mangled name only.
@@ -857,6 +854,10 @@ public final class CcLinkingHelper {
           libraryToLinkBuilder.setInterfaceLibrary(libraryLinkArtifact);
           libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(interfaceLibrary.getArtifact());
         }
+      }
+      Iterable<Artifact> debugFiles = dynamicLibrary.getDebugFiles();
+      if (debugFiles != null) {
+        libraryToLinkBuilder.setDebugFiles(ImmutableList.copyOf(debugFiles));
       }
     }
     return hasBuiltDynamicLibrary;

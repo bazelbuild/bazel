@@ -75,6 +75,12 @@ public final class CcImportRule implements RuleDefinition {
           this precompiled library to be directly included by sources in dependent rules.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
+            attr("debug_files", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
+        /*<!-- #BLAZE_RULE($cc_import).ATTRIBUTE(debug_files) -->
+          Debug files, such as .pdb, published by this library.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
             attr("hdrs", LABEL_LIST)
                 .orderIndependent()
                 .direct_compile_time_input()

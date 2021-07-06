@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -23,6 +24,8 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+
+import javax.annotation.Nullable;
 
 /** Factory for creating new {@link LinkerInput} objects. */
 public abstract class LinkerInputs {
@@ -168,6 +171,9 @@ public abstract class LinkerInputs {
      * number of LTO backends that can be generated for a single blaze test invocation.
      */
     ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
+
+    @Nullable
+    Iterable<Artifact> getDebugFiles();
   }
 
   /**
@@ -267,6 +273,12 @@ public abstract class LinkerInputs {
     @Override
     public boolean disableWholeArchive() {
       return false;
+    }
+
+    @Override
+    public ImmutableList<Artifact> getDebugFiles() {
+      throw new IllegalStateException(
+              "LinkerInputs: does not support getDebugFiles: " + this);
     }
   }
 
@@ -398,7 +410,7 @@ public abstract class LinkerInputs {
       return ltoCompilationContext;
     }
 
-    // @Override
+    @Override
     public Iterable<Artifact> getDebugFiles() {
       return debugFiles;
     }

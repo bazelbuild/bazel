@@ -89,6 +89,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_binary(",
         "  name = 'hello_bin',",
         "  srcs = ['hello_main.cc'],",
+        ")",
+        "cc_binary(",
+        "  name = 'hello_bin_transitive',",
+        "  srcs = ['hello_main_transitive.cc'],",
+        "  deps = [':hello'],",
         ")");
     scratch.file(
         "hello/hello.cc",
@@ -98,6 +103,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "hello/hello_main.cc",
         "#include <stdio.h>",
         "int main() { printf(\"Hello, world!\\n\"); }");
+    scratch.file(
+        "hello/hello_main_transitive.cc",
+        "#include <stdio.h>",
+        "int hello_world();",
+        "int main() { hello_world(); }");
   }
 
   private CppCompileAction getCppCompileAction(String label) throws Exception {
@@ -518,7 +528,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.TARGETS_WINDOWS)
                 .withArtifactNamePatterns(
                     ImmutableList.of("dynamic_library", "", ".dll")));
-    useConfiguration();
+    useConfiguration("--dynamic_mode=fully");
 
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
 
@@ -531,6 +541,87 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(
             artifactsToStrings(getOutputGroup(helloStatic, "debug_files")))
         .isEmpty();
+
+    ConfiguredTarget helloBin = getConfiguredTarget("//hello:hello_bin_transitive");
+
+    assertThat(
+            artifactsToStrings(getOutputGroup(helloBin, "debug_files")))
+        .containsExactly("bin hello/hello_bin_transitive.pdb", "bin hello/hello_9a9972c34e.pdb");
+  }
+
+  @Test
+  public void testDebugFilesCopiedToBinary() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
+                    CppRuleClasses.GENERATE_PDB_FILE,
+                    CppRuleClasses.TARGETS_WINDOWS)
+                .withArtifactNamePatterns(
+                    ImmutableList.of("dynamic_library", "", ".dll"),
+                    ImmutableList.of("executable", "", ".exe")));
+    useConfiguration("--dynamic_mode=fully");
+
+    scratch.file(
+            "a/BUILD",
+            "cc_library(",
+            "    name = 'a',",
+            "    srcs = ['a.h', 'a.cc'],",
+            "    visibility = ['//visibility:public'],",
+            ")");
+
+    scratch.file(
+            "b/BUILD",
+            "cc_binary(",
+            "    name = 'b.dll',",
+            "    srcs = ['a.h', 'a.cc'],",
+            "    linkshared = 1,",
+            ")",
+            "filegroup(",
+            "    name = 'b_interface',",
+            "    srcs = [':b.dll'],",
+            "    output_group = 'interface_library',",
+            ")",
+            "filegroup(",
+            "    name = 'b_debug',",
+            "    srcs = [':b.dll'],",
+            "    output_group = 'debug_files',",
+            ")",
+            "cc_import(",
+            "    name = 'b',",
+            "    shared_library = ':b.dll',",
+            "    interface_library = ':b_interface',",
+            "    debug_files = [':b_debug'],",
+            "    visibility = ['//visibility:public'],",
+            ")");
+
+    scratch.file(
+            "module/BUILD",
+            "cc_binary(",
+            "    name = 'c',",
+            "    srcs = ['b.h', 'a.cc'],",
+            "    deps = ['//a', '//b']",
+            ")");
+
+    ConfiguredTarget b = getConfiguredTarget("//b:b.dll");
+
+    assertThat(
+            artifactsToStrings(getOutputGroup(b, "debug_files")))
+            .containsExactly("bin b/b.pdb");
+
+    ConfiguredTarget bin = getConfiguredTarget("//module:c");
+
+    assertThat(
+            artifactsToStrings(getOutputGroup(bin, "debug_files")))
+        .containsExactly("bin module/c.pdb", "bin module/b.pdb", "bin module/a_c092dd9ce2.pdb");
   }
 
   @Test
