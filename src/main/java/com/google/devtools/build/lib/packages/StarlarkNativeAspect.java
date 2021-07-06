@@ -32,13 +32,14 @@ public abstract class StarlarkNativeAspect extends NativeAspectClass implements 
   }
 
   @Override
-  public void attachToAttribute(
+  public void attachToAspectsList(
       String baseAspectName,
-      Attribute.Builder<?> builder,
+      AspectsListBuilder aspectsList,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
       ImmutableList<String> inheritedAttributeAspects)
       throws EvalException {
-    builder.aspect(this, baseAspectName, inheritedRequiredProviders, inheritedAttributeAspects);
+    aspectsList.addAspect(
+        this, baseAspectName, inheritedRequiredProviders, inheritedAttributeAspects);
   }
 
   @Override

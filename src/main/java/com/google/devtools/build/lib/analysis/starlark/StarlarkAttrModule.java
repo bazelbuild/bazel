@@ -259,10 +259,10 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
       for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
-        aspect.attachToAttribute(
+        aspect.attachToAspectsList(
             /** baseAspectName= */
             null,
-            builder,
+            builder.getAspectsListBuilder(),
             /** inheritedRequiredProviders= */
             ImmutableList.of(),
             /** inheritedAttributeAspects= */

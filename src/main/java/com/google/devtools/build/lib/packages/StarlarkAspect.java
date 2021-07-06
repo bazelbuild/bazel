@@ -24,7 +24,7 @@ import net.starlark.java.eval.EvalException;
 public interface StarlarkAspect extends StarlarkAspectApi {
 
   /**
-   * Attaches this aspect and its required aspects to the given builder.
+   * Attaches this aspect and its required aspects to the given aspects list.
    *
    * <p>Also pass the list of required_providers of the base aspect to its required aspects to
    * ensure that they will be propgataed to the same targets. But whether the required aspects will
@@ -34,17 +34,17 @@ public interface StarlarkAspect extends StarlarkAspectApi {
    * ensure that they will be propagated with it along the same attributes.
    *
    * @param baseAspectName is the name of the base aspect requiring this aspect, can be {@code null}
-   *     if the aspect is directly listed in the attribute aspects list
-   * @param builder is the builder of the attribute to add this aspect to
+   *     if the aspect is directly listed in the aspects list
+   * @param aspectsListBuilder is the list to add this aspect to
    * @param inheritedRequiredProviders is the list of required providers inherited from the aspect
    *     parent aspects
    * @param inheritedAttributeAspects is the list of attribute aspects inherited from the aspect
    *     parent aspects
    * @throws EvalException if this aspect cannot be successfully applied to the given attribute
    */
-  void attachToAttribute(
+  void attachToAspectsList(
       String baseAspectName,
-      Attribute.Builder<?> builder,
+      AspectsListBuilder aspectsListBuilder,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
       ImmutableList<String> inheritedAttributeAspects)
       throws EvalException;
