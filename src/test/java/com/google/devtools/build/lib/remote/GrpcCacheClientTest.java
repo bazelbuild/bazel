@@ -391,7 +391,12 @@ public class GrpcCacheClientTest {
     result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        /* outputFilesLocker= */ () -> {},
+        progress -> {});
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
@@ -416,7 +421,12 @@ public class GrpcCacheClientTest {
     result.addOutputFilesBuilder().setPath("main/b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("main/a/bar").setDigest(barDigest).setIsExecutable(true);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        /* outputFilesLocker= */ () -> {},
+        progress -> {});
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
@@ -453,7 +463,12 @@ public class GrpcCacheClientTest {
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        /* outputFilesLocker= */ () -> {},
+        progress -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/qux"))).isEqualTo(quxDigest);
@@ -475,7 +490,12 @@ public class GrpcCacheClientTest {
     ActionResult.Builder result = ActionResult.newBuilder();
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        /* outputFilesLocker= */ () -> {},
+        progress -> {});
 
     assertThat(execRoot.getRelative("a/bar").isDirectory()).isTrue();
   }
@@ -518,7 +538,12 @@ public class GrpcCacheClientTest {
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputDirectoriesBuilder().setPath("a/bar").setTreeDigest(barTreeDigest);
     remoteCache.download(
-        context, remotePathResolver, result.build(), null, /* outputFilesLocker= */ () -> {});
+        context,
+        remotePathResolver,
+        result.build(),
+        null,
+        /* outputFilesLocker= */ () -> {},
+        progress -> {});
 
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(DIGEST_UTIL.compute(execRoot.getRelative("a/bar/wobble/qux"))).isEqualTo(quxDigest);

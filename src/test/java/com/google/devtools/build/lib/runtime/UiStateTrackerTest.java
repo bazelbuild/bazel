@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -581,6 +582,92 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Output should mention strategy '" + strategy + "', but was: " + output)
         .that(output.contains(strategy))
         .isTrue();
+  }
+
+  private Action createDummyAction(String progressMessage) {
+    String primaryOutput = "some/path/to/a/file";
+    Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
+    Artifact artifact =
+        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
+    Action action = mockAction(progressMessage, primaryOutput);
+    when(action.getOwner()).thenReturn(mock(ActionOwner.class));
+    when(action.getPrimaryOutput()).thenReturn(artifact);
+    return action;
+  }
+
+  @Test
+  public void actionProgress_visible() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("action progress");
+  }
+
+  @Test
+  public void actionProgress_withTooSmallWidth_progressSkipped() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 30);
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).doesNotContain("action progress");
+  }
+
+  @Test
+  public void actionProgress_withSmallWidth_progressShortened() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 50);
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id", "action progress", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("action pro...");
+  }
+
+  @Test
+  public void actionProgress_multipleProgress_displayInOrder() throws Exception {
+    // arrange
+    ManualClock clock = new ManualClock();
+    Action action = createDummyAction("Some random action");
+    UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id1", "action progress 1", false));
+    stateTracker.actionProgress(
+        ActionProgressEvent.create(action, "action-id2", "action progress 2", false));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    // act
+    stateTracker.writeProgressBar(terminalWriter);
+
+    // assert
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("action progress 1");
+    assertThat(output).doesNotContain("action progress 2");
   }
 
   @Test
