@@ -277,8 +277,7 @@ public abstract class LinkerInputs {
 
     @Override
     public ImmutableList<Artifact> getDebugFiles() {
-      throw new IllegalStateException(
-              "LinkerInputs: does not support getDebugFiles: " + this);
+      return null;
     }
   }
 
