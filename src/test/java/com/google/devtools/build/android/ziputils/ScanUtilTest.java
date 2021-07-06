@@ -80,7 +80,8 @@ public class ScanUtilTest {
   private void assertLocation(byte[] target, byte[] domain, int expected) {
     int pos = ScanUtil.scanTo(target, domain != null ? ByteBuffer.wrap(domain) : null);
     assertWithMessage("Position of " + Arrays.toString(target) + " in " + Arrays.toString(domain))
-        .that(expected).isEqualTo(pos);
+        .that(pos)
+        .isEqualTo(expected);
   }
 
   private void assertBackwardsLocation(byte[] target, byte[] domain, int expected) {
@@ -90,8 +91,16 @@ public class ScanUtilTest {
       buf.position(buf.limit());
     }
     int pos = ScanUtil.scanBackwardsTo(target, buf);
-    assertWithMessage("Position of " + Arrays.toString(target) + " in " + Arrays.toString(domain)
-        + ", " + buf.position() + ", " + buf.limit())
-        .that(expected).isEqualTo(pos);
+    assertWithMessage(
+            "Position of "
+                + Arrays.toString(target)
+                + " in "
+                + Arrays.toString(domain)
+                + ", "
+                + buf.position()
+                + ", "
+                + buf.limit())
+        .that(pos)
+        .isEqualTo(expected);
   }
 }

@@ -115,12 +115,30 @@ class FakeFileSystem extends FileSystem  {
     }
 
     @Override
+    public int read(ByteBuffer dst, long position) throws IOException {
+      if (position < 0 || position >= data.length) {
+        throw new IOException("out of bounds");
+      }
+      int remaining = data.length - (int) position;
+      if (dst.remaining() < remaining) {
+        remaining = dst.remaining();
+      }
+      dst.put(data, (int) position, remaining);
+      return remaining;
+    }
+
+    @Override
     public int write(ByteBuffer src) throws IOException {
       throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
     public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public int write(ByteBuffer src, long position) throws IOException {
       throw new UnsupportedOperationException("Not supported yet.");
     }
 
@@ -159,24 +177,6 @@ class FakeFileSystem extends FileSystem  {
     @Override
     public long transferFrom(ReadableByteChannel src, long position, long count)
         throws IOException {
-      throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public int read(ByteBuffer dst, long position) throws IOException {
-      if (position < 0 || position >= data.length) {
-        throw new IOException("out of bounds");
-      }
-      int remaining = data.length - (int) position;
-      if (dst.remaining() < remaining) {
-        remaining = dst.remaining();
-      }
-      dst.put(data, (int) position, remaining);
-      return remaining;
-    }
-
-    @Override
-    public int write(ByteBuffer src, long position) throws IOException {
       throw new UnsupportedOperationException("Not supported yet.");
     }
 
@@ -228,6 +228,11 @@ class FakeFileSystem extends FileSystem  {
     }
 
     @Override
+    public int read(ByteBuffer dst, long position) throws IOException {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
     public int write(ByteBuffer src) throws IOException {
       byte[] bytes = new byte[src.remaining()];
       src.get(bytes);
@@ -238,6 +243,11 @@ class FakeFileSystem extends FileSystem  {
 
     @Override
     public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
+      throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public int write(ByteBuffer src, long position) throws IOException {
       throw new UnsupportedOperationException("Not supported yet.");
     }
 
@@ -275,16 +285,6 @@ class FakeFileSystem extends FileSystem  {
     @Override
     public long transferFrom(ReadableByteChannel src, long position, long count)
         throws IOException {
-      throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public int read(ByteBuffer dst, long position) throws IOException {
-      throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public int write(ByteBuffer src, long position) throws IOException {
       throw new UnsupportedOperationException("Not supported yet.");
     }
 
