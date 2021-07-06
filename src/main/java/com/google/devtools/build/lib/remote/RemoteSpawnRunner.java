@@ -249,7 +249,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-              result = remoteExecutionService.execute(action, useCachedResult.get(), reporter);
+              result = remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }
             // In case of replies from server contains metadata, but none of them has EXECUTING
             // status.

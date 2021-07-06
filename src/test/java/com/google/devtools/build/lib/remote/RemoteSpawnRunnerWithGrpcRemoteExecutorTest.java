@@ -306,7 +306,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteOptions,
             remoteCache,
             executor,
-            /* filesToDownload= */ ImmutableSet.of());
+            /* filesToDownload= */ ImmutableSet.of(),
+            /* captureCorruptedOutputsDir= */ null);
     client =
         new RemoteSpawnRunner(
             execRoot,

@@ -46,13 +46,20 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   private final Spawn spawn;
   private final MetadataProvider metadataProvider;
+  private final MetadataInjector metadataInjector;
   private final Path execRoot;
   private final FileOutErr outErr;
   private final ClassToInstanceMap<ActionContext> actionContextRegistry;
 
   public FakeSpawnExecutionContext(
       Spawn spawn, MetadataProvider metadataProvider, Path execRoot, FileOutErr outErr) {
-    this(spawn, metadataProvider, execRoot, outErr, ImmutableClassToInstanceMap.of());
+    this(
+        spawn,
+        metadataProvider,
+        execRoot,
+        outErr,
+        ImmutableClassToInstanceMap.of(),
+        ActionsTestUtil.THROWING_METADATA_HANDLER);
   }
 
   public FakeSpawnExecutionContext(
@@ -61,11 +68,28 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
       Path execRoot,
       FileOutErr outErr,
       ClassToInstanceMap<ActionContext> actionContextRegistry) {
+    this(
+        spawn,
+        metadataProvider,
+        execRoot,
+        outErr,
+        actionContextRegistry,
+        ActionsTestUtil.THROWING_METADATA_HANDLER);
+  }
+
+  public FakeSpawnExecutionContext(
+      Spawn spawn,
+      MetadataProvider metadataProvider,
+      Path execRoot,
+      FileOutErr outErr,
+      ClassToInstanceMap<ActionContext> actionContextRegistry,
+      MetadataInjector metadataInjector) {
     this.spawn = spawn;
     this.metadataProvider = metadataProvider;
     this.execRoot = execRoot;
     this.outErr = outErr;
     this.actionContextRegistry = actionContextRegistry;
+    this.metadataInjector = metadataInjector;
   }
 
   public boolean isLockOutputFilesCalled() {
@@ -126,7 +150,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public MetadataInjector getMetadataInjector() {
-    return ActionsTestUtil.THROWING_METADATA_HANDLER;
+    return metadataInjector;
   }
 
   @Override
