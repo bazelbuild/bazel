@@ -701,6 +701,21 @@ final class UiStateTracker {
     return message.append(allReported ? "]" : postfix).toString();
   }
 
+  private String describeActionProgress(ActionState actionState) {
+    if (actionState.runningProgress.isEmpty()) {
+      return "";
+    }
+
+    String id = actionState.runningProgress.getFirst();
+    ActionProgressEvent event = actionState.progresses.get(id);
+    String message = event.progress();
+    if (message.isEmpty()) {
+      message = id;
+    }
+
+    return "; " + message;
+  }
+
   // Describe an action by a string of the desired length; if describing that action includes
   // describing other actions, add those to the to set of actions to skip in further samples of
   // actions.
@@ -754,9 +769,18 @@ final class UiStateTracker {
       message = action.prettyPrint();
     }
 
+    String progress = describeActionProgress(actionState);
+
     if (desiredWidth <= 0) {
-      return prefix + message + postfix;
+      return prefix + message + progress + postfix;
     }
+
+    if (prefix.length() + message.length() + progress.length() + postfix.length() <= desiredWidth) {
+      return prefix + message + progress + postfix;
+    }
+
+    // We have to skip the progress to fit into the line.
+
     if (prefix.length() + message.length() + postfix.length() <= desiredWidth) {
       return prefix + message + postfix;
     }
@@ -905,12 +929,6 @@ final class UiStateTracker {
       terminalWriter
           .newline()
           .append("    " + describeAction(actionState, nanoTime, width, toSkip));
-      reportActionProgresses(
-          terminalWriter,
-          actionState,
-          "        ",
-          nanoTime,
-          targetWidth - ((hasMore ? AND_MORE.length() : 0)));
     }
     if (totalCount < actualObservedActiveActionsCount) {
       terminalWriter.append(AND_MORE);
@@ -1123,63 +1141,6 @@ final class UiStateTracker {
     }
   }
 
-  private void reportOneActionProgress(
-      AnsiTerminalWriter terminalWriter,
-      ActionState actionState,
-      String leftMargin,
-      long nanoTime,
-      int width,
-      String id,
-      String suffix)
-      throws IOException {
-    ActionProgressEvent download = actionState.progresses.get(id);
-    long nanoDownloadTime = nanoTime - actionState.progressNanoStartTimes.get(id);
-    long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
-
-    String progress = download.progress();
-    if (progress.isEmpty()) {
-      progress = id;
-    }
-
-    if (downloadSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
-      suffix = "; " + downloadSeconds + "s" + suffix;
-    }
-
-    int remainingWidth = width - leftMargin.length() - suffix.length();
-    if (remainingWidth < progress.length()) {
-      progress = progress.substring(0, remainingWidth - ELLIPSIS.length()) + ELLIPSIS;
-    }
-
-    terminalWriter
-        .newline()
-        .append(leftMargin)
-        .append(progress)
-        .append(suffix);
-  }
-
-  private void reportActionProgresses(
-      AnsiTerminalWriter terminalWriter, ActionState actionState, String leftMargin, long nanoTime, int width)
-      throws IOException {
-    int count = 0;
-    int progressCount = actionState.runningProgress.size();
-    String suffix = AND_MORE + " (" + progressCount + " progresses)";
-    int sampleSize = 1;
-    for (String id : actionState.runningProgress) {
-      if (count >= sampleSize) {
-        break;
-      }
-      count++;
-      reportOneActionProgress(
-          terminalWriter,
-          actionState,
-          leftMargin,
-          nanoTime,
-          width,
-          id,
-          (count >= sampleSize && count < progressCount) ? suffix : "");
-    }
-  }
-
   synchronized void writeProgressBar(
       AnsiTerminalWriter rawTerminalWriter, boolean shortVersion, String timestamp)
       throws IOException {
@@ -1256,9 +1217,6 @@ final class UiStateTracker {
         String statusMessage =
             describeAction(oldestAction, nanoTime, targetWidth - 4, null);
         terminalWriter.normal().newline().append("    " + statusMessage);
-        if (!shortVersion) {
-          reportActionProgresses(terminalWriter, oldestAction, "        ", nanoTime, targetWidth);
-        }
       } else {
         long nanoTime = clock.nanoTime();
         String statusMessage =
@@ -1268,9 +1226,6 @@ final class UiStateTracker {
                 targetWidth - terminalWriter.getPosition() - 1,
                 null);
         terminalWriter.normal().append(" " + statusMessage);
-        if (!shortVersion) {
-          reportActionProgresses(terminalWriter, oldestAction, "    ", nanoTime, targetWidth);
-        }
       }
     } else {
       if (shortVersion) {

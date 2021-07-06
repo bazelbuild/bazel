@@ -96,7 +96,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -321,37 +322,45 @@ public class RemoteCache implements AutoCloseable {
   }
 
   static class DownloadProgressReporter {
+    private static final Pattern PATTERN = Pattern.compile("^bazel-out/[^/]+/[^/]+/");
     private final Consumer<ProgressStatus> reporter;
     private final String id;
+    private final String file;
     private final String totalSize;
     private AtomicLong downloadedBytes = new AtomicLong(0);
 
-    DownloadProgressReporter(Consumer<ProgressStatus> reporter, String id, long totalSize) {
+    DownloadProgressReporter(Consumer<ProgressStatus> reporter, String file, long totalSize) {
       this.reporter = reporter;
-      this.id = id;
+      this.id = file;
       this.totalSize = bytesCountToDisplayString(totalSize);
+
+      Matcher matcher = PATTERN.matcher(file);
+      this.file = matcher.replaceFirst("");
     }
 
     public void started() {
-      reportProgress(false);
+      reportProgress(false, false);
     }
 
     public void downloadedBytes(int count) {
       downloadedBytes.addAndGet(count);
-      reportProgress(false);
+      reportProgress(true, false);
     }
 
     public void finished() {
-      reportProgress(true);
+      reportProgress(true, true);
     }
 
-    private void reportProgress(boolean finished) {
-      String progress =
-          String.format(
-              "Downloading %s [%s / %s]",
-              id,
-              bytesCountToDisplayString(downloadedBytes.get()),
-              totalSize);
+    private void reportProgress(boolean includeBytes, boolean finished) {
+      String progress;
+      if (includeBytes) {
+        progress =
+            String.format(
+                "Downloading %s, %s / %s",
+                file, bytesCountToDisplayString(downloadedBytes.get()), totalSize);
+      } else {
+        progress = String.format("Downloading %s", file);
+      }
       reporter.accept(SpawnProgressEvent.create(id, progress, finished));
     }
   }
