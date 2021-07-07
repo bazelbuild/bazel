@@ -25,6 +25,10 @@ public class Checksum {
     private InvalidChecksumException(KeyType keyType, String hash) {
       super("Invalid " + keyType + " checksum '" + hash + "'");
     }
+
+    private InvalidChecksumException(String msg) {
+      super(msg);
+    }
   }
 
   private final KeyType keyType;
@@ -73,14 +77,14 @@ public class Checksum {
     }
 
     if (keyType == null) {
-      throw new IllegalArgumentException(
+      throw new InvalidChecksumException(
           "Unsupported checksum algorithm: '"
               + integrity
               + "' (expected SHA-1, SHA-256, SHA-384, or SHA-512)");
     }
 
     if (hash.length != expectedLength) {
-      throw new IllegalArgumentException(
+      throw new InvalidChecksumException(
           "Invalid " + keyType + " SRI checksum '" + integrity + "'");
     }
 

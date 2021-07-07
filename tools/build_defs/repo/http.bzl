@@ -116,11 +116,14 @@ def _http_archive_impl(ctx):
         ctx.attr.strip_prefix,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
+        integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
-    patch(ctx)
+    patch(ctx, auth = auth)
 
-    return update_attrs(ctx.attr, _http_archive_attrs.keys(), {"sha256": download_info.sha256})
+    # We don't need to override the sha256 attribute if integrity is already specified.
+    sha256_override = {} if ctx.attr.integrity else {"sha256": download_info.sha256}
+    return update_attrs(ctx.attr, _http_archive_attrs.keys(), sha256_override)
 
 _HTTP_FILE_BUILD = """
 package(default_visibility = ["//visibility:public"])
@@ -227,7 +230,15 @@ If all downloads fail, the rule will fail.""",
 This must match the SHA-256 of the file downloaded. _It is a security risk
 to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
-easier but should be set before shipping.""",
+easier but either this attribute or `integrity` should be set before shipping.""",
+    ),
+    "integrity": attr.string(
+        doc = """Expected checksum in Subresource Integrity format of the file downloaded.
+
+This must match the checksum of the file downloaded. _It is a security risk
+to omit the checksum as remote files can change._ At best omitting this
+field will make your build non-hermetic. It is optional to make development
+easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
@@ -279,6 +290,19 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
     ),
+    "remote_patches": attr.string_dict(
+        default = {},
+        doc =
+            "A map of patch file URL to its integrity value, they are applied after extracting " +
+            "the archive and before applying patch files from the `patches` attribute. " +
+            "It uses the Bazel-native patch implementation, you can specify the patch strip " +
+            "number with `remote_patch_strip`",
+    ),
+    "remote_patch_strip": attr.int(
+        default = 0,
+        doc =
+            "The number of leading slashes to be stripped from the file name in the remote patches.",
+    ),
     "patch_tool": attr.string(
         default = "",
         doc = "The patch(1) utility to use. If this is specified, Bazel will use the specifed " +
@@ -293,7 +317,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "If arguments other than -p are specified, Bazel will fall back to use patch " +
             "command line tool instead of the Bazel-native patch implementation. When falling " +
             "back to patch command line tool and patch_tool attribute is not specified, " +
-            "`patch` will be used.",
+            "`patch` will be used. This only affects patch files in the `patches` attribute.",
     ),
     "patch_cmds": attr.string_list(
         default = [],
