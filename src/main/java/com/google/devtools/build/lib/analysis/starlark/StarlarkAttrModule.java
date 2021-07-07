@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
@@ -55,6 +56,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -447,9 +449,25 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
+      Object flagsObject, // Sequence<String> expected
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.label");
+
+    if (flagsObject != Starlark.UNBOUND) {
+      Label label =
+          ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+              .label();
+      if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+        throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+      }
+    }
+    @SuppressWarnings("unchecked")
+    Sequence<String> flags =
+        flagsObject == Starlark.UNBOUND
+            ? StarlarkList.immutableOf()
+            : ((Sequence<String>) flagsObject);
+
     ImmutableAttributeFactory attribute =
         createAttributeFactory(
             BuildType.LABEL,
@@ -472,7 +490,9 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 CONFIGURATION_ARG,
                 cfg,
                 ASPECTS_ARG,
-                aspects),
+                aspects,
+                FLAGS_ARG,
+                flags),
             thread,
             "label");
     return new Descriptor("label", attribute);

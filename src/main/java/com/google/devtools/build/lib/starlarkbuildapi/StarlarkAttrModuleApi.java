@@ -327,6 +327,14 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             named = true,
             positional = false,
             doc = ASPECTS_ARG_DOC),
+        @Param(
+            name = FLAGS_ARG,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            documented = false,
+            doc = FLAGS_DOC)
       },
       useStarlarkThread = true)
   Descriptor labelAttribute(
@@ -340,6 +348,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
+      Object flags, // Sequence<String> expected
       StarlarkThread thread)
       throws EvalException;
 
