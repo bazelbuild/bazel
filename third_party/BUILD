@@ -349,7 +349,7 @@ distrib_java_import(
 
 java_import(
     name = "caffeine",
-    jars = ["caffeine/caffeine-2.8.5.jar"],
+    jars = ["caffeine/caffeine-2.9.2.jar"],
 )
 
 java_import(
