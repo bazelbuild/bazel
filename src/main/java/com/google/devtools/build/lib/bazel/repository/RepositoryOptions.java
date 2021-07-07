@@ -47,6 +47,18 @@ public class RepositoryOptions extends OptionsBase {
   public PathFragment experimentalRepositoryCache;
 
   @Option(
+      name = "registry",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Specifies the registries to use to locate Bazel module dependencies. The order is"
+              + " important: modules will be looked up in earlier registries first, and only fall"
+              + " back to later registries when they're missing from the earlier ones.")
+  public List<String> registries;
+
+  @Option(
       name = "experimental_repository_cache_hardlinks",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,

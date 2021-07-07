@@ -25,6 +25,11 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.bazel.bzlmod.DiscoveryFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
+import com.google.devtools.build.lib.bazel.bzlmod.SelectionFunction;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
@@ -87,6 +92,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -97,6 +103,10 @@ import java.util.stream.Collectors;
 public class BazelRepositoryModule extends BlazeModule {
   // Default location (relative to output user root) of the repository cache.
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
+
+  // Default list of registries.
+  public static final ImmutableList<String> DEFAULT_REGISTRIES =
+      ImmutableList.of("https://bcr.bazel.build/");
 
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
@@ -115,6 +125,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private Set<String> outputVerificationRules = ImmutableSet.of();
   private FileSystem filesystem;
+  private List<String> registries;
   // We hold the precomputed value of the managed directories here, so that the dependency
   // on WorkspaceFileValue is not registered for each FileStateValue.
   private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
@@ -202,6 +213,13 @@ public class BazelRepositoryModule extends BlazeModule {
             managedDirectoriesKnowledge,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     builder.addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction);
+    RegistryFactory registryFactory =
+        new RegistryFactoryImpl(new HttpDownloader(), clientEnvironmentSupplier);
+    builder.addSkyFunction(
+        SkyFunctions.MODULE_FILE,
+        new ModuleFileFunction(registryFactory, directories.getWorkspace()));
+    builder.addSkyFunction(SkyFunctions.DISCOVERY, new DiscoveryFunction());
+    builder.addSkyFunction(SkyFunctions.SELECTION, new SelectionFunction());
     filesystem = runtime.getFileSystem();
   }
 
@@ -335,6 +353,12 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
+      if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
+        registries = repoOptions.registries;
+      } else {
+        registries = DEFAULT_REGISTRIES;
+      }
+
       if (!Strings.isNullOrEmpty(repoOptions.repositoryHashFile)) {
         Path hashFile;
         if (env.getWorkspace() != null) {
@@ -394,7 +418,8 @@ public class BazelRepositoryModule extends BlazeModule {
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
-            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
+            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries));
   }
 
   @Override
