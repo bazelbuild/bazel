@@ -375,9 +375,9 @@ public class BuildRequest implements OptionsProvider {
   }
 
   public ImmutableList<String> getAspects() {
-    ImmutableList.Builder<String> result =
-        ImmutableList.<String>builder().addAll(getBuildOptions().aspects);
-    if (useValidationAspect()) {
+    List<String> aspects = getBuildOptions().aspects;
+    ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(aspects);
+    if (!aspects.contains(VALIDATION_ASPECT_NAME) && useValidationAspect()) {
       result.add(VALIDATION_ASPECT_NAME);
     }
     return result.build();

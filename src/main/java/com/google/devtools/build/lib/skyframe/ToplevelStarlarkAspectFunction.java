@@ -23,12 +23,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectsListBuilder;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
-import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
-import com.google.devtools.build.lib.packages.StarlarkNativeAspect;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.LoadStarlarkAspectFunction.StarlarkAspectLoadingKey;
@@ -40,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * SkyFunction to load top level aspects, build the dependency relation between them based on the
@@ -59,8 +58,15 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
       throws TopLevelStarlarkAspectFunctionException, InterruptedException {
     TopLevelAspectsKey topLevelAspectsKey = (TopLevelAspectsKey) skyKey.argument();
 
-    ImmutableList<Aspect> topLevelAspects =
-        getTopLevelAspects(env, topLevelAspectsKey.getTopLevelAspectsClasses());
+    ImmutableList<Aspect> topLevelAspects;
+    try {
+      topLevelAspects = getTopLevelAspects(env, topLevelAspectsKey.getTopLevelAspectsClasses());
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getMessage()));
+      throw new TopLevelStarlarkAspectFunctionException(
+          new AspectCreationException(e.getMessage(), topLevelAspectsKey.getLabel()));
+    }
+
     if (topLevelAspects == null) {
       return null; // some aspects are not loaded
     }
@@ -94,8 +100,8 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
   @Nullable
   private static ImmutableList<Aspect> getTopLevelAspects(
       Environment env, ImmutableList<AspectClass> topLevelAspectsClasses)
-      throws InterruptedException {
-    ImmutableList.Builder<Aspect> topLevelAspects = ImmutableList.builder();
+      throws InterruptedException, EvalException {
+    AspectsListBuilder aspectsList = new AspectsListBuilder();
 
     ImmutableList.Builder<StarlarkAspectLoadingKey> aspectLoadingKeys = ImmutableList.builder();
     for (AspectClass aspectClass : topLevelAspectsClasses) {
@@ -119,26 +125,20 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
                     LoadStarlarkAspectFunction.createStarlarkAspectLoadingKey(
                         (StarlarkAspectClass) aspectClass));
         StarlarkAspect starlarkAspect = aspectLoadingValue.getAspect();
-        if (starlarkAspect instanceof StarlarkDefinedAspect) {
-          StarlarkDefinedAspect starlarkDefinedAspect = (StarlarkDefinedAspect) starlarkAspect;
-          topLevelAspects.add(
-              Aspect.forStarlark(
-                  starlarkDefinedAspect.getAspectClass(),
-                  starlarkDefinedAspect.getDefinition(AspectParameters.EMPTY),
-                  AspectParameters.EMPTY,
-                  /** inheritedRequiredProviders = */
-                  null,
-                  /** inheritedAttributeAspects = */
-                  null));
-        } else {
-          topLevelAspects.add(Aspect.forNative(((StarlarkNativeAspect) starlarkAspect)));
-        }
+        starlarkAspect.attachToAspectsList(
+            /** baseAspectName= */
+            null,
+            aspectsList,
+            /** inheritedRequiredProviders= */
+            ImmutableList.of(),
+            /** inheritedAttributeAspects= */
+            ImmutableList.of());
       } else {
-        topLevelAspects.add(Aspect.forNative((NativeAspectClass) aspectClass));
+        aspectsList.addAspect((NativeAspectClass) aspectClass);
       }
     }
 
-    return topLevelAspects.build();
+    return aspectsList.buildAspects();
   }
 
   private static ImmutableList<AspectKey> getTopLevelAspectsKeys(

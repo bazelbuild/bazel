@@ -5049,7 +5049,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testTopLevelAspectOnAspect_invalidAspectsCycle() throws Exception {
+  public void testTopLevelAspectOnAspect_duplicateAspectsFailed() throws Exception {
     scratch.file(
         "test/defs.bzl",
         "a2p = provider()",
@@ -5117,9 +5117,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
                   ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2", "test/defs.bzl%a1"),
                   "//test:main"));
     }
-    assertContainsEvent(
-        "Aspect //test:defs.bzl%a1 is applied twice, both before and after aspect"
-            + " //test:defs.bzl%a2");
+    assertContainsEvent("aspect //test:defs.bzl%a1 added more than once");
   }
 
   /**
