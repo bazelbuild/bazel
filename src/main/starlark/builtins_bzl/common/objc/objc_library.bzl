@@ -15,12 +15,15 @@
 """objc_library Starlark implementation replacing native"""
 
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
+load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
+load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 
 objc_internal = _builtins.internal.objc_internal
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 transition = _builtins.toplevel.transition
+coverage_common = _builtins.toplevel.coverage_common
 
 def _rule_error(msg):
     fail(msg)
@@ -32,27 +35,10 @@ def _validate_attributes(ctx):
     if ctx.label.name.find("/") != -1:
         _attribute_error("name", "this attribute has unsupported character '/'")
 
-def _create_common(ctx):
-    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
-    intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
-    compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
-    common = objc_internal.create_common(
-        purpose = "COMPILE_AND_LINK",
-        ctx = ctx,
-        compilation_attributes = compilation_attributes,
-        compilation_artifacts = compilation_artifacts,
-        deps = ctx.attr.deps,
-        runtime_deps = ctx.attr.runtime_deps,
-        intermediate_artifacts = intermediate_artifacts,
-        alwayslink = ctx.attr.alwayslink,
-        has_module_map = True,
-    )
-    return (common, compilation_artifacts)
-
-def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, compilation_artifacts, compilation_attributes):
+def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, common_variables):
     libraries = []
-    if compilation_artifacts.archive != None:
-        library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, compilation_artifacts.archive)
+    if common_variables.compilation_artifacts.archive != None:
+        library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, common_variables.compilation_artifacts.archive)
         libraries.append(library_to_link)
 
     libraries.extend(objc_provider.cc_library.to_list())
@@ -116,39 +102,56 @@ def _to_static_library(
 
 def _objc_library_impl(ctx):
     _validate_attributes(ctx)
-    (common, compilation_artifacts) = _create_common(ctx)
+
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+
+    (objc_common, common_variables) = compilation_support.build_common_variables(
+        ctx,
+        cc_toolchain,
+        True,
+        False,
+        False,
+        False,
+        ctx.attr.deps,
+        ctx.attr.runtime_deps,
+        [],
+    )
     files = []
-    if common.compiled_archive != None:
-        files.append(common.compiled_archive)
-    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
-    compilation_support = objc_internal.create_compilation_support(
-        ctx = ctx,
-        semantics = semantics.get_semantics(),
-        compilation_attributes = compilation_attributes,
+    if objc_common.compiled_archive != None:
+        files.append(objc_common.compiled_archive)
+
+    (cc_compilation_context, compilation_outputs, output_group_info) = compilation_support.register_compile_and_archive_actions(
+        common_variables,
+        [],
+        [],
     )
 
-    compilation_support.register_compile_and_archive_actions(common = common)
-    compilation_support.validate_attributes()
+    compilation_support.validate_attributes(common_variables)
 
     j2objc_providers = objc_internal.j2objc_providers_from_deps(ctx = ctx)
 
-    objc_provider = common.objc_provider
-    feature_configuration = compilation_support.feature_configuration
-    cc_toolchain = compilation_support.cc_toolchain
-    linking_context = _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, compilation_artifacts, compilation_attributes)
+    objc_provider = objc_common.objc_provider
+    feature_configuration = compilation_support.build_feature_configuration(common_variables, False, True)
+    linking_context = _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, common_variables)
     cc_info = CcInfo(
-        compilation_context = compilation_support.compilation_context,
+        compilation_context = cc_compilation_context,
         linking_context = linking_context,
+    )
+
+    instrumented_files_info = coverage_common.instrumented_files_info(
+        ctx = ctx,
+        source_attributes = ["srcs", "non_arc_srcs", "hdrs"],
+        dependency_attributes = ["deps", "data", "binary", "xctest_app"],
     )
 
     return [
         DefaultInfo(files = depset(files), data_runfiles = ctx.runfiles(files = files)),
         cc_info,
-        common.objc_provider,
+        objc_provider,
         j2objc_providers[0],
         j2objc_providers[1],
-        compilation_support.instrumented_files_info,
-        compilation_support.output_group_info,
+        instrumented_files_info,
+        output_group_info,
     ]
 
 def _cpu_string(platform_type, settings):
