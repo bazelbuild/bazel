@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -32,6 +34,8 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Provides a way to access attributes that are common to all compilation rules. */
@@ -342,6 +346,11 @@ final class CompilationAttributes implements StarlarkValue {
     return this.hdrs;
   }
 
+  @StarlarkMethod(name = "hdrs", documented = false, structField = true)
+  public Depset hdrsForStarlark() {
+    return Depset.of(Artifact.TYPE, hdrs());
+  }
+
   /**
    * Returns the headers that cannot be compiled individually.
    */
@@ -354,6 +363,17 @@ final class CompilationAttributes implements StarlarkValue {
    */
   public NestedSet<PathFragment> includes() {
     return this.includes;
+  }
+
+  @StarlarkMethod(name = "includes", documented = false, structField = true)
+  public Depset includesForStarlark() {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.wrap(
+            Order.COMPILE_ORDER,
+            includes().toList().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
   }
 
   /**
@@ -417,6 +437,11 @@ final class CompilationAttributes implements StarlarkValue {
     return this.copts;
   }
 
+  @StarlarkMethod(name = "copts", documented = false, structField = true)
+  public Sequence<String> getCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(copts());
+  }
+
   /**
    * Returns the link-time options.
    */
@@ -438,6 +463,7 @@ final class CompilationAttributes implements StarlarkValue {
    * Returns whether this target uses language features that require clang modules, such as
    * {@literal @}import.
    */
+  @StarlarkMethod(name = "enable_modules", documented = false, structField = true)
   public boolean enableModules() {
     return this.enableModules;
   }

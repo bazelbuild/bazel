@@ -32,6 +32,7 @@ def _objc_import_impl(ctx):
         alwayslink = ctx.attr.alwayslink,
         has_module_map = True,
         extra_import_libraries = ctx.files.archives,
+        compilation_artifacts = objc_internal.create_compilation_artifacts(),
     )
 
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)

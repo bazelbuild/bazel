@@ -475,6 +475,7 @@ public final class ObjcCommon implements StarlarkValue {
     return objcProvider;
   }
 
+  @StarlarkMethod(name = "objc_compilation_context", documented = false, structField = true)
   public ObjcCompilationContext getObjcCompilationContext() {
     return objcCompilationContext;
   }

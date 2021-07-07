@@ -161,6 +161,8 @@ public abstract class CcModule
       Sequence<?> unsupportedFeatures)
       throws EvalException {
     StarlarkRuleContext ruleContext = nullIfNone(ruleContextOrNone, StarlarkRuleContext.class);
+    ImmutableSet<String> requestedFeaturesSet =
+        ImmutableSet.copyOf(Sequence.cast(requestedFeatures, String.class, "requested_features"));
     ImmutableSet<String> unsupportedFeaturesSet =
         ImmutableSet.copyOf(
             Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
@@ -188,8 +190,8 @@ public abstract class CcModule
       // and that will only be flipped when --incompatible_require_ctx_in_configure_features is
       // flipped.
       buildOptions = ruleContext.getConfiguration().getOptions();
-      // TODO(waltl): add language parameter to configureFeatures so we can get the right semantics.
-      getSemantics()
+      getSemantics(
+              requestedFeatures.contains(CppRuleClasses.LANG_OBJC) ? Language.OBJC : Language.CPP)
           .validateLayeringCheckFeatures(
               ruleContext.getRuleContext(),
               ruleContext.getAspectDescriptor(),
@@ -198,11 +200,7 @@ public abstract class CcModule
     }
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(
-            ImmutableSet.copyOf(
-                Sequence.cast(requestedFeatures, String.class, "requested_features")),
-            unsupportedFeaturesSet,
-            toolchain,
-            cppConfiguration),
+            requestedFeaturesSet, unsupportedFeaturesSet, toolchain, cppConfiguration),
         cppConfiguration,
         buildOptions);
   }
@@ -1947,6 +1945,7 @@ public abstract class CcModule
       Object hdrsCheckingModeObject,
       Object variablesExtension,
       Object languageObject,
+      Object purposeObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     if (checkObjectsBound(
@@ -1956,6 +1955,7 @@ public abstract class CcModule
         propagateModuleMapToCompileActionObject,
         doNotGenerateModuleMapObject,
         codeCoverageEnabledObject,
+        purposeObject,
         hdrsCheckingModeObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
@@ -1995,6 +1995,7 @@ public abstract class CcModule
                         .getFragment(CppConfiguration.class),
                     ccToolchainProvider)
                 .toString());
+    String purpose = convertFromNoneable(purposeObject, null);
 
     List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
     List<Artifact> publicHeaders =
@@ -2017,18 +2018,6 @@ public abstract class CcModule
             CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR,
             CppFileTypes.ASSEMBLER),
         /* allowAnyTreeArtifacts= */ true);
-    validateExtensions(
-        "public_hdrs",
-        publicHeaders,
-        FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        /* allowAnyTreeArtifacts= */ true);
-    validateExtensions(
-        "private_hdrs",
-        privateHeaders,
-        FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        FileTypeSet.of(CppFileTypes.CPP_HEADER),
-        /* allowAnyTreeArtifacts= */ true);
 
     if (disallowNopicOutputs && disallowPicOutputs) {
       throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
@@ -2037,6 +2026,7 @@ public abstract class CcModule
     SourceCategory sourceCategory =
         (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
     CcCommon common = new CcCommon(actions.getRuleContext(), ccToolchainProvider);
+    BuildConfiguration configuration = actions.getActionConstructionContext().getConfiguration();
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 actions.asActionRegistry(actions),
@@ -2052,7 +2042,9 @@ public abstract class CcModule
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()),
-                /* shouldProcessHeaders= */ true)
+                /* shouldProcessHeaders= */ ccToolchainProvider.shouldProcessHeaders(
+                    featureConfiguration.getFeatureConfiguration(),
+                    configuration.getFragment(CppConfiguration.class)))
             .addPublicHeaders(publicHeaders)
             .addPrivateHeaders(privateHeaders)
             .addSources(sources)
@@ -2123,6 +2115,9 @@ public abstract class CcModule
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
+    if (purpose != null) {
+      helper.setPurpose(purpose);
+    }
     try {
       RuleContext ruleContext = actions.getRuleContext();
       CompilationInfo compilationInfo = helper.compile(ruleContext);
@@ -2159,6 +2154,8 @@ public abstract class CcModule
       Object linkerOutputsObject,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
+    // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
+    //  suffix parameter can be removed since we can use `name` for the same thing.
     if (checkObjectsBound(
         linkedArtifactNameSuffixObject,
         neverLinkObject,

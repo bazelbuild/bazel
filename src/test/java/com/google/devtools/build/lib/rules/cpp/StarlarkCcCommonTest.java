@@ -5639,16 +5639,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWrongPrivateHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("private_hdrs");
-  }
-
-  @Test
-  public void testWrongPublicHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("public_hdrs");
-  }
-
-  @Test
   public void testWrongSrcExtensionGivesError() throws Exception {
     createFiles(scratch, "tools/build_defs/foo");
 

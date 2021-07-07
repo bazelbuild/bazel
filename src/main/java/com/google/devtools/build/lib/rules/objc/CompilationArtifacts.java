@@ -19,10 +19,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -127,13 +130,28 @@ final class CompilationArtifacts implements StarlarkValue {
     return srcs;
   }
 
+  @StarlarkMethod(name = "srcs", documented = false, structField = true)
+  public Sequence<Artifact> getSrcsForStarlark() {
+    return StarlarkList.immutableCopyOf(getSrcs());
+  }
+
   Iterable<Artifact> getNonArcSrcs() {
     return nonArcSrcs;
+  }
+
+  @StarlarkMethod(name = "non_arc_srcs", documented = false, structField = true)
+  public Sequence<Artifact> getNonArcSrcsForStarlark() {
+    return StarlarkList.immutableCopyOf(getNonArcSrcs());
   }
 
   /** Returns the public headers that aren't included in the hdrs attribute. */
   NestedSet<Artifact> getAdditionalHdrs() {
     return additionalHdrs;
+  }
+
+  @StarlarkMethod(name = "additional_hdrs", documented = false, structField = true)
+  public Depset getAdditionalHdrsForStarlark() {
+    return Depset.of(Artifact.TYPE, getAdditionalHdrs());
   }
 
   /**
@@ -142,6 +160,11 @@ final class CompilationArtifacts implements StarlarkValue {
    */
   Iterable<Artifact> getPrivateHdrs() {
     return privateHdrs;
+  }
+
+  @StarlarkMethod(name = "private_hdrs", documented = false, structField = true)
+  public Sequence<Artifact> getPrivateHdrsForStarlark() {
+    return StarlarkList.immutableCopyOf(getPrivateHdrs());
   }
 
   /**

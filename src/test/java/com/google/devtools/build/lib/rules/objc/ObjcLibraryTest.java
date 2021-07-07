@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArt
 import static com.google.devtools.build.lib.rules.apple.AppleBitcodeConverter.INVALID_APPLE_BITCODE_OPTION_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
-import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
@@ -310,16 +309,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file("x/a.h", "dummy header file");
     scratch.file("x/BUILD", "objc_library(name = 'Target', srcs = ['a.m', 'a.h'])");
     assertThat(view.hasErrors(getConfiguredTarget("//x:Target"))).isFalse();
-  }
-
-  @Test
-  public void testCreate_warningForOverlappingSrcsAndHdrs() throws Exception {
-    scratch.file("/x/a.h", "dummy header file");
-    checkWarning(
-        "x",
-        "x",
-        String.format(FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT, "x/a.h"),
-        "objc_library(name = 'x', srcs = ['a.h'], hdrs = ['a.h'])");
   }
 
   @Test
@@ -835,21 +824,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCompilationActionsWithCoptFmodulesCachePath() throws Exception {
-    checkWarning("objc", "lib", CompilationSupport.MODULES_CACHE_PATH_WARNING,
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m'],",
-        "    copts = ['-fmodules', '-fmodules-cache-path=foobar']",
-        ")");
-
-    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
-    assertThat(removeConfigFragment(compileActionA.getArguments()))
-        .containsAtLeast(
-            "-fmodules", "-fmodules-cache-path=" + removeConfigFragment(getModulesCachePath()));
-  }
-
-  @Test
   public void testArchiveAction_simulator() throws Exception {
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_cpu=i386");
     createLibraryTargetWriter("//objc:lib")
@@ -1218,11 +1192,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   @Test
   public void testAllowVariousNonBlacklistedTypesInHeaders() throws Exception {
     checkAllowVariousNonBlacklistedTypesInHeaders(RULE_TYPE);
-  }
-
-  @Test
-  public void testWarningForBlacklistedTypesInHeaders() throws Exception {
-    checkWarningForBlacklistedTypesInHeaders(RULE_TYPE);
   }
 
   @Test

@@ -22,6 +22,10 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A collection of compilation information gathered for a particular rule. This is used to generate
@@ -29,7 +33,7 @@ import java.util.List;
  * provider.
  */
 @Immutable
-public final class ObjcCompilationContext {
+public final class ObjcCompilationContext implements StarlarkValue {
   public static final ObjcCompilationContext EMPTY = builder().build();
 
   private final ImmutableList<String> defines;
@@ -76,12 +80,22 @@ public final class ObjcCompilationContext {
     return defines;
   }
 
+  @StarlarkMethod(name = "defines", documented = false, structField = true)
+  public Sequence<String> getDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(getDefines());
+  }
+
   public ImmutableList<Artifact> getPublicHeaders() {
     return publicHeaders;
   }
 
   public ImmutableList<Artifact> getPublicTextualHeaders() {
     return publicTextualHeaders;
+  }
+
+  @StarlarkMethod(name = "public_textual_hdrs", documented = false, structField = true)
+  public Sequence<Artifact> getPublicTextualHeadersForStarlark() {
+    return StarlarkList.immutableCopyOf(getPublicTextualHeaders());
   }
 
   public ImmutableList<Artifact> getPrivateHeaders() {
@@ -92,16 +106,48 @@ public final class ObjcCompilationContext {
     return includes;
   }
 
+  @StarlarkMethod(name = "includes", documented = false, structField = true)
+  public Sequence<String> getIncludesForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getIncludes().stream()
+            .map(PathFragment::getSafePathString)
+            .collect(ImmutableList.toImmutableList()));
+  }
+
   public ImmutableList<PathFragment> getSystemIncludes() {
     return systemIncludes;
+  }
+
+  @StarlarkMethod(name = "system_includes", documented = false, structField = true)
+  public Sequence<String> getSystemIncludesForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getSystemIncludes().stream()
+            .map(PathFragment::getSafePathString)
+            .collect(ImmutableList.toImmutableList()));
   }
 
   public ImmutableList<PathFragment> getQuoteIncludes() {
     return quoteIncludes;
   }
 
+  @StarlarkMethod(name = "quote_includes", documented = false, structField = true)
+  public Sequence<String> getQuoteIncludesForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getQuoteIncludes().stream()
+            .map(PathFragment::getSafePathString)
+            .collect(ImmutableList.toImmutableList()));
+  }
+
   public ImmutableList<PathFragment> getStrictDependencyIncludes() {
     return strictDependencyIncludes;
+  }
+
+  @StarlarkMethod(name = "strict_dependency_includes", documented = false, structField = true)
+  public Sequence<String> getStrictDependencyIncludesForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getStrictDependencyIncludes().stream()
+            .map(PathFragment::getSafePathString)
+            .collect(ImmutableList.toImmutableList()));
   }
 
   public ImmutableList<CcCompilationContext> getDirectCcCompilationContexts() {
@@ -110,6 +156,11 @@ public final class ObjcCompilationContext {
 
   public ImmutableList<CcCompilationContext> getCcCompilationContexts() {
     return ccCompilationContexts;
+  }
+
+  @StarlarkMethod(name = "cc_compilation_contexts", documented = false, structField = true)
+  public Sequence<CcCompilationContext> getCcCompilationContextsForStarlark() {
+    return StarlarkList.immutableCopyOf(getCcCompilationContexts());
   }
 
   public CcCompilationContext createCcCompilationContext() {

@@ -135,10 +135,24 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       name = "create_compilation_artifacts",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true),
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = StarlarkRuleContext.class),
+              @ParamType(type = NoneType.class)
+            }),
       })
-  public CompilationArtifacts createCompilationArtifacts(StarlarkRuleContext starlarkRuleContext) {
-    return CompilationSupport.compilationArtifacts(starlarkRuleContext.getRuleContext());
+  public CompilationArtifacts createCompilationArtifacts(Object starlarkRuleContextObject) {
+    StarlarkRuleContext starlarkRuleContext =
+        convertFromNoneable(starlarkRuleContextObject, /* defaultValue= */ null);
+    if (starlarkRuleContext != null) {
+      return CompilationSupport.compilationArtifacts(starlarkRuleContext.getRuleContext());
+    } else {
+      return new CompilationArtifacts.Builder().build();
+    }
   }
 
   @StarlarkMethod(
@@ -183,15 +197,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
             positional = false,
             defaultValue = "[]",
             named = true),
-        @Param(
-            name = "compilation_artifacts",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = CompilationArtifacts.class),
-              @ParamType(type = NoneType.class)
-            })
+        @Param(name = "compilation_artifacts", positional = false, named = true)
       })
   public ObjcCommon createObjcCommon(
       StarlarkRuleContext starlarkRuleContext,
@@ -203,10 +209,8 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       boolean alwayslink,
       boolean hasModuleMap,
       Sequence<?> extraImportLibraries,
-      Object compilationArtifactsObject)
+      CompilationArtifacts compilationArtifacts)
       throws InterruptedException, EvalException {
-    CompilationArtifacts compilationArtifacts =
-        convertFromNoneable(compilationArtifactsObject, /* defaultValue= */ null);
     ObjcCommon.Builder builder =
         new ObjcCommon.Builder(
                 ObjcCommon.Purpose.valueOf(purpose), starlarkRuleContext.getRuleContext())
@@ -217,12 +221,8 @@ public class ObjcStarlarkInternal implements StarlarkValue {
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(alwayslink)
             .addExtraImportLibraries(
-                Sequence.cast(extraImportLibraries, Artifact.class, "archives"));
-    if (compilationArtifacts == null) {
-      builder.setCompilationArtifacts(new CompilationArtifacts.Builder().build());
-    } else {
-      builder.setCompilationArtifacts(compilationArtifacts);
-    }
+                Sequence.cast(extraImportLibraries, Artifact.class, "archives"))
+            .setCompilationArtifacts(compilationArtifacts);
 
     if (hasModuleMap) {
       builder.setHasModuleMap();
