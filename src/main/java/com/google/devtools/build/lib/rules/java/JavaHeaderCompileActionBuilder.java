@@ -396,7 +396,7 @@ public class JavaHeaderCompileActionBuilder {
               /* inputs= */ allInputs,
               /* outputs= */ outputs.build(),
               /* primaryOutput= */ outputJar,
-              /* resourceSet= */ AbstractAction.DEFAULT_RESOURCE_SET,
+              /* resourceSetOrBuilder= */ AbstractAction.DEFAULT_RESOURCE_SET,
               /* commandLines= */ CommandLines.builder()
                   .addCommandLine(executableLine)
                   .addCommandLine(commandLine.build(), PARAM_FILE_INFO)

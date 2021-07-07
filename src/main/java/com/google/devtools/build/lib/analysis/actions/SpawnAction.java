@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
@@ -107,7 +107,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final CharSequence progressMessage;
   private final String mnemonic;
 
-  private final ResourceSet resourceSet;
+  private final ResourceSetOrBuilder resourceSetOrBuilder;
   private final ImmutableMap<String, String> executionInfo;
 
   private final ExtraActionInfoSupplier extraActionInfoSupplier;
@@ -125,7 +125,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *     modified.
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param primaryOutput the primary output of this action
-   * @param resourceSet the resources consumed by executing this Action
+   * @param resourceSetOrBuilder the resources consumed by executing this Action.
    * @param env the action environment
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
@@ -141,7 +141,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       Artifact primaryOutput,
-      ResourceSet resourceSet,
+      ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
       boolean isShellCommand,
@@ -154,7 +154,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         inputs,
         outputs,
         primaryOutput,
-        resourceSet,
+        resourceSetOrBuilder,
         commandLines,
         commandLineLimits,
         isShellCommand,
@@ -180,7 +180,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param primaryOutput the primary output of this action
-   * @param resourceSet the resources consumed by executing this Action
+   * @param resourceSetOrBuilder the resources consumed by executing this Action.
    * @param env the action's environment
    * @param executionInfo out-of-band information for scheduling the spawn
    * @param commandLines the command lines to execute. This includes the main argv vector and any
@@ -198,7 +198,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       NestedSet<Artifact> inputs,
       Iterable<? extends Artifact> outputs,
       Artifact primaryOutput,
-      ResourceSet resourceSet,
+      ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
       boolean isShellCommand,
@@ -212,7 +212,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
     this.primaryOutput = primaryOutput;
-    this.resourceSet = resourceSet;
+    this.resourceSetOrBuilder = resourceSetOrBuilder;
     this.executionInfo = executionInfo;
     this.commandLines = commandLines;
     this.commandLineLimits = commandLineLimits;
@@ -561,7 +561,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           executionInfo,
           SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
-          resourceSet);
+          SpawnAction.this.resourceSetOrBuilder.buildResourceSet(inputs));
+
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
       ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs.toList()) {
@@ -610,7 +611,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
     private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
-    private ResourceSet resourceSet = AbstractAction.DEFAULT_RESOURCE_SET;
+    private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
     private ActionEnvironment actionEnvironment = null;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableSet<String> inheritedEnvironment = ImmutableSet.of();
@@ -642,7 +643,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
       this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
-      this.resourceSet = other.resourceSet;
+      this.resourceSetOrBuilder = other.resourceSetOrBuilder;
       this.actionEnvironment = other.actionEnvironment;
       this.environment = other.environment;
       this.executionInfo = other.executionInfo;
@@ -741,7 +742,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           inputsAndTools,
           ImmutableList.copyOf(outputs),
           outputs.get(0),
-          resourceSet,
+          resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
           isShellCommand,
@@ -762,7 +763,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         NestedSet<Artifact> inputsAndTools,
         ImmutableList<Artifact> outputs,
         Artifact primaryOutput,
-        ResourceSet resourceSet,
+        ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
@@ -778,7 +779,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           inputsAndTools,
           outputs,
           primaryOutput,
-          resourceSet,
+          resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
           isShellCommand,
@@ -882,8 +883,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return !outputs.isEmpty();
     }
 
-    public Builder setResources(ResourceSet resourceSet) {
-      this.resourceSet = resourceSet;
+    /**
+     * Sets RecourceSet for builder. If ResourceSetBuilder set, then ResourceSetBuilder will
+     * override setResources.
+     */
+    public Builder setResources(ResourceSetOrBuilder resourceSetOrBuilder) {
+      this.resourceSetOrBuilder = resourceSetOrBuilder;
       return this;
     }
 

@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.CapturingMapFn;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -187,6 +189,15 @@ public class ProtoCompileActionBuilder {
     }
   }
 
+  /** Builds a ResourceSet based on the number of inputs. */
+  public static class ProtoCompileResourceSetBuilder implements ResourceSetOrBuilder {
+    @Override
+    public ResourceSet buildResourceSet(NestedSet<Artifact> inputs) {
+      return ResourceSet.createWithRamCpu(
+          /* memoryMb= */ 25 + 0.15 * inputs.memoizedFlattenAndGetSize(), /* cpuUsage= */ 1);
+    }
+  }
+
   @Nullable
   public SpawnAction maybeBuild() {
     if (isEmpty(outputs)) {
@@ -224,7 +235,7 @@ public class ProtoCompileActionBuilder {
 
     result
         .addOutputs(outputs)
-        .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
+        .setResources(new ProtoCompileResourceSetBuilder())
         .useDefaultShellEnvironment()
         .setExecutable(protoCompiler)
         .addCommandLine(

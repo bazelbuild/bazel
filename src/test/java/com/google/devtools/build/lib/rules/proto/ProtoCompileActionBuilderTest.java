@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -452,5 +453,24 @@ public class ProtoCompileActionBuilderTest {
         importableProtoSourceSet,
         NestedSetBuilder.wrap(STABLE_ORDER, transitiveSources));
     return commandLine.build().arguments();
+  }
+
+  @Test
+  public void testEstimateResourceConsumptionLocal() throws Exception {
+
+    assertThat(
+            new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
+                .buildResourceSet(NestedSetBuilder.emptySet(STABLE_ORDER)))
+        .isEqualTo(ResourceSet.createWithRamCpu(25, 1));
+
+    assertThat(
+            new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
+                .buildResourceSet(
+                    NestedSetBuilder.wrap(
+                        STABLE_ORDER,
+                        ImmutableList.of(
+                            artifact("//:dont-care", "protoc-gen-javalite.exe"),
+                            artifact("//:dont-care-2", "protoc-gen-javalite-2.exe")))))
+        .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
   }
 }
