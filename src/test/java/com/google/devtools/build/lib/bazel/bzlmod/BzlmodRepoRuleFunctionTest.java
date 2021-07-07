@@ -175,6 +175,33 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
+
+    setupRepoRules();
+  }
+
+  private void setupRepoRules() throws Exception {
+    scratch.file(rootDirectory.getRelative("tools/build_defs/repo/BUILD").getPathString());
+    scratch.file(
+        rootDirectory.getRelative("tools/build_defs/repo/http.bzl").getPathString(),
+        "def _http_archive_impl(ctx): pass",
+        "",
+        "http_archive = repository_rule(",
+        "    implementation = _http_archive_impl,",
+        "    attrs = {",
+        "      \"url\": attr.string(),",
+        "      \"sha256\": attr.string(),",
+        "    })");
+    scratch.file(rootDirectory.getRelative("maven/BUILD").getPathString());
+    scratch.file(
+        rootDirectory.getRelative("maven/repo.bzl").getPathString(),
+        "def _maven_repo_impl(ctx): pass",
+        "",
+        "maven_repo = repository_rule(",
+        "    implementation = _maven_repo_impl,",
+        "    attrs = {",
+        "      \"artifacts\": attr.string_list(),",
+        "      \"repositories\": attr.string_list(),",
+        "    })");
   }
 
   private FakeBzlmodRepoRuleHelper getFakeBzlmodRepoRuleHelper() {
@@ -182,14 +209,43 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
     repoSpecs
         // repos from non-registry overrides
         .put(
-        "A",
-        RepoSpec.builder()
-            .setRuleClassName("local_repository")
-            .setAttributes(
-                ImmutableMap.of(
-                    "name", "A",
-                    "path", "/foo/bar/A"))
-            .build());
+            "A",
+            RepoSpec.builder()
+                .setRuleClassName("local_repository")
+                .setAttributes(
+                    ImmutableMap.of(
+                        "name", "A",
+                        "path", "/foo/bar/A"))
+                .build())
+        // repos from Bazel modules
+        .put(
+            "B",
+            RepoSpec.builder()
+                .setBzlFile(
+                    // In real world, this will be @bazel_tools//tools/build_defs/repo:http.bzl,
+                    "//tools/build_defs/repo:http.bzl")
+                .setRuleClassName("http_archive")
+                .setAttributes(
+                    ImmutableMap.of(
+                        "name", "B",
+                        "url", "https://foo/bar/B.zip",
+                        "sha256", "1234abcd"))
+                .build())
+        // repos from module rules
+        .put(
+            "C",
+            RepoSpec.builder()
+                .setBzlFile("//maven:repo.bzl")
+                .setRuleClassName("maven_repo")
+                .setAttributes(
+                    ImmutableMap.of(
+                        "name", "C",
+                        "artifacts",
+                            ImmutableList.of("junit:junit:4.12", "com.google.guava:guava:19.0"),
+                        "repositories",
+                            ImmutableList.of(
+                                "https://maven.google.com", "https://repo1.maven.org/maven2")))
+                .build());
     return new FakeBzlmodRepoRuleHelper(repoSpecs.build());
   }
 
@@ -227,7 +283,43 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void repoRule_notFound() throws Exception {
+  public void createRepoRule_bazelModules() throws Exception {
+    EvaluationResult<BzlmodRepoRuleValue> result =
+        driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("B")), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key("B"));
+    Rule repoRule = bzlmodRepoRuleValue.getRule();
+
+    assertThat(repoRule.getRuleClassObject().isStarlark()).isTrue();
+    assertThat(repoRule.getRuleClass()).isEqualTo("http_archive");
+    assertThat(repoRule.getName()).isEqualTo("B");
+    assertThat(repoRule.getAttr("url", Type.STRING)).isEqualTo("https://foo/bar/B.zip");
+    assertThat(repoRule.getAttr("sha256", Type.STRING)).isEqualTo("1234abcd");
+  }
+
+  @Test
+  public void createRepoRule_moduleRules() throws Exception {
+    EvaluationResult<BzlmodRepoRuleValue> result =
+        driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("C")), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key("C"));
+    Rule repoRule = bzlmodRepoRuleValue.getRule();
+
+    assertThat(repoRule.getRuleClassObject().isStarlark()).isTrue();
+    assertThat(repoRule.getRuleClass()).isEqualTo("maven_repo");
+    assertThat(repoRule.getName()).isEqualTo("C");
+    assertThat(repoRule.getAttr("artifacts", Type.STRING_LIST))
+        .isEqualTo(ImmutableList.of("junit:junit:4.12", "com.google.guava:guava:19.0"));
+    assertThat(repoRule.getAttr("repositories", Type.STRING_LIST))
+        .isEqualTo(ImmutableList.of("https://maven.google.com", "https://repo1.maven.org/maven2"));
+  }
+
+  @Test
+  public void createRepoRule_notFound() throws Exception {
     EvaluationResult<BzlmodRepoRuleValue> result =
         driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("unknown")), evaluationContext);
     if (result.hasError()) {
