@@ -17,15 +17,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,8 +37,8 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
   protected Rule rule;
   protected AbstractAttributeMapper mapper;
 
-  private static class TestMapper extends AbstractAttributeMapper {
-    public TestMapper(Rule rule) {
+  private static final class TestMapper extends AbstractAttributeMapper {
+    TestMapper(Rule rule) {
       super(rule);
     }
   }
@@ -113,12 +112,9 @@ public class AbstractAttributeMapperTest extends BuildViewTestCase {
 
   protected static List<String> getLabelsForAttribute(
       AttributeMap attributeMap, String attributeName) throws InterruptedException {
-    return attributeMap
-        .visitLabels()
-        .stream()
-        .filter((d) -> d.getAttribute().getName().equals(attributeName))
-        .map(AttributeMap.DepEdge::getLabel)
-        .map(Label::toString)
-        .collect(Collectors.toList());
+    List<String> labels = new ArrayList<>();
+    attributeMap.visitLabels(
+        attributeMap.getAttributeDefinition(attributeName), label -> labels.add(label.toString()));
+    return labels;
   }
 }

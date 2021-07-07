@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.AttributeMap.DepEdge;
 import javax.annotation.Nullable;
 
 /**
@@ -89,11 +88,9 @@ public final class LabelVisitationUtils {
 
   private static void visitRule(
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
-    for (DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-      if (edgeFilter.test(rule, depEdge.getAttribute())) {
-        labelProcessor.process(rule, depEdge.getAttribute(), depEdge.getLabel());
-      }
-    }
+    AggregatingAttributeMapper.of(rule)
+        .visitLabels(
+            edgeFilter, (attribute, label) -> labelProcessor.process(rule, attribute, label));
   }
 
   private static void visitPackageGroup(PackageGroup packageGroup, LabelProcessor labelProcessor) {

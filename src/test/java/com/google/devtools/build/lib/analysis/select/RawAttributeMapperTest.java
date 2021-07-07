@@ -99,7 +99,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         assertThrows(
             "Expected label visitation to fail since one attribute is configurable",
             IllegalArgumentException.class,
-            () -> rawMapper.visitLabels());
+            () -> rawMapper.visitAllLabels((attribute, label) -> {}));
     assertThat(e)
         .hasMessageThat()
         .contains(

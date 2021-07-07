@@ -174,10 +174,10 @@ public abstract class Type<T> {
    * with {@code value}, an instance of this {@link Type}.
    *
    * <p>This is used to support reliable label visitation in {@link
-   * com.google.devtools.build.lib.packages.AttributeMap#visitLabels}. To preserve that reliability,
-   * every type should faithfully define its own instance of this method. In other words, be careful
-   * about defining default instances in base types that get auto-inherited by their children. Keep
-   * all definitions as explicit as possible.
+   * com.google.devtools.build.lib.packages.AttributeMap#visitAllLabels}. To preserve that
+   * reliability, every type should faithfully define its own instance of this method. In other
+   * words, be careful about defining default instances in base types that get auto-inherited by
+   * their children. Keep all definitions as explicit as possible.
    */
   public abstract void visitLabels(LabelVisitor visitor, T value, @Nullable Attribute context);
 

@@ -1713,13 +1713,12 @@ public class Package {
       testSuiteImplicitTestsAccumulator.clearAccumulatedTests();
 
       Map<String, InputFile> newInputFiles = new HashMap<>();
-      for (final Rule rule : getRules()) {
+      for (Rule rule : getRules()) {
         if (discoverAssumedInputFiles) {
-          // All labels mentioned by a rule that refer to an unknown target in the
-          // current package are assumed to be InputFiles, so let's create them.
-          // (We add them to a temporary map while we are iterating over this.targets.)
-          for (AttributeMap.DepEdge edge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-            Label label = edge.getLabel();
+          // All labels mentioned by a rule that refer to an unknown target in the current package
+          // are assumed to be InputFiles, so let's create them. We add them to a temporary map
+          // while we are iterating over rules.
+          for (Label label : rule.getLabels()) {
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
                 && !targets.containsKey(label.getName())
                 && !newInputFiles.containsKey(label.getName())) {

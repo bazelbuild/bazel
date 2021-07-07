@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -590,14 +590,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** Returns a new List instance containing all direct dependencies (all types). */
-  public Collection<Label> getLabels() {
-    final List<Label> labels = Lists.newArrayList();
-    AggregatingAttributeMapper.of(this)
-        .visitLabels()
-        .stream()
-        .map(AttributeMap.DepEdge::getLabel)
-        .forEach(labels::add);
+  /** Returns a new list containing all direct dependencies (all types). */
+  public List<Label> getLabels() {
+    List<Label> labels = new ArrayList<>();
+    AggregatingAttributeMapper.of(this).visitAllLabels((attribute, label) -> labels.add(label));
     return labels;
   }
 
@@ -611,7 +607,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    *     {@code true} <em>and</em> the label is not an output.
    */
   public ImmutableSortedSet<Label> getSortedLabels(DependencyFilter filter) {
-    return ImmutableSortedSet.copyOf(getTransitions(filter).values());
+    ImmutableSortedSet.Builder<Label> labels = ImmutableSortedSet.naturalOrder();
+    AggregatingAttributeMapper.of(this)
+        .visitLabels(filter, (attribute, label) -> labels.add(label));
+    return labels.build();
   }
 
   /**
@@ -628,12 +627,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   public Multimap<Attribute, Label> getTransitions(DependencyFilter filter) {
     Multimap<Attribute, Label> transitions = HashMultimap.create();
-    // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
-    // be visited may depend on the calling context. We shouldn't implicitly decide this for
-    // the caller.
-    AggregatingAttributeMapper.of(this).visitLabels().stream()
-        .filter(depEdge -> filter.test(Rule.this, depEdge.getAttribute()))
-        .forEach(depEdge -> transitions.put(depEdge.getAttribute(), depEdge.getLabel()));
+    AggregatingAttributeMapper.of(this).visitLabels(filter, transitions::put);
     return transitions;
   }
 

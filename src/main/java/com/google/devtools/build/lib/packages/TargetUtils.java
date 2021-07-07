@@ -337,13 +337,23 @@ public final class TargetUtils {
       return true;
     }
 
-    for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-      if (rule.isAttributeValueExplicitlySpecified(depEdge.getAttribute())
-          && label.equals(depEdge.getLabel())) {
-        return true;
-      }
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    try {
+      mapper.visitLabels(
+          DependencyFilter.NO_IMPLICIT_DEPS,
+          (attribute, depLabel) -> {
+            if (label.equals(depLabel)) {
+              throw StopIteration.INSTANCE;
+            }
+          });
+    } catch (StopIteration e) {
+      return true;
     }
     return false;
+  }
+
+  private static final class StopIteration extends RuntimeException {
+    private static final StopIteration INSTANCE = new StopIteration();
   }
 
   /**
