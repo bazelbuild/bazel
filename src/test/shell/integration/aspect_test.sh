@@ -89,6 +89,30 @@ EOF
   expect_not_log "IllegalStateException"
 }
 
+# When a target is broken, report an error in the target, not the aspect.
+# This test would be flaky if errors were non-deterministically reported during
+# target and aspect analysis, and would fail outright if aspect failures were
+# preferred.
+function test_aspect_on_target_with_analysis_failure() {
+  mkdir -p test
+  cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
+def _simple_aspect_impl(target, ctx):
+    return struct()
+
+simple_aspect = aspect(implementation=_simple_aspect_impl)
+EOF
+  echo "sh_library(name = 'brokentarget', deps = [':missing'])" \
+      > test/BUILD || fail "Couldn't write BUILD file"
+
+  bazel build //test:brokentarget \
+      --aspects 'test/aspect.bzl%simple_aspect' &> $TEST_log \
+      && fail "Expected failure"
+  local -r exit_code="$?"
+  [[ "$exit_code" == 1 ]] || fail "Unexpected exit code: $exit_code"
+  expect_log "ERROR: Analysis of target '//test:brokentarget' failed"
+  expect_not_log "Analysis of aspects"
+}
+
 function test_aspect_required_providers_with_toplevel_aspects() {
   local package="a"
   mkdir -p "${package}"

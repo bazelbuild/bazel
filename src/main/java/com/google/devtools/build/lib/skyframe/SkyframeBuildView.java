@@ -745,6 +745,7 @@ public final class SkyframeBuildView {
     boolean inTest = eventBus == null;
     boolean hasLoadingError = false;
     ViewCreationFailedException noKeepGoingException = null;
+    ConfiguredTargetKey failedAspectLabel = null; // helps prefer target over aspect failures
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       SkyKey errorKey = errorEntry.getKey();
       ErrorInfo errorInfo = errorEntry.getValue();
@@ -759,6 +760,7 @@ public final class SkyframeBuildView {
         // the event handler.
         if (!keepGoing && noKeepGoingException == null) {
           TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
+          failedAspectLabel = aspectKey.getBaseConfiguredTargetKey();
           String errorMsg =
               String.format(
                   "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
@@ -845,7 +847,7 @@ public final class SkyframeBuildView {
                 "errors encountered while analyzing target '"
                     + topLevelLabel
                     + "': it will not be built"));
-      } else if (noKeepGoingException == null) {
+      } else if (noKeepGoingException == null || label.equals(failedAspectLabel)) {
         String errorMsg =
             String.format("Analysis of target '%s' failed; build aborted", topLevelLabel);
         noKeepGoingException = createViewCreationFailedException(cause, errorMsg);
