@@ -579,7 +579,7 @@ public class Package {
    */
   public FailureDetail contextualizeFailureDetailForTarget(Target target) {
     Preconditions.checkState(
-        target.getPackage().getPackageIdentifier().equals(packageIdentifier),
+        target.getPackage().packageIdentifier.equals(packageIdentifier),
         "contextualizeFailureDetailForTarget called for target not in package. target=%s,"
             + " package=%s",
         target,
@@ -687,7 +687,7 @@ public class Package {
     // produce a more informative error.  NOTE! this code path is only executed
     // on failure, which is (relatively) very rare.  In the common case no
     // stat(2) is executed.
-    Path filename = getPackageDirectory().getRelative(targetName);
+    Path filename = packageDirectory.getRelative(targetName);
     if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
       // Don't check for file existence if the target name is not normalized
       // because the error message would be confusing and wrong. If the
@@ -822,7 +822,7 @@ public class Package {
    * output.
    */
   public void dump(PrintStream out) {
-    out.println("  Package " + getName() + " (" + getFilename().asPath() + ")");
+    out.println("  Package " + getName() + " (" + filename.asPath() + ")");
 
     // Rules:
     out.println("    Rules");
@@ -979,6 +979,15 @@ public class Package {
 
     private BiMap<String, Target> targets = HashBiMap.create();
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
+
+    /**
+     * Stores labels for each rule so that we don't have to call the costly {@link Rule#getLabels}
+     * twice (once for {@link #checkForInputOutputConflicts} and once for {@link #beforeBuild}).
+     *
+     * <p>Remains {@code null} when rules are added via {@link #addRuleUnchecked}, which occurs with
+     * package deserialization. Set back to {@code null} after building.
+     */
+    @Nullable private Map<Rule, List<Label>> ruleLabels = null;
 
     private ImmutableList<Label> starlarkFileDependencies = ImmutableList.of();
 
@@ -1488,7 +1497,7 @@ public class Package {
      * instances of the specified class.
      */
     private Iterable<Rule> getRules() {
-      return Package.getTargets(targets, Rule.class);
+      return ruleLabels != null ? ruleLabels.keySet() : Package.getTargets(targets, Rule.class);
     }
 
     /**
@@ -1681,8 +1690,13 @@ public class Package {
     }
 
     void addRule(Rule rule) throws NameConflictException {
-      checkForConflicts(rule);
+      List<Label> labels = rule.getLabels();
+      checkForConflicts(rule, labels);
       addRuleUnchecked(rule);
+      if (ruleLabels == null) {
+        ruleLabels = new HashMap<>();
+      }
+      ruleLabels.put(rule, labels);
     }
 
     void addRegisteredExecutionPlatforms(List<String> platforms) {
@@ -1717,8 +1731,9 @@ public class Package {
         if (discoverAssumedInputFiles) {
           // All labels mentioned by a rule that refer to an unknown target in the current package
           // are assumed to be InputFiles, so let's create them. We add them to a temporary map
-          // while we are iterating over rules.
-          for (Label label : rule.getLabels()) {
+          // to avoid concurrent modification to this.targets while iterating (via getRules()).
+          List<Label> labels = ruleLabels != null ? ruleLabels.get(rule) : rule.getLabels();
+          for (Label label : labels) {
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
                 && !targets.containsKey(label.getName())
                 && !newInputFiles.containsKey(label.getName())) {
@@ -1761,11 +1776,10 @@ public class Package {
       }
 
       // Freeze targets and distributions.
-      for (Target t : targets.values()) {
-        if (t instanceof Rule) {
-          ((Rule) t).freeze();
-        }
+      for (Rule rule : getRules()) {
+        rule.freeze();
       }
+      ruleLabels = null;
       targets = Maps.unmodifiableBiMap(targets);
       defaultDistributionSet =
           Collections.unmodifiableSet(defaultDistributionSet);
@@ -1815,12 +1829,12 @@ public class Package {
      * Precondition check for addRule. We must maintain these invariants of the package:
      *
      * <ul>
-     * <li>Each name refers to at most one target.
-     * <li>No rule with errors is inserted into the package.
-     * <li>The generating rule of every output file in the package must itself be in the package.
+     *   <li>Each name refers to at most one target.
+     *   <li>No rule with errors is inserted into the package.
+     *   <li>The generating rule of every output file in the package must itself be in the package.
      * </ul>
      */
-    private void checkForConflicts(Rule rule) throws NameConflictException {
+    private void checkForConflicts(Rule rule, List<Label> labels) throws NameConflictException {
       String name = rule.getName();
       Target existing = targets.get(name);
       if (existing != null) {
@@ -1862,7 +1876,7 @@ public class Package {
         }
       }
 
-      checkForInputOutputConflicts(rule, outputFilesByName.keySet());
+      checkForInputOutputConflicts(rule, labels, outputFilesByName.keySet());
     }
 
     /**
@@ -1870,13 +1884,14 @@ public class Package {
      * a rule from a build file.
      *
      * @param rule the rule whose inputs and outputs are to be checked for conflicts.
+     * @param labels the rules {@linkplain Rule#getLabels labels}.
      * @param outputFiles a set containing the names of output files to be generated by the rule.
      * @throws NameConflictException if a conflict is found.
      */
-    private static void checkForInputOutputConflicts(Rule rule, Set<String> outputFiles)
-        throws NameConflictException {
+    private static void checkForInputOutputConflicts(
+        Rule rule, List<Label> labels, Set<String> outputFiles) throws NameConflictException {
       PackageIdentifier packageIdentifier = rule.getLabel().getPackageIdentifier();
-      for (Label inputLabel : rule.getLabels()) {
+      for (Label inputLabel : labels) {
         if (packageIdentifier.equals(inputLabel.getPackageIdentifier())
             && outputFiles.contains(inputLabel.getName())) {
           throw inputOutputNameConflict(rule, inputLabel.getName());
