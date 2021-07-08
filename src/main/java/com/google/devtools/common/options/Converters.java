@@ -18,8 +18,6 @@ import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
-import com.google.common.cache.CacheBuilderSpec;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -657,26 +655,6 @@ public final class Converters {
   public static class PercentageConverter extends RangeConverter {
     public PercentageConverter() {
       super(0, 100);
-    }
-  }
-
-  /**
-   * A {@link Converter} for {@link CacheBuilderSpec}. The spec may be empty, in which case this
-   * converter returns null.
-   */
-  public static class CacheBuilderSpecConverter implements Converter<CacheBuilderSpec> {
-    @Override
-    public CacheBuilderSpec convert(String spec) throws OptionsParsingException {
-      try {
-        return Strings.isNullOrEmpty(spec) ? null : CacheBuilderSpec.parse(spec);
-      } catch (IllegalArgumentException e) {
-        throw new OptionsParsingException("Failed to parse CacheBuilderSpec: " + e.getMessage(), e);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "Converts to a CacheBuilderSpec, or null if the input is empty";
     }
   }
 
