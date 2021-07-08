@@ -161,8 +161,15 @@ string GetSystemJavabase() {
   return blaze_util::Dirname(blaze_util::Dirname(javac_dir));
 }
 
+// Relevant entries from /proc/[pid]/stat.
+// Run `man proc` and search "/proc/[pid]/stat"
+struct ProcessStatus {
+  string state;
+  string start_time;
+};
+
 // Called from a signal handler!
-static bool GetStartTime(const string& pid, string* start_time) {
+static bool GetProcessStatus(const string& pid, ProcessStatus* status) {
   string statfile = "/proc/" + pid + "/stat";
   string statline;
 
@@ -179,7 +186,10 @@ static bool GetStartTime(const string& pid, string* start_time) {
 
   // Start time since startup in jiffies. This combined with the PID should be
   // unique.
-  *start_time = stat_entries[21];
+  *status = ProcessStatus{
+    state: stat_entries[2],
+    start_time: stat_entries[21],
+  };
   return true;
 }
 
@@ -193,15 +203,15 @@ void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
                                           pid_t server_pid) {
   string pid_string = blaze_util::ToString(server_pid);
 
-  string start_time;
-  if (!GetStartTime(pid_string, &start_time)) {
+  ProcessStatus process_status;
+  if (!GetProcessStatus(pid_string, &process_status)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot get start time of process " << pid_string << ": "
         << GetLastErrorString();
   }
 
   blaze_util::Path start_time_file = server_dir.GetRelative("server.starttime");
-  if (!blaze_util::WriteFile(start_time, start_time_file)) {
+  if (!blaze_util::WriteFile(process_status.start_time, start_time_file)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
         << "Cannot write start time in server dir "
         << server_dir.AsPrintablePath() << ": " << GetLastErrorString();
@@ -212,10 +222,14 @@ void WriteSystemSpecificProcessIdentifier(const blaze_util::Path &server_dir,
 // process. That is supposed to be unique unless one can start more processes
 // than there are PIDs available within a single jiffy.
 bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
-  string start_time;
-  if (!GetStartTime(blaze_util::ToString(pid), &start_time)) {
+  ProcessStatus process_status;
+  if (!GetProcessStatus(blaze_util::ToString(pid), &process_status)) {
     // Cannot read PID file from /proc . Process died meantime, all is good. No
     // stale server is present.
+    return false;
+  }
+  // Check for "dead" states (see `man proc` and find "(3) state")
+  if (process_status.state == "Z" || process_status.state == "X" || process_status.state == "x") {
     return false;
   }
 
@@ -225,7 +239,7 @@ bool VerifyServerProcess(int pid, const blaze_util::Path &output_base) {
 
   // If start time file got deleted, but PID file didn't, assume that this is an
   // old Blaze process that doesn't know how to write start time files yet.
-  return !file_present || recorded_start_time == start_time;
+  return !file_present || recorded_start_time == process_status.start_time;
 }
 
 // Not supported.
