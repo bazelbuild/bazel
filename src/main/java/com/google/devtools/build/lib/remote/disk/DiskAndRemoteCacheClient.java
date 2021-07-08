@@ -53,13 +53,21 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException {
-    diskCache.uploadActionResult(context, actionKey, actionResult);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
-      remoteCache.uploadActionResult(context, actionKey, actionResult);
-    }
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
+    ListenableFuture<Void> diskUploadFuture =
+        diskCache.uploadActionResult(context, actionKey, actionResult);
+
+    return Futures.transformAsync(
+        diskUploadFuture,
+        v -> {
+          if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+            return remoteCache.uploadActionResult(context, actionKey, actionResult);
+          } else {
+            return Futures.immediateFuture(null);
+          }
+        },
+        MoreExecutors.directExecutor());
   }
 
   @Override

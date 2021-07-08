@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.io.IOException;
 import java.io.OutputStream;
 
 /**
@@ -82,12 +81,10 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @param context the context for the action.
    * @param actionKey The digest of the {@link Action} that generated the action result.
    * @param actionResult The action result to associate with the {@code actionKey}.
-   * @throws IOException If there is an error uploading the action result.
-   * @throws InterruptedException In case the thread
+   * @return A Future representing pending completion of the upload.
    */
-  void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException;
+  ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult);
 
   /**
    * Downloads a BLOB for the given {@code digest} and writes it to {@code out}.

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
@@ -507,8 +508,8 @@ public final class Utils {
         }
       }
 
-      Throwables.throwIfInstanceOf(e, IOException.class);
-      Throwables.throwIfInstanceOf(e, InterruptedException.class);
+      throwIfInstanceOf(e, IOException.class);
+      throwIfInstanceOf(e, InterruptedException.class);
       Throwables.throwIfUnchecked(e);
       throw new AssertionError(e);
     }

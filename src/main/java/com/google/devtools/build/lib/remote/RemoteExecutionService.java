@@ -21,10 +21,10 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
+import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromCombinedCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromDiskCache;
@@ -54,6 +54,7 @@ import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -74,6 +75,8 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -84,6 +87,7 @@ import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -91,19 +95,30 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
+import io.reactivex.rxjava3.annotations.NonNull;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.CompletableObserver;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -116,6 +131,8 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeSet;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -123,6 +140,9 @@ import javax.annotation.Nullable;
  * cache and execution with spawn specific types.
  */
 public class RemoteExecutionService {
+  private final AtomicBoolean closed = new AtomicBoolean(false);
+  private final Reporter reporter;
+  private final boolean verboseFailures;
   private final Path execRoot;
   private final RemotePathResolver remotePathResolver;
   private final String buildRequestId;
@@ -134,7 +154,11 @@ public class RemoteExecutionService {
   private final ImmutableSet<PathFragment> filesToDownload;
   @Nullable private final Path captureCorruptedOutputsDir;
 
+  private boolean remoteCacheInterrupted = false;
+
   public RemoteExecutionService(
+      Reporter reporter,
+      boolean verboseFailures,
       Path execRoot,
       RemotePathResolver remotePathResolver,
       String buildRequestId,
@@ -145,6 +169,8 @@ public class RemoteExecutionService {
       @Nullable RemoteExecutionClient remoteExecutor,
       ImmutableSet<ActionInput> filesToDownload,
       @Nullable Path captureCorruptedOutputsDir) {
+    this.reporter = reporter;
+    this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
     this.remotePathResolver = remotePathResolver;
     this.buildRequestId = buildRequestId;
@@ -483,6 +509,7 @@ public class RemoteExecutionService {
   @Nullable
   public RemoteActionResult lookupCache(RemoteAction action)
       throws IOException, InterruptedException {
+    checkState(!closed.get(), "closed");
     checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
 
     ActionResult actionResult =
@@ -869,6 +896,7 @@ public class RemoteExecutionService {
   @Nullable
   public InMemoryOutput downloadOutputs(RemoteAction action, RemoteActionResult result)
       throws InterruptedException, IOException, ExecException {
+    checkState(!closed.get(), "closed");
     checkNotNull(remoteCache, "remoteCache can't be null");
 
     ActionResultMetadata metadata;
@@ -987,23 +1015,372 @@ public class RemoteExecutionService {
     return null;
   }
 
+  private static FailureDetail createFailureDetail(
+      String message, RemoteExecution.Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
+        .build();
+  }
+
+  /** UploadManifest adds output metadata to a {@link ActionResult}. */
+  static class UploadManifest {
+    private final DigestUtil digestUtil;
+    private final RemotePathResolver remotePathResolver;
+    private final ActionResult.Builder result;
+    private final boolean allowSymlinks;
+    private final boolean uploadSymlinks;
+    private final Map<Digest, Path> digestToFile = new HashMap<>();
+    private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
+    private Digest stderrDigest;
+    private Digest stdoutDigest;
+
+    /**
+     * Create an UploadManifest from an ActionResult builder and an exec root. The ActionResult
+     * builder is populated through a call to {@link #addFile(Digest, Path)}.
+     */
+    public UploadManifest(
+        DigestUtil digestUtil,
+        RemotePathResolver remotePathResolver,
+        ActionResult.Builder result,
+        boolean uploadSymlinks,
+        boolean allowSymlinks) {
+      this.digestUtil = digestUtil;
+      this.remotePathResolver = remotePathResolver;
+      this.result = result;
+      this.uploadSymlinks = uploadSymlinks;
+      this.allowSymlinks = allowSymlinks;
+    }
+
+    public void setStdoutStderr(FileOutErr outErr) throws IOException {
+      if (outErr.getErrorPath().exists()) {
+        stderrDigest = digestUtil.compute(outErr.getErrorPath());
+        digestToFile.put(stderrDigest, outErr.getErrorPath());
+      }
+      if (outErr.getOutputPath().exists()) {
+        stdoutDigest = digestUtil.compute(outErr.getOutputPath());
+        digestToFile.put(stdoutDigest, outErr.getOutputPath());
+      }
+    }
+
+    /**
+     * Add a collection of files or directories to the UploadManifest. Adding a directory has the
+     * effect of 1) uploading a {@link Tree} protobuf message from which the whole structure of the
+     * directory, including the descendants, can be reconstructed and 2) uploading all the
+     * non-directory descendant files.
+     */
+    public void addFiles(Collection<Path> files) throws ExecException, IOException {
+      for (Path file : files) {
+        // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
+        // rely on the local spawn runner to stat the files, instead of statting here.
+        FileStatus stat = file.statIfFound(Symlinks.NOFOLLOW);
+        // TODO(#6547): handle the case where the parent directory of the output file is an
+        // output symlink.
+        if (stat == null) {
+          // We ignore requested results that have not been generated by the action.
+          continue;
+        }
+        if (stat.isDirectory()) {
+          addDirectory(file);
+        } else if (stat.isFile() && !stat.isSpecialFile()) {
+          Digest digest = digestUtil.compute(file, stat.getSize());
+          addFile(digest, file);
+        } else if (stat.isSymbolicLink() && allowSymlinks) {
+          PathFragment target = file.readSymbolicLink();
+          // Need to resolve the symbolic link to know what to add, file or directory.
+          FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
+          if (statFollow == null) {
+            throw new IOException(
+                String.format("Action output %s is a dangling symbolic link to %s ", file, target));
+          }
+          if (statFollow.isSpecialFile()) {
+            illegalOutput(file);
+          }
+          Preconditions.checkState(
+              statFollow.isFile() || statFollow.isDirectory(), "Unknown stat type for %s", file);
+          if (uploadSymlinks && !target.isAbsolute()) {
+            if (statFollow.isFile()) {
+              addFileSymbolicLink(file, target);
+            } else {
+              addDirectorySymbolicLink(file, target);
+            }
+          } else {
+            if (statFollow.isFile()) {
+              addFile(digestUtil.compute(file), file);
+            } else {
+              addDirectory(file);
+            }
+          }
+        } else {
+          illegalOutput(file);
+        }
+      }
+    }
+
+    /**
+     * Adds an action and command protos to upload. They need to be uploaded as part of the action
+     * result.
+     */
+    public void addAction(RemoteCacheClient.ActionKey actionKey, Action action, Command command) {
+      digestToBlobs.put(actionKey.getDigest(), action.toByteString());
+      digestToBlobs.put(action.getCommandDigest(), command.toByteString());
+    }
+
+    /** Map of digests to file paths to upload. */
+    public Map<Digest, Path> getDigestToFile() {
+      return digestToFile;
+    }
+
+    /**
+     * Map of digests to chunkers to upload. When the file is a regular, non-directory file it is
+     * transmitted through {@link #getDigestToFile()}. When it is a directory, it is transmitted as
+     * a {@link Tree} protobuf message through {@link #getDigestToBlobs()}.
+     */
+    public Map<Digest, ByteString> getDigestToBlobs() {
+      return digestToBlobs;
+    }
+
+    @Nullable
+    public Digest getStdoutDigest() {
+      return stdoutDigest;
+    }
+
+    @Nullable
+    public Digest getStderrDigest() {
+      return stderrDigest;
+    }
+
+    private void addFileSymbolicLink(Path file, PathFragment target) throws IOException {
+      result
+          .addOutputFileSymlinksBuilder()
+          .setPath(remotePathResolver.localPathToOutputPath(file))
+          .setTarget(target.toString());
+    }
+
+    private void addDirectorySymbolicLink(Path file, PathFragment target) throws IOException {
+      result
+          .addOutputDirectorySymlinksBuilder()
+          .setPath(remotePathResolver.localPathToOutputPath(file))
+          .setTarget(target.toString());
+    }
+
+    private void addFile(Digest digest, Path file) throws IOException {
+      result
+          .addOutputFilesBuilder()
+          .setPath(remotePathResolver.localPathToOutputPath(file))
+          .setDigest(digest)
+          .setIsExecutable(file.isExecutable());
+
+      digestToFile.put(digest, file);
+    }
+
+    private void addDirectory(Path dir) throws ExecException, IOException {
+      Tree.Builder tree = Tree.newBuilder();
+      Directory root = computeDirectory(dir, tree);
+      tree.setRoot(root);
+
+      ByteString data = tree.build().toByteString();
+      Digest digest = digestUtil.compute(data.toByteArray());
+
+      if (result != null) {
+        result
+            .addOutputDirectoriesBuilder()
+            .setPath(remotePathResolver.localPathToOutputPath(dir))
+            .setTreeDigest(digest);
+      }
+
+      digestToBlobs.put(digest, data);
+    }
+
+    private Directory computeDirectory(Path path, Tree.Builder tree)
+        throws ExecException, IOException {
+      Directory.Builder b = Directory.newBuilder();
+
+      List<Dirent> sortedDirent = new ArrayList<>(path.readdir(Symlinks.NOFOLLOW));
+      sortedDirent.sort(Comparator.comparing(Dirent::getName));
+
+      for (Dirent dirent : sortedDirent) {
+        String name = dirent.getName();
+        Path child = path.getRelative(name);
+        if (dirent.getType() == Dirent.Type.DIRECTORY) {
+          Directory dir = computeDirectory(child, tree);
+          b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
+          tree.addChildren(dir);
+        } else if (dirent.getType() == Dirent.Type.SYMLINK && allowSymlinks) {
+          PathFragment target = child.readSymbolicLink();
+          if (uploadSymlinks && !target.isAbsolute()) {
+            // Whether it is dangling or not, we're passing it on.
+            b.addSymlinksBuilder().setName(name).setTarget(target.toString());
+            continue;
+          }
+          // Need to resolve the symbolic link now to know whether to upload a file or a directory.
+          FileStatus statFollow = child.statIfFound(Symlinks.FOLLOW);
+          if (statFollow == null) {
+            throw new IOException(
+                String.format(
+                    "Action output %s is a dangling symbolic link to %s ", child, target));
+          }
+          if (statFollow.isFile() && !statFollow.isSpecialFile()) {
+            Digest digest = digestUtil.compute(child);
+            b.addFilesBuilder()
+                .setName(name)
+                .setDigest(digest)
+                .setIsExecutable(child.isExecutable());
+            digestToFile.put(digest, child);
+          } else if (statFollow.isDirectory()) {
+            Directory dir = computeDirectory(child, tree);
+            b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir));
+            tree.addChildren(dir);
+          } else {
+            illegalOutput(child);
+          }
+        } else if (dirent.getType() == Dirent.Type.FILE) {
+          Digest digest = digestUtil.compute(child);
+          b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
+          digestToFile.put(digest, child);
+        } else {
+          illegalOutput(child);
+        }
+      }
+
+      return b.build();
+    }
+
+    private void illegalOutput(Path what) throws ExecException {
+      String kind = what.isSymbolicLink() ? "symbolic link" : "special file";
+      String message =
+          String.format(
+              "Output %s is a %s. Only regular files and directories may be "
+                  + "uploaded to a remote cache. "
+                  + "Change the file type or use --remote_allow_symlink_upload.",
+              remotePathResolver.localPathToOutputPath(what), kind);
+      throw new UserExecException(
+          createFailureDetail(message, RemoteExecution.Code.ILLEGAL_OUTPUT));
+    }
+  }
+
+  private Completable uploadOutputs(RemoteActionExecutionContext context, UploadManifest manifest) {
+    checkNotNull(remoteCache, "remoteCache can't be null");
+
+    Map<Digest, Path> digestToFile = manifest.getDigestToFile();
+    Map<Digest, ByteString> digestToBlobs = manifest.getDigestToBlobs();
+    Collection<Digest> digests = new ArrayList<>();
+    digests.addAll(digestToFile.keySet());
+    digests.addAll(digestToBlobs.keySet());
+    return RxFutures.toSingle(
+            () -> remoteCache.findMissingDigests(context, digests), directExecutor())
+        .flatMapPublisher(Flowable::fromIterable)
+        .flatMapCompletable(
+            digest -> {
+              Path file = digestToFile.get(digest);
+              if (file != null) {
+                return RxFutures.toCompletable(
+                    () -> remoteCache.uploadFile(context, digest, file), directExecutor());
+              } else {
+                ByteString blob = digestToBlobs.get(digest);
+                if (blob == null) {
+                  String message = "FindMissingBlobs call returned an unknown digest: " + digest;
+                  return Completable.error(new IOException(message));
+                }
+                return RxFutures.toCompletable(
+                    () -> remoteCache.uploadBlob(context, digest, blob), directExecutor());
+              }
+            });
+  }
+
   /** Upload outputs of a remote action which was executed locally to remote cache. */
   public void uploadOutputs(RemoteAction action)
       throws InterruptedException, IOException, ExecException {
+    checkState(!closed.get(), "closed");
     checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
 
     Collection<Path> outputFiles =
         action.spawn.getOutputFiles().stream()
             .map((inp) -> execRoot.getRelative(inp.getExecPath()))
             .collect(ImmutableList.toImmutableList());
-    remoteCache.upload(
-        action.remoteActionExecutionContext,
-        remotePathResolver,
-        action.actionKey,
-        action.action,
-        action.command,
-        outputFiles,
-        action.spawnExecutionContext.getFileOutErr());
+
+    ActionResult.Builder resultBuilder = ActionResult.newBuilder();
+    resultBuilder.setExitCode(0);
+
+    UploadManifest manifest =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            resultBuilder,
+            remoteOptions.incompatibleRemoteSymlinks,
+            remoteOptions.allowSymlinkUpload);
+    manifest.addFiles(outputFiles);
+    manifest.setStdoutStderr(action.spawnExecutionContext.getFileOutErr());
+    manifest.addAction(action.actionKey, action.action, action.command);
+    if (manifest.getStderrDigest() != null) {
+      resultBuilder.setStderrDigest(manifest.getStderrDigest());
+    }
+    if (manifest.getStdoutDigest() != null) {
+      resultBuilder.setStdoutDigest(manifest.getStdoutDigest());
+    }
+    ActionResult result = resultBuilder.build();
+
+    Completable uploadOutputsCompletable =
+        uploadOutputs(action.remoteActionExecutionContext, manifest);
+
+    Completable uploadActionResultCompletable = Completable.complete();
+    if (!action.action.getDoNotCache()) {
+      uploadActionResultCompletable =
+          RxFutures.toCompletable(
+              () ->
+                  remoteCache.uploadActionResult(
+                      action.remoteActionExecutionContext, action.actionKey, result),
+              directExecutor());
+    }
+
+    Completable completable =
+        Completable.concatArray(uploadOutputsCompletable, uploadActionResultCompletable);
+
+    Completable.using(remoteCache::retain, r -> completable, RemoteCache::release)
+        .subscribeOn(Schedulers.io())
+        .subscribe(reportUploadErrorObserver);
+  }
+
+  private final CompletableObserver reportUploadErrorObserver = new CompletableObserver() {
+    @Override
+    public void onSubscribe(@NonNull Disposable d) {
+
+    }
+
+    @Override
+    public void onComplete() {
+    }
+
+    @Override
+    public void onError(@NonNull Throwable e) {
+      reportUploadError(e);
+    }
+  };
+
+  private void reportUploadError(Throwable error) {
+    if (remoteCacheInterrupted) {
+      // Ignore errors that are caused by manually interrupt
+      if (error instanceof CancellationException) {
+        return;
+      }
+    }
+
+    String errorMessage;
+    if (!verboseFailures) {
+       if (error instanceof IOException) {
+         errorMessage = grpcAwareErrorMessage((IOException) error);
+       } else {
+         errorMessage = error.getMessage();
+       }
+    } else {
+      // On --verbose_failures print the whole stack trace
+      errorMessage = Throwables.getStackTraceAsString(error);
+    }
+    if (isNullOrEmpty(errorMessage)) {
+      errorMessage = error.getClass().getSimpleName();
+    }
+    errorMessage = "Writing to Remote Cache:\n" + errorMessage;
+    reporter.handle(Event.warn(errorMessage));
   }
 
   /**
@@ -1013,6 +1390,7 @@ public class RemoteExecutionService {
    */
   public void uploadInputsIfNotPresent(RemoteAction action)
       throws IOException, InterruptedException {
+    checkState(!closed.get(), "closed");
     checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
 
     RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) remoteCache;
@@ -1033,6 +1411,7 @@ public class RemoteExecutionService {
   public RemoteActionResult executeRemotely(
       RemoteAction action, boolean acceptCachedResult, OperationObserver observer)
       throws IOException, InterruptedException {
+    checkState(!closed.get(), "closed");
     checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
 
     ExecuteRequest.Builder requestBuilder =
@@ -1067,7 +1446,9 @@ public class RemoteExecutionService {
   /** Downloads server logs from a remotely executed action if any. */
   public ServerLogs maybeDownloadServerLogs(RemoteAction action, ExecuteResponse resp, Path logDir)
       throws InterruptedException, IOException {
+    checkState(!closed.get(), "closed");
     checkNotNull(remoteCache, "remoteCache can't be null");
+
     ServerLogs serverLogs = new ServerLogs();
     serverLogs.directory = logDir.getRelative(action.getActionId());
 
@@ -1088,5 +1469,26 @@ public class RemoteExecutionService {
     }
 
     return serverLogs;
+  }
+
+  public void close() {
+    if (!closed.compareAndSet(false, true)) {
+      return;
+    }
+
+    if (remoteCache != null) {
+      remoteCache.release();
+      try {
+        remoteCache.awaitTermination();
+      } catch (InterruptedException e) {
+        remoteCacheInterrupted = true;
+        reporter.handle(Event.warn("Upload interrupted"));
+        remoteCache.shutdownNow();
+      }
+    }
+
+    if (remoteExecutor != null) {
+      remoteExecutor.close();
+    }
   }
 }

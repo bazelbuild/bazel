@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.CompletableEmitter;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -50,19 +52,24 @@ import javax.annotation.concurrent.ThreadSafe;
 public final class AsyncTaskCache<KeyT, ValueT> {
   private final Object lock = new Object();
 
-  @GuardedBy("lock")
-  private final Map<KeyT, ValueT> finished;
+  private static final int STATE_ACTIVE = 0;
+  private static final int STATE_PENDING_SHUTDOWN = 1;
+  private static final int STATE_SHUTDOWN = 2;
 
   @GuardedBy("lock")
-  private final Map<KeyT, Execution> inProgress;
+  private int state = STATE_ACTIVE;
+
+  @GuardedBy("lock")
+  private final List<CompletableEmitter> terminationSubscriber = new ArrayList<>();
+
+  @GuardedBy("lock")
+  private final Map<KeyT, ValueT> finished = new HashMap<>();
+
+  @GuardedBy("lock")
+  private final Map<KeyT, Execution> inProgress = new HashMap<>();
 
   public static <KeyT, ValueT> AsyncTaskCache<KeyT, ValueT> create() {
     return new AsyncTaskCache<>();
-  }
-
-  private AsyncTaskCache() {
-    this.finished = new HashMap<>();
-    this.inProgress = new HashMap<>();
   }
 
   /** Returns a set of keys for tasks which is finished. */
@@ -165,6 +172,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
           for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
             observer.onSuccess(value);
           }
+
+          maybeNotifyTermination();
         }
       }
     }
@@ -179,6 +188,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
           for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
             observer.onError(error);
           }
+
+          maybeNotifyTermination();
         }
       }
     }
@@ -194,6 +205,18 @@ public final class AsyncTaskCache<KeyT, ValueT> {
           if (upstreamDisposable != null) {
             upstreamDisposable.dispose();
           }
+        }
+      }
+    }
+
+    void cancel() {
+      synchronized (lock) {
+        if (!terminated) {
+          if (upstreamDisposable != null) {
+            upstreamDisposable.dispose();
+          }
+
+          onError(new CancellationException("cancelled"));
         }
       }
     }
@@ -225,6 +248,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   /**
    * Executes a task.
    *
+   * <p>If the cache is already shutdown, a {@link CancellationException} will be emitted.
+   *
    * @param key identifies the task.
    * @param force re-execute a finished task if set to {@code true}.
    * @return a {@link Single} which turns to completed once the task is finished or propagates the
@@ -234,6 +259,11 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     return Single.create(
         emitter -> {
           synchronized (lock) {
+            if (state != STATE_ACTIVE) {
+              emitter.onError(new CancellationException("already shutdown"));
+              return;
+            }
+
             if (!force && finished.containsKey(key)) {
               emitter.onSuccess(finished.get(key));
               return;
@@ -273,6 +303,69 @@ public final class AsyncTaskCache<KeyT, ValueT> {
         });
   }
 
+  /**
+   * Shuts the cache down. Any in progress tasks will continue running while new requests will be
+   * injected with {@link CancellationException}.
+   */
+  public void shutdown() {
+    synchronized (lock) {
+      if (state == STATE_ACTIVE) {
+        state = STATE_PENDING_SHUTDOWN;
+        maybeNotifyTermination();
+      }
+    }
+  }
+
+  /** Returns a {@link Completable} which will complete once all the in progress tasks finished. */
+  public Completable awaitTermination() {
+    return Completable.create(
+        emitter -> {
+          synchronized (lock) {
+            if (state == STATE_SHUTDOWN) {
+              emitter.onComplete();
+            } else {
+              terminationSubscriber.add(emitter);
+
+              emitter.setCancellable(
+                  () -> {
+                    synchronized (lock) {
+                      if (state != STATE_SHUTDOWN) {
+                        terminationSubscriber.remove(emitter);
+                      }
+                    }
+                  });
+            }
+          }
+        });
+  }
+
+  /**
+   * Shuts the cache down. Any in progress tasks will be cancelled with {@link CancellationException}.
+   */
+  public void shutdownNow() {
+    shutdown();
+
+    synchronized (lock) {
+      if (state == STATE_PENDING_SHUTDOWN) {
+        for (Execution execution : ImmutableList.copyOf(inProgress.values())) {
+          execution.cancel();
+        }
+      }
+    }
+  }
+
+  @GuardedBy("lock")
+  private void maybeNotifyTermination() {
+    if (state == STATE_PENDING_SHUTDOWN && inProgress.isEmpty()) {
+      state = STATE_SHUTDOWN;
+
+      for (CompletableEmitter emitter : terminationSubscriber) {
+        emitter.onComplete();
+      }
+      terminationSubscriber.clear();
+    }
+  }
+
   /** An {@link AsyncTaskCache} without result. */
   public static final class NoResult<KeyT> {
     private final AsyncTaskCache<KeyT, Optional<Void>> cache;
@@ -310,6 +403,18 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     /** Returns count of subscribers for a task. */
     public int getSubscriberCount(KeyT key) {
       return cache.getSubscriberCount(key);
+    }
+
+    public void shutdown() {
+      cache.shutdown();
+    }
+
+    public Completable awaitTermination() {
+      return cache.awaitTermination();
+    }
+
+    public void shutdownNow() {
+      cache.shutdownNow();
     }
   }
 }

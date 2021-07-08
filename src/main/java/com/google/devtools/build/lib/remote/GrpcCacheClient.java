@@ -264,25 +264,23 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException {
-    try {
-      Utils.refreshIfUnauthenticated(
-          () ->
-              retrier.execute(
-                  () ->
-                      acBlockingStub(context)
-                          .updateActionResult(
-                              UpdateActionResultRequest.newBuilder()
-                                  .setInstanceName(options.remoteInstanceName)
-                                  .setActionDigest(actionKey.getDigest())
-                                  .setActionResult(actionResult)
-                                  .build())),
-          callCredentialsProvider);
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
+    ListenableFuture<ActionResult> upload =
+        Utils.refreshIfUnauthenticatedAsync(
+            () ->
+                retrier.executeAsync(
+                    () ->
+                        acFutureStub(context)
+                            .updateActionResult(
+                                UpdateActionResultRequest.newBuilder()
+                                    .setInstanceName(options.remoteInstanceName)
+                                    .setActionDigest(actionKey.getDigest())
+                                    .setActionResult(actionResult)
+                                    .build())),
+            callCredentialsProvider);
+
+    return Futures.transform(upload, ac -> null, MoreExecutors.directExecutor());
   }
 
   @Override
