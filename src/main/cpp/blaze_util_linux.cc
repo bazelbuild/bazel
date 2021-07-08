@@ -164,7 +164,9 @@ string GetSystemJavabase() {
 // Relevant entries from /proc/[pid]/stat.
 // Run `man proc` and search "/proc/[pid]/stat"
 struct ProcessStatus {
+  // Process state. See "(3) state" in `man proc`.
   string state;
+  // Start time since startup. See "(22) starttime" in `man proc`.
   string start_time;
 };
 
@@ -184,8 +186,6 @@ static bool GetProcessStatus(const string& pid, ProcessStatus* status) {
         << " is unknown: " << GetLastErrorString();
   }
 
-  // Start time since startup in jiffies. This combined with the PID should be
-  // unique.
   *status = ProcessStatus{
     state: stat_entries[2],
     start_time: stat_entries[21],
