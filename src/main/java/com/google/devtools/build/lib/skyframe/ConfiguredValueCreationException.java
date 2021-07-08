@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * An exception indicating that there was a problem during the construction of a
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 public final class ConfiguredValueCreationException extends Exception
     implements SaneAnalysisException {
 
+  private final Location location;
   @Nullable private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
   // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
@@ -40,22 +42,39 @@ public final class ConfiguredValueCreationException extends Exception
   private final DetailedExitCode detailedExitCode;
 
   private ConfiguredValueCreationException(
+      Location location,
       String message,
       @Nullable BuildEventId configuration,
       NestedSet<Cause> rootCauses,
       DetailedExitCode detailedExitCode) {
     super(message);
+    this.location = location;
     this.configuration = configuration;
     this.rootCauses = rootCauses;
     this.detailedExitCode = detailedExitCode;
   }
 
+  /**
+   * Returns a new copy with {@code message} emptied.
+   *
+   * <p>{@link BuildTool} reports exception messages to the console. but {@link
+   * ConfiguredTargetFunction} handles error reporting internally. Clearing out the message prevents
+   * both places from reporting it.
+   */
+  public ConfiguredValueCreationException withoutMessage() {
+    return new ConfiguredValueCreationException(
+        location, "", configuration, rootCauses, detailedExitCode);
+  }
+
   public ConfiguredValueCreationException(
+      Location location,
       String message,
       Label currentTarget,
       @Nullable BuildConfiguration configuration,
       DetailedExitCode detailedExitCode) {
+    // TODO(bazel-team): the constructors are a bit out of control. Try a builder pattern.
     this(
+        location,
         message,
         configuration == null ? null : configuration.getEventId(),
         NestedSetBuilder.<Cause>stableOrder()
@@ -69,33 +88,37 @@ public final class ConfiguredValueCreationException extends Exception
   }
 
   public ConfiguredValueCreationException(
-      String message, Label currentTarget, @Nullable BuildConfiguration configuration) {
-    this(
-        message,
-        currentTarget,
-        configuration,
-        createDetailedExitCode(message, Code.CONFIGURED_VALUE_CREATION_FAILED));
+      Location location,
+      String message,
+      Label currentTarget,
+      @Nullable BuildConfiguration configuration) {
+    this(location, message, currentTarget, configuration, createDetailedExitCode(message));
   }
 
   public ConfiguredValueCreationException(
+      Location location,
       String message,
       @Nullable BuildConfiguration configuration,
       NestedSet<Cause> rootCauses,
-      DetailedExitCode detailedExitCode) {
+      @Nullable DetailedExitCode detailedExitCode) {
     this(
+        location,
         message,
         configuration == null ? null : configuration.getEventId(),
         rootCauses,
-        detailedExitCode);
+        detailedExitCode != null ? detailedExitCode : createDetailedExitCode(message));
   }
 
   public ConfiguredValueCreationException(
-      String message, @Nullable BuildConfiguration configuration, NestedSet<Cause> rootCauses) {
-    this(
-        message,
-        configuration,
-        rootCauses,
-        createDetailedExitCode(message, Code.CONFIGURED_VALUE_CREATION_FAILED));
+      Location location,
+      String message,
+      @Nullable BuildConfiguration configuration,
+      NestedSet<Cause> rootCauses) {
+    this(location, message, configuration, rootCauses, createDetailedExitCode(message));
+  }
+
+  public Location getLocation() {
+    return location;
   }
 
   public NestedSet<Cause> getRootCauses() {
@@ -112,11 +135,11 @@ public final class ConfiguredValueCreationException extends Exception
     return detailedExitCode;
   }
 
-  private static DetailedExitCode createDetailedExitCode(String message, Analysis.Code code) {
+  private static DetailedExitCode createDetailedExitCode(String message) {
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(message)
-            .setAnalysis(Analysis.newBuilder().setCode(code))
+            .setAnalysis(Analysis.newBuilder().setCode(Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
   }
 }

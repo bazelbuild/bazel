@@ -508,6 +508,12 @@ final class AspectFunction implements SkyFunction {
           depValueMap,
           transitivePackagesForPackageRootResolution);
     } catch (DependencyEvaluationException e) {
+      // TODO(bazel-team): consolidate all env.getListener().handle() calls in this method, like in
+      // ConfiguredTargetFunction. This encourages clear, consistent user messages (ideally without
+      // the programmer having to think about it).
+      if (!e.depReportedOwnError()) {
+        env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+      }
       if (e.getCause() instanceof ConfiguredValueCreationException) {
         ConfiguredValueCreationException cause = (ConfiguredValueCreationException) e.getCause();
         throw new AspectFunctionException(
@@ -515,6 +521,7 @@ final class AspectFunction implements SkyFunction {
                 cause.getMessage(), cause.getRootCauses(), cause.getDetailedExitCode()));
       } else if (e.getCause() instanceof InconsistentAspectOrderException) {
         InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
+        env.getListener().handle(Event.error(cause.getLocation(), cause.getMessage()));
         throw new AspectFunctionException(
             new AspectCreationException(cause.getMessage(), key.getLabel(), aspectConfiguration));
       } else if (e.getCause() instanceof TransitionException) {
@@ -533,6 +540,8 @@ final class AspectFunction implements SkyFunction {
                 cause.getDetailedExitCode()));
       }
     } catch (AspectCreationException e) {
+      throw new AspectFunctionException(e);
+    } catch (ConfiguredValueCreationException e) {
       throw new AspectFunctionException(e);
     } catch (ToolchainException e) {
       throw new AspectFunctionException(
@@ -764,6 +773,10 @@ final class AspectFunction implements SkyFunction {
     }
 
     public AspectFunctionException(AspectCreationException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    public AspectFunctionException(ConfiguredValueCreationException e) {
       super(e, Transience.PERSISTENT);
     }
 

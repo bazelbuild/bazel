@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -136,7 +137,7 @@ public final class ConfigurationResolver {
   @Nullable
   public OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
       OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys)
-      throws DependencyEvaluationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
     OrderedSetMultimap<DependencyKind, Dependency> resolvedDeps = OrderedSetMultimap.create();
     boolean needConfigsFromSkyframe = false;
     for (Map.Entry<DependencyKind, DependencyKey> entry : dependencyKeys.entries()) {
@@ -158,7 +159,7 @@ public final class ConfigurationResolver {
   @Nullable
   private ImmutableList<Dependency> resolveConfiguration(
       DependencyKind dependencyKind, DependencyKey dependencyKey)
-      throws DependencyEvaluationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
 
     Dependency.Builder dependencyBuilder = dependencyKey.getDependencyBuilder();
 
@@ -176,7 +177,7 @@ public final class ConfigurationResolver {
   @Nullable
   private Dependency resolveNullTransition(
       Dependency.Builder dependencyBuilder, DependencyKind dependencyKind)
-      throws DependencyEvaluationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
     // The null configuration can be trivially computed (it's, well, null), so special-case that
     // transition here and skip the rest of the logic. A *lot* of targets have null deps, so
     // this produces real savings. Profiling tests over a simple cc_binary show this saves ~1% of
@@ -205,7 +206,7 @@ public final class ConfigurationResolver {
       FragmentClassSet depFragments,
       Dependency.Builder dependencyBuilder,
       DependencyKey dependencyKey)
-      throws DependencyEvaluationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
     Map<String, BuildOptions> toOptions;
     try {
       toOptions =
@@ -218,7 +219,11 @@ public final class ConfigurationResolver {
         return null; // Need more Skyframe deps for a Starlark transition.
       }
     } catch (TransitionException e) {
-      throw new DependencyEvaluationException(e);
+      throw new ConfiguredValueCreationException(
+          ctgValue.getTarget().getLocation(),
+          e.getMessage(),
+          ctgValue.getLabel(),
+          ctgValue.getConfiguration());
     }
 
     if (depFragments.equals(getCurrentConfiguration().fragmentClasses())
@@ -253,7 +258,11 @@ public final class ConfigurationResolver {
         configurationKeys.put(transitionKey, buildConfigurationValueKey);
       }
     } catch (OptionsParsingException e) {
-      throw new DependencyEvaluationException(new InvalidConfigurationException(e));
+      throw new ConfiguredValueCreationException(
+          ctgValue.getTarget().getLocation(),
+          e.getMessage(),
+          ctgValue.getLabel(),
+          ctgValue.getConfiguration());
     }
 
     Map<SkyKey, ValueOrException<InvalidConfigurationException>> depConfigValues =
@@ -285,7 +294,11 @@ public final class ConfigurationResolver {
         return null; // Need dependency configurations.
       }
     } catch (InvalidConfigurationException e) {
-      throw new DependencyEvaluationException(e);
+      throw new ConfiguredValueCreationException(
+          ctgValue.getTarget().getLocation(),
+          e.getMessage(),
+          ctgValue.getLabel(),
+          ctgValue.getConfiguration());
     }
 
     return ImmutableList.sortedCopyOf(SPLIT_DEP_ORDERING, dependencies);
@@ -293,7 +306,7 @@ public final class ConfigurationResolver {
 
   @Nullable
   private ImmutableList<String> collectTransitionKeys(Attribute attribute)
-      throws DependencyEvaluationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
     TransitionFactory<AttributeTransitionData> transitionFactory = attribute.getTransitionFactory();
     if (transitionFactory.isSplit()) {
       AttributeTransitionData transitionData =
@@ -314,7 +327,11 @@ public final class ConfigurationResolver {
           return null; // Need more Skyframe deps for a Starlark transition.
         }
       } catch (TransitionException e) {
-        throw new DependencyEvaluationException(e);
+        throw new ConfiguredValueCreationException(
+            ctgValue.getTarget().getLocation(),
+            e.getMessage(),
+            ctgValue.getLabel(),
+            ctgValue.getConfiguration());
       }
       if (!SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
         return ImmutableList.copyOf(toOptions.keySet());

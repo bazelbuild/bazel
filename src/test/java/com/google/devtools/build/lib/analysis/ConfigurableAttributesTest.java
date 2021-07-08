@@ -535,8 +535,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    cmd = select({'//bar:fake': '', '//conditions:a': ''})",
         ")");
     assertThat(getConfiguredTarget("//foo:g")).isNull();
-    assertContainsEvent(
-        "While resolving configuration keys for //foo:g: no such target '//bar:fake'");
+    assertContainsEvent("bar/BUILD: no such target '//bar:fake'");
+    assertContainsEvent("foo/BUILD:1:8: errors encountered resolving select() keys for //foo:g");
   }
 
   /**

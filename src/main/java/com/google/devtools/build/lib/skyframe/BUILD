@@ -1234,6 +1234,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
