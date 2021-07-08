@@ -187,8 +187,8 @@ static bool GetProcessStatus(const string& pid, ProcessStatus* status) {
   }
 
   *status = ProcessStatus{
-    state: stat_entries[2],
-    start_time: stat_entries[21],
+    .state = stat_entries[2],
+    .start_time = stat_entries[21],
   };
   return true;
 }
