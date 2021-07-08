@@ -567,23 +567,23 @@ cpu_transition = transition(
 
 #### Unsupported native options
 
-Bazel doesn't support transitioning on `--define` using
-`"//command_line_option:define"`. Instead, create a custom
-[build setting](#users-defined-build-settings)
-to cover this functionality. In general, any new usage of `--define`, such as in
-select() statements, is discouraged in favor of build settings.
+Bazel doesn't support transitioning on `--define` with
+`"//command_line_option:define"`. Instead, use a custom
+[build setting](#user-defined-build-settings). In general, new usages of
+`--define` are discouraged in favor of build settings.
 
-Bazel doesn't support transitioning on options that expand to other options such
-as `--config`. One, option expansion happens at the
-beginning of the build so Starlark transitions have no access to that logic.
-Two, `--config` can be used to set options that aren't part of the build
-configuration which cannot be set by transitions. An example of this is execution options
-like
+Bazel doesn't support transitioning on `--config`. This is because `--config` is
+an "expansion" flag that expands to other flags.
+
+Crucially, `--config` may include flags that don't affect build configuration,
+such as
 [`--spawn_strategy`](https://docs.bazel.build/versions/main/user-manual.html#flag--spawn_strategy)
-. A workaround is to manually expand the option in the starlark transition by
-setting the individual flags to their appropriate values. Unfortunately this
-requires maintaining the expansion in two places. Note that this workaround
-does not allow for command-specific behavior like `--config` does.
+. Bazel, by design, can't bind such flags to individual targets. This means
+there's no coherent way to apply them in transitions.
+
+As a workaround, you can explicitly itemize the flags that *are* part of
+the configuration in your transition. This requires maintaining the `--config`'s
+expansion in two places, which is a known UI blemish.
 
 ### Transitions on allow multiple build settings
 
