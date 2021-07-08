@@ -139,8 +139,7 @@ public final class ActionsTestUtil {
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
-      MetadataHandler metadataHandler,
-      @Nullable ActionGraph actionGraph) {
+      MetadataHandler metadataHandler) {
     return createContext(
         executor,
         eventHandler,
@@ -148,8 +147,7 @@ public final class ActionsTestUtil {
         fileOutErr,
         execRoot,
         metadataHandler,
-        ImmutableMap.of(),
-        actionGraph);
+        /*clientEnv=*/ ImmutableMap.of());
   }
 
   public static ActionExecutionContext createContext(
@@ -159,8 +157,7 @@ public final class ActionsTestUtil {
       FileOutErr fileOutErr,
       Path execRoot,
       MetadataHandler metadataHandler,
-      Map<String, String> clientEnv,
-      @Nullable ActionGraph actionGraph) {
+      Map<String, String> clientEnv) {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),

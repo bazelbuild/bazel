@@ -358,8 +358,7 @@ public class DynamicSpawnStrategyTest {
             actionKeyContext,
             outErr,
             testRoot,
-            /*metadataHandler=*/ null,
-            /*actionGraph=*/ null);
+            /*metadataHandler=*/ null);
 
     List<? extends SpawnStrategy> dynamicStrategies =
         spawnStrategyRegistry.getStrategies(
