@@ -57,7 +57,7 @@ public class CommandLogModule extends BlazeModule {
 
     try {
       if (writeCommandLog(env.getRuntime()) && !"clean".equals(env.getCommandName())) {
-        logOutputStream = commandLog.getOutputStream();
+        logOutputStream = commandLog.getOutputStream(/* append= */ false, /* internal= */ true);
         return OutErr.create(logOutputStream, logOutputStream);
       }
     } catch (IOException ioException) {

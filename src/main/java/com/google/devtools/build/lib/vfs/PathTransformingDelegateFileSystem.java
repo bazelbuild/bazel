@@ -183,6 +183,12 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
+  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException {
+    return delegateFs.getOutputStream(toDelegatePath(path), append, internal);
+  }
+
+  @Override
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
     delegateFs.renameTo(toDelegatePath(sourcePath), toDelegatePath(targetPath));
   }

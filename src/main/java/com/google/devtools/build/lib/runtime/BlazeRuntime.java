@@ -341,7 +341,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         }
         if (options.profilePath != null) {
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-          out = profilePath.getOutputStream();
+          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
         } else {
           profileName = "command.profile";
           if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {

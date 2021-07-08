@@ -738,6 +738,16 @@ public abstract class FileSystem {
       throws IOException;
 
   /**
+   * Creates an OutputStream accessing the file denoted by path.
+   *
+   * @param append whether to open the output stream in append mode
+   * @param internal whether the file is a Bazel internal file
+   * @throws IOException if there was an error opening the file for writing
+   */
+  protected abstract OutputStream getOutputStream(
+      PathFragment path, boolean append, boolean internal) throws IOException;
+
+  /**
    * Renames the file denoted by "sourceNode" to the location "targetNode". See {@link
    * Path#renameTo} for specification.
    */
