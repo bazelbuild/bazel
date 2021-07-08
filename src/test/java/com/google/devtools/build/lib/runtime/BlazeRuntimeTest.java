@@ -37,6 +37,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
 import com.google.protobuf.StringValue;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -81,10 +82,11 @@ public class BlazeRuntimeTest {
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setFileSystem(fs)
-            .setProductName("bazel")
+            .setProductName("foo product")
             .setServerDirectories(serverDirectories)
             .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
             .build();
+    AtomicReference<String> shutdownMessage = new AtomicReference<>();
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
@@ -104,7 +106,8 @@ public class BlazeRuntimeTest {
             ImmutableList.of(),
             0L,
             0L,
-            ImmutableList.of());
+            ImmutableList.of(),
+            shutdownMessage::set);
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
     DetailedExitCode oom =
         DetailedExitCode.of(
@@ -120,6 +123,7 @@ public class BlazeRuntimeTest {
     assertThat(runtime.afterCommand(env, mainThreadCrash).getDetailedExitCode()).isEqualTo(oom);
     // Confirm that runtime interrupted the command thread.
     verify(commandThread).interrupt();
+    assertThat(shutdownMessage.get()).isEqualTo("foo product is crashing: ");
   }
 
   @Test
@@ -150,7 +154,8 @@ public class BlazeRuntimeTest {
             ImmutableList.of(),
             0L,
             0L,
-            ImmutableList.of());
+            ImmutableList.of(),
+            s -> {});
     Any anyFoo = Any.pack(StringValue.of("foo"));
     Any anyBar = Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")));
     env.addResponseExtensions(ImmutableList.of(anyFoo, anyBar));

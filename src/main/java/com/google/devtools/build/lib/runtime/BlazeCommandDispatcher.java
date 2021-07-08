@@ -23,7 +23,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
@@ -72,6 +71,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import net.starlark.java.eval.Starlark;
 
@@ -95,7 +95,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   private final BugReporter bugReporter;
   private final Object commandLock;
   private String currentClientDescription = null;
-  private String shutdownReason = null;
+  private final AtomicReference<String> shutdownReason = new AtomicReference<>();
   private OutputStream logOutputStream = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
       Caffeine.newBuilder()
@@ -212,7 +212,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         multipleAttempts = true;
       }
-      Verify.verify(currentClientDescription == null);
       currentClientDescription = clientDescription;
     }
     // If we took the lock on the first try, force the reported wait time to 0 to avoid unnecessary
@@ -222,11 +221,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         !multipleAttempts ? 0 : (BlazeClock.nanoTime() - clockBefore) / (1000L * 1000L);
 
     try {
-      if (shutdownReason != null) {
-        String message = "Server shut down " + shutdownReason;
-        outErr.printErrLn(message);
+      String retrievedShutdownReason = this.shutdownReason.get();
+      if (retrievedShutdownReason != null) {
+        outErr.printErrLn(retrievedShutdownReason);
         return createDetailedCommandResult(
-            message, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
+            retrievedShutdownReason, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result =
           execExclusively(
@@ -241,9 +240,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               startupOptionsTaggedWithBazelRc,
               commandExtensions);
       if (result.shutdown()) {
-        // TODO(lberki): This also handles the case where we catch an uncaught Throwable in
-        // execExclusively() which is not an explicit shutdown.
-        shutdownReason = "explicitly by client " + clientDescription;
+        setShutdownReason(
+            "Server shut down "
+                + (result.getExitCode().isInfrastructureFailure()
+                    ? "due to a crash: " + result.getFailureDetail().getMessage()
+                    : "explicitly by client " + clientDescription));
       }
       if (!result.getDetailedExitCode().isSuccess()) {
         logger.atInfo().log("Exit status was %s", result.getDetailedExitCode());
@@ -320,7 +321,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             commandEnvWarnings,
             waitTimeInMs,
             firstContactTime,
-            commandExtensions);
+            commandExtensions,
+            this::setShutdownReason);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     boolean tracerEnabled = false;
     if (commonOptions.enableTracer == TriState.YES) {
@@ -758,6 +760,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   public void shutdown() {
     closeSilently(logOutputStream);
     logOutputStream = null;
+  }
+
+  private void setShutdownReason(String shutdownReason) {
+    this.shutdownReason.compareAndSet(null, shutdownReason);
   }
 
   private static BlazeCommandResult createDetailedCommandResult(

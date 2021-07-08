@@ -37,6 +37,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -191,7 +192,8 @@ public final class BlazeWorkspace {
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
-      List<Any> commandExtensions) {
+      List<Any> commandExtensions,
+      Consumer<String> shutdownReasonConsumer) {
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -203,7 +205,8 @@ public final class BlazeWorkspace {
             warnings,
             waitTimeInMs,
             commandStartTime,
-            commandExtensions);
+            commandExtensions,
+            shutdownReasonConsumer);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }

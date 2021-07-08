@@ -68,6 +68,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -103,6 +104,7 @@ public class CommandEnvironment {
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
   private final ImmutableList.Builder<Any> responseExtensions = ImmutableList.builder();
+  private final Consumer<String> shutdownReasonConsumer;
 
   private OutputService outputService;
   private TopDownActionCache topDownActionCache;
@@ -161,7 +163,8 @@ public class CommandEnvironment {
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
-      List<Any> commandExtensions) {
+      List<Any> commandExtensions,
+      Consumer<String> shutdownReasonConsumer) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -170,6 +173,7 @@ public class CommandEnvironment {
     this.commandThread = commandThread;
     this.command = command;
     this.options = options;
+    this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -329,8 +333,10 @@ public class CommandEnvironment {
     return getRuntime().getClock();
   }
 
-  public Thread getCommandThread() {
-    return commandThread;
+  void notifyOnCrash(String message) {
+    shutdownReasonConsumer.accept(message);
+    // Give shutdown hooks priority in JVM and stop generating more data for modules to consume.
+    commandThread.interrupt();
   }
 
   public OptionsProvider getStartupOptionsProvider() {
@@ -376,7 +382,6 @@ public class CommandEnvironment {
   public Command getCommand() {
     return command;
   }
-
   public String getCommandName() {
     return command.name();
   }

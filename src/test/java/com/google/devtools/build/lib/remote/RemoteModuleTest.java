@@ -118,7 +118,8 @@ public final class RemoteModuleTest {
             productName);
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
-    return workspace.initCommand(command, options, new ArrayList<>(), 0, 0, ImmutableList.of());
+    return workspace.initCommand(
+        command, options, new ArrayList<>(), 0, 0, ImmutableList.of(), s -> {});
   }
 
   static class CapabilitiesImpl extends CapabilitiesImplBase {

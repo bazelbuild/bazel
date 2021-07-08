@@ -99,6 +99,7 @@ public class BlazeRuntimeWrapper {
   private OptionsParser optionsParser;
   private ImmutableList.Builder<String> optionsToParse = new ImmutableList.Builder<>();
   private final List<Class<? extends OptionsBase>> additionalOptionsClasses = new ArrayList<>();
+  private final List<String> crashMessages = new ArrayList<>();
 
   private final List<Object> eventBusSubscribers = new ArrayList<>();
 
@@ -234,7 +235,8 @@ public class BlazeRuntimeWrapper {
                 new ArrayList<>(),
                 0L,
                 0L,
-                extensions.stream().map(Any::pack).collect(toImmutableList()));
+                extensions.stream().map(Any::pack).collect(toImmutableList()),
+                this.crashMessages::add);
     return env;
   }
 
@@ -411,5 +413,9 @@ public class BlazeRuntimeWrapper {
 
   public ImmutableSet<ConfiguredTarget> getTopLevelTargets() {
     return topLevelTargets;
+  }
+
+  public List<String> getCrashMessages() {
+    return crashMessages;
   }
 }

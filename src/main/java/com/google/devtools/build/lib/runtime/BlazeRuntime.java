@@ -558,8 +558,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (declareExitCode(exitCode)) {
       CommandEnvironment localEnv = env;
       if (localEnv != null) {
-        // Give shutdown hooks priority in JVM and stop generating more data for modules to consume.
-        localEnv.getCommandThread().interrupt();
+        localEnv.notifyOnCrash(
+            productName + " is crashing: " + exitCode.getFailureDetail().getMessage());
       }
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
