@@ -2125,6 +2125,7 @@ java_library(
         ":config/core_options",
         ":config/fragment_options",
         ":config/starlark_defined_config_transition",
+        ":config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",

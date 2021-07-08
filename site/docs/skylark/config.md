@@ -618,6 +618,34 @@ coffee_transition = transition(
 )
 ```
 
+### No-op transitions
+
+If a transition returns `{}`, `[]`, or `None`, this is shorthand for keeping all
+settings at their original values. This can be more convenient than explicitly
+setting each output to itself.
+
+```python
+# example/transitions/transitions.bzl
+def _impl(settings, attr):
+    _ignore = (attr)
+    if settings["//example:already_chosen"] is True:
+      return {}
+    return {
+      "//example:favorite_flavor": "dark chocolate",
+      "//example:include_marshmallows": "yes",
+      "//example:desired_temperature": "38C",
+    }
+
+hot_chocolate_transition = transition(
+    implementation = _impl,
+    inputs = ["//example:already_chosen"],
+    outputs = [
+        "//example:favorite_flavor",
+        "//example:include_marshmallows",
+        "//example:desired_temperature",
+    ]
+)
+```
 
 ### Accessing attributes with transitions
 

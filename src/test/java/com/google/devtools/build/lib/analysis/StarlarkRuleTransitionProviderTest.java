@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
@@ -27,14 +29,15 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for StarlarkRuleTransitionProvider. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -1051,17 +1054,21 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         .isEqualTo("post-transition");
   }
 
-  /**
-   * Regression test to ensure that an empty dict is not interpreted as a dict of dicts and
-   * generates the proper error message.
-   */
   @Test
-  public void testEmptyReturnDict() throws Exception {
+  @TestParameters({
+    "{"
+        + "returnLine: 'return []',"
+        + "returnLine: 'return {}',"
+        + "returnLine: 'return None',"
+        + "returnLine: 'pass',"
+        + "}"
+  })
+  public void noopReturnValues(String returnLine) throws Exception {
     writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
-        "  return {}",
+        "  " + returnLine,
         "my_transition = transition(implementation = _impl, inputs = [],",
         "  outputs = ['//command_line_option:foo'])");
     scratch.file(
@@ -1078,12 +1085,11 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test");
-    assertContainsEvent(
-        "transition outputs [//command_line_option:foo] were "
-            + "not defined by transition function");
+    // --trim_test_configuration means only the top-level configuration has TestOptions.
+    assertConfigurationsEqual(
+        getConfiguration(getConfiguredTarget("//test")),
+        targetConfig,
+        ImmutableSet.of(TestOptions.class));
   }
 
   @Test
@@ -1096,12 +1102,20 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True))");
     scratch.file(
         "test/transitions.bzl",
-        "def _impl(settings, attr):",
-        "  return {}",
-        "attr_transition = transition(implementation = _impl, inputs = [],",
-        "  outputs = ['//test:attr_transition_output_flag'])",
-        "self_transition = transition(implementation = _impl, inputs = [],",
-        "  outputs = ['//test:self_transition_output_flag'])");
+        "def _attr_impl(settings, attr):",
+        "  return {'//test:attr_transition_output_flag1': 'not default'}",
+        "attr_transition = transition(implementation = _attr_impl, inputs = [],",
+        "  outputs = [",
+        "      '//test:attr_transition_output_flag1',",
+        "      '//test:attr_transition_output_flag2',",
+        "  ])",
+        "def _self_impl(settings, attr):",
+        "  return {'//test:self_transition_output_flag1': 'not default'}",
+        "self_transition = transition(implementation = _self_impl, inputs = [],",
+        "  outputs = [",
+        "      '//test:self_transition_output_flag1',",
+        "      '//test:self_transition_output_flag2',",
+        "  ])");
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'attr_transition', 'self_transition')",
@@ -1125,18 +1139,20 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "test/BUILD",
         "load('//test:rules.bzl', 'rule_with_attr_transition', 'rule_with_self_transition')",
         "load('//test:build_settings.bzl', 'string_flag')",
-        "string_flag(name = 'attr_transition_output_flag', build_setting_default='')",
-        "string_flag(name = 'self_transition_output_flag', build_setting_default='')",
+        "string_flag(name = 'attr_transition_output_flag1', build_setting_default='')",
+        "string_flag(name = 'attr_transition_output_flag2', build_setting_default='')",
+        "string_flag(name = 'self_transition_output_flag1', build_setting_default='')",
+        "string_flag(name = 'self_transition_output_flag2', build_setting_default='')",
         "rule_with_attr_transition(name = 'buildme', deps = [':adep'])",
         "rule_with_self_transition(name = 'adep')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:buildme");
     assertContainsEvent(
-        "transition outputs [//test:attr_transition_output_flag] were not defined by transition "
+        "transition outputs [//test:attr_transition_output_flag2] were not defined by transition "
             + "function");
     assertContainsEvent(
-        "transition outputs [//test:self_transition_output_flag] were not defined by transition "
+        "transition outputs [//test:self_transition_output_flag2] were not defined by transition "
             + "function");
   }
 

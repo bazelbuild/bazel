@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -95,6 +96,9 @@ public class FunctionTransitionUtil {
           starlarkTransition.evaluate(settings, attrObject, handler);
       if (transitions == null) {
         return null; // errors reported to handler
+      } else if (transitions.isEmpty()) {
+        // The transition produced a no-op.
+        return ImmutableMap.of(PATCH_TRANSITION_KEY, buildOptions);
       }
 
       for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {

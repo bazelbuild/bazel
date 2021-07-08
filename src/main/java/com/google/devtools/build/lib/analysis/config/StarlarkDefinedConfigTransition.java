@@ -19,7 +19,6 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -44,6 +43,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -319,6 +319,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      *
      * @param previousSettings a map representing the previous build settings
      * @param attributeMapper a map of attributes
+     * @return a map of the changed settings. An empty map is shorthand for the transition not
+     *     changing any settings ({@code return {} } is simpler than assigning every output setting
+     *     to itself). A null return means an error occurred and results are unusable.
      */
     // TODO(bazel-team): integrate dict-of-dicts return type with ctx.split_attr
     @Nullable
@@ -361,20 +364,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         return null;
       }
 
-      if (result instanceof Dict) {
-        // We need to special case empty dicts because if we don't, the error reported for rule
-        // transitions (which must be 1:1) is that we're trying to return a dict of dicts, instead
-        // of reporting the missing return values.
+      if (result instanceof NoneType) {
+        return ImmutableMap.of();
+      } else if (result instanceof Dict) {
         if (((Dict) result).isEmpty()) {
-          // Check if we're missing return values and this dict *shouldn't* be empty.
-          try {
-            validateFunctionOutputsMatchesDeclaredOutputs(ImmutableSet.of(), getOutputs());
-          } catch (ValidationException ex) {
-            errorf(handler, "invalid result from transition function: %s", ex.getMessage());
-            return null;
-          }
-          // If it's properly empty, return empty dict.
-          return ImmutableMap.of(PATCH_TRANSITION_KEY, ImmutableMap.of());
+          return ImmutableMap.of();
         }
         try {
           Map<String, ?> dictOfDict =
@@ -409,6 +403,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         }
 
       } else if (result instanceof Sequence) {
+        if (((Sequence) result).isEmpty()) {
+          return ImmutableMap.of();
+        }
         ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
         try {
           int i = 0;
