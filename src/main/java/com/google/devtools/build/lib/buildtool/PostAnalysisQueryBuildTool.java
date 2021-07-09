@@ -28,13 +28,15 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputF
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
-import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
@@ -68,7 +70,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
                     .setMessage(
                         "Queries based on analysis results are not allowed if incrementality state"
                             + " is not being kept")
-                    .setQuery(Query.newBuilder().setCode(Code.ANALYSIS_QUERY_PREREQ_UNMET))
+                    .setQuery(Query.newBuilder().setCode(Query.Code.ANALYSIS_QUERY_PREREQ_UNMET))
                     .build()));
       }
       try (QueryRuntimeHelper queryRuntimeHelper =
@@ -92,13 +94,18 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
           FailureDetail failureDetail =
               FailureDetail.newBuilder()
                   .setMessage(errorMessage + ": " + e.getMessage())
-                  .setQuery(Query.newBuilder().setCode(Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+                  .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
                   .build();
           throw new ViewCreationFailedException(errorMessage, failureDetail, e);
         }
         env.getReporter().error(null, errorMessage, e);
       } catch (QueryRuntimeHelperException e) {
         throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
+      } catch (OptionsParsingException e) {
+        throw new ExitException(DetailedExitCode.of(ExitCode.COMMAND_LINE_ERROR, FailureDetail.newBuilder()
+            .setMessage(e.getMessage())
+            .setActionQuery(ActionQuery.newBuilder().setCode(ActionQuery.Code.INCORRECT_ARGUMENTS))
+            .build()));
       }
     }
   }
@@ -118,7 +125,7 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
       QueryExpression queryExpression)
-      throws InterruptedException, QueryException, IOException, QueryRuntimeHelperException {
+      throws InterruptedException, QueryException, IOException, QueryRuntimeHelperException, OptionsParsingException {
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
 
@@ -143,14 +150,10 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     NamedThreadSafeOutputFormatterCallback<T> callback =
         NamedThreadSafeOutputFormatterCallback.selectCallback(outputFormat, callbacks);
     if (callback == null) {
-      env.getReporter()
-          .handle(
-              Event.error(
-                  String.format(
-                      "Invalid output format '%s'. Valid values are: %s",
-                      outputFormat,
-                      NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
-      return;
+      throw new OptionsParsingException(String.format(
+          "Invalid output format '%s'. Valid values are: %s",
+          outputFormat,
+          NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks)));
     }
 
     // A certain subset of output formatters support "streaming" results - the formatter is called
