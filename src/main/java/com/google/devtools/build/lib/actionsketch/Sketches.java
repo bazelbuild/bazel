@@ -87,7 +87,11 @@ public class Sketches {
     @Override
     public HashAndVersionTracker putVersion(long v) {
       hasher.putLong(v);
-      version = max(version, v);
+      if (v != -1 && version != -1) {
+        version = max(version, v);
+      } else {
+        version = -1;
+      }
       return this;
     }
 

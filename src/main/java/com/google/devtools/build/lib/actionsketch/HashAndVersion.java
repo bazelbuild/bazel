@@ -29,6 +29,11 @@ public abstract class HashAndVersion {
 
   public abstract BigInteger hash();
 
+  /**
+   * -1 indicates that accurate version information could not be obtained (because all the files in
+   * a symlink chain were not examined, for instance). The hash may only be valid at the currently
+   * evaluating version.
+   */
   public abstract long version();
 
   @Nullable
@@ -51,6 +56,8 @@ public abstract class HashAndVersion {
     }
     return create(
         BigIntegerFingerprintUtils.compose(first.hash(), second.hash()),
-        max(first.version(), second.version()));
+        first.version() == -1 || second.version() == -1
+            ? -1
+            : max(first.version(), second.version()));
   }
 }
