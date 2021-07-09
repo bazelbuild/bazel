@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -416,11 +415,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
-            valueWhenDisabled = "None",
-            // TODO(b/151742236) update this doc when this becomes non-experimental.
             doc =
-                "(Experimental) runs the action on the given exec group's execution platform. If"
+                "Runs the action on the given exec group's execution platform. If"
                     + " none, uses the target's default execution platform."),
         @Param(
             name = "shadowed_action",
@@ -620,11 +616,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
-            valueWhenDisabled = "None",
-            // TODO(b/151742236) update this doc when this becomes non-experimental.
             doc =
-                "(Experimental) runs the action on the given exec group's execution platform. If"
+                "Runs the action on the given exec group's execution platform. If"
                     + " none, uses the target's default execution platform."),
         @Param(
             name = "shadowed_action",

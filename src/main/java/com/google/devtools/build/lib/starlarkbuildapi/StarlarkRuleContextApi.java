@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
@@ -90,8 +89,8 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " attributes</a> marked as <a"
           + " href='attr.html#label.allow_single_file'><code>allow_single_file</code></a>. The"
           + " struct fields correspond to the attribute names. The struct value is always a <a"
-          + " href='File.html'><code>File</code></a> or <code>None</code>. If an optional"
-          + " attribute is not specified in the rule then the corresponding struct value is"
+          + " href='File.html'><code>File</code></a> or <code>None</code>. If an optional attribute"
+          + " is not specified in the rule then the corresponding struct value is"
           + " <code>None</code>. If a label type is not marked as <code>allow_single_file</code>,"
           + " no corresponding struct field is generated. It is a shortcut for:<pre"
           + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
@@ -336,10 +335,8 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "exec_groups",
       structField = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
-      // TODO(b/151742236) update this doc when this becomes non-experimental.
       doc =
-          "<i>experimental</i> A collection of the execution groups available for this rule,"
+          "A collection of the execution groups available for this rule,"
               + " indexed by their name. Access with <code>ctx.exec_groups[name_of_group]</code>.")
   ExecGroupCollectionApi execGroups() throws EvalException;
 

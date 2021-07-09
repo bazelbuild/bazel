@@ -334,8 +334,6 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "None",
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_EXEC_GROUPS,
-            valueWhenDisabled = "None",
             doc =
                 "Dict of execution group name (string) to <a"
                     + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
