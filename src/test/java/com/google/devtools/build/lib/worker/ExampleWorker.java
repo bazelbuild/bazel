@@ -184,6 +184,9 @@ public final class ExampleWorker {
         }
       } else {
         try {
+          if (currentRequest.getVerbosity() > 0) {
+            originalStdErr.println("VERBOSE: Pretending to do work.");
+          }
           parseOptionsAndLog(args);
         } catch (Exception e) {
           e.printStackTrace();

@@ -360,6 +360,8 @@ EOF
     && fail "expected build to fail" || true
 
   expect_log "Worker process did not return a WorkResponse:"
+  # Worker log gets displayed on error, including verbosity messages.
+  expect_log "VERBOSE: Pretending to do work."
 }
 
 function test_worker_restarts_when_worker_binary_changes() {

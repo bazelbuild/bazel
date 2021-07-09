@@ -104,6 +104,7 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
     List<String> arguments = null;
     List<Input> inputs = null;
     Integer requestId = null;
+    Integer verbosity = null;
     try {
       reader.beginObject();
       while (reader.hasNext()) {
@@ -127,6 +128,12 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
             }
             requestId = reader.nextInt();
             break;
+          case "verbosity":
+            if (verbosity != null) {
+              throw new IOException("Work response cannot have more than one verbosity");
+            }
+            verbosity = reader.nextInt();
+            break;
           default:
             // As per https://docs.bazel.build/versions/main/creating-workers.html#work-responses,
             // unknown fields are ignored.
@@ -148,6 +155,9 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
     }
     if (requestId != null) {
       requestBuilder.setRequestId(requestId);
+    }
+    if (verbosity != null) {
+      requestBuilder.setVerbosity(verbosity);
     }
     return requestBuilder.build();
   }

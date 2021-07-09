@@ -147,7 +147,9 @@ The
 flag is mainly useful for debugging and profiling. This flag forces all workers
 to quit once a build is done. You can also pass
 [`--worker_verbose`](command-line-reference.html#flag--worker_verbose) to get
-more output about what the workers are doing.
+more output about what the workers are doing. This flag is reflected in the
+`verbosity` field in `WorkRequest`, allowing worker implementations to also be
+more verbose.
 
 Workers store their logs in the `<outputBase>/bazel-workers` directory, for
 example

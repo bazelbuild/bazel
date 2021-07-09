@@ -83,6 +83,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
   public static final String REASON_NO_FLAGFILE =
       "because the command-line arguments do not contain at least one @flagfile or --flagfile=";
   public static final String REASON_NO_TOOLS = "because the action has no tools";
+  /**
+   * The verbosity level implied by `--worker_verbose`. This value allows for manually setting some
+   * only-slightly-verbose levels.
+   */
+  private static final int VERBOSE_LEVEL = 10;
 
   /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
   private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
@@ -319,6 +324,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       requestBuilder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
+    }
+    if (workerOptions.workerVerbose) {
+      requestBuilder.setVerbosity(VERBOSE_LEVEL);
     }
     if (key.isMultiplex()) {
       requestBuilder.setRequestId(requestIdCounter.getAndIncrement());

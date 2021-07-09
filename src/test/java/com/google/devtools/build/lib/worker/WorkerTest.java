@@ -142,6 +142,7 @@ public final class WorkerTest {
                     .setDigest(ByteString.copyFromUtf8("testDigest"))
                     .build())
             .setRequestId(1)
+            .setVerbosity(11)
             .build();
 
     TestWorker testWorker = createTestWorker(new byte[0], JSON);
@@ -150,7 +151,7 @@ public final class WorkerTest {
     OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
     String requestJsonString =
         "{\"arguments\":[\"testRequest\"],\"inputs\":"
-            + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1}";
+            + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1,\"verbosity\":11}";
     assertThat(stdout.toString()).isEqualTo(requestJsonString);
   }
 
