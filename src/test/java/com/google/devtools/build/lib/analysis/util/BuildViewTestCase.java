@@ -1763,8 +1763,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameContentsWithCommonElements(Iterable<String> artifacts,
       String[] expectedInputs, Iterable<String> common) {
-    assertThat(Iterables.concat(Lists.newArrayList(expectedInputs), common))
-        .containsExactlyElementsIn(artifacts);
+    assertThat(artifacts)
+        .containsExactlyElementsIn(Iterables.concat(Lists.newArrayList(expectedInputs), common));
   }
 
   /**
