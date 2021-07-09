@@ -21,6 +21,7 @@ objc_internal = _builtins.internal.objc_internal
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
 transition = _builtins.toplevel.transition
+apple_common = _builtins.toplevel.apple_common
 
 def _rule_error(msg):
     fail(msg)
@@ -54,6 +55,28 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
     if compilation_artifacts.archive != None:
         library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, compilation_artifacts.archive)
         libraries.append(library_to_link)
+
+    archives_from_objc_library = {}
+    for library in objc_provider.library.to_list():
+        archives_from_objc_library[library.path] = library
+
+    objc_libraries_cc_infos = []
+    for dep in ctx.attr.deps:
+        if apple_common.Objc in dep and CcInfo in dep:
+            objc_libraries_cc_infos.append(dep[CcInfo])
+
+    merged_objc_library_cc_infos = cc_common.merge_cc_infos(cc_infos = objc_libraries_cc_infos)
+
+    for linker_input in merged_objc_library_cc_infos.linking_context.linker_inputs.to_list():
+        for lib in linker_input.libraries:
+            if lib.static_library.path in archives_from_objc_library and archives_from_objc_library[lib.static_library.path]:
+                libraries.append(lib)
+                archives_from_objc_library[lib.static_library.path] = None
+
+    for archive in archives_from_objc_library.values():
+        if archive:
+            library_to_link = _static_library(ctx, feature_configuration, cc_toolchain, archive)
+            libraries.append(library_to_link)
 
     libraries.extend(objc_provider.cc_library.to_list())
 
@@ -309,7 +332,7 @@ objc_library = rule(
         common_attrs.X_C_RUNE_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    cfg = _builtins.toplevel.apple_common.apple_crosstool_transition,
+    cfg = apple_common.apple_crosstool_transition,
     toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
     incompatible_use_toolchain_transition = True,
 )

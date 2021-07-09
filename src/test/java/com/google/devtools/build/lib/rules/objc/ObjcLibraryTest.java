@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
@@ -56,11 +57,13 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Set;
@@ -2223,5 +2226,36 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                             .getExecutable())
                     .getInputs()))
         .contains("src x/bar.a");
+  }
+
+  @Test
+  public void testPassesDependenciesStaticLibrariesInCcInfo() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'baz',",
+        "    srcs = ['baz.mm'],",
+        ")",
+        "objc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.mm'],",
+        "    deps = [':baz'],",
+        ")",
+        "cc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.cc'],",
+        "    deps = [':foo'],",
+        ")");
+
+    CcInfo ccInfo = getConfiguredTarget("//x:bar").get(CcInfo.PROVIDER);
+
+    assertThat(
+            artifactsToStrings(
+                ccInfo.getCcLinkingContext().getLinkerInputs().toList().stream()
+                    .map(LinkerInput::getLibraries)
+                    .flatMap(List::stream)
+                    .map(LibraryToLink::getStaticLibrary)
+                    .collect(toImmutableList())))
+        .contains("/ x/libbaz.a");
   }
 }
