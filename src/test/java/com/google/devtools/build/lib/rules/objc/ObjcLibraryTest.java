@@ -2258,4 +2258,26 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .collect(toImmutableList())))
         .contains("/ x/libbaz.a");
   }
+
+  @Test
+  public void testGrepIncludesPassed() throws Exception {
+    scratch.file("x/BUILD", "objc_library(", "    name = 'foo',", "    srcs = ['foo.mm']", ")");
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//x:foo", "foo.o");
+    assertThat(compileA.getGrepIncludes()).isNotNull();
+  }
+
+  @Test
+  public void testModuleMapFileAccessed() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "objc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.mm'],",
+        "    enable_modules = True,",
+        "    module_map = 'foo.modulemap'",
+        ")");
+
+    getConfiguredTarget("//x:foo");
+  }
 }

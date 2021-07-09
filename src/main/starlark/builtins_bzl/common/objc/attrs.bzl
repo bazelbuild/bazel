@@ -49,7 +49,7 @@ _COMPILING_RULE = {
     "non_arc_srcs": attr.label_list(
         allow_files = [".m", ".mm"],
     ),
-    "pch": attr.label(allow_files = [".pch"]),
+    "pch": attr.label(allow_single_file = [".pch"]),
     "deps": attr.label_list(
         providers = [ObjcInfo],
         allow_rules = [
@@ -66,6 +66,8 @@ _COMPILING_RULE = {
     "enable_modules": attr.bool(),
     "module_map": attr.label(allow_files = [".modulemap"]),
     "module_name": attr.string(),
+    # How many rules use this in the depot?
+    "stamp": attr.bool(),
 }
 
 _COMPILE_DEPENDENCY_RULE = {
