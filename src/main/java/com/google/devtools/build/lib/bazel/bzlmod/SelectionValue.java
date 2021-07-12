@@ -29,15 +29,11 @@ public abstract class SelectionValue implements SkyValue {
   @AutoCodec public static final SkyKey KEY = () -> SkyFunctions.SELECTION;
 
   public static SelectionValue create(
-      String rootModuleName,
-      ImmutableMap<ModuleKey, Module> depGraph,
-      ImmutableMap<String, ModuleOverride> overrides) {
-    return new AutoValue_SelectionValue(rootModuleName, depGraph, overrides);
+      String rootModuleName, ImmutableMap<ModuleKey, Module> depGraph) {
+    return new AutoValue_SelectionValue(rootModuleName, depGraph);
   }
 
   public abstract String getRootModuleName();
 
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
-
-  public abstract ImmutableMap<String, ModuleOverride> getOverrides();
 }

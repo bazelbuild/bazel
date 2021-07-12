@@ -109,8 +109,7 @@ public class SelectionFunction implements SkyFunction {
       throw new SelectionFunctionException(e);
     }
 
-    return SelectionValue.create(
-        discovery.getRootModuleName(), walker.getNewDepGraph(), discovery.getOverrides());
+    return SelectionValue.create(discovery.getRootModuleName(), walker.getNewDepGraph());
   }
 
   /**

@@ -29,15 +29,11 @@ public abstract class DiscoveryValue implements SkyValue {
   @AutoCodec public static final SkyKey KEY = () -> SkyFunctions.DISCOVERY;
 
   public static DiscoveryValue create(
-      String rootModuleName,
-      ImmutableMap<ModuleKey, Module> depGraph,
-      ImmutableMap<String, ModuleOverride> overrides) {
-    return new AutoValue_DiscoveryValue(rootModuleName, depGraph, overrides);
+      String rootModuleName, ImmutableMap<ModuleKey, Module> depGraph) {
+    return new AutoValue_DiscoveryValue(rootModuleName, depGraph);
   }
 
   public abstract String getRootModuleName();
 
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
-
-  public abstract ImmutableMap<String, ModuleOverride> getOverrides();
 }

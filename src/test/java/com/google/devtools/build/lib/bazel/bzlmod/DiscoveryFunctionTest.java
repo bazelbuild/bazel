@@ -163,7 +163,6 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
                 .build(),
             ModuleKey.create("D", "3.0"),
             Module.builder().setName("D").setVersion("3.0").setRegistry(registry).build());
-    assertThat(discoveryValue.getOverrides()).isEmpty();
   }
 
   @Test
@@ -212,7 +211,6 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
                 .addDep("B", ModuleKey.create("B", "1.0"))
                 .setRegistry(registry)
                 .build());
-    assertThat(discoveryValue.getOverrides()).isEmpty();
   }
 
   @Test
@@ -252,7 +250,6 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
                 .addDep("A", ModuleKey.create("A", ""))
                 .setRegistry(registry)
                 .build());
-    assertThat(discoveryValue.getOverrides()).isEmpty();
   }
 
   @Test
@@ -296,8 +293,6 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
                 .build(),
             ModuleKey.create("C", "2.0"),
             Module.builder().setName("C").setVersion("2.0").setRegistry(registry).build());
-    assertThat(discoveryValue.getOverrides())
-        .containsExactly("C", SingleVersionOverride.create("2.0", "", ImmutableList.of(), 0));
   }
 
   @Test
@@ -351,9 +346,6 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
                 .addDep("B", ModuleKey.create("B", "0.1"))
                 .setRegistry(registry2)
                 .build());
-    assertThat(discoveryValue.getOverrides())
-        .containsExactly(
-            "C", SingleVersionOverride.create("", registry2.getUrl(), ImmutableList.of(), 0));
   }
 
   // TODO(wyv): test local path override
