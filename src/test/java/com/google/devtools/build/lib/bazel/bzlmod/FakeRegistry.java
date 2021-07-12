@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.nio.charset.StandardCharsets;
@@ -53,7 +54,7 @@ public class FakeRegistry implements Registry {
   public RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler) {
     return RepoSpec.builder()
         .setRuleClassName("fake_http_archive_rule")
-        .setAttributes(ImmutableMap.<String, Object>of("repo_name", repoName))
+        .setAttributes(ImmutableMap.of("repo_name", repoName))
         .build();
   }
 
@@ -71,8 +72,7 @@ public class FakeRegistry implements Registry {
 
     @Override
     public Registry getRegistryWithUrl(String url) {
-      // TODO(wyv): instead of returning null, throw an exception
-      return registries.get(url);
+      return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }
 }

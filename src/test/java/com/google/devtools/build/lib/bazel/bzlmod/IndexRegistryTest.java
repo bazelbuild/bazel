@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Suppliers;
@@ -54,9 +55,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl() + "/myreg");
-    assertThat(registry.getModuleFile(ModuleKey.create("foo", "1.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue("lol".getBytes(UTF_8));
-    assertThat(registry.getModuleFile(ModuleKey.create("bar", "1.0"), reporter)).isEmpty();
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 
   @Test
@@ -70,9 +71,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     Registry registry =
         registryFactory.getRegistryWithUrl(
             new File(tempFolder.getRoot(), "fakereg").toURI().toString());
-    assertThat(registry.getModuleFile(ModuleKey.create("foo", "1.0"), reporter))
+    assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue("lol".getBytes(UTF_8));
-    assertThat(registry.getModuleFile(ModuleKey.create("bar", "1.0"), reporter)).isEmpty();
+    assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
   }
 
   @Test
@@ -106,7 +107,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
 
     Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
-    assertThat(registry.getRepoSpec(ModuleKey.create("foo", "1.0"), "foorepo", reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), "foorepo", reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setRepoName("foorepo")
@@ -120,7 +121,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
-    assertThat(registry.getRepoSpec(ModuleKey.create("bar", "2.0"), "barrepo", reporter))
+    assertThat(registry.getRepoSpec(createModuleKey("bar", "2.0"), "barrepo", reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setRepoName("barrepo")

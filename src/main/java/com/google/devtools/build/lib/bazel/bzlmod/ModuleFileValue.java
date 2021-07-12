@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 @AutoValue
 public abstract class ModuleFileValue implements SkyValue {
 
-  public static final ModuleKey ROOT_MODULE_KEY = ModuleKey.create("", "");
+  public static final ModuleKey ROOT_MODULE_KEY = ModuleKey.create("", Version.EMPTY);
 
   /**
    * The module resulting from the module file evaluation. Note, in particular, that the version of

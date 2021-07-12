@@ -31,8 +31,8 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
- * Represents a parsed version string, useful for comparison. The version format we support is
- * {@code RELEASE[-PRERELEASE][+BUILD]}, where:
+ * Represents a version in the module system. The version format we support is {@code
+ * RELEASE[-PRERELEASE][+BUILD]}, where:
  *
  * <ul>
  *   <li>{@code RELEASE} is a sequence of decimal numbers separated by dots;
@@ -51,13 +51,20 @@ import javax.annotation.Nullable;
  * It signifies that there is a {@link NonRegistryOverride} for a module.
  */
 @AutoValue
-abstract class ParsedVersion implements Comparable<ParsedVersion> {
+public abstract class Version implements Comparable<Version> {
 
   // We don't care about the "build" part at all so don't capture it.
   private static final Pattern PATTERN =
       Pattern.compile("(?<release>(?:\\d+\\.)*\\d+)(?:-(?<prerelease>[\\w.-]*))?(?:\\+[\\w.-]*)?");
 
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
+
+  /**
+   * Represents the special "empty string" version, which compares higher than everything else and
+   * signifies that there is a {@link NonRegistryOverride} for the module.
+   */
+  public static final Version EMPTY =
+      new AutoValue_Version(ImmutableList.of(), ImmutableList.of(), "");
 
   /**
    * Represents a segment in the prerelease part of the version string. This is separated from other
@@ -78,9 +85,9 @@ abstract class ParsedVersion implements Comparable<ParsedVersion> {
         throw new ParseException("identifier is empty");
       }
       if (string.chars().allMatch(Character::isDigit)) {
-        return new AutoValue_ParsedVersion_Identifier(true, Integer.parseInt(string), string);
+        return new AutoValue_Version_Identifier(true, Integer.parseInt(string), string);
       } else {
-        return new AutoValue_ParsedVersion_Identifier(false, 0, string);
+        return new AutoValue_Version_Identifier(false, 0, string);
       }
     }
   }
@@ -98,8 +105,8 @@ abstract class ParsedVersion implements Comparable<ParsedVersion> {
    * Whether this is just the "empty string" version, which signifies a non-registry override for
    * the module.
    */
-  boolean isOverride() {
-    return getRelease().isEmpty();
+  boolean isEmpty() {
+    return getOriginal().isEmpty();
   }
 
   /**
@@ -111,10 +118,10 @@ abstract class ParsedVersion implements Comparable<ParsedVersion> {
     return !getPrerelease().isEmpty();
   }
 
-  /** Parses a version string into a {@link ParsedVersion} object. */
-  public static ParsedVersion parse(String version) throws ParseException {
+  /** Parses a version string into a {@link Version} object. */
+  public static Version parse(String version) throws ParseException {
     if (version.isEmpty()) {
-      return new AutoValue_ParsedVersion(ImmutableList.of(), ImmutableList.of(), version);
+      return Version.EMPTY;
     }
     Matcher matcher = PATTERN.matcher(version);
     if (!matcher.matches()) {
@@ -143,33 +150,57 @@ abstract class ParsedVersion implements Comparable<ParsedVersion> {
       }
     }
 
-    return new AutoValue_ParsedVersion(releaseSplit.build(), prereleaseSplit.build(), version);
+    return new AutoValue_Version(releaseSplit.build(), prereleaseSplit.build(), version);
   }
 
-  private static final Comparator<ParsedVersion> COMPARATOR =
+  /** Same as {@link #parse} but throws an unchecked exception instead, useful for testing. */
+  public static Version mustParse(String version) {
+    try {
+      return parse(version);
+    } catch (ParseException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  private static final Comparator<Version> COMPARATOR =
       Comparator.nullsFirst(
-          comparing(ParsedVersion::isOverride, falseFirst())
+          comparing(Version::isEmpty, falseFirst())
               .thenComparing(
-                  ParsedVersion::getRelease, lexicographical(Comparator.<Integer>naturalOrder()))
-              .thenComparing(ParsedVersion::isPrerelease, trueFirst())
+                  Version::getRelease, lexicographical(Comparator.<Integer>naturalOrder()))
+              .thenComparing(Version::isPrerelease, trueFirst())
               .thenComparing(
-                  ParsedVersion::getPrerelease,
+                  Version::getPrerelease,
                   lexicographical(
                       comparing(Identifier::isDigitsOnly, trueFirst())
                           .thenComparingInt(Identifier::asNumber)
                           .thenComparing(Identifier::asString))));
 
   @Override
-  public int compareTo(ParsedVersion o) {
+  public int compareTo(Version o) {
     return Objects.compare(this, o, COMPARATOR);
   }
 
   /** Returns the higher of two versions. */
-  public static ParsedVersion max(@Nullable ParsedVersion a, @Nullable ParsedVersion b) {
+  public static Version max(@Nullable Version a, @Nullable Version b) {
     return Objects.compare(a, b, COMPARATOR) >= 0 ? a : b;
   }
 
-  /** An exception encountered while trying to {@link ParsedVersion#parse parse} a version. */
+  @Override
+  public final String toString() {
+    return getOriginal();
+  }
+
+  @Override
+  public final boolean equals(Object o) {
+    return this == o || (o instanceof Version && ((Version) o).getOriginal().equals(getOriginal()));
+  }
+
+  @Override
+  public final int hashCode() {
+    return Objects.hash("version", getOriginal().hashCode());
+  }
+
+  /** An exception encountered while trying to {@link Version#parse parse} a version. */
   public static class ParseException extends Exception {
     public ParseException(String message) {
       super(message);

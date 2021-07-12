@@ -85,7 +85,8 @@ public class IndexRegistry implements Registry {
   public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     return grabFile(
-        constructUrl(getUrl(), "modules", key.getName(), key.getVersion(), "MODULE.bazel"),
+        constructUrl(
+            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel"),
         eventHandler);
   }
 
@@ -125,7 +126,8 @@ public class IndexRegistry implements Registry {
             constructUrl(getUrl(), "bazel_registry.json"), BazelRegistryJson.class, eventHandler);
     Optional<SourceJson> sourceJson =
         grabJson(
-            constructUrl(getUrl(), "modules", key.getName(), key.getVersion(), "source.json"),
+            constructUrl(
+                getUrl(), "modules", key.getName(), key.getVersion().toString(), "source.json"),
             SourceJson.class,
             eventHandler);
     if (!sourceJson.isPresent()) {
@@ -163,7 +165,12 @@ public class IndexRegistry implements Registry {
       for (Map.Entry<String, String> entry : sourceJson.get().patches.entrySet()) {
         remotePatches.put(
             constructUrl(
-                getUrl(), "modules", key.getName(), key.getVersion(), "patches", entry.getKey()),
+                getUrl(),
+                "modules",
+                key.getName(),
+                key.getVersion().toString(),
+                "patches",
+                entry.getKey()),
             entry.getValue());
       }
     }

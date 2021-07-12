@@ -58,18 +58,11 @@ public class SelectionFunction implements SkyFunction {
 
     // First figure out the version to select for every selection group.
     ImmutableMap<ModuleKey, Module> depGraph = discovery.getDepGraph();
-    Map<SelectionGroup, ParsedVersion> selectedVersions = new HashMap<>();
+    Map<SelectionGroup, Version> selectedVersions = new HashMap<>();
     for (Map.Entry<ModuleKey, Module> entry : depGraph.entrySet()) {
       ModuleKey key = entry.getKey();
       Module module = entry.getValue();
-
-      ParsedVersion parsedVersion;
-      try {
-        parsedVersion = ParsedVersion.parse(key.getVersion());
-      } catch (ParsedVersion.ParseException e) {
-        throw new SelectionFunctionException(e);
-      }
-      selectedVersions.merge(SelectionGroup.of(module), parsedVersion, ParsedVersion::max);
+      selectedVersions.merge(SelectionGroup.of(module), key.getVersion(), Version::max);
     }
 
     // Now build a new dep graph where deps with unselected versions are removed.
@@ -79,7 +72,7 @@ public class SelectionFunction implements SkyFunction {
       Module module = entry.getValue();
 
       // Remove any dep whose version isn't selected.
-      String selectedVersion = selectedVersions.get(SelectionGroup.of(module)).getOriginal();
+      Version selectedVersion = selectedVersions.get(SelectionGroup.of(module));
       if (!moduleKey.getVersion().equals(selectedVersion)) {
         continue;
       }
@@ -91,9 +84,7 @@ public class SelectionFunction implements SkyFunction {
               depKey ->
                   ModuleKey.create(
                       depKey.getName(),
-                      selectedVersions
-                          .get(SelectionGroup.of(depGraph.get(depKey)))
-                          .getOriginal())));
+                      selectedVersions.get(SelectionGroup.of(depGraph.get(depKey))))));
     }
     ImmutableMap<ModuleKey, Module> newDepGraph = newDepGraphBuilder.build();
 
@@ -104,7 +95,7 @@ public class SelectionFunction implements SkyFunction {
     // multiple_version_override).
     DepGraphWalker walker = new DepGraphWalker(newDepGraph);
     try {
-      walker.walk(ModuleKey.create(discovery.getRootModuleName(), ""), null);
+      walker.walk(ModuleKey.create(discovery.getRootModuleName(), Version.EMPTY), null);
     } catch (SelectionException e) {
       throw new SelectionFunctionException(e);
     }

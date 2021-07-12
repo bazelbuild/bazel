@@ -21,7 +21,7 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 public abstract class ModuleKey {
 
-  public static ModuleKey create(String name, String version) {
+  public static ModuleKey create(String name, Version version) {
     return new AutoValue_ModuleKey(name, version);
   }
 
@@ -29,12 +29,12 @@ public abstract class ModuleKey {
   public abstract String getName();
 
   /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
-  public abstract String getVersion();
+  public abstract Version getVersion();
 
   @Override
   public final String toString() {
     return (getName().isEmpty() ? "_" : getName())
         + "@"
-        + (getVersion().isEmpty() ? "_" : getVersion());
+        + (getVersion().isEmpty() ? "_" : getVersion().toString());
   }
 }

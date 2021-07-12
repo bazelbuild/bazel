@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.fail;
 
 import com.google.auto.value.AutoValue;
@@ -135,9 +136,9 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         registryFactory
             .newFakeRegistry()
             .addModule(
-                ModuleKey.create("B", "1.0"),
+                createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
-            .addModule(ModuleKey.create("C", "2.0"), "module(name='C', version='2.0')");
+            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
@@ -166,9 +167,9 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         registryFactory
             .newFakeRegistry()
             .addModule(
-                ModuleKey.create("B", "1.0"),
+                createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
-            .addModule(ModuleKey.create("C", "2.0"), "module(name='C', version='2.0')");
+            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
@@ -201,10 +202,10 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         registryFactory
             .newFakeRegistry()
             .addModule(
-                ModuleKey.create("B", "1.0"),
+                createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
-            .addModule(ModuleKey.create("C", "2.0"), "module(name='C', version='2.0')")
-            .addModule(ModuleKey.create("C", "3.0"), "module(name='C', version='3.0')");
+            .addModule(createModuleKey("C", "2.0"), "module(name='C', version='2.0')")
+            .addModule(createModuleKey("C", "3.0"), "module(name='C', version='3.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
@@ -238,7 +239,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry()
-            .addModule(ModuleKey.create("B", "1.0"), "module(name='B', version='1.0')");
+            .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =

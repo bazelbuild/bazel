@@ -31,7 +31,7 @@ import com.google.common.collect.ImmutableList;
 public abstract class SingleVersionOverride implements RegistryOverride {
 
   public static SingleVersionOverride create(
-      String version, String registry, ImmutableList<String> patches, int patchStrip) {
+      Version version, String registry, ImmutableList<String> patches, int patchStrip) {
     return new AutoValue_SingleVersionOverride(version, registry, patches, patchStrip);
   }
 
@@ -39,7 +39,7 @@ public abstract class SingleVersionOverride implements RegistryOverride {
    * The version to pin the module to. Can be empty if it shouldn't be pinned (in which case it will
    * still participate in version resolution).
    */
-  public abstract String getVersion();
+  public abstract Version getVersion();
 
   @Override
   public abstract String getRegistry();

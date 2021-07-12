@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction.ModuleFileFunctionException;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.ModuleFileGlobalsApi;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -43,11 +44,16 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
       throw Starlark.errorf("the module() directive can only be called once");
     }
     moduleCalled = true;
-    // TODO(wyv): add validation logic for name (alphanumerical) and version (use ParsedVersion) &
-    //   others in the future
+    // TODO(wyv): add validation logic for name (alphanumerical) & others in the future
+    Version parsedVersion;
+    try {
+      parsedVersion = Version.parse(version);
+    } catch (ParseException e) {
+      throw new EvalException("Invalid version in module()", e);
+    }
     module
         .setName(name)
-        .setVersion(version)
+        .setVersion(parsedVersion)
         .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"));
   }
 
@@ -56,9 +62,14 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
     if (repoName.isEmpty()) {
       repoName = name;
     }
-    // TODO(wyv): add validation logic for name (alphanumerical), version (use ParsedVersion),
-    //   and repoName (RepositoryName?)
-    if (deps.putIfAbsent(repoName, ModuleKey.create(name, version)) != null) {
+    // TODO(wyv): add validation logic for name (alphanumerical) and repoName (RepositoryName?)
+    Version parsedVersion;
+    try {
+      parsedVersion = Version.parse(version);
+    } catch (ParseException e) {
+      throw new EvalException("Invalid version in bazel_dep()", e);
+    }
+    if (deps.putIfAbsent(repoName, ModuleKey.create(name, parsedVersion)) != null) {
       throw Starlark.errorf("a bazel_dep with the repo name %s already exists", repoName);
     }
   }
@@ -94,10 +105,16 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
       Iterable<?> patches,
       StarlarkInt patchStrip)
       throws EvalException {
+    Version parsedVersion;
+    try {
+      parsedVersion = Version.parse(version);
+    } catch (ParseException e) {
+      throw new EvalException("Invalid version in single_version_override()", e);
+    }
     addOverride(
         moduleName,
         SingleVersionOverride.create(
-            version,
+            parsedVersion,
             registry,
             checkAllStrings(patches, "patches"),
             patchStrip.toInt("single_version_override.patch_strip")));

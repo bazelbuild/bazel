@@ -35,7 +35,7 @@ public abstract class Module {
   public abstract String getName();
 
   /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
-  public abstract String getVersion();
+  public abstract Version getVersion();
 
   /**
    * The compatibility level of the module, which essentially signifies the "major version" of the
@@ -81,7 +81,7 @@ public abstract class Module {
   public abstract static class Builder {
     public abstract Builder setName(String value);
 
-    public abstract Builder setVersion(String value);
+    public abstract Builder setVersion(Version value);
 
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);
