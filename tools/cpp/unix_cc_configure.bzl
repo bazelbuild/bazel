@@ -436,6 +436,12 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         _get_cxx_include_directories(
             repository_ctx,
             cc,
+            "-xc++",
+            cxx_opts + ["-stdlib=libc++"],
+        ) +
+        _get_cxx_include_directories(
+            repository_ctx,
+            cc,
             "-xc",
             _get_no_canonical_prefixes_opt(repository_ctx, cc),
         ) +
@@ -444,6 +450,12 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             cc,
             "-xc++",
             cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
+        ) +
+        _get_cxx_include_directories(
+            repository_ctx,
+            cc,
+            "-xc++",
+            cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc) + ["-stdlib=libc++"],
         ),
     )
 
