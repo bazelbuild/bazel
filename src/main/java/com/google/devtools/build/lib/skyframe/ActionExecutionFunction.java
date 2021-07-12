@@ -979,11 +979,7 @@ public class ActionExecutionFunction implements SkyFunction {
       if (retrievedMetadata instanceof TreeArtifactValue) {
         TreeArtifactValue treeValue = (TreeArtifactValue) retrievedMetadata;
         expandedArtifacts.put(input, treeValue.getChildren());
-        for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
-            treeValue.getChildValues().entrySet()) {
-          inputData.putWithNoDepOwner(child.getKey(), child.getValue());
-        }
-        inputData.putWithNoDepOwner(input, treeValue.getMetadata());
+        inputData.putTreeArtifact((SpecialArtifact) input, treeValue, /*depOwner=*/ null);
         treeValue
             .getArchivedRepresentation()
             .ifPresent(
@@ -1101,7 +1097,7 @@ public class ActionExecutionFunction implements SkyFunction {
         inputDeps,
         allInputs,
         requestedSkyKeys,
-        ActionInputMap::new,
+        sizeHint -> new ActionInputMap(bugReporter, sizeHint),
         CheckInputResults::new,
         /*allowValuesMissingEarlyReturn=*/ true,
         actionLookupDataForError);

@@ -176,7 +176,7 @@ public final class CompletionFunction<
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
-    ActionInputMap inputMap = new ActionInputMap(inputDeps.size());
+    ActionInputMap inputMap = new ActionInputMap(bugReporter, inputDeps.size());
     // Prepare an ActionInputMap for important artifacts separately, to be used by BEP events. The
     // _validation output group can contain orders of magnitude more unimportant artifacts than
     // there are important artifacts, and BEP events will retain the ActionInputMap until the
@@ -191,7 +191,7 @@ public final class CompletionFunction<
       ImmutableList<Artifact> importantArtifacts =
           artifactsToBuild.getImportantArtifacts().toList();
       importantArtifactSet = new HashSet<>(importantArtifacts);
-      importantInputMap = new ActionInputMap(importantArtifacts.size());
+      importantInputMap = new ActionInputMap(bugReporter, importantArtifacts.size());
     }
 
     Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts = new HashMap<>();

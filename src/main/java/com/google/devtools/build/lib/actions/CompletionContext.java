@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -40,7 +41,7 @@ public class CompletionContext {
           ImmutableMap.of(),
           ImmutableMap.of(),
           ArtifactPathResolver.IDENTITY,
-          new ActionInputMap(0),
+          new ActionInputMap(BugReporter.defaultInstance(), 0),
           false,
           false);
 

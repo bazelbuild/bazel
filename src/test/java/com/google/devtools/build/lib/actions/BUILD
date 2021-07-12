@@ -43,6 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/symlink_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -51,6 +52,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:single_build_file_cache",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
@@ -72,6 +74,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -79,6 +82,7 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/protobuf:protobuf_java",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 

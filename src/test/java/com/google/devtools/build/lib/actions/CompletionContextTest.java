@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -56,9 +57,13 @@ public class CompletionContextTest {
     TreeFileArtifact treeFile1 = TreeFileArtifact.createTreeOutput(tree, "file1");
     TreeFileArtifact treeFile2 = TreeFileArtifact.createTreeOutput(tree, "file2");
     ActionInputMap inputMap = new ActionInputMap(0);
-    inputMap.putWithNoDepOwner(tree, DUMMY_METADATA);
-    inputMap.putWithNoDepOwner(treeFile1, DUMMY_METADATA);
-    inputMap.putWithNoDepOwner(treeFile2, DUMMY_METADATA);
+    inputMap.putTreeArtifact(
+        tree,
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(treeFile1, DUMMY_METADATA)
+            .putChild(treeFile2, DUMMY_METADATA)
+            .build(),
+        /*depOwner=*/ null);
     CompletionContext completionContext =
         createNewCompletionContext(
             ImmutableMap.of(tree, ImmutableList.of(treeFile1, treeFile2)), inputMap);
@@ -73,7 +78,7 @@ public class CompletionContextTest {
   public void visitArtifacts_skipsOmittedTreeArtifact() {
     SpecialArtifact tree = createTreeArtifact("tree");
     ActionInputMap inputMap = new ActionInputMap(0);
-    inputMap.putWithNoDepOwner(tree, FileArtifactValue.OMITTED_FILE_MARKER);
+    inputMap.putTreeArtifact(tree, TreeArtifactValue.OMITTED_TREE_MARKER, /*depOwner=*/ null);
     CompletionContext completionContext =
         createNewCompletionContext(/*expandedArtifacts=*/ ImmutableMap.of(), inputMap);
 

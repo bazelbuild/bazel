@@ -199,16 +199,12 @@ final class ActionInputMapHelper {
       ActionInputMapSink inputMap,
       Artifact depOwner) {
     if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
-      inputMap.put(treeArtifact, FileArtifactValue.OMITTED_FILE_MARKER, depOwner);
+      inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
       return;
     }
-    for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
-        value.getChildValues().entrySet()) {
-      inputMap.put(child.getKey(), child.getValue(), depOwner);
-    }
+
+    inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
     expandedArtifacts.put(treeArtifact, value.getChildren());
-    // Again, we cache the "digest" of the value for cache checking.
-    inputMap.put(treeArtifact, value.getMetadata(), depOwner);
 
     value
         .getArchivedRepresentation()

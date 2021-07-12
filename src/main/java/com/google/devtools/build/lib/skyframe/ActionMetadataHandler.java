@@ -482,7 +482,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     return MoreObjects.toStringHelper(this)
         .add("outputs", outputs)
         .add("store", store)
-        .add("inputArtifactDataSize", inputArtifactData.size())
+        .add("inputArtifactDataSize", inputArtifactData.sizeForDebugging())
         .toString();
   }
 

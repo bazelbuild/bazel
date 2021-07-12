@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -34,6 +36,13 @@ public class ActionInputDepOwnerMap implements ActionInputMapSink, ActionInputDe
   @Override
   public boolean put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
     return addOwner(input, depOwner);
+  }
+
+  @Override
+  public void putTreeArtifact(
+      SpecialArtifact tree, TreeArtifactValue treeArtifactValue, @Nullable Artifact depOwner) {
+    treeArtifactValue.getChildren().forEach(treeFile -> addOwner(treeFile, depOwner));
+    addOwner(tree, depOwner);
   }
 
   public boolean addOwner(ActionInput input, @Nullable Artifact depOwner) {
