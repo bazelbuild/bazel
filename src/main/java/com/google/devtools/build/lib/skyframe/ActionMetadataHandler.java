@@ -95,7 +95,8 @@ final class ActionMetadataHandler implements MetadataHandler {
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
       PathFragment derivedPathPrefix,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
+      OutputStore outputStore) {
     return new ActionMetadataHandler(
         inputArtifactData,
         forInputDiscovery,
@@ -106,7 +107,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         execRoot,
         derivedPathPrefix,
         createFilesetMapping(expandedFilesets, execRoot),
-        new OutputStore());
+        outputStore);
   }
 
   private final ActionInputMap inputArtifactData;
@@ -342,16 +343,18 @@ final class ActionMetadataHandler implements MetadataHandler {
             return; // The final TreeArtifactValue does not contain child directories.
           }
           TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
-          FileArtifactValue metadata;
-          try {
-            metadata = constructFileArtifactValueFromFilesystem(child);
-          } catch (FileNotFoundException e) {
-            String errorMessage =
-                String.format(
-                    "Failed to resolve relative path %s inside TreeArtifact %s. "
-                        + "The associated file is either missing or is an invalid symlink.",
-                    parentRelativePath, treeDir);
-            throw new IOException(errorMessage, e);
+          FileArtifactValue metadata = store.getTreeFileArtifactData(child);
+          if (metadata == null) {
+            try {
+              metadata = constructFileArtifactValueFromFilesystem(child);
+            } catch (FileNotFoundException e) {
+              String errorMessage =
+                  String.format(
+                      "Failed to resolve relative path %s inside TreeArtifact %s. "
+                          + "The associated file is either missing or is an invalid symlink.",
+                      parentRelativePath, treeDir);
+              throw new IOException(errorMessage, e);
+            }
           }
 
           tree.putChild(child, metadata);

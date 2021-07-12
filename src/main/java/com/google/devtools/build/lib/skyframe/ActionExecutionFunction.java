@@ -761,6 +761,10 @@ public class ActionExecutionFunction implements SkyFunction {
     ArtifactPathResolver pathResolver =
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
+
+    OutputStore outputStore = new OutputStore();
+    skyframeActionExecutor.loadOutputMetadataFromActionCache(action, outputStore);
+
     ActionMetadataHandler metadataHandler =
         ActionMetadataHandler.create(
             state.inputArtifactData,
@@ -771,7 +775,8 @@ public class ActionExecutionFunction implements SkyFunction {
             pathResolver,
             skyframeActionExecutor.getExecRoot().asFragment(),
             PathFragment.create(directories.getRelativeOutputPath()),
-            expandedFilesets);
+            expandedFilesets,
+            outputStore);
 
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {

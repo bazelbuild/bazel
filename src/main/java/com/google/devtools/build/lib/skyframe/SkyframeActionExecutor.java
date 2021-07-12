@@ -705,6 +705,10 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  void loadOutputMetadataFromActionCache(Action action, OutputStore outputStore) {
+    actionCacheChecker.loadOutputMetadata(action, outputStore);
+  }
+
   @Nullable
   List<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
       throws AlreadyReportedActionExecutionException, InterruptedException {
@@ -1284,7 +1288,8 @@ public final class SkyframeActionExecutor {
       @Override
       public ActionStepOrResult run(Environment env) {
         try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "postprocessing.run")) {
-          postprocessing.run(env, action, metadataHandler, actionExecutionContext.getClientEnv());
+          postprocessing.run(
+              env, action, metadataHandler, actionExecutionContext.getClientEnv());
           if (env.valuesMissing()) {
             return this;
           }
