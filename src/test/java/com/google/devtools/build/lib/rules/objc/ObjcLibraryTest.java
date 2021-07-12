@@ -2261,6 +2261,9 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testGrepIncludesPassed() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file("x/BUILD", "objc_library(", "    name = 'foo',", "    srcs = ['foo.mm']", ")");
 
     CppCompileAction compileA = (CppCompileAction) compileAction("//x:foo", "foo.o");

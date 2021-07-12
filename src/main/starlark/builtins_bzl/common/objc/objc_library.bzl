@@ -55,9 +55,14 @@ def _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provid
 
     for linker_input in merged_objc_library_cc_infos.linking_context.linker_inputs.to_list():
         for lib in linker_input.libraries:
-            if lib.static_library.path in archives_from_objc_library and archives_from_objc_library[lib.static_library.path]:
+            path = None
+            if lib.static_library != None:
+                path = lib.static_library.path
+            elif lib.pic_static_library != None:
+                path = lib.pic_static_library.path
+            if path in archives_from_objc_library and archives_from_objc_library[path]:
                 libraries.append(lib)
-                archives_from_objc_library[lib.static_library.path] = None
+                archives_from_objc_library[path] = None
 
     for archive in archives_from_objc_library.values():
         if archive:
