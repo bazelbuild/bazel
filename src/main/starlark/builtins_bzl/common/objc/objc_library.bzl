@@ -166,19 +166,13 @@ def _objc_library_impl(ctx):
         linking_context = linking_context,
     )
 
-    instrumented_files_info = coverage_common.instrumented_files_info(
-        ctx = ctx,
-        source_attributes = ["srcs", "non_arc_srcs", "hdrs"],
-        dependency_attributes = ["deps", "data", "binary", "xctest_app"],
-    )
-
     return [
         DefaultInfo(files = depset(files), data_runfiles = ctx.runfiles(files = files)),
         cc_info,
         objc_provider,
         j2objc_providers[0],
         j2objc_providers[1],
-        instrumented_files_info,
+        objc_internal.instrumented_files_info(ctx = ctx, object_files = compilation_outputs.objects),
         output_group_info,
     ]
 

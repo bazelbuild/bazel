@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
@@ -251,5 +252,19 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
+  }
+
+  @StarlarkMethod(
+      name = "instrumented_files_info",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "object_files", positional = false, defaultValue = "[]", named = true),
+      })
+  public InstrumentedFilesInfo createInstrumentedFilesInfo(
+      StarlarkRuleContext starlarkRuleContext, Sequence<?> objectFiles) throws EvalException {
+    return CompilationSupport.getInstrumentedFilesProvider(
+        starlarkRuleContext.getRuleContext(),
+        Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList());
   }
 }
