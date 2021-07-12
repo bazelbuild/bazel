@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.io.IOException;
 import java.util.Optional;
 
 /** A helper to get {@link RepoSpec} for Bzlmod generated repositories. */
 public interface BzlmodRepoRuleHelper {
-  Optional<RepoSpec> getRepoSpec(Environment env, String repositoryName);
+  Optional<RepoSpec> getRepoSpec(Environment env, String repositoryName)
+      throws InterruptedException, IOException;
 }

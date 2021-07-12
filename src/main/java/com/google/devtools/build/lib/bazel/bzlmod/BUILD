@@ -107,8 +107,12 @@ java_library(
         "BzlmodRepoRuleHelperImpl.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        ":common",
+        ":registry",
+        ":resolution",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:guava",
     ],
 )
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
@@ -37,4 +38,21 @@ public abstract class GitOverride implements NonRegistryOverride {
 
   /** The number of path segments to strip from the paths in the supplied patches. */
   public abstract int getPatchStrip();
+
+  /** Returns the {@link RepoSpec} that defines this repository. */
+  @Override
+  public RepoSpec getRepoSpec(String repoName) {
+    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    attrBuilder
+        .put("name", repoName)
+        .put("remote", getRemote())
+        .put("commit", getCommit())
+        .put("patches", getPatches())
+        .put("patch_args", ImmutableList.of("-p" + getPatchStrip()));
+    return RepoSpec.builder()
+        .setBzlFile("@bazel_tools//tools/build_defs/repo:git.bzl")
+        .setRuleClassName("git_repository")
+        .setAttributes(attrBuilder.build())
+        .build();
+  }
 }

@@ -23,5 +23,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
  */
 public interface NonRegistryOverride extends ModuleOverride {
 
-  // TODO(wyv): getRepoSpec
+  /** Returns the {@link RepoSpec} that defines this repository. */
+  RepoSpec getRepoSpec(String repoName);
 }

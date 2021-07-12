@@ -45,4 +45,17 @@ public abstract class ArchiveOverride implements NonRegistryOverride {
 
   /** The number of path segments to strip from the paths in the supplied patches. */
   public abstract int getPatchStrip();
+
+  /** Returns the {@link RepoSpec} that defines this repository. */
+  @Override
+  public RepoSpec getRepoSpec(String repoName) {
+    return new ArchiveRepoSpecBuilder()
+        .setRepoName(repoName)
+        .setUrls(getUrls())
+        .setIntegrity(getIntegrity())
+        .setStripPrefix(getStripPrefix())
+        .setPatches(getPatches())
+        .setPatchStrip(getPatchStrip())
+        .build();
+  }
 }

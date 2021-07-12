@@ -52,7 +52,7 @@ public class FakeRegistry implements Registry {
   @Override
   public RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler) {
     return RepoSpec.builder()
-        .setRuleClassName("fake_rule")
+        .setRuleClassName("fake_http_archive_rule")
         .setAttributes(ImmutableMap.<String, Object>of("repo_name", repoName))
         .build();
   }

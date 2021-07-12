@@ -43,6 +43,8 @@ public abstract class RepoSpec {
   public abstract static class Builder {
     public abstract Builder setBzlFile(String bzlFile);
 
+    public abstract Builder setBzlFile(Optional<String> bzlFile);
+
     public abstract Builder setRuleClassName(String name);
 
     public abstract Builder setAttributes(ImmutableMap<String, Object> attributes);
