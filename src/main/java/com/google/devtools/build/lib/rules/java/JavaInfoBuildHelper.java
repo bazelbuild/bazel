@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
@@ -343,7 +344,9 @@ final class JavaInfoBuildHelper {
                 streamProviders(deps, JavaCcInfoProvider.class),
                 Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
             .collect(toImmutableList());
-
+    if (thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
+      javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
+    }
     return javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
@@ -351,7 +354,6 @@ final class JavaInfoBuildHelper {
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
-        .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)
         .addTransitiveOnlyRuntimeJarsToJavaInfo(exports)
