@@ -46,6 +46,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",

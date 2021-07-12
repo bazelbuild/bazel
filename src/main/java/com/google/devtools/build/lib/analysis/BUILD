@@ -207,7 +207,6 @@ java_library(
         "SingleRunfilesSupplier.java",
         "SourceManifestAction.java",
         "StarlarkProviderValidationUtil.java",
-        "TargetAndConfiguration.java",
         "TargetCompleteEvent.java",
         "TargetContext.java",
         "TopLevelArtifactHelper.java",
@@ -346,6 +345,7 @@ java_library(
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
         ":starlark/starlark_toolchain_context",
+        ":target_and_configuration",
         ":template_variable_info",
         ":test/analysis_failure",
         ":test/analysis_failure_info",
@@ -598,6 +598,7 @@ java_library(
         ":constraints/top_level_constraint_semantics",
         ":extra_action_artifacts_provider",
         ":make_environment_event",
+        ":target_and_configuration",
         ":target_configured_event",
         ":test/coverage_report_action_factory",
         ":test/instrumented_files_info",
@@ -1030,6 +1031,20 @@ java_library(
     deps = [
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+    ],
+)
+
+java_library(
+    name = "target_and_configuration",
+    srcs = ["TargetAndConfiguration.java"],
+    deps = [
+        ":config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

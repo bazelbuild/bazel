@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -41,80 +41,46 @@ public final class ConfiguredValueCreationException extends Exception
   //  that specify the general Code.CONFIGURED_VALUE_CREATION_FAILED
   private final DetailedExitCode detailedExitCode;
 
-  private ConfiguredValueCreationException(
+  public ConfiguredValueCreationException(
       Location location,
       String message,
+      Label label,
       @Nullable BuildEventId configuration,
-      NestedSet<Cause> rootCauses,
-      DetailedExitCode detailedExitCode) {
+      @Nullable NestedSet<Cause> rootCauses,
+      @Nullable DetailedExitCode detailedExitCode) {
     super(message);
     this.location = location;
     this.configuration = configuration;
-    this.rootCauses = rootCauses;
-    this.detailedExitCode = detailedExitCode;
-  }
-
-  /**
-   * Returns a new copy with {@code message} emptied.
-   *
-   * <p>{@link BuildTool} reports exception messages to the console. but {@link
-   * ConfiguredTargetFunction} handles error reporting internally. Clearing out the message prevents
-   * both places from reporting it.
-   */
-  public ConfiguredValueCreationException withoutMessage() {
-    return new ConfiguredValueCreationException(
-        location, "", configuration, rootCauses, detailedExitCode);
+    this.detailedExitCode =
+        detailedExitCode != null ? detailedExitCode : createDetailedExitCode(message);
+    this.rootCauses =
+        rootCauses != null
+            ? rootCauses
+            : NestedSetBuilder.<Cause>stableOrder()
+                .add(
+                    new AnalysisFailedCause(
+                        label,
+                        configuration == null ? null : configuration.getConfiguration(),
+                        this.detailedExitCode))
+                .build();
   }
 
   public ConfiguredValueCreationException(
-      Location location,
+      TargetAndConfiguration ctgValue,
       String message,
-      Label currentTarget,
-      @Nullable BuildConfiguration configuration,
-      DetailedExitCode detailedExitCode) {
-    // TODO(bazel-team): the constructors are a bit out of control. Try a builder pattern.
+      @Nullable NestedSet<Cause> rootCauses,
+      @Nullable DetailedExitCode detailedExitCode) {
     this(
-        location,
+        ctgValue.getTarget().getLocation(),
         message,
-        configuration == null ? null : configuration.getEventId(),
-        NestedSetBuilder.<Cause>stableOrder()
-            .add(
-                new AnalysisFailedCause(
-                    currentTarget,
-                    configuration == null ? null : configuration.getEventId().getConfiguration(),
-                    detailedExitCode))
-            .build(),
+        ctgValue.getLabel(),
+        ctgValue.getConfiguration() == null ? null : ctgValue.getConfiguration().getEventId(),
+        rootCauses,
         detailedExitCode);
   }
 
-  public ConfiguredValueCreationException(
-      Location location,
-      String message,
-      Label currentTarget,
-      @Nullable BuildConfiguration configuration) {
-    this(location, message, currentTarget, configuration, createDetailedExitCode(message));
-  }
-
-  public ConfiguredValueCreationException(
-      Location location,
-      String message,
-      @Nullable BuildConfiguration configuration,
-      NestedSet<Cause> rootCauses,
-      @Nullable DetailedExitCode detailedExitCode) {
-    this(
-        location,
-        message,
-        configuration == null ? null : configuration.getEventId(),
-        rootCauses,
-        detailedExitCode != null ? detailedExitCode : createDetailedExitCode(message));
-  }
-
-  public ConfiguredValueCreationException(
-      Location location,
-      String message,
-      @Nullable BuildConfiguration configuration,
-      NestedSet<Cause> rootCauses) {
-    this(location, message, configuration, rootCauses, createDetailedExitCode(message));
+  public ConfiguredValueCreationException(TargetAndConfiguration ctgValue, String message) {
+    this(ctgValue, message, /*rootCauses=*/ null, /*detailedExitCode=*/ null);
   }
 
   public Location getLocation() {

@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -184,8 +183,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey key, Environment env) throws ConfiguredTargetFunctionException,
-      InterruptedException {
+  public SkyValue compute(SkyKey key, Environment env)
+      throws ReportedException, UnreportedException, InterruptedException {
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
       env =
           new StateInformingSkyFunctionEnvironment(
@@ -231,12 +230,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       if (!e.getMessage().isEmpty()) {
         env.getListener().handle(Event.error(pkg.getBuildFile().getLocation(), e.getMessage()));
       }
-      throw new ConfiguredTargetFunctionException(
+      throw new ReportedException(
           new ConfiguredValueCreationException(
               pkg.getBuildFile().getLocation(),
               e.getMessage(),
               label,
-              configuration,
+              configuration.getEventId(),
+              null,
               e.getDetailedExitCode()));
     }
     if (pkg.containsErrors()) {
@@ -307,11 +307,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         env.getListener()
             .handle(Event.error(target.getLocation(), "Cannot compute config conditions"));
-        throw new ConfiguredTargetFunctionException(
+        throw new ReportedException(
             new ConfiguredValueCreationException(
-                target.getLocation(),
+                ctgValue,
                 "Cannot compute config conditions",
-                configuration,
                 causes,
                 getPrioritizedDetailedExitCode(causes)));
       }
@@ -334,17 +333,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               transitiveRootCauses);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
-        throw new ConfiguredTargetFunctionException(
+        // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
+        // BuildTool to handle. Calling code needs to be untangled for that to work and pass tests.
+        throw new UnreportedException(
             new ConfiguredValueCreationException(
-                target.getLocation(),
-                "Analysis failed",
-                configuration,
-                causes,
-                getPrioritizedDetailedExitCode(causes)),
-            // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
-            // BuildTool to handle, as stripMessage=false applies. Calling code needs to be
-            // untangled for that to work and pass tests.
-            /*stripMessage=*/ false);
+                ctgValue, "Analysis failed", causes, getPrioritizedDetailedExitCode(causes)));
       }
       if (env.valuesMissing()) {
         return null;
@@ -375,9 +368,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           createConfiguredTarget(
               view,
               env,
-              target,
-              configuration,
-              configuredTargetKey,
+              ctgValue,
               depValueMap,
               configConditions,
               toolchainContexts,
@@ -414,29 +405,21 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         }
       }
 
-      throw new ConfiguredTargetFunctionException(
+      throw new ReportedException(
           cvce != null
               ? cvce
               : new ConfiguredValueCreationException(
-                  target.getLocation(),
-                  errorMessage,
-                  target.getLabel(),
-                  configuration,
-                  e.getDetailedExitCode()));
+                  ctgValue, errorMessage, null, e.getDetailedExitCode()));
     } catch (ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
         env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       }
-      throw new ConfiguredTargetFunctionException(e);
+      throw new ReportedException(e);
     } catch (AspectCreationException e) {
-      throw new ConfiguredTargetFunctionException(
+      throw new ReportedException(
           new ConfiguredValueCreationException(
-              target.getLocation(),
-              e.getMessage(),
-              configuration,
-              e.getCauses(),
-              e.getDetailedExitCode()));
+              ctgValue, e.getMessage(), e.getCauses(), e.getDetailedExitCode()));
     } catch (ToolchainException e) {
       String message =
           String.format(
@@ -445,18 +428,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfiguredValueCreationException cvce = asConfiguredValueCreationException(e);
       if (cvce == null) {
         cvce =
-            new ConfiguredValueCreationException(
-                target.getLocation(),
-                message,
-                target.getLabel(),
-                configuration,
-                e.getDetailedExitCode());
+            new ConfiguredValueCreationException(ctgValue, message, null, e.getDetailedExitCode());
       }
       if (!message.isEmpty()) {
         // Report the error to the user.
         env.getListener().handle(Event.error(target.getLocation(), message));
       }
-      throw new ConfiguredTargetFunctionException(cvce);
+      throw new ReportedException(cvce);
     } finally {
       maybeReleaseSemaphore();
     }
@@ -686,7 +664,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
-              e.getLocation(), e.getMessage(), label, configuration),
+              e.getLocation(), e.getMessage(), label, configuration.getEventId(), null, null),
           // These errors occur within DependencyResolver, which is attached to the current target.
           // i.e. no dependent ConfiguredTargetFunction call happens to report its own error.
           /*depReportedOwnError=*/ false);
@@ -733,8 +711,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return AspectResolver.mergeAspects(depValueNames, depValues, depAspects);
     } catch (DuplicateException e) {
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(
-              ctgValue.getTarget().getLocation(), e.getMessage(), label, configuration),
+          new ConfiguredValueCreationException(ctgValue, e.getMessage()),
           /*depReportedOwnError=*/ false);
     }
   }
@@ -803,12 +780,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // One of the config dependencies doesn't exist, and we need to report that. Unfortunately,
       // there's not enough information to know which configurable attribute has the problem.
       throw new ConfiguredValueCreationException(
-          target.getLocation(),
           // The precise error is reported by the dependency that failed to load.
           // TODO(gregce): beautify this error: https://github.com/bazelbuild/bazel/issues/11984.
-          "errors encountered resolving select() keys for " + target.getLabel(),
-          target.getLabel(),
-          ctgValue.getConfiguration());
+          ctgValue, "errors encountered resolving select() keys for " + target.getLabel());
     }
 
     ImmutableMap.Builder<Label, ConfiguredTargetAndData> asConfiguredTargets =
@@ -833,11 +807,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     "To inspect the select(), run: bazel query --output=build %s.\n",
                     target.getLabel())
                 + "For more help, see https://docs.bazel.build/be/functions.html#select.\n\n";
-        throw new ConfiguredValueCreationException(
-            TargetUtils.getLocationMaybe(target),
-            message,
-            ctgValue.getLabel(),
-            ctgValue.getConfiguration());
+        throw new ConfiguredValueCreationException(ctgValue, message);
       }
     }
 
@@ -963,11 +933,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     if (rootError != null) {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
-              rootError.getLocation(),
-              rootError.getMessage(),
-              ctgValue.getConfiguration(),
-              transitiveRootCauses.build(),
-              detailedExitCode),
+              ctgValue, rootError.getMessage(), transitiveRootCauses.build(), detailedExitCode),
           /*depReportedOwnError=*/ true);
     } else if (missedValues) {
       return null;
@@ -985,15 +951,17 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   private static ConfiguredTargetValue createConfiguredTarget(
       SkyframeBuildView view,
       Environment env,
-      Target target,
-      BuildConfiguration configuration,
-      ConfiguredTargetKey configuredTargetKey,
+      TargetAndConfiguration ctgValue,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution)
       throws ConfiguredValueCreationException, InterruptedException {
+    Target target = ctgValue.getTarget();
+    BuildConfiguration configuration = ctgValue.getConfiguration();
+    ConfiguredTargetKey configuredTargetKey = ctgValue.getConfiguredTargetKey();
+
     // Should be successfully evaluated and cached from the loading phase.
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue) env.getValue(StarlarkBuiltinsValue.key());
@@ -1023,8 +991,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
     } catch (ActionConflictException | InvalidExecGroupException e) {
-      throw new ConfiguredValueCreationException(
-          target.getLocation(), e.getMessage(), target.getLabel(), configuration);
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
     events.replayOn(env.getListener());
@@ -1045,10 +1012,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                               createDetailedExitCode(event.getMessage())))
                   .collect(Collectors.toList()));
       throw new ConfiguredValueCreationException(
-          target.getLocation(),
-          "Analysis of target '" + target.getLabel() + "' failed",
-          configuration,
-          rootCauses);
+          ctgValue, "Analysis of target '" + target.getLabel() + "' failed", rootCauses, null);
     }
     Preconditions.checkState(!analysisEnvironment.hasErrors(),
         "Analysis environment hasError() but no errors reported");
@@ -1100,22 +1064,34 @@ public final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
-   * ConfiguredTargetFunction#compute}.
+   * {@link ConfiguredTargetFunction#compute} exception that has already had its error reported to
+   * the user. Callers (like {@link BuildTool}) won't also report the error.
    */
-  private static final class ConfiguredTargetFunctionException extends SkyFunctionException {
-    ConfiguredTargetFunctionException(ConfiguredValueCreationException e) {
-      this(e, /*stripMessage=*/ true);
+  private static class ReportedException extends SkyFunctionException {
+    private ReportedException(ConfiguredValueCreationException e) {
+      super(withoutMessage(e), Transience.PERSISTENT);
     }
 
-    private ConfiguredTargetFunctionException(
-        ConfiguredValueCreationException e, boolean stripMessage) {
-      // Stripping the message guarantees no caller to ConfiguredTargetFunction can also report it
-      // to the console (BuildTool does this). This prevents confusing duplicate error output. In
-      // return, call sites within ConfiguredTargetFunction must remember to dutifully report the
-      // error.
-      super(stripMessage ? e.withoutMessage() : e, Transience.PERSISTENT);
+    /** Clones a {@link ConfiguredValueCreationException} with its {@code message} field removed. */
+    private static ConfiguredValueCreationException withoutMessage(
+        ConfiguredValueCreationException orig) {
+      return new ConfiguredValueCreationException(
+          orig.getLocation(),
+          "",
+          /*label=*/ null,
+          orig.getConfiguration(),
+          orig.getRootCauses(),
+          orig.getDetailedExitCode());
     }
+  }
 
+  /**
+   * {@link ConfiguredTargetFunction#compute} exception that has not had its error reported to the
+   * user. Callers (like {@link BuildTool}) are responsible for reporting the error.
+   */
+  private static class UnreportedException extends SkyFunctionException {
+    private UnreportedException(ConfiguredValueCreationException e) {
+      super(e, Transience.PERSISTENT);
+    }
   }
 }

@@ -219,11 +219,7 @@ public final class ConfigurationResolver {
         return null; // Need more Skyframe deps for a Starlark transition.
       }
     } catch (TransitionException e) {
-      throw new ConfiguredValueCreationException(
-          ctgValue.getTarget().getLocation(),
-          e.getMessage(),
-          ctgValue.getLabel(),
-          ctgValue.getConfiguration());
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
     if (depFragments.equals(getCurrentConfiguration().fragmentClasses())
@@ -258,11 +254,7 @@ public final class ConfigurationResolver {
         configurationKeys.put(transitionKey, buildConfigurationValueKey);
       }
     } catch (OptionsParsingException e) {
-      throw new ConfiguredValueCreationException(
-          ctgValue.getTarget().getLocation(),
-          e.getMessage(),
-          ctgValue.getLabel(),
-          ctgValue.getConfiguration());
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
     Map<SkyKey, ValueOrException<InvalidConfigurationException>> depConfigValues =
@@ -294,11 +286,7 @@ public final class ConfigurationResolver {
         return null; // Need dependency configurations.
       }
     } catch (InvalidConfigurationException e) {
-      throw new ConfiguredValueCreationException(
-          ctgValue.getTarget().getLocation(),
-          e.getMessage(),
-          ctgValue.getLabel(),
-          ctgValue.getConfiguration());
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
     return ImmutableList.sortedCopyOf(SPLIT_DEP_ORDERING, dependencies);
@@ -327,11 +315,7 @@ public final class ConfigurationResolver {
           return null; // Need more Skyframe deps for a Starlark transition.
         }
       } catch (TransitionException e) {
-        throw new ConfiguredValueCreationException(
-            ctgValue.getTarget().getLocation(),
-            e.getMessage(),
-            ctgValue.getLabel(),
-            ctgValue.getConfiguration());
+        throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
       }
       if (!SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
         return ImmutableList.copyOf(toOptions.keySet());
