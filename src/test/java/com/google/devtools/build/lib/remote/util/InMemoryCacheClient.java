@@ -101,9 +101,10 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(
+  public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ac.put(actionKey, actionResult);
+    return Futures.immediateFuture(null);
   }
 
   @Override

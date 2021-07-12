@@ -62,7 +62,7 @@ public class RemoteExecutionCache extends RemoteCache {
     Iterable<Digest> allDigests =
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
     ImmutableSet<Digest> missingDigests =
-        getFromFuture(cacheProtocol.findMissingDigests(context, allDigests));
+        getFromFuture(findMissingDigests(context, allDigests));
 
     List<ListenableFuture<Void>> uploadFutures = new ArrayList<>();
     for (Digest missingDigest : missingDigests) {
@@ -79,20 +79,20 @@ public class RemoteExecutionCache extends RemoteCache {
       Map<Digest, Message> additionalInputs) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
-      return cacheProtocol.uploadBlob(context, digest, node.toByteString());
+      return uploadBlob(context, digest, node.toByteString());
     }
 
     PathOrBytes file = merkleTree.getFileByDigest(digest);
     if (file != null) {
       if (file.getBytes() != null) {
-        return cacheProtocol.uploadBlob(context, digest, file.getBytes());
+        return uploadBlob(context, digest, file.getBytes());
       }
-      return cacheProtocol.uploadFile(context, digest, file.getPath());
+      return uploadFile(context, digest, file.getPath());
     }
 
     Message message = additionalInputs.get(digest);
     if (message != null) {
-      return cacheProtocol.uploadBlob(context, digest, message.toByteString());
+      return uploadBlob(context, digest, message.toByteString());
     }
 
     return Futures.immediateFailedFuture(
