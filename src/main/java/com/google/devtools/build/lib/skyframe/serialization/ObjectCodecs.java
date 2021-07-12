@@ -26,6 +26,7 @@ import java.io.IOException;
  * serving as a layer between the streaming-oriented {@link ObjectCodec} interface and users.
  */
 public class ObjectCodecs {
+  private final ObjectCodecRegistry codecRegistry;
   private final SerializationContext serializationContext;
   private final DeserializationContext deserializationContext;
 
@@ -35,6 +36,7 @@ public class ObjectCodecs {
    */
   public ObjectCodecs(
       ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
+    this.codecRegistry = codecRegistry;
     serializationContext = new SerializationContext(codecRegistry, dependencies);
     deserializationContext = new DeserializationContext(codecRegistry, dependencies);
   }
@@ -94,6 +96,10 @@ public class ObjectCodecs {
 
   public Object deserializeMemoized(CodedInputStream codedIn) throws SerializationException {
     return deserializeImpl(codedIn, /*memoize=*/ true);
+  }
+
+  public ObjectCodecRegistry getCodecRegistry() {
+    return codecRegistry;
   }
 
   private static void serializeImpl(
