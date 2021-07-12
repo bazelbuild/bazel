@@ -304,7 +304,7 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   }
 
   /**
-   * Shuts the cache down. Any in progress tasks will continue running while new requests will be
+   * Shuts the cache down. Any in progress tasks will continue running while new tasks will be
    * injected with {@link CancellationException}.
    */
   public void shutdown() {
@@ -340,7 +340,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   }
 
   /**
-   * Shuts the cache down. Any in progress tasks will be cancelled with {@link CancellationException}.
+   * Shuts the cache down. All in progress and new tasks will be cancelled with {@link
+   * CancellationException}.
    */
   public void shutdownNow() {
     shutdown();
@@ -405,14 +406,25 @@ public final class AsyncTaskCache<KeyT, ValueT> {
       return cache.getSubscriberCount(key);
     }
 
+    /**
+     * Shuts the cache down. Any in progress tasks will continue running while new tasks will be
+     * injected with {@link CancellationException}.
+     */
     public void shutdown() {
       cache.shutdown();
     }
 
+    /**
+     * Returns a {@link Completable} which will complete once all the in progress tasks finished.
+     */
     public Completable awaitTermination() {
       return cache.awaitTermination();
     }
 
+    /**
+     * Shuts the cache down. All in progress and active tasks will be cancelled with {@link
+     * CancellationException}.
+     */
     public void shutdownNow() {
       cache.shutdownNow();
     }

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachingActionEvent;
+import com.google.devtools.build.lib.actions.FileUploadEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -393,6 +394,9 @@ final class UiStateTracker {
   private final Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
   // The point in time when closing of BEP transports was started.
   private long bepTransportClosingStartTimeMillis;
+  private long remoteCacheWaitStartTimeMillis;
+  private final AtomicInteger remoteCacheUploads = new AtomicInteger(0);
+  private final AtomicInteger remoteCacheDownloads = new AtomicInteger(0);
 
   UiStateTracker(Clock clock, int targetWidth) {
     this.activeActions = new ConcurrentHashMap<>();
@@ -474,6 +478,7 @@ final class UiStateTracker {
     buildComplete = true;
     // Build event protocol transports are closed right after the build complete event.
     bepTransportClosingStartTimeMillis = clock.currentTimeMillis();
+    remoteCacheWaitStartTimeMillis = clock.currentTimeMillis();
 
     if (event.getResult().getSuccess()) {
       status = "INFO";
@@ -973,6 +978,14 @@ final class UiStateTracker {
     }
   }
 
+  void fileUpload(FileUploadEvent event) {
+    if (event.finished()) {
+      remoteCacheUploads.decrementAndGet();
+    } else {
+      remoteCacheUploads.incrementAndGet();
+    }
+  }
+
   public synchronized void testSummary(TestSummary summary) {
     completedTests++;
     mostRecentTest = summary;
@@ -990,8 +1003,11 @@ final class UiStateTracker {
     bepOpenTransports.remove(event.transport());
   }
 
-  synchronized int pendingTransports() {
-    return bepOpenTransports.size();
+  synchronized boolean shouldStopUpdateProgressBar() {
+    return buildComplete
+        && bepOpenTransports.size() == 0
+        && remoteCacheUploads.get() == 0
+        && remoteCacheDownloads.get() == 0;
   }
 
   /**
@@ -1004,6 +1020,9 @@ final class UiStateTracker {
       return true;
     }
     if (runningDownloads.size() >= 1) {
+      return true;
+    }
+    if (buildComplete && (remoteCacheUploads.get() != 0 || remoteCacheDownloads.get() != 0)) {
       return true;
     }
     if (buildComplete && !bepOpenTransports.isEmpty()) {
@@ -1168,6 +1187,55 @@ final class UiStateTracker {
     }
   }
 
+  /**
+   * Display any remote cache network I/Os that are still active after the build. Most likely,
+   * because uploading/downloading takes longer than the build itself.
+   */
+  private void maybeReportActiveRemoteCacheIOs(PositionAwareAnsiTerminalWriter terminalWriter)
+      throws IOException {
+    if (!buildComplete) {
+      return;
+    }
+
+    int uploads = remoteCacheUploads.get();
+    int downloads = remoteCacheDownloads.get();
+
+    if (uploads == 0 && downloads == 0) {
+      return;
+    }
+
+    long sinceSeconds =
+        MILLISECONDS.toSeconds(clock.currentTimeMillis() - remoteCacheWaitStartTimeMillis);
+    if (sinceSeconds == 0) {
+      // Special case for when bazel was interrupted, in which case we don't want to have a message.
+      return;
+    }
+    String waitSecs = "; " + sinceSeconds + "s";
+
+    String message = "Waiting for remote cache: ";
+    if (uploads != 0) {
+      if (uploads == 1) {
+        message += "1 upload";
+      } else {
+        message += uploads + " uploads";
+      }
+    }
+
+    if (downloads != 0) {
+      if (uploads != 0) {
+        message += ", ";
+      }
+
+      if (downloads == 1) {
+        message += "1 download";
+      } else {
+        message += downloads + " downloads";
+      }
+    }
+
+    terminalWriter.newline().append(message + waitSecs);
+  }
+
   synchronized void writeProgressBar(
       AnsiTerminalWriter rawTerminalWriter, boolean shortVersion, String timestamp)
       throws IOException {
@@ -1197,6 +1265,7 @@ final class UiStateTracker {
       }
       if (!shortVersion) {
         reportOnDownloads(terminalWriter);
+        maybeReportActiveRemoteCacheIOs(terminalWriter);
         maybeReportBepTransports(terminalWriter);
       }
       return;
@@ -1269,6 +1338,7 @@ final class UiStateTracker {
     }
     if (!shortVersion) {
       reportOnDownloads(terminalWriter);
+      maybeReportActiveRemoteCacheIOs(terminalWriter);
       maybeReportBepTransports(terminalWriter);
     }
   }

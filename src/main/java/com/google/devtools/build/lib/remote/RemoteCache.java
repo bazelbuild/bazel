@@ -68,7 +68,16 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-/** A cache for storing artifacts (input and output) as well as the output of running an action. */
+/**
+ * A cache for storing artifacts (input and output) as well as the output of running an action.
+ *
+ * <p>The cache is reference counted. Initially, the reference count is 1. Use {@link #retain()} to
+ * increase and {@link #release()} to decrease the reference count respectively. Once the reference
+ * count is reached to 0, the underlying resources will be released (after network I/Os finished).
+ *
+ * <p>Use {@link #awaitTermination()} to wait for the underlying network I/Os to finish. Use {@link
+ * #shutdownNow()} to cancel all active network I/Os and reject new requests.
+ */
 @ThreadSafety.ThreadSafe
 public class RemoteCache extends AbstractReferenceCounted {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -497,10 +506,19 @@ public class RemoteCache extends AbstractReferenceCounted {
     cacheProtocol.close();
   }
 
+  public boolean isClosed() {
+    return closed.get();
+  }
+
+  /** Cancels all active network I/Os and rejects new requests. */
   public void shutdownNow() {
     uploadCache.shutdownNow();
   }
 
+  /**
+   * Waits the cache to terminate. Only returns if a) the internal reference count is reached to 0
+   * and b) All network I/Os are finished.
+   */
   public void awaitTermination() throws InterruptedException {
     try {
       uploadCache.awaitTermination().blockingAwait();

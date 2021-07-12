@@ -132,6 +132,7 @@ final class RemoteActionContextProvider {
               executor,
               filesToDownload,
               captureCorruptedOutputsDir);
+      env.getEventBus().register(remoteExecutionService);
     }
 
     return remoteExecutionService;
@@ -191,7 +192,7 @@ final class RemoteActionContextProvider {
 
   public void afterCommand() {
     if (remoteExecutionService != null) {
-      remoteExecutionService.close();
+      remoteExecutionService.shutdown();
     }
   }
 }

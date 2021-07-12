@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.CachingActionEvent;
+import com.google.devtools.build.lib.actions.FileUploadEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -567,9 +568,8 @@ public final class UiEventHandler implements EventHandler {
       ignoreRefreshLimitOnce();
       refresh();
 
-      // After a build has completed, only stop updating the UI if there is no more BEP
-      // upload happening.
-      if (stateTracker.pendingTransports() == 0) {
+      // After a build has completed, only stop updating the UI if there is no more activities.
+      if (stateTracker.shouldStopUpdateProgressBar()) {
         buildRunning = false;
         done = true;
       }
@@ -721,6 +721,13 @@ public final class UiEventHandler implements EventHandler {
     refresh();
   }
 
+  @Subscribe
+  @AllowConcurrentEvents
+  public void fileUpload(FileUploadEvent event) {
+    stateTracker.fileUpload(event);
+    refreshSoon();
+  }
+
   /**
    * Return true, if the test summary provides information that is both worth being shown in the
    * scroll-back buffer and new with respect to the alreay shown failure messages.
@@ -789,7 +796,7 @@ public final class UiEventHandler implements EventHandler {
       this.handle(Event.info(null, "Transport " + event.transport().name() + " closed"));
     }
 
-    if (stateTracker.pendingTransports() == 0) {
+    if (stateTracker.shouldStopUpdateProgressBar()) {
       stopUpdateThread();
       flushStdOutStdErrBuffers();
       ignoreRefreshLimitOnce();
