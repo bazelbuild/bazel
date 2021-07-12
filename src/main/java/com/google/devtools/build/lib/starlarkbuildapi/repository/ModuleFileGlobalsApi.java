@@ -37,6 +37,7 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
       parameters = {
         @Param(
             name = "name",
+            // TODO(wyv): explain module name format
             doc =
                 "The name of the module. Can be omitted only if this module is the root module (as"
                     + " in, if it's not going to be depended on by another module).",
@@ -45,6 +46,7 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
             defaultValue = "''"),
         @Param(
             name = "version",
+            // TODO(wyv): explain version format
             doc =
                 "The version of the module. Can be omitted only if this module is the root module"
                     + " (as in, if it's not going to be depended on by another module).",
@@ -53,15 +55,22 @@ public interface ModuleFileGlobalsApi<ModuleFileFunctionExceptionT extends Excep
             defaultValue = "''"),
         @Param(
             name = "compatibility_level",
+            // TODO(wyv): See X for more details; also mention multiple_version_override
             doc =
                 "The compatibility level of the module; this should be changed every time a major"
-                    + " incompatible change is introduced.", // TODO(wyv): See X for more details.
+                    + " incompatible change is introduced. This is essentially the \"major"
+                    + " version\" of the module in terms of SemVer, except that it's not embedded"
+                    + " in the version string itself, but exists as a separate field. Modules with"
+                    + " different compatibility levels participate in version resolution as if"
+                    + " they're modules with different names, but the final dependency graph cannot"
+                    + " contain multiple modules with the same name but different compatibility"
+                    + " levels.",
             named = true,
             positional = false,
-            defaultValue = "''"),
+            defaultValue = "0"),
         // TODO(wyv): bazel_compatibility, module_rule_exports, toolchains & platforms
       })
-  void module(String name, String version, String compatibilityLevel)
+  void module(String name, String version, StarlarkInt compatibilityLevel)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

@@ -113,7 +113,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testRootModule() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='A',version='0.1')",
+        "module(name='A',version='0.1',compatibility_level=4)",
         "bazel_dep(name='B',version='1.0')",
         "bazel_dep(name='C',version='2.0',repo_name='see')",
         "single_version_override(module_name='D',version='18')",
@@ -132,6 +132,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion("0.1")
+                .setCompatibilityLevel(4)
                 .addDep("B", ModuleKey.create("B", "1.0"))
                 .addDep("see", ModuleKey.create("C", "2.0"))
                 .build());
@@ -202,13 +203,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             .newFakeRegistry()
             .addModule(
                 ModuleKey.create("B", "1.0"),
-                "module(name='B',version='1.0');bazel_dep(name='C',version='2.0')");
+                "module(name='B',version='1.0',compatibility_level=4)\n"
+                    + "bazel_dep(name='C',version='2.0')");
     FakeRegistry registry2 =
         registryFactory
             .newFakeRegistry()
             .addModule(
                 ModuleKey.create("B", "1.0"),
-                "module(name='B',version='1.0');bazel_dep(name='C',version='3.0')");
+                "module(name='B',version='1.0',compatibility_level=6)\n"
+                    + "bazel_dep(name='C',version='3.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry1.getUrl()));
 
     // Override the registry for B to be registry2 (instead of the default registry1).
@@ -227,6 +230,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion("1.0")
+                .setCompatibilityLevel(6)
                 .addDep("C", ModuleKey.create("C", "3.0"))
                 .setRegistry(registry2)
                 .build());

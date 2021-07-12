@@ -37,15 +37,18 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
   public ModuleFileGlobals() {}
 
   @Override
-  public void module(String name, String version, String compatibilityLevel) throws EvalException {
+  public void module(String name, String version, StarlarkInt compatibilityLevel)
+      throws EvalException {
     if (moduleCalled) {
       throw Starlark.errorf("the module() directive can only be called once");
     }
     moduleCalled = true;
     // TODO(wyv): add validation logic for name (alphanumerical) and version (use ParsedVersion) &
     //   others in the future
-    module.setName(name).setVersion(version);
-    // TODO(wyv): compatibility level
+    module
+        .setName(name)
+        .setVersion(version)
+        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"));
   }
 
   @Override
