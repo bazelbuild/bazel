@@ -233,7 +233,7 @@ title: Make Variables
   (see the explanation of <i>output files</i> below).
 </p>
 
-<p><a href="https://github.com/bazelbuild/examples/tree/master/make-variables">
+<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables">
   See an example of predefined variables</a>.</p>
 
 <ul>
@@ -438,7 +438,7 @@ title: Make Variables
   <code>toolchains</code> attribute can then read their values:
 </p>
 
-<p><a href="https://github.com/bazelbuild/examples/tree/master/make-variables">
+<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables">
   See an example of Starlark-defined variables</a>.</p>
 
 #if (!$singlePage)

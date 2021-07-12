@@ -36,7 +36,7 @@ If you don't need the union operation, consider using another type, such as
 
 
 This example is available at
-[https://github.com/bazelbuild/examples/tree/HEAD/rules/depsets](https://github.com/bazelbuild/examples/tree/master/rules/depsets).
+[https://github.com/bazelbuild/examples/tree/HEAD/rules/depsets](https://github.com/bazelbuild/examples/tree/main/rules/depsets).
 
 Suppose there is a hypothetical interpreted language Foo. In order to build
 each `foo_binary` you need to know all the `*.foo` files that it directly or

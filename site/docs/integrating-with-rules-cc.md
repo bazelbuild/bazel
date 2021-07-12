@@ -26,7 +26,7 @@ Then, in the rule implementation, use
 to get the
 [`CcToolchainInfo`](https://docs.bazel.build/versions/main/skylark/lib/CcToolchainInfo.html).
 A complete working example can be found
-[in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/master/examples/write_cc_toolchain_cpu/write_cc_toolchain_cpu.bzl).
+[in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/main/examples/write_cc_toolchain_cpu/write_cc_toolchain_cpu.bzl).
 
 ## Generating command lines and environment variables using the C++ toolchain
 
@@ -54,7 +54,7 @@ Prefer `get_tool_for_action` over these, as tool-specific getters will
 eventually be removed.
 
 A complete working example can be found
-[in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/master/examples/my_c_compile/my_c_compile.bzl).
+[in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/main/examples/my_c_compile/my_c_compile.bzl).
 
 ## Implementing Starlark rules that depend on C++ rules and/or that C++ rules can depend on
 
@@ -76,7 +76,7 @@ to propagate native dependencies up to the `java_binary`, it shouldn't provide
 it should wrap it in, for example, `JavaCcInfo`.
 
 A complete working example can be found
-[in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/master/examples/my_c_archive/my_c_archive.bzl).
+[in the rules_cc examples](https://github.com/bazelbuild/rules_cc/blob/main/examples/my_c_archive/my_c_archive.bzl).
 
 
 ## Reusing logic and actions of C++ rules

@@ -41,9 +41,9 @@ Apple applications.
 ### Get the sample project
 
 You also need to get the sample project for the tutorial from GitHub. The GitHub
-repo has two branches: `source-only` and `master`. The `source-only` branch
+repo has two branches: `source-only` and `main`. The `source-only` branch
 contains the source files for the project only. You'll use the files in this
-branch in this tutorial. The `master` branch contains both the source files
+branch in this tutorial. The `main` branch contains both the source files
 and completed Bazel `WORKSPACE` and `BUILD` files. You can use the files in this
 branch to check your work when you've completed the tutorial steps.
 
@@ -235,8 +235,8 @@ Note how the `deps` attribute references the output of the `UrlGetClasses` rule
 you added to the `BUILD` file above.
 
 Now, save and close the file. You can compare your `BUILD` file to the
-[completed example](https://github.com/bazelbuild/examples/blob/master/tutorial/ios-app/BUILD)
-in the `master` branch of the GitHub repo.
+[completed example](https://github.com/bazelbuild/examples/blob/main/tutorial/ios-app/BUILD)
+in the `main` branch of the `GitHub repo.
 
 ## Build and deploy the app
 
@@ -250,7 +250,7 @@ how to build the backend server.
 The built app is located in the `$WORKSPACE/bazel-bin` directory.
 
 Completed `WORKSPACE` and `BUILD` files for this tutorial are located in the
-[master branch](https://github.com/bazelbuild/examples/tree/HEAD/tutorial)
+[main branch](https://github.com/bazelbuild/examples/tree/HEAD/tutorial)
 of the GitHub repo. You can compare your work to the completed files for
 additional help or troubleshooting.
 
@@ -355,6 +355,6 @@ Xcode may provide other information as to what has gone wrong.
 ## Further reading
 
 For more details, see
-[master branch](https://github.com/bazelbuild/examples/tree/HEAD/tutorial)
+[main branch](https://github.com/bazelbuild/examples/tree/HEAD/tutorial)
 of the GitHub repo.
 

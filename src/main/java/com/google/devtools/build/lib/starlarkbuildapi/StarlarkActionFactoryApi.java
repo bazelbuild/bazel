@@ -52,7 +52,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + "need to be (and cannot be) declared using this function. You can obtain their "
               + "<code>File</code> objects from "
               + "<a href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/tree/main/rules/"
               + "computed_dependencies/hash.bzl\">See example of use</a>.",
       parameters = {
         @Param(
@@ -268,7 +268,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       name = "run",
       doc =
           "Creates an action that runs an executable. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/tree/main/rules/"
               + "actions_run/execute.bzl\">See example of use</a>.",
       parameters = {
         @Param(
@@ -453,7 +453,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       name = "run_shell",
       doc =
           "Creates an action that runs a shell command. "
-              + "<a href=\"https://github.com/bazelbuild/examples/tree/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/tree/main/rules/"
               + "shell_command/rules.bzl\">See example of use</a>.",
       parameters = {
         @Param(
@@ -658,7 +658,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + "result of a previous substitution), it is replaced with the associated value. "
               + "There is no special syntax for the keys. You may, for example, use curly braces "
               + "to avoid conflicts (for example, <code>{KEY}</code>). "
-              + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/blob/main/rules/"
               + "expand_template/hello.bzl\">"
               + "See example of use</a>.",
       parameters = {

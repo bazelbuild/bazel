@@ -10,7 +10,7 @@ who want to understand the requirements for Bazel rules in the context of
 remote execution.
 
 Remote execution allows Bazel to execute actions on a separate platform, such as
-a datacenter. A [gRPC protocol](https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/execution/v2/remote_execution.proto)
+a datacenter. A [gRPC protocol](https://github.com/bazelbuild/remote-apis/blob/main/build/bazel/remote/execution/v2/remote_execution.proto)
 is currently in development. You can try remote execution with [bazel-buildfarm](https://github.com/bazelbuild/bazel-buildfarm),
 an open-source project that aims to provide a distributed remote execution
 platform.
@@ -57,7 +57,7 @@ execution environment.
 Toolchain rules currently exist for Bazel build and test rules for
 [Scala](https://github.com/bazelbuild/rules_scala/blob/master/scala/scala_toolch
 ain.bzl),
-[Rust](https://github.com/bazelbuild/rules_rust/blob/master/rust/toolchain.bzl),
+[Rust](https://github.com/bazelbuild/rules_rust/blob/main/rust/toolchain.bzl),
 and [Go](https://github.com/bazelbuild/rules_go/blob/master/go/toolchains.rst),
 and new toolchain rules are under way for other languages and tools such as
 [bash](https://docs.google.com/document/d/e/2PACX-1vRCSB_n3vctL6bKiPkIa_RN_ybzoAccSe0ic8mxdFNZGNBJ3QGhcKjsL7YKf-ngVyjRZwCmhi_5KhcX/pub).

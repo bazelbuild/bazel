@@ -71,7 +71,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + "attribute is not specified in the rule then the corresponding struct value is "
           + "<code>None</code>. If a label type is not marked as <code>executable=True</code>, no "
           + "corresponding struct field is generated. <a "
-          + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/actions_run/"
+          + "href=\"https://github.com/bazelbuild/examples/blob/main/rules/actions_run/"
           + "execute.bzl\">See example of use</a>.";
   String FILES_DOC =
       "A <code>struct</code> containing files defined in <a href='attr.html#label'>label</a>"
@@ -82,7 +82,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " other words, use <code>files</code> to access the <a"
           + " href=\"../rules.$DOC_EXT#requesting-output-files\">default outputs</a> of a"
           + " dependency. <a"
-          + " href=\"https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl\">See"
+          + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl\">See"
           + " example of use</a>.";
   String FILE_DOC =
       "A <code>struct</code> containing files defined in <a href='attr.html#label'>label type"
@@ -97,7 +97,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " <code>file</code> to access the (singular) <a"
           + " href=\"../rules.$DOC_EXT#requesting-output-files\">default output</a> of a"
           + " dependency. <a"
-          + " href=\"https://github.com/bazelbuild/examples/blob/master/rules/expand_template/hello.bzl\">See"
+          + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl\">See"
           + " example of use</a>.";
   String ATTR_DOC =
       "A struct to access the values of the <a href='../rules.$DOC_EXT#attributes'>attributes</a>. "
@@ -105,7 +105,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + "of the struct and the types of their values correspond to the keys and values of the "
           + "<a href='globals.html#rule.attrs'><code>attrs</code> dict</a> provided to the <a "
           + "href='globals.html#rule'><code>rule</code> function</a>. <a "
-          + "href=\"https://github.com/bazelbuild/examples/blob/master/rules/attributes/"
+          + "href=\"https://github.com/bazelbuild/examples/blob/main/rules/attributes/"
           + "printer.bzl\">See example of use</a>.";
   String SPLIT_ATTR_DOC =
       "A struct to access the values of attributes with split configurations. If the attribute is "
@@ -267,7 +267,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       structField = true,
       doc =
           "Returns the set of features that are explicitly enabled by the user for this rule. "
-              + "<a href=\"https://github.com/bazelbuild/examples/blob/master/rules/"
+              + "<a href=\"https://github.com/bazelbuild/examples/blob/main/rules/"
               + "features/rule.bzl\">See example of use</a>.")
   ImmutableList<String> getFeatures() throws EvalException;
 

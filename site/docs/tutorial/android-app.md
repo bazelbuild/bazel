@@ -53,7 +53,7 @@ This app has a single button that prints a greeting when clicked.
 width="700">
 
 Clone the repository with `git` (or [download the ZIP file
-directly](https://github.com/bazelbuild/examples/archive/master.zip)):
+directly](https://github.com/bazelbuild/examples/archive/main.zip)):
 
 ``` bash
 git clone https://github.com/bazelbuild/examples
