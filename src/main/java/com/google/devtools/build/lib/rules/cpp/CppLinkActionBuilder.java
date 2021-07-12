@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -965,14 +966,20 @@ public class CppLinkActionBuilder {
         executionInfo, CppLinkAction.getMnemonic(mnemonic, isLtoIndexing));
 
     if (!isLtoIndexing) {
+      Set<String> seenLinkstampSources = new HashSet<>();
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {
+        Artifact source = linkstampEntry.getKey().getArtifact();
+        if (seenLinkstampSources.contains(source.getExecPathString())) {
+          continue;
+        }
+        seenLinkstampSources.add(source.getExecPathString());
         actionConstructionContext.registerAction(
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleErrorConsumer,
                 actionConstructionContext,
                 grepIncludes,
                 configuration,
-                linkstampEntry.getKey().getArtifact(),
+                source,
                 linkstampEntry.getValue(),
                 linkstampEntry.getKey().getDeclaredIncludeSrcs(),
                 nonCodeInputsAsNestedSet,
