@@ -18,7 +18,6 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteCache;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 
 /** A {@link RemoteCache} backed by an {@link DiskCacheClient}. */
@@ -59,16 +57,6 @@ class OnDiskBlobStoreCache extends RemoteCache {
     for (DirectoryNode child : directory.getDirectoriesList()) {
       downloadTree(context, child.getDigest(), rootLocation.getRelative(child.getName()));
     }
-  }
-
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    return cacheProtocol.uploadFile(context, digest, file);
-  }
-
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return cacheProtocol.uploadBlob(context, digest, data);
   }
 
   public void uploadActionResult(
