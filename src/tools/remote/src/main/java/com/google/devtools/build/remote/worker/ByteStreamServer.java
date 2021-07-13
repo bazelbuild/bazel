@@ -85,6 +85,9 @@ final class ByteStreamServer extends ByteStreamImplBase {
       // TODO(olaola): refactor to fix this if the need arises.
       Chunker c =
           Chunker.builder().setInput(getFromFuture(cache.downloadBlob(context, digest))).build();
+      if (request.getReadOffset() != 0) {
+        c.seek(request.getReadOffset());
+      }
       while (c.hasNext()) {
         responseObserver.onNext(
             ReadResponse.newBuilder().setData(c.next().getData()).build());
