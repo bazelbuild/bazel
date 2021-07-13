@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.syntax.StarlarkStringInterner;
 
 /** Helper functions for StarlarkMethod-annotated fields and methods. */
 final class CallUtils {
@@ -132,11 +133,15 @@ final class CallUtils {
         continue;
       }
 
+      // Identifiers are interned int parser, intern them here too
+      // to speed up lookup in dot expressions.
+      String name = StarlarkStringInterner.intern(callable.name());
+
       // regular method
-      methods.put(callable.name(), descriptor);
+      methods.put(name, descriptor);
 
       // field method?
-      if (descriptor.isStructField() && fields.put(callable.name(), descriptor) != null) {
+      if (descriptor.isStructField() && fields.put(name, descriptor) != null) {
         // TODO(b/72113542): Validate with annotation processor instead of at runtime.
         throw new IllegalArgumentException(
             String.format(

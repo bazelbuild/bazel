@@ -32,6 +32,7 @@ java_library(
         "FlowStatement.java",
         "ForStatement.java",
         "Identifier.java",
+        "StarlarkStringInterner.java",
         "IfStatement.java",
         "IndexExpression.java",
         "IntLiteral.java",
