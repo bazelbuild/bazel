@@ -368,7 +368,6 @@ static void EnterSandbox() {
 }
 
 static void ForwardSignal(int signum) {
-  PRINT_DEBUG("ForwardSignal(%d)", signum);
   kill(-global_child_pid, signum);
 }
 
