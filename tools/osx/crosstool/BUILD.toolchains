@@ -1,4 +1,4 @@
-load(":osx_archs.bzl", "OSX_TOOLS_ARCHS")
+load("@bazel_tools//tools/osx/crosstool:osx_archs.bzl", "OSX_TOOLS_ARCHS")
 
 package(default_visibility = ["//visibility:public"])
 

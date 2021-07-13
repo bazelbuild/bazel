@@ -39,7 +39,6 @@ def cc_autoconf_toolchains_impl(repository_ctx):
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
         "@bazel_tools//tools/osx/crosstool:BUILD.toolchains",
-        "@bazel_tools//tools/osx/crosstool:osx_archs.bzl",
         "@bazel_tools//tools/osx:xcode_locator.m",
     ])
     env = repository_ctx.os.environ
@@ -70,7 +69,6 @@ def cc_autoconf_toolchains_impl(repository_ctx):
 
         if should_use_xcode or xcode_toolchains:
             repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:BUILD.toolchains"], "BUILD")
-            repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:osx_archs.bzl"], "osx_archs.bzl")
         else:
             _generate_cpp_only_build_file(repository_ctx, cpu_value, paths)
     else:
