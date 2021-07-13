@@ -12,6 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
@@ -249,6 +256,42 @@ TEST_F(RcOptionsTest, ManyArgStartup) {
           "startup",
           {"foo", "--opt1", "--opt2", "string input Value 123. ", "--bar"}
       }});
+}
+
+TEST_F(RcOptionsTest, EnvVariableMissing) {
+  WriteRc("env_var_missing.bazelrc",
+          "startup ${RC_MISSING} foo");
+  SuccessfullyParseRcWithExpectedArgs(
+      "env_var_missing.bazelrc",
+      {{"startup",{"${RC_MISSING}","foo"}}});
+}
+
+TEST_F(RcOptionsTest, EnvVariableResolved) {
+#if defined(_WIN32)
+  ASSERT_NE(::SetEnvironmentVariable("RC_TEST", "startup foo"), 0);
+#else
+  setenv("RC_TEST", "startup foo", 1);
+#endif
+  WriteRc("env_var.bazelrc",
+          "${RC_TEST}");
+  SuccessfullyParseRcWithExpectedArgs(
+      "env_var.bazelrc",
+      {{"startup", {"foo"}}});
+}
+
+TEST_F(RcOptionsTest, EnvVariableResolvedMultiple) {
+#if defined(_WIN32)
+  ASSERT_NE(::SetEnvironmentVariable("RC_TEST", "startup"), 0);
+  ASSERT_NE(::SetEnvironmentVariable("RC_TEST_ARG", "foo"), 0);
+#else
+  setenv("RC_TEST", "startup", 1);
+  setenv("RC_TEST_ARG", "foo", 1);
+#endif
+  WriteRc("env_var_multi.bazelrc",
+          "${RC_TEST} ${RC_TEST_ARG}");
+  SuccessfullyParseRcWithExpectedArgs(
+      "env_var_multi.bazelrc",
+      {{"startup", {"foo"}}});
 }
 
 TEST_F(RcOptionsTest, MultipleCommands) {
