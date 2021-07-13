@@ -196,6 +196,7 @@ public class AndroidManifest {
       new ManifestMergerActionBuilder()
           .setManifest(manifest)
           .setLibrary(true)
+          .setMergeManifestPermissions(dataContext.getAndroidConfig().mergeAndroidManifestPermissions())
           .setCustomPackage(pkg)
           .setManifestOutput(outputManifest)
           .build(dataContext);
@@ -240,6 +241,7 @@ public class AndroidManifest {
           .setManifest(manifest)
           .setMergeeManifests(mergeeManifests)
           .setLibrary(false)
+          .setMergeManifestPermissions(dataContext.getAndroidConfig().mergeAndroidManifestPermissions())
           .setManifestValues(manifestValues)
           .setCustomPackage(pkg)
           .setManifestOutput(newManifest)
