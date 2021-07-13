@@ -66,7 +66,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_armv7"):
         target_system_name = "armv7-apple-ios"
     elif (ctx.attr.cpu == "watchos_armv7k"):
-        target_system_name = "armv7-apple-watchos"
+        target_system_name = "armv7k-apple-watchos"
     elif (ctx.attr.cpu == "ios_i386"):
         target_system_name = "i386-apple-ios"
     elif (ctx.attr.cpu == "watchos_i386"):
@@ -197,7 +197,7 @@ def _impl(ctx):
         action_name = ACTION_NAMES.objc_compile,
         flag_sets = [
             flag_set(
-                flag_groups = [flag_group(flags = ["-arch", arch])],
+                flag_groups = [flag_group(flags = ["-target", target_system_name])],
             ),
         ],
         implies = [
@@ -232,7 +232,7 @@ def _impl(ctx):
             flag_set(
                 flag_groups = [
                     flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                    flag_group(flags = ["-arch", arch]),
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = [
                             "-Xlinker",
@@ -386,8 +386,8 @@ def _impl(ctx):
                 flag_groups = [
                     flag_group(
                         flags = [
-                            "-arch",
-                            arch,
+                            "-target",
+                            target_system_name,
                             "-stdlib=libc++",
                             "-std=gnu++11",
                         ],
@@ -517,7 +517,7 @@ def _impl(ctx):
             ),
             flag_set(
                 flag_groups = [
-                    flag_group(flags = ["-arch", arch]),
+                    flag_group(flags = ["-target", target_system_name]),
                     flag_group(
                         flags = ["-framework", "%{framework_names}"],
                         iterate_over = "framework_names",
