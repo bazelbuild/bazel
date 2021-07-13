@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -25,10 +26,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -99,16 +102,16 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
   @Test
   public void testProtoSourceRootExportedInStarlark() throws Exception {
     scratch.file(
-        "third_party/foo/myTestRule.bzl",
+        "third_party/foo/my_proto_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "",
-        "def _my_test_rule_impl(ctx):",
+        "def _my_proto_rule_impl(ctx):",
         "    return MyInfo(",
         "        fetched_proto_source_root = ctx.attr.protodep[ProtoInfo].proto_source_root",
         "    )",
         "",
-        "my_test_rule = rule(",
-        "    implementation = _my_test_rule_impl,",
+        "my_proto_rule = rule(",
+        "    implementation = _my_proto_rule_impl,",
         "    attrs = {'protodep': attr.label()},",
         ")");
 
@@ -116,21 +119,272 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
         "third_party/foo/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
         "licenses(['unencumbered'])",
-        "load(':myTestRule.bzl', 'my_test_rule')",
-        "my_test_rule(",
-        "  name = 'myRule',",
-        "  protodep = ':myProto',",
+        "load(':my_proto_rule.bzl', 'my_proto_rule')",
+        "my_proto_rule(",
+        "  name = 'my_proto',",
+        "  protodep = ':dep_proto',",
         ")",
         "proto_library(",
-        "  name = 'myProto',",
-        "  srcs = ['myProto.proto'],",
+        "  name = 'dep_proto',",
+        "  srcs = ['dep.proto'],",
         "  strip_import_prefix = '/third_party/foo',",
         ")");
 
-    ConfiguredTarget ct = getConfiguredTarget("//third_party/foo:myRule");
+    ConfiguredTarget ct = getConfiguredTarget("//third_party/foo:my_proto");
     String protoSourceRoot = (String) getMyInfoFromTarget(ct).getValue("fetched_proto_source_root");
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
 
-    assertThat(protoSourceRoot).isEqualTo(genfiles + "/third_party/foo/_virtual_imports/myProto");
+    assertThat(protoSourceRoot).isEqualTo(genfiles + "/third_party/foo/_virtual_imports/dep_proto");
+  }
+
+  @Test
+  public void testProtoInfoMinimal() throws Exception {
+    scratch.file(
+        "third_party/foo/my_proto_rule.bzl",
+        "",
+        "result = provider()",
+        "def _my_proto_rule_impl(ctx):",
+        "    descriptor_set = ctx.actions.declare_file('descriptor-set.proto.bin')",
+        "    ctx.actions.write(output = descriptor_set, content = 'descriptor set content')",
+        "    protoInfo = ProtoInfo(",
+        "        descriptor_set = descriptor_set,",
+        "        proto_source_root = 'my_proto_root',",
+        "    )",
+        "    return [result(property = protoInfo), protoInfo]",
+        "",
+        "my_proto_rule = rule(",
+        "    implementation = _my_proto_rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(providers=[ProtoInfo]),",
+        "        'srcs': attr.label_list(allow_files=['.proto']),",
+        "     },",
+        "    provides = [ProtoInfo],",
+        ")");
+
+    scratch.file(
+        "third_party/foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "licenses(['unencumbered'])",
+        "load(':my_proto_rule.bzl', 'my_proto_rule')",
+        "my_proto_rule(",
+        "  name = 'my_proto',",
+        "  srcs = [':src_proto_src'],",
+        "  deps = [':dep_proto'],",
+        ")",
+        "proto_library(",
+        "  name = 'dep_proto',",
+        "  srcs = ['dep.proto'],",
+        "  strip_import_prefix = '/third_party/foo',",
+        ")",
+        "filegroup(",
+        "    name = 'src_proto_src',",
+        "    srcs = ['src.proto'],",
+        ")");
+
+    ProtoInfo protoInfo = fetchMyProtoInfo(getConfiguredTarget("//third_party/foo:my_proto"));
+    assertThat(protoInfo.getDirectProtoSourceRoot()).isEqualTo("my_proto_root");
+    assertThat(protoInfo.getDirectDescriptorSet().prettyPrint()).isEqualTo("third_party/foo/descriptor-set.proto.bin");
+  }
+
+  @Test
+  public void testProtoInfoInStarlark() throws Exception {
+    scratch.file(
+        "third_party/foo/my_proto_rule.bzl",
+        "",
+        "result = provider()",
+        "def _my_proto_rule_impl(ctx):",
+        "    descriptor_set = ctx.actions.declare_file('descriptor-set.proto.bin')",
+        "    ctx.actions.write(output = descriptor_set, content = 'descriptor set content')",
+        "    protoInfo = ProtoInfo(",
+        "        descriptor_set = descriptor_set,",
+        "        proto_source_root = 'third_party',",
+        "        sources = ctx.files.srcs,",
+        "        deps = [dep[ProtoInfo] for dep in ctx.attr.deps],",
+        "        exports = [export[ProtoInfo] for export in ctx.attr.exports],",
+        "    )",
+        "    return [result(property = protoInfo), protoInfo]",
+        "",
+        "my_proto_rule = rule(",
+        "    implementation = _my_proto_rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(providers=[ProtoInfo]),",
+        "        'exports': attr.label_list(providers=[ProtoInfo]),",
+        "        'srcs': attr.label_list(allow_files=['.proto']),",
+        "     },",
+        "    provides = [ProtoInfo],",
+        ")");
+
+    scratch.file(
+        "third_party/foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "licenses(['unencumbered'])",
+        "load(':my_proto_rule.bzl', 'my_proto_rule')",
+        "my_proto_rule(",
+        "  name = 'my_proto',",
+        "  srcs = ['src.proto'],",
+        "  deps = [':dep_proto'],",
+        "  exports = [':export_proto'],",
+        ")",
+        "proto_library(",
+        "  name = 'dep_proto',",
+        "  srcs = ['dep.proto'],",
+        "  strip_import_prefix = '/third_party/foo',",
+        ")",
+        "proto_library(",
+        "  name = 'export_proto',",
+        "  srcs = ['export.proto'],",
+        "  strip_import_prefix = '/third_party/foo',",
+        ")");
+
+    ProtoInfo protoInfo = fetchMyProtoInfo(getConfiguredTarget("//third_party/foo:my_proto"));
+    assertThat(protoInfo.getDirectProtoSourceRoot()).isEqualTo("third_party");
+    assertThat(protoInfo.getDirectDescriptorSet().prettyPrint())
+        .isEqualTo("third_party/foo/descriptor-set.proto.bin");
+    assertThat(prettyArtifactNames(protoInfo.getDirectProtoSources()))
+        .containsExactly("third_party/foo/src.proto");
+    assertThat(prettyArtifactNames(protoInfo.getStrictImportableProtoSourcesForDependents()))
+        .containsExactly("third_party/foo/src.proto");
+    assertThat(prettyArtifactNames(protoInfo.getTransitiveDescriptorSets()))
+        .containsExactly("third_party/foo/descriptor-set.proto.bin",
+            "third_party/foo/dep_proto-descriptor-set.proto.bin");
+    List<String> transitiveProtoSourceRoots = protoInfo.getTransitiveProtoSourceRoots().toList();
+    assertThat(transitiveProtoSourceRoots).hasSize(2);
+    assertThat(transitiveProtoSourceRoots.get(0)).endsWith("third_party/foo/_virtual_imports/dep_proto");
+    assertThat(transitiveProtoSourceRoots.get(1)).isEqualTo("third_party");
+    assertThat(prettyArtifactNames(protoInfo.getTransitiveProtoSources()))
+        .containsExactly("third_party/foo/src.proto",
+            "third_party/foo/_virtual_imports/dep_proto/dep.proto");
+    List<ProtoSource> exportedProtoSources =
+        protoInfo.getExportedSources().toList();
+    assertThat(exportedProtoSources).hasSize(1);
+    assertThat(exportedProtoSources.get(0).getSourceRoot().toString())
+        .isEqualTo("third_party");
+    assertThat(exportedProtoSources.get(0).getSourceFile().prettyPrint())
+        .isEqualTo("third_party/foo/src.proto");
+    assertThat(exportedProtoSources.get(0).getImportPath().toString())
+        .isEqualTo("foo/src.proto");
+  }
+
+  @Test
+  public void testProtoInfoProxyInStarlark() throws Exception {
+    scratch.file(
+        "third_party/foo/my_proto_rule.bzl",
+        "",
+        "result = provider()",
+        "def _my_proto_rule_impl(ctx):",
+        "    descriptor_set = ctx.actions.declare_file('descriptor-set.proto.bin')",
+        "    ctx.actions.write(output = descriptor_set, content = 'descriptor set content')",
+        "    protoInfo = ProtoInfo(",
+        "        descriptor_set = descriptor_set,",
+        "        proto_source_root = 'my_proto_root',",
+        "        sources = ctx.files.srcs,",
+        "        deps = [dep[ProtoInfo] for dep in ctx.attr.deps],",
+        "    )",
+        "    return [result(property = protoInfo), protoInfo]",
+        "",
+        "my_proto_rule = rule(",
+        "    implementation = _my_proto_rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(providers=[ProtoInfo]),",
+        "        'srcs': attr.label_list(allow_files=['.proto']),",
+        "     },",
+        "    provides = [ProtoInfo],",
+        ")");
+
+    scratch.file(
+        "third_party/foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "licenses(['unencumbered'])",
+        "load(':my_proto_rule.bzl', 'my_proto_rule')",
+        "my_proto_rule(",
+        "  name = 'my_proto',",
+        "  deps = [':dep_proto'],",
+        ")",
+        "proto_library(",
+        "  name = 'dep_proto',",
+        "  srcs = ['dep.proto'],",
+        "  strip_import_prefix = '/third_party/foo',",
+        ")");
+
+    ProtoInfo protoInfo = fetchMyProtoInfo(getConfiguredTarget("//third_party/foo:my_proto"));
+    assertThat(protoInfo.getDirectProtoSourceRoot()).isEqualTo("my_proto_root");
+    assertThat(protoInfo.getDirectDescriptorSet().prettyPrint())
+        .isEqualTo("third_party/foo/descriptor-set.proto.bin");
+    assertThat(prettyArtifactNames(protoInfo.getStrictImportableProtoSourcesForDependents()))
+        .containsExactly("third_party/foo/_virtual_imports/dep_proto/dep.proto");
+    assertThat(prettyArtifactNames(protoInfo.getDirectProtoSources())).isEmpty();
+    assertThat(prettyArtifactNames(protoInfo.getTransitiveDescriptorSets()))
+        .containsExactly("third_party/foo/descriptor-set.proto.bin",
+            "third_party/foo/dep_proto-descriptor-set.proto.bin");
+    assertThat(protoInfo.getTransitiveProtoSourceRoots().toList().get(0))
+        .endsWith("third_party/foo/_virtual_imports/dep_proto");
+    assertThat(prettyArtifactNames(protoInfo.getTransitiveProtoSources()))
+        .containsExactly("third_party/foo/_virtual_imports/dep_proto/dep.proto");
+  }
+
+  @Test
+  public void testProtoInfoUsedAsDependencyInStarlark() throws Exception {
+    scratch.file(
+        "third_party/foo/my_proto_rule.bzl",
+        "",
+        "result = provider()",
+        "def _my_proto_rule_impl(ctx):",
+        "    descriptor_set = ctx.actions.declare_file('descriptor-set.proto.bin')",
+        "    ctx.actions.write(output = descriptor_set, content = 'descriptor set content')",
+        "    protoInfo = ProtoInfo(",
+        "        descriptor_set = descriptor_set,",
+        "        proto_source_root = 'third_party',",
+        "        sources = ctx.files.srcs,",
+        "        deps = [dep[ProtoInfo] for dep in ctx.attr.deps],",
+        "        exports = [export[ProtoInfo] for export in ctx.attr.exports],",
+        "    )",
+        "    return [result(property = protoInfo), protoInfo]",
+        "",
+        "my_proto_rule = rule(",
+        "    implementation = _my_proto_rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(providers=[ProtoInfo]),",
+        "        'exports': attr.label_list(providers=[ProtoInfo]),",
+        "        'srcs': attr.label_list(allow_files=['.proto']),",
+        "     },",
+        "    provides = [ProtoInfo],",
+        ")");
+
+    scratch.file(
+        "third_party/foo/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "licenses(['unencumbered'])",
+        "load(':my_proto_rule.bzl', 'my_proto_rule')",
+        "my_proto_rule(",
+        "  name = 'my_proto',",
+        "  srcs = ['my.proto'],",
+        ")",
+        "proto_library(",
+        "  name = 'new_proto',",
+        "  srcs = ['new.proto'],",
+        "  deps = ['my_proto'],",
+        "  exports = ['my_proto'],",
+        "  strip_import_prefix = '/third_party/foo',",
+        ")");
+
+    ProtoInfo protoInfo = fetchProtoInfo(getConfiguredTarget("//third_party/foo:new_proto"));
+    assertThat(prettyArtifactNames(protoInfo.getTransitiveProtoSources()))
+        .contains("third_party/foo/my.proto");
+  }
+
+  private ProtoInfo fetchMyProtoInfo(ConfiguredTarget configuredTarget) throws Exception {
+    StructImpl info =
+        (StructImpl)
+            configuredTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsolute("//third_party/foo:my_proto_rule.bzl", ImmutableMap.of()), "result"));
+
+    @SuppressWarnings("unchecked")
+    ProtoInfo protoInfo = (ProtoInfo) info.getValue("property");
+    return protoInfo;
+  }
+
+  private ProtoInfo fetchProtoInfo(ConfiguredTarget configuredTarget) {
+    return (ProtoInfo) configuredTarget.get(StarlarkProviderIdentifier.forKey(ProtoInfo.PROVIDER.getKey()));
   }
 }

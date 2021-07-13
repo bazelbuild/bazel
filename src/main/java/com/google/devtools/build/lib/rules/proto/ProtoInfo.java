@@ -22,9 +22,16 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the
@@ -33,13 +40,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 @Immutable
 @AutoCodec
 public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact> {
-  /** Provider class for {@link ProtoInfo} objects. */
-  public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
-      implements ProtoInfoProviderApi {
-    public ProtoInfoProvider() {
-      super(ProtoBootstrap.PROTO_INFO_STARLARK_NAME, ProtoInfo.class);
-    }
-  }
 
   public static final ProtoInfoProvider PROVIDER = new ProtoInfoProvider();
 
@@ -93,7 +93,9 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
       // Layering checks.
       NestedSet<ProtoSource> exportedSources,
       NestedSet<ProtoSource> strictImportableSources,
-      NestedSet<ProtoSource> publicImportSources) {
+      NestedSet<ProtoSource> publicImportSources,
+      Location creationLocation) {
+    super(creationLocation);
     this.directSources = directSources;
     this.directProtoSources = extractProtoSources(directSources);
     this.originalDirectProtoSources = extractOriginalProtoSources(directSources);
@@ -262,5 +264,64 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    */
   NestedSet<ProtoSource> getPublicImportSources() {
     return publicImportSources;
+  }
+
+  /** Provider class for {@link ProtoInfo} objects. */
+  public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
+      implements ProtoInfoProviderApi {
+    private ProtoInfoProvider() {
+      super(ProtoBootstrap.PROTO_INFO_STARLARK_NAME, ProtoInfo.class);
+    }
+
+    private void checkSequenceOfProtoInfo(Sequence<?> seq, String field) throws EvalException {
+      for (Object v : seq) {
+        if (!(v instanceof ProtoInfo)) {
+          throw Starlark.errorf("Expected 'sequence of ProtoInfo' for '%s', found element of type '%s'", field, Starlark.type(v));
+        }
+      }
+    }
+
+    @Override
+    @SuppressWarnings({"unchecked"})
+    public ProtoInfo protoInfo(
+        String protoSourceRootApi,
+        FileApi descriptorSetApi,
+        Sequence<?> sourcesApi,
+        Sequence<?> depsApi,
+        Sequence<?> exportsApi,
+        StarlarkThread thread)
+        throws EvalException {
+
+      checkSequenceOfProtoInfo(depsApi, "deps");
+      checkSequenceOfProtoInfo(exportsApi, "exports");
+
+      Artifact directDescriptorSet = (Artifact) descriptorSetApi;
+
+      List<Artifact> directSourcesList = Sequence.cast(sourcesApi, Artifact.class, "sources");
+      ImmutableList<Artifact> originalDirectProtoSources = ImmutableList.copyOf(directSourcesList);
+
+      ImmutableList.Builder<ProtoSource> sourcesBuilder = ImmutableList.builder();
+      for(Artifact src: directSourcesList) {
+        sourcesBuilder.add(new ProtoSource(src, PathFragment.create(protoSourceRootApi)));
+      }
+      ImmutableList<ProtoSource> sources = sourcesBuilder.build();
+
+      List<ProtoInfo> depsList = Sequence.cast(depsApi, ProtoInfo.class, "deps");
+      ImmutableList<ProtoInfo> deps = ImmutableList.copyOf(depsList);
+
+      List<ProtoInfo> exportsList = Sequence.cast(exportsApi, ProtoInfo.class, "exports");
+      ImmutableList<ProtoInfo> exports = ImmutableList.copyOf(exportsList);
+
+      PathFragment protoSourceRoot = PathFragment.create(protoSourceRootApi);
+
+      return ProtoCommon.createProtoInfo(
+          originalDirectProtoSources,
+          sources,
+          deps,
+          exports,
+          protoSourceRoot,
+          directDescriptorSet,
+          thread.getCallerLocation());
+    }
   }
 }
