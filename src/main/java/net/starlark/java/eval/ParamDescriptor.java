@@ -33,6 +33,7 @@ final class ParamDescriptor {
   private final boolean named;
   private final boolean positional;
   private final List<Class<?>> allowedClasses; // non-empty
+  private final boolean allowedClassesContainObject;
   // The semantics flag responsible for disabling this parameter, or null if enabled.
   // It is an error for Starlark code to supply a value to a disabled parameter.
   @Nullable private final String disabledByFlag;
@@ -51,6 +52,7 @@ final class ParamDescriptor {
     this.named = named;
     this.positional = positional;
     this.allowedClasses = allowedClasses;
+    this.allowedClassesContainObject = allowedClasses.contains(Object.class);
     this.disabledByFlag = disabledByFlag;
   }
 
@@ -116,6 +118,10 @@ final class ParamDescriptor {
 
   List<Class<?>> getAllowedClasses() {
     return allowedClasses;
+  }
+
+  public boolean isAllowedClassesContainObject() {
+    return allowedClassesContainObject;
   }
 
   /** @see Param#positional() */

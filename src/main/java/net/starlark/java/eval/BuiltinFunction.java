@@ -342,6 +342,10 @@ public final class BuiltinFunction implements StarlarkCallable {
   }
 
   private void checkParamValue(ParamDescriptor param, Object value) throws EvalException {
+    if (param.isAllowedClassesContainObject()) {
+      return;
+    }
+
     // Value must belong to one of the specified classes.
     boolean ok = false;
     for (Class<?> cls : param.getAllowedClasses()) {
