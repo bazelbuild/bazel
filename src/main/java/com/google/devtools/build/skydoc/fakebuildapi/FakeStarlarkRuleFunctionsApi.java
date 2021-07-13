@@ -32,6 +32,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.devtools.starlark.common.DocstringUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -154,7 +155,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
-    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
+    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(DocstringUtils.dedentDocstring(doc)).addAllAttribute(attrInfos);
 
     Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));

@@ -10,13 +10,15 @@ example_rule(<a href="#example_rule-name">name</a>, <a href="#example_rule-first
 
 Small example of rule using a markdown template.
 
+This paragraph should not have extra indent, as that would make it a code block.
+
 **ATTRIBUTES**
 
 
 | Name  | Description | Type | Mandatory | Default |
 | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
 | <a name="example_rule-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| <a name="example_rule-first"></a>first |  This is the first attribute   | String | optional | "" |
+| <a name="example_rule-first"></a>first |  This is the first attribute<br><br>This paragraph also should not have extra indent.   | String | optional | "" |
 | <a name="example_rule-second"></a>second |  -   | String | optional | "2" |
 
 

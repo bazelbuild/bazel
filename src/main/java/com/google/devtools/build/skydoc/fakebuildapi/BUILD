@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//src/tools/starlark/java/com/google/devtools/starlark/common",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
