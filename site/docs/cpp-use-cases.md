@@ -120,7 +120,7 @@ http_archive(
 **NOTE:** If the destination already contains a `BUILD` file, you can leave
 out the `build_file` attribute.
 
-Then create `gtest.BUILD`, a `BUILD` file used to compile Google Test.
+Then create `gtest.BUILD` and a empty `BUILD` in project root directory, a `BUILD` file used to compile Google Test.
 Google Test has several "special" requirements that make its `cc_library` rule
 more complicated:
 
