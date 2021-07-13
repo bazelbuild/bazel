@@ -20,6 +20,7 @@ import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.packages.ExecGroup;
 
 /** A Truth {@link Subject} for {@link ToolchainCollection}. */
 public class ToolchainCollectionSubject extends Subject {
@@ -51,7 +52,7 @@ public class ToolchainCollectionSubject extends Subject {
 
   public void hasDefaultExecGroup() {
     check("hasToolchainContext()")
-        .that(actual.hasToolchainContext(ToolchainCollection.DEFAULT_EXEC_GROUP_NAME))
+        .that(actual.hasToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME))
         .isTrue();
   }
 

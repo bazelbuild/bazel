@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.ExecGroup.COPY_FROM_RULE_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
@@ -218,32 +218,27 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
 
   @Test
   public void testDuplicateExecGroupsThatInheritFromRuleIsOk() throws Exception {
-    Label aToolchain = Label.parseAbsoluteUnchecked("//some/toolchain");
     RuleClass a =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", COPY_FROM_RULE_EXEC_GROUP))
+            .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
             .add(attr("tags", STRING_LIST))
             .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/toolchain"))
             .build();
-    Label bToolchain = Label.parseAbsoluteUnchecked("//some/other/toolchain");
     RuleClass b =
         new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", COPY_FROM_RULE_EXEC_GROUP))
+            .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
             .add(attr("tags", STRING_LIST))
             .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/other/toolchain"))
             .build();
-    Label cToolchain = Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about");
     RuleClass c =
         new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b)
-            .addRequiredToolchains(cToolchain)
+            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about"))
             .build();
-    assertThat(c.getExecGroups())
-        .containsExactly(
-            "blueberry",
-            ExecGroup.createCopied(
-                ImmutableSet.of(aToolchain, bToolchain, cToolchain), ImmutableSet.of()));
+    assertThat(c.getExecGroups()).containsKey("blueberry");
+    ExecGroup blueberry = c.getExecGroups().get("blueberry");
+    assertThat(blueberry).copiesFromDefault();
   }
 
   @Test

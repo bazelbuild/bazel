@@ -148,6 +148,8 @@ public class BaseRuleClasses {
             return runUnder != null ? runUnder.getLabel() : null;
           });
 
+  public static final String TEST_RUNNER_EXEC_GROUP = "test";
+
   /**
    * A base rule for all test rules.
    */
@@ -155,6 +157,7 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
+          .addExecGroup(TEST_RUNNER_EXEC_GROUP)
           .requiresConfigurationFragments(TestConfiguration.class)
           // TestConfiguration only needed to create TestAction and TestProvider
           // Only necessary at top-level and can be skipped if trimmed.

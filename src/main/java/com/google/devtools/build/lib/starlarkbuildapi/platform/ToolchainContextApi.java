@@ -27,4 +27,4 @@ import net.starlark.java.eval.StarlarkValue;
         "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
             + " indexing with the toolchain type, as in"
             + " <code>context[\"//pkg:my_toolchain_type\"]</code>.")
-public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable {}
+public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable.Threaded {}
