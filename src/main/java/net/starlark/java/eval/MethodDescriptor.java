@@ -287,4 +287,14 @@ final class MethodDescriptor {
   boolean isSelfCall() {
     return selfCall;
   }
+
+  /** Descriptor behavior depends on semantics. */
+  boolean isSemanticsDependent() {
+    // Note `disableWithFlag` and `enableOnlyWithFlag` are not used anywhere
+    // in method descriptor itself, but these are used to determine
+    // whether include or exclude method in the list of object methods.
+    return !annotation.disableWithFlag().isEmpty()
+        || !annotation.enableOnlyWithFlag().isEmpty()
+        || Arrays.stream(parameters).anyMatch(ParamDescriptor::isSemanticsDependent);
+  }
 }
