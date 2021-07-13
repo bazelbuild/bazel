@@ -2246,6 +2246,7 @@ public abstract class CcModule
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
                     && CppHelper.useInterfaceSharedLibraries(
                         cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
+            .emitPdbFile(actualFeatureConfiguration.isEnabled(CppRuleClasses.GENERATE_PDB_FILE))
             .addLinkerOutputs(linkerOutputs);
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));

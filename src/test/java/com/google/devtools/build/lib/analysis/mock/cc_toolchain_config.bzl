@@ -36,6 +36,7 @@ _FEATURE_NAMES = struct(
     do_not_split_linking_cmdline = "do_not_split_linking_cmdline",
     supports_dynamic_linker = "supports_dynamic_linker",
     supports_interface_shared_libraries = "supports_interface_shared_libraries",
+    generate_pdb_file = "generate_pdb_file",
     pic = "pic",
     define_with_space = "define_with_space",
     parse_headers = "parse_headers",
@@ -122,6 +123,11 @@ _supports_dynamic_linker_feature = feature(
 
 _supports_interface_shared_libraries_feature = feature(
     name = _FEATURE_NAMES.supports_interface_shared_libraries,
+    enabled = True,
+)
+
+_generate_pdb_file = feature(
+    name = _FEATURE_NAMES.generate_pdb_file,
     enabled = True,
 )
 
@@ -1232,6 +1238,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
     _FEATURE_NAMES.supports_dynamic_linker: _supports_dynamic_linker_feature,
     _FEATURE_NAMES.supports_interface_shared_libraries: _supports_interface_shared_libraries_feature,
+    _FEATURE_NAMES.generate_pdb_file: _generate_pdb_file,
     _FEATURE_NAMES.pic: _pic_feature,
     _FEATURE_NAMES.define_with_space: _define_with_space,
     _FEATURE_NAMES.parse_headers: _parse_headers_feature,

@@ -260,6 +260,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     linkingHelper.setShouldCreateDynamicLibrary(createDynamicLibrary);
     linkingHelper.setLinkerOutputArtifact(soImplArtifact);
 
+    if (createDynamicLibrary) {
+      linkingHelper.emitPdbFile(featureConfiguration.isEnabled(CppRuleClasses.GENERATE_PDB_FILE));
+    }
+
     // If the reason we're not creating a dynamic library is that the toolchain
     // doesn't support it, then register an action which complains when triggered,
     // which only happens when some rule explicitly depends on the dynamic library.
@@ -379,6 +383,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ruleContext.getConfiguration(),
               ccCompilationOutputs,
               featureConfiguration));
+
+      if (ccLinkingOutputs.getDebugFiles().size() > 0) {
+        outputGroups.put("debug_files", new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).addAll(ccLinkingOutputs.getDebugFiles()).build());
+      }
     }
     List<LibraryToLink> precompiledLibraries =
         convertPrecompiledLibrariesToLibraryToLink(

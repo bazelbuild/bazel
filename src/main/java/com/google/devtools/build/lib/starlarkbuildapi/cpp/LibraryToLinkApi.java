@@ -148,4 +148,12 @@ public interface LibraryToLinkApi<
 
   @StarlarkMethod(name = "must_keep_debug", documented = false, useStarlarkThread = true)
   boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+    name = "debug_files",
+    allowReturnNones = true,
+    doc = "<code>List</code> of debug files for the library.",
+    structField = true)
+  @Nullable
+  Sequence<FileT> getDebugFilesForStarlark();
 }

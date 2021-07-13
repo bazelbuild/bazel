@@ -103,6 +103,7 @@ public final class CcLinkingHelper {
   private boolean neverlink;
 
   private boolean emitInterfaceSharedLibraries;
+  private boolean emitPdbFile;
   private boolean shouldCreateDynamicLibrary = true;
   private boolean shouldCreateStaticLibraries = true;
   private boolean willOnlyBeLinkedIntoDynamicLibraries;
@@ -351,6 +352,14 @@ public final class CcLinkingHelper {
   }
 
   /**
+   * Enables the optional generation of pdb file.
+   */
+  public CcLinkingHelper emitPdbFile(boolean emitPdbFile) {
+    this.emitPdbFile = emitPdbFile;
+    return this;
+  }
+
+  /**
    * This enables or disables the generation of a dynamic library link action. The default is to
    * generate a dynamic library. Note that the selection between dynamic or static linking is
    * performed at the binary rule level.
@@ -496,6 +505,10 @@ public final class CcLinkingHelper {
       ccLinkingOutputsBuilder.setLibraryToLink(libraryToLinkBuilder.build());
     }
 
+    if (emitPdbFile) {
+      ccLinkingOutputsBuilder.addDebugFiles(ImmutableList.of(pdbFile));
+    }
+
     return ccLinkingOutputsBuilder.build();
   }
 
@@ -537,11 +550,6 @@ public final class CcLinkingHelper {
 
   public CcLinkingHelper setDynamicLinkType(LinkTargetType dynamicLinkType) {
     this.dynamicLinkType = dynamicLinkType;
-    return this;
-  }
-
-  public CcLinkingHelper setPdbFile(Artifact pdbFile) {
-    this.pdbFile = pdbFile;
     return this;
   }
 
@@ -697,6 +705,7 @@ public final class CcLinkingHelper {
       }
     }
 
+
     CppLinkActionBuilder dynamicLinkActionBuilder =
         newLinkActionBuilder(linkerOutput, dynamicLinkType)
             .setWholeArchive(wholeArchive)
@@ -712,6 +721,12 @@ public final class CcLinkingHelper {
             .addVariablesExtensions(variablesExtensions);
 
     dynamicLinkActionBuilder.addObjectFiles(ccOutputs.getObjectFiles(usePic));
+
+    pdbFile = null;
+    if (emitPdbFile) {
+      pdbFile = actionConstructionContext.getRelatedArtifact(linkerOutput.getRootRelativePath(), ".pdb");
+      dynamicLinkActionBuilder.addDebugFile(pdbFile);
+    }
 
     if (!dynamicLinkType.isExecutable()) {
       dynamicLinkActionBuilder.setLibraryIdentifier(mainLibraryIdentifier);
@@ -796,6 +811,8 @@ public final class CcLinkingHelper {
     LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
     LinkerInputs.LibraryToLink interfaceLibrary = dynamicLinkAction.getInterfaceOutputLibrary();
 
+    ccLinkingOutputs.addDebugFiles(dynamicLinkActionBuilder.getDebugFiles());
+
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
     // mangled name only.
@@ -835,6 +852,10 @@ public final class CcLinkingHelper {
           libraryToLinkBuilder.setInterfaceLibrary(libraryLinkArtifact);
           libraryToLinkBuilder.setResolvedSymlinkInterfaceLibrary(interfaceLibrary.getArtifact());
         }
+      }
+      Iterable<Artifact> debugFiles = dynamicLibrary.getDebugFiles();
+      if (debugFiles != null) {
+        libraryToLinkBuilder.setDebugFiles(ImmutableList.copyOf(debugFiles));
       }
     }
     return hasBuiltDynamicLibrary;

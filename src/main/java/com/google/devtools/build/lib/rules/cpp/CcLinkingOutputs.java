@@ -18,10 +18,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /** A structured representation of the link outputs of a C++ rule. */
 public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBackendArtifacts> {
@@ -29,6 +35,7 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
   public static final CcLinkingOutputs EMPTY = builder().build();
 
   @Nullable private final LibraryToLink libraryToLink;
+  @Nullable private final ImmutableList<Artifact> debugFiles;
   @Nullable private final Artifact executable;
 
   private final ImmutableList<LtoBackendArtifacts> allLtoArtifacts;
@@ -36,10 +43,12 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
 
   private CcLinkingOutputs(
       LibraryToLink libraryToLink,
+      ImmutableList<Artifact> debugFiles,
       Artifact executable,
       ImmutableList<LtoBackendArtifacts> allLtoArtifacts,
       ImmutableList<Artifact> linkActionInputs) {
     this.libraryToLink = libraryToLink;
+    this.debugFiles = debugFiles;
     this.executable = executable;
     this.allLtoArtifacts = allLtoArtifacts;
     this.linkActionInputs = linkActionInputs;
@@ -49,6 +58,17 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
   @Nullable
   public LibraryToLink getLibraryToLink() {
     return libraryToLink;
+  }
+
+  @Nullable
+  public ImmutableList<Artifact> getDebugFiles() {
+    return debugFiles;
+  }
+
+  @Override
+  @Nullable
+  public Sequence<Artifact> getDebugFilesForStarlark() {
+    return debugFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(debugFiles);
   }
 
   @Override
@@ -119,14 +139,20 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
     private final ImmutableList.Builder<LtoBackendArtifacts> allLtoArtifacts =
         ImmutableList.builder();
     private final ImmutableList.Builder<Artifact> linkActionInputs = ImmutableList.builder();
+    private final ImmutableList.Builder<Artifact> debugFiles = ImmutableList.builder();
 
     public CcLinkingOutputs build() {
       return new CcLinkingOutputs(
-          libraryToLink, executable, allLtoArtifacts.build(), linkActionInputs.build());
+          libraryToLink, debugFiles.build(), executable, allLtoArtifacts.build(), linkActionInputs.build());
     }
 
     public Builder setLibraryToLink(LibraryToLink libraryToLink) {
       this.libraryToLink = libraryToLink;
+      return this;
+    }
+
+    public Builder addDebugFiles(Iterable<Artifact> debugFiles) {
+      this.debugFiles.addAll(debugFiles);
       return this;
     }
 
