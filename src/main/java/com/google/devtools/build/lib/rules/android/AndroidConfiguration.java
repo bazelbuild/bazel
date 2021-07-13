@@ -930,6 +930,18 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean useRTxtFromMergedResources;
 
     @Option(
+            name = "output_library_linked_resources",
+            defaultValue = "true",
+            documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+            effectTags = {OptionEffectTag.UNKNOWN},
+            help =
+                "If disabled, does not provide library.ap_ outputs for library targets. These files grow exponentially"
+                    + " in size as their contents are merged into depending libraries, but are in a format"
+                    + " consumable by devices only. Since android_binary generated the final resources.ap_ file these"
+                    + " intermediates are not needed so can result in large output download savings.")
+    public boolean outputLibraryLinkedResources;
+
+    @Option(
         name = "legacy_main_dex_list_generator",
         // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
         // migrating usage.
@@ -1050,6 +1062,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
+  private final boolean outputLibraryLinkedResources;
   private final Label legacyMainDexListGenerator;
   private final boolean disableInstrumentationManifestMerging;
   private final boolean incompatibleUseToolchainResolution;
@@ -1111,6 +1124,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
+    this.outputLibraryLinkedResources = options.outputLibraryLinkedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
@@ -1388,6 +1402,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
   }
+
+
+  boolean outputLibraryLinkedResources() {
+    return outputLibraryLinkedResources;
 
   public boolean disableInstrumentationManifestMerging() {
     return disableInstrumentationManifestMerging;
