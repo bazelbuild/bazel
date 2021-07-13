@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -277,10 +278,12 @@ public final class StarlarkFunction implements StarlarkCallable {
     List<String> unexpected = null;
 
     // named arguments
-    Dict<String, Object> kwargs = null;
+    LinkedHashMap<String, Object> kwargs = null;
     if (rfn.hasKwargs()) {
-      kwargs = Dict.of(mu);
-      arguments[rfn.getParameters().size() - 1] = kwargs;
+      kwargs = new LinkedHashMap<>();
+      // Note we update wrapped map after `dict` is created.
+      // This is generally wrong, but we know what we are doing.
+      arguments[rfn.getParameters().size() - 1] = Dict.wrap(mu, kwargs);
     }
     for (int i = 0; i < named.length; i += 2) {
       String keyword = (String) named[i]; // safe
@@ -296,7 +299,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       } else if (kwargs != null) {
         // residual keyword argument
         int sz = kwargs.size();
-        kwargs.putEntry(keyword, value);
+        kwargs.put(keyword, value);
         if (kwargs.size() == sz) {
           throw Starlark.errorf(
               "%s() got multiple values for keyword argument '%s'", getName(), keyword);
