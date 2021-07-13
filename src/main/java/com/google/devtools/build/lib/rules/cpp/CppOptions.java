@@ -548,6 +548,27 @@ public class CppOptions extends FragmentOptions {
   public List<PerLabelOptions> perFileCopts;
 
   @Option(
+      name = "host_per_file_copt",
+      allowMultiple = true,
+      converter = PerLabelOptions.PerLabelOptionsConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Additional options to selectively pass to gcc when compiling certain files for host. "
+              + "This option can be passed multiple times. "
+              + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
+              + "for a list of include and exclude regular expression patterns (Also see "
+              + "--instrumentation_filter). option_1 to option_n stand for "
+              + "arbitrary command line options. If an option contains a comma it has to be "
+              + "quoted with a backslash. Options can contain @. Only the first @ is used to "
+              + "split the string. Example: "
+              + "--host_per_file_copt=//foo/.*\\.cc,-//foo/bar\\.cc@-O0 adds the -O0 "
+              + "command line option to the gcc command line of all cc files in //foo/ "
+              + "except bar.cc.")
+  public List<PerLabelOptions> hostPerFileCopts;
+
+  @Option(
       name = "per_file_ltobackendopt",
       allowMultiple = true,
       converter = PerLabelOptions.PerLabelOptionsConverter.class,
@@ -566,6 +587,26 @@ public class CppOptions extends FragmentOptions {
               + "command line option to the LTO backend command line of all o files in //foo/ "
               + "except bar.o.")
   public List<PerLabelOptions> perFileLtoBackendOpts;
+
+  @Option(
+      name = "host_per_file_ltobackendopt",
+      allowMultiple = true,
+      converter = PerLabelOptions.PerLabelOptionsConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Additional options to selectively pass to LTO backend (under --features=thin_lto) when "
+              + "compiling certain backend objects for host. This option can be passed multiple times. "
+              + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
+              + "for a list of include and exclude regular expression patterns. "
+              + "option_1 to option_n stand for arbitrary command line options. "
+              + "If an option contains a comma it has to be quoted with a backslash. "
+              + "Options can contain @. Only the first @ is used to split the string. Example: "
+              + "--host_per_file_ltobackendopt=//foo/.*\\.o,-//foo/bar\\.o@-O0 adds the -O0 "
+              + "command line option to the LTO backend command line of all o files in //foo/ "
+              + "except bar.o.")
+  public List<PerLabelOptions> hostPerFileLtoBackendOpts;
 
   /**
    * The value of "--crosstool_top" to use for building tools.
@@ -1143,7 +1184,9 @@ public class CppOptions extends FragmentOptions {
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
     host.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
+    host.perFileCopts = ImmutableList.copyOf(hostPerFileCopts);
     host.linkoptList = ImmutableList.copyOf(hostLinkoptList);
+    host.perFileLtoBackendOpts = ImmutableList.copyOf(hostPerFileLtoBackendOpts);
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
@@ -1177,8 +1220,10 @@ public class CppOptions extends FragmentOptions {
     host.hostCppCompiler = hostCppCompiler;
     host.hostCrosstoolTop = hostCrosstoolTop;
     host.hostCxxoptList = hostCxxoptList;
+    host.hostPerFileCopts = hostPerFileCopts;
     host.hostLibcTopLabel = hostLibcTopLabel;
     host.hostLinkoptList = hostLinkoptList;
+    host.hostPerFileLtoBackendOpts = hostPerFileLtoBackendOpts;
 
     host.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
 
