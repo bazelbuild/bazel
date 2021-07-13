@@ -391,8 +391,15 @@ final class EvalUtils {
 
   private static String repeatString(String s, StarlarkInt in) throws EvalException {
     int n = in.toInt("repeat");
-    // TODO(adonovan): reject unreasonably large n.
-    return n <= 0 ? "" : Strings.repeat(s, n);
+    if (n <= 0) {
+      return "";
+    } else if ((long) s.length() * (long) n > Integer.MAX_VALUE) {
+      // Would exceed max length of a java String (and would cause an undocumented
+      // ArrayIndexOutOfBoundsException to be thrown in Strings.repeat()).
+      throw Starlark.errorf("excessive repeat (%d * %d characters)", s.length(), n);
+    } else {
+      return Strings.repeat(s, n);
+    }
   }
 
   /** Evaluates a unary operation. */
