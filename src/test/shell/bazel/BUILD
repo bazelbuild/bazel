@@ -243,10 +243,6 @@ sh_test(
 
 JAVA_VERSIONS = ("11", "15", "16")
 
-# TODO(davido): Enable test coverage for JDK 16 toolchain when this issue is fixed:
-# https://github.com/bazelbuild/bazel/issues/13358
-JAVA_VERSIONS_COVERAGE = ("11", "15")
-
 [
     sh_test(
         name = "bazel_java_test_jdk" + java_version + "_toolchain_head",
@@ -505,7 +501,7 @@ sh_test(
             "no_windows",
         ],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    for java_version in JAVA_VERSIONS
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.
@@ -531,7 +527,7 @@ sh_test(
         ],
         tags = ["no_windows"],
     )
-    for java_version in JAVA_VERSIONS_COVERAGE
+    for java_version in JAVA_VERSIONS
 ]
 
 sh_test(
