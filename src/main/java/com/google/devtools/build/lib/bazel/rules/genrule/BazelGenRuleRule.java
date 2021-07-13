@@ -65,8 +65,8 @@ public final class BazelGenRuleRule implements RuleDefinition {
 <p>A <code>genrule</code> generates one or more files using a user-defined Bash command.</p>
 
 <p>
-  Genrules are generic build rules that you can use if there's no specific rule for the task. If for
-  example you want to minify JavaScript files then you can use a genrule to do so. If however you
+  Genrules are generic build rules that you can use if there's no specific rule for the task.
+  For example, you could run a Bash one-liner. If however you
   need to compile C++ files, stick to the existing <code>cc_*</code> rules, because all the heavy
   lifting has already been done for you.
 </p>
