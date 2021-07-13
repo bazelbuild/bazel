@@ -43,6 +43,12 @@ public interface JavaConfigurationApi extends StarlarkValue {
   String getStrictJavaDepsName();
 
   @StarlarkMethod(
+      name = "default_jvm_opts",
+      structField = true,
+      doc = "Additional options to pass to the Java VM for each java_binary target")
+  ImmutableList<String> getDefaultJvmFlags();
+
+  @StarlarkMethod(
       name = "plugins",
       structField = true,
       doc = "A list containing the labels provided with --plugins, if any.")
