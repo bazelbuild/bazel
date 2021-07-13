@@ -2152,6 +2152,7 @@ public abstract class CcModule
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibsObject,
       Object linkerOutputsObject,
+      Object defFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
@@ -2241,6 +2242,7 @@ public abstract class CcModule
             .addAdditionalLinkstampDefines(asStringImmutableList(additionalLinkstampDefines))
             .setWillOnlyBeLinkedIntoDynamicLibraries(
                 convertFromNoneable(onlyForDynamicLibsObject, false))
+            .setDefFile(convertFromNoneable(defFile, /* defaultValue= */ null))
             .emitInterfaceSharedLibraries(
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
                     && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)

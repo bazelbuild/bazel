@@ -177,6 +177,7 @@ public class BazelCcModule extends CcModule
       Object additionalLinkstampDefines,
       Object onlyForDynamicLibs,
       Object linkerOutputs,
+      Object defFile,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     return super.link(
@@ -203,6 +204,7 @@ public class BazelCcModule extends CcModule
         additionalLinkstampDefines,
         onlyForDynamicLibs,
         linkerOutputs,
+        defFile,
         thread);
   }
 
