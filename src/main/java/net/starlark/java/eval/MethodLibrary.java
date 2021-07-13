@@ -604,7 +604,7 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
-    return Starlark.hasattr(thread.getSemantics(), obj, name);
+    return Starlark.hasattr(thread.cache, obj, name);
   }
 
   @StarlarkMethod(
@@ -630,7 +630,7 @@ class MethodLibrary {
       throws EvalException, InterruptedException {
     return Starlark.getattr(
         thread.mutability(),
-        thread.getSemantics(),
+        thread.cache,
         obj,
         name,
         defaultValue == Starlark.UNBOUND ? null : defaultValue);
@@ -644,7 +644,7 @@ class MethodLibrary {
       parameters = {@Param(name = "x", doc = "The object to check.")},
       useStarlarkThread = true)
   public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
-    return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
+    return Starlark.dir(thread.mutability(), thread.cache, object);
   }
 
   @StarlarkMethod(

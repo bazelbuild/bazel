@@ -606,8 +606,7 @@ public final class Starlark {
       callable = (StarlarkCallable) fn;
     } else {
       // @StarlarkMethod(selfCall)?
-      MethodDescriptor desc =
-          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
+      MethodDescriptor desc = thread.cache.getSelfCallMethodDescriptor(fn.getClass());
       if (desc == null) {
         throw errorf("'%s' object is not callable", type(fn));
       }
@@ -684,8 +683,14 @@ public final class Starlark {
    */
   public static boolean hasattr(StarlarkSemantics semantics, Object x, String name)
       throws EvalException {
+    return hasattr(DescriptorCache.forSemantics(semantics), x, name);
+  }
+
+  /** Version of {@code hasattr()} with cache parameter. */
+  static boolean hasattr(DescriptorCache cache, Object x, String name)
+      throws EvalException {
     return (x instanceof Structure && ((Structure) x).getValue(name) != null)
-        || CallUtils.getAnnotatedMethods(semantics, x.getClass()).containsKey(name);
+        || cache.getAnnotatedMethods(x.getClass()).containsKey(name);
   }
 
   /**
@@ -700,11 +705,22 @@ public final class Starlark {
       String name,
       @Nullable Object defaultValue)
       throws EvalException, InterruptedException {
+    return getattr(mu, DescriptorCache.forSemantics(semantics), x, name, defaultValue);
+  }
+
+  /** Version of {@code getattr()} which semantics cache parameter. */
+  static Object getattr(
+      Mutability mu,
+      DescriptorCache cache,
+      Object x,
+      String name,
+      @Nullable Object defaultValue)
+      throws EvalException, InterruptedException {
     // StarlarkMethod-annotated field or method?
-    MethodDescriptor method = CallUtils.getAnnotatedMethods(semantics, x.getClass()).get(name);
+    MethodDescriptor method = cache.getAnnotatedMethods(x.getClass()).get(name);
     if (method != null) {
       if (method.isStructField()) {
-        return method.callField(x, semantics, mu);
+        return method.callField(x, cache.semantics, mu);
       } else {
         return new BuiltinFunction(x, name, method);
       }
@@ -713,7 +729,7 @@ public final class Starlark {
     // user-defined field?
     if (x instanceof Structure) {
       Structure struct = (Structure) x;
-      Object field = struct.getValue(semantics, name);
+      Object field = struct.getValue(cache.semantics, name);
       if (field != null) {
         return Starlark.checkValid(field);
       }
@@ -733,7 +749,7 @@ public final class Starlark {
 
     throw Starlark.errorf(
         "'%s' value has no field or method '%s'%s",
-        Starlark.type(x), name, SpellChecker.didYouMean(name, dir(mu, semantics, x)));
+        Starlark.type(x), name, SpellChecker.didYouMean(name, dir(mu, cache.semantics, x)));
   }
 
   /**
@@ -741,12 +757,17 @@ public final class Starlark {
    * the specified value, as if by the Starlark expression {@code dir(x)}.
    */
   public static StarlarkList<String> dir(Mutability mu, StarlarkSemantics semantics, Object x) {
+    return dir(mu, DescriptorCache.forSemantics(semantics), x);
+  }
+
+  /** Version of {@code dir()} which accepts cache parameter. */
+  static StarlarkList<String> dir(Mutability mu, DescriptorCache cache, Object x) {
     // Order the fields alphabetically.
     Set<String> fields = new TreeSet<>();
     if (x instanceof Structure) {
       fields.addAll(((Structure) x).getFieldNames());
     }
-    fields.addAll(CallUtils.getAnnotatedMethods(semantics, x.getClass()).keySet());
+    fields.addAll(cache.getAnnotatedMethods(x.getClass()).keySet());
     return StarlarkList.copyOf(mu, fields);
   }
 
@@ -760,7 +781,7 @@ public final class Starlark {
    */
   public static Object getAnnotatedField(StarlarkSemantics semantics, Object x, String name)
       throws EvalException, InterruptedException {
-    return CallUtils.getAnnotatedField(semantics, x, name);
+    return DescriptorCache.forSemantics(semantics).getAnnotatedField(x, name);
   }
 
   /**
@@ -770,7 +791,7 @@ public final class Starlark {
    * <p>Most callers should use {@link #dir} instead.
    */
   public static ImmutableSet<String> getAnnotatedFieldNames(StarlarkSemantics semantics, Object x) {
-    return CallUtils.getAnnotatedFieldNames(semantics, x);
+    return DescriptorCache.forSemantics(semantics).getAnnotatedFieldNames(x);
   }
 
   /**
@@ -785,7 +806,7 @@ public final class Starlark {
   public static ImmutableMap<Method, StarlarkMethod> getMethodAnnotations(Class<?> clazz) {
     ImmutableMap.Builder<Method, StarlarkMethod> result = ImmutableMap.builder();
     for (MethodDescriptor desc :
-        CallUtils.getAnnotatedMethods(StarlarkSemantics.DEFAULT, clazz).values()) {
+        DescriptorCache.forSemantics(StarlarkSemantics.DEFAULT).getAnnotatedMethods(clazz).values()) {
       result.put(desc.getMethod(), desc.getAnnotation());
     }
     return result.build();
@@ -798,7 +819,7 @@ public final class Starlark {
    */
   @Nullable
   public static Method getSelfCallMethod(StarlarkSemantics semantics, Class<?> clazz) {
-    return CallUtils.getSelfCallMethod(semantics, clazz);
+    return DescriptorCache.forSemantics(semantics).getSelfCallMethod(clazz);
   }
 
   /** Equivalent to {@code addMethods(env, v, StarlarkSemantics.DEFAULT)}. */
@@ -819,7 +840,7 @@ public final class Starlark {
     Class<?> cls = v.getClass();
     // TODO(adonovan): rather than silently skip the selfCall method, reject it.
     for (Map.Entry<String, MethodDescriptor> e :
-        CallUtils.getAnnotatedMethods(semantics, cls).entrySet()) {
+        DescriptorCache.forSemantics(semantics).getAnnotatedMethods(cls).entrySet()) {
       String name = e.getKey();
 
       // We cannot accept fields, as they are inherently problematic:

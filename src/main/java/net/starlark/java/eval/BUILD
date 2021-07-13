@@ -15,7 +15,7 @@ java_library(
     name = "eval",
     srcs = [
         "BuiltinFunction.java",
-        "CallUtils.java",
+        "DescriptorCache.java",
         "CpuProfiler.java",
         "Debug.java",
         "Dict.java",
