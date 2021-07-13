@@ -16,8 +16,15 @@ filegroup(
 
 java_library(
     name = "BzlmodTests_lib",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = [
+            "FakeRegistry.java",
+            "BzlmodTestUtil.java",
+        ],
+    ),
     deps = [
+        ":util",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -30,7 +37,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile",
@@ -66,5 +72,19 @@ java_test(
     runtime_deps = [
         ":BzlmodTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
+)
+
+java_library(
+    name = "util",
+    srcs = [
+        "BzlmodTestUtil.java",
+        "FakeRegistry.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
     ],
 )

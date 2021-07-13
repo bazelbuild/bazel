@@ -335,7 +335,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }

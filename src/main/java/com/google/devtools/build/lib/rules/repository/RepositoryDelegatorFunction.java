@@ -25,6 +25,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -87,6 +88,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
       new Precomputed<>("resolved_file_instead_of_workspace");
+
+  // This indicates whether we should load external repositories from the Bzlmod system.
+  public static final Precomputed<Boolean> ENABLE_BZLMOD = new Precomputed<>("enable_bzlmod");
 
   public static final String DONT_FETCH_UNCONDITIONALLY = "";
 
@@ -246,14 +250,32 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           overrides.get(repositoryName), env, repoRoot, repositoryName.strippedName());
     }
 
-    Rule rule;
-    try {
-      rule = getRepository(repositoryName, env);
-      if (rule == null) {
+    Rule rule = null;
+
+    if (Preconditions.checkNotNull(ENABLE_BZLMOD.get(env))) {
+      // Trys to get a repository rule instance from Bzlmod generated repos.
+      SkyKey key = BzlmodRepoRuleValue.key(repositoryName.strippedName());
+      BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
+
+      if (env.valuesMissing()) {
         return null;
       }
-    } catch (NoSuchRepositoryException e) {
-      return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
+
+      if (value != BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
+        rule = value.getRule();
+      }
+    }
+
+    if (rule == null) {
+      // fallback to look up the repository in the WORKSPACE file.
+      try {
+        rule = getRepoRuleFromWorkspace(repositoryName, env);
+        if (env.valuesMissing()) {
+          return null;
+        }
+      } catch (NoSuchRepositoryException e) {
+        return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
+      }
     }
 
     RepositoryFunction handler = getHandler(rule);
@@ -405,7 +427,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
    * returns null.
    */
   @Nullable
-  private Rule getRepository(RepositoryName repositoryName, Environment env)
+  private Rule getRepoRuleFromWorkspace(RepositoryName repositoryName, Environment env)
       throws InterruptedException, RepositoryFunctionException, NoSuchRepositoryException {
     try {
       return externalPackageHelper.getRuleByName(repositoryName.strippedName(), env);

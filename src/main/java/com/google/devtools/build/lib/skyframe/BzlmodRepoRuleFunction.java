@@ -132,6 +132,12 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
   private BzlmodRepoRuleValue createNativeRepoRule(
       RepoSpec repoSpec, StarlarkSemantics semantics, Environment env)
       throws InterruptedException, BzlmodRepoRuleFunctionException {
+    if (!ruleClassProvider.getRuleClassMap().containsKey(repoSpec.ruleClassName())) {
+      InvalidRuleException e =
+          new InvalidRuleException(
+              "Unrecognized native repository rule: " + repoSpec.getRuleClass());
+      throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
+    }
     RuleClass ruleClass = ruleClassProvider.getRuleClassMap().get(repoSpec.ruleClassName());
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(repoSpec.attributes());

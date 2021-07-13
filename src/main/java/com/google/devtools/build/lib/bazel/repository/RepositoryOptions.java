@@ -168,6 +168,16 @@ public class RepositoryOptions extends OptionsBase {
               + "give, and in this case multiple URLs will be returned.")
   public String downloaderConfig;
 
+  @Option(
+      name = "experimental_enable_bzlmod",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If true, Bazel tries to load external repositories from the Bzlmod system before "
+              + "looking into the WORKSPACE file.")
+  public boolean enableBzlmod;
+
   /**
    * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
    */

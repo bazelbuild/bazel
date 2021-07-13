@@ -129,6 +129,7 @@ public class BazelRepositoryModule extends BlazeModule {
   // We hold the precomputed value of the managed directories here, so that the dependency
   // on WorkspaceFileValue is not registered for each FileStateValue.
   private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
+  private final AtomicBoolean enableBzlmod = new AtomicBoolean(false);
 
   public BazelRepositoryModule() {
     this.starlarkRepositoryFunction = new StarlarkRepositoryFunction(downloadManager);
@@ -353,6 +354,8 @@ public class BazelRepositoryModule extends BlazeModule {
         overrides = ImmutableMap.of();
       }
 
+      enableBzlmod.set(repoOptions.enableBzlmod);
+
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
       } else {
@@ -419,6 +422,7 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
             RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+        PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod.get()),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries));
   }
 
