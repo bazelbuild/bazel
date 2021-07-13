@@ -30,6 +30,7 @@ public final class StarlarkFile extends Node {
   private final FileOptions options;
   private final ImmutableList<Comment> comments;
   final List<SyntaxError> errors; // appended to by Resolver
+  boolean resolveStarted = false; // used by Resolver
 
   // set by resolver
   @Nullable private Resolver.Function resolved;
