@@ -1740,11 +1740,11 @@ public class RemoteCacheTests {
 
     InMemoryRemoteCache(
         Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
-      super(new InMemoryCacheClient(casEntries), options, digestUtil);
+      super(new InMemoryCacheClient(casEntries), options, digestUtil, null);
     }
 
     InMemoryRemoteCache(RemoteOptions options, DigestUtil digestUtil) {
-      super(new InMemoryCacheClient(), options, digestUtil);
+      super(new InMemoryCacheClient(), options, digestUtil, null);
     }
 
     Digest addContents(RemoteActionExecutionContext context, String txt)

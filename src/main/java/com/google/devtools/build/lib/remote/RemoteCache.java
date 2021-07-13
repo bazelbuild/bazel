@@ -119,14 +119,16 @@ public class RemoteCache implements AutoCloseable {
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
+  protected final ActionResultDownloader actionResultDownloader;
 
   private Path captureCorruptedOutputsDir;
 
   public RemoteCache(
-      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
+      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil, ActionResultDownloader actionResultDownloader) {
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
+    this.actionResultDownloader = actionResultDownloader;
   }
 
   public void setCaptureCorruptedOutputsDir(Path captureCorruptedOutputsDir) {
@@ -384,6 +386,32 @@ public class RemoteCache implements AutoCloseable {
       OutputFilesLocker outputFilesLocker,
       ProgressStatusListener progressStatusListener)
       throws ExecException, IOException, InterruptedException {
+    if (actionResultDownloader != null) {
+      // We have a remote output service process that can do the
+      // downloading for us.
+      List<ListenableFuture<Void>> downloads = new ArrayList<>();
+      downloads.add(actionResultDownloader.downloadActionResult(result));
+
+      FileOutErr tmpOutErr = null;
+      if (origOutErr != null) {
+        tmpOutErr = origOutErr.childOutErr();
+      }
+      downloads.addAll(downloadOutErr(context, result, tmpOutErr));
+
+      try {
+        waitForBulkTransfer(downloads, /* cancelRemainingOnInterrupt=*/ true);
+        if (tmpOutErr != null) {
+          FileOutErr.dump(tmpOutErr, origOutErr);
+        }
+      } finally {
+        if (tmpOutErr != null) {
+          tmpOutErr.clearOut();
+          tmpOutErr.clearErr();
+        }
+      }
+      return;
+    }
+
     ActionResultMetadata metadata = parseActionResultMetadata(context, remotePathResolver, result);
 
     List<ListenableFuture<FileMetadata>> downloads =
@@ -662,9 +690,9 @@ public class RemoteCache implements AutoCloseable {
     return outerF;
   }
 
-  private List<ListenableFuture<FileMetadata>> downloadOutErr(
+  private <T> List<ListenableFuture<T>> downloadOutErr(
       RemoteActionExecutionContext context, ActionResult result, OutErr outErr) {
-    List<ListenableFuture<FileMetadata>> downloads = new ArrayList<>();
+    List<ListenableFuture<T>> downloads = new ArrayList<>();
     if (!result.getStdoutRaw().isEmpty()) {
       try {
         result.getStdoutRaw().writeTo(outErr.getOutputStream());

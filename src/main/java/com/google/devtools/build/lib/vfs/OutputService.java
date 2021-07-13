@@ -96,7 +96,9 @@ public interface OutputService {
    * @throws BuildFailedException if build preparation failed
    * @throws InterruptedException
    */
-  ModifiedFileSet startBuild(EventHandler eventHandler, UUID buildId, boolean finalizeActions)
+  ModifiedFileSet startBuild(
+      Path execRoot, String relativeOutputPath,
+      EventHandler eventHandler, UUID buildId, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /**
@@ -140,9 +142,6 @@ public interface OutputService {
    * @throws InterruptedException
    */
   void clean() throws ExecException, InterruptedException;
-
-  /** @return true iff the file actually lives on a remote server */
-  boolean isRemoteFile(Artifact file);
 
   default ActionFileSystemType actionFileSystemType() {
     return ActionFileSystemType.DISABLED;

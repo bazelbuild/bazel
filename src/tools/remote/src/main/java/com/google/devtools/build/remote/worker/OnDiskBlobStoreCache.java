@@ -37,7 +37,8 @@ class OnDiskBlobStoreCache extends RemoteCache {
     super(
         new DiskCacheClient(cacheDir, /* verifyDownloads= */ true, digestUtil),
         options,
-        digestUtil);
+        digestUtil,
+        null);
   }
 
   public boolean containsKey(Digest digest) {
