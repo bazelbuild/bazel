@@ -623,6 +623,8 @@ public class FilesystemValueChecker {
             });
       }
 
+      // If a Runnable above crashes, this shutdown can still succeed but the whole server will come
+      // down shortly.
       if (ExecutorUtil.interruptibleShutdown(executor)) {
         throw new InterruptedException();
       }

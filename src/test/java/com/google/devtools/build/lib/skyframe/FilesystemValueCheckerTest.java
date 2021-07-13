@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -87,6 +89,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
@@ -993,8 +996,12 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
                 RootedPath.toRootedPath(Root.fromPath(pkgRoot), PathFragment.create("foo"))));
     driver.evaluate(values, EVALUATION_OPTIONS);
     AtomicReference<Throwable> uncaughtRef = new AtomicReference<>();
+    CountDownLatch throwableCaught = new CountDownLatch(1);
     Thread.UncaughtExceptionHandler uncaughtExceptionHandler =
-        (t, e) -> uncaughtRef.compareAndSet(null, e);
+        (t, e) -> {
+          uncaughtRef.compareAndSet(null, e);
+          throwableCaught.countDown();
+        };
     Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
     FilesystemValueChecker checker =
         new FilesystemValueChecker(
@@ -1004,8 +1011,12 @@ public final class FilesystemValueCheckerTest extends FilesystemValueCheckerTest
 
     fs.statThrowsRuntimeException = true;
     getDirtyFilesystemKeys(evaluator, checker);
-    assertThat(uncaughtRef.get()).hasMessageThat().isEqualTo("bork");
-    assertThat(uncaughtRef.get()).isInstanceOf(RuntimeException.class);
+    // Wait for exception handler to trigger (FVC doesn't clean up crashing threads on its own).
+    assertThat(throwableCaught.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS)).isTrue();
+    Throwable thrown = uncaughtRef.get();
+    assertThat(thrown).isNotNull();
+    assertThat(thrown).hasMessageThat().isEqualTo("bork");
+    assertThat(thrown).isInstanceOf(RuntimeException.class);
   }
 
   private static void assertEmptyDiff(Diff diff) {
