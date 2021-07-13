@@ -576,7 +576,7 @@ public class FileFunctionTest {
     assertThat(value.getDigest()).isNull();
 
     p.setLastModifiedTime(10L);
-    assertThat(valueForPath(p)).isEqualTo(value);
+    assertThat(valueForPath(p)).isNotEqualTo(value);
 
     p.setLastModifiedTime(0L);
     assertThat(valueForPath(p)).isEqualTo(value);

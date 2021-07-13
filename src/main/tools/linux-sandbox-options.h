@@ -54,6 +54,10 @@ struct Options {
   bool fake_username;
   // Print debugging messages (-D)
   bool debug;
+  // Improved hermetic build using whitelisting strategy (-h)
+  bool hermetic;
+  // The sandbox root directory (-s)
+  std::string sandbox_root;
   // Command to run (--)
   std::vector<char *> args;
 };
