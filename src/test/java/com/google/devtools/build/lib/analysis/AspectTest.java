@@ -875,25 +875,20 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void duplicateAspectsFailed() throws Exception {
+  public void duplicateAspectsDeduped() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
-    reporter.removeHandler(failFastHandler);
-    AssertionError exception =
-        assertThrows(
-            AssertionError.class,
-            () ->
-                update(
-                    new EventBus(),
-                    defaultFlags(),
-                    ImmutableList.of(
-                        aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
-                    "//a:x_deploy.jar"));
-
-    assertThat(exception)
-        .hasMessageThat()
-        .containsMatch("Aspect AspectApplyingToFiles has already been added");
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName(), aspectApplyingToFiles.getName()),
+            "//a:x_deploy.jar");
+    ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
+    AspectApplyingToFiles.Provider provider =
+        aspect.getProvider(AspectApplyingToFiles.Provider.class);
+    assertThat(provider.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
   }
 
   @Test

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,14 +30,28 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
-/** A wrapper class for sky keys needed to compute sky values for aspects. */
-public final class AspectValueKey {
-
-  private AspectValueKey() {}
+/** A base class for keys that have AspectValue as a Sky value. */
+public abstract class AspectValueKey implements ActionLookupKey {
 
   private static final Interner<AspectKey> aspectKeyInterner = BlazeInterners.newWeakInterner();
-  private static final Interner<TopLevelAspectsKey> topLevelAspectsKeyInterner =
+  private static final Interner<StarlarkAspectLoadingKey> starlarkAspectKeyInterner =
       BlazeInterners.newWeakInterner();
+
+  /**
+   * Gets the name of the aspect that would be returned by the corresponding value's {@code
+   * aspectValue.getAspect().getAspectClass().getName()}, if the value could be produced.
+   *
+   * <p>Only needed for reporting errors in BEP when the key's AspectValue fails evaluation.
+   */
+  public abstract String getAspectName();
+
+  public abstract String getDescription();
+
+  @Nullable
+  abstract BuildConfigurationValue.Key getAspectConfigurationKey();
+
+  /** Returns the key for the base configured target for this aspect. */
+  public abstract ConfiguredTargetKey getBaseConfiguredTargetKey();
 
   public static AspectKey createAspectKey(
       Label label,
@@ -72,48 +87,33 @@ public final class AspectValueKey {
         aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
   }
 
-  public static TopLevelAspectsKey createTopLevelAspectsKey(
-      ImmutableList<AspectClass> topLevelAspectsClasses,
+  public static StarlarkAspectLoadingKey createStarlarkAspectKey(
       Label targetLabel,
-      @Nullable BuildConfiguration configuration) {
-    return TopLevelAspectsKey.createInternal(
-        topLevelAspectsClasses,
+      @Nullable BuildConfiguration aspectConfiguration,
+      @Nullable BuildConfiguration targetConfiguration,
+      Label starlarkFileLabel,
+      String starlarkExportName) {
+    return StarlarkAspectLoadingKey.createInternal(
         targetLabel,
+        aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration),
         ConfiguredTargetKey.builder()
             .setLabel(targetLabel)
-            .setConfiguration(configuration)
-            .build());
-  }
-
-  /** Common superclass for {@link AspectKey} and {@link TopLevelAspectsKey}. */
-  public abstract static class AspectBaseKey implements ActionLookupKey {
-    private final ConfiguredTargetKey baseConfiguredTargetKey;
-    private final int hashCode;
-
-    private AspectBaseKey(ConfiguredTargetKey baseConfiguredTargetKey, int hashCode) {
-      this.baseConfiguredTargetKey = baseConfiguredTargetKey;
-      this.hashCode = hashCode;
-    }
-
-    /** Returns the key for the base configured target for this aspect. */
-    public final ConfiguredTargetKey getBaseConfiguredTargetKey() {
-      return baseConfiguredTargetKey;
-    }
-
-    @Override
-    public final int hashCode() {
-      return hashCode;
-    }
+            .setConfiguration(targetConfiguration)
+            .build(),
+        starlarkFileLabel,
+        starlarkExportName);
   }
 
   // Specific subtypes of aspect keys.
 
   /** Represents an aspect applied to a particular target. */
   @AutoCodec
-  public static final class AspectKey extends AspectBaseKey {
+  public static final class AspectKey extends AspectValueKey {
+    private final ConfiguredTargetKey baseConfiguredTargetKey;
     private final ImmutableList<AspectKey> baseKeys;
     @Nullable private final BuildConfigurationValue.Key aspectConfigurationKey;
     private final AspectDescriptor aspectDescriptor;
+    private final int hashCode;
 
     private AspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
@@ -121,10 +121,11 @@ public final class AspectValueKey {
         AspectDescriptor aspectDescriptor,
         @Nullable BuildConfigurationValue.Key aspectConfigurationKey,
         int hashCode) {
-      super(baseConfiguredTargetKey, hashCode);
       this.baseKeys = baseKeys;
       this.aspectConfigurationKey = aspectConfigurationKey;
+      this.baseConfiguredTargetKey = baseConfiguredTargetKey;
       this.aspectDescriptor = aspectDescriptor;
+      this.hashCode = hashCode;
     }
 
     @AutoCodec.VisibleForSerialization
@@ -149,19 +150,14 @@ public final class AspectValueKey {
       return SkyFunctions.ASPECT;
     }
 
-    /**
-     * Gets the name of the aspect that would be returned by the corresponding value's {@code
-     * aspectValue.getAspect().getAspectClass().getName()}, if the value could be produced.
-     *
-     * <p>Only needed for reporting errors in BEP when the key's AspectValue fails evaluation.
-     */
+    @Override
     public String getAspectName() {
       return aspectDescriptor.getDescription();
     }
 
     @Override
     public Label getLabel() {
-      return getBaseConfiguredTargetKey().getLabel();
+      return baseConfiguredTargetKey.getLabel();
     }
 
     public AspectClass getAspectClass() {
@@ -191,9 +187,11 @@ public final class AspectValueKey {
       return baseKeys;
     }
 
+    @Override
     public String getDescription() {
       if (baseKeys.isEmpty()) {
-        return String.format("%s of %s", aspectDescriptor.getAspectClass().getName(), getLabel());
+        return String.format("%s of %s",
+            aspectDescriptor.getAspectClass().getName(), getLabel());
       } else {
         return String.format(
             "%s on top of %s", aspectDescriptor.getAspectClass().getName(), baseKeys);
@@ -218,8 +216,20 @@ public final class AspectValueKey {
      * base target's configuration.
      */
     @Nullable
+    @Override
     BuildConfigurationValue.Key getAspectConfigurationKey() {
       return aspectConfigurationKey;
+    }
+
+    /** Returns the key for the base configured target for this aspect. */
+    @Override
+    public ConfiguredTargetKey getBaseConfiguredTargetKey() {
+      return baseConfiguredTargetKey;
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
     }
 
     @Override
@@ -231,10 +241,10 @@ public final class AspectValueKey {
         return false;
       }
       AspectKey that = (AspectKey) other;
-      return hashCode() == that.hashCode()
+      return hashCode == that.hashCode
           && Objects.equal(baseKeys, that.baseKeys)
           && Objects.equal(aspectConfigurationKey, that.aspectConfigurationKey)
-          && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
+          && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
           && Objects.equal(aspectDescriptor, that.aspectDescriptor);
     }
 
@@ -257,7 +267,7 @@ public final class AspectValueKey {
           + " "
           + aspectConfigurationKey
           + " "
-          + getBaseConfiguredTargetKey()
+          + baseConfiguredTargetKey
           + " "
           + aspectDescriptor.getParameters();
     }
@@ -271,7 +281,7 @@ public final class AspectValueKey {
       return createAspectKey(
           ConfiguredTargetKey.builder()
               .setLabel(label)
-              .setConfigurationKey(getBaseConfiguredTargetKey().getConfigurationKey())
+              .setConfigurationKey(baseConfiguredTargetKey.getConfigurationKey())
               .build(),
           newBaseKeys.build(),
           aspectDescriptor,
@@ -279,43 +289,70 @@ public final class AspectValueKey {
     }
   }
 
-  /** The key for top level aspects specified by --aspects option on a top level target. */
+  /** The key for a Starlark aspect. */
   @AutoCodec
-  public static final class TopLevelAspectsKey extends AspectBaseKey {
-    private final ImmutableList<AspectClass> topLevelAspectsClasses;
+  public static final class StarlarkAspectLoadingKey extends AspectValueKey {
     private final Label targetLabel;
+    private final BuildConfigurationValue.Key aspectConfigurationKey;
+    private final ConfiguredTargetKey baseConfiguredTargetKey;
+    private final Label starlarkFileLabel;
+    private final String starlarkValueName;
+    private final int hashCode;
 
     @AutoCodec.Instantiator
     @AutoCodec.VisibleForSerialization
-    static TopLevelAspectsKey createInternal(
-        ImmutableList<AspectClass> topLevelAspectsClasses,
+    static StarlarkAspectLoadingKey createInternal(
         Label targetLabel,
-        ConfiguredTargetKey baseConfiguredTargetKey) {
-      return topLevelAspectsKeyInterner.intern(
-          new TopLevelAspectsKey(
-              topLevelAspectsClasses,
+        BuildConfigurationValue.Key aspectConfigurationKey,
+        ConfiguredTargetKey baseConfiguredTargetKey,
+        Label starlarkFileLabel,
+        String starlarkValueName) {
+      return starlarkAspectKeyInterner.intern(
+          new StarlarkAspectLoadingKey(
               targetLabel,
+              aspectConfigurationKey,
               baseConfiguredTargetKey,
-              Objects.hashCode(topLevelAspectsClasses, targetLabel, baseConfiguredTargetKey)));
+              starlarkFileLabel,
+              starlarkValueName,
+              Objects.hashCode(
+                  targetLabel,
+                  aspectConfigurationKey,
+                  baseConfiguredTargetKey,
+                  starlarkFileLabel,
+                  starlarkValueName)));
     }
 
-    private TopLevelAspectsKey(
-        ImmutableList<AspectClass> topLevelAspectsClasses,
+    private StarlarkAspectLoadingKey(
         Label targetLabel,
+        BuildConfigurationValue.Key aspectConfigurationKey,
         ConfiguredTargetKey baseConfiguredTargetKey,
+        Label starlarkFileLabel,
+        String starlarkValueName,
         int hashCode) {
-      super(baseConfiguredTargetKey, hashCode);
-      this.topLevelAspectsClasses = topLevelAspectsClasses;
       this.targetLabel = targetLabel;
+      this.aspectConfigurationKey = aspectConfigurationKey;
+      this.baseConfiguredTargetKey = baseConfiguredTargetKey;
+      this.starlarkFileLabel = starlarkFileLabel;
+      this.starlarkValueName = starlarkValueName;
+      this.hashCode = hashCode;
     }
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.TOP_LEVEL_ASPECTS;
+      return SkyFunctions.LOAD_STARLARK_ASPECT;
     }
 
-    ImmutableList<AspectClass> getTopLevelAspectsClasses() {
-      return topLevelAspectsClasses;
+    String getStarlarkValueName() {
+      return starlarkValueName;
+    }
+
+    Label getStarlarkFileLabel() {
+      return starlarkFileLabel;
+    }
+
+    @Override
+    public String getAspectName() {
+      return String.format("%s%%%s", starlarkFileLabel, starlarkValueName);
     }
 
     @Override
@@ -323,8 +360,27 @@ public final class AspectValueKey {
       return targetLabel;
     }
 
-    String getDescription() {
-      return topLevelAspectsClasses + " on " + getLabel();
+    @Override
+    public String getDescription() {
+      // Starlark aspects are referred to on command line with <file>%<value ame>
+      return String.format("%s%%%s of %s", starlarkFileLabel, starlarkValueName, targetLabel);
+    }
+
+    @Nullable
+    @Override
+    BuildConfigurationValue.Key getAspectConfigurationKey() {
+      return aspectConfigurationKey;
+    }
+
+    /** Returns the key for the base configured target for this aspect. */
+    @Override
+    public ConfiguredTargetKey getBaseConfiguredTargetKey() {
+      return baseConfiguredTargetKey;
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
     }
 
     @Override
@@ -332,14 +388,35 @@ public final class AspectValueKey {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof TopLevelAspectsKey)) {
+      if (!(o instanceof StarlarkAspectLoadingKey)) {
         return false;
       }
-      TopLevelAspectsKey that = (TopLevelAspectsKey) o;
-      return hashCode() == that.hashCode()
+      StarlarkAspectLoadingKey that = (StarlarkAspectLoadingKey) o;
+      return hashCode == that.hashCode
           && Objects.equal(targetLabel, that.targetLabel)
-          && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
-          && Objects.equal(topLevelAspectsClasses, that.topLevelAspectsClasses);
+          && Objects.equal(aspectConfigurationKey, that.aspectConfigurationKey)
+          && Objects.equal(baseConfiguredTargetKey, that.baseConfiguredTargetKey)
+          && Objects.equal(starlarkFileLabel, that.starlarkFileLabel)
+          && Objects.equal(starlarkValueName, that.starlarkValueName);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("targetLabel", targetLabel)
+          .add("aspectConfigurationKey", aspectConfigurationKey)
+          .add("baseConfiguredTargetKey", baseConfiguredTargetKey)
+          .add("starlarkFileLabel", starlarkFileLabel)
+          .add("starlarkValueName", starlarkValueName)
+          .toString();
+    }
+
+    AspectKey toAspectKey(AspectClass aspectClass) {
+      return AspectKey.createAspectKey(
+          baseConfiguredTargetKey,
+          ImmutableList.of(),
+          new AspectDescriptor(aspectClass, AspectParameters.EMPTY),
+          aspectConfigurationKey);
     }
   }
 }
