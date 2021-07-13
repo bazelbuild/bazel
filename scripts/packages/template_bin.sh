@@ -156,7 +156,7 @@ fi
 mkdir -p ${bin} ${base} ${base}/bin ${base}/etc
 echo -n .
 
-unzip -q "${BASH_SOURCE[0]}" bazel bazel-real bazel-complete.bash _bazel bazel.fish -d "${base}/bin"
+unzip -q "${BASH_SOURCE[0]}" bazel bazel-real bazel-complete.bash _bazel bazel.fish bazel.1 -d "${base}/bin"
 echo -n .
 chmod 0755 "${base}/bin/bazel" "${base}/bin/bazel-real"
 echo -n .
