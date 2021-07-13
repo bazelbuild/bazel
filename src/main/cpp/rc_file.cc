@@ -15,6 +15,8 @@
 #include "src/main/cpp/rc_file.h"
 
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 #include <utility>
 
 #include "src/main/cpp/blaze_util.h"
@@ -23,6 +25,21 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
+
+namespace {
+
+// Like blaze_util::ReadFile, but does not call BAZEL_DIE
+// if filename is not supported (e.g: //foo on Windows).
+bool ReadFile(const std::string& filename, std::string* contents)
+{
+  std::ifstream f(filename);
+  std::ostringstream buffer;
+  buffer << f.rdbuf();
+  *contents = buffer.str();
+  return !!f;
+}
+
+} // namespace
 
 namespace blaze {
 
@@ -55,7 +72,7 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
                                      string* error_text) {
   BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
   string contents;
-  if (!blaze_util::ReadFile(filename, &contents)) {
+  if (!ReadFile(filename, &contents)) {
     blaze_util::StringPrintf(error_text,
         "Unexpected error reading .blazerc file '%s'", filename.c_str());
     return ParseError::UNREADABLE_FILE;
