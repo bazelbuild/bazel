@@ -610,6 +610,7 @@ public class RemoteCacheTests {
     assertThat(e).hasMessageThat().contains("--remote_allow_symlink_upload");
   }
 
+  // TODO(chiwang): Cleanup the tests, e.g. use java test data builder pattern.
   @Test
   public void downloadRelativeFileSymlink() throws Exception {
     RemoteCache cache = newRemoteCache();
@@ -1365,6 +1366,27 @@ public class RemoteCacheTests {
   }
 
   @Test
+  public void downloadOutErr_empty_doNotPerformDownload() throws Exception {
+    // Test that downloading empty stdout/stderr does not try to perform a download.
+
+    InMemoryRemoteCache remoteCache = newRemoteCache();
+    Digest emptyDigest = digestUtil.compute(new byte[0]);
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.setStdoutDigest(emptyDigest);
+    result.setStderrDigest(emptyDigest);
+
+    RemoteCache.waitForBulkTransfer(
+        remoteCache.downloadOutErr(
+            context,
+            result.build(),
+            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr"))),
+        true);
+
+    assertThat(remoteCache.getNumSuccessfulDownloads()).isEqualTo(0);
+    assertThat(remoteCache.getNumFailedDownloads()).isEqualTo(0);
+  }
+
+  @Test
   public void testDownloadFileWithSymlinkTemplate() throws Exception {
     // Test that when a symlink template is provided, we don't actually download files to disk.
     // Instead, a symbolic link should be created that points to a location where the file may
@@ -1625,6 +1647,50 @@ public class RemoteCacheTests {
     ImmutableList<Digest> toQuery =
         ImmutableList.of(fooDigest, quxDigest, barDigest, cmdDigest, actionDigest);
     assertThat(remoteCache.findMissingDigests(context, toQuery)).isEmpty();
+  }
+
+  @Test
+  public void upload_emptyBlobAndFile_doNotPerformUpload() throws Exception {
+    // Test that uploading an empty BLOB/file does not try to perform an upload.
+    InMemoryRemoteCache remoteCache = newRemoteCache();
+    Digest emptyDigest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "");
+    Path file = execRoot.getRelative("file");
+
+    Utils.getFromFuture(remoteCache.uploadBlob(context, emptyDigest, ByteString.EMPTY));
+    assertThat(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest)))
+        .containsExactly(emptyDigest);
+
+    Utils.getFromFuture(remoteCache.uploadFile(context, emptyDigest, file));
+    assertThat(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest)))
+        .containsExactly(emptyDigest);
+  }
+
+  @Test
+  public void upload_emptyOutputs_doNotPerformUpload() throws Exception {
+    // Test that uploading an empty output does not try to perform an upload.
+
+    // arrange
+    Digest emptyDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "");
+    Path file = execRoot.getRelative("bar/test/wobble");
+    InMemoryRemoteCache remoteCache = newRemoteCache();
+    Action action = Action.getDefaultInstance();
+    ActionKey actionDigest = digestUtil.computeActionKey(action);
+    Command cmd = Command.getDefaultInstance();
+
+    // act
+    remoteCache.upload(
+        context,
+        remotePathResolver,
+        actionDigest,
+        action,
+        cmd,
+        ImmutableList.of(file),
+        new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
+
+    // assert
+    assertThat(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest)))
+        .containsExactly(emptyDigest);
   }
 
   @Test

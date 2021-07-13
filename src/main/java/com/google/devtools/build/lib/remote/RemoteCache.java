@@ -140,6 +140,38 @@ public class RemoteCache implements AutoCloseable {
   }
 
   /**
+   * Upload a local file to the remote cache.
+   *
+   * @param context the context for the action.
+   * @param digest the digest of the file.
+   * @param file the file to upload.
+   */
+  public final ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+
+    return cacheProtocol.uploadFile(context, digest, file);
+  }
+
+  /**
+   * Upload sequence of bytes to the remote cache.
+   *
+   * @param context the context for the action.
+   * @param digest the digest of the file.
+   * @param data the BLOB to upload.
+   */
+  public final ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+
+    return cacheProtocol.uploadBlob(context, digest, data);
+  }
+
+  /**
    * Upload the result of a locally executed action to the remote cache.
    *
    * @throws IOException if there was an error uploading to the remote cache
@@ -219,14 +251,14 @@ public class RemoteCache implements AutoCloseable {
     for (Digest digest : digestsToUpload) {
       Path file = digestToFile.get(digest);
       if (file != null) {
-        uploads.add(cacheProtocol.uploadFile(context, digest, file));
+        uploads.add(uploadFile(context, digest, file));
       } else {
         ByteString blob = digestToBlobs.get(digest);
         if (blob == null) {
           String message = "FindMissingBlobs call returned an unknown digest: " + digest;
           throw new IOException(message);
         }
-        uploads.add(cacheProtocol.uploadBlob(context, digest, blob));
+        uploads.add(uploadBlob(context, digest, blob));
       }
     }
 
@@ -315,6 +347,15 @@ public class RemoteCache implements AutoCloseable {
         },
         directExecutor());
     return outerF;
+  }
+
+  private ListenableFuture<Void> downloadBlob(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+    if (digest.getSizeBytes() == 0) {
+      return COMPLETED_SUCCESS;
+    }
+
+    return cacheProtocol.downloadBlob(context, digest, out);
   }
 
   private static Path toTmpDownloadPath(Path actualPath) {
@@ -662,7 +703,14 @@ public class RemoteCache implements AutoCloseable {
     return outerF;
   }
 
-  private List<ListenableFuture<FileMetadata>> downloadOutErr(
+  /**
+   * Download the stdout and stderr of an executed action.
+   *
+   * @param context the context for the action.
+   * @param result the result of the action.
+   * @param outErr the {@link OutErr} that the stdout and stderr will be downloaded to.
+   */
+  public final List<ListenableFuture<FileMetadata>> downloadOutErr(
       RemoteActionExecutionContext context, ActionResult result, OutErr outErr) {
     List<ListenableFuture<FileMetadata>> downloads = new ArrayList<>();
     if (!result.getStdoutRaw().isEmpty()) {
@@ -675,8 +723,7 @@ public class RemoteCache implements AutoCloseable {
     } else if (result.hasStdoutDigest()) {
       downloads.add(
           Futures.transform(
-              cacheProtocol.downloadBlob(
-                  context, result.getStdoutDigest(), outErr.getOutputStream()),
+              downloadBlob(context, result.getStdoutDigest(), outErr.getOutputStream()),
               (d) -> null,
               directExecutor()));
     }
@@ -690,8 +737,7 @@ public class RemoteCache implements AutoCloseable {
     } else if (result.hasStderrDigest()) {
       downloads.add(
           Futures.transform(
-              cacheProtocol.downloadBlob(
-                  context, result.getStderrDigest(), outErr.getErrorStream()),
+              downloadBlob(context, result.getStderrDigest(), outErr.getErrorStream()),
               (d) -> null,
               directExecutor()));
     }
