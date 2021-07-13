@@ -243,3 +243,7 @@ of the build.
 
 When you have `BUILD` files at the desired granularity, you can use Bazel
 to produce all of your builds.
+
+## See more
+
+* Project [Exodus](https://github.com/wix/exodus) - community project that supports automated migration.
