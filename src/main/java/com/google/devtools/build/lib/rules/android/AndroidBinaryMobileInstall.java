@@ -155,6 +155,7 @@ public final class AndroidBinaryMobileInstall {
             .setJavaResourceFile(stubData)
             .setSignedApk(incrementalApk)
             .setSigningKeys(signingKeys)
+            .setZipalignApk(true)
             .setSigningLineageFile(signingLineage);
 
     incrementalActionsBuilder.registerActions(ruleContext);
