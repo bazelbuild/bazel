@@ -15,9 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -85,11 +84,12 @@ final class ArtifactNestedSetFunction implements SkyFunction {
    * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
    * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
    *
-   * <p>The cache weakly references its values: when the ArtifactNestedSetKey becomes otherwise
+   * <p>The map weakly references its values: when the ArtifactNestedSetKey becomes otherwise
    * unreachable, the entry is collected.
    */
-  private final Cache<NestedSet.Node, ArtifactNestedSetKey> nestedSetToSkyKey =
-      Caffeine.newBuilder().weakValues().build();
+  // Note: Not using a caffeine cache here because it used more memory (b/193294367).
+  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey> nestedSetToSkyKey =
+      new MapMaker().weakValues().makeMap();
 
   private final Supplier<ArtifactNestedSetValue> valueSupplier;
 
@@ -175,7 +175,8 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     }
     for (NestedSet<Artifact> nonLeaf : nonLeaves) {
       keys.add(
-          nestedSetToSkyKey.get(nonLeaf.toNode(), node -> new ArtifactNestedSetKey(nonLeaf, node)));
+          nestedSetToSkyKey.computeIfAbsent(
+              nonLeaf.toNode(), node -> new ArtifactNestedSetKey(nonLeaf, node)));
     }
     return keys;
   }
