@@ -239,6 +239,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       RuleContext ruleContext,
       JavaCommon javaCommon,
       List<String> jvmFlags,
+      String nativeLibraryPath,
       Artifact executable,
       String javaStartClass,
       String javaExecutable) {
@@ -246,6 +247,7 @@ public class BazelJavaSemantics implements JavaSemantics {
         ruleContext,
         javaCommon,
         jvmFlags,
+        nativeLibraryPath,
         executable,
         javaStartClass,
         "",
@@ -259,6 +261,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       RuleContext ruleContext,
       JavaCommon javaCommon,
       List<String> jvmFlags,
+      String nativeLibraryPath,
       Artifact executable,
       String javaStartClass,
       String coverageStartClass,
@@ -268,6 +271,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
 
     Preconditions.checkNotNull(jvmFlags);
+    Preconditions.checkNotNull(nativeLibraryPath);
     Preconditions.checkNotNull(executable);
     Preconditions.checkNotNull(javaStartClass);
     Preconditions.checkNotNull(javaExecutable);
@@ -384,6 +388,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
     ImmutableList<String> jvmFlagsList = ImmutableList.copyOf(jvmFlags);
     arguments.add(Substitution.ofSpaceSeparatedList("%jvm_flags%", jvmFlagsList));
+    arguments.add(Substitution.of("%native_library_path%", nativeLibraryPath));
 
     if (OS.getCurrent() == OS.WINDOWS) {
       List<String> jvmFlagsForLauncher = jvmFlagsList;
@@ -397,7 +402,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       }
 
       return createWindowsExeLauncher(
-          ruleContext, javaExecutable, classpath, javaStartClass, jvmFlagsForLauncher, executable);
+          ruleContext, javaExecutable, classpath, javaStartClass, jvmFlagsForLauncher, nativeLibraryPath, executable);
     }
 
     ruleContext.registerAction(new TemplateExpansionAction(
@@ -411,6 +416,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       NestedSet<Artifact> classpath,
       String javaStartClass,
       List<String> jvmFlags,
+      String nativeLibraryPath,
       Artifact javaLauncher) {
     LaunchInfo launchInfo =
         LaunchInfo.builder()
@@ -436,6 +442,7 @@ public class BazelJavaSemantics implements JavaSemantics {
             // flags, joined by TAB characters. The Launcher splits up the string to get the
             // individual jvm_flags. This approach breaks with flags that contain a TAB character.
             .addJoinedValues("jvm_flags", "\t", jvmFlags)
+            .addKeyValuePair("native_library_path", nativeLibraryPath)
             .build();
 
     LauncherFileWriteAction.createAndRegister(ruleContext, javaLauncher, launchInfo);

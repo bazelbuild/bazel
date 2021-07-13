@@ -217,12 +217,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaTargetAttributes attributes = attributesBuilder.build();
     List<Artifact> nativeLibraries = attributes.getNativeLibraries();
-    if (!nativeLibraries.isEmpty()) {
-      jvmFlags.add(
-          "-Djava.library.path="
-              + JavaCommon.javaLibraryPath(
-                  nativeLibraries, ruleContext.getRule().getPackage().getWorkspaceName()));
-    }
+    String nativeLibraryPath =
+        JavaCommon.javaLibraryPath(nativeLibraries,
+                                   ruleContext.getRule().getPackage().getWorkspaceName());
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     if (attributes.hasMessages()) {
@@ -274,6 +271,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               ruleContext,
               common,
               jvmFlags,
+              nativeLibraryPath,
               executableForRunfiles,
               mainClass,
               originalMainClass,
