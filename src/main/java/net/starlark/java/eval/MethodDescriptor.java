@@ -46,6 +46,8 @@ final class MethodDescriptor {
   private final boolean allowReturnNones;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
+  /** Can reuse fastcall positional arguments if parameter count matches. */
+  private final boolean canReusePositionalWithoutChecks;
 
   private enum HowToHandleReturn {
     NULL_TO_NONE, // any Starlark value; null -> None
@@ -100,6 +102,18 @@ final class MethodDescriptor {
     } else {
       howToHandleReturn = HowToHandleReturn.FROM_JAVA;
     }
+
+    if (extraKeywords || extraPositionals || useStarlarkSemantics || useStarlarkThread) {
+      this.canReusePositionalWithoutChecks = false;
+    } else if (!Arrays.stream(parameters).allMatch(MethodDescriptor::paramCanBeUsedAsPositionalWithoutChecks)) {
+      this.canReusePositionalWithoutChecks = false;
+    } else {
+      this.canReusePositionalWithoutChecks = true;
+    }
+  }
+
+  private static boolean paramCanBeUsedAsPositionalWithoutChecks(ParamDescriptor param) {
+    return param.isPositional() && param.disabledByFlag() == null && param.getAllowedClasses().contains(Object.class);
   }
 
   /** Returns the StarlarkMethod annotation corresponding to this method. */
@@ -286,5 +300,9 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#selfCall() */
   boolean isSelfCall() {
     return selfCall;
+  }
+
+  boolean isCanReusePositionalWithoutChecks() {
+    return canReusePositionalWithoutChecks;
   }
 }
