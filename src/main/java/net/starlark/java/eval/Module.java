@@ -171,10 +171,10 @@ public final class Module implements Resolver.Module {
 
   /** Implements the resolver's module interface. */
   @Override
-  public Resolver.Scope resolve(String name) throws Undefined {
+  public ResolvedName resolve(String name) throws Undefined {
     // global?
     if (globalIndex.containsKey(name)) {
-      return Resolver.Scope.GLOBAL;
+      return ResolvedName.GLOBAL;
     }
 
     // predeclared?
@@ -184,12 +184,13 @@ public final class Module implements Resolver.Module {
         // Name is correctly spelled, but access is disabled by a flag.
         throw new Undefined(((FlagGuardedValue) v).getErrorFromAttemptingAccess(name), null);
       }
-      return Resolver.Scope.PREDECLARED;
+      return ResolvedName.PREDECLARED;
     }
 
     // universal?
-    if (Starlark.UNIVERSE.containsKey(name)) {
-      return Resolver.Scope.UNIVERSAL;
+    int universeIndex = Starlark.UNIVERSE_OBJECTS.indexByName(name);
+    if (universeIndex >= 0) {
+      return ResolvedName.universal(universeIndex);
     }
 
     // undefined
