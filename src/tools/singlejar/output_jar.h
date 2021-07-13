@@ -98,6 +98,8 @@ class OutputJar {
                          const std::string& resource_path);
   // Append CDS archive file.
   void AppendCDSArchive(const std::string &cds_archive);
+  // Append file starting at page boundary.
+  off64_t PageAlignedAppendFile(const std::string &file_path);
   // Append data from the file specified by file_path.
   void AppendFile(Options *options, const char *const file_path);
   // Copy 'count' bytes starting at 'offset' from the given file.

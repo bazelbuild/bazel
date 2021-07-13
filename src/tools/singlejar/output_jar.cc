@@ -1011,9 +1011,8 @@ void OutputJar::AppendFile(Options *options, const char *const file_path) {
   }
 }
 
-void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
-  // Align the shared archive start offset at page alignment, which is
-  // required by mmap.
+off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path) {
+  // Align the file start offset at page boundary.
   off64_t cur_offset = Position();
   size_t pagesize;
 #ifdef _WIN32
@@ -1028,8 +1027,8 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
   size_t written;
   if (gap > 0) {
     char *zeros = (char *)malloc(gap);
-    if (!zeros) {
-      return;
+    if (zeros == nullptr) {
+      diag_err(1, "%s:%d: malloc", __FILE__, __LINE__);
     }
     memset(zeros, 0, gap);
     written = fwrite(zeros, 1, gap, file_);
@@ -1037,8 +1036,16 @@ void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
     free(zeros);
   }
 
-  // Copy archived data
-  AppendFile(options_, cds_archive.c_str());
+  // Copy file
+  AppendFile(options_, file_path.c_str());
+
+  return aligned_offset;
+}
+
+void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
+  // Align the shared archive start offset at page alignment, which is
+  // required by mmap.
+  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(cds_archive);
 
   // Write the file offset of the shared archive section as a manifest
   // attribute.
