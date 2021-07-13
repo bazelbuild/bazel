@@ -38,7 +38,6 @@ java_library(
         "ExternalFilesHelper.java",
         "ExternalPackageFunction.java",
         "FileStateFunction.java",
-        "LoadStarlarkAspectFunction.java",
         "LocalRepositoryLookupFunction.java",
         "NonRuleConfiguredTargetValue.java",
         "PackageFunction.java",
