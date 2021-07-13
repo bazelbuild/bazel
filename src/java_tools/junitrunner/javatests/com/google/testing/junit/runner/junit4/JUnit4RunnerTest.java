@@ -14,19 +14,6 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.testing.junit.runner.internal.SignalHandlers.HandlerInstaller;
@@ -44,16 +31,9 @@ import com.google.testing.junit.runner.util.FakeTestClock;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import com.google.testing.junit.runner.util.TestClock;
 import com.google.testing.junit.runner.util.TestNameProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.Properties;
-import java.util.Set;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import org.junit.internal.TextListener;
 import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
@@ -73,6 +53,28 @@ import org.mockito.runners.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
+
+import javax.annotation.Nullable;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Properties;
+import java.util.Set;
+
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for {@link JUnit4Runner}
@@ -115,14 +117,18 @@ public class JUnit4RunnerTest {
   @Test
   public void testPassingTest() throws Exception {
     config = createConfig();
+    assertPassingSimpleTest(config);
+  }
+
+  private void assertPassingSimpleTest(JUnit4Config config) throws Exception {
     mockRunListener = mock(RunListener.class);
 
     JUnit4Runner runner = createRunner(SamplePassingTest.class);
 
     Description testDescription =
-        Description.createTestDescription(SamplePassingTest.class, "testThatAlwaysPasses");
+            Description.createTestDescription(SamplePassingTest.class, "testThatAlwaysPasses");
     Description suiteDescription =
-        Description.createSuiteDescription(SamplePassingTest.class);
+            Description.createSuiteDescription(SamplePassingTest.class);
     suiteDescription.addChild(testDescription);
 
     Result result = runner.run();
@@ -251,7 +257,7 @@ public class JUnit4RunnerTest {
     // and restored afterwards.
     uninstallGoogleTestSecurityManager();
 
-    config = new JUnit4Config(null, null, null, createProperties("1", true));
+    config = new JUnit4Config(null, null, null, null, null, createProperties("1", true));
 
     JUnit4Runner runner = createRunner(SampleExitingTest.class);
     Result result = runner.run();
@@ -313,7 +319,7 @@ public class JUnit4RunnerTest {
 
   @Test
   public void testRunExcludeFilterAlwaysExits() {
-    config = new JUnit4Config("test", "CallsSystemExit", null, createProperties("1", false));
+    config = new JUnit4Config("test", "CallsSystemExit", null, null, null, createProperties("1", false));
     JUnit4Runner runner = createRunner(SampleSuite.class);
     Result result = runner.run();
 
@@ -389,8 +395,86 @@ public class JUnit4RunnerTest {
   }
 
   @Test
+  public void testRunPassesWithoutCategoryInclusions() throws Exception {
+    config = createConfig(null, Object.class.getName());
+    assertPassingSimpleTest(config);
+  }
+
+  @Test
+  public void testIncludeCategoriesByTest() throws Exception {
+    config = createConfig(BarCategory.class.getName(), null);
+    assertPassingSimpleTest(config);
+  }
+
+  @Test
+  public void testIncludeCategoriesByParent() throws Exception {
+    config = createConfig(FooCategory.class.getName(), null);
+    assertPassingSimpleTest(config);
+  }
+
+  @Test
+  public void testExcludeCategoriesByTest() {
+    config = createConfig(FooCategory.class.getName(), BarCategory.class.getName());
+    mockRunListener = mock(RunListener.class);
+
+    JUnit4Runner runner = createRunner(SamplePassingTest.class);
+
+    Description testDescription =
+            Description.createTestDescription(SamplePassingTest.class, "testThatAlwaysPasses");
+    Description suiteDescription =
+            Description.createSuiteDescription(SamplePassingTest.class);
+    suiteDescription.addChild(testDescription);
+
+    Result result = runner.run();
+
+    assertThat(result.getRunCount()).isEqualTo(0);
+    assertThat(result.getFailureCount()).isEqualTo(0);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testExcludeCategoriesByParentClass() {
+    config = createConfig(BarCategory.class.getName(), FooCategory.class.getName());
+    mockRunListener = mock(RunListener.class);
+
+    JUnit4Runner runner = createRunner(SamplePassingTest.class);
+
+    Description testDescription =
+            Description.createTestDescription(SamplePassingTest.class, "testThatAlwaysPasses");
+    Description suiteDescription =
+            Description.createSuiteDescription(SamplePassingTest.class);
+    suiteDescription.addChild(testDescription);
+
+    Result result = runner.run();
+
+    assertThat(result.getRunCount()).isEqualTo(0);
+    assertThat(result.getFailureCount()).isEqualTo(0);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void testNonMatchingTestDoesNotRun() {
+    config = createConfig(Object.class.getName(), null);
+    mockRunListener = mock(RunListener.class);
+
+    JUnit4Runner runner = createRunner(SamplePassingTest.class);
+
+    Description testDescription =
+            Description.createTestDescription(SamplePassingTest.class, "testThatAlwaysPasses");
+    Description suiteDescription =
+            Description.createSuiteDescription(SamplePassingTest.class);
+    suiteDescription.addChild(testDescription);
+
+    Result result = runner.run();
+
+    assertThat(result.getRunCount()).isEqualTo(0);
+    assertThat(result.getFailureCount()).isEqualTo(0);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+  }
+
+  @Test
   public void testMustSpecifySupportedJUnitApiVersion() {
-    config = new JUnit4Config(null, null, null, createProperties("2", false));
+    config = new JUnit4Config(null, null, null, null, null, createProperties("2", false));
     JUnit4Runner runner = createRunner(SamplePassingTest.class);
 
     IllegalStateException e = assertThrows(IllegalStateException.class, () -> runner.run());
@@ -439,11 +523,15 @@ public class JUnit4RunnerTest {
   }
 
   private static JUnit4Config createConfig() {
-    return createConfig(null);
+    return createConfig((String) null);
   }
 
   private static JUnit4Config createConfig(@Nullable String includeFilter) {
-    return new JUnit4Config(includeFilter, null, null, createProperties("1", false));
+    return new JUnit4Config(includeFilter, null, null, null, null, createProperties("1", false));
+  }
+
+  private static JUnit4Config createConfig(@Nullable String includeCategories, @Nullable String excludeCategories) {
+    return new JUnit4Config(null, null, includeCategories, excludeCategories, null, createProperties("1", false));
   }
 
   private static Properties createProperties(
@@ -458,9 +546,11 @@ public class JUnit4RunnerTest {
 
   /** Sample test that passes. */
   @RunWith(JUnit4.class)
+  @Category({FooCategory.class})
   public static class SamplePassingTest {
 
     @Test
+    @Category({BarCategory.class})
     public void testThatAlwaysPasses() {
     }
   }
@@ -499,6 +589,9 @@ public class JUnit4RunnerTest {
     }
   }
 
+  public static class FooCategory {}
+  public static class BarCategory {}
+
 
   /** Sample suite. */
   @RunWith(Suite.class)
@@ -508,7 +601,6 @@ public class JUnit4RunnerTest {
       JUnit4RunnerTest.SampleExitingTest.class
   })
   public static class SampleSuite {}
-
 
   private static class StubShardingEnvironment extends ShardingEnvironment {
 

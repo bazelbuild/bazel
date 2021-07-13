@@ -94,6 +94,7 @@ public class JUnit4Runner {
     Filter shardingFilter = model.getShardingFilter();
 
     Request filteredRequest = applyFilters(request, shardingFilter,
+        config.getCategoriesFilter(),
         config.getTestIncludeFilterRegexp(),
         config.getTestExcludeFilterRegexp());
 
@@ -183,6 +184,7 @@ public class JUnit4Runner {
    *
    * @param request Request to filter
    * @param shardingFilter Sharding filter to use; {@link Filter#ALL} to not do sharding
+   * @param categoryFilter Category filter to use, or {@link Filter#ALL}
    * @param testIncludeFilterRegexp String denoting a regular expression with which
    *     to filter tests.  Only test descriptions that match this regular
    *     expression will be run.  If {@code null}, tests will not be filtered.
@@ -192,13 +194,24 @@ public class JUnit4Runner {
    * @return Filtered request (may be a request that delegates to
    *         {@link ErrorReportingRunner}
    */
-  private static Request applyFilters(Request request, Filter shardingFilter,
+  private static Request applyFilters(Request request, Filter shardingFilter, Filter categoryFilter,
       @Nullable String testIncludeFilterRegexp, @Nullable String testExcludeFilterRegexp) {
-    // Allow the user to specify a filter on the command line
-    boolean allowNoTests = false;
-    Filter filter = Filter.ALL;
+    Filter filter = categoryFilter;
+
+    if (categoryFilter != Filter.ALL) {
+      try {
+        request = applyFilter(request, filter);
+      } catch (NoTestsRemainException e) {
+        // A common use case of categories is to group tests orthogonally to suite
+        // organization (flakiness, runtime, resource usage, etc.). So we don't want
+        // to fail a suite or shard if it does not contain any matching tests.
+        return Request.runner(new NoOpRunner());
+      }
+    }
+
     if (testIncludeFilterRegexp != null) {
-      filter = RegExTestCaseFilter.include(testIncludeFilterRegexp);
+      Filter includeFilter = RegExTestCaseFilter.include(testIncludeFilterRegexp);
+      filter = filter.intersect(includeFilter);
     }
 
     if (testExcludeFilterRegexp != null) {
@@ -206,36 +219,33 @@ public class JUnit4Runner {
       filter = filter.intersect(excludeFilter);
     }
 
+    boolean allowEmptyShard = false;
     if (testIncludeFilterRegexp != null || testExcludeFilterRegexp != null) {
+      // If we filter a sharded test suite, we don't want to fail all but one shard.
+      allowEmptyShard = true;
       try {
         request = applyFilter(request, filter);
       } catch (NoTestsRemainException e) {
         return createErrorReportingRequestForFilterError(filter);
       }
-
-      /*
-       * If you filter a sharded test to run one test, we don't want all the
-       * shards but one to fail.
-       */
-      allowNoTests = (shardingFilter != Filter.ALL);
     }
 
     // Sharding
     if (shardingFilter != Filter.ALL) {
       filter = filter.intersect(shardingFilter);
-    }
-
-    if (filter != Filter.ALL) {
       try {
         request = applyFilter(request, filter);
       } catch (NoTestsRemainException e) {
-        if (allowNoTests) {
+        if (allowEmptyShard) {
           return Request.runner(new NoOpRunner());
         } else {
+          // If we're here, sharding is configured incorrectly.
+          // The request is not filtered, so all shards should have tests.
           return createErrorReportingRequestForFilterError(filter);
         }
       }
     }
+
     return request;
   }
 

@@ -14,16 +14,19 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import com.google.testing.junit.junit4.runner.CategoryFilter;
+import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import java.util.Properties;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.JUNIT_API_VERSION_PROPERTY;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY;
 import static org.junit.Assert.assertThrows;
-
-import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
-import java.util.Properties;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link JUnit4Config}.
@@ -38,7 +41,7 @@ public class JUnit4ConfigTest {
   }
 
   private JUnit4Config createConfigWithProperties(Properties properties) {
-    return new JUnit4Config("", null, null, properties);
+    return new JUnit4Config("", null, null, null, null, properties);
   }
 
   @Test
@@ -104,4 +107,21 @@ public class JUnit4ConfigTest {
     JUnit4Config config = createConfigWithProperties(properties);
     assertThat(config.shouldInstallSecurityManager()).isFalse();
   }
+
+  @Test
+  public void testThrowsOnBadCategoryClasses() {
+    Assert.assertThrows(
+            RuntimeException.class,
+            () -> new JUnit4Config(null, null, "not.a.real.Class", null, null));
+    Assert.assertThrows(
+            RuntimeException.class,
+            () -> new JUnit4Config(null, null, null, "not.a.real.Class", null));
+  }
+
+  @Test
+  public void testCreatesCategoryFilter() {
+    JUnit4Config config = new JUnit4Config(null, null, Object.class.getName(), Boolean.class.getName(), null);
+    assertThat(config.getCategoriesFilter()).isInstanceOf(CategoryFilter.class);
+  }
+
 }
