@@ -47,6 +47,13 @@ build:ubuntu1604_java8 --java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjd
 # Alias
 build:remote --config=ubuntu1604_java8
 
+# https://github.com/bazelbuild/intellij/issues/295#issuecomment-729656232
+# Configuration to fix ndk debugging on macos. The Bazel Android Studio plugin
+# sets a source-map mapping for /proc/self/cwd->/project where "/project" is
+# the path to the Bazel workspace root (see
+# https://github.com/bazelbuild/intellij/blob/edd4fb061dfcacb8a6d54ced39a147d11cfef811/aswb/src/com/google/idea/blaze/android/run/runner/BlazeAndroidDebuggerService.java#L80).
+build:macos --copt="-fdebug-compilation-dir" --copt="/proc/self/cwd"
+
 build:macos --macos_minimum_os=10.10
 
 # User-specific .bazelrc
