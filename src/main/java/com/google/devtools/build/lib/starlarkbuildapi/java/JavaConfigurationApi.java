@@ -49,6 +49,12 @@ public interface JavaConfigurationApi extends StarlarkValue {
   ImmutableList<String> getDefaultJvmFlags();
 
   @StarlarkMethod(
+      name = "one_version_enforcement_level",
+      structField = true,
+      doc = "The value of the --experimental_one_version_enforcement flag.")
+  String starlarkOneVersionEnforcementLevel();
+
+  @StarlarkMethod(
       name = "plugins",
       structField = true,
       doc = "A list containing the labels provided with --plugins, if any.")

@@ -344,6 +344,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return enforceOneVersion;
   }
 
+  @Override
+  public String starlarkOneVersionEnforcementLevel() {
+    return oneVersionEnforcementLevel().name();
+  }
+
   public boolean enforceOneVersionOnJavaTests() {
     return enforceOneVersionOnJavaTests;
   }
