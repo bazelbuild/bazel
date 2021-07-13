@@ -20,7 +20,7 @@ public final class ExpressionStatement extends Statement {
   private final Expression expression;
 
   ExpressionStatement(FileLocations locs, Expression expression) {
-    super(locs);
+    super(locs, Kind.EXPRESSION);
     this.expression = expression;
   }
 
@@ -41,10 +41,5 @@ public final class ExpressionStatement extends Statement {
   @Override
   public int getEndOffset() {
     return expression.getEndOffset();
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.EXPRESSION;
   }
 }

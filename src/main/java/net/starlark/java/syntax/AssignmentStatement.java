@@ -35,7 +35,7 @@ public final class AssignmentStatement extends Statement {
    */
   AssignmentStatement(
       FileLocations locs, Expression lhs, @Nullable TokenKind op, int opOffset, Expression rhs) {
-    super(locs);
+    super(locs, Kind.ASSIGNMENT);
     this.lhs = lhs;
     this.op = op;
     this.opOffset = opOffset;
@@ -81,10 +81,5 @@ public final class AssignmentStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.ASSIGNMENT;
   }
 }

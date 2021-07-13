@@ -21,7 +21,7 @@ public final class FlowStatement extends Statement {
 
   /** @param kind The label of the statement (break, continue, or pass) */
   FlowStatement(FileLocations locs, TokenKind kind, int offset) {
-    super(locs);
+    super(locs, Kind.FLOW);
     this.kind = kind;
     this.offset = offset;
   }
@@ -48,10 +48,5 @@ public final class FlowStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Statement.Kind kind() {
-    return Statement.Kind.FLOW;
   }
 }

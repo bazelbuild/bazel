@@ -31,13 +31,18 @@ public abstract class Statement extends Node {
     RETURN,
   }
 
-  Statement(FileLocations locs) {
+  private final Kind kind;
+
+  Statement(FileLocations locs, Kind kind) {
     super(locs);
+    this.kind = kind;
   }
 
   /**
    * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
    * can be used in a switch/case.
    */
-  public abstract Kind kind();
+  public final Kind kind() {
+    return kind;
+  }
 }

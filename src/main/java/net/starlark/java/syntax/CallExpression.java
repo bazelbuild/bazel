@@ -33,7 +33,7 @@ public final class CallExpression extends Expression {
       Location lparenLocation,
       ImmutableList<Argument> arguments,
       int rparenOffset) {
-    super(locs);
+    super(locs, Kind.CALL);
     this.function = Preconditions.checkNotNull(function);
     this.lparenLocation = lparenLocation;
     this.arguments = arguments;
@@ -95,10 +95,5 @@ public final class CallExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.CALL;
   }
 }

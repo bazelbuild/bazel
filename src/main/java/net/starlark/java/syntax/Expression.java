@@ -46,15 +46,20 @@ public abstract class Expression extends Node {
     UNARY_OPERATOR,
   }
 
-  Expression(FileLocations locs) {
+  private final Kind kind;
+
+  Expression(FileLocations locs, Kind kind) {
     super(locs);
+    this.kind = kind;
   }
 
   /**
    * Kind of the expression. This is similar to using instanceof, except that it's more efficient
    * and can be used in a switch/case.
    */
-  public abstract Kind kind();
+  public final Kind kind() {
+    return kind;
+  }
 
   /** Parses an expression with the default options. */
   public static Expression parse(ParserInput input) throws SyntaxError.Exception {
