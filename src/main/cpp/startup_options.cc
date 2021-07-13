@@ -258,8 +258,9 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     return blaze_exit_code::SUCCESS;
   }
 
+  std::string errorText;
   if ((value = GetUnaryOption(arg, next_arg, "--output_base")) != nullptr) {
-    output_base = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    output_base = blaze_util::Path(blaze::AbsolutePathFromFlag(value), &errorText);
     option_sources["output_base"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--install_base")) !=
              nullptr) {
@@ -271,11 +272,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     option_sources["output_user_root"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--server_jvm_out")) !=
              nullptr) {
-    server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    server_jvm_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value), &errorText);
     option_sources["server_jvm_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--failure_detail_out")) !=
              nullptr) {
-    failure_detail_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+    failure_detail_out = blaze_util::Path(blaze::AbsolutePathFromFlag(value), &errorText);
     option_sources["failure_detail_out"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_profile")) !=
              nullptr) {
@@ -286,7 +287,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     // TODO(bazel-team): Consider examining the javabase and re-execing in case
     // of architecture mismatch.
     explicit_server_javabase_ =
-        blaze_util::Path(blaze::AbsolutePathFromFlag(value));
+        blaze_util::Path(blaze::AbsolutePathFromFlag(value), &errorText);
     option_sources["server_javabase"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--host_jvm_args")) !=
              nullptr) {
@@ -403,6 +404,11 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     }
   }
 
+    if (!errorText.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+                << "processsArg failed " << errorText;
+    }
+
   *is_space_separated = ((value == next_arg) && (value != nullptr));
   return blaze_exit_code::SUCCESS;
 }
@@ -442,12 +448,22 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgs(
 }
 
 blaze_util::Path StartupOptions::GetSystemJavabase() const {
-  return blaze_util::Path(blaze::GetSystemJavabase());
+  std::string errorText;
+  blaze_util::Path path = blaze_util::Path(blaze::GetSystemJavabase(), &errorText);
+  if (!errorText.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+              << "GetSystemJavabase failed " << errorText;
+  }
+  return path;
 }
 
 blaze_util::Path StartupOptions::GetEmbeddedJavabase() const {
+  std::string errorText;
   blaze_util::Path bundled_jre_path = blaze_util::Path(
-      blaze_util::JoinPath(install_base, "embedded_tools/jdk"));
+      blaze_util::JoinPath(install_base, "embedded_tools/jdk"), &errorText);
+  if (!errorText.empty()) {
+      return blaze_util::Path();
+  }
   if (blaze_util::CanExecuteFile(
           bundled_jre_path.GetRelative(GetJavaBinaryUnderJavabase()))) {
     return bundled_jre_path;

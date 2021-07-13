@@ -138,7 +138,7 @@ std::string TestOnly_NormalizeAbsPath(const std::string &s) {
   return NormalizeAbsPath(s);
 }
 
-Path::Path(const std::string &path)
+Path::Path(const std::string &path, std::string* error)
     : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
 
 bool Path::IsNull() const { return path_ == "/dev/null"; }
@@ -152,12 +152,33 @@ bool Path::Contains(const std::string &s) const {
 }
 
 Path Path::GetRelative(const std::string &r) const {
-  return Path(JoinPath(path_, r));
+  std::string error;
+
+  Path path = Path(JoinPath(path_, r), &error);
+  if (!error.empty()) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Get relative path failed" << error;
+  }
+  return path;
 }
 
-Path Path::Canonicalize() const { return Path(MakeCanonical(path_.c_str())); }
+Path Path::Canonicalize() const {
+    std::string error;
+    Path path = Path(MakeCanonical(path_.c_str()), &error);
 
-Path Path::GetParent() const { return Path(SplitPath(path_).first); }
+    if (!error.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "Canonicalize failed" << error;
+    }
+    return path;
+}
+
+Path Path::GetParent() const {
+    std::string error;
+    Path path = Path(SplitPath(path_).first, &error);
+    if (!error.empty()) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR) << "GetParent failed" << error;
+    }
+    return path;
+}
 
 std::string Path::AsPrintablePath() const { return path_; }
 
