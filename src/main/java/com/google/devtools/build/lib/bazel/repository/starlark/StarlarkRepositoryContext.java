@@ -117,6 +117,7 @@ public class StarlarkRepositoryContext
   private final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
   private final Map<String, String> markerData;
+  private final Path buildWorkspaceDirectory;
   private final StarlarkSemantics starlarkSemantics;
   private final RepositoryRemoteExecutor remoteExecutor;
 
@@ -136,7 +137,8 @@ public class StarlarkRepositoryContext
       @Nullable ProcessWrapper processWrapper,
       Map<String, String> markerData,
       StarlarkSemantics starlarkSemantics,
-      @Nullable RepositoryRemoteExecutor remoteExecutor)
+      @Nullable RepositoryRemoteExecutor remoteExecutor,
+      Path buildWorkspaceDirectory)
       throws EvalException {
     this.rule = rule;
     this.packageLocator = packageLocator;
@@ -148,6 +150,7 @@ public class StarlarkRepositoryContext
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
     this.markerData = markerData;
+    this.buildWorkspaceDirectory = buildWorkspaceDirectory;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -165,6 +168,11 @@ public class StarlarkRepositoryContext
   @Override
   public String getName() {
     return rule.getName();
+  }
+
+  @Override
+  public StarlarkPath getBuildWorkspaceDirectory() {
+    return new StarlarkPath(buildWorkspaceDirectory);
   }
 
   @Override

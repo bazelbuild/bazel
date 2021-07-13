@@ -568,4 +568,10 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
         @Param(name = "flag", doc = "Flag to get the value for."),
       })
   boolean flagEnabled(String flag, StarlarkThread starlarkThread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "build_workspace_directory",
+      structField = true,
+      doc = "The path to the root workspace of the bazel invocation.")
+  RepositoryPathApi<?> getBuildWorkspaceDirectory();
 }

@@ -168,7 +168,8 @@ public final class StarlarkRepositoryContextTest {
             /*processWrapper=*/ null,
             new HashMap<>(),
             starlarkSemantics,
-            repoRemoteExecutor);
+            repoRemoteExecutor,
+            root.asPath());
   }
 
   protected void setUpContexForRule(String name) throws Exception {
@@ -464,5 +465,11 @@ public final class StarlarkRepositoryContextTest {
     scratch.file("/my/folder/c");
     assertThat(context.path("/my/folder").readdir()).containsExactly(
         context.path("/my/folder/a"), context.path("/my/folder/b"), context.path("/my/folder/c"));
+  }
+
+  @Test
+  public void testBuildWorkspaceDirectory() throws Exception {
+    setUpContexForRule("test");
+    assertThat(context.getBuildWorkspaceDirectory().getPath()).isEqualTo(root.asPath());
   }
 }
