@@ -39,7 +39,7 @@
 //         // Important:
 //         //   If this is a test, use Runfiles::CreateForTest(&error).
 //         //   Otherwise, if you don't have the value for argv[0] for whatever
-//         //   reason, then use Runfiles::Create(&error).
+//         //   reason, then use Runfiles::Create({}, &error).
 //
 //         if (runfiles == nullptr) {
 //           ...  // error handling
