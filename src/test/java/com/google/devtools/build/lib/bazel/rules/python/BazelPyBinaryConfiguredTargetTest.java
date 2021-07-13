@@ -20,12 +20,14 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -93,6 +95,16 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
 
   private String getShebangFromStub(ConfiguredTarget pyExecutableTarget) {
     return getSubstitutionValueFromStub(pyExecutableTarget, "%shebang%");
+  }
+
+  private List<String> getArguments(ConfiguredTarget pyExecutableTarget) throws Exception {
+    assertThat(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
+    Artifact executable = pyExecutableTarget.getProvider(FilesToRunProvider.class).getExecutable();
+    assertThat(executable).isNotNull();
+    Action generatingAction = getGeneratingAction(executable);
+    assertThat(generatingAction).isInstanceOf(SpawnAction.class);
+    SpawnAction spawnAction = (SpawnAction) generatingAction;
+    return spawnAction.getArguments();
   }
 
   // TODO(#8169): Delete tests of the legacy --python_top / --python_path behavior.
@@ -186,7 +198,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "    name = 'py3_runtime',",
         "    interpreter_path = '/system/python3',",
         "    python_version = 'PY3',",
-        "    stub_shebang = '#!/usr/bin/env python3',",
+        "    stub_shebang = '#!/usr/bin/env \\'python3\\'',",
         ")",
         "py_runtime_pair(",
         "    name = 'py_runtime_pair',",
@@ -239,7 +251,43 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     String py2Shebang = getShebangFromStub(py2);
     String py3Shebang = getShebangFromStub(py3);
     assertThat(py2Shebang).isEqualTo("#!/usr/bin/env python");
-    assertThat(py3Shebang).isEqualTo("#!/usr/bin/env python3");
+    assertThat(py3Shebang).isEqualTo("#!/usr/bin/env 'python3'");
+  }
+
+  @Test
+  public void runtimeObtainedFromToolchainForZippedTarget() throws Exception {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    defineToolchains();
+    scratch.file(
+        "pkg/BUILD",
+        "py_binary(",
+        "    name = 'py2_bin',",
+        "    srcs = ['py2_bin.py'],",
+        "    python_version = 'PY2',",
+        ")",
+        "py_binary(",
+        "    name = 'py3_bin',",
+        "    srcs = ['py3_bin.py'],",
+        "    python_version = 'PY3',",
+        ")");
+    useConfiguration(
+        "--incompatible_use_python_toolchains=true",
+        "--extra_toolchains=//toolchains:py_toolchain",
+        "--build_python_zip");
+
+    ConfiguredTarget py2 = getConfiguredTarget("//pkg:py2_bin");
+    ConfiguredTarget py3 = getConfiguredTarget("//pkg:py3_bin");
+
+    List<String> py2Args = getArguments(py2);
+    List<String> py3Args = getArguments(py3);
+
+    assertThat(py2Args).isNotEmpty();
+    assertThat(py2Args.get(py2Args.size()-1)).startsWith("echo '#!/usr/bin/env python'");
+
+    assertThat(py3Args).isNotEmpty();
+    assertThat(py3Args.get(py3Args.size()-1)).startsWith("echo '#!/usr/bin/env '\"'\"'python3'\"'\"''");
   }
 
   @Test

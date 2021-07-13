@@ -233,32 +233,25 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     // Create the zip file if requested. On unix, copy it from the intermediate artifact to the
     // final executable while prepending the shebang.
-    if (buildPythonZip) {
+    if (buildPythonZip && OS.getCurrent() != OS.WINDOWS) {
       Artifact zipFile = common.getPythonZipArtifact(executable);
-
-      if (OS.getCurrent() != OS.WINDOWS) {
-        PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
-        // TODO(#8685): Remove this special-case handling as part of making the proper shebang a
-        // property of the Python toolchain configuration.
-        String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
-        // NOTE: keep the following line intact to support nix builds
-        String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;
-        ruleContext.registerAction(
-            new SpawnAction.Builder()
-                .addInput(zipFile)
-                .addOutput(executable)
-                .setShellCommand(
-                    shExecutable,
-                    "echo '"
-                        + pythonShebang
-                        + "' | cat - "
-                        + zipFile.getExecPathString()
-                        + " > "
-                        + executable.getExecPathString())
-                .useDefaultShellEnvironment()
-                .setMnemonic("BuildBinary")
-                .build(ruleContext));
-      }
+      PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+      String pythonShebang = getStubShebang(ruleContext, common);
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .addInput(zipFile)
+              .addOutput(executable)
+              .setShellCommand(
+                  shExecutable,
+                  "echo '"
+                      + escapeShellSingleQuotes(pythonShebang)
+                      + "' | cat - "
+                      + zipFile.getExecPathString()
+                      + " > "
+                      + executable.getExecPathString())
+              .useDefaultShellEnvironment()
+              .setMnemonic("BuildBinary")
+              .build(ruleContext));
     }
 
     // On Windows, create the launcher.
@@ -450,6 +443,10 @@ public class BazelPythonSemantics implements PythonSemantics {
     }
 
     return pythonBinary;
+  }
+
+  private static String escapeShellSingleQuotes(String str) {
+    return str.replaceAll("'", "'\"'\"'");
   }
 
   private static String getStubShebang(RuleContext ruleContext, PyCommon common) {
