@@ -106,10 +106,11 @@ public final class SpawnStrategyResolver implements ActionContext {
       if (fallbackStrategies.isEmpty()) {
         String message =
             String.format(
-                "No usable spawn strategy found for spawn with mnemonic %s.  Your --spawn_strategy,"
-                    + " --genrule_strategy and/or --strategy flags are probably too strict. Visit"
-                    + " https://github.com/bazelbuild/bazel/issues/7480 for migration advice",
-                spawn.getMnemonic());
+                "%s spawn cannot be executed with any of the available strategies: %s. Your"
+                    + " --spawn_strategy, --genrule_strategy and/or --strategy flags are probably"
+                    + " too strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
+                    + " advice",
+                spawn.getMnemonic(), strategies);
         throw new UserExecException(
             FailureDetail.newBuilder()
                 .setMessage(message)
