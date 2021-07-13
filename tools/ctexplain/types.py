@@ -71,7 +71,7 @@ class HostConfiguration(Configuration):
   aren't "special" compared to normal configurations.
   """
   # We don't currently read the host config's fragments or option values.
-  fragments: Tuple[str, ...] = ()
+  fragments: Mapping[str, Tuple[str, ...]] = field(default_factory=lambda: frozendict({}))
   options: Mapping[str,
                    Mapping[str,
                            str]] = field(default_factory=lambda: frozendict({}))
@@ -83,7 +83,7 @@ class NullConfiguration(Configuration):
 
   By definition this has no fragments or options.
   """
-  fragments: Tuple[str, ...] = ()
+  fragments: Mapping[str, Tuple[str, ...]] = field(default_factory=lambda: frozendict({}))
   options: Mapping[str,
                    Mapping[str,
                            str]] = field(default_factory=lambda: frozendict({}))

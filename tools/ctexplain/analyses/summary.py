@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Analysis that summarizes basic graph info."""
+from typing import Mapping
 from typing import Tuple
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from dataclasses import dataclass
 
 from tools.ctexplain.types import ConfiguredTarget
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.util as util
+import tools.ctexplain.util as util
 
 
 @dataclass(frozen=True)
@@ -29,17 +30,31 @@ class _Summary():
   configurations: int
   # Number of unique target labels.
   targets: int
-  # Number of configured targets.
+  # Number of configured targets in the actual build (without trimming).
   configured_targets: int
   # Number of targets that produce multiple configured targets. This is more
   # subtle than computing configured_targets - targets. For example, if
   # targets=2 and configured_targets=4, that could mean both targets are
   # configured twice. Or it could mean the first target is configured 3 times.
   repeated_targets: int
+  # Number of configured targets if the build were optimally trimmed.
+  trimmed_configured_targets: int
 
 
-def analyze(cts: Tuple[ConfiguredTarget, ...]) -> _Summary:
-  """Runs the analysis on a build's configured targets."""
+def analyze(
+    cts: Tuple[ConfiguredTarget, ...],
+    trimmed_cts: Mapping[ConfiguredTarget, Tuple[ConfiguredTarget, ...]]
+    ) -> _Summary:
+  """Runs the analysis on a build's configured targets.
+
+  Args:
+    cts: A build's untrimmed configured targets.
+    trimmed_cts: The equivalent trimmed cts, where each map entry maps a trimmed
+      ct to the untrimmed cts that reduce to it.
+
+  Returns:
+    Analysis result as a _Summary.
+  """
   configurations = set()
   targets = set()
   label_count = {}
@@ -50,8 +65,8 @@ def analyze(cts: Tuple[ConfiguredTarget, ...]) -> _Summary:
   configured_targets = len(cts)
   repeated_targets = sum([1 for count in label_count.values() if count > 1])
 
-  return _Summary(
-      len(configurations), len(targets), configured_targets, repeated_targets)
+  return _Summary(len(configurations), len(targets), configured_targets,
+                  repeated_targets, len(trimmed_cts))
 
 
 def report(result: _Summary) -> None:
@@ -64,9 +79,15 @@ def report(result: _Summary) -> None:
     result: the analysis result
   """
   ct_surplus = util.percent_diff(result.targets, result.configured_targets)
+  trimmed_ct_surplus = util.percent_diff(result.targets,
+                                         result.trimmed_configured_targets)
+  trimming_reduction = util.percent_diff(result.configured_targets,
+                                         result.trimmed_configured_targets)
   print(f"""
 Configurations: {result.configurations}
 Targets: {result.targets}
 Configured targets: {result.configured_targets} ({ct_surplus} vs. targets)
 Targets with multiple configs: {result.repeated_targets}
+Configured targets with optimal trimming: {result.trimmed_configured_targets} ({trimmed_ct_surplus} vs. targets)
+Trimming impact on configured target graph size: {trimming_reduction}
 """)

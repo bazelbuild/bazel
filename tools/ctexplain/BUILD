@@ -106,3 +106,16 @@ py_test(
         "//third_party/py/frozendict",
     ],
 )
+
+py_test(
+    name = "integration_test",
+    size = "small",
+    srcs = ["integration_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":analyses",
+        ":bazel_api",
+        ":lib",
+        "//src/test/py/bazel:test_base",
+    ],
+)
