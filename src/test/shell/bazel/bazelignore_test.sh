@@ -81,6 +81,91 @@ test_does_not_glob_into_ignored_directory() {
     assert_contains "//ignored/pkg:a" "$TEST_TMPDIR/targets"
 }
 
+test_does_not_glob_into_ignored_directory_with_wildcard() {
+    rm -rf work && mkdir work && cd work
+    create_workspace_with_default_repos WORKSPACE
+
+    echo 'filegroup(name="f", srcs=glob(["**"]))' > BUILD
+    echo '**/ignore*' > .bazelignore
+    echo 'r*t/**/dontInclude' >> .bazelignore
+
+    mkdir -p ignored/pkg
+    mkdir -p ignored2/pkg
+    mkdir -p root/deep/reallydep/dontInclude
+    mkdir -p a/root/dontInclude
+    mkdir -p a/dontInclude
+    mkdir -p a/b/ignoreBuild
+    mkdir -p a/ignoreBuild
+    mkdir -p root/dontInclude
+    mkdir -p root/deep/dontInclude
+
+    echo 'filegroup(name="f", srcs=glob(["**"]))' > ignored/pkg/BUILD
+
+    touch a/ignoreBuild/bad
+    touch a/b/ignoreBuild/bad
+    touch ignored/pkg/bad
+    touch ignored/bad
+    touch ignored2/pkg/bad
+    touch root/dontInclude/bad
+    touch root/deep/dontInclude/bad
+    touch root/deep/reallydep/dontInclude/bad
+
+    touch root/deep/good
+    touch a/root/dontInclude/good
+    touch a/dontInclude/good
+
+    bazel query //:all-targets > "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/ignoreBuild/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/b/ignoreBuild/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/pkg/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:ignored2/pkg/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:root/dontInclude/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:root/deep/dontInclude/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:root/deep/reallydep/dontInclude/bad" "$TEST_TMPDIR/targets"
+
+    assert_contains "//:a/root/dontInclude/good" "$TEST_TMPDIR/targets"
+    assert_contains "//:a/dontInclude/good" "$TEST_TMPDIR/targets"
+    assert_contains "//:root/deep/good" "$TEST_TMPDIR/targets"
+}
+
+test_new_directory_is_ignored() {
+    rm -rf work && mkdir work && cd work
+    create_workspace_with_default_repos WORKSPACE
+
+    echo 'filegroup(name="f", srcs=glob(["**"]))' > BUILD
+    echo 'a/c' > .bazelignore
+    echo 'a/d' >> .bazelignore
+    echo '**/ignore' >> .bazelignore
+
+    mkdir -p a/b
+    mkdir -p a/c
+    mkdir -p a/ignore
+
+    touch a/b/good
+    touch a/c/bad
+    touch a/ignore/bad
+
+    bazel query //:all-targets > "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/c/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/ignore/bad" "$TEST_TMPDIR/targets"
+    assert_contains "//:a/b/good" "$TEST_TMPDIR/targets"
+
+    mkdir -p a/d
+    mkdir -p touch a/b/ignore
+    mkdir -p touch a/ignore/bad2
+
+    touch a/d/bad
+    touch a/b/ignore/bad
+
+    bazel query //:all-targets > "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/c/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/d/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/b/ignore/bad" "$TEST_TMPDIR/targets"
+    assert_not_contains "//:a/b/ignore/bad2" "$TEST_TMPDIR/targets"
+    assert_contains "//:a/b/good" "$TEST_TMPDIR/targets"
+}
+
 test_broken_BUILD_files_ignored() {
     rm -rf work && mkdir work && cd work
     create_workspace_with_default_repos WORKSPACE

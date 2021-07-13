@@ -973,7 +973,7 @@ public final class UnixGlob {
     return false;
   }
 
-  private static boolean isWildcardFree(String pattern) {
+  public static boolean isWildcardFree(String pattern) {
     return !pattern.contains("*") && !pattern.contains("?");
   }
 }

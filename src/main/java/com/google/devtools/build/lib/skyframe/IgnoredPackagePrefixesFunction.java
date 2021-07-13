@@ -19,11 +19,14 @@ import com.google.common.io.LineProcessor;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -46,12 +49,14 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   }
 
   public static void getIgnoredPackagePrefixes(
-      RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder)
+      RootedPath patternFile,
+      ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder,
+      EventHandler eventHandler)
       throws IgnoredPatternsFunctionException {
     try (InputStreamReader reader =
         new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
       ignoredPackagePrefixesBuilder.addAll(
-          CharStreams.readLines(reader, new PathFragmentLineProcessor()));
+          CharStreams.readLines(reader, new PathFragmentLineProcessor(eventHandler)));
     } catch (IOException e) {
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
       throw new IgnoredPatternsFunctionException(
@@ -70,6 +75,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
     ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
+    Root workspaceRoot = null;
     if (!ignoredPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
       PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
       if (env.valuesMissing()) {
@@ -85,7 +91,11 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
             return null;
           }
           if (patternFileValue.isFile()) {
-            getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
+            getIgnoredPackagePrefixes(
+                    rootedPatternFile,
+                    ignoredPackagePrefixesBuilder,
+                    env.getListener());
+            workspaceRoot = rootedPatternFile.getRoot();
             break;
           }
         }
@@ -105,30 +115,46 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
             return null;
           }
           if (patternFileValue.isFile()) {
-            getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
+            getIgnoredPackagePrefixes(
+                    rootedPatternFile,
+                    ignoredPackagePrefixesBuilder,
+                    env.getListener());
+            workspaceRoot = rootedPatternFile.getRoot();
           }
         }
       }
     }
 
-    return IgnoredPackagePrefixesValue.of(ignoredPackagePrefixesBuilder.build());
+    return IgnoredPackagePrefixesValue.of(ignoredPackagePrefixesBuilder.build(), workspaceRoot);
   }
 
   private static final class PathFragmentLineProcessor
       implements LineProcessor<ImmutableSet<PathFragment>> {
-    private final ImmutableSet.Builder<PathFragment> fragments = ImmutableSet.builder();
+    private final ImmutableSet.Builder<PathFragment> patterns = ImmutableSet.builder();
+    private final EventHandler eventHandler;
+
+    public PathFragmentLineProcessor(EventHandler eventHandler) {
+      this.eventHandler = eventHandler;
+    }
 
     @Override
     public boolean processLine(String line) {
-      if (!line.isEmpty() && !line.startsWith("#")) {
-        fragments.add(PathFragment.create(line));
+      String error = null;
+      if (line.isEmpty() || line.startsWith("#")) {
+        return true;
       }
+      error = UnixGlob.checkPatternForError(line);
+      if (error != null) {
+        eventHandler.handle(Event.warn((error + " (in .bazelignore glob pattern '" + line + "')")));
+        return true;
+      }
+      patterns.add(PathFragment.create(line));
       return true;
     }
 
     @Override
     public ImmutableSet<PathFragment> getResult() {
-      return fragments.build();
+      return patterns.build();
     }
   }
 
