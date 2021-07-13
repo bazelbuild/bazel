@@ -113,7 +113,8 @@ public class HttpDownloaderTest {
               fs.getPath(workingDir.newFile().getAbsolutePath()),
               eventHandler,
               Collections.emptyMap(),
-              "testRepo");
+              "testRepo",
+              "");
 
       assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("hello");
     }
@@ -177,7 +178,8 @@ public class HttpDownloaderTest {
               fs.getPath(workingDir.newFile().getAbsolutePath()),
               eventHandler,
               Collections.emptyMap(),
-              "testRepo");
+              "testRepo",
+              "");
 
       assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("content1");
     }
@@ -244,7 +246,8 @@ public class HttpDownloaderTest {
               fs.getPath(workingDir.newFile().getAbsolutePath()),
               eventHandler,
               Collections.emptyMap(),
-              "testRepo");
+              "testRepo",
+              "");
 
       assertThat(new String(readFile(resultingFile), UTF_8)).isEqualTo("content2");
     }
@@ -313,7 +316,8 @@ public class HttpDownloaderTest {
             outputFile,
             eventHandler,
             Collections.emptyMap(),
-            "testRepo");
+            "testRepo",
+            "");
         fail("Should have thrown");
       } catch (IOException expected) {
         assertThat(expected.getSuppressed()).hasLength(2);

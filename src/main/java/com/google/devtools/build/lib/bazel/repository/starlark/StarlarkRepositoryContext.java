@@ -763,7 +763,8 @@ public class StarlarkRepositoryContext
               outputPath.getPath(),
               env.getListener(),
               osObject.getEnvironmentVariables(),
-              getName());
+              getName(),
+              sha256);
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
@@ -892,7 +893,8 @@ public class StarlarkRepositoryContext
               downloadDirectory,
               env.getListener(),
               osObject.getEnvironmentVariables(),
-              getName());
+              getName(),
+              sha256);
     } catch (InterruptedException e) {
       env.getListener().post(w);
       throw new RepositoryFunctionException(
