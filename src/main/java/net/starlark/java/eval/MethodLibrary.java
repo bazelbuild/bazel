@@ -40,7 +40,8 @@ class MethodLibrary {
               + "or if no arguments are given. "
               + "<pre class=\"language-python\">min(2, 5, 4) == 2\n"
               + "min([5, 6, 3]) == 3</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      trustReturnsValid = true)
   public Object min(Sequence<?> args) throws EvalException {
     return findExtreme(args, Starlark.ORDERING.reverse());
   }
@@ -54,7 +55,8 @@ class MethodLibrary {
               + "or if no arguments are given. "
               + "<pre class=\"language-python\">max(2, 5, 4) == 5\n"
               + "max([5, 6, 3]) == 6</pre>",
-      extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
+      extraPositionals = @Param(name = "args", doc = "The elements to be checked."),
+      trustReturnsValid = true)
   public Object max(Sequence<?> args) throws EvalException {
     return findExtreme(args, Starlark.ORDERING);
   }
@@ -625,6 +627,7 @@ class MethodLibrary {
                 "The default value to return in case the struct "
                     + "doesn't have an attribute of the given name.")
       },
+      trustReturnsValid = true,
       useStarlarkThread = true)
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {

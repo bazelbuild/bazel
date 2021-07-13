@@ -537,7 +537,8 @@ public final class StarlarkList<E> extends AbstractList<E>
             },
             defaultValue = "-1",
             doc = "The index of the item.")
-      })
+      },
+      trustReturnsValid = true)
   public Object pop(Object i) throws EvalException {
     int arg = i == Starlark.NONE ? -1 : Starlark.toInt(i, "i");
     int index = EvalUtils.getSequenceIndex(arg, size);

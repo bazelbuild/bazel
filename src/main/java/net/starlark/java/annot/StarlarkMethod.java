@@ -166,6 +166,11 @@ public @interface StarlarkMethod {
   boolean allowReturnNones() default false;
 
   /**
+   * When true, Starlark interpreter does not validate function returns a valid Starlark runtime object.
+   */
+  boolean trustReturnsValid() default false;
+
+  /**
    * If true, the StarlarkThread will be passed as an argument of the annotated function. (Thus, the
    * annotated method signature must contain StarlarkThread as a parameter. See the interface-level
    * javadoc for details.)

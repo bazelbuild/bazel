@@ -180,6 +180,7 @@ public final class Dict<K, V>
             named = true,
             doc = "The default value to use (instead of None) if the key is not found.")
       },
+      trustReturnsValid = true,
       useStarlarkThread = true)
   // TODO(adonovan): This method is named get2 as a temporary workaround for a bug in
   // StarlarkAnnotations.getStarlarkMethod. The two 'get' methods cause it to get
@@ -213,6 +214,7 @@ public final class Dict<K, V>
             named = true,
             doc = "a default value if the key is absent."),
       },
+      trustReturnsValid = true,
       useStarlarkThread = true)
   public Object pop(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
     Starlark.checkMutable(this);
@@ -264,7 +266,8 @@ public final class Dict<K, V>
             defaultValue = "None",
             named = true,
             doc = "a default value if the key is absent."),
-      })
+      },
+      trustReturnsValid = true)
   public V setdefault(K key, V defaultValue) throws EvalException {
     Starlark.checkMutable(this);
     Starlark.checkHashable(key);
