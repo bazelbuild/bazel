@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
@@ -22,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +37,12 @@ import net.starlark.java.lib.json.Json;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 /** Script-based tests of Starlark evaluator. */
+@RunWith(Parameterized.class)
 public final class ScriptTest {
 
   // Tests for Starlark.
@@ -58,6 +65,34 @@ public final class ScriptTest {
   // - extract support for "chunked files" into a library
   //   and reuse it for tests of lexer, parser, resolver.
   // - require that some frame of each EvalException match the file/line of the expectation.
+
+  @Parameterized.Parameters(name = "{0}")
+  public static Collection<Object[]> parameters() {
+    File root = new File("third_party/bazel"); // blaze
+    if (!root.exists()) {
+      root = new File("."); // bazel
+    }
+    File testdata = new File(root, "src/test/java/net/starlark/java/eval/testdata");
+    assertThat(testdata).isNotNull();
+    File[] files = testdata.listFiles();
+    assertThat(files).isNotNull();
+    assertThat(files).isNotEmpty();
+    Arrays.sort(files);
+    return Arrays.stream(files)
+        .map(f -> new Object[] {
+            // Either JUnit or Idea doesn't like dots in test names
+            f.getName().replaceAll("\\..*", ""),
+            f,
+        })
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  // src/test/.../something.star
+  private final File file;
+
+  public ScriptTest(String testName, File file) {
+    this.file = file;
+  }
 
   interface Reporter {
     void reportError(StarlarkThread thread, String message);
@@ -171,124 +206,115 @@ public final class ScriptTest {
     return StarlarkInt.of(x.toBigInteger().multiply(y.toBigInteger()));
   }
 
-  private static boolean ok = true;
+  private boolean ok = true;
 
-  public static void main(String[] args) throws Exception {
-    File root = new File("third_party/bazel"); // blaze
-    if (!root.exists()) {
-      root = new File("."); // bazel
-    }
-    File testdata = new File(root, "src/test/java/net/starlark/java/eval/testdata");
-    for (String name : testdata.list()) {
-      File file = new File(testdata, name);
-      String content = Files.asCharSource(file, UTF_8).read();
-      int linenum = 1;
-      for (String chunk : Splitter.on("\n---\n").split(content)) {
-        // prepare chunk
-        StringBuilder buf = new StringBuilder();
-        for (int i = 1; i < linenum; i++) {
-          buf.append('\n');
-        }
-        buf.append(chunk);
-        if (false) {
-          System.err.printf("%s:%d: <<%s>>\n", file, linenum, buf);
-        }
-
-        // extract expectations: ### "regular expression"
-        Map<Pattern, Integer> expectations = new HashMap<>();
-        for (int i = chunk.indexOf("###"); i >= 0; i = chunk.indexOf("###", i)) {
-          int j = chunk.indexOf("\n", i);
-          if (j < 0) {
-            j = chunk.length();
-          }
-
-          int line = linenum + newlines(chunk.substring(0, i));
-          String comment = chunk.substring(i + 3, j);
-          i = j;
-
-          // Compile regular expression in comment.
-          Pattern pattern;
-          try {
-            pattern = Pattern.compile(comment.trim());
-          } catch (PatternSyntaxException ex) {
-            System.err.printf("%s:%d: invalid regexp: %s\n", file, line, ex.getMessage());
-            ok = false;
-            continue;
-          }
-
-          if (false) {
-            System.err.printf("%s:%d: expectation '%s'\n", file, line, pattern);
-          }
-          expectations.put(pattern, line);
-        }
-
-        // parse & execute
-        ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
-        ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-        Starlark.addMethods(predeclared, new ScriptTest()); // e.g. assert_eq
-        predeclared.put("json", Json.INSTANCE);
-
-        StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
-        Module module = Module.withPredeclared(semantics, predeclared.build());
-        try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
-          StarlarkThread thread = new StarlarkThread(mu, semantics);
-          thread.setThreadLocal(Reporter.class, ScriptTest::reportError);
-          Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
-
-        } catch (SyntaxError.Exception ex) {
-          // parser/resolver errors
-          //
-          // Static errors cannot be suppressed by expectations:
-          // it would be dangerous because the presence of a static
-          // error prevents execution of any dynamic assertions in
-          // a chunk. Tests of static errors belong in syntax/.
-          for (SyntaxError err : ex.errors()) {
-            System.err.println(err); // includes location
-            ok = false;
-          }
-
-        } catch (EvalException ex) {
-          // evaluation error
-          //
-          // TODO(adonovan): the old logic checks only that each error is matched
-          // by at least one expectation. Instead, ensure that errors
-          // and expections match exactly. Furthermore, look only at errors
-          // whose stack has a frame with a file/line that matches the expectation.
-          // This requires inspecting EvalException stack.
-          // (There can be at most one dynamic error per chunk.
-          // Do we even need to allow multiple expectations?)
-          if (!expected(expectations, ex.getMessage())) {
-            System.err.println(ex.getMessageWithStack());
-            ok = false;
-          }
-
-        } catch (Throwable ex) {
-          // unhandled exception (incl. InterruptedException)
-          System.err.printf(
-              "%s:%d: unhandled %s in this chunk: %s\n",
-              file, linenum, ex.getClass().getSimpleName(), ex.getMessage());
-          ex.printStackTrace();
-          ok = false;
-        }
-
-        // unmatched expectations
-        for (Map.Entry<Pattern, Integer> e : expectations.entrySet()) {
-          System.err.printf("%s:%d: unmatched expectation: %s\n", file, e.getValue(), e.getKey());
-          ok = false;
-        }
-
-        // advance line number
-        linenum += newlines(chunk) + 2; // for "\n---\n"
+  @Test
+  public void theTest() throws Exception {
+    String content = Files.asCharSource(file, UTF_8).read();
+    int linenum = 1;
+    for (String chunk : Splitter.on("\n---\n").split(content)) {
+      // prepare chunk
+      StringBuilder buf = new StringBuilder();
+      for (int i = 1; i < linenum; i++) {
+        buf.append('\n');
       }
+      buf.append(chunk);
+      if (false) {
+        System.err.printf("%s:%d: <<%s>>\n", file, linenum, buf);
+      }
+
+      // extract expectations: ### "regular expression"
+      Map<Pattern, Integer> expectations = new HashMap<>();
+      for (int i = chunk.indexOf("###"); i >= 0; i = chunk.indexOf("###", i)) {
+        int j = chunk.indexOf("\n", i);
+        if (j < 0) {
+          j = chunk.length();
+        }
+
+        int line = linenum + newlines(chunk.substring(0, i));
+        String comment = chunk.substring(i + 3, j);
+        i = j;
+
+        // Compile regular expression in comment.
+        Pattern pattern;
+        try {
+          pattern = Pattern.compile(comment.trim());
+        } catch (PatternSyntaxException ex) {
+          System.err.printf("%s:%d: invalid regexp: %s\n", file, line, ex.getMessage());
+          ok = false;
+          continue;
+        }
+
+        if (false) {
+          System.err.printf("%s:%d: expectation '%s'\n", file, line, pattern);
+        }
+        expectations.put(pattern, line);
+      }
+
+      // parse & execute
+      ParserInput input = ParserInput.fromString(buf.toString(), file.toString());
+      ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
+      Starlark.addMethods(predeclared, this); // e.g. assert_eq
+      predeclared.put("json", Json.INSTANCE);
+
+      StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
+      Module module = Module.withPredeclared(semantics, predeclared.build());
+      try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
+        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        thread.setThreadLocal(Reporter.class, this::reportError);
+        Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+
+      } catch (SyntaxError.Exception ex) {
+        // parser/resolver errors
+        //
+        // Static errors cannot be suppressed by expectations:
+        // it would be dangerous because the presence of a static
+        // error prevents execution of any dynamic assertions in
+        // a chunk. Tests of static errors belong in syntax/.
+        for (SyntaxError err : ex.errors()) {
+          System.err.println(err); // includes location
+          ok = false;
+        }
+
+      } catch (EvalException ex) {
+        // evaluation error
+        //
+        // TODO(adonovan): the old logic checks only that each error is matched
+        // by at least one expectation. Instead, ensure that errors
+        // and expections match exactly. Furthermore, look only at errors
+        // whose stack has a frame with a file/line that matches the expectation.
+        // This requires inspecting EvalException stack.
+        // (There can be at most one dynamic error per chunk.
+        // Do we even need to allow multiple expectations?)
+        if (!expected(expectations, ex.getMessage())) {
+          System.err.println(ex.getMessageWithStack());
+          ok = false;
+        }
+
+      } catch (Throwable ex) {
+        // unhandled exception (incl. InterruptedException)
+        System.err.printf(
+            "%s:%d: unhandled %s in this chunk: %s\n",
+            file, linenum, ex.getClass().getSimpleName(), ex.getMessage());
+        ex.printStackTrace();
+        ok = false;
+      }
+
+      // unmatched expectations
+      for (Map.Entry<Pattern, Integer> e : expectations.entrySet()) {
+        System.err.printf("%s:%d: unmatched expectation: %s\n", file, e.getValue(), e.getKey());
+        ok = false;
+      }
+
+      // advance line number
+      linenum += newlines(chunk) + 2; // for "\n---\n"
     }
-    if (!ok) {
-      System.exit(1);
-    }
+    assertThat(ok).isTrue();
   }
 
   // Called by assert_ and assert_eq when the test encounters an error.
   // Does not stop the program; multiple failures may be reported in a single run.
-  private static void reportError(StarlarkThread thread, String message) {
+  private void reportError(StarlarkThread thread, String message) {
     System.err.printf("Traceback (most recent call last):\n");
     List<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
     stack = stack.subList(0, stack.size() - 1); // pop the built-in function

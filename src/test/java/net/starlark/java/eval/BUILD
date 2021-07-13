@@ -48,7 +48,6 @@ java_test(
     srcs = ["ScriptTest.java"],
     data = glob(["testdata/*.star"]),
     jvm_flags = ["-Dfile.encoding=UTF8"],
-    use_testrunner = False,
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
@@ -56,6 +55,8 @@ java_test(
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
