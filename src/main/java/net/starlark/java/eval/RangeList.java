@@ -56,8 +56,7 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   private final int step;
   private final int size; // (derived)
 
-  // TODO(adonovan): use StarlarkInt computation, to avoid overflow.
-  RangeList(int start, int stop, int step) {
+  RangeList(int start, int stop, int step) throws EvalException {
     Preconditions.checkArgument(step != 0);
 
     this.start = start;
@@ -80,8 +79,12 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
     if (low >= high) {
       this.size = 0;
     } else {
-      int diff = high - low - 1;
-      this.size = diff / step + 1;
+      long diff = (long) high - low - 1;
+      long size = diff / step + 1;
+      if ((int) size != size) {
+        throw Starlark.errorf("len(%s) exceeds maxint", Starlark.repr(this));
+      }
+      this.size = (int) size;
     }
   }
 
@@ -171,7 +174,7 @@ final class RangeList extends AbstractList<StarlarkInt> implements Sequence<Star
   }
 
   @Override
-  public Sequence<StarlarkInt> getSlice(Mutability mu, int start, int stop, int step) {
+  public Sequence<StarlarkInt> getSlice(Mutability mu, int start, int stop, int step) throws EvalException {
     return new RangeList(at(start), at(stop), step * this.step);
   }
 

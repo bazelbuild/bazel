@@ -226,7 +226,7 @@ public final class Tuple extends AbstractList<Object>
   }
 
   @Override
-  public Tuple getSlice(Mutability mu, int start, int stop, int step) {
+  public Tuple getSlice(Mutability mu, int start, int stop, int step) throws EvalException {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
     if (step == 1) { // common case
