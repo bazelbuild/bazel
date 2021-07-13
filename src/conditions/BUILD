@@ -31,6 +31,15 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_mips64el",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:mips64el",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_arm",
     constraint_values = [
         "@platforms//os:linux",
