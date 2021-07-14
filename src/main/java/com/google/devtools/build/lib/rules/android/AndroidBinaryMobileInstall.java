@@ -199,6 +199,7 @@ public final class AndroidBinaryMobileInstall {
         .setSignedApk(resourceSplitApk)
         .setSigningKeys(signingKeys)
         .setSigningLineageFile(signingLineage)
+        .setZipalignApk(true)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(resourceSplitApk);
 
@@ -269,6 +270,7 @@ public final class AndroidBinaryMobileInstall {
         .setSignedApk(splitMainApk)
         .setSigningKeys(signingKeys)
         .setSigningLineageFile(signingLineage)
+        .setZipalignApk(true)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(splitMainApk);
     NestedSet<Artifact> allSplitApks = splitApkSetBuilder.build();
