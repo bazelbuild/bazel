@@ -84,7 +84,7 @@ public final class FilteringPolicies {
   private static class FilterManual extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
-      return explicit || !(TargetUtils.hasManualTag(target));
+      return explicit || !TargetUtils.hasManualTag(target);
     }
   }
 
