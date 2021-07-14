@@ -365,8 +365,9 @@ public class Aapt2ResourcePackagingAction {
         options.packageId == -1 || (options.packageId >= 2 && options.packageId <= 255),
         "packageId must be in the range [2,255]");
 
-    ScopedTemporaryDirectory scopedTmp = new ScopedTemporaryDirectory("android_resources_tmp");
-    try (ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
+    try (ScopedTemporaryDirectory scopedTmp =
+            new ScopedTemporaryDirectory("android_resources_tmp");
+        ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
       final Path tmp = scopedTmp.getPath();
       final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
       final Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
