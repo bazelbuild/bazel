@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.worker.WorkRequestHandler.RequestInfo;
+import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestCallback;
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestHandlerBuilder;
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -406,5 +407,28 @@ public class WorkRequestHandlerTest {
     public void close() throws IOException {
       delegate.close();
     }
+  }
+
+  @Test
+  public void testWorkRequestHandler_withWorkRequestCallback() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    WorkRequestCallback callback =
+        new WorkRequestCallback((request, err) -> request.getArgumentsCount());
+    WorkRequestHandler handler =
+        new WorkRequestHandlerBuilder(
+                callback,
+                new PrintStream(new ByteArrayOutputStream()),
+                new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out))
+            .build();
+
+    List<String> args = Arrays.asList("--sources", "B.java");
+    WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
+    handler.respondToRequest(request, new RequestInfo(null));
+
+    WorkResponse response =
+        WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
+    assertThat(response.getRequestId()).isEqualTo(0);
+    assertThat(response.getExitCode()).isEqualTo(2);
+    assertThat(response.getOutput()).isEmpty();
   }
 }

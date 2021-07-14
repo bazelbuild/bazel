@@ -106,7 +106,7 @@ public class WorkRequestHandler implements AutoCloseable {
   final ConcurrentMap<Integer, RequestInfo> activeRequests = new ConcurrentHashMap<>();
 
   /** The function to be called after each {@link WorkRequest} is read. */
-  private final BiFunction<List<String>, PrintWriter, Integer> callback;
+  private final WorkRequestCallback callback;
 
   /** This worker's stderr. */
   private final PrintStream stderr;
@@ -129,6 +129,7 @@ public class WorkRequestHandler implements AutoCloseable {
    * @param messageProcessor Object responsible for parsing {@code WorkRequest}s from the server and
    *     writing {@code WorkResponses} to the server.
    */
+  @Deprecated
   public WorkRequestHandler(
       BiFunction<List<String>, PrintWriter, Integer> callback,
       PrintStream stderr,
@@ -163,9 +164,35 @@ public class WorkRequestHandler implements AutoCloseable {
   /**
    * Creates a {@code WorkRequestHandler} that will call {@code callback} for each WorkRequest
    * received. Only used for the Builder.
+   *
+   * @deprecated Use WorkRequestHandlerBuilder instead.
    */
+  @Deprecated
   private WorkRequestHandler(
       BiFunction<List<String>, PrintWriter, Integer> callback,
+      PrintStream stderr,
+      WorkerMessageProcessor messageProcessor,
+      Duration cpuUsageBeforeGc,
+      BiConsumer<Integer, Thread> cancelCallback) {
+    this(
+        new WorkRequestCallback((request, pw) -> callback.apply(request.getArgumentsList(), pw)),
+        stderr,
+        messageProcessor,
+        cpuUsageBeforeGc,
+        cancelCallback);
+  }
+
+  /**
+   * Creates a {@code WorkRequestHandler} that will call {@code callback} for each WorkRequest
+   * received. Only used for the Builder.
+   *
+   * @param callback WorkRequestCallback object with Callback method for executing a single
+   *     WorkRequest in a thread. The first argument to {@code callback} is the WorkRequest, the
+   *     second is where all error messages and other user-oriented messages should be written to.
+   *     The callback must return an exit code indicating success (zero) or failure (nonzero).
+   */
+  private WorkRequestHandler(
+      WorkRequestCallback callback,
       PrintStream stderr,
       WorkerMessageProcessor messageProcessor,
       Duration cpuUsageBeforeGc,
@@ -177,9 +204,29 @@ public class WorkRequestHandler implements AutoCloseable {
     this.cancelCallback = cancelCallback;
   }
 
+  /** A wrapper class for the callback BiFunction */
+  public static class WorkRequestCallback {
+
+    /**
+     * Callback method for executing a single WorkRequest in a thread. The first argument to {@code
+     * callback} is the WorkRequest, the second is where all error messages and other user-oriented
+     * messages should be written to. The callback must return an exit code indicating success
+     * (zero) or failure (nonzero).
+     */
+    private final BiFunction<WorkRequest, PrintWriter, Integer> callback;
+
+    public WorkRequestCallback(BiFunction<WorkRequest, PrintWriter, Integer> callback) {
+      this.callback = callback;
+    }
+
+    public Integer apply(WorkRequest workRequest, PrintWriter printWriter) {
+      return callback.apply(workRequest, printWriter);
+    }
+  }
+
   /** Builder class for WorkRequestHandler. Required parameters are passed to the constructor. */
   public static class WorkRequestHandlerBuilder {
-    private final BiFunction<List<String>, PrintWriter, Integer> callback;
+    private final WorkRequestCallback callback;
     private final PrintStream stderr;
     private final WorkerMessageProcessor messageProcessor;
     private Duration cpuUsageBeforeGc = Duration.ZERO;
@@ -195,11 +242,32 @@ public class WorkRequestHandler implements AutoCloseable {
      * @param stderr Stream that log messages should be written to, typically the process' stderr.
      * @param messageProcessor Object responsible for parsing {@code WorkRequest}s from the server
      *     and writing {@code WorkResponses} to the server.
+     * @deprecated use WorkRequestHandlerBuilder with WorkRequestCallback instead
      */
+    @Deprecated
     public WorkRequestHandlerBuilder(
         BiFunction<List<String>, PrintWriter, Integer> callback,
         PrintStream stderr,
         WorkerMessageProcessor messageProcessor) {
+      this(
+          new WorkRequestCallback((request, pw) -> callback.apply(request.getArgumentsList(), pw)),
+          stderr,
+          messageProcessor);
+    }
+
+    /**
+     * Creates a {@code WorkRequestHandlerBuilder}.
+     *
+     * @param callback WorkRequestCallback object with Callback method for executing a single
+     *     WorkRequest in a thread. The first argument to {@code callback} is the WorkRequest, the
+     *     second is where all error messages and other user-oriented messages should be written to.
+     *     The callback must return an exit code indicating success (zero) or failure (nonzero).
+     * @param stderr Stream that log messages should be written to, typically the process' stderr.
+     * @param messageProcessor Object responsible for parsing {@code WorkRequest}s from the server
+     *     and writing {@code WorkResponses} to the server.
+     */
+    public WorkRequestHandlerBuilder(
+        WorkRequestCallback callback, PrintStream stderr, WorkerMessageProcessor messageProcessor) {
       this.callback = callback;
       this.stderr = stderr;
       this.messageProcessor = messageProcessor;
@@ -287,7 +355,7 @@ public class WorkRequestHandler implements AutoCloseable {
         PrintWriter pw = new PrintWriter(sw)) {
       int exitCode;
       try {
-        exitCode = callback.apply(request.getArgumentsList(), pw);
+        exitCode = callback.apply(request, pw);
       } catch (RuntimeException e) {
         e.printStackTrace(pw);
         exitCode = 1;
