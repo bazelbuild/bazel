@@ -13,13 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.util;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.PrintStream;
 
 /**
@@ -41,28 +37,6 @@ public class ActionCacheTestHelper {
 
         @Override
         public void remove(String key) {}
-
-        @Override
-        public void putFileMetadata(Artifact artifact, FileArtifactValue metadata) {}
-
-        @Override
-        public void removeFileMetadata(Artifact artifact) {}
-
-        @Override
-        public FileArtifactValue getFileMetadata(Artifact artifact) {
-          return null;
-        }
-
-        @Override
-        public void putTreeMetadata(SpecialArtifact artifact, TreeArtifactValue metadata) {}
-
-        @Override
-        public void removeTreeMetadata(SpecialArtifact artifact) {}
-
-        @Override
-        public TreeArtifactValue getTreeMetadata(SpecialArtifact artifact) {
-          return null;
-        }
 
         @Override
         public long save() {

@@ -98,8 +98,7 @@ public final class ActionMetadataHandlerTest {
         ArtifactPathResolver.IDENTITY,
         execRoot.asFragment(),
         derivedPathPrefix,
-        /*expandedFilesets=*/ ImmutableMap.of(),
-        new OutputStore());
+        /*expandedFilesets=*/ ImmutableMap.of());
   }
 
   @Test
@@ -443,8 +442,7 @@ public final class ActionMetadataHandlerTest {
             ArtifactPathResolver.IDENTITY,
             execRoot.asFragment(),
             derivedPathPrefix,
-            expandedFilesets,
-            new OutputStore());
+            expandedFilesets);
 
     // Only the regular FileArtifactValue should have its metadata stored.
     assertThat(handler.getMetadata(createInput("dir"))).isNull();

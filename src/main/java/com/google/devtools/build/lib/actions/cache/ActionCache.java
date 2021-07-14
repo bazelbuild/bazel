@@ -14,19 +14,22 @@
 
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -66,24 +69,6 @@ public interface ActionCache {
    */
   void remove(String key);
 
-  /** Updates metadata of output files */
-  void putFileMetadata(Artifact artifact, FileArtifactValue metadata);
-
-  /** Removes metadata of output files from cache */
-  void removeFileMetadata(Artifact artifact);
-
-  /** Returns the metadata of output file, if any, or null if not found. */
-  FileArtifactValue getFileMetadata(Artifact artifact);
-
-  /** Updates metadata of output directories */
-  void putTreeMetadata(SpecialArtifact artifact, TreeArtifactValue metadata);
-
-  /** Removes metadata of output directories from cache */
-  void removeTreeMetadata(SpecialArtifact artifact);
-
-  /** Returns the metadata of output directory, if any, or null if not found. */
-  TreeArtifactValue getTreeMetadata(SpecialArtifact artifact);
-
   /**
    * An entry in the ActionCache that contains all action input and output
    * artifact paths and their metadata plus action key itself.
@@ -105,41 +90,127 @@ public interface ActionCache {
     private Map<String, FileArtifactValue> mdMap;
     private byte[] digest;
     private final byte[] usedClientEnvDigest;
+    private final Map<String, FileArtifactValue> outputFileMetadata;
+    private final Map<String, SerializableTreeArtifactValue> outputTreeMetadata;
+
+    /**
+     * The metadata for output tree that can be serialized.
+     *
+     * <p>We can't serialize {@link TreeArtifactValue} directly as it contains some objects that can
+     * not be serialized.
+     */
+    @AutoValue
+    abstract static class SerializableTreeArtifactValue {
+      public static SerializableTreeArtifactValue create(
+          ImmutableMap<String, FileArtifactValue> childData) {
+        return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(childData);
+      }
+
+      // A map from parentRelativePath to the file metadata
+      abstract ImmutableMap<String, FileArtifactValue> childData();
+    }
 
     public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
       actionKey = key;
       this.usedClientEnvDigest = MetadataDigestUtils.fromEnv(usedClientEnv);
       files = discoversInputs ? new ArrayList<String>() : null;
       mdMap = new HashMap<>();
+      outputFileMetadata = new HashMap<>();
+      outputTreeMetadata = new HashMap<>();
     }
 
     public Entry(
-        String key, byte[] usedClientEnvDigest, @Nullable List<String> files, byte[] digest) {
+        String key,
+        byte[] usedClientEnvDigest,
+        @Nullable List<String> files,
+        byte[] digest,
+        Map<String, FileArtifactValue> outputFileMetadata,
+        Map<String, SerializableTreeArtifactValue> outputTreeMetadata) {
       actionKey = key;
       this.usedClientEnvDigest = usedClientEnvDigest;
       this.files = files;
       this.digest = digest;
       mdMap = null;
+      this.outputFileMetadata = outputFileMetadata;
+      this.outputTreeMetadata = outputTreeMetadata;
     }
 
-    /**
-     * Adds the artifact, specified by the executable relative path and its metadata into the cache
-     * entry.
-     */
-    public void addFile(PathFragment relativePath, FileArtifactValue md, boolean saveExecPath) {
-      Preconditions.checkState(mdMap != null);
-      Preconditions.checkState(!isCorrupted());
-      Preconditions.checkState(digest == null);
+    /** Adds metadata of an output file */
+    public void addOutputFile(Artifact output, FileArtifactValue value) {
+      checkArgument(
+          !output.isTreeArtifact() && !output.isChildOfDeclaredDirectory(),
+          "Must use addOutputTree to save tree artifacts and their children: %s",
+          output);
+      checkState(mdMap != null);
+      checkState(!isCorrupted());
+      checkState(digest == null);
 
-      String execPath = relativePath.getPathString();
+      String execPath = output.getExecPathString();
+      outputFileMetadata.put(execPath, value);
+      mdMap.put(execPath, value);
+    }
+
+    /** Gets metadata of an output file */
+    public FileArtifactValue getOutputFile(Artifact output) {
+      checkState(!isCorrupted());
+      return outputFileMetadata.get(output.getExecPathString());
+    }
+
+    Map<String, FileArtifactValue> getOutputFiles() {
+      return outputFileMetadata;
+    }
+
+    /** Adds metadata of an output tree */
+    public void addOutputTree(SpecialArtifact output, TreeArtifactValue value) {
+      checkArgument(output.isTreeArtifact(), "artifact must be a tree artifact: %s", output);
+      checkState(mdMap != null);
+      checkState(!isCorrupted());
+      checkState(digest == null);
+
+      String execPath = output.getExecPathString();
+      ImmutableMap.Builder<String, FileArtifactValue> childDataBuilder = ImmutableMap.builder();
+      for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
+          value.getChildValues().entrySet()) {
+        childDataBuilder.put(entry.getKey().getTreeRelativePathString(), entry.getValue());
+      }
+
+      outputTreeMetadata.put(
+          execPath, SerializableTreeArtifactValue.create(childDataBuilder.build()));
+      mdMap.put(execPath, value.getMetadata());
+    }
+
+    /** Gets metadata of an output tree */
+    public TreeArtifactValue getOutputTree(SpecialArtifact output) {
+      checkState(!isCorrupted());
+
+      SerializableTreeArtifactValue value = outputTreeMetadata.get(output.getExecPathString());
+      if (value == null) {
+        return null;
+      }
+
+      TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(output);
+      for (Map.Entry<String, FileArtifactValue> entry : value.childData().entrySet()) {
+        builder.putChild(
+            TreeFileArtifact.createTreeOutput(output, entry.getKey()), entry.getValue());
+      }
+      return builder.build();
+    }
+
+    Map<String, SerializableTreeArtifactValue> getOutputTrees() {
+      return outputTreeMetadata;
+    }
+
+    /** Adds metadata of an input file */
+    public void addInputFile(Artifact input, FileArtifactValue value, boolean saveExecPath) {
+      checkState(mdMap != null);
+      checkState(!isCorrupted());
+      checkState(digest == null);
+
+      String execPath = input.getExecPathString();
       if (discoversInputs() && saveExecPath) {
         files.add(execPath);
       }
-      mdMap.put(execPath, md);
-    }
-
-    public void addFile(PathFragment relativePath, FileArtifactValue md) {
-      addFile(relativePath, md, /* saveExecPath= */ true);
+      mdMap.put(execPath, value);
     }
 
     /**
@@ -218,6 +289,26 @@ public interface ActionCache {
           builder.append("      ").append(info).append("\n");
         }
       }
+
+      for (Map.Entry<String, FileArtifactValue> entry : outputFileMetadata.entrySet()) {
+        builder
+            .append("      ")
+            .append(entry.getKey())
+            .append(" = ")
+            .append(entry.getValue().toString())
+            .append("\n");
+      }
+
+      for (Map.Entry<String, SerializableTreeArtifactValue> entry : outputTreeMetadata.entrySet()) {
+        SerializableTreeArtifactValue metadata = entry.getValue();
+        builder
+            .append("      ")
+            .append(entry.getKey())
+            .append(" = ")
+            .append(metadata.toString())
+            .append("\n");
+      }
+
       return builder.toString();
     }
   }

@@ -95,8 +95,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
       PathFragment derivedPathPrefix,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
-      OutputStore outputStore) {
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
     return new ActionMetadataHandler(
         inputArtifactData,
         forInputDiscovery,
@@ -107,7 +106,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         execRoot,
         derivedPathPrefix,
         createFilesetMapping(expandedFilesets, execRoot),
-        outputStore);
+        new OutputStore());
   }
 
   private final ActionInputMap inputArtifactData;
@@ -343,18 +342,16 @@ final class ActionMetadataHandler implements MetadataHandler {
             return; // The final TreeArtifactValue does not contain child directories.
           }
           TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
-          FileArtifactValue metadata = store.getTreeFileArtifactData(child);
-          if (metadata == null) {
-            try {
-              metadata = constructFileArtifactValueFromFilesystem(child);
-            } catch (FileNotFoundException e) {
-              String errorMessage =
-                  String.format(
-                      "Failed to resolve relative path %s inside TreeArtifact %s. "
-                          + "The associated file is either missing or is an invalid symlink.",
-                      parentRelativePath, treeDir);
-              throw new IOException(errorMessage, e);
-            }
+          FileArtifactValue metadata;
+          try {
+            metadata = constructFileArtifactValueFromFilesystem(child);
+          } catch (FileNotFoundException e) {
+            String errorMessage =
+                String.format(
+                    "Failed to resolve relative path %s inside TreeArtifact %s. "
+                        + "The associated file is either missing or is an invalid symlink.",
+                    parentRelativePath, treeDir);
+            throw new IOException(errorMessage, e);
           }
 
           tree.putChild(child, metadata);
@@ -409,7 +406,6 @@ final class ActionMetadataHandler implements MetadataHandler {
         !output.isTreeArtifact() && !output.isChildOfDeclaredDirectory(),
         "Tree artifacts and their children must be injected via injectTree: %s",
         output);
-    checkState(executionMode.get(), "Tried to inject %s outside of execution", output);
 
     store.putArtifactData(output, metadata);
   }
@@ -418,7 +414,6 @@ final class ActionMetadataHandler implements MetadataHandler {
   public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
-    checkState(executionMode.get(), "Tried to inject %s outside of execution", output);
     checkArgument(
         archivedTreeArtifactsEnabled == tree.getArchivedRepresentation().isPresent(),
         "Archived representation presence mismatched for: %s with archivedTreeArtifactsEnabled: %s",

@@ -39,13 +39,11 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
@@ -584,8 +582,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected static class InMemoryActionCache implements ActionCache {
 
     private final Map<String, Entry> actionCache = new HashMap<>();
-    private final Map<String, FileArtifactValue> fileMetadata = new HashMap<>();
-    private final Map<String, TreeArtifactValue> treeMetadata = new HashMap<>();
 
     @Override
     public synchronized void put(String key, ActionCache.Entry entry) {
@@ -600,36 +596,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     @Override
     public synchronized void remove(String key) {
       actionCache.remove(key);
-    }
-
-    @Override
-    public synchronized void putFileMetadata(Artifact artifact, FileArtifactValue metadata) {
-      fileMetadata.put(artifact.getExecPathString(), metadata);
-    }
-
-    @Override
-    public synchronized void removeFileMetadata(Artifact artifact) {
-      fileMetadata.remove(artifact.getExecPathString());
-    }
-
-    @Override
-    public synchronized FileArtifactValue getFileMetadata(Artifact artifact) {
-      return fileMetadata.get(artifact.getExecPathString());
-    }
-
-    @Override
-    public synchronized void putTreeMetadata(SpecialArtifact artifact, TreeArtifactValue metadata) {
-      treeMetadata.put(artifact.getExecPathString(), metadata);
-    }
-
-    @Override
-    public synchronized void removeTreeMetadata(SpecialArtifact artifact) {
-      treeMetadata.remove(artifact.getExecPathString());
-    }
-
-    @Override
-    public synchronized TreeArtifactValue getTreeMetadata(SpecialArtifact artifact) {
-      return treeMetadata.get(artifact.getExecPathString());
     }
 
     public synchronized void reset() {

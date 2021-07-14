@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.skyframe.OutputStore;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -240,6 +240,72 @@ public class ActionCacheChecker {
     return usedEnvironment;
   }
 
+  private void loadRemoteOutputMetadataIfMissing(
+      Action action, ActionCache.Entry entry, MetadataHandler metadataHandler) {
+    for (Artifact artifact : action.getOutputs()) {
+      if (artifact.isTreeArtifact()) {
+        SpecialArtifact parent = (SpecialArtifact) artifact;
+        TreeArtifactValue cachedTreeMetadata = entry.getOutputTree(parent);
+        if (cachedTreeMetadata != null) {
+          try {
+            TreeArtifactValue localTreeMetadata = metadataHandler.getTreeArtifactValue(parent);
+
+            boolean shouldInjectCached = false;
+            TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
+            for (Map.Entry<TreeFileArtifact, FileArtifactValue> child :
+                cachedTreeMetadata.getChildValues().entrySet()) {
+              TreeFileArtifact childArtifact = child.getKey();
+              FileArtifactValue cachedChildMetadata = child.getValue();
+              FileArtifactValue localChildMetadata =
+                  localTreeMetadata
+                      .getChildValues()
+                      .getOrDefault(childArtifact, MISSING_FILE_MARKER);
+
+              FileArtifactValue childMetadata;
+              // Only use cached metadata if it is remote and is missing from local file system.
+              if (cachedChildMetadata.isRemote() && localChildMetadata == MISSING_FILE_MARKER) {
+                childMetadata = cachedChildMetadata;
+                shouldInjectCached = true;
+              } else {
+                childMetadata = localChildMetadata;
+              }
+
+              builder.putChild(childArtifact, childMetadata);
+            }
+
+            if (shouldInjectCached) {
+              metadataHandler.injectTree(parent, builder.build());
+            }
+          } catch (IOException ignored) {
+            // Ignore the cached metadata if we encountered an error when loading corresponding
+            // local one.
+          }
+        }
+      } else {
+        FileArtifactValue cachedMetadata = entry.getOutputFile(artifact);
+
+        try {
+          FileArtifactValue localMetadata;
+          try {
+          localMetadata = getMetadataOrConstant(metadataHandler, artifact);
+          } catch (FileNotFoundException e) {
+            localMetadata = MISSING_FILE_MARKER;
+          }
+
+          // Only inject metadata if it is remote and is missing from local file system.
+          if (cachedMetadata != null
+              && cachedMetadata.isRemote()
+              && localMetadata == MISSING_FILE_MARKER) {
+            metadataHandler.injectFile(artifact, cachedMetadata);
+          }
+        } catch (IOException ignored) {
+          // Ignore the cached metadata if we encountered an error when loading corresponding local
+          // one.
+        }
+      }
+    }
+  }
+
   /**
    * Checks whether {@code action} needs to be executed and returns a non-null Token if so.
    *
@@ -298,6 +364,12 @@ public class ActionCacheChecker {
       }
     }
     ActionCache.Entry entry = getCacheEntry(action);
+
+    // load remote metadata from action cache
+    if (entry != null) {
+      loadRemoteOutputMetadataIfMissing(action, entry, metadataHandler);
+    }
+
     if (mustExecute(
         action,
         entry,
@@ -420,13 +492,21 @@ public class ActionCacheChecker {
         actionCache.remove(execPath);
       }
       if (!metadataHandler.artifactOmitted(output)) {
-        // Output files *must* exist and be accessible after successful action execution. We use the
-        // 'constant' metadata for the volatile workspace status output. The volatile output
-        // contains information such as timestamps, and even when --stamp is enabled, we don't want
-        // to rebuild everything if only that file changes.
-        FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
-        Preconditions.checkState(metadata != null);
-        entry.addFile(output.getExecPath(), metadata, /* saveExecPath= */ false);
+        if (output.isTreeArtifact()) {
+          SpecialArtifact parent = (SpecialArtifact) output;
+          TreeArtifactValue metadata = metadataHandler.getTreeArtifactValue(parent);
+          entry.addOutputTree(parent, metadata);
+        } else {
+          // Output files *must* exist and be accessible after successful action execution. We use
+          // the
+          // 'constant' metadata for the volatile workspace status output. The volatile output
+          // contains information such as timestamps, and even when --stamp is enabled, we don't
+          // want
+          // to rebuild everything if only that file changes.
+          FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
+          Preconditions.checkState(metadata != null);
+          entry.addOutputFile(output, metadata);
+        }
       }
     }
 
@@ -439,107 +519,13 @@ public class ActionCacheChecker {
             : ImmutableSet.of();
 
     for (Artifact input : action.getInputs().toList()) {
-      entry.addFile(
-          input.getExecPath(),
+      entry.addInputFile(
+          input,
           getMetadataMaybe(metadataHandler, input),
           /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
     }
     entry.getFileDigest();
     actionCache.put(key, entry);
-
-    updateMetadata(action, metadataHandler);
-  }
-
-  public void loadOutputMetadata(Action action, OutputStore outputStore) {
-    if (!cacheConfig.enabled()) {
-      return;
-    }
-
-    for (Artifact output : action.getOutputs()) {
-      if (output.isConstantMetadata()) {
-        continue;
-      }
-
-      if (output.isTreeArtifact()) {
-        SpecialArtifact artifact = (SpecialArtifact) output;
-        TreeArtifactValue metadata = actionCache.getTreeMetadata(artifact);
-        if (metadata != null) {
-          // If tree files metadata are entirely remote, just use this value.
-          if (metadata.isEntirelyRemote()) {
-            outputStore.putTreeArtifactData(artifact, metadata);
-          } else {
-            // Load remote tree files metadata into cache. Metadata for local tree files should be
-            // reconstructed from local file system.
-            for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
-                metadata.getChildValues().entrySet()) {
-              TreeFileArtifact child = childEntry.getKey();
-              FileArtifactValue childMetadata = childEntry.getValue();
-              if (childMetadata != MISSING_FILE_MARKER && childMetadata.isRemote()) {
-                outputStore.putTreeFileArtifactData(child, childMetadata);
-              }
-            }
-          }
-        }
-      } else {
-        FileArtifactValue metadata = actionCache.getFileMetadata(output);
-        // Load remote file metadata from cache. Metadata for local files should be reconstructed
-        // from local file system
-        if (metadata != null && metadata.isRemote()) {
-          outputStore.putArtifactData(output, metadata);
-        }
-      }
-    }
-  }
-
-  void updateMetadata(Action action, MetadataHandler metadataHandler) throws IOException {
-    for (Artifact output : action.getOutputs()) {
-      if (!metadataHandler.artifactOmitted(output)) {
-        // Update metadata in the action cache
-        if (output.isTreeArtifact()) {
-          SpecialArtifact artifact = (SpecialArtifact) output;
-          TreeArtifactValue treeArtifactValue = metadataHandler.getTreeArtifactValue(artifact);
-          if (treeArtifactValue.isEntirelyRemote()) {
-            actionCache.putTreeMetadata(artifact, treeArtifactValue);
-          } else {
-            boolean hasRemote = false;
-            for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
-                treeArtifactValue.getChildValues().entrySet()) {
-              hasRemote |= childEntry.getValue().isRemote();
-            }
-
-            if (hasRemote) {
-              TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(artifact);
-              for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
-                  treeArtifactValue.getChildValues().entrySet()) {
-                TreeFileArtifact child = childEntry.getKey();
-                FileArtifactValue childMetadata = childEntry.getValue();
-                if (!childMetadata.isRemote()) {
-                  // Only save remote tree file metadata
-                  childMetadata = MISSING_FILE_MARKER;
-                }
-                builder.putChild(child, childMetadata);
-              }
-
-              actionCache.putTreeMetadata(artifact, builder.build());
-            } else {
-              // If tree metadata only contains local tree files metadata, remove it from the cache.
-              actionCache.removeTreeMetadata(artifact);
-            }
-          }
-
-        } else {
-          FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
-          // Only save remote metadata
-          if (metadata.isRemote()) {
-            actionCache.putFileMetadata(output, metadata);
-          } else {
-            // If metadata can be reconstructed locally, remove it from the cache to avoid the case
-            // that cached metadata is not up to date with local file system.
-            actionCache.removeFileMetadata(output);
-          }
-        }
-      }
-    }
   }
 
   @Nullable
@@ -647,7 +633,8 @@ public class ActionCacheChecker {
       // it in the cache entry and just use empty string instead.
       entry = new ActionCache.Entry("", ImmutableMap.of(), false);
       for (Artifact input : action.getInputs().toList()) {
-        entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
+        entry.addInputFile(
+            input, getMetadataMaybe(metadataHandler, input), /* saveExecPath= */ true);
       }
     }
 
