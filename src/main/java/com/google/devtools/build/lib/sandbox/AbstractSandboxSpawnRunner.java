@@ -274,8 +274,14 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
                     resourceUsage.getBlockInputOperations());
                 spawnResultBuilder.setNumInvoluntaryContextSwitches(
                     resourceUsage.getInvoluntaryContextSwitches());
-                // The memory usage of the largest child process
-                spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                // The memory usage of the largest child process. For Darwin maxrss returns size in
+                // bytes.
+                if (OS.getCurrent() == OS.DARWIN) {
+                  spawnResultBuilder.setMemoryInKb(
+                      resourceUsage.getMaximumResidentSetSize() / 1000);
+                } else {
+                  spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                }
               });
     }
 
