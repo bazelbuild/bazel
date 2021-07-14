@@ -1381,8 +1381,29 @@ EOF
   bazel clean
 
   bazel build --experimental_aquery_dump_after_build_format=text --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
-    &> "$TEST_log" && fail "Expected success"
+    &> "$TEST_log" && fail "Expected failure"
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
+}
+
+function test_summary_output() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["in"],
+    outs = ["out"],
+    cmd = "touch $(OUTS)",
+)
+EOF
+  touch "$pkg/in"
+
+  bazel aquery --output=summary "//$pkg:all" \
+    &> "$TEST_log" || fail "Expected success"
+  expect_log "1 total action"
+  expect_log "Genrule: 1"
+  # Not matching the full string here since it's OS dependent.
+  expect_log "-fastbuild: 1"
 }
 
 # Usage: assert_matches expected_pattern actual
