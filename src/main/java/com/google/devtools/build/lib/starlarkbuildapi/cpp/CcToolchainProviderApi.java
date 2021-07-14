@@ -169,8 +169,8 @@ public interface CcToolchainProviderApi<
   @StarlarkMethod(name = "solib_dir", documented = false, useStarlarkThread = true)
   String getSolibDirectoryForStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "dynamic_runtime_solib_dir", documented = false, useStarlarkThread = true)
-  String getDynamicRuntimeSolibDirForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "dynamic_runtime_solib_dir", documented = false, structField = true)
+  String getDynamicRuntimeSolibDirForStarlark() throws EvalException;
 
   @StarlarkMethod(name = "linker_files", documented = false, useStarlarkThread = true)
   Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException;

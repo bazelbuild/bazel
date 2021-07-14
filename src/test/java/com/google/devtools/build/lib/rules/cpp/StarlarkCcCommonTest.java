@@ -198,6 +198,41 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testGetDynamicRuntimeSolibDir() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  return [MyInfo(",
+        "    dynamic_runtime_solib_dir = toolchain.dynamic_runtime_solib_dir,",
+        "  )]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    String dynamicRuntimeSolibDir =
+        (String) getMyInfoFromTarget(r).getValue("dynamic_runtime_solib_dir");
+
+    RuleContext ruleContext = getRuleContext(r);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+
+    assertThat(dynamicRuntimeSolibDir).isEqualTo(toolchain.getDynamicRuntimeSolibDirForStarlark());
+  }
+
+  @Test
   public void testGetToolForAction() throws Exception {
     scratch.file(
         "a/BUILD",
@@ -6897,7 +6932,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "toolchain.objcopy_files()",
             "toolchain.tool_path(tool='ld')",
             "toolchain.solib_dir()",
-            "toolchain.dynamic_runtime_solib_dir()",
             "toolchain.linker_files()",
             "toolchain.coverage_files()",
             "toolchain.strip_files()");

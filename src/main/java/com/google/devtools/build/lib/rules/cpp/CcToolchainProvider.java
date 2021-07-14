@@ -405,11 +405,9 @@ public final class CcToolchainProvider extends NativeInfo
     return CcToolchainProviderHelper.getToolPathFragment(toolPaths, tool);
   }
 
-
   @Override
   public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings() {
-    return builtInIncludeDirectories
-        .stream()
+    return builtInIncludeDirectories.stream()
         .map(PathFragment::getSafePathString)
         .collect(ImmutableList.toImmutableList());
   }
@@ -599,8 +597,7 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   @Override
-  public String getDynamicRuntimeSolibDirForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public String getDynamicRuntimeSolibDirForStarlark() {
     return getDynamicRuntimeSolibDir().getPathString();
   }
 
@@ -614,16 +611,12 @@ public final class CcToolchainProvider extends NativeInfo
     return ccInfo;
   }
 
-  /**
-   * Whether the toolchains supports parameter files.
-   */
+  /** Whether the toolchains supports parameter files. */
   public boolean supportsParamFiles() {
     return supportsParamFiles;
   }
-  
-  /**
-   * Returns the configured features of the toolchain.
-   */
+
+  /** Returns the configured features of the toolchain. */
   @Nullable
   public CcToolchainFeatures getFeatures() {
     return toolchainFeatures;
@@ -731,9 +724,7 @@ public final class CcToolchainProvider extends NativeInfo
     return linkDynamicLibraryTool;
   }
 
-  /**
-   * Returns the tool that builds interface libraries from dynamic libraries.
-   */
+  /** Returns the tool that builds interface libraries from dynamic libraries. */
   public Artifact getInterfaceSoBuilder() {
     return interfaceSoBuilder;
   }
@@ -946,4 +937,3 @@ public final class CcToolchainProvider extends NativeInfo
     return allowListForLooseHeaderCheck;
   }
 }
-
