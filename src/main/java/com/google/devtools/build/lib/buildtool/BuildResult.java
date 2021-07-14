@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -62,6 +63,8 @@ public final class BuildResult {
   private ImmutableSet<AspectKey> successfulAspects;
 
   private final BuildToolLogCollection buildToolLogCollection = new BuildToolLogCollection();
+
+  @Nullable private FailureDetail postBuildCallbackFailureDetail;
 
   public BuildResult(long startTimeMillis) {
     this.startTimeMillis = startTimeMillis;
@@ -228,6 +231,14 @@ public final class BuildResult {
   /** See #getSuccessfulAspects */
   void setSuccessfulAspects(ImmutableSet<AspectKey> successfulAspects) {
     this.successfulAspects = successfulAspects;
+  }
+
+  void setPostBuildCallbackFailureDetail(FailureDetail failureDetail) {
+    this.postBuildCallbackFailureDetail = failureDetail;
+  }
+
+  public FailureDetail getPostBuildCallBackFailureDetail() {
+    return postBuildCallbackFailureDetail;
   }
 
   /**
