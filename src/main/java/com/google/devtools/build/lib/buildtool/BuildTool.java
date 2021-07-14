@@ -235,7 +235,6 @@ public class BuildTool {
           }
         }
       }
-      Profiler.instance().markPhase(ProfilePhase.FINISH);
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;
@@ -574,6 +573,12 @@ public class BuildTool {
     // Skip the build complete events so that modules can run blazeShutdownOnCrash without thinking
     // that the build completed normally. BlazeCommandDispatcher will call handleCrash.
     if (crash == null) {
+      try {
+        Profiler.instance().markPhase(ProfilePhase.FINISH);
+      } catch (InterruptedException e) {
+        env.getReporter().handle(Event.error("Build interrupted during command completion"));
+        ie = e;
+      }
       env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(
