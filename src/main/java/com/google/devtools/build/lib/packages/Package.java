@@ -931,7 +931,7 @@ public class Package {
     private final Package pkg;
 
     private final boolean noImplicitFileExport;
-    private final CallStack.Factory callStackFactory = new CallStack.Factory();
+    private static final CallStack.Factory callStackFactory = new CallStack.Factory();
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
