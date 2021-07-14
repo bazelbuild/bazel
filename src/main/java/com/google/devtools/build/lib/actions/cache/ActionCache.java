@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -201,16 +202,20 @@ public interface ActionCache {
     }
 
     /** Adds metadata of an input file */
-    public void addInputFile(Artifact input, FileArtifactValue value, boolean saveExecPath) {
+    public void addInputFile(PathFragment relativePath, FileArtifactValue md, boolean saveExecPath) {
       checkState(mdMap != null);
       checkState(!isCorrupted());
       checkState(digest == null);
 
-      String execPath = input.getExecPathString();
+      String execPath = relativePath.getPathString();
       if (discoversInputs() && saveExecPath) {
         files.add(execPath);
       }
-      mdMap.put(execPath, value);
+      mdMap.put(execPath, md);
+    }
+
+    public void addInputFile(PathFragment relativePath, FileArtifactValue md) {
+      addInputFile(relativePath, md, /* saveExecPath= */ true);
     }
 
     /**

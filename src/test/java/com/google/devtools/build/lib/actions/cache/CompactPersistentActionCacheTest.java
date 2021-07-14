@@ -145,7 +145,7 @@ public class CompactPersistentActionCacheTest {
   public void testEntryToStringIsIdempotent() {
     ActionCache.Entry entry = new ActionCache.Entry("actionKey", ImmutableMap.of(), false);
     entry.toString();
-    entry.addFile(
+    entry.addInputFile(
         PathFragment.create("foo/bar"), FileArtifactValue.createForDirectoryWithMtime(1234));
     entry.toString();
     entry.getFileDigest();
