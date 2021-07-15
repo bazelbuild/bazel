@@ -19,14 +19,11 @@ import java.util.Collection;
 import java.util.Set;
 
 /**
- * NestedSetVisitor facilitates a transitive visitation over a NestedSet, which must be in STABLE
- * order. The callback may be called from multiple threads, and must be thread-safe.
+ * NestedSetVisitor facilitates a transitive visitation over a NestedSet. The callback may be called
+ * from multiple threads, and must be thread-safe.
  *
  * <p>The visitation is iterative: The caller may invoke a NestedSet within the top-level NestedSet
  * in any order.
- *
- * <p>Currently this class is only used in Skyframe to facilitate iterative replay of transitive
- * warnings/errors.
  *
  * @param <E> the data type
  */
@@ -42,9 +39,9 @@ public final class NestedSetVisitor<E> {
 
   private final Receiver<E> callback;
 
-  private final VisitedState<E> visited;
+  private final AbstractVisitedState visited;
 
-  public NestedSetVisitor(Receiver<E> callback, VisitedState<E> visited) {
+  public NestedSetVisitor(Receiver<E> callback, AbstractVisitedState visited) {
     this.callback = Preconditions.checkNotNull(callback);
     this.visited = Preconditions.checkNotNull(visited);
   }
@@ -55,7 +52,6 @@ public final class NestedSetVisitor<E> {
    * @param nestedSet the nested set to visit transitively.
    */
   public void visit(NestedSet<E> nestedSet) throws InterruptedException {
-    Preconditions.checkArgument(nestedSet.getOrder() == Order.STABLE_ORDER);
     // We can short-circuit empty nested set visitation here, avoiding load on the shared map
     // VisitedState#seenNodes.
     if (!nestedSet.isEmpty()) {
@@ -86,14 +82,28 @@ public final class NestedSetVisitor<E> {
   }
 
   /** A class that allows us to keep track of the seen nodes and transitive sets. */
-  public static class VisitedState<E> {
+  public interface AbstractVisitedState {
+    /** Removes all visited nodes from the VisitedState. */
+    void clear();
+
+    /**
+     * Adds a node to the visited state, returning true if the node was not yet in the visited state
+     * and false if the node was already in the visited state.
+     */
+    boolean add(Object node);
+  }
+
+  /** A class that allows us to keep track of the seen nodes and transitive sets. */
+  public static class VisitedState<E> implements AbstractVisitedState {
     private final Set<Object> seenNodes = Sets.newConcurrentHashSet();
 
+    @Override
     public void clear() {
       seenNodes.clear();
     }
 
-    private boolean add(Object node) {
+    @Override
+    public boolean add(Object node) {
       // Though it may look redundant, the contains call is much cheaper than the add and can
       // greatly improve the performance and reduce the contention associated with checking
       // seenNodes.

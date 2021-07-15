@@ -46,8 +46,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -332,37 +330,6 @@ public final class NestedSet<E> {
         return getChildrenInterruptibly();
     }
     throw new IllegalStateException("Unknown interrupt strategy " + interruptStrategy);
-  }
-
-  /**
-   * forEachElement applies function {@code f} to each element of the NestedSet.
-   *
-   * <p>The {@code descend} function is called for each node in the DAG, and if it returns false,
-   * the traversal is pruned and does not descend into that node; if the node was a leaf, {@code f}
-   * is not called.
-   *
-   * <p>Clients must treat the {@code descend} function's argument as an opaque reference: only
-   * {@link System#identityHashCode} and {@code ==} should be applied to it.
-   */
-  // TODO(b/157992832): this function is an encapsulation-breaking hack for the function named in
-  // the bug report. Eliminate it, and make it use NestedSetVisitor instead.
-  public void forEachElement(Predicate<Object> descend, Consumer<E> f) {
-    forEachElementImpl(descend, f, getChildren());
-  }
-
-  private static <E> void forEachElementImpl(
-      Predicate<Object> descend, Consumer<E> f, Object node) {
-    if (descend.test(node)) {
-      if (node instanceof Object[]) {
-        for (Object child : (Object[]) node) {
-          forEachElementImpl(descend, f, child);
-        }
-      } else {
-        @SuppressWarnings("unchecked")
-        E elem = (E) node;
-        f.accept(elem);
-      }
-    }
   }
 
   /** Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set). */
