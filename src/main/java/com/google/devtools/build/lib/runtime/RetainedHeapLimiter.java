@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 import javax.management.ListenerNotFoundException;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
@@ -59,6 +60,7 @@ final class RetainedHeapLimiter implements NotificationListener {
   private static final long MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS = 60000;
 
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
+  private final AtomicBoolean heapLimiterTriggeredGc = new AtomicBoolean(false);
   private final ImmutableList<NotificationEmitter> tenuredGcEmitters;
   private OptionalInt occupiedHeapPercentageThreshold = OptionalInt.empty();
   private final AtomicLong lastTriggeredGcInMilliseconds = new AtomicLong();
@@ -158,46 +160,43 @@ final class RetainedHeapLimiter implements NotificationListener {
           "Got notification %s when should be disabled", notification);
       return;
     }
+    int threshold = occupiedHeapPercentageThreshold.getAsInt();
     GarbageCollectionNotificationInfo info =
         GarbageCollectionNotificationInfo.from((CompositeData) notification.getUserData());
-    Map<String, MemoryUsage> spaces = info.getGcInfo().getMemoryUsageAfterGc();
-    for (Map.Entry<String, MemoryUsage> entry : spaces.entrySet()) {
-      if (!isTenuredSpace(entry.getKey())) {
-        continue;
-      }
-      MemoryUsage space = entry.getValue();
-      if (space.getMax() == 0) {
-        // The collector sometimes passes us nonsense stats.
-        continue;
-      }
+    boolean manualGc = info.getGcCause().equals("System.gc()");
+    if (manualGc && !heapLimiterTriggeredGc.getAndSet(false)) {
+      // This was a manually triggered GC, but not from the other branch: short-circuit.
+      return;
+    }
 
-      long percentUsed = 100 * space.getUsed() / space.getMax();
-      if (percentUsed <= occupiedHeapPercentageThreshold.getAsInt()) {
-        continue;
-      }
+    @Nullable
+    MemoryUsage space = getTenuredSpacedIfFull(info.getGcInfo().getMemoryUsageAfterGc(), threshold);
+    if (space == null) {
+      return;
+    }
 
-      if (info.getGcCause().equals("System.gc()") && !throwingOom.getAndSet(true)) {
-        // Assume we got here from a GC initiated by the other branch.
+    if (manualGc) {
+      if (!throwingOom.getAndSet(true)) {
+        // We got here from a GC initiated by the other branch.
         OutOfMemoryError oom =
             new OutOfMemoryError(
                 String.format(
                     "RetainedHeapLimiter forcing exit due to GC thrashing: After back-to-back full"
                         + " GCs, the tenured space is more than %s%% occupied (%s out of a tenured"
                         + " space size of %s).",
-                    occupiedHeapPercentageThreshold.getAsInt(), space.getUsed(), space.getMax()));
+                    threshold, space.getUsed(), space.getMax()));
         // Exits the runtime.
         bugReporter.handleCrash(Crash.from(oom), CrashContext.halt());
       }
-
-      if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
-          > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
-        logger.atInfo().log(
-            "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
-            space.getUsed(), space.getMax());
-        // Force a full stop-the-world GC and see if it can get us below the threshold.
-        System.gc();
-        lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());
-      }
+    } else if (System.currentTimeMillis() - lastTriggeredGcInMilliseconds.get()
+        > MIN_TIME_BETWEEN_TRIGGERED_GC_MILLISECONDS) {
+      logger.atInfo().log(
+          "Triggering a full GC with %s tenured space used out of a tenured space size of %s",
+          space.getUsed(), space.getMax());
+      heapLimiterTriggeredGc.set(true);
+      // Force a full stop-the-world GC and see if it can get us below the threshold.
+      System.gc();
+      lastTriggeredGcInMilliseconds.set(System.currentTimeMillis());
     }
   }
 
@@ -208,6 +207,31 @@ final class RetainedHeapLimiter implements NotificationListener {
         || "Tenured Gen".equals(name)
         || "Shenandoah".equals(name)
         || "ZHeap".equals(name);
+  }
+
+  @Nullable
+  private static MemoryUsage getTenuredSpacedIfFull(
+      Map<String, MemoryUsage> spaces, int threshold) {
+    ImmutableList<Map.Entry<String, MemoryUsage>> fullSpaces =
+        spaces.entrySet().stream()
+            .filter(
+                e -> {
+                  if (!isTenuredSpace(e.getKey())) {
+                    return false;
+                  }
+                  MemoryUsage space = e.getValue();
+                  if (space.getMax() == 0) {
+                    // The collector sometimes passes us nonsense stats.
+                    return false;
+                  }
+
+                  return (100 * space.getUsed() / space.getMax()) > threshold;
+                })
+            .collect(toImmutableList());
+    if (fullSpaces.size() > 1) {
+      logger.atInfo().log("Multiple full tenured spaces: %s", fullSpaces);
+    }
+    return fullSpaces.isEmpty() ? null : fullSpaces.get(0).getValue();
   }
 
   private static AbruptExitException createExitException(String message, MemoryOptions.Code code) {
