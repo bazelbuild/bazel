@@ -529,7 +529,91 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 + " the dependency graph");
   }
 
-  // TODO(wyv): add fork handling and tests
+  @Test
+  public void multipleVersionOverride_fork_goodCase() throws Exception {
+    // For more complex good cases, see the "diamond" test cases below.
+    setUpSkyFunctions(
+        "A",
+        ImmutableMap.<ModuleKey, Module>builder()
+            .put(
+                createModuleKey("A", ""),
+                Module.builder()
+                    .setName("A")
+                    .setVersion(Version.EMPTY)
+                    .addDep("B1", createModuleKey("B", "1.0"))
+                    .addDep("B2", createModuleKey("B", "2.0"))
+                    .build())
+            .put(
+                createModuleKey("B", "1.0"),
+                Module.builder().setName("B").setVersion(Version.parse("1.0")).build())
+            .put(
+                createModuleKey("B", "2.0"),
+                Module.builder().setName("B").setVersion(Version.parse("2.0")).build())
+            .build(),
+        ImmutableMap.of(
+            "B",
+            MultipleVersionOverride.create(
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), "")));
+
+    EvaluationResult<SelectionValue> result =
+        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    SelectionValue selectionValue = result.get(SelectionValue.KEY);
+    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
+    assertThat(selectionValue.getDepGraph())
+        .containsExactly(
+            createModuleKey("A", ""),
+            Module.builder()
+                .setName("A")
+                .setVersion(Version.EMPTY)
+                .addDep("B1", createModuleKey("B", "1.0"))
+                .addDep("B2", createModuleKey("B", "2.0"))
+                .build(),
+            createModuleKey("B", "1.0"),
+            Module.builder().setName("B").setVersion(Version.parse("1.0")).build(),
+            createModuleKey("B", "2.0"),
+            Module.builder().setName("B").setVersion(Version.parse("2.0")).build());
+  }
+
+  @Test
+  public void multipleVersionOverride_fork_sameVersionUsedTwice() throws Exception {
+    setUpSkyFunctions(
+        "A",
+        ImmutableMap.<ModuleKey, Module>builder()
+            .put(
+                createModuleKey("A", ""),
+                Module.builder()
+                    .setName("A")
+                    .setVersion(Version.EMPTY)
+                    .addDep("B1", createModuleKey("B", "1.0"))
+                    .addDep("B2", createModuleKey("B", "1.3"))
+                    .addDep("B3", createModuleKey("B", "1.5"))
+                    .build())
+            .put(
+                createModuleKey("B", "1.0"),
+                Module.builder().setName("B").setVersion(Version.parse("1.0")).build())
+            .put(
+                createModuleKey("B", "1.3"),
+                Module.builder().setName("B").setVersion(Version.parse("1.3")).build())
+            .put(
+                createModuleKey("B", "1.5"),
+                Module.builder().setName("B").setVersion(Version.parse("1.5")).build())
+            .build(),
+        ImmutableMap.of(
+            "B",
+            MultipleVersionOverride.create(
+                ImmutableList.of(Version.parse("1.0"), Version.parse("1.5")), "")));
+
+    EvaluationResult<SelectionValue> result =
+        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    String error = result.getError().toString();
+    assertThat(error)
+        .containsMatch(
+            "A@_ depends on B@1.5 at least twice \\(with repo names (B2 and B3)|(B3 and B2)\\)");
+  }
 
   @Test
   public void multipleVersionOverride_diamond_differentCompatibilityLevels() throws Exception {

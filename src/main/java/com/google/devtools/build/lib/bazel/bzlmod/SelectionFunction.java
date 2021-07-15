@@ -311,6 +311,23 @@ public class SelectionFunction implements SkyFunction {
         }
       }
 
+      // Make sure that we don't have `module` depending on the same dependency version twice.
+      HashMap<ModuleKey, String> depKeyToRepoName = new HashMap<>();
+      for (Map.Entry<String, ModuleKey> depEntry : module.getDeps().entrySet()) {
+        String repoName = depEntry.getKey();
+        ModuleKey depKey = depEntry.getValue();
+        String previousRepoName = depKeyToRepoName.put(depKey, repoName);
+        if (previousRepoName != null) {
+          throw new SelectionException(
+              String.format(
+                  "%s depends on %s at least twice (with repo names %s and %s). Consider adding a"
+                      + " multiple_version_override if you want to depend on multiple versions of"
+                      + " %s simultaneously",
+                  key, depKey, repoName, previousRepoName, key.getName()));
+        }
+      }
+
+      // Now visit our dependencies.
       for (ModuleKey depKey : module.getDeps().values()) {
         walk(depKey, key);
       }
