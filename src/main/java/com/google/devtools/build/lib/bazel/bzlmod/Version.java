@@ -153,27 +153,16 @@ public abstract class Version implements Comparable<Version> {
     return new AutoValue_Version(releaseSplit.build(), prereleaseSplit.build(), version);
   }
 
-  /** Same as {@link #parse} but throws an unchecked exception instead, useful for testing. */
-  public static Version mustParse(String version) {
-    try {
-      return parse(version);
-    } catch (ParseException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
-
   private static final Comparator<Version> COMPARATOR =
-      Comparator.nullsFirst(
-          comparing(Version::isEmpty, falseFirst())
-              .thenComparing(
-                  Version::getRelease, lexicographical(Comparator.<Integer>naturalOrder()))
-              .thenComparing(Version::isPrerelease, trueFirst())
-              .thenComparing(
-                  Version::getPrerelease,
-                  lexicographical(
-                      comparing(Identifier::isDigitsOnly, trueFirst())
-                          .thenComparingInt(Identifier::asNumber)
-                          .thenComparing(Identifier::asString))));
+      comparing(Version::isEmpty, falseFirst())
+          .thenComparing(Version::getRelease, lexicographical(Comparator.<Integer>naturalOrder()))
+          .thenComparing(Version::isPrerelease, trueFirst())
+          .thenComparing(
+              Version::getPrerelease,
+              lexicographical(
+                  comparing(Identifier::isDigitsOnly, trueFirst())
+                      .thenComparingInt(Identifier::asNumber)
+                      .thenComparing(Identifier::asString)));
 
   @Override
   public int compareTo(Version o) {

@@ -29,19 +29,10 @@ public class VersionTest {
 
   @Test
   public void testEmptyBeatsEverything() throws Exception {
-    assertThat(Version.parse("")).isGreaterThan(null);
     assertThat(Version.parse("")).isGreaterThan(Version.parse("1.0"));
     assertThat(Version.parse("")).isGreaterThan(Version.parse("1.0+build"));
     assertThat(Version.parse("")).isGreaterThan(Version.parse("1.0-pre"));
     assertThat(Version.parse("")).isGreaterThan(Version.parse("1.0-pre+build-kek.lol"));
-  }
-
-  @Test
-  public void testEverythingBeatsNull() throws Exception {
-    assertThat(Version.parse("1.0")).isGreaterThan(null);
-    assertThat(Version.parse("1.0+build")).isGreaterThan(null);
-    assertThat(Version.parse("1.0-pre")).isGreaterThan(null);
-    assertThat(Version.parse("1.0-pre+build-kek")).isGreaterThan(null);
   }
 
   @Test
