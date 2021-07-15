@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -89,7 +90,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
    */
   // Note: Not using a caffeine cache here because it used more memory (b/193294367).
   private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey> nestedSetToSkyKey =
-      new MapMaker().weakValues().makeMap();
+      new MapMaker().concurrencyLevel(BlazeInterners.concurrencyLevel()).weakValues().makeMap();
 
   private final Supplier<ArtifactNestedSetValue> valueSupplier;
 
