@@ -58,6 +58,7 @@ java_library(
         "ModuleFileGlobals.java",
         "ModuleFileValue.java",
         "ModuleOverride.java",
+        "MultipleVersionOverride.java",
         "NonRegistryOverride.java",
         "RegistryOverride.java",
         "SelectionFunction.java",

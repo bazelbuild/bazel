@@ -180,11 +180,6 @@ public abstract class Version implements Comparable<Version> {
     return Objects.compare(this, o, COMPARATOR);
   }
 
-  /** Returns the higher of two versions. */
-  public static Version max(@Nullable Version a, @Nullable Version b) {
-    return Objects.compare(a, b, COMPARATOR) >= 0 ? a : b;
-  }
-
   @Override
   public final String toString() {
     return getOriginal();

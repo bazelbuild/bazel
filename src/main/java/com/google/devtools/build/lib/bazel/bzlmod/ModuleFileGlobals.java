@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction.ModuleFileFunctionException;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.ModuleFileGlobalsApi;
 import java.util.HashMap;
@@ -28,7 +27,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 
 /** Implementation of the global functions available to a module file. */
-public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctionException> {
+public class ModuleFileGlobals implements ModuleFileGlobalsApi {
 
   private boolean moduleCalled = false;
   private final Module.Builder module = Module.builder();
@@ -118,6 +117,24 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi<ModuleFileFunctio
             registry,
             checkAllStrings(patches, "patches"),
             patchStrip.toInt("single_version_override.patch_strip")));
+  }
+
+  @Override
+  public void multipleVersionOverride(String moduleName, Iterable<?> versions, String registry)
+      throws EvalException {
+    ImmutableList.Builder<Version> parsedVersionsBuilder = new ImmutableList.Builder<>();
+    try {
+      for (String version : checkAllStrings(versions, "versions")) {
+        parsedVersionsBuilder.add(Version.parse(version));
+      }
+    } catch (ParseException e) {
+      throw new EvalException("Invalid version in multiple_version_override()", e);
+    }
+    ImmutableList<Version> parsedVersions = parsedVersionsBuilder.build();
+    if (parsedVersions.size() < 2) {
+      throw new EvalException("multiple_version_override() must specify at least 2 versions");
+    }
+    addOverride(moduleName, MultipleVersionOverride.create(parsedVersions, registry));
   }
 
   @Override

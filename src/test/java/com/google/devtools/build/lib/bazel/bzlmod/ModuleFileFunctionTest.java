@@ -173,7 +173,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "bazel_dep(name='B',version='1.0')",
         "bazel_dep(name='C',version='2.0',repo_name='see')",
         "single_version_override(module_name='D',version='18')",
-        "local_path_override(module_name='E',path='somewhere/else')");
+        "local_path_override(module_name='E',path='somewhere/else')",
+        "multiple_version_override(module_name='F',versions=['1.0','2.0'])");
     FakeRegistry registry = registryFactory.newFakeRegistry();
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
@@ -195,7 +196,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThat(moduleFileValue.getOverrides())
         .containsExactly(
             "D", SingleVersionOverride.create(Version.parse("18"), "", ImmutableList.of(), 0),
-            "E", LocalPathOverride.create("somewhere/else"));
+            "E", LocalPathOverride.create("somewhere/else"),
+            "F",
+                MultipleVersionOverride.create(
+                    ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
   }
 
   @Test
