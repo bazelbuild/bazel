@@ -17,7 +17,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import javax.annotation.Nullable;
 
@@ -32,8 +35,12 @@ import javax.annotation.Nullable;
 class AndroidLintActionBuilder {
   private AndroidLintActionBuilder() {}
 
+  private static final String MNEMONIC = "AndroidLint";
   private static final ParamFileInfo PARAM_FILE_INFO =
-      ParamFileInfo.builder(ParameterFileType.UNQUOTED).setCharset(UTF_8).build();
+      ParamFileInfo.builder(ParameterFileType.UNQUOTED)
+          .setCharset(UTF_8)
+          .setUseAlways(true) // needed to support workers
+          .build();
 
   /** Creates and registers Android Lint action if needed and returns action's output if created. */
   @Nullable
@@ -93,11 +100,11 @@ class AndroidLintActionBuilder {
     cmd.add("--lintopts");
     cmd.addAll(androidLint.options());
 
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
+    SpawnAction.Builder spawnAction = new SpawnAction.Builder();
     for (JavaPackageConfigurationProvider provider : androidLint.packageConfiguration()) {
       if (provider.matches(ruleContext.getLabel())) {
         cmd.addAll(provider.javacopts());
-        inputs.addTransitive(provider.data());
+        spawnAction.addTransitiveInputs(provider.data());
       }
     }
 
@@ -107,8 +114,8 @@ class AndroidLintActionBuilder {
             ruleContext.getBinOrGenfilesDirectory());
     cmd.addExecPath("--xml", result);
 
-    SpawnAction.Builder spawnAction = new SpawnAction.Builder();
-    androidLint.tool().buildCommandLine(spawnAction.executableArguments(), toolchain, inputs);
+    NestedSetBuilder<Artifact> toolInputs = NestedSetBuilder.stableOrder();
+    androidLint.tool().buildCommandLine(spawnAction.executableArguments(), toolchain, toolInputs);
     ruleContext.registerAction(
         spawnAction
             .addCommandLine(cmd.build(), PARAM_FILE_INFO)
@@ -118,11 +125,25 @@ class AndroidLintActionBuilder {
             .addTransitiveInputs(classpath)
             .addTransitiveInputs(attributes.plugins().plugins().processorClasspath())
             .addTransitiveInputs(attributes.plugins().plugins().data())
-            .addTransitiveInputs(inputs.build())
+            .addTransitiveTools(toolInputs.build())
             .addOutput(result)
-            .setMnemonic("AndroidLint")
+            .setMnemonic(MNEMONIC)
             .setProgressMessage("Running Android Lint for: %s", ruleContext.getLabel())
+            .setExecutionInfo(getExecutionInfo(ruleContext))
             .build(ruleContext));
     return result;
+  }
+
+  /** Advertises worker support added in b/191156225. */
+  private static ImmutableMap<String, String> getExecutionInfo(RuleContext ruleContext) {
+    ImmutableMap<String, String> executionInfo =
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+
+    return ImmutableMap.<String, String>builder()
+        .putAll(ruleContext.getConfiguration().modifiedExecutionInfo(executionInfo, MNEMONIC))
+        .putAll(
+            TargetUtils.getExecutionInfo(
+                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+        .build();
   }
 }
