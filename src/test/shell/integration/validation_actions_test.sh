@@ -477,4 +477,35 @@ function test_validation_actions_do_not_propagate_through_genquery() {
   expect_not_log "validation failed!"
 }
 
+function test_validation_actions_flags() {
+  setup_test_project
+  setup_passing_validation_action
+
+  bazel build --experimental_run_validations \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
+  assert_exists bazel-bin/validation_actions/foo0.validation
+  rm -f bazel-bin/validation_actions/foo0.validation
+
+  bazel build --run_validations \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
+  assert_exists bazel-bin/validation_actions/foo0.validation
+  rm -f bazel-bin/validation_actions/foo0.validation
+
+  setup_failing_validation_action
+
+  bazel build --noexperimental_run_validations \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+
+  bazel build --norun_validations \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+}
+
 run_suite "Validation actions integration tests"
