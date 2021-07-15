@@ -360,11 +360,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
 
     @Override
-    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException {
-      return metadataHandler.getTreeArtifactValue(treeArtifact);
-    }
-
-    @Override
     public void markOmitted(Artifact output) {
       metadataHandler.markOmitted(output);
     }

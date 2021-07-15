@@ -398,8 +398,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         env,
         actionFileSystem,
         skyframeDepsResult,
-        nestedSetExpander,
-        syscalls);
+        nestedSetExpander);
   }
 
   /**
