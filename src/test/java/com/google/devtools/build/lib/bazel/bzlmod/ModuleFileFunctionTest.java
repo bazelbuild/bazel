@@ -21,21 +21,33 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
@@ -49,6 +61,8 @@ import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -88,7 +102,20 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             packageLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder
+        .clearWorkspaceFileSuffixForTesting()
+        .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
+    ConfiguredRuleClassProvider ruleClassProvider = builder.build();
 
+    PackageFactory packageFactory =
+        AnalysisMock.get()
+            .getPackageFactoryBuilderForTesting(directories)
+            .build(ruleClassProvider, fileSystem);
+
+    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
+        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -103,11 +130,39 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootDirectory))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
+                .put(
+                    SkyFunctions.REPOSITORY_DIRECTORY,
+                    new RepositoryDelegatorFunction(
+                        repositoryHandlers,
+                        null,
+                        new AtomicBoolean(true),
+                        ImmutableMap::of,
+                        directories,
+                        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+                    new BzlmodRepoRuleFunction(
+                        packageFactory,
+                        ruleClassProvider,
+                        directories,
+                        new BzlmodRepoRuleHelperImpl()))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
+        differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
+    PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
+    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
+        differencer, Optional.empty());
+    PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
+    RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.set(
+        differencer, ImmutableSet.of());
+    RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
+    RepositoryDelegatorFunction.ENABLE_BZLMOD.set(differencer, true);
   }
 
   @Test
@@ -195,7 +250,44 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .build());
   }
 
-  // TODO: test local path override
+  @Test
+  public void testLocalPathOverride() throws Exception {
+    // There is an override for B to use the local path "code_for_b", so we shouldn't even be
+    // looking at the registry.
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1')",
+        "local_path_override(module_name='B',path='code_for_b')");
+    scratch.file(
+        rootDirectory.getRelative("code_for_b/MODULE.bazel").getPathString(),
+        "module(name='B',version='1.0')",
+        "bazel_dep(name='C',version='2.0')");
+    scratch.file(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry()
+            .addModule(
+                createModuleKey("B", "1.0"),
+                "module(name='B',version='1.0');bazel_dep(name='C',version='3.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    // The version is empty here due to the override.
+    SkyKey skyKey =
+        ModuleFileValue.key(createModuleKey("B", ""), LocalPathOverride.create("code_for_b"));
+    EvaluationResult<ModuleFileValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    ModuleFileValue moduleFileValue = result.get(skyKey);
+    assertThat(moduleFileValue.getModule())
+        .isEqualTo(
+            Module.builder()
+                .setName("B")
+                .setVersion(Version.parse("1.0"))
+                .addDep("C", createModuleKey("C", "2.0"))
+                .build());
+  }
 
   @Test
   public void testRegistryOverride() throws Exception {

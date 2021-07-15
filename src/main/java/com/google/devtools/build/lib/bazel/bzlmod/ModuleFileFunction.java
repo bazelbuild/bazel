@@ -18,13 +18,15 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -110,7 +112,8 @@ public class ModuleFileFunction implements SkyFunction {
   private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
       throws SkyFunctionException, InterruptedException {
     RootedPath moduleFilePath =
-        RootedPath.toRootedPath(Root.fromPath(workspaceRoot), PathFragment.create("MODULE.bazel"));
+        RootedPath.toRootedPath(
+            Root.fromPath(workspaceRoot), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
     if (env.getValue(FileValue.key(moduleFilePath)) == null) {
       return null;
     }
@@ -166,8 +169,26 @@ public class ModuleFileFunction implements SkyFunction {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
     if (override instanceof NonRegistryOverride) {
-      // TODO(wyv): implement
-      throw errorf("Non-registry overrides are not implemented yet");
+      // The canonical repo name of a module with a non-registry override is always the name of the
+      // module.
+      String repoName = key.getName();
+      RepositoryDirectoryValue repoDir =
+          (RepositoryDirectoryValue)
+              env.getValue(
+                  RepositoryDirectoryValue.key(
+                      RepositoryName.createFromValidStrippedName(repoName)));
+      if (repoDir == null) {
+        return null;
+      }
+      RootedPath moduleFilePath =
+          RootedPath.toRootedPath(
+              Root.fromPath(repoDir.getPath()), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
+      if (env.getValue(FileValue.key(moduleFilePath)) == null) {
+        return null;
+      }
+      GetModuleFileResult result = new GetModuleFileResult();
+      result.moduleFileContents = readFile(moduleFilePath.asPath());
+      return result;
     }
 
     // Otherwise, we should get the module file from a registry.
