@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -131,7 +131,7 @@ public final class CallStack {
    */
   static final class Factory {
 
-    private final Interner<Node> nodeCache = Interners.newWeakInterner();
+    private final Interner<Node> nodeCache = BlazeInterners.newWeakInterner();
 
     /**
      * Returns a {@link CallStack}.
