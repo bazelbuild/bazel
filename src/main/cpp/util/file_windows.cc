@@ -259,7 +259,15 @@ bool ReadFile(const string& filename, string* content, int max_size) {
     content->clear();
     return true;
   }
-  return ReadFile(Path(filename), content, max_size);
+
+  // In order for try-imports to be ignored gracefully we need to check for an error with the path and return false
+  // rather than die.
+  std::string errorText;
+  Path path = Path(filename, &errorText);
+  if (!errorText.empty()) {
+      return false;
+  }
+  return ReadFile(path, content, max_size);
 }
 
 bool ReadFile(const Path& path, std::string* content, int max_size) {

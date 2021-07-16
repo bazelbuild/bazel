@@ -141,6 +141,9 @@ std::string TestOnly_NormalizeAbsPath(const std::string &s) {
 Path::Path(const std::string &path)
     : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
 
+Path::Path(const std::string &path, std::string *errorText)
+        : path_(NormalizeAbsPath(MakeAbsolute(path))) {}
+
 bool Path::IsNull() const { return path_ == "/dev/null"; }
 
 bool Path::Contains(const char c) const {

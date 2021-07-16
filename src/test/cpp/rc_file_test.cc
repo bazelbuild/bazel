@@ -857,6 +857,18 @@ TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFailForUnreadableFile) {
   ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 }
 
+#if defined(_WIN32)
+TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFailForInvalidPosixPathOnWindows) {
+
+std::string workspace_rc;
+ASSERT_TRUE(
+        SetUpWorkspaceRcFile("try-import /mnt/shared/defaults.bazelrc", &workspace_rc));
+
+const std::vector<std::string> args = {"bazel", "build"};
+ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
+}
+#endif
+
 
 TEST_F(BlazercImportTest, BazelRcImportsMaintainsFlagOrdering) {
   TestBazelRcImportsMaintainsFlagOrdering("import");

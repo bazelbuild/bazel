@@ -468,19 +468,27 @@ static char GetCurrentDrive() {
   return 'a' + wdrive - offset;
 }
 
-Path::Path(const std::string& path) {
-  if (path.empty()) {
-    return;
-  } else if (IsDevNull(path.c_str())) {
-    path_ = L"NUL";
-  } else {
-    std::string error;
-    if (!AsAbsoluteWindowsPath(path, &path_, &error)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "Path::Path(" << path
-          << "): AsAbsoluteWindowsPath failed: " << error;
+Path::Path(const std::string& path) : Path(path, nullptr) {
+}
+
+Path::Path(const std::string& path, std::string *errorText) {
+    if (path.empty()) {
+        return;
+    } else if (IsDevNull(path.c_str())) {
+        path_ = L"NUL";
+    } else {
+        std::string error;
+        if (!AsAbsoluteWindowsPath(path, &path_, &error)) {
+            if (errorText == nullptr) {
+                BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+                        << "Path::Path(" << path
+                        << "): AsAbsoluteWindowsPath failed: " << error;
+            } else {
+                *errorText = error;
+            }
+
+        }
     }
-  }
 }
 
 Path Path::GetRelative(const std::string& r) const {
