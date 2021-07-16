@@ -106,11 +106,8 @@ public interface EvaluationProgressReceiver {
    * Notifies that the node for {@code skyKey} is about to complete the given {@code nodeState}.
    *
    * <p>Always called symmetrically with {@link #stateStarting(SkyKey, NodeState)}}.
-   *
-   * <p>{@code elapsedTimeNanos} is either the elapsed time in the {@code nodeState} or -1 if the
-   * timing was not recorded.
    */
-  default void stateEnding(SkyKey skyKey, NodeState nodeState, long elapsedTimeNanos) {}
+  default void stateEnding(SkyKey skyKey, NodeState nodeState) {}
 
   /**
    * Notifies that the node for {@code skyKey} has been evaluated, or found to not need

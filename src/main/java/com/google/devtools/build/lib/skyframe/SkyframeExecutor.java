@@ -3025,7 +3025,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     @Override
-    public void stateEnding(SkyKey skyKey, NodeState nodeState, long elapsedTimeNanos) {
+    public void stateEnding(SkyKey skyKey, NodeState nodeState) {
       if (NodeState.COMPUTE.equals(nodeState)) {
         skyKeyStateReceiver.computationEnded(skyKey);
       }
