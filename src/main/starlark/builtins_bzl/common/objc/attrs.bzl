@@ -64,6 +64,7 @@ _COMPILING_RULE = {
     ),
     "defines": attr.string_list(),
     "enable_modules": attr.bool(),
+    "linkopts": attr.string_list(),
     "module_map": attr.label(allow_files = [".modulemap"]),
     "module_name": attr.string(),
     # How many rules use this in the depot?

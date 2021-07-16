@@ -76,23 +76,10 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         builder, starlarkRuleContext.getRuleContext());
     CompilationAttributes.Builder.addSdkAttributesFromRuleContext(
         builder, starlarkRuleContext.getRuleContext());
-    ImmutableMap<String, String> toolchainMap =
-        starlarkRuleContext
-            .getRuleContext()
-            .getPrerequisite("$cc_toolchain", TemplateVariableInfo.PROVIDER)
-            .getVariables();
-    ImmutableMap<String, String> starlarkRuleContextMap =
-        ImmutableMap.<String, String>builder().putAll(starlarkRuleContext.var()).build();
-    List<String> copts = new ArrayList<>();
-    for (String copt :
-        starlarkRuleContext.getRuleContext().attributes().get("copts", Type.STRING_LIST)) {
-      String expandedCopt = expandCopt(copt, toolchainMap, starlarkRuleContextMap);
-      try {
-        ShellUtils.tokenize(copts, expandedCopt);
-      } catch (TokenizationException e) {
-        throw new EvalException(e);
-      }
-    }
+    List<String> copts =
+        expandToolchainAndRuleContextVariables(
+            starlarkRuleContext,
+            starlarkRuleContext.getRuleContext().attributes().get("copts", Type.STRING_LIST));
     CompilationAttributes.Builder.addCompileOptionsFromRuleContext(
         builder, starlarkRuleContext.getRuleContext(), copts);
     CompilationAttributes.Builder.addModuleOptionsFromRuleContext(
@@ -101,24 +88,45 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     return builder.build();
   }
 
-  private String expandCopt(
-      String copt,
+  private List<String> expandToolchainAndRuleContextVariables(
+      StarlarkRuleContext starlarkRuleContext, Iterable<String> flags) throws EvalException {
+    ImmutableMap<String, String> toolchainMap =
+        starlarkRuleContext
+            .getRuleContext()
+            .getPrerequisite("$cc_toolchain", TemplateVariableInfo.PROVIDER)
+            .getVariables();
+    ImmutableMap<String, String> starlarkRuleContextMap =
+        ImmutableMap.<String, String>builder().putAll(starlarkRuleContext.var()).build();
+    List<String> expandedFlags = new ArrayList<>();
+    for (String flag : flags) {
+      String expandedFlag = expandFlag(flag, toolchainMap, starlarkRuleContextMap);
+      try {
+        ShellUtils.tokenize(expandedFlags, expandedFlag);
+      } catch (TokenizationException e) {
+        throw new EvalException(e);
+      }
+    }
+    return expandedFlags;
+  }
+
+  private String expandFlag(
+      String flag,
       ImmutableMap<String, String> toolchainMap,
       ImmutableMap<String, String> contextMap) {
-    if (!copt.contains("$(")) {
-      return copt;
+    if (!flag.contains("$(")) {
+      return flag;
     }
-    int beginning = copt.indexOf("$(");
-    int end = copt.indexOf(')', beginning);
-    String variable = copt.substring(beginning + 2, end);
+    int beginning = flag.indexOf("$(");
+    int end = flag.indexOf(')', beginning);
+    String variable = flag.substring(beginning + 2, end);
     String expandedVariable;
     if (toolchainMap.containsKey(variable)) {
       expandedVariable = toolchainMap.get(variable);
     } else {
       expandedVariable = contextMap.get(variable);
     }
-    String expandedCopt = copt.replace("$(" + variable + ")", expandedVariable);
-    return expandCopt(expandedCopt, toolchainMap, contextMap);
+    String expandedFlag = flag.replace("$(" + variable + ")", expandedVariable);
+    return expandFlag(expandedFlag, toolchainMap, contextMap);
   }
 
   @StarlarkMethod(
@@ -198,7 +206,8 @@ public class ObjcStarlarkInternal implements StarlarkValue {
             positional = false,
             defaultValue = "[]",
             named = true),
-        @Param(name = "compilation_artifacts", positional = false, named = true)
+        @Param(name = "compilation_artifacts", positional = false, named = true),
+        @Param(name = "linkopts", positional = false, named = true, defaultValue = "[]")
       })
   public ObjcCommon createObjcCommon(
       StarlarkRuleContext starlarkRuleContext,
@@ -210,7 +219,8 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       boolean alwayslink,
       boolean hasModuleMap,
       Sequence<?> extraImportLibraries,
-      CompilationArtifacts compilationArtifacts)
+      CompilationArtifacts compilationArtifacts,
+      Sequence<?> linkopts)
       throws InterruptedException, EvalException {
     ObjcCommon.Builder builder =
         new ObjcCommon.Builder(
@@ -223,7 +233,10 @@ public class ObjcStarlarkInternal implements StarlarkValue {
             .setAlwayslink(alwayslink)
             .addExtraImportLibraries(
                 Sequence.cast(extraImportLibraries, Artifact.class, "archives"))
-            .setCompilationArtifacts(compilationArtifacts);
+            .setCompilationArtifacts(compilationArtifacts)
+            .addLinkopts(
+                expandToolchainAndRuleContextVariables(
+                    starlarkRuleContext, Sequence.cast(linkopts, String.class, "linkopts")));
 
     if (hasModuleMap) {
       builder.setHasModuleMap();

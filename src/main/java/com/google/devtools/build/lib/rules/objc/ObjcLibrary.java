@@ -61,6 +61,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps"))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
+        .addLinkopts(ruleContext.getExpander().withDataLocations().tokenized("linkopts"))
         .setHasModuleMap()
         .build();
   }

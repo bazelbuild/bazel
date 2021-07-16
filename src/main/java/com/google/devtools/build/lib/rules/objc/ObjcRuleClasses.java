@@ -492,6 +492,10 @@ public class ObjcRuleClasses {
           all special symbols replaced by _, e.g. //foo/baz:bar can be imported as foo_baz_bar.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("module_name", STRING))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(linkopts) -->
+          Extra flags to pass to the linker.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("linkopts", STRING_LIST))
           .build();
     }
     @Override

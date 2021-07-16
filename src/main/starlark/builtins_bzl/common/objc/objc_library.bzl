@@ -143,6 +143,7 @@ def _objc_library_impl(ctx):
         ctx.attr.deps,
         ctx.attr.runtime_deps,
         [],
+        ctx.attr.linkopts,
     )
     files = []
     if objc_common.compiled_archive != None:

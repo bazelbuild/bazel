@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -112,6 +112,7 @@ public final class ObjcCommon implements StarlarkValue {
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
+    private Iterable<String> linkopts = ImmutableList.of();
     private boolean hasModuleMap;
     private Iterable<Artifact> extraImportLibraries = ImmutableList.of();
     private Iterable<CcCompilationContext> ccCompilationContexts = ImmutableList.of();
@@ -296,6 +297,11 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
+    Builder addLinkopts(Iterable<String> linkopts) {
+      this.linkopts = Iterables.concat(this.linkopts, linkopts);
+      return this;
+    }
+
     /**
      * Specifies that this target has a clang module map. This should be called if this target
      * compiles sources or exposes headers for other targets to use. Note that this does not add
@@ -341,28 +347,15 @@ public final class ObjcCommon implements StarlarkValue {
 
       for (CcLinkingContext linkProvider : ccLinkingContexts) {
         ImmutableList<String> linkOpts = linkProvider.getFlattenedUserLinkFlags();
-        ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
-        ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
-        // Add any framework flags as frameworks directly, rather than as linkopts.
-        for (UnmodifiableIterator<String> iterator = linkOpts.iterator(); iterator.hasNext(); ) {
-          String arg = iterator.next();
-          if (arg.equals("-framework") && iterator.hasNext()) {
-            String framework = iterator.next();
-            frameworkLinkOpts.add(new SdkFramework(framework));
-          } else {
-            nonFrameworkLinkOpts.add(arg);
-          }
-        }
-
+        addLinkoptsToObjcProvider(linkOpts, objcProvider);
         objcProvider
-            .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
-            .addAll(LINKOPT, nonFrameworkLinkOpts.build())
             .addTransitiveAndPropagate(
                 CC_LIBRARY,
                 NestedSetBuilder.<LibraryToLink>linkOrder()
                     .addTransitive(linkProvider.getLibraries())
                     .build());
       }
+      addLinkoptsToObjcProvider(linkopts, objcProvider);
 
       for (CcLinkingContext ccLinkStampContext : ccLinkStampContexts) {
         objcProvider.addAll(LINKSTAMP, ccLinkStampContext.getLinkstamps());
@@ -447,6 +440,25 @@ public final class ObjcCommon implements StarlarkValue {
           purpose, objcProvider.build(), objcCompilationContext, compilationArtifacts);
     }
 
+    private void addLinkoptsToObjcProvider(
+        Iterable<String> linkopts, ObjcProvider.Builder objcProvider) {
+      ImmutableSet.Builder<SdkFramework> frameworkLinkOpts = new ImmutableSet.Builder<>();
+      ImmutableList.Builder<String> nonFrameworkLinkOpts = new ImmutableList.Builder<>();
+      // Add any framework flags as frameworks directly, rather than as linkopts.
+      for (Iterator<String> iterator = linkopts.iterator(); iterator.hasNext(); ) {
+        String arg = iterator.next();
+        if (arg.equals("-framework") && iterator.hasNext()) {
+          String framework = iterator.next();
+          frameworkLinkOpts.add(new SdkFramework(framework));
+        } else {
+          nonFrameworkLinkOpts.add(arg);
+        }
+      }
+
+      objcProvider
+          .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
+          .addAll(LINKOPT, nonFrameworkLinkOpts.build());
+    }
   }
 
   private final Purpose purpose;

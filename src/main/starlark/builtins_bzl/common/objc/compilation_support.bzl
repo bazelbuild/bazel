@@ -52,7 +52,8 @@ def _build_common_variables(
         empty_compilation_artifacts,
         deps,
         runtime_deps,
-        extra_import_libraries):
+        extra_import_libraries,
+        linkopts):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
     intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
     if empty_compilation_artifacts:
@@ -70,6 +71,7 @@ def _build_common_variables(
         alwayslink = ctx.attr.alwayslink,
         has_module_map = True,
         extra_import_libraries = extra_import_libraries,
+        linkopts = linkopts,
     )
 
     return objc_common, struct(
