@@ -226,7 +226,7 @@ public final class ThrowableExtension {
     private final ConcurrentWeakIdentityHashMap map = new ConcurrentWeakIdentityHashMap();
 
     /**
-     * Suppress an exception. If the exception to be suppressed is {@receiver} or {@null}, an
+     * Suppress an exception. If the exception to be suppressed is {@code receiver} or {@null}, an
      * exception will be thrown.
      */
     @Override
