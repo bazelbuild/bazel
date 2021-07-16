@@ -1,3 +1,31 @@
+## Release 5.0.0-pre.20210708.4 (2021-07-16)
+
+```
+Baseline: ca1d20fdfa95dad533c64aba08ba9d7d98be41b7
+
+Cherry picks:
+
+   + 802901e697015ee6a56ac36cd0000c1079207d12:
+     Add flags parameter to attr.label for use in builtins only.
+   + aa768ada9ef6bcd8de878a5ca2dbd9932f0868fc:
+     Automated rollback of commit
+     ca1d20fdfa95dad533c64aba08ba9d7d98be41b7.
+   + 4bcf2e83c5cb4f459aae815b38f1edd823286a29:
+     Automated rollback of commit
+     ff38dbfc65b8ffe92833e67f12ce616739a3d213.
+   + 706483fd6398f00fd4faba73812de9bf15728086:
+     Resolve merge conflict
+   + 3821db8725b9ea3267cddfd0bbad55f50e96527e:
+     Fix merge conflict properly
+```
+
+Important changes:
+
+  - The used_heap_size_post_build field in BEP is populated when the
+    --memory_profile flag is set
+
+This release contains contributions from many people at Google, as well as Daniel Wagner-Hall, Grzegorz Lukasik, Keith Smiley, Kevin Hogeland, Yannic Bonenberger.
+
 ## Release 5.0.0-pre.20210623.2 (2021-07-02)
 
 ```
