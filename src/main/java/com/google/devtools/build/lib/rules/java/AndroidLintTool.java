@@ -14,12 +14,17 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
@@ -46,8 +51,17 @@ abstract class AndroidLintTool implements StarlarkValue {
     if (tool == null) {
       return null;
     }
+    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locations = ImmutableMap.builder();
+    for (TransitiveInfoCollection data : ruleContext.getPrerequisites("android_lint_data")) {
+      locations.put(
+          AliasProvider.getDependencyLabel(data),
+          data.getProvider(FileProvider.class).getFilesToBuild().toList());
+    }
     ImmutableList<String> options =
-        ImmutableList.copyOf(ruleContext.attributes().get("android_lint_opts", Type.STRING_LIST));
+        ruleContext
+            .getExpander()
+            .withExecLocations(locations.build())
+            .tokenized("android_lint_opts");
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
