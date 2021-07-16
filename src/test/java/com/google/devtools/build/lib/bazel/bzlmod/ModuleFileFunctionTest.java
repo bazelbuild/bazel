@@ -203,6 +203,25 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testRootModule_noModuleFunctionIsOkay() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='B',version='1.0')");
+    FakeRegistry registry = registryFactory.newFakeRegistry();
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<ModuleFileValue> result =
+        driver.evaluate(ImmutableList.of(ModuleFileValue.keyForRootModule()), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    ModuleFileValue moduleFileValue = result.get(ModuleFileValue.keyForRootModule());
+    assertThat(moduleFileValue.getModule())
+        .isEqualTo(Module.builder().addDep("B", createModuleKey("B", "1.0")).build());
+    assertThat(moduleFileValue.getOverrides()).isEmpty();
+  }
+
+  @Test
   public void testRootModule_badSelfOverride() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),

@@ -61,7 +61,10 @@ public abstract class Module {
 
   /** Returns a new, empty {@link Builder}. */
   public static Builder builder() {
-    return new AutoValue_Module.Builder().setCompatibilityLevel(0);
+    return new AutoValue_Module.Builder()
+        .setName("")
+        .setVersion(Version.EMPTY)
+        .setCompatibilityLevel(0);
   }
 
   /**
@@ -79,8 +82,10 @@ public abstract class Module {
   /** Builder type for {@link Module}. */
   @AutoValue.Builder
   public abstract static class Builder {
+    /** Optional; defaults to the empty string. */
     public abstract Builder setName(String value);
 
+    /** Optional; defaults to {@link Version#EMPTY}. */
     public abstract Builder setVersion(Version value);
 
     /** Optional; defaults to {@code 0}. */
