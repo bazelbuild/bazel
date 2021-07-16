@@ -485,6 +485,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // Preseve Xcode selection preferences so that the same Xcode version is used throughout the
     // build.
     host.preferMutualXcode = preferMutualXcode;
+    host.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
 
     return host;
   }
