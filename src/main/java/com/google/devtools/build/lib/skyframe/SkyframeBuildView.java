@@ -750,8 +750,6 @@ public final class SkyframeBuildView {
         // the event handler.
         if (!keepGoing && noKeepGoingException == null) {
           AspectValueKey aspectKey = (AspectValueKey) errorKey.argument();
-          failedAspectLabel = aspectKey.getBaseConfiguredTargetKey();
-
           String errorMsg =
               String.format(
                   "Analysis of aspect '%s' failed; build aborted", aspectKey.getDescription());
