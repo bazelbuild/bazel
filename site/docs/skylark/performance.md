@@ -110,7 +110,7 @@ transitive = []
 for i in inputs:
     transitive.append(i.deps)
 
-x = depset(transitive = transitive])
+x = depset(transitive = transitive)
 ```
 
 This can sometimes be reduced using a list comprehension:
