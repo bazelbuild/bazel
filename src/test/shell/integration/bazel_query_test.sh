@@ -1002,4 +1002,42 @@ EOF
   bazel query '//:*' || fail "Expected success"
 }
 
+function test_query_sees_aspect_hints_deps_on_starlark_rule() {
+  local package="aspect_hints"
+  mkdir -p "${package}"
+
+  cat > "${package}/custom_rule.bzl" <<EOF
+
+def _rule_impl(ctx):
+    return []
+
+custom_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "deps": attr.label_list(),
+    }
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:custom_rule.bzl", "custom_rule")
+
+custom_rule(name = "hint")
+
+custom_rule(
+    name = "foo",
+    deps = [":bar"],
+)
+custom_rule(
+    name = "bar",
+    aspect_hints = [":hint"],
+)
+EOF
+
+  bazel query "somepath(//${package}:foo, //${package}:hint)" >& $TEST_log \
+     || fail "Expected success"
+
+  expect_log "//${package}:hint"
+}
+
 run_suite "${PRODUCT_NAME} query tests"

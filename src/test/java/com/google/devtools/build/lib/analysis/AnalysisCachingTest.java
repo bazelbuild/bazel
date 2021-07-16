@@ -119,6 +119,41 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
+  public void testAspectHintsChanged() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "my_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(),",
+        "        'srcs': attr.label_list(allow_files = True)",
+        "    },",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//foo:rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', deps = [':bar'])",
+        "my_rule(name = 'bar', aspect_hints = ['//aspect_hint:hint'])");
+    scratch.file(
+        "aspect_hint/BUILD",
+        "load('//foo:rule.bzl', 'my_rule')",
+        "my_rule(name = 'hint', srcs = ['baz.h'])");
+
+    update("//foo:foo");
+    ConfiguredTarget old = getConfiguredTarget("//foo:foo");
+    scratch.overwriteFile(
+        "aspect_hint/BUILD",
+        "load('//foo:rule.bzl', 'my_rule')",
+        "my_rule(name = 'hint', srcs = ['qux.h'])");
+    update("//foo:foo");
+    ConfiguredTarget current = getConfiguredTarget("//foo:foo");
+
+    assertThat(current).isNotSameInstanceAs(old);
+  }
+
+  @Test
   public void testTopLevelChanged() throws Exception {
     scratch.file(
         "java/a/BUILD",

@@ -625,4 +625,173 @@ EOF
   expect_log_once "Aspect 'a' applied on target: //${package}:t"
 }
 
+function test_aspect_has_access_to_aspect_hints_attribute_in_native_rules() {
+  local package="aspect_hints"
+  mkdir -p "${package}"
+  create_aspect_hints_rule_and_aspect "${package}"
+  create_aspect_hints_cc_files "${package}"
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:hints_counter.bzl", "count_hints")
+load("//${package}:hints.bzl", "hint")
+
+hint(name = "first_hint", hints_cnt = 2)
+hint(name = "second_hint", hints_cnt = 3)
+
+cc_library(
+    name = "cc_foo",
+    srcs = ["foo.cc"],
+    hdrs = ["foo.h"],
+    deps = [":cc_bar"],
+    aspect_hints = [":first_hint"],
+)
+cc_library(
+    name = "cc_bar",
+    hdrs = ["bar.h"],
+    aspect_hints = [":second_hint"]
+)
+
+count_hints(name = "cnt", deps = [":cc_foo"])
+EOF
+
+  bazel build "//${package}:cnt" --output_groups=out || fail "Build failed"
+  assert_contains "Used hints: 5" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
+}
+
+function test_aspect_has_access_to_aspect_hints_attribute_in_starlark_rules() {
+  local package="aspect_hints"
+  mkdir -p "${package}"
+
+  create_aspect_hints_rule_and_aspect "${package}"
+  create_aspect_hints_custom_rule "${package}"
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:hints_counter.bzl", "count_hints")
+load("//${package}:custom_rule.bzl", "custom_rule")
+load("//${package}:hints.bzl", "hint")
+
+hint(name = "first_hint", hints_cnt = 2)
+hint(name = "second_hint", hints_cnt = 20)
+
+custom_rule(
+    name = "custom_foo",
+    deps = [":custom_bar"],
+    aspect_hints = [":first_hint"],
+)
+custom_rule(
+    name = "custom_bar",
+    aspect_hints = [":second_hint"],
+)
+
+count_hints(name = "cnt", deps = [":custom_foo"])
+EOF
+
+  bazel build "//${package}:cnt" --output_groups=out || fail "Build failed"
+  assert_contains "Used hints: 22" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
+}
+
+function create_aspect_hints_rule_and_aspect() {
+  local package="$1"
+  mkdir -p "${package}"
+
+  cat > "${package}/hints.bzl" <<EOF
+HintInfo = provider(fields = ['hints_cnt'])
+
+def _hint_impl(ctx):
+    return [HintInfo(hints_cnt = ctx.attr.hints_cnt)]
+
+hint = rule(
+    implementation = _hint_impl,
+    attrs = {'hints_cnt': attr.int(default = 0)},
+)
+EOF
+
+  cat > "${package}/hints_counter.bzl" <<EOF
+load("//${package}:hints.bzl", "HintInfo")
+HintsCntInfo = provider(fields = ["cnt"])
+
+def _my_aspect_impl(target, ctx):
+    direct_hints_cnt = 0
+    transitive_hints_cnt = 0
+
+    for hint in ctx.rule.attr.aspect_hints:
+        if HintInfo in hint:
+            direct_hints_cnt = direct_hints_cnt + hint[HintInfo].hints_cnt
+
+    for dep in ctx.rule.attr.deps:
+        if HintsCntInfo in dep:
+            transitive_hints_cnt = transitive_hints_cnt + dep[HintsCntInfo].cnt
+
+    return [HintsCntInfo(cnt = direct_hints_cnt + transitive_hints_cnt)]
+
+my_aspect = aspect(
+    implementation = _my_aspect_impl,
+    attr_aspects = ["deps"],
+    provides = [HintsCntInfo],
+)
+
+def _count_hints_impl(ctx):
+    cnt = 0
+    for dep in ctx.attr.deps:
+        if HintsCntInfo in dep:
+            cnt = cnt + dep[HintsCntInfo].cnt
+
+    out = ctx.actions.declare_file(ctx.label.name + "_res")
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = "echo Used hints: {} > {}".format(cnt, out.path),
+    )
+    return [OutputGroupInfo(out = [out])]
+
+count_hints = rule(
+    implementation = _count_hints_impl,
+    attrs = {
+        "deps": attr.label_list(aspects = [my_aspect]),
+    },
+)
+EOF
+}
+
+function create_aspect_hints_custom_rule() {
+  local package="$1"
+  mkdir -p "${package}"
+
+  cat > "${package}/custom_rule.bzl" <<EOF
+CustomInfo = provider()
+
+def _custom_rule_impl(ctx):
+    return [CustomInfo()]
+
+custom_rule = rule(
+    implementation = _custom_rule_impl,
+    attrs = {
+        "deps": attr.label_list(),
+    },
+)
+EOF
+}
+
+function create_aspect_hints_cc_files() {
+  local package="$1"
+  mkdir -p "${package}"
+
+  cat > "${package}/foo.h" <<EOF
+#include "${package}/bar.h"
+EOF
+
+  cat > "${package}/foo.cc" <<EOF
+#include "${package}/foo.h"
+#include "${package}/bar.h"
+int callFourtyTwo() {
+  return fourtyTwo();
+}
+EOF
+
+  cat > "${package}/bar.h" <<EOF
+inline int fourtyTwo() {
+  return 42;
+}
+EOF
+}
+
 run_suite "Tests for aspects"

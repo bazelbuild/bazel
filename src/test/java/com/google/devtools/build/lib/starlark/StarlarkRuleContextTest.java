@@ -709,6 +709,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testGetRuleAttributeNoAspectHints() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.checkEvalErrorContains("No attribute 'aspect_hints'", "ruleContext.attr.aspect_hints");
+  }
+
+  @Test
   public void testGetLabel() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = ev.eval("ruleContext.label");

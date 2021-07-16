@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects.RuleInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -45,6 +47,9 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -52,6 +57,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -1128,5 +1134,116 @@ public class AspectTest extends AnalysisTestCase {
         getConfiguredTarget(label)
             .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
             .getInstrumentedFiles());
+  }
+
+  @Test
+  public void aspectSeesAspectHintsAttributeOnNativeRule() throws Exception {
+    setupAspectHints();
+    scratch.file(
+        "aspect_hints/BUILD",
+        "load('//aspect_hints:hints_counter.bzl', 'count_hints')",
+        "load('//aspect_hints:hints.bzl', 'hint')",
+        "",
+        "hint(name = 'my_hint', hints_cnt = 3)",
+        "cc_library(name = 'lib1', deps = [':lib2'])",
+        "cc_library(name = 'lib2', aspect_hints = [':my_hint'])",
+        "count_hints(name = 'cnt', deps = [':lib1'])");
+    update();
+
+    ConfiguredTarget a = getConfiguredTarget("//aspect_hints:cnt");
+    StarlarkInt info = (StarlarkInt) getHintsCntInfo(a).getValue("cnt");
+
+    assertThat(info.truncateToInt()).isEqualTo(3);
+  }
+
+  @Test
+  public void aspectSeesAspectHintsAttributeOnStarlarkRule() throws Exception {
+    setupAspectHints();
+    setupStarlarkRule();
+    scratch.file(
+        "aspect_hints/BUILD",
+        "load('//aspect_hints:hints_counter.bzl', 'count_hints')",
+        "load('//aspect_hints:custom_rule.bzl', 'custom_rule')",
+        "load('//aspect_hints:hints.bzl', 'hint')",
+        "",
+        "hint(name = 'my_hint', hints_cnt = 2)",
+        "custom_rule(name = 'lib1', deps = [':lib2'])",
+        "custom_rule(name = 'lib2', aspect_hints = [':my_hint'])",
+        "count_hints(name = 'cnt', deps = [':lib1'])");
+    update();
+
+    ConfiguredTarget a = getConfiguredTarget("//aspect_hints:cnt");
+    StarlarkInt info = (StarlarkInt) getHintsCntInfo(a).getValue("cnt");
+
+    assertThat(info.truncateToInt()).isEqualTo(2);
+  }
+
+  private void setupAspectHints() throws Exception {
+    scratch.file(
+        "aspect_hints/hints.bzl",
+        "HintInfo = provider(fields = ['hints_cnt'])",
+        "def _hint_impl(ctx):",
+        "    return [HintInfo(hints_cnt = ctx.attr.hints_cnt)]",
+        "",
+        "hint = rule(",
+        "    implementation = _hint_impl,",
+        "    attrs = {'hints_cnt': attr.int(default=0)},",
+        ")");
+    scratch.file(
+        "aspect_hints/hints_counter.bzl",
+        "load('//aspect_hints:hints.bzl', 'HintInfo')",
+        "HintsCntInfo = provider(fields = ['cnt'])",
+        "",
+        "def _my_aspect_impl(target, ctx):",
+        "    transitive_hints = 0",
+        "    for dep in ctx.rule.attr.deps:",
+        "        transitive_hints = transitive_hints + dep[HintsCntInfo].cnt",
+        "",
+        "    hints = 0",
+        "    for hint in ctx.rule.attr.aspect_hints:",
+        "        hints = hints + hint[HintInfo].hints_cnt",
+        "",
+        "    return [HintsCntInfo(cnt = hints + transitive_hints)]",
+        "",
+        "my_aspect = aspect(",
+        "    implementation = _my_aspect_impl,",
+        "    attr_aspects = ['deps'],",
+        ")",
+        "",
+        "def _count_hints_impl(ctx):",
+        "    hints = 0",
+        "    for dep in ctx.attr.deps:",
+        "        hints = hints + dep[HintsCntInfo].cnt",
+        "    return [HintsCntInfo(cnt = hints)]",
+        "",
+        "count_hints = rule(",
+        "    implementation = _count_hints_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(aspects = [my_aspect])",
+        "    }",
+        ")");
+  }
+
+  private void setupStarlarkRule() throws Exception {
+    scratch.file(
+        "aspect_hints/custom_rule.bzl",
+        "def _custom_rule_impl(ctx):",
+        "    return []",
+        "",
+        "custom_rule = rule(",
+        "    implementation = _custom_rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(),",
+        "    },",
+        ")");
+  }
+
+  private static StructImpl getHintsCntInfo(ConfiguredTarget configuredTarget)
+      throws LabelSyntaxException {
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//aspect_hints:hints_counter.bzl", ImmutableMap.of()),
+            "HintsCntInfo");
+    return (StructImpl) configuredTarget.get(key);
   }
 }

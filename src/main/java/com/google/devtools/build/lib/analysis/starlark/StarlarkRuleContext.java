@@ -84,6 +84,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -175,7 +176,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     Rule rule = ruleContext.getRule();
 
     if (aspectDescriptor == null) {
-      Collection<Attribute> attributes = rule.getAttributes();
+      Collection<Attribute> attributes =
+          rule.getAttributes().stream()
+              .filter(attribute -> !attribute.getName().equals("aspect_hints"))
+              .collect(Collectors.toList());
 
       // Populate ctx.outputs.
       Outputs outputs = new Outputs(this);
