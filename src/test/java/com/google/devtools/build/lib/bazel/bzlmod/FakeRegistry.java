@@ -15,12 +15,14 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -29,14 +31,14 @@ import java.util.Optional;
 public class FakeRegistry implements Registry {
 
   private final String url;
-  private final Map<ModuleKey, byte[]> modules = new HashMap<>();
+  private final Map<ModuleKey, String> modules = new HashMap<>();
 
   public FakeRegistry(String url) {
     this.url = url;
   }
 
   public FakeRegistry addModule(ModuleKey key, String moduleFile) {
-    modules.put(key, moduleFile.getBytes(StandardCharsets.UTF_8));
+    modules.put(key, moduleFile);
     return this;
   }
 
@@ -47,7 +49,7 @@ public class FakeRegistry implements Registry {
 
   @Override
   public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
-    return Optional.ofNullable(modules.get(key));
+    return Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
   }
 
   @Override
@@ -57,6 +59,20 @@ public class FakeRegistry implements Registry {
         .setAttributes(ImmutableMap.of("repo_name", repoName))
         .build();
   }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof FakeRegistry
+        && this.url.equals(((FakeRegistry) other).url)
+        && this.modules.equals(((FakeRegistry) other).modules);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(url, modules);
+  }
+
+  public static final Factory DEFAULT_FACTORY = new Factory();
 
   /** Fake {@link RegistryFactory} that only supports {@link FakeRegistry}. */
   public static class Factory implements RegistryFactory {
