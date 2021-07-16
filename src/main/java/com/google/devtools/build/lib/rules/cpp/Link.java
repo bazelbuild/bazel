@@ -46,15 +46,16 @@ public abstract class Link {
   public static final FileTypeSet ONLY_INTERFACE_LIBRARY_FILETYPES =
       FileTypeSet.of(CppFileTypes.INTERFACE_SHARED_LIBRARY);
 
-  public static final FileTypeSet ARCHIVE_LIBRARY_FILETYPES = FileTypeSet.of(
-      CppFileTypes.ARCHIVE,
-      CppFileTypes.PIC_ARCHIVE,
-      CppFileTypes.ALWAYS_LINK_LIBRARY,
-      CppFileTypes.ALWAYS_LINK_PIC_LIBRARY);
+  public static final FileTypeSet ARCHIVE_LIBRARY_FILETYPES =
+      FileTypeSet.of(
+          CppFileTypes.ARCHIVE,
+          CppFileTypes.PIC_ARCHIVE,
+          CppFileTypes.ALWAYS_LINK_LIBRARY,
+          CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
+          CppFileTypes.RUST_RLIB);
 
-  public static final FileTypeSet ARCHIVE_FILETYPES = FileTypeSet.of(
-      CppFileTypes.ARCHIVE,
-      CppFileTypes.PIC_ARCHIVE);
+  public static final FileTypeSet ARCHIVE_FILETYPES =
+      FileTypeSet.of(CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE, CppFileTypes.RUST_RLIB);
 
   public static final FileTypeSet LINK_LIBRARY_FILETYPES = FileTypeSet.of(
       CppFileTypes.ALWAYS_LINK_LIBRARY,

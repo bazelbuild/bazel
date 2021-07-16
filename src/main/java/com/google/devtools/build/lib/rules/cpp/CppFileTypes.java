@@ -162,6 +162,8 @@ public final class CppFileTypes {
           return ImmutableList.of(ext, ".obj");
         }
       };
+  // Static library artifact created by rustc, can be used as a regular archive.
+  public static final FileType RUST_RLIB = FileType.of(".rlib");
 
   // Minimized bitcode file emitted by the ThinLTO compile step and used just for LTO indexing.
   public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
