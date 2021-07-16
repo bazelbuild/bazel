@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -504,7 +505,8 @@ public final class PackageFactory {
       ImmutableMap<String, Module> loadedModules,
       RuleVisibility defaultVisibility,
       StarlarkSemantics starlarkSemantics,
-      Globber globber)
+      Globber globber,
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy)
       throws InterruptedException {
     try {
       // At this point the package is guaranteed to exist,
@@ -519,7 +521,8 @@ public final class PackageFactory {
           starlarkSemantics,
           preludeModule,
           loadedModules,
-          repositoryMapping);
+          repositoryMapping,
+          configSettingVisibilityPolicy);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -823,7 +826,8 @@ public final class PackageFactory {
       StarlarkSemantics semantics,
       @Nullable Module preludeModule,
       ImmutableMap<String, Module> loadedModules,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy)
       throws InterruptedException {
     Package.Builder pkgBuilder =
         new Package.Builder(
