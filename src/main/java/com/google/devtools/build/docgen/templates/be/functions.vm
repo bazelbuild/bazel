@@ -160,7 +160,9 @@ the <a href="common-definitions.html#common.visibility">visibility</a> attribute
 
         <p>You can also specify wildcards: the specification
         <code>//foo/...</code> specifies every package under
-        <code>//foo</code>, including <code>//foo</code> itself.</p>
+        <code>//foo</code>, including <code>//foo</code> itself.
+        For this case, it is also acceptable if <code>//foo</code>
+        is a directory and not a package.</p>
 
         <p>Package specifications can be prefixed with <code>-</code> to
         indicate negation: the specification <code>-//foo/bar/...</code>
