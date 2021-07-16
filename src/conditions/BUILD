@@ -174,6 +174,27 @@ config_setting(
 )
 
 config_setting(
+    name = "x86_32",
+    constraint_values = ["@platforms//cpu:x86_32"],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "x86_64",
+    constraint_values = ["@platforms//cpu:x86_64"],
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "any_x86",
+    match_any = [
+        ":x86_32",
+        ":x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "remote",
     values = {"define": "EXECUTOR=remote"},
     visibility = ["//visibility:public"],
