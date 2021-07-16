@@ -1274,7 +1274,8 @@ public class PackageFunction implements SkyFunction {
               bzlLoadResult.loadedModules,
               defaultVisibility,
               starlarkSemantics,
-              globberWithSkyframeGlobDeps);
+              globberWithSkyframeGlobDeps,
+              configSettingVisibilityPolicy);
       long loadTimeNanos = Math.max(BlazeClock.nanoTime() - startTimeNanos, 0L);
       LoadedPackageCacheEntry packageCacheEntry =
           new LoadedPackageCacheEntry(
