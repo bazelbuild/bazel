@@ -1604,7 +1604,6 @@ public final class RuleContext extends TargetContext
     private final RuleErrorConsumer reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
-    private ImmutableMap<Label, ConfigMatchingProvider> configConditions = ImmutableMap.of();
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
