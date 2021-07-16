@@ -331,7 +331,7 @@ public class CommonCommandOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
       help =
           "If set, write memory usage data to the specified file at phase ends and stable heap to"
               + " master log at end of build.")
