@@ -66,6 +66,9 @@ public class StarlarkAttributeTransitionProvider
   public SplitTransition create(AttributeTransitionData data) {
     AttributeMap attributeMap = data.attributes();
     Preconditions.checkArgument(attributeMap instanceof ConfiguredAttributeMapper);
+    // TODO(bazel-team): consider caching transition instances to save CPU time, similar to what's
+    // done in StarlarkRuleTransitionProvider. This could benefit builds that apply transitions over
+    // many build graph edges.
     return new FunctionSplitTransition(
         starlarkDefinedConfigTransition, (ConfiguredAttributeMapper) attributeMap);
   }
