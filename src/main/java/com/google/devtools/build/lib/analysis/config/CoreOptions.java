@@ -805,15 +805,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean remotableSourceManifestActions;
 
   @Option(
-      name = "experimental_enable_aggregating_middleman",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Whether to enable the use of AggregatingMiddleman in rules.")
-  public boolean enableAggregatingMiddleman;
-
-  @Option(
       name = "flag_alias",
       converter = Converters.FlagAliasConverter.class,
       defaultValue = "null",
@@ -881,7 +872,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
-    host.enableAggregatingMiddleman = enableAggregatingMiddleman;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
