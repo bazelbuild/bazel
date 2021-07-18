@@ -319,16 +319,19 @@ public class ProtoCompileActionBuilder {
         ImmutableList.copyOf(ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER));
     NestedSet<Artifact> dependenciesDescriptorSets =
         ProtoCommon.computeDependenciesDescriptorSets(protoDeps);
-    if (protoInfo.getDirectProtoSources().isEmpty()) {
+
+    ProtoToolchain protoToolchain = ProtoToolchain.fromRuleContext(ruleContext);
+    if (protoToolchain == null || protoInfo.getDirectProtoSources().isEmpty()) {
       ruleContext.registerAction(
-          FileWriteAction.createEmptyWithInputs(
-              ruleContext.getActionOwner(), dependenciesDescriptorSets, output));
+              FileWriteAction.createEmptyWithInputs(
+                      ruleContext.getActionOwner(), dependenciesDescriptorSets, output));
       return;
     }
 
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
+            protoToolchain,
             ImmutableList.of(
                 createDescriptorSetToolchain(
                     ruleContext.getFragment(ProtoConfiguration.class), output.getExecPathString())),
@@ -407,9 +410,14 @@ public class ProtoCompileActionBuilder {
       String flavorName,
       Exports useExports,
       Services allowServices) {
+    ProtoToolchain protoToolchain = ProtoToolchain.fromRuleContext(ruleContext);
+    if (protoToolchain == null) {
+      return;
+    }
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
+            protoToolchain,
             toolchainInvocations,
             protoInfo,
             ruleLabel,
@@ -425,6 +433,7 @@ public class ProtoCompileActionBuilder {
   @Nullable
   private static SpawnAction.Builder createActions(
       RuleContext ruleContext,
+      ProtoToolchain protoToolchain,
       List<ToolchainInvocation> toolchainInvocations,
       ProtoInfo protoInfo,
       Label ruleLabel,
@@ -432,7 +441,6 @@ public class ProtoCompileActionBuilder {
       String flavorName,
       Exports useExports,
       Services allowServices) {
-
     if (isEmpty(outputs)) {
       return null;
     }
@@ -447,18 +455,13 @@ public class ProtoCompileActionBuilder {
       }
     }
 
-    FilesToRunProvider compilerTarget = ruleContext.getExecutablePrerequisite(":proto_compiler");
-    if (compilerTarget == null) {
-      return null;
-    }
-
     boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
 
     result
         .addOutputs(outputs)
         .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
         .useDefaultShellEnvironment()
-        .setExecutable(compilerTarget)
+        .setExecutable(protoToolchain.getCompiler())
         .addCommandLine(
             createCommandLineFromToolchains(
                 toolchainInvocations,
@@ -468,7 +471,7 @@ public class ProtoCompileActionBuilder {
                 areDepsStrict(ruleContext) ? Deps.STRICT : Deps.NON_STRICT,
                 arePublicImportsStrict(ruleContext) ? useExports : Exports.DO_NOT_USE,
                 allowServices,
-                ruleContext.getFragment(ProtoConfiguration.class).protocOpts(),
+                protoToolchain.getCompilerOptions(),
                 siblingRepositoryLayout),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())
