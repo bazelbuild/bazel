@@ -99,6 +99,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -278,8 +279,12 @@ public class ExecutionTool {
 
     handleConvenienceSymlinks(analysisResult);
 
-    ActionCache actionCache = getActionCache();
-    actionCache.resetStatistics();
+    BuildRequestOptions options = request.getBuildOptions();
+    ActionCache actionCache = null;
+    if (options.useActionCache) {
+      actionCache = getActionCache();
+      actionCache.resetStatistics();
+    }
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
@@ -734,7 +739,7 @@ public class ExecutionTool {
   /** Get action cache if present or reload it from the on-disk cache. */
   private ActionCache getActionCache() throws AbruptExitException {
     try {
-      return env.getPersistentActionCache();
+      return env.getBlazeWorkspace().getOrLoadPersistentActionCache(getReporter());
     } catch (IOException e) {
       String message =
           String.format(
@@ -754,7 +759,7 @@ public class ExecutionTool {
 
   private Builder createBuilder(
       BuildRequest request,
-      ActionCache actionCache,
+      @Nullable ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
@@ -806,20 +811,22 @@ public class ExecutionTool {
    * Writes the action cache files to disk, reporting any errors that occurred during writing and
    * capturing statistics.
    */
-  private void saveActionCache(ActionCache actionCache) {
+  private void saveActionCache(@Nullable ActionCache actionCache) {
     ActionCacheStatistics.Builder builder = ActionCacheStatistics.newBuilder();
-    actionCache.mergeIntoActionCacheStatistics(builder);
 
-    AutoProfiler p =
-        GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);
-    try {
-      builder.setSizeInBytes(actionCache.save());
-    } catch (IOException e) {
-      builder.setSizeInBytes(0);
-      getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
-    } finally {
-      builder.setSaveTimeInMs(
-          TimeUnit.MILLISECONDS.convert(p.completeAndGetElapsedTimeNanos(), TimeUnit.NANOSECONDS));
+    if (actionCache != null) {
+      actionCache.mergeIntoActionCacheStatistics(builder);
+
+      AutoProfiler p =
+          GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);
+      try {
+        builder.setSizeInBytes(actionCache.save());
+      } catch (IOException e) {
+        builder.setSizeInBytes(0);
+        getReporter().handle(Event.error("I/O error while writing action log: " + e.getMessage()));
+      } finally {
+        builder.setSaveTimeInMs(Duration.ofNanos(p.completeAndGetElapsedTimeNanos()).toMillis());
+      }
     }
 
     env.getEventBus().post(builder.build());
