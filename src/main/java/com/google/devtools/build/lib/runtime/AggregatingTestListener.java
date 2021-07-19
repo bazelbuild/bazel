@@ -306,7 +306,7 @@ public final class AggregatingTestListener {
   }
 
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
-    Preconditions.checkArgument(!AliasProvider.isAlias(target));
+    Preconditions.checkArgument(!AliasProvider.isAlias(target), "Target %s is alias", target);
     return ConfiguredTargetKey.builder()
         .setLabel(AliasProvider.getDependencyLabel(target))
         .setConfigurationKey(target.getConfigurationKey())

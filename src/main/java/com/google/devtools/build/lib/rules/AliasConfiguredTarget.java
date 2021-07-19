@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
@@ -172,5 +173,16 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   @Override
   public void repr(Printer printer) {
     printer.append("<alias target " + label + " of " + actual.getLabel() + ">");
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("label", label)
+        .add("configurationKey", configurationKey)
+        .add("actual", actual)
+        .add("overrides", overrides)
+        .add("configConditions", configConditions)
+        .toString();
   }
 }
