@@ -90,8 +90,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         }
         if (options.useAspects) {
           for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
-            for (ActionAnalysisMetadata action : aspectValue.getActions()) {
-              writeAction(action, printStream);
+            if (aspectValue != null) {
+              for (ActionAnalysisMetadata action : aspectValue.getActions()) {
+                writeAction(action, printStream);
+              }
             }
           }
         }
