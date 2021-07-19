@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static com.google.devtools.build.lib.actions.FileArtifactValue.MISSING_FILE_MARKER;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -75,6 +73,7 @@ public class ActionCacheChecker {
     abstract boolean enabled();
     // True iff --verbose_explanations flag is set.
     abstract boolean verboseExplanations();
+    abstract boolean storeOutputMetadata();
 
     public static Builder builder() {
       return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
@@ -86,6 +85,8 @@ public class ActionCacheChecker {
       public abstract Builder setVerboseExplanations(boolean value);
 
       public abstract Builder setEnabled(boolean value);
+
+      public abstract Builder setStoreOutputMetadata(boolean value);
 
       public abstract CacheConfig build();
     }
@@ -103,7 +104,11 @@ public class ActionCacheChecker {
     this.cacheConfig =
         cacheConfig != null
             ? cacheConfig
-            : CacheConfig.builder().setEnabled(true).setVerboseExplanations(false).build();
+            : CacheConfig.builder()
+                .setEnabled(true)
+                .setVerboseExplanations(false)
+                .setStoreOutputMetadata(false)
+                .build();
     if (this.cacheConfig.enabled()) {
       this.actionCache = Preconditions.checkNotNull(actionCache);
     } else {
@@ -143,6 +148,22 @@ public class ActionCacheChecker {
     }
   }
 
+  private static @Nullable FileArtifactValue getCachedMetadata(
+      @Nullable CachedOutputMetadata cachedOutputMetadata, Artifact artifact) {
+    if (cachedOutputMetadata != null) {
+      if (artifact.isTreeArtifact()) {
+        TreeArtifactValue value = cachedOutputMetadata.treeMetadata.get((SpecialArtifact) artifact);
+        if (value != null) {
+          return value.getMetadata();
+        }
+      } else {
+        return cachedOutputMetadata.fileMetadata.get(artifact);
+      }
+    }
+
+    return null;
+  }
+
   /**
    * Validate metadata state for action input or output artifacts.
    *
@@ -152,6 +173,8 @@ public class ActionCacheChecker {
    *     but if this action doesn't yet know its inputs, we check the inputs from the cache.
    * @param metadataHandler provider of metadata for the artifacts this action interacts with.
    * @param checkOutput true to validate output artifacts, Otherwise, just validate inputs.
+   * @param cachedOutputMetadata a set of cached metadata that should be used instead of loading
+   *     from {@code metadataHandler}.
    * @return true if at least one artifact has changed, false - otherwise.
    */
   private static boolean validateArtifacts(
@@ -159,11 +182,17 @@ public class ActionCacheChecker {
       Action action,
       NestedSet<Artifact> actionInputs,
       MetadataHandler metadataHandler,
-      boolean checkOutput) {
+      boolean checkOutput,
+      @Nullable CachedOutputMetadata cachedOutputMetadata) {
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
     if (checkOutput) {
       for (Artifact artifact : action.getOutputs()) {
-        mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
+        FileArtifactValue metadata = getCachedMetadata(cachedOutputMetadata, artifact);
+        if (metadata == null) {
+          metadata = getMetadataMaybe(metadataHandler, artifact);
+        }
+
+        mdMap.put(artifact.getExecPathString(), metadata);
       }
     }
     for (Artifact artifact : actionInputs.toList()) {
@@ -242,8 +271,15 @@ public class ActionCacheChecker {
     return usedEnvironment;
   }
 
-  private void loadRemoteOutputMetadataIfMissing(
+  private static class CachedOutputMetadata {
+    private final Map<Artifact, FileArtifactValue> fileMetadata = new HashMap<>();
+    private final Map<SpecialArtifact, TreeArtifactValue> treeMetadata = new HashMap<>();
+  }
+
+  private CachedOutputMetadata loadRemoteOutputMetadataIfMissing(
       Action action, ActionCache.Entry entry, MetadataHandler metadataHandler) {
+    CachedOutputMetadata cachedOutputMetadata = new CachedOutputMetadata();
+
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
         SpecialArtifact parent = (SpecialArtifact) artifact;
@@ -252,8 +288,8 @@ public class ActionCacheChecker {
           try {
             TreeArtifactValue localTreeMetadata = metadataHandler.getTreeArtifactValue(parent);
 
-            boolean shouldInjectCached = false;
-            TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
+            boolean shouldUseCached = false;
+            TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
             for (Map.Entry<TreeFileArtifact, FileArtifactValue> child :
                 cachedTreeMetadata.getChildValues().entrySet()) {
               TreeFileArtifact childArtifact = child.getKey();
@@ -264,12 +300,12 @@ public class ActionCacheChecker {
               // Only use cached metadata if it is remote and is missing from local file system.
               if (cachedChildMetadata.isRemote() && localChildMetadata == null) {
                 childMetadata = cachedChildMetadata;
-                shouldInjectCached = true;
+                shouldUseCached = true;
               } else {
                 childMetadata = localChildMetadata;
               }
 
-              builder.putChild(childArtifact, childMetadata);
+              merged.putChild(childArtifact, childMetadata);
             }
 
             Optional<ArchivedRepresentation> archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
@@ -280,13 +316,13 @@ public class ActionCacheChecker {
                     .getArchivedRepresentation()
                     .map(ar -> ar.archivedFileValue().isRemote())
                     .orElse(false)) {
-              shouldInjectCached = true;
+              shouldUseCached = true;
               archivedRepresentation = cachedTreeMetadata.getArchivedRepresentation();
             }
-            archivedRepresentation.ifPresent(builder::setArchivedRepresentation);
+            archivedRepresentation.ifPresent(merged::setArchivedRepresentation);
 
-            if (shouldInjectCached) {
-              metadataHandler.injectTree(parent, builder.build());
+            if (shouldUseCached) {
+              cachedOutputMetadata.treeMetadata.put(parent, merged.build());
             }
           } catch (IOException ignored) {
             // Ignore the cached metadata if we encountered an error when loading corresponding
@@ -301,14 +337,12 @@ public class ActionCacheChecker {
           try {
             localMetadata = getMetadataOrConstant(metadataHandler, artifact);
           } catch (FileNotFoundException e) {
-            localMetadata = MISSING_FILE_MARKER;
+            localMetadata = null;
           }
 
           // Only inject metadata if it is remote and is missing from local file system.
-          if (cachedMetadata != null
-              && cachedMetadata.isRemote()
-              && localMetadata == MISSING_FILE_MARKER) {
-            metadataHandler.injectFile(artifact, cachedMetadata);
+          if (cachedMetadata != null && cachedMetadata.isRemote() && localMetadata == null) {
+            cachedOutputMetadata.fileMetadata.put(artifact, cachedMetadata);
           }
         } catch (IOException ignored) {
           // Ignore the cached metadata if we encountered an error when loading corresponding local
@@ -316,6 +350,8 @@ public class ActionCacheChecker {
         }
       }
     }
+
+    return cachedOutputMetadata;
   }
 
   /**
@@ -376,10 +412,10 @@ public class ActionCacheChecker {
       }
     }
     ActionCache.Entry entry = getCacheEntry(action);
-
+    CachedOutputMetadata cachedOutputMetadata = null;
     // load remote metadata from action cache
-    if (entry != null && !entry.isCorrupted()) {
-      loadRemoteOutputMetadataIfMissing(action, entry, metadataHandler);
+    if (entry != null && !entry.isCorrupted() && cacheConfig.storeOutputMetadata()) {
+      cachedOutputMetadata = loadRemoteOutputMetadataIfMissing(action, entry, metadataHandler);
     }
 
     if (mustExecute(
@@ -390,7 +426,8 @@ public class ActionCacheChecker {
         artifactExpander,
         actionInputs,
         clientEnv,
-        remoteDefaultPlatformProperties)) {
+        remoteDefaultPlatformProperties,
+        cachedOutputMetadata)) {
       if (entry != null) {
         removeCacheEntry(action);
       }
@@ -400,6 +437,17 @@ public class ActionCacheChecker {
     if (!inputsDiscovered) {
       action.updateInputs(actionInputs);
     }
+
+    // Inject cached output metadata if we have an action cache hit
+    if (cachedOutputMetadata != null) {
+      for (Map.Entry<Artifact, FileArtifactValue> metadata : cachedOutputMetadata.fileMetadata.entrySet()) {
+        metadataHandler.injectFile(metadata.getKey(), metadata.getValue());
+      }
+      for (Map.Entry<SpecialArtifact, TreeArtifactValue> metadata : cachedOutputMetadata.treeMetadata.entrySet()) {
+        metadataHandler.injectTree(metadata.getKey(), metadata.getValue());
+      }
+    }
+
     return null;
   }
 
@@ -411,7 +459,8 @@ public class ActionCacheChecker {
       ArtifactExpander artifactExpander,
       NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
-      Map<String, String> remoteDefaultPlatformProperties)
+      Map<String, String> remoteDefaultPlatformProperties,
+      @Nullable CachedOutputMetadata cachedOutputMetadata)
       throws InterruptedException {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
@@ -430,7 +479,8 @@ public class ActionCacheChecker {
       reportCorruptedCacheEntry(handler, action);
       actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
       return true;
-    } else if (validateArtifacts(entry, action, actionInputs, metadataHandler, true)) {
+    } else if (validateArtifacts(
+        entry, action, actionInputs, metadataHandler, true, cachedOutputMetadata)) {
       reportChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_FILES);
       return true;
@@ -524,6 +574,7 @@ public class ActionCacheChecker {
                       .map(ar -> ar.archivedFileValue().isRemote())
                       .orElse(false);
 
+          saveTreeMetadata = saveTreeMetadata && cacheConfig.storeOutputMetadata();
           entry.addOutputTree(parent, metadata, saveTreeMetadata);
         } else {
           // Output files *must* exist and be accessible after successful action execution. We use
@@ -534,6 +585,8 @@ public class ActionCacheChecker {
           Preconditions.checkState(metadata != null);
           // Only save file metadata if it is remote
           boolean saveFileMetadata = metadata.isRemote();
+
+          saveFileMetadata = saveFileMetadata && cacheConfig.storeOutputMetadata();
           entry.addOutputFile(output, metadata, saveFileMetadata);
         }
       }
@@ -646,7 +699,13 @@ public class ActionCacheChecker {
         reportCorruptedCacheEntry(handler, action);
         actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
         changed = true;
-      } else if (validateArtifacts(entry, action, action.getInputs(), metadataHandler, false)) {
+      } else if (validateArtifacts(
+          entry,
+          action,
+          action.getInputs(),
+          metadataHandler,
+          false,
+          /* cachedOutputMetadata= */ null)) {
         reportChanged(handler, action);
         actionCache.accountMiss(MissReason.DIFFERENT_FILES);
         changed = true;

@@ -781,6 +781,7 @@ public class ExecutionTool {
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
+                .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
                 .build()),
         env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
