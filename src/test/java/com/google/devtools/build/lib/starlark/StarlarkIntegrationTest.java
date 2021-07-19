@@ -2831,6 +2831,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testPrintFromTransitionImpl() throws Exception {
+    // This test not only asserts expected behavior, it also checks that Starlark transition caching
+    // doesn't suppress non-error transition events like print(). Also see
+    // transitionErrorAlwaysReported for the equivalent cache test for error events.
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
@@ -2877,6 +2880,53 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("printing from transition impl meowmeow");
     // Test print from (non-top level) rule class transition
     assertContainsEvent("printing from transition impl meowmeowmeow");
+  }
+
+  @Test
+  public void transitionErrorAlwaysReported() throws Exception {
+    // For performance reasons, Starlark transition calls are cached (see
+    // ConfigurationResolver#starlarkTransitionCache). We have to be careful to preserve
+    // determinism, which includes consistent error reporting.
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "test/rules.bzl",
+        "def _transition_impl(settings, attr):",
+        "    fail('bad transition')",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:bar'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  }",
+        ")");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'mytarget')");
+
+    reporter.removeHandler(failFastHandler);
+
+    // Try #1: this invokes the transition for the first time, which fails.
+    getConfiguredTarget("//test:mytarget");
+    assertContainsEvent("bad transition");
+
+    // Try #2: make sure the cache doesn't suppress the error message.
+    eventCollector.clear();
+    getConfiguredTarget("//test:mytarget");
+    assertContainsEvent("bad transition");
   }
 
   @Test

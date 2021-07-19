@@ -136,7 +136,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
   }
 
   /** The actual transition used by the rule. */
-  class FunctionPatchTransition extends StarlarkTransition implements PatchTransition {
+  final class FunctionPatchTransition extends StarlarkTransition implements PatchTransition {
     private final StructImpl attrObject;
     private final int hashCode;
 

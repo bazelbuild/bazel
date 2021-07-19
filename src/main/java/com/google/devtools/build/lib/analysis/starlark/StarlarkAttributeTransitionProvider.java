@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import net.starlark.java.eval.Printer;
 
 /**
@@ -83,8 +84,9 @@ public class StarlarkAttributeTransitionProvider
     printer.append("<transition object>");
   }
 
-  class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
+  final class FunctionSplitTransition extends StarlarkTransition implements SplitTransition {
     private final StructImpl attrObject;
+    private final int hashCode;
 
     FunctionSplitTransition(
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition,
@@ -97,6 +99,7 @@ public class StarlarkAttributeTransitionProvider
         attributes.put(Attribute.getStarlarkName(attribute), Attribute.valueToStarlark(val));
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
+      this.hashCode = Objects.hash(attrObject, super.hashCode());
     }
 
     /**
@@ -116,6 +119,23 @@ public class StarlarkAttributeTransitionProvider
         return ImmutableMap.of("error", buildOptions.clone());
       }
       return res;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (object == this) {
+        return true;
+      }
+      if (!(object instanceof FunctionSplitTransition)) {
+        return false;
+      }
+      FunctionSplitTransition other = (FunctionSplitTransition) object;
+      return Objects.equals(attrObject, other.attrObject) && super.equals(other);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
     }
   }
 }
