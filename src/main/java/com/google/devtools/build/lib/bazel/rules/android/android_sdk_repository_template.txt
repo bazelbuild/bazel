@@ -80,4 +80,7 @@ create_system_images_filegroups(
 )
 
 exports_files([
+    'tools/bin/apkanalyzer',
+    'tools/bin/avdmanager',
+    'tools/emulator',
 %exported_files%] + glob(["system-images/**"], allow_empty = True))
