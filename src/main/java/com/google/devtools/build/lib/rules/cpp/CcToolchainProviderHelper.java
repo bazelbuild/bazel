@@ -164,6 +164,7 @@ public class CcToolchainProviderHelper {
         toolchainFeatures,
         toolsDirectory,
         attributes.getAllFiles(),
+        attributes.getFullInputsForCrosstool(),
         attributes.getCompilerFiles(),
         attributes.getCompilerFilesWithoutIncludes(),
         attributes.getStripFiles(),

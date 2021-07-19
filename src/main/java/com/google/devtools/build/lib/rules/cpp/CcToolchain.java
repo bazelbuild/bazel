@@ -111,7 +111,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(ccToolchainProvider)
         .addNativeDeclaredProvider(toolchain)
         .addNativeDeclaredProvider(templateVariableInfo)
-        .setFilesToBuild(ccToolchainProvider.getAllFiles());
+        .setFilesToBuild(ccToolchainProvider.getAllFilesIncludingLibc());
     return ruleConfiguredTargetBuilder.build();
   }
 

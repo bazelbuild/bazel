@@ -92,7 +92,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
           .addNativeDeclaredProvider(ccToolchainProvider)
           .addNativeDeclaredProvider(toolchain)
           .addNativeDeclaredProvider(templateVariableInfo)
-          .setFilesToBuild(ccToolchainProvider.getAllFiles())
+          .setFilesToBuild(ccToolchainProvider.getAllFilesIncludingLibc())
           .build();
     }
   }

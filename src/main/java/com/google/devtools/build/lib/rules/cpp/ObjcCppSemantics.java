@@ -43,7 +43,7 @@ public class ObjcCppSemantics implements CppSemantics {
         // as opposed to just the "compile" filegroup.  Even with include scanning, we need the
         // system framework headers since they are not being scanned right now.
         // TODO(waltl): do better with include scanning.
-        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFiles())
+        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFilesIncludingLibc())
         .setShouldScanIncludes(
             configuration.getFragment(CppConfiguration.class).objcShouldScanIncludes());
   }

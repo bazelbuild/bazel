@@ -58,6 +58,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Nullable private final CppConfiguration cppConfiguration;
   private final PathFragment crosstoolTopPathFragment;
   private final NestedSet<Artifact> allFiles;
+  private final NestedSet<Artifact> allFilesIncludingLibc;
   private final NestedSet<Artifact> compilerFiles;
   private final NestedSet<Artifact> compilerFilesWithoutIncludes;
   private final NestedSet<Artifact> stripFiles;
@@ -130,6 +131,7 @@ public final class CcToolchainProvider extends NativeInfo
       CcToolchainFeatures toolchainFeatures,
       PathFragment crosstoolTopPathFragment,
       NestedSet<Artifact> allFiles,
+      NestedSet<Artifact> allFilesIncludingLibc,
       NestedSet<Artifact> compilerFiles,
       NestedSet<Artifact> compilerFilesWithoutIncludes,
       NestedSet<Artifact> stripFiles,
@@ -190,6 +192,7 @@ public final class CcToolchainProvider extends NativeInfo
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
     this.allFiles = Preconditions.checkNotNull(allFiles);
+    this.allFilesIncludingLibc = Preconditions.checkNotNull(allFilesIncludingLibc);
     this.compilerFiles = Preconditions.checkNotNull(compilerFiles);
     this.compilerFilesWithoutIncludes = Preconditions.checkNotNull(compilerFilesWithoutIncludes);
     this.stripFiles = Preconditions.checkNotNull(stripFiles);
@@ -442,9 +445,14 @@ public final class CcToolchainProvider extends NativeInfo
     return toolchainIdentifier;
   }
 
-  /** Returns all the files in Crosstool. Is not a middleman. */
+  /** Returns all the files in Crosstool. */
   public NestedSet<Artifact> getAllFiles() {
     return allFiles;
+  }
+
+  /** Returns all the files in Crosstool + libc. */
+  public NestedSet<Artifact> getAllFilesIncludingLibc() {
+    return allFilesIncludingLibc;
   }
 
   /** Returns the files necessary for compilation. */
