@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
@@ -44,6 +45,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -256,14 +258,11 @@ public class ActionCacheChecker {
                 cachedTreeMetadata.getChildValues().entrySet()) {
               TreeFileArtifact childArtifact = child.getKey();
               FileArtifactValue cachedChildMetadata = child.getValue();
-              FileArtifactValue localChildMetadata =
-                  localTreeMetadata
-                      .getChildValues()
-                      .getOrDefault(childArtifact, MISSING_FILE_MARKER);
+              FileArtifactValue localChildMetadata = localTreeMetadata.getChildValues().get(childArtifact);
 
               FileArtifactValue childMetadata;
               // Only use cached metadata if it is remote and is missing from local file system.
-              if (cachedChildMetadata.isRemote() && localChildMetadata == MISSING_FILE_MARKER) {
+              if (cachedChildMetadata.isRemote() && localChildMetadata == null) {
                 childMetadata = cachedChildMetadata;
                 shouldInjectCached = true;
               } else {
@@ -272,6 +271,19 @@ public class ActionCacheChecker {
 
               builder.putChild(childArtifact, childMetadata);
             }
+
+            Optional<ArchivedRepresentation> archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
+            // Only use cached archived representation if it is remote and is missing from local
+            // file system.
+            if (!archivedRepresentation.isPresent()
+                && cachedTreeMetadata
+                    .getArchivedRepresentation()
+                    .map(ar -> ar.archivedFileValue().isRemote())
+                    .orElse(false)) {
+              shouldInjectCached = true;
+              archivedRepresentation = cachedTreeMetadata.getArchivedRepresentation();
+            }
+            archivedRepresentation.ifPresent(builder::setArchivedRepresentation);
 
             if (shouldInjectCached) {
               metadataHandler.injectTree(parent, builder.build());
@@ -287,7 +299,7 @@ public class ActionCacheChecker {
         try {
           FileArtifactValue localMetadata;
           try {
-          localMetadata = getMetadataOrConstant(metadataHandler, artifact);
+            localMetadata = getMetadataOrConstant(metadataHandler, artifact);
           } catch (FileNotFoundException e) {
             localMetadata = MISSING_FILE_MARKER;
           }
@@ -366,7 +378,7 @@ public class ActionCacheChecker {
     ActionCache.Entry entry = getCacheEntry(action);
 
     // load remote metadata from action cache
-    if (entry != null) {
+    if (entry != null && !entry.isCorrupted()) {
       loadRemoteOutputMetadataIfMissing(action, entry, metadataHandler);
     }
 
@@ -495,17 +507,34 @@ public class ActionCacheChecker {
         if (output.isTreeArtifact()) {
           SpecialArtifact parent = (SpecialArtifact) output;
           TreeArtifactValue metadata = metadataHandler.getTreeArtifactValue(parent);
-          entry.addOutputTree(parent, metadata);
+          boolean saveTreeMetadata = false;
+          for (Map.Entry<TreeFileArtifact, FileArtifactValue> child :
+              metadata.getChildValues().entrySet()) {
+            // Save tree file metadata if any file metadata of its child is remote
+            if (child.getValue().isRemote()) {
+              saveTreeMetadata = true;
+              break;
+            }
+          }
+          // Save tree file metadata if the archived representation is remote
+          saveTreeMetadata =
+              saveTreeMetadata
+                  || metadata
+                      .getArchivedRepresentation()
+                      .map(ar -> ar.archivedFileValue().isRemote())
+                      .orElse(false);
+
+          entry.addOutputTree(parent, metadata, saveTreeMetadata);
         } else {
           // Output files *must* exist and be accessible after successful action execution. We use
-          // the
-          // 'constant' metadata for the volatile workspace status output. The volatile output
+          // the 'constant' metadata for the volatile workspace status output. The volatile output
           // contains information such as timestamps, and even when --stamp is enabled, we don't
-          // want
-          // to rebuild everything if only that file changes.
+          // want to rebuild everything if only that file changes.
           FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
           Preconditions.checkState(metadata != null);
-          entry.addOutputFile(output, metadata);
+          // Only save file metadata if it is remote
+          boolean saveFileMetadata = metadata.isRemote();
+          entry.addOutputFile(output, metadata, saveFileMetadata);
         }
       }
     }

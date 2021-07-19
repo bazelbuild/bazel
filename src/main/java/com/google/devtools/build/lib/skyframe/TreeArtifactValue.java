@@ -153,12 +153,12 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * metadata for it.
    */
   @AutoValue
-  abstract static class ArchivedRepresentation {
-    abstract ArchivedTreeArtifact archivedTreeFileArtifact();
+  public abstract static class ArchivedRepresentation {
+    public abstract ArchivedTreeArtifact archivedTreeFileArtifact();
 
-    abstract FileArtifactValue archivedFileValue();
+    public abstract FileArtifactValue archivedFileValue();
 
-    static ArchivedRepresentation create(
+    public static ArchivedRepresentation create(
         ArchivedTreeArtifact archivedTreeFileArtifact, FileArtifactValue fileArtifactValue) {
       return new AutoValue_TreeArtifactValue_ArchivedRepresentation(
           archivedTreeFileArtifact, fileArtifactValue);
@@ -225,7 +225,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   /** Return archived representation of the tree artifact (if present). */
-  Optional<ArchivedRepresentation> getArchivedRepresentation() {
+  public Optional<ArchivedRepresentation> getArchivedRepresentation() {
     return Optional.ofNullable(archivedRepresentation);
   }
 
@@ -488,7 +488,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           ArchivedRepresentation.create(archivedTreeArtifact, metadata));
     }
 
-    private Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
+    public Builder setArchivedRepresentation(ArchivedRepresentation archivedRepresentation) {
       checkState(
           this.archivedRepresentation == null,
           "Tried to add 2 archived representations for: %s",

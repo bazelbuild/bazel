@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions.cache;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.PersistentMap;
@@ -38,8 +40,11 @@ import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -172,15 +177,17 @@ public class CompactPersistentActionCache implements ActionCache {
   private final PersistentMap<Integer, byte[]> map;
   private final ImmutableMap<MissReason, AtomicInteger> misses;
   private final AtomicInteger hits = new AtomicInteger();
-  private final ObjectCodecs objectCodecs = new ObjectCodecs(AutoRegistry.get());
+  private final ObjectCodecs objectCodecs;
 
   private CompactPersistentActionCache(
       PersistentStringIndexer indexer,
       PersistentMap<Integer, byte[]> map,
-      ImmutableMap<MissReason, AtomicInteger> misses) {
+      ImmutableMap<MissReason, AtomicInteger> misses,
+      ObjectCodecs objectCodecs) {
     this.indexer = indexer;
     this.map = map;
     this.misses = misses;
+    this.objectCodecs = objectCodecs;
   }
 
   public static CompactPersistentActionCache create(
@@ -249,7 +256,16 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       misses.put(reason, new AtomicInteger(0));
     }
-    return new CompactPersistentActionCache(indexer, map, Maps.immutableEnumMap(misses));
+
+    ObjectCodecRegistry codecRegistry =
+        AutoRegistry.get().getBuilder().addReferenceConstant(cacheRoot.getFileSystem()).build();
+    ObjectCodecs objectCodecs =
+        new ObjectCodecs(
+            codecRegistry,
+            ImmutableClassToInstanceMap.builder()
+                .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
+                .build());
+    return new CompactPersistentActionCache(indexer, map, Maps.immutableEnumMap(misses), objectCodecs);
   }
 
   private static CompactPersistentActionCache logAndThrowOrRecurse(
@@ -357,7 +373,13 @@ public class CompactPersistentActionCache implements ActionCache {
   public void put(String key, ActionCache.Entry entry) {
     // Encode record. Note that both methods may create new mappings in the indexer.
     int index = indexer.getOrCreateIndex(key);
-    byte[] content = encode(indexer, objectCodecs, entry);
+    byte[] content;
+    try {
+      content = encode(indexer, objectCodecs, entry);
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to save cache entry %s with key %s", entry, key);
+      return;
+    }
 
     // Update validation record.
     ByteBuffer buffer = ByteBuffer.allocate(4); // size of int in bytes
@@ -443,64 +465,75 @@ public class CompactPersistentActionCache implements ActionCache {
    * @return action data encoded as a byte[] array.
    */
   private static byte[] encode(
-      StringIndexer indexer, ObjectCodecs objectCodecs, ActionCache.Entry entry) {
+      StringIndexer indexer, ObjectCodecs objectCodecs, ActionCache.Entry entry) throws IOException {
     Preconditions.checkState(!entry.isCorrupted());
 
-    try {
-      byte[] actionKeyBytes = entry.getActionKey().getBytes(ISO_8859_1);
-      Collection<String> files = entry.getPaths();
+    byte[] actionKeyBytes = entry.getActionKey().getBytes(ISO_8859_1);
+    Collection<String> files = entry.getPaths();
 
-      // Estimate the size of the buffer:
-      //   5 bytes max for the actionKey length
-      // + the actionKey itself
-      // + 32 bytes for the digest
-      // + 5 bytes max for the file list length
-      // + 5 bytes max for each file id
-      // + 32 bytes for the environment digest
-      int maxSize =
-          VarInt.MAX_VARINT_SIZE
-              + actionKeyBytes.length
-              + DigestUtils.ESTIMATED_SIZE
-              + VarInt.MAX_VARINT_SIZE
-              + files.size() * VarInt.MAX_VARINT_SIZE
-              + DigestUtils.ESTIMATED_SIZE;
-      ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
+    // Estimate the size of the buffer:
+    //   5 bytes max for the actionKey length
+    // + the actionKey itself
+    // + 32 bytes for the digest
+    // + 5 bytes max for the file list length
+    // + 5 bytes max for each file id
+    // + 32 bytes for the environment digest
+    int maxSize =
+        VarInt.MAX_VARINT_SIZE
+            + actionKeyBytes.length
+            + DigestUtils.ESTIMATED_SIZE
+            + VarInt.MAX_VARINT_SIZE
+            + files.size() * VarInt.MAX_VARINT_SIZE
+            + DigestUtils.ESTIMATED_SIZE;
+    ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
-      VarInt.putVarInt(actionKeyBytes.length, sink);
-      sink.write(actionKeyBytes);
+    VarInt.putVarInt(actionKeyBytes.length, sink);
+    sink.write(actionKeyBytes);
 
-      MetadataDigestUtils.write(entry.getFileDigest(), sink);
+    MetadataDigestUtils.write(entry.getFileDigest(), sink);
 
-      VarInt.putVarInt(entry.discoversInputs() ? files.size() : NO_INPUT_DISCOVERY_COUNT, sink);
-      for (String file : files) {
-        VarInt.putVarInt(indexer.getOrCreateIndex(file), sink);
-      }
-
-      MetadataDigestUtils.write(entry.getUsedClientEnvDigest(), sink);
-
-      VarInt.putVarInt(entry.getOutputFiles().size(), sink);
-      for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
-        VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
-        byte[] bytes = objectCodecs.serialize(file.getValue()).toByteArray();
-        VarInt.putVarInt(bytes.length, sink);
-        sink.write(bytes);
-      }
-
-      VarInt.putVarInt(entry.getOutputTrees().size(), sink);
-      for (Map.Entry<String, SerializableTreeArtifactValue> tree : entry.getOutputTrees().entrySet()) {
-        VarInt.putVarInt(indexer.getOrCreateIndex(tree.getKey()), sink);
-        byte[] bytes = objectCodecs.serialize(tree.getValue()).toByteArray();
-        VarInt.putVarInt(bytes.length, sink);
-        sink.write(bytes);
-      }
-
-      return sink.toByteArray();
-    } catch (IOException e) {
-      // This Exception can never be thrown by ByteArrayOutputStream.
-      throw new AssertionError(e);
-    } catch (SerializationException e) {
-      throw new RuntimeException(e);
+    VarInt.putVarInt(entry.discoversInputs() ? files.size() : NO_INPUT_DISCOVERY_COUNT, sink);
+    for (String file : files) {
+      VarInt.putVarInt(indexer.getOrCreateIndex(file), sink);
     }
+
+    MetadataDigestUtils.write(entry.getUsedClientEnvDigest(), sink);
+
+    VarInt.putVarInt(entry.getOutputFiles().size(), sink);
+    for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
+      VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
+
+      ByteString.Output resultOut = ByteString.newOutput();
+      CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
+      try {
+        objectCodecs.serialize(file.getValue(), codedOut);
+      } catch (SerializationException e) {
+        throw new IOException("Failed to serialize file metadata", e);
+      }
+      codedOut.flush();
+
+      VarInt.putVarInt(resultOut.size(), sink);
+      resultOut.writeTo(sink);
+    }
+
+    VarInt.putVarInt(entry.getOutputTrees().size(), sink);
+    for (Map.Entry<String, SerializableTreeArtifactValue> tree : entry.getOutputTrees().entrySet()) {
+      VarInt.putVarInt(indexer.getOrCreateIndex(tree.getKey()), sink);
+
+      ByteString.Output resultOut = ByteString.newOutput();
+      CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
+      try {
+        objectCodecs.serialize(tree.getValue(), codedOut);
+      } catch (SerializationException e) {
+        throw new IOException("Failed to serialize tree metadata", e);
+      }
+      codedOut.flush();
+
+      VarInt.putVarInt(resultOut.size(), sink);
+      resultOut.writeTo(sink);
+    }
+
+    return sink.toByteArray();
   }
 
   /**
@@ -548,14 +581,16 @@ public class CompactPersistentActionCache implements ActionCache {
           throw new IOException("Corrupted file index");
         }
 
-        byte[] bytes = new byte[VarInt.getVarInt(source)];
-        source.get(bytes);
+        int size = VarInt.getVarInt(source);
+        ByteBuffer buf = source.slice();
+        buf.limit(size);
         FileArtifactValue metadata;
         try {
-          metadata = (FileArtifactValue) objectCodecs.deserialize(ByteString.copyFrom(bytes));
+          metadata = (FileArtifactValue) objectCodecs.deserialize(CodedInputStream.newInstance(buf));
         } catch (SerializationException e) {
           throw new IOException("Failed to deserialize metadata", e);
         }
+        source.position(source.position() + size);
         outputFiles.put(path, metadata);
       }
 
@@ -568,14 +603,16 @@ public class CompactPersistentActionCache implements ActionCache {
           throw new IOException("Corrupted file index");
         }
 
-        byte[] bytes = new byte[VarInt.getVarInt(source)];
-        source.get(bytes);
+        int size = VarInt.getVarInt(source);
+        ByteBuffer buf = source.slice();
+        buf.limit(size);
         SerializableTreeArtifactValue metadata;
         try {
-          metadata = (SerializableTreeArtifactValue) objectCodecs.deserialize(ByteString.copyFrom(bytes));
+          metadata = (SerializableTreeArtifactValue) objectCodecs.deserialize(CodedInputStream.newInstance(buf));
         } catch (SerializationException e) {
           throw new IOException("Failed to deserialize metadata", e);
         }
+        source.position(source.position() + size);
         outputTrees.put(path, metadata);
       }
 

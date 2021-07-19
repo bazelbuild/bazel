@@ -23,8 +23,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -39,6 +41,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -97,18 +100,36 @@ public interface ActionCache {
     /**
      * The metadata for output tree that can be serialized.
      *
-     * <p>We can't serialize {@link TreeArtifactValue} directly as it contains some objects that can
-     * not be serialized.
+     * <p>We can't serialize {@link TreeArtifactValue} directly as it contains some objects that we
+     * don't want to serialize, e.g {@link SpecialArtifact}.
      */
     @AutoValue
     abstract static class SerializableTreeArtifactValue {
       public static SerializableTreeArtifactValue create(
-          ImmutableMap<String, FileArtifactValue> childData) {
-        return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(childData);
+          ImmutableMap<String, FileArtifactValue> childValues,
+          Optional<SerializableArchivedRepresentation> archivedRepresentation) {
+        return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(childValues, archivedRepresentation);
       }
 
       // A map from parentRelativePath to the file metadata
-      abstract ImmutableMap<String, FileArtifactValue> childData();
+      abstract ImmutableMap<String, FileArtifactValue> childValues();
+
+      abstract Optional<SerializableArchivedRepresentation> archivedRepresentation();
+    }
+
+    @AutoValue
+    abstract static class SerializableArchivedRepresentation {
+      public static SerializableArchivedRepresentation create(
+          ArtifactRoot archivedTreeFileArtifactRoot,
+          String archivedTreeFileArtifactExecPath,
+          FileArtifactValue archivedFileValue) {
+        return new AutoValue_ActionCache_Entry_SerializableArchivedRepresentation(
+            archivedTreeFileArtifactRoot, archivedTreeFileArtifactExecPath, archivedFileValue);
+      }
+
+      abstract ArtifactRoot archivedTreeFileArtifactRoot();
+      abstract String archivedTreeFileArtifactExecPath();
+      abstract FileArtifactValue archivedFileValue();
     }
 
     public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
@@ -137,7 +158,7 @@ public interface ActionCache {
     }
 
     /** Adds metadata of an output file */
-    public void addOutputFile(Artifact output, FileArtifactValue value) {
+    public void addOutputFile(Artifact output, FileArtifactValue value, boolean saveFileMetadata) {
       checkArgument(
           !output.isTreeArtifact() && !output.isChildOfDeclaredDirectory(),
           "Must use addOutputTree to save tree artifacts and their children: %s",
@@ -147,7 +168,9 @@ public interface ActionCache {
       checkState(digest == null);
 
       String execPath = output.getExecPathString();
-      outputFileMetadata.put(execPath, value);
+      if (saveFileMetadata) {
+        outputFileMetadata.put(execPath, value);
+      }
       mdMap.put(execPath, value);
     }
 
@@ -162,21 +185,35 @@ public interface ActionCache {
     }
 
     /** Adds metadata of an output tree */
-    public void addOutputTree(SpecialArtifact output, TreeArtifactValue value) {
+    public void addOutputTree(SpecialArtifact output, TreeArtifactValue value, boolean saveTreeMetadata) {
       checkArgument(output.isTreeArtifact(), "artifact must be a tree artifact: %s", output);
       checkState(mdMap != null);
       checkState(!isCorrupted());
       checkState(digest == null);
 
       String execPath = output.getExecPathString();
-      ImmutableMap.Builder<String, FileArtifactValue> childDataBuilder = ImmutableMap.builder();
-      for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
-          value.getChildValues().entrySet()) {
-        childDataBuilder.put(entry.getKey().getTreeRelativePathString(), entry.getValue());
+      if (saveTreeMetadata) {
+        ImmutableMap.Builder<String, FileArtifactValue> childValues = ImmutableMap.builder();
+        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
+            value.getChildValues().entrySet()) {
+          childValues.put(entry.getKey().getTreeRelativePathString(), entry.getValue());
+        }
+
+        Optional<SerializableArchivedRepresentation> archivedRepresentation =
+            value
+                .getArchivedRepresentation()
+                .map(
+                    ar ->
+                        SerializableArchivedRepresentation.create(
+                            ar.archivedTreeFileArtifact().getRoot(),
+                            ar.archivedTreeFileArtifact().getExecPathString(),
+                            ar.archivedFileValue()));
+
+        SerializableTreeArtifactValue data =
+            SerializableTreeArtifactValue.create(childValues.build(), archivedRepresentation);
+        outputTreeMetadata.put(execPath, data);
       }
 
-      outputTreeMetadata.put(
-          execPath, SerializableTreeArtifactValue.create(childDataBuilder.build()));
       mdMap.put(execPath, value.getMetadata());
     }
 
@@ -190,10 +227,23 @@ public interface ActionCache {
       }
 
       TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(output);
-      for (Map.Entry<String, FileArtifactValue> entry : value.childData().entrySet()) {
+      for (Map.Entry<String, FileArtifactValue> entry : value.childValues().entrySet()) {
         builder.putChild(
             TreeFileArtifact.createTreeOutput(output, entry.getKey()), entry.getValue());
       }
+
+      value
+          .archivedRepresentation()
+          .ifPresent(
+              ar -> {
+                ArchivedTreeArtifact archivedTreeArtifact =
+                    new ArchivedTreeArtifact(
+                        output,
+                        ar.archivedTreeFileArtifactRoot(),
+                        PathFragment.create(ar.archivedTreeFileArtifactExecPath()));
+                builder.setArchivedRepresentation(archivedTreeArtifact, ar.archivedFileValue());
+              });
+
       return builder.build();
     }
 
