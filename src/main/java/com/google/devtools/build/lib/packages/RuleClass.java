@@ -1971,11 +1971,8 @@ public class RuleClass {
     return attributes.get(attrIndex);
   }
 
-  /**
-   * Returns the attribute whose name is {@code attrName}, or null if not
-   * found.
-   */
-  Attribute getAttributeByNameMaybe(String attrName) {
+  /** Returns the attribute whose name is {@code attrName}, or null if not found. */
+  public Attribute getAttributeByNameMaybe(String attrName) {
     Integer i = getAttributeIndex(attrName);
     return i == null ? null : attributes.get(i);
   }
