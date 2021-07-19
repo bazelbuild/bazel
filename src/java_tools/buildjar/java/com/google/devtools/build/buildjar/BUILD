@@ -57,6 +57,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jdk/langtools:javac",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -94,6 +95,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
