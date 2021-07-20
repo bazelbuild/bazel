@@ -78,7 +78,12 @@ public class ActionCacheCheckerTest {
     cache = new CorruptibleActionCache(scratch.resolve("/cache/test.dat"), clock);
     cacheChecker =
         new ActionCacheChecker(
-            cache, artifactResolver, new ActionKeyContext(), Predicates.alwaysTrue(), null);
+            cache,
+            artifactResolver,
+            new ActionKeyContext(),
+            Predicates.alwaysTrue(),
+            null,
+            PathFragment.create("bin"));
   }
 
   @Before

@@ -378,7 +378,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             options,
             new ActionCacheChecker(
-                actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
+                actionCache,
+                null,
+                actionKeyContext,
+                ALWAYS_EXECUTE_FILTER,
+                null,
+                PathFragment.create("bin")),
             topDownActionCache,
             /*outputService=*/ null,
             /*incrementalAnalysis=*/ true);

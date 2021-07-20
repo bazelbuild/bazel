@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -63,7 +64,6 @@ import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionFileArtifactValue;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -856,13 +856,12 @@ public class RemoteCache implements AutoCloseable {
       for (FileMetadata file : directory.files()) {
         TreeFileArtifact child =
             TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
-        RemoteActionFileArtifactValue value =
-            new RemoteActionFileArtifactValue(
+        RemoteFileArtifactValue value =
+            new RemoteFileArtifactValue(
                 DigestUtil.toBinaryDigest(file.digest()),
                 file.digest().getSizeBytes(),
                 /*locationIndex=*/ 1,
-                context.getRequestMetadata().getActionId(),
-                file.isExecutable());
+                context.getRequestMetadata().getActionId());
         tree.putChild(child, value);
       }
       metadataInjector.injectTree(parent, tree.build());
@@ -875,12 +874,11 @@ public class RemoteCache implements AutoCloseable {
       }
       metadataInjector.injectFile(
           output,
-          new RemoteActionFileArtifactValue(
+          new RemoteFileArtifactValue(
               DigestUtil.toBinaryDigest(outputMetadata.digest()),
               outputMetadata.digest().getSizeBytes(),
               /*locationIndex=*/ 1,
-              context.getRequestMetadata().getActionId(),
-              outputMetadata.isExecutable()));
+              context.getRequestMetadata().getActionId()));
     }
   }
 

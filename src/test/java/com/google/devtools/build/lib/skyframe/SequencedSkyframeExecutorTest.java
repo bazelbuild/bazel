@@ -623,7 +623,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           },
           new ActionKeyContext(),
           Predicates.<Action>alwaysTrue(),
-          null);
+          null,
+          PathFragment.create("bin"));
 
   private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER = new ProgressSupplier() {
     @Override

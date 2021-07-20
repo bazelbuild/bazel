@@ -23,10 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -104,32 +101,17 @@ public interface ActionCache {
      * don't want to serialize, e.g {@link SpecialArtifact}.
      */
     @AutoValue
-    abstract static class SerializableTreeArtifactValue {
+    public abstract static class SerializableTreeArtifactValue {
       public static SerializableTreeArtifactValue create(
           ImmutableMap<String, FileArtifactValue> childValues,
-          Optional<SerializableArchivedRepresentation> archivedRepresentation) {
-        return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(childValues, archivedRepresentation);
+          Optional<FileArtifactValue> archivedFileValue) {
+        return new AutoValue_ActionCache_Entry_SerializableTreeArtifactValue(childValues, archivedFileValue);
       }
 
       // A map from parentRelativePath to the file metadata
-      abstract ImmutableMap<String, FileArtifactValue> childValues();
+      public abstract ImmutableMap<String, FileArtifactValue> childValues();
 
-      abstract Optional<SerializableArchivedRepresentation> archivedRepresentation();
-    }
-
-    @AutoValue
-    abstract static class SerializableArchivedRepresentation {
-      public static SerializableArchivedRepresentation create(
-          ArtifactRoot archivedTreeFileArtifactRoot,
-          String archivedTreeFileArtifactExecPath,
-          FileArtifactValue archivedFileValue) {
-        return new AutoValue_ActionCache_Entry_SerializableArchivedRepresentation(
-            archivedTreeFileArtifactRoot, archivedTreeFileArtifactExecPath, archivedFileValue);
-      }
-
-      abstract ArtifactRoot archivedTreeFileArtifactRoot();
-      abstract String archivedTreeFileArtifactExecPath();
-      abstract FileArtifactValue archivedFileValue();
+      public abstract Optional<FileArtifactValue> archivedFileValue();
     }
 
     public Entry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
@@ -184,67 +166,33 @@ public interface ActionCache {
       return outputFileMetadata;
     }
 
-    /** Adds metadata of an output tree */
-    public void addOutputTree(SpecialArtifact output, TreeArtifactValue value, boolean saveTreeMetadata) {
+    /**
+     *  Adds metadata of an output tree
+     *
+     * @param metadata the aggregated metadata for the entire tree.
+     * @param serializableTreeArtifactValue the metadata to save if not null.
+     */
+    public void addOutputTree(
+        SpecialArtifact output,
+        FileArtifactValue metadata,
+        @Nullable SerializableTreeArtifactValue serializableTreeArtifactValue) {
       checkArgument(output.isTreeArtifact(), "artifact must be a tree artifact: %s", output);
       checkState(mdMap != null);
       checkState(!isCorrupted());
       checkState(digest == null);
 
       String execPath = output.getExecPathString();
-      if (saveTreeMetadata) {
-        ImmutableMap.Builder<String, FileArtifactValue> childValues = ImmutableMap.builder();
-        for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry :
-            value.getChildValues().entrySet()) {
-          childValues.put(entry.getKey().getTreeRelativePathString(), entry.getValue());
-        }
-
-        Optional<SerializableArchivedRepresentation> archivedRepresentation =
-            value
-                .getArchivedRepresentation()
-                .map(
-                    ar ->
-                        SerializableArchivedRepresentation.create(
-                            ar.archivedTreeFileArtifact().getRoot(),
-                            ar.archivedTreeFileArtifact().getExecPathString(),
-                            ar.archivedFileValue()));
-
-        SerializableTreeArtifactValue data =
-            SerializableTreeArtifactValue.create(childValues.build(), archivedRepresentation);
-        outputTreeMetadata.put(execPath, data);
+      if (serializableTreeArtifactValue != null) {
+        outputTreeMetadata.put(execPath, serializableTreeArtifactValue);
       }
 
-      mdMap.put(execPath, value.getMetadata());
+      mdMap.put(execPath, metadata);
     }
 
     /** Gets metadata of an output tree */
-    public TreeArtifactValue getOutputTree(SpecialArtifact output) {
+    public SerializableTreeArtifactValue getOutputTree(SpecialArtifact output) {
       checkState(!isCorrupted());
-
-      SerializableTreeArtifactValue value = outputTreeMetadata.get(output.getExecPathString());
-      if (value == null) {
-        return null;
-      }
-
-      TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(output);
-      for (Map.Entry<String, FileArtifactValue> entry : value.childValues().entrySet()) {
-        builder.putChild(
-            TreeFileArtifact.createTreeOutput(output, entry.getKey()), entry.getValue());
-      }
-
-      value
-          .archivedRepresentation()
-          .ifPresent(
-              ar -> {
-                ArchivedTreeArtifact archivedTreeArtifact =
-                    new ArchivedTreeArtifact(
-                        output,
-                        ar.archivedTreeFileArtifactRoot(),
-                        PathFragment.create(ar.archivedTreeFileArtifactExecPath()));
-                builder.setArchivedRepresentation(archivedTreeArtifact, ar.archivedFileValue());
-              });
-
-      return builder.build();
+      return outputTreeMetadata.get(output.getExecPathString());
     }
 
     Map<String, SerializableTreeArtifactValue> getOutputTrees() {
