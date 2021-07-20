@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -23,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -169,7 +172,8 @@ public class SelectionFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<ModuleKey, Module> depGraph = discovery.getDepGraph();
-    ModuleFileValue rootModule = (ModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
+    RootModuleFileValue rootModule =
+        (RootModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
     if (rootModule == null) {
       return null;
     }
@@ -235,7 +239,22 @@ public class SelectionFunction implements SkyFunction {
       throw new SelectionFunctionException(e);
     }
 
-    return SelectionValue.create(discovery.getRootModuleName(), walker.getNewDepGraph());
+    newDepGraph = walker.getNewDepGraph();
+    ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
+        depGraph.keySet().stream()
+            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
+    ImmutableMap<String, ModuleKey> moduleNameLookup =
+        Maps.filterKeys(
+                newDepGraph,
+                key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
+            .keySet()
+            .stream()
+            .collect(toImmutableMap(ModuleKey::getName, key -> key));
+    return SelectionValue.create(
+        discovery.getRootModuleName(),
+        walker.getNewDepGraph(),
+        canonicalRepoNameLookup,
+        moduleNameLookup);
   }
 
   /**

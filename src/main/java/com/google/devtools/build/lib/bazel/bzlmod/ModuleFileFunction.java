@@ -15,9 +15,14 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -106,7 +111,7 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf("The MODULE.bazel file of %s declares overrides", moduleKey);
     }
 
-    return ModuleFileValue.create(module, ImmutableMap.of());
+    return NonRootModuleFileValue.create(module);
   }
 
   private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
@@ -128,7 +133,16 @@ public class ModuleFileFunction implements SkyFunction {
     if (rootOverride != null) {
       throw errorf("invalid override for the root module found: %s", rootOverride);
     }
-    return ModuleFileValue.create(module, overrides);
+    ImmutableMap<String, String> nonRegistryOverrideCanonicalRepoNameLookup =
+        Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
+            .keySet()
+            .stream()
+            .collect(
+                toImmutableMap(
+                    name -> ModuleKey.create(name, Version.EMPTY).getCanonicalRepoName(),
+                    name -> name));
+    return RootModuleFileValue.create(
+        module, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
   }
 
   private ModuleFileGlobals execModuleFile(
@@ -169,14 +183,12 @@ public class ModuleFileFunction implements SkyFunction {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
     if (override instanceof NonRegistryOverride) {
-      // The canonical repo name of a module with a non-registry override is always the name of the
-      // module.
-      String repoName = key.getName();
+      String canonicalRepoName = key.getCanonicalRepoName();
       RepositoryDirectoryValue repoDir =
           (RepositoryDirectoryValue)
               env.getValue(
                   RepositoryDirectoryValue.key(
-                      RepositoryName.createFromValidStrippedName(repoName)));
+                      RepositoryName.createFromValidStrippedName(canonicalRepoName)));
       if (repoDir == null) {
         return null;
       }

@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -70,12 +71,14 @@ public class SelectionFunctionTest extends FoundationTestCase {
                       public SkyValue compute(SkyKey skyKey, Environment env) {
                         Preconditions.checkArgument(
                             skyKey.equals(ModuleFileValue.keyForRootModule()));
-                        return ModuleFileValue.create(
+                        return RootModuleFileValue.create(
                             Module.builder()
                                 .setName(rootModuleName)
                                 .setVersion(Version.EMPTY)
                                 .build(),
-                            overrides);
+                            overrides,
+                            // This lookup is not used in this test
+                            ImmutableMap.of());
                       }
 
                       @Override
