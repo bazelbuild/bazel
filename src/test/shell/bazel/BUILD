@@ -1316,3 +1316,11 @@ sh_test(
         "requires-network",
     ],
 )
+
+sh_test(
+    name = "watchfs_test",
+    srcs = ["watchfs_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
