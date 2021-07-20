@@ -470,7 +470,25 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   protected String getRawProgressMessage() {
     if (progressMessage != null) {
-      return progressMessage.toString();
+      if (progressMessage instanceof String) {
+        String progressMessageStr = (String) progressMessage;
+        if (progressMessageStr.contains("%{label}") && getOwner().getLabel() != null) {
+          progressMessageStr =
+              progressMessageStr.replace("%{label}", getOwner().getLabel().toString());
+        }
+        if (progressMessageStr.contains("%{output}") && getPrimaryOutput() != null) {
+          progressMessageStr =
+              progressMessageStr.replace("%{output}", getPrimaryOutput().getExecPathString());
+        }
+        if (progressMessageStr.contains("%{input}") && getPrimaryInput() != null) {
+          progressMessageStr =
+              progressMessageStr.replace("%{input}", getPrimaryInput().getExecPathString());
+        }
+        return progressMessageStr;
+      } else {
+        // handles OnDemandString
+        return progressMessage.toString();
+      }
     }
     return super.getRawProgressMessage();
   }
@@ -1172,14 +1190,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     /**
      * Sets the progress message.
      *
-     * <p>If you are formatting the string in any way, prefer one of the overloads that do the
-     * formatting lazily. This helps save memory by delaying the construction of the progress
-     * message string.
-     *
-     * <p>If you cannot use simple formatting, try {@link
-     * Builder#setProgressMessage(OnDemandString)}.
-     *
-     * <p>If you must eagerly compute the string, use {@link Builder#setProgressMessageNonLazy}.
+     * <p>The message may contain <code>%{label}</code>, <code>%{input}</code> or <code>%{output}
+     * </code> patterns, which are substituted with label string, first input or output's path,
+     * respectively.
      */
     public Builder setProgressMessage(@CompileTimeConstant String progressMessage) {
       this.progressMessage = progressMessage;
@@ -1191,8 +1204,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      *
      * @param progressMessage The message to display
      * @param subject Passed to {@link String#format}
+     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
      */
     @FormatMethod
+    @Deprecated
     public Builder setProgressMessage(@FormatString String progressMessage, Object subject) {
       return setProgressMessage(
           new OnDemandString() {
@@ -1209,8 +1224,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * @param progressMessage The message to display
      * @param subject0 Passed to {@link String#format}
      * @param subject1 Passed to {@link String#format}
+     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
      */
     @FormatMethod
+    @Deprecated
     public Builder setProgressMessage(
         @FormatString String progressMessage, Object subject0, Object subject1) {
       return setProgressMessage(
@@ -1229,8 +1246,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * @param subject0 Passed to {@link String#format}
      * @param subject1 Passed to {@link String#format}
      * @param subject2 Passed to {@link String#format}
+     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
      */
     @FormatMethod
+    @Deprecated
     public Builder setProgressMessage(
         @FormatString String progressMessage, Object subject0, Object subject1, Object subject2) {
       return setProgressMessage(
@@ -1250,8 +1269,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * @param subject1 Passed to {@link String#format}
      * @param subject2 Passed to {@link String#format}
      * @param subject3 Passed to {@link String#format}
+     * @deprecated Use {@link #setProgressMessage(String)} with provided patterns.
      */
     @FormatMethod
+    @Deprecated
     public Builder setProgressMessage(
         @FormatString String progressMessage,
         Object subject0,
@@ -1273,17 +1294,18 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * <p>When possible, prefer use of one of the overloads that use {@link String#format}. If you
      * do use this overload, take care not to capture anything expensive.
      */
-    public Builder setProgressMessage(OnDemandString progressMessage) {
+    private Builder setProgressMessage(OnDemandString progressMessage) {
       this.progressMessage = progressMessage;
       return this;
     }
 
     /**
-     * Sets an eagerly computed progress message.
+     * Sets the progress message.
      *
-     * <p>Prefer one of the lazy overloads whenever possible, as it will generally save memory.
+     * <p>Same as {@link #setProgressMessage(String)}, except that it may be used with non compile
+     * time constants (needed for Starlark literals).
      */
-    public Builder setProgressMessageNonLazy(String progressMessage) {
+    public Builder setProgressMessageFromStarlark(String progressMessage) {
       this.progressMessage = progressMessage;
       return this;
     }

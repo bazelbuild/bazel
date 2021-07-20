@@ -599,7 +599,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));
     }
     if (progressMessage != Starlark.NONE) {
-      builder.setProgressMessageNonLazy((String) progressMessage);
+      builder.setProgressMessageFromStarlark((String) progressMessage);
     }
     if (Starlark.truth(useDefaultShellEnv)) {
       builder.useDefaultShellEnvironment();
