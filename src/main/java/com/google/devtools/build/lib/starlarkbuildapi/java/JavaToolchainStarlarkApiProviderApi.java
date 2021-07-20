@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -89,8 +88,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       name = "android_linter",
       documented = false,
       useStarlarkThread = true,
-      allowReturnNones = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      allowReturnNones = true)
   @Nullable
   StarlarkValue stalarkAndroidLinter(StarlarkThread thread) throws EvalException;
 }

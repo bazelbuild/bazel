@@ -1947,7 +1947,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaInfoGetTransitiveExports() throws Exception {
-    setBuildLanguageOptions("--incompatible_enable_exports_provider");
+    setBuildLanguageOptions(
+        "--incompatible_enable_exports_provider",
+        "--experimental_builtins_injection_override=-java_library");
     scratch.file(
         "foo/extension.bzl",
         "result = provider()",
@@ -2012,8 +2014,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(
             nativeLibs.getSet(LibraryToLink.class).toList().stream()
                 .map(LibraryToLink::getLibraryIdentifier))
-        .containsExactly("foo/libmy_cc_lib_a.so", "foo/libmy_cc_lib_b.so", "foo/libmy_cc_lib_c.so")
-        .inOrder();
+        .containsExactly("foo/libmy_cc_lib_a.so", "foo/libmy_cc_lib_b.so", "foo/libmy_cc_lib_c.so");
   }
 
   /**
