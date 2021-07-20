@@ -198,7 +198,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetDynamicRuntimeSolibDir() throws Exception {
+  public void testGetValuesFromCcToolchain() throws Exception {
     scratch.file(
         "a/BUILD",
         "load(':rule.bzl', 'crule')",
@@ -212,6 +212,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
         "  return [MyInfo(",
         "    dynamic_runtime_solib_dir = toolchain.dynamic_runtime_solib_dir,",
+        "    toolchain_id = toolchain.toolchain_id,",
         "  )]",
         "crule = rule(",
         "  _impl,",
@@ -222,14 +223,16 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
-    String dynamicRuntimeSolibDir =
-        (String) getMyInfoFromTarget(r).getValue("dynamic_runtime_solib_dir");
+    StructImpl info = getMyInfoFromTarget(r);
+    String dynamicRuntimeSolibDir = (String) info.getValue("dynamic_runtime_solib_dir");
+    String toolchainId = (String) info.getValue("toolchain_id");
 
     RuleContext ruleContext = getRuleContext(r);
     CcToolchainProvider toolchain =
         CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
 
     assertThat(dynamicRuntimeSolibDir).isEqualTo(toolchain.getDynamicRuntimeSolibDirForStarlark());
+    assertThat(toolchainId).isEqualTo(toolchain.getToolchainIdentifier());
   }
 
   @Test
