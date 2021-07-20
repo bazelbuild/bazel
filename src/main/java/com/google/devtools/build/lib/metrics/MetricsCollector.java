@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.ActionData;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.RunnerCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
@@ -236,10 +237,16 @@ class MetricsCollector {
                             action.lastEnded.longValue()))
                     .setActionsExecuted(action.numActions.get())
                     .build()));
+
     ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
-    Integer total = spawnSummary.getOrDefault("total", 0);
-    Integer remoteCacheHits = spawnSummary.getOrDefault("remote cache hit", 0);
-    return actionSummary.setActionsExecuted(total).setRemoteCacheHits(remoteCacheHits).build();
+    actionSummary.setActionsExecuted(spawnSummary.getOrDefault("total", 0));
+    spawnSummary
+        .entrySet()
+        .forEach(
+            e ->
+                actionSummary.addRunnerCount(
+                    RunnerCount.newBuilder().setName(e.getKey()).setCount(e.getValue()).build()));
+    return actionSummary.build();
   }
 
   private MemoryMetrics createMemoryMetrics() {

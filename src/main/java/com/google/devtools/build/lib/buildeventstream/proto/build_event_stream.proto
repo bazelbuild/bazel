@@ -836,9 +836,6 @@ message BuildMetrics {
     // remote cache hits, but excludes local action cache hits.
     int64 actions_executed = 2;
 
-    // The total number of remote cache hits.
-    int64 remote_cache_hits = 5;
-
     message ActionData {
       string mnemonic = 1;
 
@@ -856,6 +853,15 @@ message BuildMetrics {
     }
     // Contains the top N actions by number of actions executed.
     repeated ActionData action_data = 4;
+
+    // Deprecated. The total number of remote cache hits.
+    int64 remote_cache_hits = 5 [deprecated = true];
+
+    message RunnerCount {
+      string name = 1;
+      int32 count = 2;
+    }
+    repeated RunnerCount runner_count = 6;
   }
   ActionSummary action_summary = 1;
 
