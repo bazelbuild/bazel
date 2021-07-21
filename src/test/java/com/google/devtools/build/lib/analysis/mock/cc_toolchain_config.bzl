@@ -597,7 +597,10 @@ _split_functions_feature = feature(
             ],
             flag_groups = [
                 flag_group(
-                    flags = ["-fsplit-machine-functions"],
+                    flags = [
+                        "-fsplit-machine-functions",
+                        "-DBUILD_PROPELLER_TYPE=\"split\"",
+                    ],
                 ),
             ],
         ),

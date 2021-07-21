@@ -105,6 +105,8 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
 
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch("-fsplit-machine-functions");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-DBUILD_PROPELLER_TYPE=\"split\"");
   }
 
   /**
@@ -174,6 +176,34 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
 
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .doesNotContain("-fsplit-machine-functions");
+  }
+
+  /** Tests that using propeller_optimize automatically disables implicit split functions. */
+  @Test
+  public void propellerOptimizeDisablesImplicitSplitFunctions() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        "package(features = ['thin_lto'])",
+        "",
+        "cc_binary(name = 'bin',",
+        "          srcs = ['binfile.cc', ],",
+        "          malloc = '//base:system_malloc')");
+    scratch.file("pkg/binfile.cc", "int main() {}");
+    scratch.file("pkg/profile.zip", "");
+
+    LtoBackendAction backendAction =
+        setupAndRunToolchainActions(
+            "--features=fdo_split_functions",
+            "--propeller_optimize_absolute_cc_profile=/tmp/cc.txt");
+
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-fbasic-block-sections=list=");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-DBUILD_PROPELLER_TYPE=\"full\"");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .doesNotMatch("-DBUILD_PROPELLER_TYPE=\"split\"");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .doesNotMatch("-fsplit-machine-functions");
   }
 
   /**
