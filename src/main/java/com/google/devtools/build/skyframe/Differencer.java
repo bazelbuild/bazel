@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Maps;
+import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.Maps;
 import java.util.Collection;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -48,23 +47,14 @@ public interface Differencer {
     Map<SkyKey, SkyValue> changedKeysWithNewValues();
   }
 
-  /** A {@Diff} that also potentially contains the new and old values for each changed key. */
+  /** A {@link Diff} that also potentially contains the new and old values for each changed key. */
   interface DiffWithDelta extends Diff {
     /** Returns the value keys whose values have changed, along with their old and new values. */
     Map<SkyKey, Delta> changedKeysWithNewAndOldValues();
 
     /** Represents the delta between two values of the same key. */
     final class Delta {
-      private static final Function<Delta, SkyValue> NEW_VALUE_EXTRACTOR =
-          new Function<Delta, SkyValue>() {
-            @Override
-            public SkyValue apply(Delta delta) {
-              return delta.getNewValue();
-            }
-          };
-
-      @Nullable
-      private final SkyValue oldValue;
+      @Nullable private final SkyValue oldValue;
       private final SkyValue newValue;
 
       public Delta(SkyValue newValue) {
@@ -73,7 +63,7 @@ public interface Differencer {
 
       public Delta(SkyValue oldValue, SkyValue newValue) {
         this.oldValue = oldValue;
-        this.newValue = newValue;
+        this.newValue = checkNotNull(newValue);
       }
 
       /** Returns the old value, if any. */
@@ -88,7 +78,7 @@ public interface Differencer {
       }
 
       public static Map<SkyKey, SkyValue> newValues(Map<SkyKey, Delta> delta) {
-        return Maps.transformValues(delta, NEW_VALUE_EXTRACTOR);
+        return Maps.transformValues(delta, Delta::getNewValue);
       }
     }
   }

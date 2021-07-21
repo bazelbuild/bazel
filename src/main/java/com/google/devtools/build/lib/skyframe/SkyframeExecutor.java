@@ -1327,21 +1327,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Preconditions.checkState(key.functionName().equals(FileStateValue.FILE_STATE), key);
       RootedPath rootedPath = (RootedPath) key.argument();
       Delta delta = entry.getValue();
-      FileStateValue oldValue = (FileStateValue) delta.getOldValue();
+      @Nullable FileStateValue oldValue = (FileStateValue) delta.getOldValue();
       FileStateValue newValue = (FileStateValue) delta.getNewValue();
-      if (newValue != null) {
-        valuesToInject.put(key, newValue);
-      } else {
-        valuesToInvalidate.add(key);
-      }
+      valuesToInject.put(key, newValue);
       SkyKey dirListingStateKey = parentDirectoryListingStateKey(rootedPath);
       // Invalidate the directory listing for the path's parent directory if the change was
       // relevant (e.g. path turned from a symlink into a directory) OR if we don't have enough
       // information to determine it was irrelevant.
       boolean changedType;
-      if (newValue == null) {
-        changedType = true;
-      } else if (oldValue != null) {
+      if (oldValue != null) {
         changedType = !oldValue.getType().equals(newValue.getType());
       } else {
         DirectoryListingStateValue oldDirListingStateValue =
