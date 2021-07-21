@@ -238,22 +238,7 @@ def _apple_crosstool_transition_impl(settings, attr):
     platform_type = str(settings["//command_line_option:apple_platform_type"])
     cpu = _cpu_string(platform_type, settings)
     if cpu == settings["//command_line_option:cpu"] and settings["//command_line_option:crosstool_top"] == settings["//command_line_option:apple_crosstool_top"]:
-        return {
-            "//command_line_option:apple configuration distinguisher": settings["//command_line_option:apple configuration distinguisher"],
-            "//command_line_option:apple_platform_type": settings["//command_line_option:apple_platform_type"],
-            "//command_line_option:apple_split_cpu": settings["//command_line_option:apple_split_cpu"],
-            "//command_line_option:compiler": settings["//command_line_option:compiler"],
-            "//command_line_option:cpu": settings["//command_line_option:cpu"],
-            "//command_line_option:crosstool_top": settings["//command_line_option:crosstool_top"],
-            "//command_line_option:platforms": settings["//command_line_option:platforms"],
-            "//command_line_option:fission": settings["//command_line_option:fission"],
-            "//command_line_option:grte_top": settings["//command_line_option:grte_top"],
-            "//command_line_option:ios_minimum_os": settings["//command_line_option:ios_minimum_os"],
-            "//command_line_option:macos_minimum_os": settings["//command_line_option:macos_minimum_os"],
-            "//command_line_option:tvos_minimum_os": settings["//command_line_option:tvos_minimum_os"],
-            "//command_line_option:watchos_minimum_os": settings["//command_line_option:watchos_minimum_os"],
-        }
-
+        return {}  # No changes necessary.
     return {
         "//command_line_option:apple configuration distinguisher": "applebin_" + platform_type,
         "//command_line_option:apple_platform_type": settings["//command_line_option:apple_platform_type"],
@@ -335,7 +320,7 @@ objc_library = rule(
         common_attrs.X_C_RUNE_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    cfg = apple_common.apple_crosstool_transition,
+    cfg = apple_crosstool_transition,
     toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
     incompatible_use_toolchain_transition = True,
 )
