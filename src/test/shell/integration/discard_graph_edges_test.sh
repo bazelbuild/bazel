@@ -276,8 +276,8 @@ function test_packages_cleared() {
   [[ "$glob_count" -le 1 ]] \
       || fail "glob count $glob_count too high"
   module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
-  [[ "$module_count" -lt 25 ]] \
-      || fail "Module count $module_count too high" # was 22
+  [[ "$module_count" -lt 100 ]] \
+      || fail "Module count $module_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
   [[ "$ct_count" -le 1 ]] \

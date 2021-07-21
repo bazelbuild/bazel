@@ -15,6 +15,7 @@
 """Utility methods used for creating objc_* rules actions"""
 
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
+load("@_builtins//:common/objc/objc_common.bzl", "objc_common")
 
 objc_internal = _builtins.internal.objc_internal
 cc_common = _builtins.toplevel.cc_common
@@ -60,7 +61,25 @@ def _build_common_variables(
         compilation_artifacts = objc_internal.create_compilation_artifacts()
     else:
         compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
-    objc_common = objc_internal.create_common(
+
+    #    objc_common = objc_internal.create_common(
+    #        purpose = "COMPILE_AND_LINK",
+    #        ctx = ctx,
+    #        compilation_attributes = compilation_attributes,
+    #        compilation_artifacts = compilation_artifacts,
+    #        deps = deps,
+    #        runtime_deps = runtime_deps,
+    #        intermediate_artifacts = intermediate_artifacts,
+    #        alwayslink = ctx.attr.alwayslink,
+    #        has_module_map = True,
+    #        extra_import_libraries = extra_import_libraries,
+    #        linkopts = linkopts,
+    #    )
+
+    #    objc_provider = objc_common.objc_provider
+    #    objc_compilation_context = objc_common.objc_compilation_context
+
+    (objc_provider, objc_compilation_context) = objc_common.create_context_and_provider(
         purpose = "COMPILE_AND_LINK",
         ctx = ctx,
         compilation_attributes = compilation_attributes,
@@ -74,17 +93,18 @@ def _build_common_variables(
         linkopts = linkopts,
     )
 
-    return objc_common, struct(
+    return struct(
         ctx = ctx,
         intermediate_artifacts = intermediate_artifacts,
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
-        objc_compilation_context = objc_common.objc_compilation_context,
+        objc_compilation_context = objc_compilation_context,
         toolchain = toolchain,
         use_pch = use_pch,
         disable_layering_check = disable_layering_check,
         disable_parse_headers = disable_parse_hdrs,
         objc_config = ctx.fragments.objc,
+        objc_provider = objc_provider,
     )
 
 def _build_feature_configuration(common_variables, for_swift_module_map, support_parse_headers):

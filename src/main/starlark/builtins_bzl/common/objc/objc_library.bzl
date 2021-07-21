@@ -133,7 +133,7 @@ def _objc_library_impl(ctx):
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
 
-    (objc_common, common_variables) = compilation_support.build_common_variables(
+    common_variables = compilation_support.build_common_variables(
         ctx,
         cc_toolchain,
         True,
@@ -146,8 +146,8 @@ def _objc_library_impl(ctx):
         ctx.attr.linkopts,
     )
     files = []
-    if objc_common.compiled_archive != None:
-        files.append(objc_common.compiled_archive)
+    if common_variables.compilation_artifacts.archive != None:
+        files.append(common_variables.compilation_artifacts.archive)
 
     (cc_compilation_context, compilation_outputs, output_group_info) = compilation_support.register_compile_and_archive_actions(
         common_variables,
@@ -159,7 +159,7 @@ def _objc_library_impl(ctx):
 
     j2objc_providers = objc_internal.j2objc_providers_from_deps(ctx = ctx)
 
-    objc_provider = objc_common.objc_provider
+    objc_provider = common_variables.objc_provider
     feature_configuration = compilation_support.build_feature_configuration(common_variables, False, True)
     linking_context = _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, common_variables)
     cc_info = CcInfo(

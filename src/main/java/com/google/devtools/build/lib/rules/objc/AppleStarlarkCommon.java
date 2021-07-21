@@ -39,7 +39,9 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
 import java.util.Map;
@@ -193,12 +195,34 @@ public class AppleStarlarkCommon
       ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
       if (key != null) {
         resultBuilder.addElementsFromStarlark(key, entry.getValue());
-      } else if (entry.getKey().equals("strict_include")) {
-        resultBuilder.addStrictIncludeFromStarlark(entry.getValue());
-      } else if (entry.getKey().equals("providers")) {
-        resultBuilder.addProvidersFromStarlark(entry.getValue());
       } else {
-        throw Starlark.errorf(BAD_KEY_ERROR, entry.getKey());
+        switch (entry.getKey()) {
+          case "cc_library":
+            CcModule.checkPrivateStarlarkificationAllowlist(thread);
+            resultBuilder.uncheckedAddTransitive(
+                ObjcProvider.CC_LIBRARY,
+                ObjcProviderStarlarkConverters.convertToJava(
+                    ObjcProvider.CC_LIBRARY, entry.getValue()));
+            break;
+          case "linkstamp":
+            CcModule.checkPrivateStarlarkificationAllowlist(thread);
+            resultBuilder.uncheckedAddTransitive(
+                ObjcProvider.LINKSTAMP,
+                ObjcProviderStarlarkConverters.convertToJava(
+                    ObjcProvider.LINKSTAMP, entry.getValue()));
+            break;
+          case "flag":
+            resultBuilder.add(ObjcProvider.FLAG, Flag.USES_CPP);
+            break;
+          case "strict_include":
+            resultBuilder.addStrictIncludeFromStarlark(entry.getValue());
+            break;
+          case "providers":
+            resultBuilder.addProvidersFromStarlark(entry.getValue());
+            break;
+          default:
+            throw Starlark.errorf(BAD_KEY_ERROR, entry.getKey());
+        }
       }
     }
     return resultBuilder.build();

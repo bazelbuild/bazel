@@ -400,11 +400,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @VisibleForTesting
   static final ImmutableList<Key<?>> KEYS_NOT_IN_STARLARK =
       ImmutableList.<Key<?>>of(
-          // LibraryToLink not exposed to Starlark.
-          CC_LIBRARY,
           // Flag enum is not exposed to Starlark.
           FLAG,
-          // Linkstamp is not exposed to Starlark. See commentary at its definition.
+          // cc_library is handled specially.
+          CC_LIBRARY,
+          // linkstamp is handled specially.
           LINKSTAMP,
           // Strict include is handled specially.
           STRICT_INCLUDE);
