@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -99,16 +99,20 @@ public class ModuleFileFunction implements SkyFunction {
     Module module = moduleFileGlobals.buildModule(getModuleFileResult.registry);
     if (!module.getName().equals(moduleKey.getName())) {
       throw errorf(
+          Code.BAD_MODULE,
           "the MODULE.bazel file of %s declares a different name (%s)",
-          moduleKey, module.getName());
+          moduleKey,
+          module.getName());
     }
     if (!moduleKey.getVersion().isEmpty() && !module.getVersion().equals(moduleKey.getVersion())) {
       throw errorf(
+          Code.BAD_MODULE,
           "the MODULE.bazel file of %s declares a different version (%s)",
-          moduleKey, module.getVersion());
+          moduleKey,
+          module.getVersion());
     }
     if (!moduleFileGlobals.buildOverrides().isEmpty()) {
-      throw errorf("The MODULE.bazel file of %s declares overrides", moduleKey);
+      throw errorf(Code.BAD_MODULE, "The MODULE.bazel file of %s declares overrides", moduleKey);
     }
 
     return NonRootModuleFileValue.create(module);
@@ -131,7 +135,7 @@ public class ModuleFileFunction implements SkyFunction {
     ImmutableMap<String, ModuleOverride> overrides = moduleFileGlobals.buildOverrides();
     ModuleOverride rootOverride = overrides.get(module.getName());
     if (rootOverride != null) {
-      throw errorf("invalid override for the root module found: %s", rootOverride);
+      throw errorf(Code.BAD_MODULE, "invalid override for the root module found: %s", rootOverride);
     }
     ImmutableMap<String, String> nonRegistryOverrideCanonicalRepoNameLookup =
         Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
@@ -152,7 +156,7 @@ public class ModuleFileFunction implements SkyFunction {
         StarlarkFile.parse(ParserInput.fromUTF8(moduleFile, moduleKey + "/MODULE.bazel"));
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(env.getListener(), starlarkFile.errors());
-      throw errorf("error parsing MODULE.bazel file for %s", moduleKey);
+      throw errorf(Code.BAD_MODULE, "error parsing MODULE.bazel file for %s", moduleKey);
     }
 
     ModuleFileGlobals moduleFileGlobals = new ModuleFileGlobals();
@@ -165,7 +169,7 @@ public class ModuleFileFunction implements SkyFunction {
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       Starlark.execFileProgram(program, predeclaredEnv, thread);
     } catch (SyntaxError.Exception | EvalException e) {
-      throw new ModuleFileFunctionException(e);
+      throw errorf(Code.BAD_MODULE, e, "error executing MODULE.bazel file for %s", moduleKey);
     }
     return moduleFileGlobals;
   }
@@ -204,6 +208,8 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     // Otherwise, we should get the module file from a registry.
+    // TODO(wyv): Move registry object creation to BazelRepositoryModule so we don't repeatedly
+    //   create them, and we can better report the error (is it a flag error or override error?).
     List<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
     if (override instanceof RegistryOverride) {
       String overrideRegistry = ((RegistryOverride) override).getRegistry();
@@ -211,7 +217,11 @@ public class ModuleFileFunction implements SkyFunction {
         registries = ImmutableList.of(overrideRegistry);
       }
     } else if (override != null) {
-      throw errorf("unrecognized override type %s", override.getClass().getName());
+      // This should never happen.
+      throw new IllegalStateException(
+          String.format(
+              "unrecognized override type %s for module %s",
+              override.getClass().getSimpleName(), key));
     }
     List<Registry> registryObjects = new ArrayList<>(registries.size());
     for (String registryUrl : registries) {
@@ -220,15 +230,15 @@ public class ModuleFileFunction implements SkyFunction {
             registryFactory.getRegistryWithUrl(
                 registryUrl.replace("%workspace%", workspaceRoot.getPathString())));
       } catch (URISyntaxException e) {
-        throw new ModuleFileFunctionException(e);
+        throw errorf(Code.INVALID_REGISTRY_URL, e, "Invalid registry URL");
       }
     }
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.
-    try {
-      GetModuleFileResult result = new GetModuleFileResult();
-      for (Registry registry : registryObjects) {
+    GetModuleFileResult result = new GetModuleFileResult();
+    for (Registry registry : registryObjects) {
+      try {
         Optional<byte[]> moduleFile = registry.getModuleFile(key, env.getListener());
         if (!moduleFile.isPresent()) {
           continue;
@@ -236,12 +246,13 @@ public class ModuleFileFunction implements SkyFunction {
         result.moduleFileContents = moduleFile.get();
         result.registry = registry;
         return result;
+      } catch (IOException e) {
+        throw errorf(
+            Code.ERROR_ACCESSING_REGISTRY, e, "Error accessing registry %s", registry.getUrl());
       }
-    } catch (IOException e) {
-      throw new ModuleFileFunctionException(e);
     }
 
-    throw errorf("module not found in registries: %s", key);
+    throw errorf(Code.MODULE_NOT_FOUND, "module not found in registries: %s", key);
   }
 
   private static byte[] readFile(Path path) throws ModuleFileFunctionException {
@@ -265,8 +276,15 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   @FormatMethod
-  private static ModuleFileFunctionException errorf(String format, Object... args) {
-    return new ModuleFileFunctionException(new NoSuchThingException(String.format(format, args)));
+  private static ModuleFileFunctionException errorf(Code code, String format, Object... args) {
+    return new ModuleFileFunctionException(ExternalDepsException.withMessage(code, format, args));
+  }
+
+  @FormatMethod
+  private static ModuleFileFunctionException errorf(
+      Code code, Throwable cause, String format, Object... args) {
+    return new ModuleFileFunctionException(
+        ExternalDepsException.withCauseAndMessage(code, cause, format, args));
   }
 
   static final class ModuleFileFunctionException extends SkyFunctionException {
