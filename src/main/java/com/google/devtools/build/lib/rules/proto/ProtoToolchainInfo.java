@@ -19,11 +19,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import javax.annotation.Nullable;
 
 /** Toolchain for {@code proto_*} rules. */
 @AutoValue
-public abstract class ProtoToolchainInfo {
+public abstract class ProtoToolchainInfo extends NativeInfo {
+  public static final ProtoToolchainInfoProvider PROVIDER = new ProtoToolchainInfoProvider();
+
   /** Creates a {@link ProtoToolchainInfo} from a {@link RuleContext}. */
   @Nullable
   public static ProtoToolchainInfo fromRuleContext(RuleContext ruleContext) {
@@ -39,10 +44,17 @@ public abstract class ProtoToolchainInfo {
       return null;
     }
 
-    return new AutoValue_ProtoToolchainInfo(compiler, protoConfiguration.protocOpts());
+    return new AutoValue_ProtoToolchainInfo(PROVIDER, compiler, protoConfiguration.protocOpts());
   }
 
   public abstract FilesToRunProvider getCompiler();
 
   public abstract ImmutableList<String> getCompilerOptions();
+
+  /** Provider class for {@link ProtoToolchainInfo} objects. */
+  public static class ProtoToolchainInfoProvider extends BuiltinProvider<ProtoToolchainInfo> {
+    public ProtoToolchainInfoProvider() {
+      super(ProtoBootstrap.PROTO_TOOLCHAIN_INFO_STARLARK_NAME, ProtoToolchainInfo.class);
+    }
+  }
 }
