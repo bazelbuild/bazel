@@ -50,6 +50,14 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FileApi getSingleJar();
 
+  @Nullable
+  @StarlarkMethod(
+      name = "one_version_tool",
+      doc = "The artifact that enforces One-Version compliance of java binaries.",
+      structField = true,
+      allowReturnNones = true)
+  FileApi getOneVersionBinary();
+
   @StarlarkMethod(
       name = "one_version_allowlist",
       doc = "The allowlist used by the One-Version compliance checker",
