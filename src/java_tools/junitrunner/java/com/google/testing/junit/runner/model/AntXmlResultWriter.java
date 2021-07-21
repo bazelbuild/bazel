@@ -38,6 +38,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
   private static final String JUNIT_ELEMENT_PROPERTY = "property";
   private static final String JUNIT_ELEMENT_TESTCASE = "testcase";
   private static final String JUNIT_ELEMENT_FAILURE = "failure";
+  private static final String JUNIT_ELEMENT_SKIPPED = "skipped";
 
   private static final String JUNIT_ATTR_TESTSUITE_ERRORS = "errors";
   private static final String JUNIT_ATTR_TESTSUITE_FAILURES = "failures";
@@ -113,7 +114,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
   private void writeTestCases(XmlWriter writer, TestResult result,
       Iterable<Throwable> parentFailures) throws IOException {
     for (TestResult child : result.getChildResults()) {
-      if (child.getStatus() == TestResult.Status.FILTERED) {
+      if (child.getStatus().equals(TestResult.Status.FILTERED)) {
         continue;
       }
       if (child.getChildResults().isEmpty()) {
@@ -173,6 +174,12 @@ public final class AntXmlResultWriter implements XmlResultWriter {
 
     for (Throwable failure : result.getFailures()) {
       writeThrowableToXmlWriter(writer, failure);
+    }
+
+    if (result.getStatus().equals(TestResult.Status.SKIPPED)
+        || result.getStatus().equals(TestResult.Status.SUPPRESSED)) {
+      writer.startElement(JUNIT_ELEMENT_SKIPPED);
+      writer.endElement();
     }
 
     writer.endElement();
