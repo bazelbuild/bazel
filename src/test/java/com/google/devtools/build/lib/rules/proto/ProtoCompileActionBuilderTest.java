@@ -81,7 +81,6 @@ public class ProtoCompileActionBuilderTest {
         /* directProtoSourceRoot */ PathFragment.EMPTY_FRAGMENT,
         /* transitiveSources */ NestedSetBuilder.wrap(Order.STABLE_ORDER, transitiveProtoSources),
         /* transitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* originalTransitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* transitiveProtoSourceRoots */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* strictImportableProtoSourcesForDependents */ NestedSetBuilder.emptySet(
             Order.STABLE_ORDER),
@@ -107,14 +106,14 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* forbiddenProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     ProtoLangToolchainProvider toolchainWithPlugin =
         ProtoLangToolchainProvider.create(
             "--$(PLUGIN_OUT)=param3,param4:$(OUT)",
             plugin,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* forbiddenProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -177,7 +176,7 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* forbiddenProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -215,7 +214,7 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* forbiddenProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -285,7 +284,7 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* forbiddenProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -319,14 +318,14 @@ public class ProtoCompileActionBuilderTest {
             "dontcare",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* forbiddenProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     ProtoLangToolchainProvider toolchain2 =
         ProtoLangToolchainProvider.create(
             "dontcare",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* forbiddenProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     IllegalStateException e =
         assertThrows(
