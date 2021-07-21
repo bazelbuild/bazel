@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -21,10 +22,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import javax.annotation.Nullable;
 
 /** Toolchain for {@code proto_*} rules. */
-public class ProtoToolchain {
-  /** Creates a {@link ProtoToolchain} from a {@link RuleContext}. */
+@AutoValue
+public abstract class ProtoToolchainInfo {
+  /** Creates a {@link ProtoToolchainInfo} from a {@link RuleContext}. */
   @Nullable
-  public static ProtoToolchain fromRuleContext(RuleContext ruleContext) {
+  public static ProtoToolchainInfo fromRuleContext(RuleContext ruleContext) {
     Preconditions.checkNotNull(ruleContext);
 
     FilesToRunProvider compiler = ruleContext.getExecutablePrerequisite(":proto_compiler");
@@ -37,22 +39,10 @@ public class ProtoToolchain {
       return null;
     }
 
-    return new ProtoToolchain(compiler, protoConfiguration.protocOpts());
+    return new AutoValue_ProtoToolchainInfo(compiler, protoConfiguration.protocOpts());
   }
 
-  private final FilesToRunProvider compiler;
-  private final ImmutableList<String> compilerOptions;
+  public abstract FilesToRunProvider getCompiler();
 
-  private ProtoToolchain(FilesToRunProvider compiler, ImmutableList<String> compilerOptions) {
-    this.compiler = Preconditions.checkNotNull(compiler);
-    this.compilerOptions = Preconditions.checkNotNull(compilerOptions);
-  }
-
-  public FilesToRunProvider getCompiler() {
-    return compiler;
-  }
-
-  public ImmutableList<String> getCompilerOptions() {
-    return compilerOptions;
-  }
+  public abstract ImmutableList<String> getCompilerOptions();
 }

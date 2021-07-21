@@ -320,7 +320,7 @@ public class ProtoCompileActionBuilder {
     NestedSet<Artifact> dependenciesDescriptorSets =
         ProtoCommon.computeDependenciesDescriptorSets(protoDeps);
 
-    ProtoToolchain protoToolchain = ProtoToolchain.fromRuleContext(ruleContext);
+    ProtoToolchainInfo protoToolchain = ProtoToolchainInfo.fromRuleContext(ruleContext);
     if (protoToolchain == null || protoInfo.getDirectProtoSources().isEmpty()) {
       ruleContext.registerAction(
               FileWriteAction.createEmptyWithInputs(
@@ -410,7 +410,7 @@ public class ProtoCompileActionBuilder {
       String flavorName,
       Exports useExports,
       Services allowServices) {
-    ProtoToolchain protoToolchain = ProtoToolchain.fromRuleContext(ruleContext);
+    ProtoToolchainInfo protoToolchain = ProtoToolchainInfo.fromRuleContext(ruleContext);
     if (protoToolchain == null) {
       return;
     }
@@ -433,7 +433,7 @@ public class ProtoCompileActionBuilder {
   @Nullable
   private static SpawnAction.Builder createActions(
       RuleContext ruleContext,
-      ProtoToolchain protoToolchain,
+      ProtoToolchainInfo protoToolchain,
       List<ToolchainInvocation> toolchainInvocations,
       ProtoInfo protoInfo,
       Label ruleLabel,
