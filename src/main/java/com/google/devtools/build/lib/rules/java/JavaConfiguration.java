@@ -250,6 +250,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** @return proper label only if --java_launcher= is specified, otherwise null. */
+  @StarlarkConfigurationField(
+      name = "launcher",
+      doc = "Returns the label provided with --java_launcher, if any.",
+      defaultInToolRepository = true)
+  @Nullable
   public Label getJavaLauncherLabel() {
     return javaLauncherLabel;
   }
