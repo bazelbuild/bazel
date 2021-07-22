@@ -51,7 +51,7 @@ def _create_context_and_provider(
         if apple_common.Objc in runtime_dep:
             runtime_objc_providers.append(runtime_dep[apple_common.Objc])
         if CcInfo in runtime_dep:
-            cc_compilation_contexts.append(runtime_dep[CcInfo].cc_compilation_context)
+            cc_compilation_contexts.append(runtime_dep[CcInfo].compilation_context)
 
     link_order_keys = [
         "imported_library",
@@ -66,9 +66,9 @@ def _create_context_and_provider(
         "weak_sdk_framework": [],
         "sdk_dylib": [],
         "linkopt": [],
-        "cc_library": [],
         "library": [],
         "providers": objc_providers,
+        "cc_library": [],
         "sdk_framework": [],
         "linkstamp": [],
         "force_load_library": [],
