@@ -579,7 +579,8 @@ final class Parser {
     switch (token.kind) {
       case INT:
         {
-          IntLiteral literal = new IntLiteral(locs, token.raw, token.start, (Number) token.value);
+          IntLiteral literal =
+              new IntLiteral(locs, token.getRaw(), token.start, (Number) token.value);
           nextToken();
           return literal;
         }
@@ -587,7 +588,7 @@ final class Parser {
       case FLOAT:
         {
           FloatLiteral literal =
-              new FloatLiteral(locs, token.raw, token.start, (double) token.value);
+              new FloatLiteral(locs, token.getRaw(), token.start, (double) token.value);
           nextToken();
           return literal;
         }

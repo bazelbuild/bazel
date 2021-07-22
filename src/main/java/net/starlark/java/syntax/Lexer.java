@@ -44,7 +44,6 @@ final class Lexer {
   TokenKind kind;
   int start; // start offset
   int end; // end offset
-  String raw; // source text of token
   Object value; // String, Integer/Long/BigInteger, or Double value of token
 
   // --- end of parser-visible fields ---
@@ -143,17 +142,17 @@ final class Lexer {
     this.start = start;
     this.end = end;
     this.value = null;
-    this.raw = null;
   }
 
   // setValue sets the value associated with a STRING, FLOAT, INT,
   // IDENTIFIER, or COMMENT token, and records the raw text of the token.
   private void setValue(Object value) {
     this.value = value;
-    // TODO(brandjon): bufferSlice causes us to allocate a String for the raw text on every token,
-    // but raw is only used for IntLiteral and FloatLiteral. Can we allocate the raw on demand
-    // instead?
-    this.raw = bufferSlice(start, end);
+  }
+
+  /** Returns the raw input text associated with the current token. */
+  String getRaw() {
+    return bufferSlice(start, end);
   }
 
   /**
