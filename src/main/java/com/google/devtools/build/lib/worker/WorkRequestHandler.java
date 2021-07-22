@@ -305,26 +305,40 @@ public class WorkRequestHandler implements AutoCloseable {
    * returns. If {@code in} reaches EOF, it also returns.
    */
   public void processRequests() throws IOException {
-    while (true) {
-      WorkRequest request = messageProcessor.readWorkRequest();
-      if (request == null) {
-        break;
+    try {
+      while (true) {
+        WorkRequest request = messageProcessor.readWorkRequest();
+        if (request == null) {
+          break;
+        }
+        if (request.getCancel()) {
+          respondToCancelRequest(request);
+        } else {
+          startResponseThread(request);
+        }
       }
-      if (request.getCancel()) {
-        respondToCancelRequest(request);
-      } else {
-        startResponseThread(request);
-      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      stderr.println("InterruptedException processing requests.");
     }
   }
 
   /** Starts a thread for the given request. */
-  void startResponseThread(WorkRequest request) {
+  void startResponseThread(WorkRequest request) throws InterruptedException {
     Thread currentThread = Thread.currentThread();
     String threadName =
         request.getRequestId() > 0
             ? "multiplex-request-" + request.getRequestId()
             : "singleplex-request";
+    // TODO(larsrc): See if this can be handled with a queue instead, without introducing more
+    // race conditions.
+    if (request.getRequestId() == 0) {
+      while (activeRequests.containsKey(request.getRequestId())) {
+        // b/194051480: Previous singleplex requests can still be in activeRequests for a bit after
+        // the response has been sent. We need to wait for them to vanish.
+        Thread.sleep(1);
+      }
+    }
     Thread t =
         new Thread(
             () -> {
