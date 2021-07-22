@@ -339,7 +339,19 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
                     + " allows rules to run actions on multiple execution platforms within a"
                     + " single target. See <a href='../../exec-groups.html'>execution groups"
-                    + " documentation</a> for more info.")
+                    + " documentation</a> for more info."),
+        @Param(
+            name = "compile_one_filetype",
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "Used by --compile_one_dependency: if multiple rules consume the specified file, "
+                    + "should we choose this rule over others."),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -361,6 +373,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object compileOneFiletype,
       StarlarkThread thread)
       throws EvalException;
 

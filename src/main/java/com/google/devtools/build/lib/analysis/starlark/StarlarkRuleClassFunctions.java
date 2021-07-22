@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
@@ -286,6 +287,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object compileOneFiletype,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
@@ -429,6 +431,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     if (!execCompatibleWith.isEmpty()) {
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
+    }
+
+    if (compileOneFiletype instanceof String) {
+      builder.setPreferredDependencyPredicate(FileType.of((String) compileOneFiletype));
     }
 
     return new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
