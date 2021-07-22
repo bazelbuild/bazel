@@ -265,6 +265,7 @@ bool ReadFile(const string& filename, string* content, int max_size) {
   std::string errorText;
   Path path = Path(filename, &errorText);
   if (!errorText.empty()) {
+      BAZEL_LOG(WARNING) << "Path is not valid " << filename << " " << errorText;
       return false;
   }
   return ReadFile(path, content, max_size);
