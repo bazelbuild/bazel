@@ -106,7 +106,6 @@ public final class MockObjcSupport {
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
         "sh_binary(name = 'xcrunwrapper', srcs = ['xcrunwrapper.sh'])",
-        "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
         "filegroup(name = 'j2objc_dead_code_pruner', srcs = ['j2objc_dead_code_pruner.py'])",
         "xcode_config(name = 'host_xcodes',",
@@ -142,7 +141,6 @@ public final class MockObjcSupport {
           "tools/objc/BUILD",
           "package(default_visibility=['//visibility:public'])",
           "exports_files(glob(['**']))",
-          "apple_binary(name = 'xctest_appbin', platform_type = 'ios', deps = [':dummy_lib'])",
           "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
           "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])");
     }
