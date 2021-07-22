@@ -28,23 +28,23 @@ public class ProtoBootstrap implements Bootstrap {
   /** The name of the proto info provider in Starlark. */
   public static final String PROTO_INFO_STARLARK_NAME = "ProtoInfo";
 
-  /** The name of the proto toolchain info provider in Starlark. */
-  public static final String PROTO_TOOLCHAIN_INFO_STARLARK_NAME = "ProtoToolchainInfo";
-
   /** The name of the proto namespace in Starlark. */
   public static final String PROTO_COMMON_NAME = "proto_common";
 
   private final ProtoInfoProviderApi protoInfoApiProvider;
+  private final ProtoToolchainInfoApi.Provider protoToolchainInfoApi;
   private final Object protoCommon;
   private final StarlarkAspectApi protoRegistryAspect;
   private final ProviderApi protoRegistryProvider;
 
   public ProtoBootstrap(
       ProtoInfoProviderApi protoInfoApiProvider,
+      ProtoToolchainInfoApi.Provider protoToolchainInfoApi,
       Object protoCommon,
       StarlarkAspectApi protoRegistryAspect,
       ProviderApi protoRegistryProvider) {
     this.protoInfoApiProvider = protoInfoApiProvider;
+    this.protoToolchainInfoApi = protoToolchainInfoApi;
     this.protoCommon = protoCommon;
     this.protoRegistryAspect = protoRegistryAspect;
     this.protoRegistryProvider = protoRegistryProvider;
@@ -53,6 +53,7 @@ public class ProtoBootstrap implements Bootstrap {
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put(PROTO_INFO_STARLARK_NAME, protoInfoApiProvider);
+    builder.put(ProtoToolchainInfoApi.NAME, protoToolchainInfoApi);
     builder.put(PROTO_COMMON_NAME, protoCommon);
     builder.put(
         "ProtoRegistryAspect",
