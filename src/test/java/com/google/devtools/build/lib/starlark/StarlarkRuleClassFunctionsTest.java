@@ -105,6 +105,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     builder.addStarlarkAccessibleTopLevels(
         "parametrized_native_aspect",
         TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+    builder.addNativeAspectClass(TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
     return builder.build();
   }
 

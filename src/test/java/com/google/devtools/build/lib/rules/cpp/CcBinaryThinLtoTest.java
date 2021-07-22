@@ -1633,6 +1633,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     String expectedCompilerFlag = "-fbasic-block-sections=list=.*/cc_profile.txt";
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch(expectedCompilerFlag);
+    String expectedBuildTypeFlag = "-DBUILD_PROPELLER_TYPE=\"full\"";
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch(expectedBuildTypeFlag);
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("cc_profile.txt");
   }
@@ -1673,6 +1676,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     String expectedCompilerFlag = "-fbasic-block-sections=list=.*/cc_profile.txt";
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch(expectedCompilerFlag);
+    String expectedBuildTypeFlag = "-DBUILD_PROPELLER_TYPE=\"full\"";
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch(expectedBuildTypeFlag);
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("cc_profile.txt");
   }

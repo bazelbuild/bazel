@@ -142,17 +142,17 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
+        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.2.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.2.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("fake_http_archive_rule")
-                .setAttributes(ImmutableMap.of("repo_name", "C"))
+                .setAttributes(ImmutableMap.of("repo_name", "C.2.0"))
                 .build());
   }
 
@@ -173,19 +173,19 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
+        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
                 .setAttributes(
                     ImmutableMap.of(
-                        "name", "C",
+                        "name", "C.",
                         "path", "/foo/bar/C"))
                 .build());
   }
@@ -209,12 +209,12 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<GetRepoSpecByNameValue> result =
-        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C")), evaluationContext);
+        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("C.3.0")), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
 
-    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C")).rule();
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("C.3.0")).rule();
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
@@ -222,11 +222,47 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                 .setAttributes(
                     ImmutableMap.of(
                         "repo_name",
-                        "C",
+                        "C.3.0",
                         "patches",
                         ImmutableList.of("//:foo.patch"),
                         "patch_args",
                         ImmutableList.of("-p1")))
+                .build());
+  }
+
+  @Test
+  public void getRepoSpec_multipleVersionOverride() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='A',version='0.1')",
+        "bazel_dep(name='B',version='1.0')",
+        "bazel_dep(name='C',version='2.0')",
+        "multiple_version_override(module_name='D',versions=['1.0','2.0'])");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry()
+            .addModule(
+                createModuleKey("B", "1.0"),
+                "module(name='B', version='1.0');bazel_dep(name='D',version='1.0')")
+            .addModule(
+                createModuleKey("C", "2.0"),
+                "module(name='C', version='2.0');bazel_dep(name='D',version='2.0')")
+            .addModule(createModuleKey("D", "1.0"), "module(name='D', version='1.0')")
+            .addModule(createModuleKey("D", "2.0"), "module(name='D', version='2.0')");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<GetRepoSpecByNameValue> result =
+        driver.evaluate(ImmutableList.of(getRepoSpecByNameKey("D.2.0")), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    Optional<RepoSpec> repoSpec = result.get(getRepoSpecByNameKey("D.2.0")).rule();
+    assertThat(repoSpec)
+        .hasValue(
+            RepoSpec.builder()
+                .setRuleClassName("fake_http_archive_rule")
+                .setAttributes(ImmutableMap.of("repo_name", "D.2.0"))
                 .build());
   }
 

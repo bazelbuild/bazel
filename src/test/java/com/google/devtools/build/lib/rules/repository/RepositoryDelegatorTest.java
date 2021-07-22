@@ -460,11 +460,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     scratch.file(
         rootPath.getRelative("WORKSPACE").getPathString(),
         "load(':repo_rule.bzl', 'fictive_repo_rule')",
-        "fictive_repo_rule(name = 'B')",
+        "fictive_repo_rule(name = 'B.1.0')",
         "fictive_repo_rule(name = 'C')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("B"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("B.1.0"));
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
@@ -473,7 +473,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .build();
     EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
 
-    // B should be fetched from MODULE.bazel file instead of WORKSPACE file.
+    // B.1.0 should be fetched from MODULE.bazel file instead of WORKSPACE file.
     // Because FakeRegistry returns a fake_http_archive_rule, the fetch should fail as expected.
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException()).isInstanceOf(InvalidRuleException.class);

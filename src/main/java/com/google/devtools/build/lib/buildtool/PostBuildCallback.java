@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /** Called by BuildTool after a successful invocation. */
 public interface PostBuildCallback {
@@ -24,6 +25,8 @@ public interface PostBuildCallback {
    * Hook for subclasses to execute after building has succeeded.
    *
    * @param successfulTargets The configured targets that have been built successfully.
+   * @return on error returns the failure detail, on success null.
    */
+  @Nullable
   FailureDetail process(Collection<ConfiguredTarget> successfulTargets) throws InterruptedException;
 }

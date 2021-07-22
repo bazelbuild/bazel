@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
@@ -41,22 +43,45 @@ public abstract class ProtoLangToolchainProvider implements TransitiveInfoProvid
   public abstract TransitiveInfoCollection runtime();
 
   /**
+   * Returns a list of {@link ProtoSource}s that are already provided by the protobuf runtime (i.e.
+   * for which {@code <lang>_proto_library} should not generate bindings.
+   */
+  public abstract ImmutableList<ProtoSource> providedProtoSources();
+
+  /**
    * This makes the blacklisted_protos member available in the provider. It can be removed after
    * users are migrated and a sufficient time for Bazel rules to migrate has elapsed.
    */
+  @Deprecated
   public NestedSet<Artifact> blacklistedProtos() {
     return forbiddenProtos();
   }
 
+  // TODO(yannic): Remove after migrating all users to `providedProtoSources()`.
+  @Deprecated
   public abstract NestedSet<Artifact> forbiddenProtos();
 
   @AutoCodec.Instantiator
+  public static ProtoLangToolchainProvider createForDeserialization(
+      String commandLine,
+      FilesToRunProvider pluginExecutable,
+      TransitiveInfoCollection runtime,
+      ImmutableList<ProtoSource> providedProtoSources,
+      NestedSet<Artifact> blacklistedProtos) {
+    return new AutoValue_ProtoLangToolchainProvider(
+        commandLine, pluginExecutable, runtime, providedProtoSources, blacklistedProtos);
+  }
+
   public static ProtoLangToolchainProvider create(
       String commandLine,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
-      NestedSet<Artifact> forbiddenProtos) {
+      ImmutableList<ProtoSource> providedProtoSources) {
+    NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
+    for (ProtoSource protoSource : providedProtoSources) {
+      blacklistedProtos.add(protoSource.getOriginalSourceFile());
+    }
     return new AutoValue_ProtoLangToolchainProvider(
-        commandLine, pluginExecutable, runtime, forbiddenProtos);
+        commandLine, pluginExecutable, runtime, providedProtoSources, blacklistedProtos.build());
   }
 }

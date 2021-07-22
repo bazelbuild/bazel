@@ -253,9 +253,7 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Iff a file matches this type, it is considered to use C++.
-   */
+  /** Iff a file matches this type, it is considered to use C++. */
   static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C");
 
   static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");

@@ -304,6 +304,11 @@ public final class BlazeOptionHandler {
       // Migration of --watchfs to a command option.
       // TODO(ulfjack): Get rid of the startup option and drop this code.
       if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
+        eventHandler.handle(
+            Event.error(
+                "--watchfs as startup option is deprecated, replace it with the equivalent command "
+                    + "option. For example, instead of 'bazel --watchfs build //foo', run "
+                    + "'bazel build --watchfs //foo'."));
         try {
           optionsParser.parse("--watchfs");
         } catch (OptionsParsingException e) {

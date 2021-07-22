@@ -135,14 +135,6 @@ public class NestedSetStore {
   static class NestedSetCache {
     private final BugReporter bugReporter;
 
-    NestedSetCache() {
-      this(BugReporter.defaultInstance());
-    }
-
-    private NestedSetCache(BugReporter bugReporter) {
-      this.bugReporter = bugReporter;
-    }
-
     /**
      * Fingerprint to array cache.
      *
@@ -151,9 +143,10 @@ public class NestedSetStore {
      * because our cache eviction policy is based on value GC, and wrapper objects would defeat
      * that.
      *
-     * <p>While a fetch for the contents is outstanding, the key in the cache will be a {@link
+     * <p>While a fetch for the contents is outstanding, the value in the cache will be a {@link
      * ListenableFuture}. When it is resolved, it is replaced with the unwrapped {@code Object[]}.
-     * This is done because if the array is a transitive member, its future may be GC'd.
+     * This is done because if the array is a transitive member, its future may be GC'd, and we want
+     * entries to stay in this cache while the contents are still live.
      */
     private final Cache<ByteString, Object> fingerprintToContents =
         Caffeine.newBuilder()
@@ -161,12 +154,20 @@ public class NestedSetStore {
             .weakValues()
             .build();
 
-    /** Object/Object[] contents to fingerprint. Maintained for fast fingerprinting. */
+    /** {@code Object[]} contents to fingerprint. Maintained for fast fingerprinting. */
     private final Cache<Object[], FingerprintComputationResult> contentsToFingerprint =
         Caffeine.newBuilder()
             .initialCapacity(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakKeys()
             .build();
+
+    NestedSetCache() {
+      this(BugReporter.defaultInstance());
+    }
+
+    private NestedSetCache(BugReporter bugReporter) {
+      this.bugReporter = bugReporter;
+    }
 
     /**
      * Returns children (an {@code Object[]} or a {@code ListenableFuture<Object[]>}) for NestedSet

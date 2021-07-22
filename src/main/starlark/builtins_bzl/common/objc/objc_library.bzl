@@ -133,7 +133,7 @@ def _objc_library_impl(ctx):
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
 
-    (objc_common, common_variables) = compilation_support.build_common_variables(
+    common_variables = compilation_support.build_common_variables(
         ctx,
         cc_toolchain,
         True,
@@ -146,8 +146,8 @@ def _objc_library_impl(ctx):
         ctx.attr.linkopts,
     )
     files = []
-    if objc_common.compiled_archive != None:
-        files.append(objc_common.compiled_archive)
+    if common_variables.compilation_artifacts.archive != None:
+        files.append(common_variables.compilation_artifacts.archive)
 
     (cc_compilation_context, compilation_outputs, output_group_info) = compilation_support.register_compile_and_archive_actions(
         common_variables,
@@ -159,7 +159,7 @@ def _objc_library_impl(ctx):
 
     j2objc_providers = objc_internal.j2objc_providers_from_deps(ctx = ctx)
 
-    objc_provider = objc_common.objc_provider
+    objc_provider = common_variables.objc_provider
     feature_configuration = compilation_support.build_feature_configuration(common_variables, False, True)
     linking_context = _build_linking_context(ctx, feature_configuration, cc_toolchain, objc_provider, common_variables)
     cc_info = CcInfo(
@@ -238,22 +238,7 @@ def _apple_crosstool_transition_impl(settings, attr):
     platform_type = str(settings["//command_line_option:apple_platform_type"])
     cpu = _cpu_string(platform_type, settings)
     if cpu == settings["//command_line_option:cpu"] and settings["//command_line_option:crosstool_top"] == settings["//command_line_option:apple_crosstool_top"]:
-        return {
-            "//command_line_option:apple configuration distinguisher": settings["//command_line_option:apple configuration distinguisher"],
-            "//command_line_option:apple_platform_type": settings["//command_line_option:apple_platform_type"],
-            "//command_line_option:apple_split_cpu": settings["//command_line_option:apple_split_cpu"],
-            "//command_line_option:compiler": settings["//command_line_option:compiler"],
-            "//command_line_option:cpu": settings["//command_line_option:cpu"],
-            "//command_line_option:crosstool_top": settings["//command_line_option:crosstool_top"],
-            "//command_line_option:platforms": settings["//command_line_option:platforms"],
-            "//command_line_option:fission": settings["//command_line_option:fission"],
-            "//command_line_option:grte_top": settings["//command_line_option:grte_top"],
-            "//command_line_option:ios_minimum_os": settings["//command_line_option:ios_minimum_os"],
-            "//command_line_option:macos_minimum_os": settings["//command_line_option:macos_minimum_os"],
-            "//command_line_option:tvos_minimum_os": settings["//command_line_option:tvos_minimum_os"],
-            "//command_line_option:watchos_minimum_os": settings["//command_line_option:watchos_minimum_os"],
-        }
-
+        return {}  # No changes necessary.
     return {
         "//command_line_option:apple configuration distinguisher": "applebin_" + platform_type,
         "//command_line_option:apple_platform_type": settings["//command_line_option:apple_platform_type"],
@@ -335,7 +320,7 @@ objc_library = rule(
         common_attrs.X_C_RUNE_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    cfg = apple_common.apple_crosstool_transition,
+    cfg = apple_crosstool_transition,
     toolchains = ["@" + semantics.get_repo() + "//tools/cpp:toolchain_type"],
     incompatible_use_toolchain_transition = True,
 )

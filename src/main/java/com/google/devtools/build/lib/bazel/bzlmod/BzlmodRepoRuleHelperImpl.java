@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
@@ -30,14 +31,15 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
   public Optional<RepoSpec> getRepoSpec(Environment env, String repositoryName)
       throws InterruptedException, IOException {
 
-    ModuleFileValue root = (ModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
+    RootModuleFileValue root =
+        (RootModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
     if (env.valuesMissing()) {
       return null;
     }
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
 
     // Step 1: Look for repositories defined by non-registry overrides.
-    Optional<RepoSpec> repoSpec = checkRepoFromNonRegistryOverrides(overrides, repositoryName);
+    Optional<RepoSpec> repoSpec = checkRepoFromNonRegistryOverrides(root, repositoryName);
     if (repoSpec.isPresent()) {
       return repoSpec;
     }
@@ -61,36 +63,30 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
   }
 
   private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
-      ImmutableMap<String, ModuleOverride> overrides, String repositoryName) {
-    if (overrides.containsKey(repositoryName)) {
-      ModuleOverride override = overrides.get(repositoryName);
-      if (override instanceof NonRegistryOverride) {
-        return Optional.of(((NonRegistryOverride) override).getRepoSpec(repositoryName));
-      }
+      RootModuleFileValue root, String repositoryName) {
+    String moduleName = root.getNonRegistryOverrideCanonicalRepoNameLookup().get(repositoryName);
+    if (moduleName == null) {
+      return Optional.empty();
     }
-    return Optional.empty();
+    NonRegistryOverride override = (NonRegistryOverride) root.getOverrides().get(moduleName);
+    return Optional.of(override.getRepoSpec(repositoryName));
   }
 
   private static Optional<RepoSpec> checkRepoFromBazelModules(
       SelectionValue selectionValue,
       ImmutableMap<String, ModuleOverride> overrides,
-      ExtendedEventHandler eventlistener,
+      ExtendedEventHandler eventListener,
       String repositoryName)
       throws InterruptedException, IOException {
-    for (ModuleKey moduleKey : selectionValue.getDepGraph().keySet()) {
-      // TODO(pcloudy): Support multiple version override.
-      // Currently we assume there is only one version for each module, therefore the module name is
-      // the repository name, but that's not the case if multiple version of the same module are
-      // allowed.
-      if (moduleKey.getName().equals(repositoryName)) {
-        Module module = selectionValue.getDepGraph().get(moduleKey);
-        Registry registry = checkNotNull(module.getRegistry());
-        RepoSpec repoSpec = registry.getRepoSpec(moduleKey, repositoryName, eventlistener);
-        repoSpec = maybeAppendAdditionalPatches(repoSpec, overrides.get(moduleKey.getName()));
-        return Optional.of(repoSpec);
-      }
+    ModuleKey moduleKey = selectionValue.getCanonicalRepoNameLookup().get(repositoryName);
+    if (moduleKey == null) {
+      return Optional.empty();
     }
-    return Optional.empty();
+    Module module = selectionValue.getDepGraph().get(moduleKey);
+    Registry registry = checkNotNull(module.getRegistry());
+    RepoSpec repoSpec = registry.getRepoSpec(moduleKey, repositoryName, eventListener);
+    repoSpec = maybeAppendAdditionalPatches(repoSpec, overrides.get(moduleKey.getName()));
+    return Optional.of(repoSpec);
   }
 
   private static RepoSpec maybeAppendAdditionalPatches(RepoSpec repoSpec, ModuleOverride override) {

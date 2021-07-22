@@ -906,6 +906,12 @@ public final class CcCommon {
     }
 
     FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
+
+    boolean enablePropellerOptimize =
+        (cppConfiguration.getPropellerOptimizeLabel() != null
+            || cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
+            || cppConfiguration.getPropellerOptimizeAbsoluteLdProfile() != null);
+
     if (branchFdoProvider != null && cppConfiguration.getCompilationMode() == CompilationMode.OPT) {
       if ((branchFdoProvider.isLlvmFdo() || branchFdoProvider.isLlvmCSFdo())
           && !allUnsupportedFeatures.contains(CppRuleClasses.FDO_OPTIMIZE)) {
@@ -915,8 +921,12 @@ public final class CcCommon {
           allFeatures.add(CppRuleClasses.ENABLE_FDO_THINLTO);
         }
 
-        // Support implicit enabling of split functions for FDO unless it has been disabled.
-        if (!allUnsupportedFeatures.contains(CppRuleClasses.SPLIT_FUNCTIONS)) {
+        // Support implicit enabling of split functions for FDO unless it has been explicitly
+        // disabled
+        // or propeller_optimize is used. propeller_optimize must also disable split functions as
+        // they are mutually exclusive.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.SPLIT_FUNCTIONS)
+            && !enablePropellerOptimize) {
           allFeatures.add(CppRuleClasses.ENABLE_FDO_SPLIT_FUNCTIONS);
         }
       }
@@ -925,7 +935,7 @@ public final class CcCommon {
       }
       if (branchFdoProvider.isAutoFdo()) {
         allFeatures.add(CppRuleClasses.AUTOFDO);
-        // Support implicit enabling of ThinLTO for AFDO unless it has been explicitly disabled.
+        // Support implicit enabling of ThinLTO for AFDO unless it has been disabled.
         if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
         }
@@ -942,9 +952,7 @@ public final class CcCommon {
       allRequestedFeaturesBuilder.add(CppRuleClasses.FDO_PREFETCH_HINTS);
     }
 
-    if (cppConfiguration.getPropellerOptimizeLabel() != null
-        || cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
-        || cppConfiguration.getPropellerOptimizeAbsoluteLdProfile() != null) {
+    if (enablePropellerOptimize) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.PROPELLER_OPTIMIZE);
     }
 

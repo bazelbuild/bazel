@@ -35,7 +35,6 @@ def _objc_import_impl(ctx):
         compilation_artifacts = objc_internal.create_compilation_artifacts(),
     )
 
-    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
     compilation_support = objc_internal.create_compilation_support(
         ctx = ctx,
         semantics = semantics.get_semantics(),

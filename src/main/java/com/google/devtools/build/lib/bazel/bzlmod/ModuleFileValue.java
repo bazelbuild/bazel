@@ -28,7 +28,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
 /** The result of {@link ModuleFileFunction}. */
-@AutoValue
 public abstract class ModuleFileValue implements SkyValue {
 
   public static final ModuleKey ROOT_MODULE_KEY = ModuleKey.create("", Version.EMPTY);
@@ -40,15 +39,40 @@ public abstract class ModuleFileValue implements SkyValue {
    */
   public abstract Module getModule();
 
-  /**
-   * The overrides specified by the evaluated module file. The key is the module name and the value
-   * is the override itself.
-   */
-  public abstract ImmutableMap<String, ModuleOverride> getOverrides();
+  /** The {@link ModuleFileValue} for non-root modules. */
+  @AutoValue
+  public abstract static class NonRootModuleFileValue extends ModuleFileValue {
 
-  public static ModuleFileValue create(
-      Module module, ImmutableMap<String, ModuleOverride> overrides) {
-    return new AutoValue_ModuleFileValue(module, overrides);
+    public static NonRootModuleFileValue create(Module module) {
+      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module);
+    }
+  }
+
+  /**
+   * The {@link ModuleFileValue} for the root module, containing additional information about
+   * overrides.
+   */
+  @AutoValue
+  public abstract static class RootModuleFileValue extends ModuleFileValue {
+    /**
+     * The overrides specified by the evaluated module file. The key is the module name and the
+     * value is the override itself.
+     */
+    public abstract ImmutableMap<String, ModuleOverride> getOverrides();
+
+    /**
+     * A mapping from a canonical repo name to the name of the module. Only works for modules with
+     * non-registry overrides.
+     */
+    public abstract ImmutableMap<String, String> getNonRegistryOverrideCanonicalRepoNameLookup();
+
+    public static RootModuleFileValue create(
+        Module module,
+        ImmutableMap<String, ModuleOverride> overrides,
+        ImmutableMap<String, String> nonRegistryOverrideCanonicalRepoNameLookup) {
+      return new AutoValue_ModuleFileValue_RootModuleFileValue(
+          module, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
+    }
   }
 
   public static Key key(ModuleKey moduleKey, @Nullable ModuleOverride override) {

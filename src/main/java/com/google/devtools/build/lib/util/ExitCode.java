@@ -67,6 +67,7 @@ public final class ExitCode {
       ExitCode.createInfrastructureFailure(38, "PUBLISH_ERROR");
   public static final ExitCode PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR =
       ExitCode.create(45, "PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR");
+  public static final ExitCode EXTERNAL_DEPS_ERROR = ExitCode.create(48, "EXTERNAL_DEPS_ERROR");
 
   /**
    * Creates and returns an ExitCode.  Requires a unique exit code number.

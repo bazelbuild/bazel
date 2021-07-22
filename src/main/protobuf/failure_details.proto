@@ -145,6 +145,7 @@ message FailureDetail {
     PackageLoading package_loading = 175;
     Toolchain toolchain = 177;
     StarlarkLoading starlark_loading = 179;
+    ExternalDeps external_deps = 181;
   }
 
   reserved 102; // For internal use
@@ -1240,6 +1241,19 @@ message StarlarkLoading {
     IO_ERROR = 7 [(metadata) = { exit_code: 1 }];
     LABEL_CROSSES_PACKAGE_BOUNDARY = 8 [(metadata) = { exit_code: 1 }];
     BUILTINS_ERROR = 9 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message ExternalDeps {
+  enum Code {
+    EXTERNAL_DEPS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MODULE_NOT_FOUND = 1 [(metadata) = { exit_code: 48 }];
+    BAD_MODULE = 2 [(metadata) = { exit_code: 48 }];
+    VERSION_RESOLUTION_ERROR = 3 [(metadata) = { exit_code: 48 }];
+    INVALID_REGISTRY_URL = 4 [(metadata) = { exit_code: 48 }];
+    ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
   }
 
   Code code = 1;

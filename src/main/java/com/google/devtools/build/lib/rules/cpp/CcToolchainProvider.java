@@ -441,6 +441,7 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /** Returns the identifier of the toolchain as specified in the {@code CToolchain} proto. */
+  @Override
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
   }

@@ -33,10 +33,10 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<ProtoSource> providedProtoSources = NestedSetBuilder.stableOrder();
     for (ProtoInfo protoInfo :
         ruleContext.getPrerequisites("blacklisted_protos", ProtoInfo.PROVIDER)) {
-      forbiddenProtos.addTransitive(protoInfo.getOriginalTransitiveProtoSources());
+      providedProtoSources.addTransitive(protoInfo.getTransitiveSources());
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
@@ -45,7 +45,14 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
                 ruleContext.attributes().get("command_line", Type.STRING),
                 ruleContext.getPrerequisite("plugin", FilesToRunProvider.class),
                 ruleContext.getPrerequisite("runtime"),
-                forbiddenProtos.build()))
+                // We intentionally flatten the NestedSet here.
+                //
+                // `providedProtoSources` are read during analysis, so flattening the set here once
+                // avoid flattening it in every `<lang>_proto_aspect` applied to `proto_library`
+                // targets. While this has the potential to use more memory than using a NestedSet,
+                // there are only a few `proto_lang_toolchain` targets in every build, so the impact
+                // on memory consumption should be neglectable.
+                providedProtoSources.build().toList()))
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
         .build();

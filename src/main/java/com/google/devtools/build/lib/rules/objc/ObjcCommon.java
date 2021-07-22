@@ -59,7 +59,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
@@ -513,23 +512,6 @@ public final class ObjcCommon implements StarlarkValue {
   }
 
   /**
-   * Returns the compiled {@code .a} file, or null if this object contains no {@link
-   * CompilationArtifacts} or the compilation information has no sources.
-   */
-  @StarlarkMethod(
-      name = "compiled_archive",
-      documented = false,
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  public Artifact getCompiledArchiveForStarlark() {
-    if (compilationArtifacts.isPresent() && compilationArtifacts.get().getArchive().isPresent()) {
-      return compilationArtifacts.get().getArchive().get();
-    }
-    return null;
-  }
-
-  /**
    * Returns effective compilation options that do not arise from the crosstool.
    */
   static Iterable<String> getNonCrosstoolCopts(RuleContext ruleContext) {
@@ -567,27 +549,6 @@ public final class ObjcCommon implements StarlarkValue {
       }
     }
     return Optional.absent();
-  }
-
-  /**
-   * Similar to {@link #nearestContainerMatching(FileType, Artifact)}, but returns the container
-   * closest to the root that matches the given type.
-   */
-  static Optional<PathFragment> farthestContainerMatching(FileType type, Artifact artifact) {
-    PathFragment container = artifact.getExecPath();
-    Optional<PathFragment> lastMatch = Optional.absent();
-    do {
-      if (type.matches(container)) {
-        lastMatch = Optional.of(container);
-      }
-      container = container.getParentDirectory();
-    } while (container != null);
-    return lastMatch;
-  }
-
-  static Iterable<String> notInContainerErrors(
-      Iterable<Artifact> artifacts, FileType containerType) {
-    return notInContainerErrors(artifacts, ImmutableList.of(containerType));
   }
 
   static Iterable<String> notInContainerErrors(
