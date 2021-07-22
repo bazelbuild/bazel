@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.collect.Iterables.isEmpty;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
@@ -367,7 +365,7 @@ public class ProtoCompileActionBuilder {
             "--descriptor_set_out=$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ null,
-            /* forbiddenProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER)),
+            /* providedProtoSources= */ ImmutableList.of()),
         outReplacement,
         protocOpts.build());
   }
