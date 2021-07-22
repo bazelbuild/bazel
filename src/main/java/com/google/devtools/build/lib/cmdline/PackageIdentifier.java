@@ -44,12 +44,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
-    // Note: We rely on these being interned to fast-path Label#equals.
+    // Note: We rely on these being (weakly) interned to fast-path Label#equals.
     return INTERNER.intern(new PackageIdentifier(repository, pkgName));
   }
 
-  public static final PackageIdentifier EMPTY_PACKAGE_ID = createInMainRepo(
-      PathFragment.EMPTY_FRAGMENT);
+  public static final PackageIdentifier EMPTY_PACKAGE_ID =
+      createInMainRepo(PathFragment.EMPTY_FRAGMENT);
 
   public static PackageIdentifier createInMainRepo(String name) {
     return createInMainRepo(PathFragment.create(name));
@@ -76,10 +76,11 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   public static PackageIdentifier discoverFromExecPath(
       PathFragment execPath, boolean forFiles, boolean siblingRepositoryLayout) {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
-    PathFragment tofind = forFiles
-        ? Preconditions.checkNotNull(
-            execPath.getParentDirectory(), "Must pass in files, not root directory")
-        : execPath;
+    PathFragment tofind =
+        forFiles
+            ? Preconditions.checkNotNull(
+                execPath.getParentDirectory(), "Must pass in files, not root directory")
+            : execPath;
     PathFragment prefix =
         siblingRepositoryLayout
             ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
@@ -95,8 +96,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   /**
-   * The identifier for this repository. This is either "" or prefixed with an "@",
-   * e.g., "@myrepo".
+   * The identifier for this repository. This is either "" or prefixed with an "@", e.g., "@myrepo".
    */
   private final RepositoryName repository;
 
@@ -104,9 +104,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   private final PathFragment pkgName;
 
   /**
-   * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
-   * interning, x.equals(y) <=> x==y.
-   **/
+   * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to weak
+   * interning, x.equals(y) usually implies x==y.
+   */
   private final int hashCode;
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
@@ -234,7 +234,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       return false;
     }
     PackageIdentifier that = (PackageIdentifier) object;
-    return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
+    return this.hashCode == that.hashCode
+        && pkgName.equals(that.pkgName)
         && repository.equals(that.repository);
   }
 
