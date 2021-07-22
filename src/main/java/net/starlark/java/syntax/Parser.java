@@ -144,6 +144,10 @@ final class Parser {
   private boolean recoveryMode;  // stop reporting errors until next statement
 
   // Intern string literals, as some files contain many literals for the same string.
+  //
+  // Ideally we would move this to the lexer, where we already do interning of identifiers. However,
+  // the parser has a special case optimization for concatenation of string literals, which the
+  // lexer can't handle.
   private final Map<String, String> stringInterner = new HashMap<>();
 
   private Parser(Lexer lexer, List<SyntaxError> errors) {

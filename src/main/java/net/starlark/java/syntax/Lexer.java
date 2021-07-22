@@ -17,6 +17,8 @@ package net.starlark.java.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +26,12 @@ import java.util.Stack;
 
 /** A scanner for Starlark. */
 final class Lexer {
+
+  // We intern identifiers and keywords to avoid retaining redundant String objects via the AST.
+  //
+  // The parser handles interning of string literal values. Benchmarking did not show significant
+  // benefit to any further internment. See discussion on Google-internal cl/385193833 for details.
+  private static final Interner<String> identInterner = Interners.newWeakInterner();
 
   // --- These fields are accessed directly by the parser: ---
 
@@ -142,6 +150,9 @@ final class Lexer {
   // IDENTIFIER, or COMMENT token, and records the raw text of the token.
   private void setValue(Object value) {
     this.value = value;
+    // TODO(brandjon): bufferSlice causes us to allocate a String for the raw text on every token,
+    // but raw is only used for IntLiteral and FloatLiteral. Can we allocate the raw on demand
+    // instead?
     this.raw = bufferSlice(start, end);
   }
 
@@ -508,10 +519,12 @@ final class Lexer {
    */
   private void identifierOrKeyword() {
     int oldPos = pos - 1;
-    String id = scanIdentifier();
+    String id = identInterner.intern(scanIdentifier());
     TokenKind kind = keywordMap.get(id);
     if (kind == null) {
       setToken(TokenKind.IDENTIFIER, oldPos, pos);
+      // setValue allocates a new String for the raw text, but it's not retained so we don't bother
+      // interning it.
       setValue(id);
     } else {
       setToken(kind, oldPos, pos);
@@ -922,12 +935,10 @@ final class Lexer {
     return c == '0' || c == '1';
   }
 
-  /**
-   * Returns parts of the source buffer based on offsets
-   *
-   * @param start the beginning offset for the slice
-   * @param end the offset immediately following the slice
-   * @return the text at offset start with length end - start
+  /*
+   * Returns a string containing the part of the source buffer beginning at offset {@code start} and
+   * ending immediately before offset {@code end} (so the length of the resulting string is {@code
+   * end - start}).
    */
   String bufferSlice(int start, int end) {
     return new String(this.buffer, start, end - start);
