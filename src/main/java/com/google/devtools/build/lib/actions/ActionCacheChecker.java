@@ -21,6 +21,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -64,6 +65,8 @@ import javax.annotation.Nullable;
  * otherwise lightweight, and should be constructed anew and discarded for each build request.
  */
 public class ActionCacheChecker {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final ActionKeyContext actionKeyContext;
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
@@ -157,18 +160,20 @@ public class ActionCacheChecker {
 
   private static @Nullable FileArtifactValue getCachedMetadata(
       @Nullable CachedOutputMetadata cachedOutputMetadata, Artifact artifact) {
-    if (cachedOutputMetadata != null) {
-      if (artifact.isTreeArtifact()) {
-        TreeArtifactValue value = cachedOutputMetadata.treeMetadata.get((SpecialArtifact) artifact);
-        if (value != null) {
-          return value.getMetadata();
-        }
-      } else {
-        return cachedOutputMetadata.fileMetadata.get(artifact);
-      }
+    if (cachedOutputMetadata == null) {
+      return null;
     }
 
-    return null;
+    if (artifact.isTreeArtifact()) {
+      TreeArtifactValue value = cachedOutputMetadata.mergedTreeMetadata.get((SpecialArtifact) artifact);
+      if (value == null) {
+        return null;
+      }
+
+      return value.getMetadata();
+    } else {
+      return cachedOutputMetadata.remoteFileMetadata.get(artifact);
+    }
   }
 
   /**
@@ -279,87 +284,94 @@ public class ActionCacheChecker {
   }
 
   private static class CachedOutputMetadata {
-    private final ImmutableMap<Artifact, RemoteFileArtifactValue> fileMetadata;
-    private final ImmutableMap<SpecialArtifact, TreeArtifactValue> treeMetadata;
+    private final ImmutableMap<Artifact, RemoteFileArtifactValue> remoteFileMetadata;
+    // Trees that is entirely remote or mixed with local files
+    private final ImmutableMap<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata;
 
     private CachedOutputMetadata(
-        ImmutableMap<Artifact, RemoteFileArtifactValue> fileMetadata,
-        ImmutableMap<SpecialArtifact, TreeArtifactValue> treeMetadata) {
-      this.fileMetadata = fileMetadata;
-      this.treeMetadata = treeMetadata;
+        ImmutableMap<Artifact, RemoteFileArtifactValue> remoteFileMetadata,
+        ImmutableMap<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata) {
+      this.remoteFileMetadata = remoteFileMetadata;
+      this.mergedTreeMetadata = mergedTreeMetadata;
     }
   }
 
   private static CachedOutputMetadata loadCachedOutputMetadata(
       Action action, ActionCache.Entry entry, MetadataHandler metadataHandler, PathFragment derivedPathPrefix) {
-    ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> fileMetadata = ImmutableMap.builder();
-    ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> treeMetadata = ImmutableMap.builder();
+    ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> remoteFileMetadata = ImmutableMap.builder();
+    ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata = ImmutableMap.builder();
 
     for (Artifact artifact : action.getOutputs()) {
       if (artifact.isTreeArtifact()) {
         SpecialArtifact parent = (SpecialArtifact) artifact;
         SerializableTreeArtifactValue cachedTreeMetadata = entry.getOutputTree(parent);
-        if (cachedTreeMetadata != null) {
-          try {
-            TreeArtifactValue localTreeMetadata = metadataHandler.getTreeArtifactValue(parent);
-            TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
-            // Load remote child file metadata from cache.
-            cachedTreeMetadata
-                .childValues()
-                .forEach(
-                    (key, value) -> {
-                      // Since we only save remote metadata, if we can get one, it must be
-                      // RemoteFileArtifactValue.
-                      checkState(value instanceof RemoteFileArtifactValue);
-                      merged.putChild(TreeFileArtifact.createTreeOutput(parent, key), value);
-                    });
-            // Overwrite with local one.
-            localTreeMetadata.getChildValues().forEach(merged::putChild);
-
-            cachedTreeMetadata
-                .archivedFileValue()
-                .map(
-                    fileArtifactValue -> {
-                      Artifact.ArchivedTreeArtifact archivedTreeArtifact =
-                          Artifact.ArchivedTreeArtifact.create(parent, derivedPathPrefix);
-                      return ArchivedRepresentation.create(archivedTreeArtifact, fileArtifactValue);
-                    })
-                .or(localTreeMetadata::getArchivedRepresentation)
-                .ifPresent(merged::setArchivedRepresentation);
-
-            treeMetadata.put(parent, merged.build());
-          } catch (IOException ignored) {
-            // Ignore the cached metadata if we encountered an error when loading corresponding
-            // local one.
-          }
+        if (cachedTreeMetadata == null) {
+          continue;
         }
-      } else {
-        // Since we only save remote metadata, if we can get one, it must be
-        // RemoteFileArtifactValue.
-        RemoteFileArtifactValue cachedMetadata =
-            (RemoteFileArtifactValue) entry.getOutputFile(artifact);
-        if (cachedMetadata != null) {
-          try {
-            FileArtifactValue localMetadata;
-            try {
-              localMetadata = getMetadataOrConstant(metadataHandler, artifact);
-            } catch (FileNotFoundException e) {
-              localMetadata = null;
-            }
 
-            // Only inject remote metadata if the corresponding local one is missing.
-            if (localMetadata == null) {
-              fileMetadata.put(artifact, cachedMetadata);
-            }
-          } catch (IOException ignored) {
-            // Ignore the cached metadata if we encountered an error when loading the corresponding
-            // local one.
-          }
+        TreeArtifactValue localTreeMetadata;
+        try {
+          localTreeMetadata = metadataHandler.getTreeArtifactValue(parent);
+        } catch (IOException e) {
+          // Ignore the cached metadata if we encountered an error when loading corresponding
+          // local one.
+          logger.atWarning().withCause(e).log("Failed to load metadata for %s", parent);
+          continue;
+        }
+
+        TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
+        // Load remote child file metadata from cache.
+        cachedTreeMetadata
+            .childValues()
+            .forEach(
+                (key, value) -> merged.putChild(TreeFileArtifact.createTreeOutput(parent, key), value));
+        // Or add local one.
+        localTreeMetadata.getChildValues().forEach(merged::putChild);
+
+        Optional<ArchivedRepresentation> archivedRepresentation;
+        if (cachedTreeMetadata.archivedFileValue().isPresent()) {
+          archivedRepresentation = cachedTreeMetadata
+              .archivedFileValue()
+              .map(
+                  fileArtifactValue -> {
+                    Artifact.ArchivedTreeArtifact archivedTreeArtifact =
+                        Artifact.ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+                    return ArchivedRepresentation.create(
+                        archivedTreeArtifact, fileArtifactValue);
+                  });
+        } else {
+          archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
+        }
+        archivedRepresentation.ifPresent(merged::setArchivedRepresentation);
+
+        // Always inject merged tree if we have a tree from cache
+        mergedTreeMetadata.put(parent, merged.build());
+      } else {
+        RemoteFileArtifactValue cachedMetadata = entry.getOutputFile(artifact);
+        if (cachedMetadata == null) {
+          continue;
+        }
+
+        FileArtifactValue localMetadata;
+        try {
+          localMetadata = getMetadataOrConstant(metadataHandler, artifact);
+        } catch (FileNotFoundException ignored) {
+          localMetadata = null;
+        } catch (IOException e) {
+          // Ignore the cached metadata if we encountered an error when loading the corresponding
+          // local one.
+          logger.atWarning().withCause(e).log("Failed to load metadata for %s", artifact);
+          continue;
+        }
+
+        // Only inject remote metadata if the corresponding local one is missing.
+        if (localMetadata == null) {
+          remoteFileMetadata.put(artifact, cachedMetadata);
         }
       }
     }
 
-    return new CachedOutputMetadata(fileMetadata.build(), treeMetadata.build());
+    return new CachedOutputMetadata(remoteFileMetadata.build(), mergedTreeMetadata.build());
   }
 
   /**
@@ -448,10 +460,10 @@ public class ActionCacheChecker {
 
     // Inject cached output metadata if we have an action cache hit
     if (cachedOutputMetadata != null) {
-      for (Map.Entry<Artifact, RemoteFileArtifactValue> metadata : cachedOutputMetadata.fileMetadata.entrySet()) {
+      for (Map.Entry<Artifact, RemoteFileArtifactValue> metadata : cachedOutputMetadata.remoteFileMetadata.entrySet()) {
         metadataHandler.injectFile(metadata.getKey(), metadata.getValue());
       }
-      for (Map.Entry<SpecialArtifact, TreeArtifactValue> metadata : cachedOutputMetadata.treeMetadata.entrySet()) {
+      for (Map.Entry<SpecialArtifact, TreeArtifactValue> metadata : cachedOutputMetadata.mergedTreeMetadata.entrySet()) {
         metadataHandler.injectTree(metadata.getKey(), metadata.getValue());
       }
     }
@@ -564,29 +576,8 @@ public class ActionCacheChecker {
       if (!metadataHandler.artifactOmitted(output)) {
         if (output.isTreeArtifact()) {
           SpecialArtifact parent = (SpecialArtifact) output;
-          TreeArtifactValue treeMetadata = metadataHandler.getTreeArtifactValue(parent);
-          SerializableTreeArtifactValue serializableTreeArtifactValue = null;
-          if (cacheConfig.storeOutputMetadata()) {
-            ImmutableMap.Builder<String, FileArtifactValue> childValues = ImmutableMap.builder();
-            for (Map.Entry<TreeFileArtifact, FileArtifactValue> child :
-                treeMetadata.getChildValues().entrySet()) {
-              // Only save remote tree file metadata
-              if (child.getValue().isRemote()) {
-                childValues.put(child.getKey().getTreeRelativePathString(), child.getValue());
-              }
-            }
-            ImmutableMap<String, FileArtifactValue> treeChildValues = childValues.build();
-            Optional<FileArtifactValue> archivedFileValue =
-                treeMetadata
-                    .getArchivedRepresentation()
-                    .filter(ar -> ar.archivedFileValue().isRemote())
-                    .map(ArchivedRepresentation::archivedFileValue);
-            if (!treeChildValues.isEmpty() || archivedFileValue.isPresent()) {
-              serializableTreeArtifactValue =
-                  SerializableTreeArtifactValue.create(treeChildValues, archivedFileValue);
-            }
-          }
-          entry.addOutputTree(parent, treeMetadata.getMetadata(), serializableTreeArtifactValue);
+          TreeArtifactValue metadata = metadataHandler.getTreeArtifactValue(parent);
+          entry.addOutputTree(parent, metadata, cacheConfig.storeOutputMetadata());
         } else {
           // Output files *must* exist and be accessible after successful action execution. We use
           // the 'constant' metadata for the volatile workspace status output. The volatile output
@@ -594,9 +585,7 @@ public class ActionCacheChecker {
           // want to rebuild everything if only that file changes.
           FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
           checkState(metadata != null);
-          // Only save remote file metadata
-          boolean saveFileMetadata = cacheConfig.storeOutputMetadata() && metadata.isRemote();
-          entry.addOutputFile(output, metadata, saveFileMetadata);
+          entry.addOutputFile(output, metadata, cacheConfig.storeOutputMetadata());
         }
       }
     }

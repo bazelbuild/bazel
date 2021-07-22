@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.actions.cache;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -31,20 +30,12 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
-import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -57,6 +48,7 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -177,17 +169,14 @@ public class CompactPersistentActionCache implements ActionCache {
   private final PersistentMap<Integer, byte[]> map;
   private final ImmutableMap<MissReason, AtomicInteger> misses;
   private final AtomicInteger hits = new AtomicInteger();
-  private final ObjectCodecs objectCodecs;
 
   private CompactPersistentActionCache(
       PersistentStringIndexer indexer,
       PersistentMap<Integer, byte[]> map,
-      ImmutableMap<MissReason, AtomicInteger> misses,
-      ObjectCodecs objectCodecs) {
+      ImmutableMap<MissReason, AtomicInteger> misses) {
     this.indexer = indexer;
     this.map = map;
     this.misses = misses;
-    this.objectCodecs = objectCodecs;
   }
 
   public static CompactPersistentActionCache create(
@@ -257,15 +246,7 @@ public class CompactPersistentActionCache implements ActionCache {
       misses.put(reason, new AtomicInteger(0));
     }
 
-    ObjectCodecRegistry codecRegistry =
-        AutoRegistry.get().getBuilder().addReferenceConstant(cacheRoot.getFileSystem()).build();
-    ObjectCodecs objectCodecs =
-        new ObjectCodecs(
-            codecRegistry,
-            ImmutableClassToInstanceMap.builder()
-                .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
-                .build());
-    return new CompactPersistentActionCache(indexer, map, Maps.immutableEnumMap(misses), objectCodecs);
+    return new CompactPersistentActionCache(indexer, map, Maps.immutableEnumMap(misses));
   }
 
   private static CompactPersistentActionCache logAndThrowOrRecurse(
@@ -362,7 +343,7 @@ public class CompactPersistentActionCache implements ActionCache {
       data = map.get(index);
     }
     try {
-      return data != null ? CompactPersistentActionCache.decode(indexer, objectCodecs, data) : null;
+      return data != null ? decode(indexer, data) : null;
     } catch (IOException e) {
       // return entry marked as corrupted.
       return ActionCache.Entry.CORRUPTED;
@@ -375,7 +356,7 @@ public class CompactPersistentActionCache implements ActionCache {
     int index = indexer.getOrCreateIndex(key);
     byte[] content;
     try {
-      content = encode(indexer, objectCodecs, entry);
+      content = encode(indexer, entry);
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to save cache entry %s with key %s", entry, key);
       return;
@@ -426,7 +407,7 @@ public class CompactPersistentActionCache implements ActionCache {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
       String content;
       try {
-        content = decode(indexer, objectCodecs, entry.getValue()).toString();
+        content = decode(indexer, entry.getValue()).toString();
       } catch (IOException e) {
         content = e + "\n";
       }
@@ -452,7 +433,7 @@ public class CompactPersistentActionCache implements ActionCache {
       if (entry.getKey() == VALIDATION_KEY) { continue; }
       String content;
       try {
-        content = decode(indexer, objectCodecs, entry.getValue()).toString();
+        content = decode(indexer, entry.getValue()).toString();
       } catch (IOException e) {
         content = e + "\n";
       }
@@ -461,11 +442,41 @@ public class CompactPersistentActionCache implements ActionCache {
     }
   }
 
+  private static void encodeRemoteMetadata(
+      RemoteFileArtifactValue value, ByteArrayOutputStream sink) throws IOException {
+    // digest
+    MetadataDigestUtils.write(value.getDigest(), sink);
+
+    // size
+    VarInt.putVarLong(value.getSize(), sink);
+
+    // locationIndex
+    VarInt.putVarInt(value.getLocationIndex(), sink);
+
+    // actionId
+    byte[] actionIdBytes = value.getActionId().getBytes(ISO_8859_1);
+    VarInt.putVarInt(actionIdBytes.length, sink);
+    sink.write(actionIdBytes);
+  }
+
+  private static RemoteFileArtifactValue decodeRemoteMetadata(ByteBuffer source) {
+    byte[] digest = MetadataDigestUtils.read(source);
+
+    long size = VarInt.getVarLong(source);
+
+    int locationIndex = VarInt.getVarInt(source);
+
+    byte[] actionIdBytes = new byte[VarInt.getVarInt(source)];
+    source.get(actionIdBytes);
+    String actionId = new String(actionIdBytes, ISO_8859_1);
+
+    return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
+  }
+
   /**
    * @return action data encoded as a byte[] array.
    */
-  private static byte[] encode(
-      StringIndexer indexer, ObjectCodecs objectCodecs, ActionCache.Entry entry) throws IOException {
+  private static byte[] encode(StringIndexer indexer, ActionCache.Entry entry) throws IOException {
     Preconditions.checkState(!entry.isCorrupted());
 
     byte[] actionKeyBytes = entry.getActionKey().getBytes(ISO_8859_1);
@@ -500,40 +511,41 @@ public class CompactPersistentActionCache implements ActionCache {
     MetadataDigestUtils.write(entry.getUsedClientEnvDigest(), sink);
 
     VarInt.putVarInt(entry.getOutputFiles().size(), sink);
-    for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
+    for (Map.Entry<String, RemoteFileArtifactValue> file : entry.getOutputFiles().entrySet()) {
       VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
-
-      ByteString.Output resultOut = ByteString.newOutput();
-      CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
-      try {
-        objectCodecs.serialize(file.getValue(), codedOut);
-      } catch (SerializationException e) {
-        throw new IOException("Failed to serialize file metadata", e);
-      }
-      codedOut.flush();
-
-      VarInt.putVarInt(resultOut.size(), sink);
-      resultOut.writeTo(sink);
+      encodeRemoteMetadata(file.getValue(), sink);
     }
 
     VarInt.putVarInt(entry.getOutputTrees().size(), sink);
     for (Map.Entry<String, SerializableTreeArtifactValue> tree : entry.getOutputTrees().entrySet()) {
       VarInt.putVarInt(indexer.getOrCreateIndex(tree.getKey()), sink);
 
-      ByteString.Output resultOut = ByteString.newOutput();
-      CodedOutputStream codedOut = CodedOutputStream.newInstance(resultOut);
-      try {
-        objectCodecs.serialize(tree.getValue(), codedOut);
-      } catch (SerializationException e) {
-        throw new IOException("Failed to serialize tree metadata", e);
-      }
-      codedOut.flush();
+      SerializableTreeArtifactValue serializableTreeArtifactValue = tree.getValue();
 
-      VarInt.putVarInt(resultOut.size(), sink);
-      resultOut.writeTo(sink);
+      VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
+      for (Map.Entry<String, RemoteFileArtifactValue> child : serializableTreeArtifactValue.childValues().entrySet()) {
+        VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
+        encodeRemoteMetadata(child.getValue(), sink);
+      }
+
+      Optional<RemoteFileArtifactValue> archivedFileValue = serializableTreeArtifactValue.archivedFileValue();
+      if (archivedFileValue.isPresent()) {
+        VarInt.putVarInt(1, sink);
+        encodeRemoteMetadata(archivedFileValue.get(), sink);
+      } else {
+        VarInt.putVarInt(0, sink);
+      }
     }
 
     return sink.toByteArray();
+  }
+
+  private static String getStringForIndex(StringIndexer indexer, int index) throws IOException {
+    String path = (index >= 0 ? indexer.getStringForIndex(index) : null);
+    if (path == null) {
+      throw new IOException("Corrupted string index");
+    }
+    return path;
   }
 
   /**
@@ -541,8 +553,7 @@ public class CompactPersistentActionCache implements ActionCache {
    * will stay in the compressed format until entry is actually used by the
    * dependency checker.
    */
-  private static ActionCache.Entry decode(
-      StringIndexer indexer, ObjectCodecs objectCodecs, byte[] data) throws IOException {
+  private static ActionCache.Entry decode(StringIndexer indexer, byte[] data) throws IOException {
     try {
       ByteBuffer source = ByteBuffer.wrap(data);
 
@@ -561,10 +572,7 @@ public class CompactPersistentActionCache implements ActionCache {
         ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(count);
         for (int i = 0; i < count; i++) {
           int id = VarInt.getVarInt(source);
-          String filename = (id >= 0 ? indexer.getStringForIndex(id) : null);
-          if (filename == null) {
-            throw new IOException("Corrupted file index");
-          }
+          String filename = getStringForIndex(indexer, id);
           builder.add(filename);
         }
         files = builder.build();
@@ -573,47 +581,38 @@ public class CompactPersistentActionCache implements ActionCache {
       byte[] usedClientEnvDigest = MetadataDigestUtils.read(source);
 
       int numOutputFiles = VarInt.getVarInt(source);
-      Map<String, FileArtifactValue> outputFiles = new HashMap<>(numOutputFiles);
+      Map<String, RemoteFileArtifactValue> outputFiles = new HashMap<>(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
-        int id = VarInt.getVarInt(source);
-        String path = (id >= 0 ? indexer.getStringForIndex(id) : null);
-        if (path == null) {
-          throw new IOException("Corrupted file index");
-        }
-
-        int size = VarInt.getVarInt(source);
-        ByteBuffer buf = source.slice();
-        buf.limit(size);
-        FileArtifactValue metadata;
-        try {
-          metadata = (FileArtifactValue) objectCodecs.deserialize(CodedInputStream.newInstance(buf));
-        } catch (SerializationException e) {
-          throw new IOException("Failed to deserialize metadata", e);
-        }
-        source.position(source.position() + size);
-        outputFiles.put(path, metadata);
+        String key = getStringForIndex(indexer, VarInt.getVarInt(source));
+        RemoteFileArtifactValue value = decodeRemoteMetadata(source);
+        outputFiles.put(key, value);
       }
 
       int numOutputTrees = VarInt.getVarInt(source);
       Map<String, SerializableTreeArtifactValue> outputTrees = new HashMap<>(numOutputTrees);
       for (int i = 0; i < numOutputTrees; i++) {
-        int id = VarInt.getVarInt(source);
-        String path = (id >= 0 ? indexer.getStringForIndex(id) : null);
-        if (path == null) {
-          throw new IOException("Corrupted file index");
+        String treeKey = getStringForIndex(indexer, VarInt.getVarInt(source));
+
+        ImmutableMap.Builder<String, RemoteFileArtifactValue> childValues = ImmutableMap.builder();
+        int numChildValues = VarInt.getVarInt(source);
+        for (int j = 0; j < numChildValues; ++j) {
+          String childKey = getStringForIndex(indexer, VarInt.getVarInt(source));
+          RemoteFileArtifactValue value = decodeRemoteMetadata(source);
+          childValues.put(childKey, value);
         }
 
-        int size = VarInt.getVarInt(source);
-        ByteBuffer buf = source.slice();
-        buf.limit(size);
-        SerializableTreeArtifactValue metadata;
-        try {
-          metadata = (SerializableTreeArtifactValue) objectCodecs.deserialize(CodedInputStream.newInstance(buf));
-        } catch (SerializationException e) {
-          throw new IOException("Failed to deserialize metadata", e);
+        Optional<RemoteFileArtifactValue> archivedFileValue = Optional.empty();
+        int numArchivedFileValue = VarInt.getVarInt(source);
+        if (numArchivedFileValue > 0) {
+          if (numArchivedFileValue != 1) {
+            throw new IOException("Invalid number of archived artifacts");
+          }
+          archivedFileValue = Optional.of(decodeRemoteMetadata(source));
         }
-        source.position(source.position() + size);
-        outputTrees.put(path, metadata);
+
+        SerializableTreeArtifactValue value =
+            SerializableTreeArtifactValue.create(childValues.build(), archivedFileValue);
+        outputTrees.put(treeKey, value);
       }
 
       if (source.remaining() > 0) {

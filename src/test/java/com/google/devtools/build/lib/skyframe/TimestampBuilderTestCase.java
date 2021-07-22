@@ -383,7 +383,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 actionKeyContext,
                 ALWAYS_EXECUTE_FILTER,
                 null,
-                PathFragment.create("bin")),
+                PathFragment.create("bazel-out")),
             topDownActionCache,
             /*outputService=*/ null,
             /*incrementalAnalysis=*/ true);

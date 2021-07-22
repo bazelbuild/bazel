@@ -624,7 +624,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           new ActionKeyContext(),
           Predicates.<Action>alwaysTrue(),
           null,
-          PathFragment.create("bin"));
+          PathFragment.create("bazel-out"));
 
   private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER = new ProgressSupplier() {
     @Override
