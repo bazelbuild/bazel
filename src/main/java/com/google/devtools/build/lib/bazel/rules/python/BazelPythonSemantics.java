@@ -208,7 +208,7 @@ public class BazelPythonSemantics implements PythonSemantics {
      * logic will extract the zip's runfiles into a temporary directory.
      *
      * The stub script has a shebang pointing to a first-stage Python interpreter (as of this
-     * writing "#!/usr/bin/env python"). When a zip file is built on unix, this shebang is also
+     * writing "#!/usr/bin/env python3"). When a zip file is built on unix, this shebang is also
      * prepended to the final zip artifact. On Windows shebangs are ignored, and the launcher
      * runs the first stage with an interpreter whose path is passed in as LaunchInfo.
      */
@@ -240,7 +240,7 @@ public class BazelPythonSemantics implements PythonSemantics {
         PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
         // TODO(#8685): Remove this special-case handling as part of making the proper shebang a
         // property of the Python toolchain configuration.
-        String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
+        String pythonExecutableName = "python3";
         // NOTE: keep the following line intact to support nix builds
         String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;
         ruleContext.registerAction(
