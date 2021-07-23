@@ -2283,4 +2283,72 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//x:foo");
   }
+
+  @Test
+  public void testRuntimeDeps() throws Exception {
+    scratch.file(
+        "x/defs.bzl",
+        "def _var_providing_rule_impl(ctx):",
+        "   return [",
+        "       CcInfo(),",
+        "       apple_common.new_dynamic_framework_provider(objc=ctx.attr.dep[apple_common.Objc])",
+        "   ]",
+        "var_providing_rule = rule(",
+        "   implementation = _var_providing_rule_impl,",
+        "   attrs = { 'dep': attr.label(),}",
+        ")");
+    scratch.file(
+        "x/BUILD",
+        "load('//x:defs.bzl', 'var_providing_rule')",
+        "objc_library(",
+        "    name = 'baz',",
+        "    srcs = ['baz.m'],",
+        ")",
+        "var_providing_rule(",
+        "    name = 'foo',",
+        "    dep = 'baz',",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.m'],",
+        "    runtime_deps = [':foo'],",
+        ")");
+    getConfiguredTarget("//x:bar");
+  }
+
+  @Test
+  public void testRightOrderCcLibs() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_library(",
+        "    name = 'qux',",
+        "    srcs = ['qux.cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'baz',",
+        "    srcs = ['baz.cc'],",
+        ")",
+        "objc_library(",
+        "    name = 'quux',",
+        "    srcs = ['quux.m'],",
+        "    deps = ['qux'],",
+        ")",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.cc'],",
+        "    deps = [':baz'],",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.m'],",
+        "    deps = ['quux', ':foo'],",
+        ")");
+    assertThat(
+            artifactsToStrings(
+                getConfiguredTarget("//x:bar")
+                    .get(ObjcProvider.STARLARK_CONSTRUCTOR)
+                    .getCcLibraries()))
+        .containsExactly("/ x/libqux.a", "/ x/libfoo.a", "/ x/libbaz.a")
+        .inOrder();
+  }
 }

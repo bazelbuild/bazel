@@ -170,7 +170,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          key.createSymbolicLink(fileDest);
+          copyFile(fileDest, key);
         } else {
           FileSystemUtils.createEmptyFile(key);
         }

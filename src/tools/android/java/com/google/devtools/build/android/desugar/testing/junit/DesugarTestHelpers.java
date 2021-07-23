@@ -41,7 +41,7 @@ public class DesugarTestHelpers {
 
   /**
    * A helper method that reads file paths into an array from the JVM flag value associated with
-   * {@param jvmFlagKey}.
+   * {@code jvmFlagKey}.
    */
   public static Path[] getRuntimePathsFromJvmFlag(String jvmFlagKey) {
     String jvmPropertyValue =

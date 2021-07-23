@@ -136,6 +136,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object compileOneFiletype,
       StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();

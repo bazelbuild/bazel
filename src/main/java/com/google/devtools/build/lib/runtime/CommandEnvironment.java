@@ -226,7 +226,10 @@ public class CommandEnvironment {
 
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
     this.commandId = computeCommandId(commandOptions.invocationId, warnings);
-    this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
+    this.buildRequestId =
+        commandOptions.buildRequestId != null
+            ? commandOptions.buildRequestId
+            : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
     if (command.builds()) {
@@ -445,22 +448,6 @@ public class CommandEnvironment {
       }
     }
     return commandId;
-  }
-
-  private String computeBuildRequestId(String idFromOptions, List<String> warnings) {
-    String buildRequestId = idFromOptions;
-    if (buildRequestId == null) {
-      String uuidString = clientEnv.getOrDefault("BAZEL_INTERNAL_BUILD_REQUEST_ID", "");
-      if (!uuidString.isEmpty()) {
-        buildRequestId = uuidString;
-        warnings.add(
-            "BAZEL_INTERNAL_BUILD_REQUEST_ID is set. This will soon be deprecated in favor of "
-                + "--build_request_id. Please switch to using the flag.");
-      } else {
-        buildRequestId = UUID.randomUUID().toString();
-      }
-    }
-    return buildRequestId;
   }
 
   public TimestampGranularityMonitor getTimestampGranularityMonitor() {

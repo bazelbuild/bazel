@@ -129,7 +129,8 @@ public class TestConstants {
           "--incompatible_py3_is_default=false",
           "--incompatible_py2_outputs_are_suffixed=false",
           // TODO(#7849): Remove after flag flip.
-          "--incompatible_use_toolchain_resolution_for_java_rules");
+          "--incompatible_use_toolchain_resolution_for_java_rules",
+          "--incompatible_disable_native_apple_binary_rule=false");
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =

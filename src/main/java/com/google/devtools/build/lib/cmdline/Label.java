@@ -58,6 +58,13 @@ import net.starlark.java.eval.StarlarkValue;
 public final class Label
     implements Comparable<Label>, Serializable, StarlarkValue, SkyKey, CommandLineItem {
 
+  // Intern "__pkg__" and "__subpackages__" pseudo-targets, which appears in labels used for
+  // visibility specifications. This saves a couple tenths of a percent of RAM off the loading
+  // phase. Note that general interning of all values for `name` is *not* beneficial. See
+  // Google-internal cl/386077913 and cl/185394812 for more context.
+  private static final String PKG_VISIBILITY_NAME = "__pkg__";
+  private static final String SUBPACKAGES_VISIBILITY_NAME = "__subpackages__";
+
   /**
    * Package names that aren't made relative to the current repository because they mean special
    * things to Bazel.
@@ -213,7 +220,13 @@ public final class Label
    */
   @AutoCodec.Instantiator
   public static Label createUnvalidated(PackageIdentifier packageIdentifier, String name) {
-    return LABEL_INTERNER.intern(new Label(packageIdentifier, name));
+    String internedName = name;
+    if (internedName.equals(PKG_VISIBILITY_NAME)) {
+      internedName = PKG_VISIBILITY_NAME;
+    } else if (internedName.equals(SUBPACKAGES_VISIBILITY_NAME)) {
+      internedName = SUBPACKAGES_VISIBILITY_NAME;
+    }
+    return LABEL_INTERNER.intern(new Label(packageIdentifier, internedName));
   }
 
   /**
@@ -630,7 +643,7 @@ public final class Label
       return false;
     }
     Label otherLabel = (Label) other;
-    // Package identifiers are interned so we compare them first.
+    // Package identifiers are (weakly) interned so we compare them first.
     return packageIdentifier.equals(otherLabel.packageIdentifier) && name.equals(otherLabel.name);
   }
 
