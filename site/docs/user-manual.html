@@ -2709,12 +2709,12 @@ adb -s deadbeef install ...
     startup flags to Bazel:
   </p>
   <ul>
-    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar</code></li>
+    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar</code></li>
     <li><code>--host_jvm_args=-DRULE_MEMORY_TRACKER=1</code></li>
   </ul>
   <p>
     The java-agent is checked into Bazel at
-    third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
+    third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar, so make
     sure you adjust <code>$BAZEL</code> for where you keep your Bazel repository.
 
     Do not forget to keep passing these options to Bazel for every command or the server will
@@ -2722,17 +2722,17 @@ adb -s deadbeef install ...
   </p>
   <p>Example:</p>
   <pre>
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     build --nobuild &lt;targets&gt;
 
     # Dump rules
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --rules
 
     # Dump Starlark heap and analyze it with pprof
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
