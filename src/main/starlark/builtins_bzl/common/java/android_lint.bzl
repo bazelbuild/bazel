@@ -60,9 +60,14 @@ def _impl(ctx, java_info, source_files, source_jars):
     bootclasspath_aux = []
     if bootclasspath_aux:
         classpath = depset(transitive = [classpath, bootclasspath_aux])
+    transitive_inputs.append(classpath)
 
     bootclasspath = toolchain.bootclasspath
+    transitive_inputs.append(bootclasspath)
+
     plugin_info = java_info.plugins
+    transitive_inputs.append(plugin_info.processor_jars)
+    transitive_inputs.append(plugin_info.processor_data)
 
     args.add_all("--sources", source_files)
     args.add_all("--source_jars", source_jars)
@@ -95,12 +100,7 @@ def _impl(ctx, java_info, source_files, source_jars):
         executable = executable,
         inputs = depset(
             source_files + source_jars,
-            transitive = transitive_inputs + [
-                classpath,
-                bootclasspath,
-                plugin_info.processor_jars,
-                plugin_info.processor_data,
-            ],
+            transitive = transitive_inputs,
         ),
         outputs = [android_lint_out],
         tools = [tool],

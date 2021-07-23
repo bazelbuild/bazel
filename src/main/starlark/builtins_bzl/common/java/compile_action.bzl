@@ -46,15 +46,14 @@ def _filter_strict_deps(mode):
     return "error" if mode in ["strict", "default"] else mode
 
 # TODO(b/11285003): disallow jar files in deps, require java_import instead
-def _legacy_jars(attr):
-    jars = [
-        file
-        for dep in attr
-        if not JavaInfo in dep or dep.kind == "java_binary" or dep.kind == "java_test"
-        for file in dep[DefaultInfo].files.to_list()
-        if file.extension == "jar"
-    ]
-    return [JavaInfo(output_jar = jar, compile_jar = jar) for jar in jars]  # Native doesn't construct JavaInfo
+def _append_legacy_jars(attr, dep_list):
+    for dep in attr:
+        if not JavaInfo in dep or dep.kind == "java_binary" or dep.kind == "java_test":
+            for file in dep[DefaultInfo].files.to_list():
+                if file.extension == "jar":
+                    # Native doesn't construct JavaInfo
+                    java_info = JavaInfo(output_jar = file, compile_jar = file)
+                    dep_list.append(java_info)
 
 def _compile_action(ctx, extra_resources, source_files, source_jars, output_prefix):
     deps = ctx.attr.deps
@@ -77,16 +76,26 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
     resources.extend(_filter_srcs(ctx.files.srcs, "properties"))
     resources.extend(extra_resources)
 
+    plugins = _filter_provider(JavaPluginInfo, ctx.attr.plugins)
+    plugins.append(ctx.attr._java_plugins[JavaPluginInfo])
+
+    deps_javainfo = _filter_provider(JavaInfo, deps)
+    _append_legacy_jars(deps, deps_javainfo)
+    runtime_deps_javainfo = _filter_provider(JavaInfo, runtime_deps)
+    _append_legacy_jars(runtime_deps, runtime_deps_javainfo)
+    exports_javainfo = _filter_provider(JavaInfo, exports)
+    _append_legacy_jars(exports, exports_javainfo)
+
     java_info = java_common.compile(
         ctx,
         source_files = source_files,
         source_jars = source_jars,
         resources = resources,
-        plugins = _filter_provider(JavaPluginInfo, ctx.attr.plugins) + [ctx.attr._java_plugins[JavaPluginInfo]],
-        deps = _filter_provider(JavaInfo, deps) + _legacy_jars(deps),
+        plugins = plugins,
+        deps = deps_javainfo,
         native_libraries = _filter_provider(CcInfo, deps, runtime_deps, exports),
-        runtime_deps = _filter_provider(JavaInfo, runtime_deps) + _legacy_jars(runtime_deps),
-        exports = _filter_provider(JavaInfo, exports) + _legacy_jars(exports),
+        runtime_deps = runtime_deps_javainfo,
+        exports = exports_javainfo,
         exported_plugins = _filter_provider(JavaPluginInfo, exported_plugins),
         javac_opts = [ctx.expand_location(opt) for opt in ctx.attr.javacopts],
         neverlink = ctx.attr.neverlink,
@@ -97,20 +106,21 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
     )
 
     files = [out.class_jar for out in java_info.java_outputs]
+    files_depset = depset(files)
 
     if ctx.attr.neverlink:
         runfiles = None
     else:
         has_sources = source_files or source_jars
-        run_files = files if has_sources or resources else []
-        runfiles = ctx.runfiles(files = run_files, collect_default = True)
+        run_files = files_depset if has_sources or resources else None
+        runfiles = ctx.runfiles(transitive_files = run_files, collect_default = True)
         runfiles = runfiles.merge_all([dep[DefaultInfo].default_runfiles for attr in [runtime_deps, exports] for dep in attr])
 
     default_info = DefaultInfo(
-        files = depset(files),
+        files = files_depset,
         runfiles = runfiles,
     )
-    return java_info, default_info
+    return java_info, default_info, files
 
 COMPILE_ACTION = create_dep(
     _compile_action,
