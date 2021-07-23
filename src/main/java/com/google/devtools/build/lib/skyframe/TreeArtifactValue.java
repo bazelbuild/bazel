@@ -304,7 +304,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * A TreeArtifactValue that represents a missing TreeArtifact. This is occasionally useful because
    * Java's concurrent collections disallow null members.
    */
-  static final TreeArtifactValue MISSING_TREE_ARTIFACT = createMarker("MISSING_TREE_ARTIFACT");
+  public static final TreeArtifactValue MISSING_TREE_ARTIFACT = createMarker("MISSING_TREE_ARTIFACT");
 
   private static TreeArtifactValue createMarker(String toStringRepresentation) {
     return new TreeArtifactValue(

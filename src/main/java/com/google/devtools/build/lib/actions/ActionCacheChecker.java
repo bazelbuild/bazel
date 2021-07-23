@@ -319,17 +319,23 @@ public class ActionCacheChecker {
           continue;
         }
 
-        TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
+        boolean localTreeMetadataExists =
+            localTreeMetadata != null
+                && localTreeMetadata != TreeArtifactValue.MISSING_TREE_ARTIFACT;
+
+        Map<TreeFileArtifact, FileArtifactValue> childValues = new HashMap<>();
         // Load remote child file metadata from cache.
         cachedTreeMetadata
             .childValues()
             .forEach(
-                (key, value) -> merged.putChild(TreeFileArtifact.createTreeOutput(parent, key), value));
+                (key, value) -> childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value));
         // Or add local one.
-        localTreeMetadata.getChildValues().forEach(merged::putChild);
+        if (localTreeMetadataExists) {
+          localTreeMetadata.getChildValues().forEach(childValues::put);
+        }
 
         Optional<ArchivedRepresentation> archivedRepresentation;
-        if (localTreeMetadata.getArchivedRepresentation().isPresent()) {
+        if (localTreeMetadataExists && localTreeMetadata.getArchivedRepresentation().isPresent()) {
           archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
         } else {
           archivedRepresentation = cachedTreeMetadata
@@ -342,6 +348,9 @@ public class ActionCacheChecker {
                         archivedTreeArtifact, fileArtifactValue);
                   });
         }
+
+        TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
+        childValues.forEach(merged::putChild);
         archivedRepresentation.ifPresent(merged::setArchivedRepresentation);
 
         // Always inject merged tree if we have a tree from cache
