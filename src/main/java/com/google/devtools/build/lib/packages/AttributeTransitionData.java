@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 
@@ -23,7 +24,7 @@ import javax.annotation.Nullable;
  * transition for attributes.
  */
 @AutoValue
-public abstract class AttributeTransitionData {
+public abstract class AttributeTransitionData implements TransitionFactory.AttributeData {
   /** Returns the {@link AttributeMap} which can be used to create a transition. */
   public abstract AttributeMap attributes();
 

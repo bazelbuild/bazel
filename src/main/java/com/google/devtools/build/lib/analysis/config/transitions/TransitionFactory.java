@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+
 /**
  * Factory interface for transitions that are created dynamically, instead of being created as
  * singletons.
@@ -29,7 +31,17 @@ package com.google.devtools.build.lib.analysis.config.transitions;
  * @param <T> the type of data object passed to the {@link #create} method, used to create the
  *     actual {@link ConfigurationTransition} instance
  */
-public interface TransitionFactory<T> {
+public interface TransitionFactory<T extends TransitionFactory.Data > {
+
+  interface Data {}
+
+  interface RuleData extends Data {}
+
+  interface AttributeData extends Data {}
+
+  //interface RuleTransitionFactory extends TransitionFactory<RuleData> {}
+
+  //interface AttributeTransitionFactory extends TransitionFactory<AttributeData> {}
 
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
   ConfigurationTransition create(T data);
