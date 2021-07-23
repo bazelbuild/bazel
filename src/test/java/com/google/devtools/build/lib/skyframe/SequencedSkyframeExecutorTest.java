@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.common.testing.GcFinalization;
@@ -132,8 +133,15 @@ import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryGraphImpl;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.MemoizingEvaluator.GraphTransformerForTesting;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
+import com.google.devtools.build.skyframe.ProcessableGraph;
+import com.google.devtools.build.skyframe.QueryableGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.TaggedEvents;
@@ -294,6 +302,109 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         Root.fromPath(rootDirectory));
     sync("//python/hello:hello");
     assertThat(dirtyValues()).isEmpty();
+  }
+
+  @Test
+  public void getDiff_changedFileStillExists_returnsFile() throws Exception {
+    Root root = Root.fromPath(scratch.dir("/"));
+    Path file = scratch.file("/foo/foo.txt");
+    RootedPath fileRootedPath = RootedPath.toRootedPath(root, file);
+    FileStateValue.Key key = FileStateValue.key(fileRootedPath);
+    FileStateValue oldValue = FileStateValue.create(fileRootedPath, /*tsgm=*/ null);
+    skyframeExecutor.memoizingEvaluator.injectGraphTransformerForTesting(
+        inMemoryGraphWithValues(ImmutableMap.of(key, oldValue)));
+    scratch.overwriteFile(file.getPathString(), "new contents");
+
+    Diff diff =
+        skyframeExecutor.getDiff(
+            /*tsgm=*/ null,
+            ImmutableList.of(PathFragment.create("foo/foo.txt")),
+            root,
+            /*fsvcThreads=*/ 1);
+
+    assertThat(diff.changedKeysWithNewValues())
+        .containsExactly(key, FileStateValue.create(fileRootedPath, /*tsgm=*/ null));
+    assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
+  }
+
+  @Test
+  public void getDiff_newFile_returnsFileAndParentDirectoryListing() throws Exception {
+    Root root = Root.fromPath(scratch.dir("/"));
+    Path file = scratch.file("/foo/foo.txt");
+
+    Diff diff =
+        skyframeExecutor.getDiff(
+            /*tsgm=*/ null,
+            ImmutableList.of(PathFragment.create("foo/foo.txt")),
+            root,
+            /*fsvcThreads=*/ 1);
+
+    RootedPath fileRootedPath = RootedPath.toRootedPath(root, file);
+    assertThat(diff.changedKeysWithNewValues())
+        .containsExactly(
+            FileStateValue.key(fileRootedPath),
+            FileStateValue.create(fileRootedPath, /*tsgm=*/ null));
+    assertThat(diff.changedKeysWithoutNewValues())
+        .containsExactly(DirectoryListingStateValue.key(fileRootedPath.getParentDirectory()));
+  }
+
+  @Test
+  public void getDiff_newFileFailsToStat_returnsFileAndParentDirectoryListing() throws Exception {
+    Root root = Root.fromPath(scratch.dir("/"));
+    Path file = scratch.file("/foo/foo.txt");
+    // This makes InMemoryFileSystem throw IOException when we try to stat /foo/foo.txt.
+    file.getParentDirectory().setExecutable(false);
+
+    Diff diff =
+        skyframeExecutor.getDiff(
+            /*tsgm=*/ null,
+            ImmutableList.of(PathFragment.create("foo/foo.txt")),
+            root,
+            /*fsvcThreads=*/ 1);
+
+    assertThat(diff.changedKeysWithNewValues()).isEmpty();
+    assertThat(diff.changedKeysWithoutNewValues())
+        .containsExactly(
+            FileStateValue.key(RootedPath.toRootedPath(root, file)),
+            DirectoryListingStateValue.key(
+                RootedPath.toRootedPath(root, file.getParentDirectory())));
+  }
+
+  private static GraphTransformerForTesting inMemoryGraphWithValues(
+      ImmutableMap<SkyKey, SkyValue> values) {
+
+    return new GraphTransformerForTesting() {
+      @Override
+      public InMemoryGraph transform(InMemoryGraph graph) {
+        return new InMemoryGraphImpl() {
+          {
+            nodeMap.putAll(Maps.transformValues(values, v -> createNodeEntry(v)));
+          }
+        };
+      }
+
+      @Override
+      public QueryableGraph transform(QueryableGraph graph) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public ProcessableGraph transform(ProcessableGraph graph) {
+        throw new UnsupportedOperationException();
+      }
+
+      private NodeEntry createNodeEntry(SkyValue value) {
+        InMemoryNodeEntry nodeEntry = new InMemoryNodeEntry();
+        nodeEntry.addReverseDepAndCheckIfDone(null);
+        nodeEntry.markRebuilding();
+        try {
+          nodeEntry.setValue(value, ignored -> false);
+        } catch (InterruptedException e) {
+          throw new RuntimeException();
+        }
+        return nodeEntry;
+      }
+    };
   }
 
   @Test

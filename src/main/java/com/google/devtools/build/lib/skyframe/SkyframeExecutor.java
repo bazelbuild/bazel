@@ -1356,6 +1356,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     for (SkyKey key : diff.changedKeysWithoutNewValues()) {
       Preconditions.checkState(key.functionName().equals(FileStateValue.FILE_STATE), key);
       RootedPath rootedPath = (RootedPath) key.argument();
+      valuesToInvalidate.add(key);
       valuesToInvalidate.add(parentDirectoryListingStateKey(rootedPath));
     }
     return new ImmutableDiff(valuesToInvalidate, valuesToInject);
