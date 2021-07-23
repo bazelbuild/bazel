@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
@@ -32,14 +34,14 @@ public class ProtoBootstrap implements Bootstrap {
   public static final String PROTO_COMMON_NAME = "proto_common";
 
   private final ProtoInfoProviderApi protoInfoApiProvider;
-  private final ProtoToolchainInfoApi.Provider protoToolchainInfoApi;
+  private final ProtoToolchainInfoApi.Provider<? extends FilesToRunProviderApi<? extends FileApi>> protoToolchainInfoApi;
   private final Object protoCommon;
   private final StarlarkAspectApi protoRegistryAspect;
   private final ProviderApi protoRegistryProvider;
 
   public ProtoBootstrap(
       ProtoInfoProviderApi protoInfoApiProvider,
-      ProtoToolchainInfoApi.Provider protoToolchainInfoApi,
+      ProtoToolchainInfoApi.Provider<? extends FilesToRunProviderApi<? extends FileApi>> protoToolchainInfoApi,
       Object protoCommon,
       StarlarkAspectApi protoRegistryAspect,
       ProviderApi protoRegistryProvider) {
