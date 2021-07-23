@@ -50,7 +50,7 @@ def _legacy_jars(attr):
     jars = [
         file
         for dep in attr
-        if not JavaInfo in dep or dep.kind == "java_binary"
+        if not JavaInfo in dep or dep.kind == "java_binary" or dep.kind == "java_test"
         for file in dep[DefaultInfo].files.to_list()
         if file.extension == "jar"
     ]
