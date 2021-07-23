@@ -477,10 +477,12 @@ be explicitly passed through in the returned dictionary.
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/rules/starlark_configurations/multi_arch_binary)
 
-[Outgoing edge transition](#outgoing-edge-transitions) can map a single input
-configuration to two or more output configurations. These are defined in
-Starlark by returning a list of dictionaries in the transition implementation
-function.
+[Outgoing edge transitions](#outgoing-edge-transitions) can map a single input
+configuration to two or more output configurations. This is useful for defining
+rules that bundle multi-architecture code.
+
+1:2+ transitions are defined by returning a list of dictionaries in the
+transition implementation function.
 
 ```python
 # example/transitions/transitions.bzl
@@ -497,6 +499,28 @@ coffee_transition = transition(
     outputs = ["//example:favorite_flavor"]
 )
 ```
+
+They can also set custom keys that the rule implementation function can use to
+read individual dependencies:
+
+```python
+# example/transitions/transitions.bzl
+def _impl(settings, attr):
+    _ignore = (settings, attr)
+    return {
+        "Apple deps": {"//command_line_option:cpu": "ppc"},
+        "Linux deps": {"//command_line_option:cpu": "x86"},
+    }
+
+multi_arch_transition = transition(
+    implementation = _impl,
+    inputs = [],
+    outputs = ["//command_line_option:cpu"]
+)
+```
+
+See [Accessing attributes with transitions](#accessing-attributes-with-transitions)
+for how to read these keys.
 
 ### Attaching transitions
 
@@ -652,10 +676,9 @@ hot_chocolate_transition = transition(
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/rules/starlark_configurations/read_attr_in_transition)
 
 When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
-(regardless of whether the transition is a 1:1 or 1:2+ transition) access to
-values of that attribute in the rule implementation changes. Access through
-`ctx.attr` is forced to be a list if it isn't already. The order of elements in
-this list is unspecified.
+(regardless of whether the transition is a [1:1](#defining) or
+[1:2+](#defining-12-transitions) transition) `ctx.attr` is forced to be a list
+if it isn't already. The order of elements in this list is unspecified.
 
 ```python
 # example/transitions/rules.bzl
@@ -685,8 +708,39 @@ coffee_rule = rule(
     })
 ```
 
-Access to the value of a single branch of a 1:2+
-[has not been implemented yet](https://github.com/bazelbuild/bazel/issues/8633).
+If the transition is `1:2+` and sets custom keys, `ctx.split_attr` can be used
+to read individual deps for each key:
+
+```python
+# example/transitions/rules.bzl
+def _impl(settings, attr):
+    _ignore = (settings, attr)
+    return {
+        "Apple deps": {"//command_line_option:cpu": "ppc"},
+        "Linux deps": {"//command_line_option:cpu": "x86"},
+    }
+
+multi_arch_transition = transition(
+    implementation = _impl,
+    inputs = [],
+    outputs = ["//command_line_option:cpu"]
+)
+
+def _rule_impl(ctx):
+    apple_dep = ctx.split_attr.dep["Apple deps"]
+    linux_dep = ctx.split_attr.dep["Linux deps"]
+    # ctx.attr has a list of all deps for all keys. Order is not guaranteed.
+    all_deps = ctx.attr.dep
+
+multi_arch_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "dep": attr.label(cfg = multi_arch_transition)
+    })
+```
+
+See [here](https://github.com/bazelbuild/examples/tree/main/rules/starlark_configurations/multi_arch_binary)
+for a complete example.
 
 ## Integration with platforms and toolchains
 Many native flags today, like `--cpu` and `--crosstool_top` are related to
