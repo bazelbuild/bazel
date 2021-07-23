@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createArtifact;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContentAsLatin1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -50,7 +52,6 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -81,33 +82,23 @@ public class ActionCacheCheckerTest {
   public void setupCache() throws Exception {
     Scratch scratch = new Scratch();
     Clock clock = new ManualClock();
-    ArtifactResolver artifactResolver = new FakeArtifactResolverBase();
 
     cache = new CorruptibleActionCache(scratch.resolve("/cache/test.dat"), clock);
-    cacheChecker =
-        new ActionCacheChecker(
-            cache,
-            artifactResolver,
-            new ActionKeyContext(),
-            action -> true,
-            null,
-            PathFragment.create("bazel-out"));
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
     artifactRoot = ArtifactRoot.asDerivedRoot(
         fileSystem.getPath("/output"),
         RootType.Output,
         "bin");
-
   }
 
   private byte[] digest(byte[] content) {
     return digestHashFunction.getHashFunction().hashBytes(content).asBytes();
   }
 
-  private void enableSaveOutputMetadata() {
-    cacheChecker =
-        new ActionCacheChecker(
+  private ActionCacheChecker createActionCacheChecker(boolean storeOutputMetadata) {
+    return new ActionCacheChecker(
             cache,
             new FakeArtifactResolverBase(),
             new ActionKeyContext(),
@@ -115,7 +106,7 @@ public class ActionCacheCheckerTest {
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(true)
                 .setVerboseExplanations(false)
-                .setStoreOutputMetadata(true)
+                .setStoreOutputMetadata(storeOutputMetadata)
                 .build(),
             PathFragment.create("bazel-out"));
   }
@@ -331,7 +322,7 @@ public class ActionCacheCheckerTest {
   public void testDifferentFiles() throws Exception {
     Action action = new WriteEmptyOutputAction();
     runAction(action);  // Not cached.
-    FileSystemUtils.writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
+    writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
     runAction(action);  // Cache miss because output files were modified.
 
     assertStatistics(
@@ -394,9 +385,9 @@ public class ActionCacheCheckerTest {
           }
         };
     runAction(action);  // Not cached so recorded as different deps.
-    FileSystemUtils.writeContentAsLatin1(action.getPrimaryInput().getPath(), "modified");
+    writeContentAsLatin1(action.getPrimaryInput().getPath(), "modified");
     runAction(action);  // Cache miss because input files were modified.
-    FileSystemUtils.writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
+    writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
     runAction(action);  // Outputs are not considered for middleman actions, so this is a cache hit.
     runAction(action);  // Outputs are not considered for middleman actions, so this is a cache hit.
 
@@ -439,21 +430,14 @@ public class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteFileMetadataSaved() throws Exception {
-    // arrange
-    enableSaveOutputMetadata();
-
-    Artifact.DerivedArtifact output =
-        new Artifact.DerivedArtifact(
-            artifactRoot, PathFragment.create("bin/dummy"), NULL_ARTIFACT_OWNER);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputMetadataAction(output, createRemoteMetadata(content));
-
-    // act
 
     // Not cached.
     runAction(action);
 
-    // assert
     assertThat(output.getPath().exists()).isFalse();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
@@ -463,24 +447,15 @@ public class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_localFileMetadataNotSaved() throws Exception {
-    // arrange
-    enableSaveOutputMetadata();
-
-    Artifact.DerivedArtifact output =
-        new Artifact.DerivedArtifact(
-            artifactRoot, PathFragment.create("bin/dummy"), NULL_ARTIFACT_OWNER);
-    output.getPath().getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContentAsLatin1(output.getPath(), "content");
-    Action action = new InjectOutputMetadataAction(output, FileArtifactValue.createForTesting(output));
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    Action action = new WriteEmptyOutputAction(output);
     output.getPath().delete();
-
-    // act
 
     // Not cached.
     runAction(action);
 
-    // assert
-    assertThat(output.getPath().exists()).isFalse();
+    assertThat(output.getPath().exists()).isTrue();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputFile(output)).isNull();
@@ -488,20 +463,14 @@ public class ActionCacheCheckerTest {
   }
 
   @Test
-  public void saveOutputMetadata_notSavedIfNotEnabled() throws Exception {
-    // arrange
-    Artifact.DerivedArtifact output =
-        new Artifact.DerivedArtifact(
-            artifactRoot, PathFragment.create("bin/dummy"), NULL_ARTIFACT_OWNER);
+  public void saveOutputMetadata_notSavedIfDisabled() throws Exception {
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputMetadataAction(output, createRemoteMetadata(content));
-
-    // act
 
     // Not cached.
     runAction(action);
 
-    // assert
     assertThat(output.getPath().exists()).isFalse();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
@@ -511,54 +480,79 @@ public class ActionCacheCheckerTest {
 
   @Test
   public void saveOutputMetadata_remoteFileMetadataLoaded() throws Exception {
-    // arrange
-    enableSaveOutputMetadata();
-
-    Artifact.DerivedArtifact output =
-        new Artifact.DerivedArtifact(
-            artifactRoot, PathFragment.create("bin/dummy"), NULL_ARTIFACT_OWNER);
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
     Action action = new InjectOutputMetadataAction(output, createRemoteMetadata(content));
-
-    // act
+    MetadataHandler metadataHandler = new FakeMetadataHandler();
 
     // Not cached.
     runAction(action);
-    // Cache hit
-    runAction(action);
+    Token token = cacheChecker.getTokenIfNeedToExecute(
+        action,
+        null,
+        ImmutableMap.of(),
+        null,
+        metadataHandler,
+        null,
+        ImmutableMap.of());
 
-    // assert
     assertThat(output.getPath().exists()).isFalse();
-    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+    assertThat(token).isNull();
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content));
+    assertThat(metadataHandler.getMetadata(output)).isEqualTo(createRemoteMetadata(content));
   }
 
   @Test
-  public void saveOutputMetadata_localMetadataOverwriteRemoteMetadata() throws Exception {
-    // arrange
-    enableSaveOutputMetadata();
-
-    Artifact.DerivedArtifact output =
-        new Artifact.DerivedArtifact(
-            artifactRoot, PathFragment.create("bin/dummy"), NULL_ARTIFACT_OWNER);
-    String content = "content1";
+  public void saveOutputMetadata_localMetadataIsSameAsRemoteMetadata_cached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
     Action action = new InjectOutputMetadataAction(output, createRemoteMetadata(content));
-
-    // act
 
     // Not cached
     runAction(action);
+    writeContentAsLatin1(output.getPath(), content);
+    // Cached since local metadata is same as remote metadata
+    runAction(action);
 
-    FileSystemUtils.writeContentAsLatin1(output.getPath(), "content2");
+    assertStatistics(
+        1,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .build());
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content));
+  }
+
+  @Test
+  public void saveOutputMetadata_localMetadataIsDifferentFromRemoteMetadata_notCached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content1 = "content1";
+    String content2 = "content2";
+    Action action =
+        new InjectOutputMetadataAction(
+            output, createRemoteMetadata(content1), createRemoteMetadata(content2));
+
+    // Not cached
+    runAction(action);
+    writeContentAsLatin1(output.getPath(), content2);
     // Not cached since local file changed
     runAction(action);
 
-    // assert
     assertStatistics(
         0,
         new MissDetailsBuilder()
             .set(MissReason.NOT_CACHED, 1)
             .set(MissReason.DIFFERENT_FILES, 1)
             .build());
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content2));
   }
 
   /** An {@link ActionCache} that allows injecting corruption for testing. */
@@ -627,7 +621,7 @@ public class ActionCacheCheckerTest {
   }
 
   /** A null middleman action. */
-  private static class NullMiddlemanAction extends WriteEmptyOutputAction {
+  private static class NullMiddlemanAction extends NullAction {
     @Override
     public MiddlemanType getActionType() {
       return MiddlemanType.RUNFILES_MIDDLEMAN;
@@ -679,8 +673,9 @@ public class ActionCacheCheckerTest {
         Path path = output.getPath();
         if (!path.exists()) {
           try {
-            FileSystemUtils.writeContentAsLatin1(path, "");
-          } catch (IOException ignored) {
+            writeContentAsLatin1(path, "");
+          } catch (IOException e) {
+            throw new IllegalStateException("Failed to create output", e);
           }
         }
       }
@@ -691,9 +686,10 @@ public class ActionCacheCheckerTest {
 
   private static class InjectOutputMetadataAction extends NullAction {
     private final Artifact output;
-    private final FileArtifactValue metadata;
+    private final FileArtifactValue[] metadata;
+    private int times;
 
-    public InjectOutputMetadataAction(Artifact output, FileArtifactValue metadata) {
+    public InjectOutputMetadataAction(Artifact output, FileArtifactValue... metadata) {
       super(output);
 
       this.output = output;
@@ -702,7 +698,11 @@ public class ActionCacheCheckerTest {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-      actionExecutionContext.getMetadataHandler().injectFile(output, metadata);
+      int index = Math.min(times, metadata.length - 1);
+      if (index >= 0) {
+        actionExecutionContext.getMetadataHandler().injectFile(output, metadata[index]);
+      }
+      ++times;
       return super.execute(actionExecutionContext);
     }
   }

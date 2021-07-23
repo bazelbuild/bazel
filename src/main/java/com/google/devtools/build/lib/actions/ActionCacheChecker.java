@@ -329,7 +329,9 @@ public class ActionCacheChecker {
         localTreeMetadata.getChildValues().forEach(merged::putChild);
 
         Optional<ArchivedRepresentation> archivedRepresentation;
-        if (cachedTreeMetadata.archivedFileValue().isPresent()) {
+        if (localTreeMetadata.getArchivedRepresentation().isPresent()) {
+          archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
+        } else {
           archivedRepresentation = cachedTreeMetadata
               .archivedFileValue()
               .map(
@@ -339,8 +341,6 @@ public class ActionCacheChecker {
                     return ArchivedRepresentation.create(
                         archivedTreeArtifact, fileArtifactValue);
                   });
-        } else {
-          archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
         }
         archivedRepresentation.ifPresent(merged::setArchivedRepresentation);
 

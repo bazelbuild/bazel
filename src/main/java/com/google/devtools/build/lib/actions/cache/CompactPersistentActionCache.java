@@ -444,16 +444,12 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static void encodeRemoteMetadata(
       RemoteFileArtifactValue value, ByteArrayOutputStream sink) throws IOException {
-    // digest
     MetadataDigestUtils.write(value.getDigest(), sink);
 
-    // size
     VarInt.putVarLong(value.getSize(), sink);
 
-    // locationIndex
     VarInt.putVarInt(value.getLocationIndex(), sink);
 
-    // actionId
     byte[] actionIdBytes = value.getActionId().getBytes(ISO_8859_1);
     VarInt.putVarInt(actionIdBytes.length, sink);
     sink.write(actionIdBytes);
@@ -583,9 +579,9 @@ public class CompactPersistentActionCache implements ActionCache {
       int numOutputFiles = VarInt.getVarInt(source);
       Map<String, RemoteFileArtifactValue> outputFiles = new HashMap<>(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
-        String key = getStringForIndex(indexer, VarInt.getVarInt(source));
+        String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
         RemoteFileArtifactValue value = decodeRemoteMetadata(source);
-        outputFiles.put(key, value);
+        outputFiles.put(execPath, value);
       }
 
       int numOutputTrees = VarInt.getVarInt(source);

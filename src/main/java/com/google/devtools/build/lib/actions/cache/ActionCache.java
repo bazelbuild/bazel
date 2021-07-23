@@ -111,22 +111,21 @@ public interface ActionCache {
 
       /**
        * Creates {@link SerializableTreeArtifactValue} from {@link TreeArtifactValue} by collecting
-       * children and archived artifact which is remote.
+       * children and archived artifact which are remote.
        *
-       * <p>If no remote value, {@code Optional.empty} is returned.
+       * <p>If no remote value, {@link Optional#empty} is returned.
        */
       public static Optional<SerializableTreeArtifactValue> createSerializable(
           TreeArtifactValue treeMetadata) {
-        ImmutableMap.Builder<String, RemoteFileArtifactValue> childValues = ImmutableMap.builder();
-        for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
-            treeMetadata.getChildValues().entrySet()) {
-          FileArtifactValue fileArtifactValue = child.getValue();
-          // Only save remote tree file
-          if (fileArtifactValue.isRemote()) {
-            childValues.put(child.getKey().getTreeRelativePathString(), (RemoteFileArtifactValue) fileArtifactValue);
-          }
-        }
-        ImmutableMap<String, RemoteFileArtifactValue> treeChildValues = childValues.build();
+        ImmutableMap<String, RemoteFileArtifactValue> childValues =
+            treeMetadata.getChildValues().entrySet().stream()
+                // Only save remote tree file
+                .filter(e -> e.getValue().isRemote())
+                .collect(
+                    ImmutableMap.toImmutableMap(
+                        e -> e.getKey().getTreeRelativePathString(),
+                        e -> (RemoteFileArtifactValue) e.getValue()));
+
         // Only save remote archived artifact
         Optional<RemoteFileArtifactValue> archivedFileValue =
             treeMetadata
@@ -134,11 +133,11 @@ public interface ActionCache {
                 .filter(ar -> ar.archivedFileValue().isRemote())
                 .map(ar -> (RemoteFileArtifactValue) ar.archivedFileValue());
 
-        if (treeChildValues.isEmpty() && !archivedFileValue.isPresent()) {
+        if (childValues.isEmpty() && !archivedFileValue.isPresent()) {
           return Optional.empty();
         }
 
-        return Optional.of(SerializableTreeArtifactValue.create(treeChildValues, archivedFileValue));
+        return Optional.of(SerializableTreeArtifactValue.create(childValues, archivedFileValue));
       }
 
 
