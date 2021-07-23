@@ -101,6 +101,7 @@ public final class ExampleWorker {
           try {
             startResponseThread(request);
           } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             // We don't expect interrupts at this level, only inside the individual request
             // handling threads, so here we just abort on interrupt.
             e.printStackTrace();
