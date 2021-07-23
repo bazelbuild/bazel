@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import java.util.LinkedHashMap;
@@ -50,7 +51,7 @@ import java.util.Objects;
  *
  * <p>For starlark-defined attribute transitions, see {@link StarlarkAttributeTransitionProvider}.
  */
-public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
+public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTransitionData> {
 
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 

@@ -759,7 +759,7 @@ public class RuleClass {
     private boolean hasStarlarkRuleTransition = false;
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
-    private TransitionFactory<Rule> transitionFactory;
+    private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
@@ -1178,7 +1178,7 @@ public class RuleClass {
      */
     public Builder cfg(PatchTransition transition) {
       // Make sure this is cast to Serializable to avoid autocodec serialization errors.
-      return cfg((TransitionFactory<Rule> & Serializable) unused -> transition);
+      return cfg((TransitionFactory<RuleTransitionData> & Serializable) unused -> transition);
     }
 
     /**
@@ -1187,7 +1187,7 @@ public class RuleClass {
      * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
      */
-    public Builder cfg(TransitionFactory<Rule> transitionFactory) {
+    public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
       Preconditions.checkState(this.transitionFactory == null,
@@ -1661,7 +1661,7 @@ public class RuleClass {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  private final TransitionFactory<Rule> transitionFactory;
+  private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1772,7 +1772,7 @@ public class RuleClass {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      TransitionFactory<Rule> transitionFactory,
+      TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -1886,7 +1886,7 @@ public class RuleClass {
     return implicitOutputsFunction;
   }
 
-  public TransitionFactory<Rule> getTransitionFactory() {
+  public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }
 

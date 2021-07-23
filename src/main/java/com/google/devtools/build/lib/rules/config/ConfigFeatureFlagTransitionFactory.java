@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.Map;
@@ -38,7 +39,7 @@ import java.util.Map;
  *
  * <p>Currently, this is only intended for use by android_binary and other Android top-level rules.
  */
-public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rule> {
+public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<RuleTransitionData> {
 
   /** Transition which resets the set of flag-value pairs to the map it was constructed with. */
   @AutoCodec
@@ -102,8 +103,8 @@ public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rul
   }
 
   @Override
-  public PatchTransition create(Rule rule) {
-    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(rule);
+  public PatchTransition create(RuleTransitionData ruleData) {
+    NonconfigurableAttributeMapper attrs = NonconfigurableAttributeMapper.of(ruleData.rule());
     if (attrs.isAttributeValueExplicitlySpecified(attributeName)) {
       return new ConfigFeatureFlagValuesTransition(
           attrs.get(attributeName, LABEL_KEYED_STRING_DICT));

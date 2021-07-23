@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -404,7 +405,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         builder.cfg((PatchTransition) cfg);
       } else if (cfg instanceof TransitionFactory) {
         @SuppressWarnings("unchecked")
-        TransitionFactory<Rule> transitionFactory = (TransitionFactory<Rule>) cfg;
+        TransitionFactory<RuleTransitionData> transitionFactory = (TransitionFactory<RuleTransitionData>) cfg;
         builder.cfg(transitionFactory);
       } else {
         // This is not technically true: it could also be a native transition, but this is the
