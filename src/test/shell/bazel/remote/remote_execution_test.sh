@@ -1157,6 +1157,46 @@ EOF
   || fail "Expected bazel-bin/a/template.txt to be downloaded"
 }
 
+function test_downloads_minimal_hit_action_cache() {
+  # Test that remote metadata is saved and action cache is hit across server restarts when using
+  # --remote_download_minimal
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+)
+
+genrule(
+  name = "foobar",
+  srcs = [":foo"],
+  outs = ["foobar.txt"],
+  cmd = "cat $(location :foo) > \"$@\" && echo \"bar\" >> \"$@\"",
+)
+EOF
+
+  bazel build \
+    --experimental_action_cache_store_output_metadata \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:foobar || fail "Failed to build //a:foobar"
+
+  (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
+  || fail "Expected no files to have been downloaded"
+
+  bazel shutdown
+
+  bazel build \
+    --experimental_action_cache_store_output_metadata \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  expect_log "1 process: 1 internal"
+}
+
 function test_downloads_toplevel() {
   # Test that when using --remote_download_outputs=toplevel only the output of the
   # toplevel target is being downloaded.
