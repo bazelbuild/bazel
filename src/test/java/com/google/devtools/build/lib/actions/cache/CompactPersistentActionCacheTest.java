@@ -17,13 +17,24 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +50,8 @@ public class CompactPersistentActionCacheTest {
   private Path journalFile;
   private final ManualClock clock = new ManualClock();
   private CompactPersistentActionCache cache;
+  private PathFragment derivedPathPrefix;
+  private ArtifactRoot artifactRoot;
 
   @Before
   public final void createFiles() throws Exception  {
@@ -46,6 +59,10 @@ public class CompactPersistentActionCacheTest {
     cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
     mapFile = CompactPersistentActionCache.cacheFile(dataRoot);
     journalFile = CompactPersistentActionCache.journalFile(dataRoot);
+    derivedPathPrefix = PathFragment.create("bin");
+    artifactRoot =
+        ArtifactRoot.asDerivedRoot(
+            scratch.getFileSystem().getPath("/output"), ArtifactRoot.RootType.Output, "bin");
   }
 
   @Test
@@ -169,6 +186,154 @@ public class CompactPersistentActionCacheTest {
   public void testToStringIsntTooBig() {
     assertToStringIsntTooBig(3);
     assertToStringIsntTooBig(3000);
+  }
+
+  private FileArtifactValue createLocalMetadata(Artifact artifact, String content) throws IOException {
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(artifact.getPath(), content);
+    return FileArtifactValue.createForTesting(artifact.getPath());
+  }
+
+  private RemoteFileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
+    byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+    byte[] digest =
+        artifact
+            .getPath()
+            .getFileSystem()
+            .getDigestFunction()
+            .getHashFunction()
+            .hashBytes(bytes)
+            .asBytes();
+    return new RemoteFileArtifactValue(digest, bytes.length, 1, "action-id");
+  }
+
+  private TreeArtifactValue createTreeMetadata(
+      SpecialArtifact parent,
+      ImmutableMap<String, FileArtifactValue> children,
+      Optional<FileArtifactValue> archivedArtifactValue) {
+    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
+    for (Map.Entry<String, FileArtifactValue> entry : children.entrySet()) {
+      builder.putChild(
+          Artifact.TreeFileArtifact.createTreeOutput(parent, entry.getKey()), entry.getValue());
+    }
+    archivedArtifactValue.ifPresent(
+        metadata -> {
+          Artifact.ArchivedTreeArtifact artifact =
+              Artifact.ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+          builder.setArchivedRepresentation(
+              TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
+        });
+    return builder.build();
+  }
+
+  @Test
+  public void putAndGet_saveRemoteFileMetadata() {
+    String key = "key";
+    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    RemoteFileArtifactValue metadata = createRemoteMetadata(artifact, "content");
+    entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
+  }
+
+  @Test
+  public void putAndGet_ignoreLocalFileMetadata() throws IOException {
+    String key = "key";
+    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    FileArtifactValue metadata = createLocalMetadata(artifact, "content");
+    entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputFile(artifact)).isNull();
+  }
+
+  @Test
+  public void putAndGet_treeMetadata_onlySaveRemoteFileMetadata() throws IOException {
+    String key = "key";
+    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    SpecialArtifact artifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, PathFragment.create("bin/dummy"));
+    TreeArtifactValue metadata =
+        createTreeMetadata(
+            artifact,
+            ImmutableMap.of(
+                "file1",
+                    createRemoteMetadata(
+                        Artifact.TreeFileArtifact.createTreeOutput(
+                            artifact, PathFragment.create("file1")),
+                        "content1"),
+                "file2",
+                    createLocalMetadata(
+                        Artifact.TreeFileArtifact.createTreeOutput(
+                            artifact, PathFragment.create("file2")),
+                        "content2")),
+            Optional.empty());
+    entry.addOutputTree(artifact, metadata, /* saveFileMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputTree(artifact))
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of(
+                    "file1",
+                    createRemoteMetadata(
+                        Artifact.TreeFileArtifact.createTreeOutput(
+                            artifact, PathFragment.create("file1")),
+                        "content1")),
+                Optional.empty()));
+  }
+
+  @Test
+  public void putAndGet_treeMetadata_saveRemoteArchivedArtifact() {
+    String key = "key";
+    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    SpecialArtifact artifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, PathFragment.create("bin/dummy"));
+    TreeArtifactValue metadata =
+        createTreeMetadata(
+            artifact, ImmutableMap.of(), Optional.of(createRemoteMetadata(artifact, "content")));
+    entry.addOutputTree(artifact, metadata, /* saveFileMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputTree(artifact))
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of(), Optional.of(createRemoteMetadata(artifact, "content"))));
+  }
+
+  @Test
+  public void putAndGet_treeMetadata_ignoreLocalArchivedArtifact() throws IOException {
+    String key = "key";
+    ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
+    SpecialArtifact artifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, PathFragment.create("bin/dummy"));
+    TreeArtifactValue metadata =
+        createTreeMetadata(
+            artifact,
+            ImmutableMap.of(),
+            Optional.of(
+                createLocalMetadata(
+                    ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")));
+    entry.addOutputTree(artifact, metadata, /* saveFileMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputTree(artifact)).isNull();
   }
 
   private static void assertKeyEquals(ActionCache cache1, ActionCache cache2, String key) {

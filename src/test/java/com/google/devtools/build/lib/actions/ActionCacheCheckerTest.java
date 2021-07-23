@@ -455,10 +455,10 @@ public class ActionCacheCheckerTest {
 
   private TreeArtifactValue createTreeMetadata(
       SpecialArtifact parent,
-      ImmutableMap<String, FileArtifactValue> children,
+      ImmutableMap<String, ? extends FileArtifactValue> children,
       Optional<FileArtifactValue> archivedArtifactValue) {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
-    for (Map.Entry<String, FileArtifactValue> entry : children.entrySet()) {
+    for (Map.Entry<String, ? extends FileArtifactValue> entry : children.entrySet()) {
       builder.putChild(
           Artifact.TreeFileArtifact.createTreeOutput(parent, entry.getKey()), entry.getValue());
     }
@@ -604,11 +604,13 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
-    ImmutableMap<String, FileArtifactValue> children = ImmutableMap.of(
-        "file1", createRemoteFileMetadata("content1"),
-        "file2", createRemoteFileMetadata("content2")
-    );
-    Action action = new InjectOutputTreeMetadataAction(output, createTreeMetadata(output, children, Optional.empty()));
+    ImmutableMap<String, RemoteFileArtifactValue> children =
+        ImmutableMap.of(
+            "file1", createRemoteFileMetadata("content1"),
+            "file2", createRemoteFileMetadata("content2"));
+    Action action =
+        new InjectOutputTreeMetadataAction(
+            output, createTreeMetadata(output, children, Optional.empty()));
 
     // Not cached.
     runAction(action);
@@ -618,9 +620,7 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
-            SerializableTreeArtifactValue.createSerializable(
-                    createTreeMetadata(output, children, Optional.empty()))
-                .get());
+            SerializableTreeArtifactValue.create(children, Optional.empty()));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -643,12 +643,8 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
-            SerializableTreeArtifactValue.createSerializable(
-                    createTreeMetadata(
-                        output,
-                        ImmutableMap.of(),
-                        Optional.of(createRemoteFileMetadata("content"))))
-                .get());
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -694,12 +690,8 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
-            SerializableTreeArtifactValue.createSerializable(
-                    createTreeMetadata(
-                        output,
-                        ImmutableMap.of("file1", createRemoteFileMetadata("content1")),
-                        Optional.empty()))
-                .get());
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of("file1", createRemoteFileMetadata("content1")), Optional.empty()));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -847,7 +839,7 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
-    ImmutableMap<String, FileArtifactValue> children =
+    ImmutableMap<String, RemoteFileArtifactValue> children =
         ImmutableMap.of(
             "file1", createRemoteFileMetadata("content1\n"),
             "file2", createRemoteFileMetadata("content2\n"));
@@ -867,10 +859,7 @@ public class ActionCacheCheckerTest {
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
-        .isEqualTo(
-            SerializableTreeArtifactValue.createSerializable(
-                    createTreeMetadata(output, children, Optional.empty()))
-                .get());
+        .isEqualTo(SerializableTreeArtifactValue.create(children, Optional.empty()));
     assertThat(metadataHandler.getTreeArtifactValue(output))
         .isEqualTo(
             createTreeMetadata(
