@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
@@ -1780,13 +1781,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   // Separated into a helper method so that it can be called from CppCompileActionTemplate.
   static boolean hasLooseHeaders(
       CcCompilationContext ccCompilationContext, FeatureConfiguration featureConfiguration) {
-    // Layering check is stricter than hdrs_check = strict, so when it's enabled, there can't be
-    // loose headers.
-    return ccCompilationContext
-            .getHeadersCheckingMode()
-            .equals(CppConfiguration.HeadersCheckingMode.LOOSE)
-        && !(featureConfiguration.isEnabled(CppRuleClasses.LAYERING_CHECK)
-            && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
+    if (ccCompilationContext.getHeadersCheckingMode() != HeadersCheckingMode.LOOSE) {
+      return false;
+    }
+    // Loose headers may still be included via textual_hdrs even if layering check is enabled.
+    return !featureConfiguration.isEnabled(CppRuleClasses.LAYERING_CHECK)
+        || !featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)
+        || !ccCompilationContext.getTextualHdrs().isEmpty();
   }
 
   public CompileCommandLine getCompileCommandLine() {
