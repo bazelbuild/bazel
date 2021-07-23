@@ -909,7 +909,9 @@ the compilation of binaries during the build.
     <code>sandboxed</code> causes commands to be executed inside a sandbox on the local machine.
     This requires that all input files, data dependencies and tools are listed as direct
     dependencies in the <code>srcs</code>, <code>data</code> and <code>tools</code> attributes.
-    This is the default on systems that support sandboxed execution.
+
+    
+    Bazel enables local sandboxing by default, on systems that support sandboxed execution.
   </li>
 
   <li>

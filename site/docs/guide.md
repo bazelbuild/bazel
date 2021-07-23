@@ -605,8 +605,10 @@ If you ever detect a stable inconsistent state with Bazel, please report a bug.
 
 #### Sandboxed execution
 
-Bazel uses sandboxes to guarantee that actions run hermetically<sup>1</sup> and
-correctly. Bazel runs _Spawns_ (loosely speaking: actions) in sandboxes that
+NOTE: Sandboxing is enabled by default for local execution.
+
+Bazel can use sandboxes to guarantee that actions run hermetically<sup>1</sup>
+and correctly. Bazel runs _spawns_ (loosely speaking: actions) in sandboxes that
 only contain the minimal set of files the tool requires to do its job. Currently
 sandboxing works on Linux 3.12 or newer with the `CONFIG_USER_NS` option
 enabled, and also on macOS 10.11 or newer.
