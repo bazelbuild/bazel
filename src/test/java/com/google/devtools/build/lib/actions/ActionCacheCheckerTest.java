@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createArtifact;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
-import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContentAsLatin1;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
@@ -56,6 +55,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -834,6 +834,14 @@ public class ActionCacheCheckerTest {
     assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
   }
 
+  private void writeContentAsLatin1(Path path, String content) throws IOException {
+    Path parent = path.getParentDirectory();
+    if (parent != null) {
+      parent.createDirectoryAndParents();
+    }
+    FileSystemUtils.writeContentAsLatin1(path, content);
+  }
+
   @Test
   public void saveOutputMetadata_treeMetadataWithSameLocalFileMetadata_cached() throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
@@ -841,8 +849,8 @@ public class ActionCacheCheckerTest {
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, RemoteFileArtifactValue> children =
         ImmutableMap.of(
-            "file1", createRemoteFileMetadata("content1\n"),
-            "file2", createRemoteFileMetadata("content2\n"));
+            "file1", createRemoteFileMetadata("content1"),
+            "file2", createRemoteFileMetadata("content2"));
     Action action =
         new InjectOutputTreeMetadataAction(
             output, createTreeMetadata(output, children, Optional.empty()));
@@ -850,7 +858,7 @@ public class ActionCacheCheckerTest {
 
     // Not cached
     runAction(action);
-    writeIsoLatin1(output.getPath().getRelative("file1"), "content1");
+    writeContentAsLatin1(output.getPath().getRelative("file1"), "content1");
     // Cache hit
     runAction(action, metadataHandler);
 
@@ -867,7 +875,7 @@ public class ActionCacheCheckerTest {
                 ImmutableMap.of(
                     "file1",
                         FileArtifactValue.createForTesting(output.getPath().getRelative("file1")),
-                    "file2", createRemoteFileMetadata("content2\n")),
+                    "file2", createRemoteFileMetadata("content2")),
                 Optional.empty()));
   }
 
@@ -881,12 +889,12 @@ public class ActionCacheCheckerTest {
         new InjectOutputTreeMetadataAction(
             output,
             createTreeMetadata(
-                output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content\n"))));
+                output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))));
     MetadataHandler metadataHandler = new FakeMetadataHandler(derivedPathPrefix);
 
     // Not cached
     runAction(action);
-    writeIsoLatin1(
+    writeContentAsLatin1(
         Artifact.ArchivedTreeArtifact.create(output, derivedPathPrefix).getPath(), "content");
     // Cache hit
     runAction(action, metadataHandler);
@@ -895,7 +903,7 @@ public class ActionCacheCheckerTest {
     assertThat(output.getPath().exists()).isFalse();
     TreeArtifactValue expectedMetadata =
         createTreeMetadata(
-            output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content\n")));
+            output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content")));
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
@@ -1071,7 +1079,7 @@ public class ActionCacheCheckerTest {
         Path path = output.getPath();
         if (!path.exists()) {
           try {
-            writeContentAsLatin1(path, "");
+            FileSystemUtils.writeContentAsLatin1(path, "");
           } catch (IOException e) {
             throw new IllegalStateException("Failed to create output", e);
           }
