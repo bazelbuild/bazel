@@ -48,7 +48,7 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
       name = "experimental_worker_allow_json_protocol",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help =
