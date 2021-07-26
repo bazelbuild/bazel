@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.Map;
 import org.junit.Before;
@@ -886,7 +887,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         getConfiguration(getConfiguredTarget("//test:toplevel_target")).getOptions();
     PatchTransition transition =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
-            .create((Rule) getTarget("//test:dep"));
+            .create(RuleTransitionData.create((Rule) getTarget("//test:dep")));
     BuildOptions depOptions =
         transition.patch(
             new BuildOptionsView(topLevelOptions, transition.requiresOptionFragments()),
