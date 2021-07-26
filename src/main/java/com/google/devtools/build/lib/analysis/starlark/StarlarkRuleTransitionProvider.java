@@ -131,6 +131,11 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
   }
 
   @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
+  }
+
+  @Override
   public boolean isSplit() {
     // The transitions returned by this factory are guaranteed not to be splits.
     return false;

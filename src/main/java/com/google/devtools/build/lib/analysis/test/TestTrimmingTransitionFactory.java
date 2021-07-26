@@ -130,4 +130,9 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     }
     return TestTrimmingTransition.TESTONLY_FALSE;
   }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
+  }
 }

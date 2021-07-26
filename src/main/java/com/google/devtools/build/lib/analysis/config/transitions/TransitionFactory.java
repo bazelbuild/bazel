@@ -31,11 +31,31 @@ package com.google.devtools.build.lib.analysis.config.transitions;
  */
 public interface TransitionFactory<T extends TransitionFactory.Data> {
 
+  enum TransitionType {
+    ANY,
+    RULE,
+    ATTRIBUTE;
+
+    public boolean isCompatibleWith(TransitionType other) {
+      if (this == ANY) {
+        return true;
+      }
+      if (other == ANY) {
+        return true;
+      }
+      return this == other;
+    }
+  }
+
   /** A marker interface for classes that provide data to TransitionFactory instances. */
   interface Data {}
 
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
   ConfigurationTransition create(T data);
+
+  default TransitionType transitionType() {
+    return TransitionType.ANY;
+  }
 
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Once everything uses TransitionFactory,
   // remove these methods.

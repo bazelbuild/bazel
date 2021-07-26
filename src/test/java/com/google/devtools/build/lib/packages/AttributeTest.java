@@ -303,6 +303,11 @@ public class AttributeTest {
     }
 
     @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+
+    @Override
     public boolean isSplit() {
       return true;
     }

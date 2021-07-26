@@ -75,6 +75,11 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
+  public TransitionType transitionType() {
+    return TransitionType.ATTRIBUTE;
+  }
+
+  @Override
   public boolean isSplit() {
     return true;
   }
