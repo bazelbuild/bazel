@@ -112,6 +112,11 @@ public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rul
     }
   }
 
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
+  }
+
   /**
    * Returns the attribute examined by this transition factory.
    */
