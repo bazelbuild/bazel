@@ -116,7 +116,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
       Caffeine.newBuilder().softValues().build();
 
   @Override
-  public PatchTransition create(Rule rule) {
+  public PatchTransition create(RuleTransitionData ruleData) {
     // This wouldn't be safe if rule transitions could read attributes with select(), in which case
     // the rule alone isn't sufficient to define the transition's semantics (both the rule and its
     // configuration are needed). Rule transitions can't read select()s, so this is a non-issue.
@@ -126,8 +126,8 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
     // transition never reads {@code attr}. If we had a way to formally identify such transitions,
     // we wouldn't need {@code rule} in the cache key.
     return cache.get(
-        new CacheKey(starlarkDefinedConfigTransition, rule),
-        unused -> new FunctionPatchTransition(starlarkDefinedConfigTransition, rule));
+        new CacheKey(starlarkDefinedConfigTransition, ruleData.rule()),
+        unused -> new FunctionPatchTransition(starlarkDefinedConfigTransition, ruleData.rule()));
   }
 
   @Override

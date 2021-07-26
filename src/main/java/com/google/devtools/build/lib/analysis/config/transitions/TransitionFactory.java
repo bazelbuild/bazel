@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import com.google.devtools.build.lib.packages.AttributeTransitionData;
-
 /**
  * Factory interface for transitions that are created dynamically, instead of being created as
  * singletons.

@@ -19,9 +19,11 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.objc.AppleCrosstoolTransition;
 import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryBaseRule;
@@ -48,7 +50,7 @@ public class BazelAppleStaticLibraryRule implements RuleDefinition {
         .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(LIPO_ARCHIVE))
         .cfg(
             ComposingTransitionFactory.of(
-                (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
+                (TransitionFactory<RuleTransitionData>) (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .build();
   }

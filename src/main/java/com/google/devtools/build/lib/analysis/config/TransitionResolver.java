@@ -110,7 +110,7 @@ public final class TransitionResolver {
       @Nullable TransitionFactory<RuleTransitionData> transitionFactory) {
     if (transitionFactory != null) {
       return ComposingTransition.of(
-          currentTransition, transitionFactory.create(toTarget.getAssociatedRule()));
+          currentTransition, transitionFactory.create(RuleTransitionData.create(toTarget.getAssociatedRule())));
     }
     return currentTransition;
   }
