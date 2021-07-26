@@ -37,7 +37,7 @@ public class NullTransition implements PatchTransition {
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the null transition. */
-  public static <T> TransitionFactory<T> createFactory() {
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> createFactory() {
     return new AutoValue_NullTransition_Factory<>();
   }
 
@@ -45,13 +45,14 @@ public class NullTransition implements PatchTransition {
    * Returns {@code true} if the given {@link TransitionFactory} is an instance of the null
    * transition.
    */
-  public static <T> boolean isInstance(TransitionFactory<T> instance) {
+  public static <T extends TransitionFactory.Data> boolean isInstance(
+      TransitionFactory<T> instance) {
     return instance instanceof Factory;
   }
 
   /** A {@link TransitionFactory} implementation that generates the null transition. */
   @AutoValue
-  abstract static class Factory<T> implements TransitionFactory<T> {
+  abstract static class Factory<T extends TransitionFactory.Data> implements TransitionFactory<T> {
     @Override
     public ConfigurationTransition create(T unused) {
       return INSTANCE;

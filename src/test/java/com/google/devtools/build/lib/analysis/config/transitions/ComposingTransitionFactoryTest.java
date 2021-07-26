@@ -202,7 +202,7 @@ public class ComposingTransitionFactoryTest {
     assertThat(NullTransition.isInstance(composed)).isTrue();
   }
 
-  private static final class StubData {}
+  private static final class StubData implements TransitionFactory.Data {}
 
   // Helper methods and classes for the tests.
   private static BuildOptions updateOptions(BuildOptions source, Label flag, String value) {
