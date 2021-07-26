@@ -443,28 +443,30 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static void encodeRemoteMetadata(
-      RemoteFileArtifactValue value, ByteArrayOutputStream sink) throws IOException {
+      RemoteFileArtifactValue value, StringIndexer indexer, ByteArrayOutputStream sink) throws IOException {
     MetadataDigestUtils.write(value.getDigest(), sink);
 
     VarInt.putVarLong(value.getSize(), sink);
 
     VarInt.putVarInt(value.getLocationIndex(), sink);
 
-    byte[] actionIdBytes = value.getActionId().getBytes(ISO_8859_1);
-    VarInt.putVarInt(actionIdBytes.length, sink);
-    sink.write(actionIdBytes);
+    VarInt.putVarInt(indexer.getOrCreateIndex(value.getActionId()), sink);
   }
 
-  private static RemoteFileArtifactValue decodeRemoteMetadata(ByteBuffer source) {
+  private static final int MAX_REMOTE_METADATA_SIZE = DigestUtils.ESTIMATED_SIZE +
+        VarInt.MAX_VARLONG_SIZE +
+        VarInt.MAX_VARINT_SIZE +
+        VarInt.MAX_VARINT_SIZE;
+
+  private static RemoteFileArtifactValue decodeRemoteMetadata(
+      StringIndexer indexer, ByteBuffer source) throws IOException {
     byte[] digest = MetadataDigestUtils.read(source);
 
     long size = VarInt.getVarLong(source);
 
     int locationIndex = VarInt.getVarInt(source);
 
-    byte[] actionIdBytes = new byte[VarInt.getVarInt(source)];
-    source.get(actionIdBytes);
-    String actionId = new String(actionIdBytes, ISO_8859_1);
+    String actionId = getStringForIndex(indexer, VarInt.getVarInt(source));
 
     return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
   }
@@ -478,6 +480,30 @@ public class CompactPersistentActionCache implements ActionCache {
     byte[] actionKeyBytes = entry.getActionKey().getBytes(ISO_8859_1);
     Collection<String> files = entry.getPaths();
 
+    int maxOutputFilesSize =
+        VarInt.MAX_VARINT_SIZE // entry.getOutputFiles().size()
+            + (VarInt.MAX_VARINT_SIZE // execPath
+                    + MAX_REMOTE_METADATA_SIZE)
+                * entry.getOutputFiles().size();
+
+    int maxOutputTreesSize = VarInt.MAX_VARINT_SIZE; // entry.getOutputTrees().size()
+    for (Map.Entry<String, SerializableTreeArtifactValue> tree :
+        entry.getOutputTrees().entrySet()) {
+      maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // execPath
+
+      SerializableTreeArtifactValue value = tree.getValue();
+
+      maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.childValues().size()
+      maxOutputTreesSize +=
+          (VarInt.MAX_VARINT_SIZE // parentRelativePath
+                  + MAX_REMOTE_METADATA_SIZE)
+              * value.childValues().size();
+
+      maxOutputTreesSize += VarInt.MAX_VARINT_SIZE; // value.archivedFileValue() optional
+      maxOutputTreesSize +=
+          value.archivedFileValue().map(ignored -> MAX_REMOTE_METADATA_SIZE).orElse(0);
+    }
+
     // Estimate the size of the buffer:
     //   5 bytes max for the actionKey length
     // + the actionKey itself
@@ -485,13 +511,17 @@ public class CompactPersistentActionCache implements ActionCache {
     // + 5 bytes max for the file list length
     // + 5 bytes max for each file id
     // + 32 bytes for the environment digest
+    // + max bytes for output files
+    // + max bytes for output trees
     int maxSize =
         VarInt.MAX_VARINT_SIZE
             + actionKeyBytes.length
             + DigestUtils.ESTIMATED_SIZE
             + VarInt.MAX_VARINT_SIZE
             + files.size() * VarInt.MAX_VARINT_SIZE
-            + DigestUtils.ESTIMATED_SIZE;
+            + DigestUtils.ESTIMATED_SIZE
+            + maxOutputFilesSize
+            + maxOutputTreesSize;
     ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
     VarInt.putVarInt(actionKeyBytes.length, sink);
@@ -509,7 +539,7 @@ public class CompactPersistentActionCache implements ActionCache {
     VarInt.putVarInt(entry.getOutputFiles().size(), sink);
     for (Map.Entry<String, RemoteFileArtifactValue> file : entry.getOutputFiles().entrySet()) {
       VarInt.putVarInt(indexer.getOrCreateIndex(file.getKey()), sink);
-      encodeRemoteMetadata(file.getValue(), sink);
+      encodeRemoteMetadata(file.getValue(), indexer, sink);
     }
 
     VarInt.putVarInt(entry.getOutputTrees().size(), sink);
@@ -521,13 +551,13 @@ public class CompactPersistentActionCache implements ActionCache {
       VarInt.putVarInt(serializableTreeArtifactValue.childValues().size(), sink);
       for (Map.Entry<String, RemoteFileArtifactValue> child : serializableTreeArtifactValue.childValues().entrySet()) {
         VarInt.putVarInt(indexer.getOrCreateIndex(child.getKey()), sink);
-        encodeRemoteMetadata(child.getValue(), sink);
+        encodeRemoteMetadata(child.getValue(), indexer, sink);
       }
 
       Optional<RemoteFileArtifactValue> archivedFileValue = serializableTreeArtifactValue.archivedFileValue();
       if (archivedFileValue.isPresent()) {
         VarInt.putVarInt(1, sink);
-        encodeRemoteMetadata(archivedFileValue.get(), sink);
+        encodeRemoteMetadata(archivedFileValue.get(), indexer, sink);
       } else {
         VarInt.putVarInt(0, sink);
       }
@@ -580,7 +610,7 @@ public class CompactPersistentActionCache implements ActionCache {
       Map<String, RemoteFileArtifactValue> outputFiles = new HashMap<>(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
         String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
-        RemoteFileArtifactValue value = decodeRemoteMetadata(source);
+        RemoteFileArtifactValue value = decodeRemoteMetadata(indexer, source);
         outputFiles.put(execPath, value);
       }
 
@@ -593,7 +623,7 @@ public class CompactPersistentActionCache implements ActionCache {
         int numChildValues = VarInt.getVarInt(source);
         for (int j = 0; j < numChildValues; ++j) {
           String childKey = getStringForIndex(indexer, VarInt.getVarInt(source));
-          RemoteFileArtifactValue value = decodeRemoteMetadata(source);
+          RemoteFileArtifactValue value = decodeRemoteMetadata(indexer, source);
           childValues.put(childKey, value);
         }
 
@@ -603,7 +633,7 @@ public class CompactPersistentActionCache implements ActionCache {
           if (numArchivedFileValue != 1) {
             throw new IOException("Invalid number of archived artifacts");
           }
-          archivedFileValue = Optional.of(decodeRemoteMetadata(source));
+          archivedFileValue = Optional.of(decodeRemoteMetadata(indexer, source));
         }
 
         SerializableTreeArtifactValue value =
