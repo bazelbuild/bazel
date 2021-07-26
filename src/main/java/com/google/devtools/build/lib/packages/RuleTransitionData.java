@@ -14,14 +14,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 
 /**
- * Helper class which contains data used by a {@link
- * com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory} to create a
- * transition for rules.
+ * Helper class which contains data used by a {@link TransitionFactory} to create a transition for
+ * rules.
  */
 @AutoValue
-public abstract class RuleTransitionData {
+public abstract class RuleTransitionData implements TransitionFactory.Data {
 
   public static RuleTransitionData create(Rule rule) {
     return new AutoValue_RuleTransitionData(rule);
