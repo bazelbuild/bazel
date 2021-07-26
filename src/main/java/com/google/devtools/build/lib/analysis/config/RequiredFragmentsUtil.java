@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.ClassName;
 import java.util.Collection;
@@ -202,7 +203,11 @@ public class RequiredFragmentsUtil {
       String configHash) {
     ImmutableList.Builder<ConfigurationTransition> transitions = ImmutableList.builder();
     if (target.getRuleClassObject().getTransitionFactory() != null) {
-      transitions.add(target.getRuleClassObject().getTransitionFactory().create(target));
+      transitions.add(
+          target
+              .getRuleClassObject()
+              .getTransitionFactory()
+              .create(RuleTransitionData.create(target)));
     }
     // We don't set the execution platform in this data because a) that doesn't affect which
     // fragments are required and b) it's one less parameter we have to pass to

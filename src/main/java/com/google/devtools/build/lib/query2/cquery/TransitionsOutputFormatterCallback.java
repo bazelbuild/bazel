@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -64,7 +64,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   protected final BuildConfiguration hostConfiguration;
 
   private final HashMap<Label, Target> partialResultMap;
-  @Nullable private final TransitionFactory<Rule> trimmingTransitionFactory;
+  @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
 
   @Override
   public String getName() {
@@ -82,7 +82,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
       BuildConfiguration hostConfiguration,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory) {
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.hostConfiguration = hostConfiguration;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
@@ -196,11 +196,15 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   private static String getRuleClassTransition(ConfiguredTarget ct, Target target) {
     String output = "";
     if (ct instanceof RuleConfiguredTarget) {
-      TransitionFactory<Rule> factory =
+      TransitionFactory<RuleTransitionData> factory =
           target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
       if (factory != null) {
         output =
-            factory.create(target.getAssociatedRule()).getClass().getSimpleName().concat(" -> ");
+            factory
+                .create(RuleTransitionData.create(target.getAssociatedRule()))
+                .getClass()
+                .getSimpleName()
+                .concat(" -> ");
       }
     }
     return output;

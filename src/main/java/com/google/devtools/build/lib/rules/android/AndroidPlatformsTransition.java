@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidPlatformsTransitionApi;
 
@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidPlatformsTr
 public final class AndroidPlatformsTransition
     implements PatchTransition, AndroidPlatformsTransitionApi {
 
-  public static TransitionFactory<Rule> create() {
+  public static TransitionFactory<RuleTransitionData> create() {
     return TransitionFactories.of(new AndroidPlatformsTransition());
   }
 
