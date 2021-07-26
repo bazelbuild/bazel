@@ -526,7 +526,7 @@ public final class PackageFactory {
 
   /**
    * Runs final validation and administrative tasks on newly loaded package. Called by a caller of
-   * {@link #createPackageFromAst} after this caller has fully loaded the package.
+   * {@link #executeBuildFile} after this caller has fully loaded the package.
    *
    * @throws InvalidPackageException if the package is determined to be invalid
    */
