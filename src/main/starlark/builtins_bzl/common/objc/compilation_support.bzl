@@ -330,7 +330,7 @@ def _cc_compile_and_link(
         extra_module_map = None
         extra_module_map_fc = None
 
-    purpose = "%s_objc_arc".format(_get_purpose(common_variables))
+    purpose = "{}_objc_arc".format(_get_purpose(common_variables))
     arc_extensions = _build_variable_extensions(
         common_variables,
         ctx,
@@ -354,7 +354,7 @@ def _cc_compile_and_link(
         True,
         True,
     )
-    purpose = "%s_non_objc_arc".format(_get_purpose(common_variables))
+    purpose = "{}_non_objc_arc".format(_get_purpose(common_variables))
     non_arc_extensions = _build_variable_extensions(
         common_variables,
         ctx,
@@ -499,7 +499,7 @@ def _generate_extra_module_map(
         pch_header,
         compilation_contexts,
         feature_configuration):
-    purpose = "%s_extra_module_map".format(_get_purpose(common_variables))
+    purpose = "{}_extra_module_map".format(_get_purpose(common_variables))
     all_textual_hdrs = []
     all_textual_hdrs.extend(textual_hdrs)
     if pch_header != None:
