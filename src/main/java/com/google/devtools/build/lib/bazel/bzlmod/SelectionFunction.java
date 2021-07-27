@@ -31,8 +31,12 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -234,29 +238,23 @@ public class SelectionFunction implements SkyFunction {
     // We can also take this opportunity to check that none of the remaining modules conflict with
     // each other (e.g. same module name but different compatibility levels, or not satisfying
     // multiple_version_override).
-    DepGraphWalker walker = new DepGraphWalker(newDepGraph, overrides, selectionGroups);
+    DepGraphWalker walker =
+        new DepGraphWalker(newDepGraph, discovery.getRootModuleName(), overrides, selectionGroups);
     try {
-      walker.walk(ModuleKey.create(discovery.getRootModuleName(), Version.EMPTY), null);
+      newDepGraph = walker.walk();
     } catch (ExternalDepsException e) {
       throw new SelectionFunctionException(e);
     }
 
-    newDepGraph = walker.getNewDepGraph();
     ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
-        depGraph.keySet().stream()
+        newDepGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
     ImmutableMap<String, ModuleKey> moduleNameLookup =
-        Maps.filterKeys(
-                newDepGraph,
-                key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
-            .keySet()
-            .stream()
+        newDepGraph.keySet().stream()
+            .filter(key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
             .collect(toImmutableMap(ModuleKey::getName, key -> key));
     return SelectionValue.create(
-        discovery.getRootModuleName(),
-        walker.getNewDepGraph(),
-        canonicalRepoNameLookup,
-        moduleNameLookup);
+        discovery.getRootModuleName(), newDepGraph, canonicalRepoNameLookup, moduleNameLookup);
   }
 
   /**
@@ -266,33 +264,51 @@ public class SelectionFunction implements SkyFunction {
   static class DepGraphWalker {
     private static final Joiner JOINER = Joiner.on(", ");
     private final ImmutableMap<ModuleKey, Module> oldDepGraph;
+    private final ModuleKey rootModuleKey;
     private final ImmutableMap<String, ModuleOverride> overrides;
     private final ImmutableMap<ModuleKey, SelectionGroup> selectionGroups;
-    private final HashMap<ModuleKey, Module> newDepGraph;
     private final HashMap<String, ExistingModule> moduleByName;
 
     DepGraphWalker(
         ImmutableMap<ModuleKey, Module> oldDepGraph,
+        String rootModuleName,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<ModuleKey, SelectionGroup> selectionGroups) {
       this.oldDepGraph = oldDepGraph;
+      this.rootModuleKey = ModuleKey.create(rootModuleName, Version.EMPTY);
       this.overrides = overrides;
       this.selectionGroups = selectionGroups;
-      this.newDepGraph = new HashMap<>();
       this.moduleByName = new HashMap<>();
     }
 
-    ImmutableMap<ModuleKey, Module> getNewDepGraph() {
-      return ImmutableMap.copyOf(newDepGraph);
+    /**
+     * Walks the old dep graph and builds a new dep graph containing only deps reachable from the
+     * root module. The returned map has a guaranteed breadth-first iteration order.
+     */
+    ImmutableMap<ModuleKey, Module> walk() throws ExternalDepsException {
+      ImmutableMap.Builder<ModuleKey, Module> newDepGraph = ImmutableMap.builder();
+      Set<ModuleKey> known = new HashSet<>();
+      Queue<ModuleKeyAndDependent> toVisit = new ArrayDeque<>();
+      toVisit.add(ModuleKeyAndDependent.create(rootModuleKey, null));
+      known.add(rootModuleKey);
+      while (!toVisit.isEmpty()) {
+        ModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
+        ModuleKey key = moduleKeyAndDependent.getModuleKey();
+        Module module = oldDepGraph.get(key);
+        visit(key, module, moduleKeyAndDependent.getDependent());
+
+        for (ModuleKey depKey : module.getDeps().values()) {
+          if (known.add(depKey)) {
+            toVisit.add(ModuleKeyAndDependent.create(depKey, key));
+          }
+        }
+        newDepGraph.put(key, module);
+      }
+      return newDepGraph.build();
     }
 
-    void walk(ModuleKey key, @Nullable ModuleKey from) throws ExternalDepsException {
-      if (newDepGraph.containsKey(key)) {
-        return;
-      }
-      Module module = oldDepGraph.get(key);
-      newDepGraph.put(key, module);
-
+    void visit(ModuleKey key, Module module, @Nullable ModuleKey from)
+        throws ExternalDepsException {
       ModuleOverride override = overrides.get(key.getName());
       if (override instanceof MultipleVersionOverride) {
         if (selectionGroups.get(key).getTargetAllowedVersion().isEmpty()) {
@@ -351,10 +367,18 @@ public class SelectionFunction implements SkyFunction {
               key.getName());
         }
       }
+    }
 
-      // Now visit our dependencies.
-      for (ModuleKey depKey : module.getDeps().values()) {
-        walk(depKey, key);
+    @AutoValue
+    abstract static class ModuleKeyAndDependent {
+      abstract ModuleKey getModuleKey();
+
+      @Nullable
+      abstract ModuleKey getDependent();
+
+      static ModuleKeyAndDependent create(ModuleKey moduleKey, @Nullable ModuleKey dependent) {
+        return new AutoValue_SelectionFunction_DepGraphWalker_ModuleKeyAndDependent(
+            moduleKey, dependent);
       }
     }
 

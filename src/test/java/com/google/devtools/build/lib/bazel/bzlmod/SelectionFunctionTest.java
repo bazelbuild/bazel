@@ -182,7 +182,28 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("D")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(1)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"),
+            "D",
+            createModuleKey("D", "2.0"));
   }
 
   @Test
@@ -259,7 +280,28 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .addDep("D", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("D", "2.0"),
-            Module.builder().setName("D").setVersion(Version.parse("2.0")).build());
+            Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"),
+            "D",
+            createModuleKey("D", "2.0"));
   }
 
   @Test
@@ -327,8 +369,25 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
                 .addDep("B", createModuleKey("B", "1.0"))
-                .build());
+                .build())
+        .inOrder();
     // D is completely gone.
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"));
   }
 
   @Test
@@ -493,7 +552,32 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("E")
                 .setVersion(Version.parse("1.0"))
                 .addDep("C", createModuleKey("C", "1.1"))
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B.1.1",
+            createModuleKey("B", "1.1"),
+            "C.1.1",
+            createModuleKey("C", "1.1"),
+            "D.1.0",
+            createModuleKey("D", "1.0"),
+            "E.1.0",
+            createModuleKey("E", "1.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B",
+            createModuleKey("B", "1.1"),
+            "C",
+            createModuleKey("C", "1.1"),
+            "D",
+            createModuleKey("D", "1.0"),
+            "E",
+            createModuleKey("E", "1.0"));
   }
 
   @Test
@@ -577,7 +661,18 @@ public class SelectionFunctionTest extends FoundationTestCase {
             createModuleKey("B", "1.0"),
             Module.builder().setName("B").setVersion(Version.parse("1.0")).build(),
             createModuleKey("B", "2.0"),
-            Module.builder().setName("B").setVersion(Version.parse("2.0")).build());
+            Module.builder().setName("B").setVersion(Version.parse("2.0")).build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "B.2.0",
+            createModuleKey("B", "2.0"));
+    // No B in the module name lookup because there's a multiple-version override.
+    assertThat(selectionValue.getModuleNameLookup()).containsExactly("A", createModuleKey("A", ""));
   }
 
   @Test
@@ -704,7 +799,28 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("D")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(2)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.1.0",
+            createModuleKey("D", "1.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"));
   }
 
   @Test
@@ -777,7 +893,28 @@ public class SelectionFunctionTest extends FoundationTestCase {
             createModuleKey("D", "1.0"),
             Module.builder().setName("D").setVersion(Version.parse("1.0")).build(),
             createModuleKey("D", "2.0"),
-            Module.builder().setName("D").setVersion(Version.parse("2.0")).build());
+            Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.1.0",
+            createModuleKey("D", "1.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"));
   }
 
   @Test
@@ -949,7 +1086,42 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(2)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B1.1.0",
+            createModuleKey("B1", "1.0"),
+            "B2.1.0",
+            createModuleKey("B2", "1.0"),
+            "B3.1.0",
+            createModuleKey("B3", "1.0"),
+            "B4.1.0",
+            createModuleKey("B4", "1.0"),
+            "B5.1.0",
+            createModuleKey("B5", "1.0"),
+            "C.1.3",
+            createModuleKey("C", "1.3"),
+            "C.1.7",
+            createModuleKey("C", "1.7"),
+            "C.2.0",
+            createModuleKey("C", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B1",
+            createModuleKey("B1", "1.0"),
+            "B2",
+            createModuleKey("B2", "1.0"),
+            "B3",
+            createModuleKey("B3", "1.0"),
+            "B4",
+            createModuleKey("B4", "1.0"),
+            "B5",
+            createModuleKey("B5", "1.0"));
   }
 
   @Test
@@ -1247,6 +1419,35 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(2)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "A.",
+            createModuleKey("A", ""),
+            "B1.1.0",
+            createModuleKey("B1", "1.0"),
+            "B2.1.1",
+            createModuleKey("B2", "1.1"),
+            "B3.1.0",
+            createModuleKey("B3", "1.0"),
+            "B4.1.1",
+            createModuleKey("B4", "1.1"),
+            "C.1.0",
+            createModuleKey("C", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "A",
+            createModuleKey("A", ""),
+            "B1",
+            createModuleKey("B1", "1.0"),
+            "B2",
+            createModuleKey("B2", "1.1"),
+            "B3",
+            createModuleKey("B3", "1.0"),
+            "B4",
+            createModuleKey("B4", "1.1"));
   }
 }
