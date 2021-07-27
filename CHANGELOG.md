@@ -1,3 +1,25 @@
+## Release 5.0.0-pre.20210720.2 (2021-07-27)
+
+```
+Baseline: a52b1320da06c85d5aaa1ece9eb46acabd09b33f
+
+Cherry picks:
+
+   + eb956e8b6a7d12fe2c75d67abfd8c950b4c9508e:
+     Fix NPE with `--watchfs` as startup option.
+```
+
+Incompatible changes:
+
+  - Enforce the `--profile` path to be absolute.
+  - Enforce the --memory_profile path to be absolute.
+
+Important changes:
+
+  - --run_validations defaults to true.
+
+This release contains contributions from many people at Google, as well as Joe Lencioni.
+
 ## Release 5.0.0-pre.20210708.4 (2021-07-16)
 
 ```
