@@ -21,12 +21,15 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoToolchainInfoApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 
 /** Toolchain for {@code proto_*} rules. */
 @AutoValue
-public abstract class ProtoToolchainInfo extends NativeInfo {
+public abstract class ProtoToolchainInfo extends NativeInfo
+    implements ProtoToolchainInfoApi<FilesToRunProvider> {
   public static final ProtoToolchainInfoProvider PROVIDER = new ProtoToolchainInfoProvider();
 
   /** Creates a {@link ProtoToolchainInfo} from a {@link RuleContext}. */
@@ -44,17 +47,36 @@ public abstract class ProtoToolchainInfo extends NativeInfo {
       return null;
     }
 
-    return new AutoValue_ProtoToolchainInfo(PROVIDER, compiler, protoConfiguration.protocOpts());
+    return create(compiler, protoConfiguration.protocOpts());
   }
 
+  private static final ProtoToolchainInfo create(
+      FilesToRunProvider compiler, ImmutableList<String> compilerOptions) {
+    Preconditions.checkNotNull(compiler);
+    Preconditions.checkNotNull(compilerOptions);
+
+    return new AutoValue_ProtoToolchainInfo(PROVIDER, compiler, compilerOptions);
+  }
+
+  @Override
   public abstract FilesToRunProvider getCompiler();
 
+  @Override
   public abstract ImmutableList<String> getCompilerOptions();
 
   /** Provider class for {@link ProtoToolchainInfo} objects. */
-  public static class ProtoToolchainInfoProvider extends BuiltinProvider<ProtoToolchainInfo> {
+  public static class ProtoToolchainInfoProvider extends BuiltinProvider<ProtoToolchainInfo>
+      implements ProtoToolchainInfoApi.Provider<FilesToRunProvider> {
     public ProtoToolchainInfoProvider() {
-      super(ProtoBootstrap.PROTO_TOOLCHAIN_INFO_STARLARK_NAME, ProtoToolchainInfo.class);
+      super(ProtoToolchainInfoApi.NAME, ProtoToolchainInfo.class);
+    }
+
+    @Override
+    public ProtoToolchainInfoApi<FilesToRunProvider> create(
+        FilesToRunProvider protoc, Sequence<?> protocOptions) throws EvalException {
+      return ProtoToolchainInfo.create(
+          protoc,
+          Sequence.cast(protocOptions, String.class, "compiler_options").getImmutableList());
     }
   }
 }
