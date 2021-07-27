@@ -353,6 +353,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
         }
       }
     }
+
+    awaitTermination().blockingAwait();
   }
 
   @GuardedBy("lock")

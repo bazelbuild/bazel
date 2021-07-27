@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.CachingActionEvent;
-import com.google.devtools.build.lib.actions.FileUploadEvent;
+import com.google.devtools.build.lib.actions.RemoteUploadEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -722,10 +722,17 @@ public final class UiEventHandler implements EventHandler {
   }
 
   @Subscribe
-  @AllowConcurrentEvents
-  public void fileUpload(FileUploadEvent event) {
-    stateTracker.fileUpload(event);
-    refreshSoon();
+  public void remoteUpload(RemoteUploadEvent event) {
+    stateTracker.remoteUpload(event);
+
+    if (event.finished() && stateTracker.shouldStopUpdateProgressBar()) {
+      stopUpdateThread();
+      flushStdOutStdErrBuffers();
+      ignoreRefreshLimitOnce();
+      refresh();
+    } else {
+      refreshSoon();
+    }
   }
 
   /**

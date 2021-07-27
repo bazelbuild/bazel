@@ -61,6 +61,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -91,6 +92,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
 
+  private final CountDownLatch closedLatch = new CountDownLatch(1);
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private final AsyncTaskCache.NoResult<Digest> uploadCache = AsyncTaskCache.NoResult.create();
 
@@ -504,6 +506,8 @@ public class RemoteCache extends AbstractReferenceCounted {
     uploadCache.shutdown();
 
     cacheProtocol.close();
+
+    closedLatch.countDown();
   }
 
   public boolean isClosed() {
@@ -513,6 +517,11 @@ public class RemoteCache extends AbstractReferenceCounted {
   /** Cancels all active network I/Os and rejects new requests. */
   public void shutdownNow() {
     uploadCache.shutdownNow();
+    try {
+      closedLatch.await();
+    } catch (InterruptedException e) {
+      throw new RuntimeException("Failed to close remote cache", e);
+    }
   }
 
   /**

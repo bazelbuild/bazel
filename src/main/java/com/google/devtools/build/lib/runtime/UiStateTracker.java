@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Comparators;
@@ -30,7 +31,7 @@ import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachingActionEvent;
-import com.google.devtools.build.lib.actions.FileUploadEvent;
+import com.google.devtools.build.lib.actions.RemoteUploadEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -69,6 +70,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -394,9 +396,72 @@ final class UiStateTracker {
   private final Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
   // The point in time when closing of BEP transports was started.
   private long bepTransportClosingStartTimeMillis;
-  private long remoteCacheWaitStartTimeMillis;
-  private final AtomicInteger remoteCacheUploads = new AtomicInteger(0);
-  private final AtomicInteger remoteCacheDownloads = new AtomicInteger(0);
+  private final ActiveRemoteCacheIO activeRemoteCacheIO = new ActiveRemoteCacheIO();
+
+  static class ActiveRemoteCacheIO {
+    @GuardedBy("this")
+    private final LinkedHashMap<String, RemoteCacheIOState> states = new LinkedHashMap<>();
+    private long nanoWaitStartTime = 0;
+    private int uploads;
+    private int downloads;
+
+    void onBuildComplete(long nanoChangeTime) {
+      nanoWaitStartTime = nanoChangeTime;
+    }
+
+    synchronized void onRemoteUpload(RemoteUploadEvent event, long nanoChangeTime) {
+      String id = event.resourceId();
+
+      RemoteCacheIOState state = states.get(id);
+
+      if (event.finished()) {
+        if (state != null) {
+          states.remove(id);
+          uploads -= 1;
+        }
+      } else {
+        if (state == null) {
+          state = new RemoteCacheIOState(id, nanoChangeTime);
+          states.put(id, state);
+          uploads += 1;
+        }
+
+        state.latestUploadEvent = event;
+      }
+    }
+
+    synchronized List<RemoteCacheIOState> firstNStates(int limit) {
+      return states.values().stream().limit(limit).collect(Collectors.toList());
+    }
+
+    long waitSeconds(long nanoTime) {
+      return NANOSECONDS.toSeconds(nanoTime - nanoWaitStartTime);
+    }
+
+    int numDownloads() {
+      return downloads;
+    }
+
+    int numUploads() {
+      return uploads;
+    }
+
+    synchronized int activeIOCount() {
+      return states.size();
+    }
+  }
+
+  static class RemoteCacheIOState {
+    final String id;
+    final long nanoStartTime;
+    RemoteUploadEvent latestUploadEvent;
+
+    RemoteCacheIOState(String id, long nanoStartTime) {
+      this.id = id;
+      this.nanoStartTime = nanoStartTime;
+    }
+  }
+
 
   UiStateTracker(Clock clock, int targetWidth) {
     this.activeActions = new ConcurrentHashMap<>();
@@ -478,7 +543,7 @@ final class UiStateTracker {
     buildComplete = true;
     // Build event protocol transports are closed right after the build complete event.
     bepTransportClosingStartTimeMillis = clock.currentTimeMillis();
-    remoteCacheWaitStartTimeMillis = clock.currentTimeMillis();
+    activeRemoteCacheIO.onBuildComplete(clock.nanoTime());
 
     if (event.getResult().getSuccess()) {
       status = "INFO";
@@ -978,12 +1043,9 @@ final class UiStateTracker {
     }
   }
 
-  void fileUpload(FileUploadEvent event) {
-    if (event.finished()) {
-      remoteCacheUploads.decrementAndGet();
-    } else {
-      remoteCacheUploads.incrementAndGet();
-    }
+  void remoteUpload(RemoteUploadEvent event) {
+    long now = clock.nanoTime();
+    activeRemoteCacheIO.onRemoteUpload(event, now);
   }
 
   public synchronized void testSummary(TestSummary summary) {
@@ -1006,8 +1068,7 @@ final class UiStateTracker {
   synchronized boolean shouldStopUpdateProgressBar() {
     return buildComplete
         && bepOpenTransports.size() == 0
-        && remoteCacheUploads.get() == 0
-        && remoteCacheDownloads.get() == 0;
+        && activeRemoteCacheIO.activeIOCount() == 0;
   }
 
   /**
@@ -1022,7 +1083,7 @@ final class UiStateTracker {
     if (runningDownloads.size() >= 1) {
       return true;
     }
-    if (buildComplete && (remoteCacheUploads.get() != 0 || remoteCacheDownloads.get() != 0)) {
+    if (buildComplete && activeRemoteCacheIO.activeIOCount() > 0) {
       return true;
     }
     if (buildComplete && !bepOpenTransports.isEmpty()) {
@@ -1193,24 +1254,24 @@ final class UiStateTracker {
    */
   private void maybeReportActiveRemoteCacheIOs(PositionAwareAnsiTerminalWriter terminalWriter)
       throws IOException {
-    if (!buildComplete) {
+    if (!buildComplete || activeRemoteCacheIO.activeIOCount() == 0) {
       return;
     }
 
-    int uploads = remoteCacheUploads.get();
-    int downloads = remoteCacheDownloads.get();
+    int uploads = activeRemoteCacheIO.numUploads();
+    int downloads = activeRemoteCacheIO.numDownloads();
 
-    if (uploads == 0 && downloads == 0) {
-      return;
-    }
-
-    long sinceSeconds =
-        MILLISECONDS.toSeconds(clock.currentTimeMillis() - remoteCacheWaitStartTimeMillis);
-    if (sinceSeconds == 0) {
+    long now = clock.nanoTime();
+    long waitSeconds = activeRemoteCacheIO.waitSeconds(now);
+    if (waitSeconds == 0) {
       // Special case for when bazel was interrupted, in which case we don't want to have a message.
       return;
     }
-    String waitSecs = "; " + sinceSeconds + "s";
+
+    String suffix = "";
+    if (waitSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
+      suffix = "; " + waitSeconds + "s";
+    }
 
     String message = "Waiting for remote cache: ";
     if (uploads != 0) {
@@ -1233,7 +1294,7 @@ final class UiStateTracker {
       }
     }
 
-    terminalWriter.newline().append(message + waitSecs);
+    terminalWriter.newline().append(message).append(suffix);
   }
 
   synchronized void writeProgressBar(

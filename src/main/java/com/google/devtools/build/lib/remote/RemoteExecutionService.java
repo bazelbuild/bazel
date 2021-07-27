@@ -70,8 +70,8 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.FileUploadEvent;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.RemoteUploadEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -135,6 +135,7 @@ import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -1262,9 +1263,9 @@ public class RemoteExecutionService {
     }
   }
 
-  private Completable uploadOutputs(RemoteActionExecutionContext context, UploadManifest manifest) {
-    checkNotNull(remoteCache, "remoteCache can't be null");
-
+  private Completable uploadOutputs(
+      RemoteCache remoteCache, RemoteAction action, UploadManifest manifest) {
+    RemoteActionExecutionContext context = action.remoteActionExecutionContext;
     Map<Digest, Path> digestToFile = manifest.getDigestToFile();
     Map<Digest, ByteString> digestToBlobs = manifest.getDigestToBlobs();
     Collection<Digest> digests = new ArrayList<>();
@@ -1276,81 +1277,105 @@ public class RemoteExecutionService {
         .flatMapCompletable(
             digest -> {
               Path file = digestToFile.get(digest);
+              Completable completable;
+
+              String resourceId = "cas/" + digest.getHash();
+              StringBuilder progressBuilder = new StringBuilder("Uploading ");
+
               if (file != null) {
-                return RxFutures.toCompletable(
+                completable = RxFutures.toCompletable(
                     () -> remoteCache.uploadFile(context, digest, file), directExecutor());
+                progressBuilder.append("file ").append(file.relativeTo(execRoot).getPathString());
               } else {
                 ByteString blob = digestToBlobs.get(digest);
                 if (blob == null) {
                   String message = "FindMissingBlobs call returned an unknown digest: " + digest;
                   return Completable.error(new IOException(message));
                 }
-                return RxFutures.toCompletable(
+                completable = RxFutures.toCompletable(
                     () -> remoteCache.uploadBlob(context, digest, blob), directExecutor());
+                progressBuilder.append("blob ").append(digest.getHash());
               }
+
+              String progress = progressBuilder.toString();
+
+              return completable
+                  .doOnSubscribe(ignored -> reporter.post(RemoteUploadEvent.create(resourceId, progress, false)))
+                  .doFinally(() -> reporter.post(RemoteUploadEvent.create(resourceId, progress, true)));
             });
+  }
+
+  private Completable uploadActionResult(RemoteCache remoteCache, RemoteAction action, ActionResult result) {
+    if (action.action.getDoNotCache()) {
+      return Completable.complete();
+    }
+
+    String resourceId = "ac/" + action.actionKey.getDigest().getHash();
+    StringBuilder progressBuilder = new StringBuilder("Uploading action result for action ");
+    if (action.spawn.getResourceOwner() != null) {
+      progressBuilder.append(action.spawn.getResourceOwner().describe());
+    } else {
+      progressBuilder.append(action.actionKey.getDigest());
+    }
+    String progress = progressBuilder.toString();
+
+    return RxFutures.toCompletable(
+            () ->
+                remoteCache.uploadActionResult(
+                    action.remoteActionExecutionContext, action.actionKey, result),
+            directExecutor())
+            .doOnSubscribe(
+                ignored -> reporter.post(RemoteUploadEvent.create(resourceId, progress, false)))
+            .doFinally(() -> reporter.post(RemoteUploadEvent.create(resourceId, progress, true)));
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
   public void uploadOutputs(RemoteAction action)
-      throws InterruptedException, IOException, ExecException {
+      throws IOException, ExecException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
 
-    Collection<Path> outputFiles =
-        action.spawn.getOutputFiles().stream()
-            .map((inp) -> execRoot.getRelative(inp.getExecPath()))
-            .collect(ImmutableList.toImmutableList());
-
-    ActionResult.Builder resultBuilder = ActionResult.newBuilder();
-    resultBuilder.setExitCode(0);
-
-    UploadManifest manifest =
-        new UploadManifest(
-            digestUtil,
-            remotePathResolver,
-            resultBuilder,
-            remoteOptions.incompatibleRemoteSymlinks,
-            remoteOptions.allowSymlinkUpload);
-    manifest.addFiles(outputFiles);
-    manifest.setStdoutStderr(action.spawnExecutionContext.getFileOutErr());
-    manifest.addAction(action.actionKey, action.action, action.command);
-    if (manifest.getStderrDigest() != null) {
-      resultBuilder.setStderrDigest(manifest.getStderrDigest());
-    }
-    if (manifest.getStdoutDigest() != null) {
-      resultBuilder.setStdoutDigest(manifest.getStdoutDigest());
-    }
-    ActionResult result = resultBuilder.build();
-
-    Completable uploadOutputsCompletable =
-        uploadOutputs(action.remoteActionExecutionContext, manifest);
-
-    Completable uploadActionResultCompletable = Completable.complete();
-    if (!action.action.getDoNotCache()) {
-      uploadActionResultCompletable =
-          RxFutures.toCompletable(
-              () ->
-                  remoteCache.uploadActionResult(
-                      action.remoteActionExecutionContext, action.actionKey, result),
-              directExecutor());
-    }
-
-    Completable completable =
-        Completable.concatArray(uploadOutputsCompletable, uploadActionResultCompletable);
+    CountDownLatch uploadStartedLatch = new CountDownLatch(1);
 
     Completable.using(
-            () -> {
-              reporter.post(FileUploadEvent.create(false));
-              return remoteCache.retain();
-            },
-            r -> completable,
+            remoteCache::retain,
             remoteCache -> {
-              reporter.post(FileUploadEvent.create(true));
-              remoteCache.release();
-            })
+              uploadStartedLatch.countDown();
+
+              Collection<Path> outputFiles =
+                  action.spawn.getOutputFiles().stream()
+                      .map((inp) -> execRoot.getRelative(inp.getExecPath()))
+                      .collect(ImmutableList.toImmutableList());
+
+              ActionResult.Builder result = ActionResult.newBuilder();
+              result.setExitCode(0);
+
+              UploadManifest manifest =
+                  new UploadManifest(
+                      digestUtil,
+                      remotePathResolver,
+                      result,
+                      remoteOptions.incompatibleRemoteSymlinks,
+                      remoteOptions.allowSymlinkUpload);
+              manifest.addFiles(outputFiles);
+              manifest.setStdoutStderr(action.spawnExecutionContext.getFileOutErr());
+              manifest.addAction(action.actionKey, action.action, action.command);
+              if (manifest.getStderrDigest() != null) {
+                result.setStderrDigest(manifest.getStderrDigest());
+              }
+              if (manifest.getStdoutDigest() != null) {
+                result.setStdoutDigest(manifest.getStdoutDigest());
+              }
+
+              return Completable.concatArray(
+                  uploadOutputs(remoteCache, action, manifest),
+                  uploadActionResult(remoteCache, action, result.build()));
+            },
+            RemoteCache::release)
         .subscribeOn(Schedulers.io())
         .subscribe(reportUploadErrorObserver);
+
+    uploadStartedLatch.await();
   }
 
   private final CompletableObserver reportUploadErrorObserver = new CompletableObserver() {
