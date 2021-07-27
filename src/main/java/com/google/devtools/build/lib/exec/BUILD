@@ -265,21 +265,16 @@ java_library(
 java_library(
     name = "spawn_runner",
     srcs = [
-        "SpawnCheckingCacheEvent.java",
-        "SpawnExecutingEvent.java",
         "SpawnProgressEvent.java",
         "SpawnRunner.java",
-        "SpawnSchedulingEvent.java",
     ],
     deps = [
         ":tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:auto_value",
         "//third_party:jsr305",
     ],
 )

@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
+import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -306,7 +308,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public void report(ProgressStatus progress) {
+    public void report(ProgressStatus state, String name) {
       ActionExecutionMetadata action = spawn.getResourceOwner();
       if (action.getOwner() == null) {
         return;
@@ -319,7 +321,17 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       }
 
       ExtendedEventHandler eventHandler = actionExecutionContext.getEventHandler();
-      progress.postTo(eventHandler, action);
+      switch (state) {
+        case EXECUTING:
+        case CHECKING_CACHE:
+          eventHandler.post(new RunningActionEvent(action, name));
+          break;
+        case SCHEDULING:
+          eventHandler.post(new SchedulingActionEvent(action, name));
+          break;
+        default:
+          break;
+      }
     }
 
     @Override
