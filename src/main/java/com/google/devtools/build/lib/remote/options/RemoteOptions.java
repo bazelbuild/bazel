@@ -98,6 +98,15 @@ public final class RemoteOptions extends OptionsBase {
   public PathFragment remoteCaptureCorruptedOutputs;
 
   @Option(
+      name = "experimental_remote_cache_async",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If true, remote cache I/O will happen in the background instead of taking place as the part of a spawn."
+  )
+  public boolean remoteCacheAsync;
+
+  @Option(
       name = "remote_cache",
       oldName = "remote_http_cache",
       defaultValue = "null",

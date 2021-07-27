@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.RemoteUploadEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -1279,54 +1278,32 @@ public class RemoteExecutionService {
               Path file = digestToFile.get(digest);
               Completable completable;
 
-              String resourceId = "cas/" + digest.getHash();
-              StringBuilder progressBuilder = new StringBuilder("Uploading ");
-
               if (file != null) {
-                completable = RxFutures.toCompletable(
+                return RxFutures.toCompletable(
                     () -> remoteCache.uploadFile(context, digest, file), directExecutor());
-                progressBuilder.append("file ").append(file.relativeTo(execRoot).getPathString());
               } else {
                 ByteString blob = digestToBlobs.get(digest);
                 if (blob == null) {
                   String message = "FindMissingBlobs call returned an unknown digest: " + digest;
                   return Completable.error(new IOException(message));
                 }
-                completable = RxFutures.toCompletable(
+                return RxFutures.toCompletable(
                     () -> remoteCache.uploadBlob(context, digest, blob), directExecutor());
-                progressBuilder.append("blob ").append(digest.getHash());
               }
-
-              String progress = progressBuilder.toString();
-
-              return completable
-                  .doOnSubscribe(ignored -> reporter.post(RemoteUploadEvent.create(resourceId, progress, false)))
-                  .doFinally(() -> reporter.post(RemoteUploadEvent.create(resourceId, progress, true)));
             });
   }
 
-  private Completable uploadActionResult(RemoteCache remoteCache, RemoteAction action, ActionResult result) {
+  private Completable uploadActionResult(
+      RemoteCache remoteCache, RemoteAction action, ActionResult result) {
     if (action.action.getDoNotCache()) {
       return Completable.complete();
     }
 
-    String resourceId = "ac/" + action.actionKey.getDigest().getHash();
-    StringBuilder progressBuilder = new StringBuilder("Uploading action result for action ");
-    if (action.spawn.getResourceOwner() != null) {
-      progressBuilder.append(action.spawn.getResourceOwner().describe());
-    } else {
-      progressBuilder.append(action.actionKey.getDigest());
-    }
-    String progress = progressBuilder.toString();
-
     return RxFutures.toCompletable(
-            () ->
-                remoteCache.uploadActionResult(
-                    action.remoteActionExecutionContext, action.actionKey, result),
-            directExecutor())
-            .doOnSubscribe(
-                ignored -> reporter.post(RemoteUploadEvent.create(resourceId, progress, false)))
-            .doFinally(() -> reporter.post(RemoteUploadEvent.create(resourceId, progress, true)));
+        () ->
+            remoteCache.uploadActionResult(
+                action.remoteActionExecutionContext, action.actionKey, result),
+        directExecutor());
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
@@ -1337,7 +1314,7 @@ public class RemoteExecutionService {
 
     CountDownLatch uploadStartedLatch = new CountDownLatch(1);
 
-    Completable.using(
+    Completable uploads = Completable.using(
             remoteCache::retain,
             remoteCache -> {
               uploadStartedLatch.countDown();
@@ -1371,9 +1348,20 @@ public class RemoteExecutionService {
                   uploadOutputs(remoteCache, action, manifest),
                   uploadActionResult(remoteCache, action, result.build()));
             },
-            RemoteCache::release)
-        .subscribeOn(Schedulers.io())
-        .subscribe(reportUploadErrorObserver);
+            RemoteCache::release);
+
+    if (remoteOptions.remoteCacheAsync) {
+      uploads.subscribeOn(Schedulers.io()).subscribe(reportUploadErrorObserver);
+    } else {
+      try {
+        uploads.blockingAwait();
+      } catch (RuntimeException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+        Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
+        throw e;
+      }
+    }
 
     uploadStartedLatch.await();
   }

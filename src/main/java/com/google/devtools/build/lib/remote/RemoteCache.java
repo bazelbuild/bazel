@@ -32,7 +32,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.RemoteUploadEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
@@ -92,16 +94,21 @@ public class RemoteCache extends AbstractReferenceCounted {
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
 
+  private final Reporter reporter;
   private final CountDownLatch closedLatch = new CountDownLatch(1);
   private final AtomicBoolean closed = new AtomicBoolean(false);
-  private final AsyncTaskCache.NoResult<Digest> uploadCache = AsyncTaskCache.NoResult.create();
+  private final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
+      Reporter reporter,
+      RemoteCacheClient cacheProtocol,
+      RemoteOptions options,
+      DigestUtil digestUtil) {
+    this.reporter = reporter;
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
@@ -117,11 +124,11 @@ public class RemoteCache extends AbstractReferenceCounted {
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
     checkState(!closed.get(), "closed");
 
-    Set<Digest> digestsInProgress = uploadCache.getInProgressTasks();
-    // Since this is a separate call, we may have digest that is in the digestsInProgress above and then finishes
-    // resulting a duplicate digest in digestsUploaded. However, this race is fine for our purpose as long as we check
-    // "in progress" before "uploaded".
-    Set<Digest> digestsUploaded = uploadCache.getFinishedTasks();
+    Set<Digest> digestsInProgress = casUploadCache.getInProgressTasks();
+    // Since this is a separate call, we may have digest that is in the digestsInProgress above and
+    // then finishes resulting a duplicate digest in digestsUploaded. However, this race is fine for
+    // our purpose as long as we check "in progress" before "uploaded".
+    Set<Digest> digestsUploaded = casUploadCache.getFinishedTasks();
 
     Set<Digest> digestsRequested =
         StreamSupport.stream(digests.spliterator(), false).collect(Collectors.toSet());
@@ -160,13 +167,23 @@ public class RemoteCache extends AbstractReferenceCounted {
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     checkState(!closed.get(), "closed");
 
-    Completable upload = uploadCache.executeIfNot(
-        actionKey.getDigest(),
-        RxFutures.toCompletable(
-            () -> cacheProtocol.uploadActionResult(context, actionKey, actionResult),
-            directExecutor()));
+    String resourceId = "ac/" + actionKey.getDigest().getHash();
+    String progress = "Uploading action result " + actionKey.getDigest().getHash();
 
-    return RxFutures.toListenableFuture(upload);
+    Completable completable =
+        RxFutures.toCompletable(
+                () -> cacheProtocol.uploadActionResult(context, actionKey, actionResult),
+                directExecutor())
+            .doOnSubscribe(
+                disposable ->
+                    reporter.post(
+                        RemoteUploadEvent.create(resourceId, progress, /* finished= */ false)))
+            .doFinally(
+                () ->
+                    reporter.post(
+                        RemoteUploadEvent.create(resourceId, progress, /* finished= */ true)));
+
+    return RxFutures.toListenableFuture(completable);
   }
 
   /**
@@ -182,11 +199,22 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
+    String resourceId = "cas/" + digest.getHash();
+    String progress = "Uploading file " + file.getPathString();
+
     Completable upload =
-        uploadCache.executeIfNot(
+        casUploadCache.executeIfNot(
             digest,
             RxFutures.toCompletable(
-                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()));
+                    () -> cacheProtocol.uploadFile(context, digest, file), directExecutor())
+                .doOnSubscribe(
+                    disposable ->
+                        reporter.post(
+                            RemoteUploadEvent.create(resourceId, progress, /* finished= */ false)))
+                .doFinally(
+                    () ->
+                        reporter.post(
+                            RemoteUploadEvent.create(resourceId, progress, /* finished= */ true))));
     return RxFutures.toListenableFuture(upload);
   }
 
@@ -203,11 +231,22 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
+    String resourceId = "cas/" + digest.getHash();
+    String progress = "Uploading blob " + digest.getHash();
+
     Completable upload =
-        uploadCache.executeIfNot(
+        casUploadCache.executeIfNot(
             digest,
             RxFutures.toCompletable(
-                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()));
+                    () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor())
+                .doOnSubscribe(
+                    disposable ->
+                        reporter.post(
+                            RemoteUploadEvent.create(resourceId, progress, /* finished= */ false)))
+                .doFinally(
+                    () ->
+                        reporter.post(
+                            RemoteUploadEvent.create(resourceId, progress, /* finished= */ true))));
     return RxFutures.toListenableFuture(upload);
   }
 
@@ -499,11 +538,11 @@ public class RemoteCache extends AbstractReferenceCounted {
   protected void deallocate() {
     checkState(!closed.get(), "closed");
     checkState(
-        uploadCache.getInProgressTasks().isEmpty(), "There are still in progress uploads.");
+        casUploadCache.getInProgressTasks().isEmpty(), "There are still in progress uploads.");
 
     closed.set(true);
 
-    uploadCache.shutdown();
+    casUploadCache.shutdown();
 
     cacheProtocol.close();
 
@@ -516,7 +555,7 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /** Cancels all active network I/Os and rejects new requests. */
   public void shutdownNow() {
-    uploadCache.shutdownNow();
+    casUploadCache.shutdownNow();
     try {
       closedLatch.await();
     } catch (InterruptedException e) {
@@ -530,7 +569,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    */
   public void awaitTermination() throws InterruptedException {
     try {
-      uploadCache.awaitTermination().blockingAwait();
+      casUploadCache.awaitTermination().blockingAwait();
     } catch (RuntimeException e) {
       Throwable cause = e.getCause();
       throwIfInstanceOf(cause, InterruptedException.class);
