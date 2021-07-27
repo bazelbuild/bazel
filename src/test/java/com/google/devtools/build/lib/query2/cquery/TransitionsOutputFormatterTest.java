@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -50,7 +50,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   private CqueryOptions options;
   private Reporter reporter;
   private final List<Event> events = new ArrayList<>();
-  @Nullable private TransitionFactory<Rule> trimmingTransitionFactory;
+  @Nullable private TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
 
   @Before
   public final void setUpCqueryOptions() {
@@ -156,9 +156,9 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   }
 
   private void setUpRules() throws Exception {
-    TransitionFactory<Rule> infixTrimmingTransitionFactory =
-        (rule) -> {
-          if (!rule.getName().contains("trimmed")) {
+    TransitionFactory<RuleTransitionData> infixTrimmingTransitionFactory =
+        (ruleData) -> {
+          if (!ruleData.rule().getName().contains("trimmed")) {
             return NoTransition.INSTANCE;
           }
           // rename the transition so it's distinguishable from the others in tests

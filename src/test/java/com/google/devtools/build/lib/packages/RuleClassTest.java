@@ -818,7 +818,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
       boolean outputsDefaultExecutable,
       boolean isAnalysisTest,
       ImplicitOutputsFunction implicitOutputsFunction,
-      TransitionFactory<Rule> transitionFactory,
+      TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,

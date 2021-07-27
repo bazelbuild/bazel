@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import java.util.LinkedHashMap;
@@ -50,7 +51,7 @@ import java.util.Objects;
  *
  * <p>For starlark-defined attribute transitions, see {@link StarlarkAttributeTransitionProvider}.
  */
-public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
+public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTransitionData> {
 
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
@@ -115,7 +116,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
       Caffeine.newBuilder().softValues().build();
 
   @Override
-  public PatchTransition create(Rule rule) {
+  public PatchTransition create(RuleTransitionData ruleData) {
     // This wouldn't be safe if rule transitions could read attributes with select(), in which case
     // the rule alone isn't sufficient to define the transition's semantics (both the rule and its
     // configuration are needed). Rule transitions can't read select()s, so this is a non-issue.
@@ -125,8 +126,8 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
     // transition never reads {@code attr}. If we had a way to formally identify such transitions,
     // we wouldn't need {@code rule} in the cache key.
     return cache.get(
-        new CacheKey(starlarkDefinedConfigTransition, rule),
-        unused -> new FunctionPatchTransition(starlarkDefinedConfigTransition, rule));
+        new CacheKey(starlarkDefinedConfigTransition, ruleData.rule()),
+        unused -> new FunctionPatchTransition(starlarkDefinedConfigTransition, ruleData.rule()));
   }
 
   @Override
