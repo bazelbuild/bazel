@@ -177,7 +177,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
         "bazel_dep(name='C',version='2.0')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='D',version='3.0')")
@@ -233,7 +233,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
         "bazel_dep(name='B',version='1.0')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
@@ -281,7 +281,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
         "bazel_dep(name='B',version='1.0')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='A',version='2.0')")
@@ -321,7 +321,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
         "single_version_override(module_name='C',version='2.0')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "0.1"),
                 "module(name='B', version='0.1');bazel_dep(name='C',version='1.0')")
@@ -363,14 +363,14 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
   public void testRegistryOverride() throws Exception {
     FakeRegistry registry1 =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "0.1"),
                 "module(name='B', version='0.1');bazel_dep(name='C',version='1.0')")
             .addModule(createModuleKey("C", "1.0"), "module(name='C', version='1.0');");
     FakeRegistry registry2 =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/bar")
             .addModule(
                 createModuleKey("C", "1.0"),
                 "module(name='C', version='1.0');bazel_dep(name='B',version='0.1')");
@@ -425,7 +425,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
         "local_path_override(module_name='C',path='" + pathToC.getPathString() + "')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "0.1"),
                 "module(name='B', version='0.1');bazel_dep(name='C',version='1.0')")

@@ -177,7 +177,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "local_path_override(module_name='E',path='somewhere/else')",
         "multiple_version_override(module_name='F',versions=['1.0','2.0'])",
         "archive_override(module_name='G',urls=['https://hello.com/world.zip'])");
-    FakeRegistry registry = registryFactory.newFakeRegistry();
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
@@ -218,7 +218,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='B',version='1.0')");
-    FakeRegistry registry = registryFactory.newFakeRegistry();
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
@@ -239,7 +239,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='A')",
         "single_version_override(module_name='A',version='7')");
-    FakeRegistry registry = registryFactory.newFakeRegistry();
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
@@ -252,16 +252,16 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testRegistriesCascade() throws Exception {
     // Registry1 has no module B@1.0; registry2 and registry3 both have it. We should be using the
     // B@1.0 from registry2.
-    FakeRegistry registry1 = registryFactory.newFakeRegistry();
+    FakeRegistry registry1 = registryFactory.newFakeRegistry("/foo");
     FakeRegistry registry2 =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/bar")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B',version='1.0');bazel_dep(name='C',version='2.0')");
     FakeRegistry registry3 =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/baz")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B',version='1.0');bazel_dep(name='D',version='3.0')");
@@ -300,7 +300,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.file(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B',version='1.0');bazel_dep(name='C',version='3.0')");
@@ -328,14 +328,14 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testRegistryOverride() throws Exception {
     FakeRegistry registry1 =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B',version='1.0',compatibility_level=4)\n"
                     + "bazel_dep(name='C',version='2.0')");
     FakeRegistry registry2 =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/foo")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B',version='1.0',compatibility_level=6)\n"

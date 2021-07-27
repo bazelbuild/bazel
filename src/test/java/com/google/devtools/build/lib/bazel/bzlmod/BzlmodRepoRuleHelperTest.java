@@ -134,7 +134,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         "bazel_dep(name='B',version='1.0')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/usr/local/modules")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
@@ -151,8 +151,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
-                .setRuleClassName("fake_http_archive_rule")
-                .setAttributes(ImmutableMap.of("repo_name", "C.2.0"))
+                .setRuleClassName("local_repository")
+                .setAttributes(ImmutableMap.of("name", "C.2.0", "path", "/usr/local/modules/C.2.0"))
                 .build());
   }
 
@@ -165,7 +165,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         "local_path_override(module_name='C',path='/foo/bar/C')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/usr/local/modules")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
@@ -200,7 +200,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         "  module_name='C',version='3.0',patches=['//:foo.patch'],patch_strip=1)");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/usr/local/modules")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='C',version='2.0')")
@@ -218,11 +218,16 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
-                .setRuleClassName("fake_http_archive_rule")
+                // This obviously wouldn't work in the real world since local_repository doesn't
+                // support patches -- but in the real world, registries also don't use
+                // local_repository.
+                .setRuleClassName("local_repository")
                 .setAttributes(
                     ImmutableMap.of(
-                        "repo_name",
+                        "name",
                         "C.3.0",
+                        "path",
+                        "/usr/local/modules/C.3.0",
                         "patches",
                         ImmutableList.of("//:foo.patch"),
                         "patch_args",
@@ -240,7 +245,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         "multiple_version_override(module_name='D',versions=['1.0','2.0'])");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/usr/local/modules")
             .addModule(
                 createModuleKey("B", "1.0"),
                 "module(name='B', version='1.0');bazel_dep(name='D',version='1.0')")
@@ -261,8 +266,8 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
     assertThat(repoSpec)
         .hasValue(
             RepoSpec.builder()
-                .setRuleClassName("fake_http_archive_rule")
-                .setAttributes(ImmutableMap.of("repo_name", "D.2.0"))
+                .setRuleClassName("local_repository")
+                .setAttributes(ImmutableMap.of("name", "D.2.0", "path", "/usr/local/modules/D.2.0"))
                 .build());
   }
 
@@ -274,7 +279,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
         "bazel_dep(name='B',version='1.0')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry("/usr/local/modules")
             .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
