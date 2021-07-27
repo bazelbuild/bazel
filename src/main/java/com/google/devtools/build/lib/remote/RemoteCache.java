@@ -114,12 +114,22 @@ public class RemoteCache extends AbstractReferenceCounted {
     this.digestUtil = digestUtil;
   }
 
+  /** Downloads an action result for the {@code actionKey} from remote cache. */
   public ActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
     return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));
   }
 
+  /**
+   * Returns a set of digests that the remote cache does not know about. The returned set is
+   * guaranteed to be a subset of {@code digests}.
+   *
+   * <p>Digests whose content are being uploaded via {@link #uploadBlob} or {@link #uploadFile} are
+   * considered "missing" hence will be returned by this call. Since the upload calls can
+   * deduplicate uploads, this can be combined for the case where different clients want to wait for
+   * the same blob to be uploaded.
+   */
   public final ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
     checkState(!closed.get(), "closed");
@@ -163,6 +173,7 @@ public class RemoteCache extends AbstractReferenceCounted {
         directExecutor());
   }
 
+  /** Upload the action result to the remote cache. */
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     checkState(!closed.get(), "closed");
@@ -188,6 +199,9 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /**
    * Upload a local file to the remote cache.
+   *
+   * <p>Trying to upload the same file multiple times concurrently, results in only one upload being
+   * performed.
    *
    * @param context the context for the action.
    * @param digest the digest of the file.
@@ -220,6 +234,9 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /**
    * Upload sequence of bytes to the remote cache.
+   *
+   * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
+   * performed.
    *
    * @param context the context for the action.
    * @param digest the digest of the file.

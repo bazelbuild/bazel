@@ -1276,7 +1276,6 @@ public class RemoteExecutionService {
         .flatMapCompletable(
             digest -> {
               Path file = digestToFile.get(digest);
-              Completable completable;
 
               if (file != null) {
                 return RxFutures.toCompletable(
