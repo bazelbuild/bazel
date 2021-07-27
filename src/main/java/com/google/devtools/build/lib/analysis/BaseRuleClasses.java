@@ -186,7 +186,7 @@ public class BaseRuleClasses {
   public static final class TestBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
+      builder
           .addExecGroup(TEST_RUNNER_EXEC_GROUP)
           .requiresConfigurationFragments(TestConfiguration.class)
           // TestConfiguration only needed to create TestAction and TestProvider
@@ -259,8 +259,15 @@ public class BaseRuleClasses {
                       coverageReportGeneratorAttribute(
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
           // The target itself and run_under both run on the same machine.
-          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
-          .build();
+          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck());
+
+      env.getNetworkAllowlistForTests()
+          .ifPresent(
+              label ->
+                  builder.add(
+                      Allowlist.getAttributeFromAllowlistName("$network_allowlist").value(label)));
+
+      return builder.build();
     }
 
     @Override

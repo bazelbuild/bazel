@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
@@ -172,87 +173,95 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   /** Parent rule class for test Starlark rules. */
-  public static final RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
+  public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
     String toolsRepository = env.getToolsRepository();
-    return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
-        .requiresConfigurationFragments(TestConfiguration.class)
-        // TestConfiguration only needed to create TestAction and TestProvider
-        // Only necessary at top-level and can be skipped if trimmed.
-        .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
-        .add(
-            attr("size", STRING)
-                .value("medium")
-                .taggable()
-                .nonconfigurable("used in loading phase rule validation logic"))
-        .add(
-            attr("timeout", STRING)
-                .taggable()
-                .nonconfigurable("policy decision: should be consistent across configurations")
-                .value(TIMEOUT_DEFAULT))
-        .add(
-            attr("flaky", BOOLEAN)
-                .value(false)
-                .taggable()
-                .nonconfigurable("taggable - called in Rule.getRuleTags"))
-        .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
-        .add(
-            attr("local", BOOLEAN)
-                .value(false)
-                .taggable()
-                .nonconfigurable(
-                    "policy decision: this should be consistent across configurations"))
-        .add(attr("args", STRING_LIST))
-        // Input files for every test action
-        .add(
-            attr("$test_wrapper", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
-        .add(
-            attr("$xml_writer", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
-        .add(
-            attr("$test_runtime", LABEL_LIST)
-                .cfg(HostTransition.createFactory())
-                // Getting this default value through the getTestRuntimeLabelList helper ensures we
-                // reuse the same ImmutableList<Label> instance for each $test_runtime attr.
-                .value(getTestRuntimeLabelList(env)))
-        .add(
-            attr("$test_setup_script", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
-        .add(
-            attr("$xml_generator_script", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
-        .add(
-            attr("$collect_coverage_script", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
-        // Input files for test actions collecting code coverage
-        .add(
-            attr(":coverage_support", LABEL)
-                .cfg(HostTransition.createFactory())
-                .value(
-                    BaseRuleClasses.coverageSupportAttribute(
-                        labelCache.get(
-                            toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
-        // Used in the one-per-build coverage report generation action.
-        .add(
-            attr(":coverage_report_generator", LABEL)
-                .cfg(HostTransition.createFactory())
-                .value(
-                    BaseRuleClasses.coverageReportGeneratorAttribute(
-                        labelCache.get(
-                            toolsRepository
-                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
-        .add(attr(":run_under", LABEL).value(RUN_UNDER))
-        .build();
+    RuleClass.Builder builder =
+        new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+            .requiresConfigurationFragments(TestConfiguration.class)
+            // TestConfiguration only needed to create TestAction and TestProvider
+            // Only necessary at top-level and can be skipped if trimmed.
+            .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
+            .add(
+                attr("size", STRING)
+                    .value("medium")
+                    .taggable()
+                    .nonconfigurable("used in loading phase rule validation logic"))
+            .add(
+                attr("timeout", STRING)
+                    .taggable()
+                    .nonconfigurable("policy decision: should be consistent across configurations")
+                    .value(TIMEOUT_DEFAULT))
+            .add(
+                attr("flaky", BOOLEAN)
+                    .value(false)
+                    .taggable()
+                    .nonconfigurable("taggable - called in Rule.getRuleTags"))
+            .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
+            .add(
+                attr("local", BOOLEAN)
+                    .value(false)
+                    .taggable()
+                    .nonconfigurable(
+                        "policy decision: this should be consistent across configurations"))
+            .add(attr("args", STRING_LIST))
+            // Input files for every test action
+            .add(
+                attr("$test_wrapper", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
+            .add(
+                attr("$xml_writer", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
+            .add(
+                attr("$test_runtime", LABEL_LIST)
+                    .cfg(HostTransition.createFactory())
+                    // Getting this default value through the getTestRuntimeLabelList helper ensures
+                    // we reuse the same ImmutableList<Label> instance for each $test_runtime attr.
+                    .value(getTestRuntimeLabelList(env)))
+            .add(
+                attr("$test_setup_script", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
+            .add(
+                attr("$xml_generator_script", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
+            .add(
+                attr("$collect_coverage_script", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
+            // Input files for test actions collecting code coverage
+            .add(
+                attr(":coverage_support", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .value(
+                        BaseRuleClasses.coverageSupportAttribute(
+                            labelCache.get(
+                                toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
+            // Used in the one-per-build coverage report generation action.
+            .add(
+                attr(":coverage_report_generator", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .value(
+                        BaseRuleClasses.coverageReportGeneratorAttribute(
+                            labelCache.get(
+                                toolsRepository
+                                    + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
+            .add(attr(":run_under", LABEL).value(RUN_UNDER));
+
+    env.getNetworkAllowlistForTests()
+        .ifPresent(
+            label ->
+                builder.add(
+                    Allowlist.getAttributeFromAllowlistName("$network_allowlist").value(label)));
+
+    return builder.build();
   }
 
   @Override

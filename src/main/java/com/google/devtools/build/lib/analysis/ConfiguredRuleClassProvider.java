@@ -74,6 +74,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
@@ -170,6 +171,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
+
+    // TODO(b/192694287): Remove once we migrate all tests from the allowlist
+    @Nullable private Label networkAllowlistForTests;
 
     public Builder addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -571,6 +575,16 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     @Override
     public String getToolsRepository() {
       return toolsRepository;
+    }
+
+    public Builder setNetworkAllowlistForTests(Label allowlist) {
+      networkAllowlistForTests = allowlist;
+      return this;
+    }
+
+    @Override
+    public Optional<Label> getNetworkAllowlistForTests() {
+      return Optional.ofNullable(networkAllowlistForTests);
     }
   }
 
