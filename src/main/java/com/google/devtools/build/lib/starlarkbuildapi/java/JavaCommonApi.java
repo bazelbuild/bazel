@@ -500,24 +500,6 @@ public interface JavaCommonApi<
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Sequence<String> getConstraints(JavaInfoT javaInfo);
 
-  // TODO(b/111090089): delete once java_common.compile(enable_annotation_processing) is available
-  @StarlarkMethod(
-      name = "experimental_disable_annotation_processing",
-      doc =
-          "Returns a copy of the given JavaInfo with any provided annotation processors disabled."
-              + " Annotation processor classpaths are preserved in case they contain Error Prone"
-              + " plugins, but processor names and data are excluded. For example, it can be"
-              + " used to process the inputs to java_common.compile's deps and plugins parameters.",
-      parameters = {
-        @Param(
-            name = "java_info",
-            positional = true,
-            named = false,
-            doc = "The JavaInfo to process.")
-      },
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT removeAnnotationProcessors(JavaInfoT javaInfo);
-
   @StarlarkMethod(
       name = "set_annotation_processing",
       doc = "Returns a copy of the given JavaInfo with the given annotation_processing info.",

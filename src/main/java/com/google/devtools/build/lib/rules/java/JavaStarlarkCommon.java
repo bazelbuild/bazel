@@ -261,13 +261,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo removeAnnotationProcessors(JavaInfo javaInfo) {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
-  }
-
-  @Override
   public JavaInfo setAnnotationProcessing(
       JavaInfo javaInfo,
       boolean enabled,
