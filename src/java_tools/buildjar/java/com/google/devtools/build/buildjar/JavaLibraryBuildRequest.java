@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import javax.annotation.Nullable;
 
 /** All the information needed to perform a single Java library build operation. */
@@ -94,6 +95,8 @@ public final class JavaLibraryBuildRequest {
   /** Map of inputs' path and digest */
   private final ImmutableMap<String, ByteString> inputsAndDigest;
 
+  private final OptionalInt requestId;
+
   /**
    * Constructs a build from a list of command args. Sets the same JavacRunner for both compilation
    * and annotation processing.
@@ -122,7 +125,7 @@ public final class JavaLibraryBuildRequest {
       List<BlazeJavaCompilerPlugin> extraPlugins,
       DependencyModule.Builder depsBuilder)
       throws InvalidCommandLineException, IOException {
-    this(optionsParser, extraPlugins, depsBuilder, ImmutableMap.of());
+    this(optionsParser, extraPlugins, depsBuilder, ImmutableMap.of(), OptionalInt.empty());
   }
 
   /**
@@ -139,7 +142,8 @@ public final class JavaLibraryBuildRequest {
       OptionsParser optionsParser,
       List<BlazeJavaCompilerPlugin> extraPlugins,
       DependencyModule.Builder depsBuilder,
-      ImmutableMap<String, ByteString> inputsAndDigest)
+      ImmutableMap<String, ByteString> inputsAndDigest,
+      OptionalInt requestId)
       throws InvalidCommandLineException, IOException {
     depsBuilder.setDirectJars(
         optionsParser.directJars().stream().map(Paths::get).collect(toImmutableSet()));
@@ -210,6 +214,7 @@ public final class JavaLibraryBuildRequest {
     this.targetLabel = optionsParser.getTargetLabel();
     this.injectingRuleKind = optionsParser.getInjectingRuleKind();
     this.inputsAndDigest = inputsAndDigest;
+    this.requestId = requestId;
   }
 
   /**
@@ -346,6 +351,10 @@ public final class JavaLibraryBuildRequest {
     return inputsAndDigest;
   }
 
+  public OptionalInt getRequestId() {
+    return requestId;
+  }
+
   @Nullable
   public String getTargetLabel() {
     return targetLabel;
@@ -369,7 +378,8 @@ public final class JavaLibraryBuildRequest {
             .sourceOutput(getSourceGenDir())
             .processorPath(getProcessorPath())
             .plugins(getPlugins())
-            .inputsAndDigest(getInputsAndDigest());
+            .inputsAndDigest(getInputsAndDigest())
+            .requestId(getRequestId());
     addJavacArguments(builder);
     // Performance optimization: when reduced classpaths are enabled, stop the compilation after
     // the first diagnostic that would result in fallback to the transitive classpath. The user

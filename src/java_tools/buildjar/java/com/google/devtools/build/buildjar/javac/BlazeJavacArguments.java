@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.protobuf.ByteString;
 import java.nio.file.Path;
+import java.util.OptionalInt;
 import javax.annotation.Nullable;
 
 /**
@@ -78,6 +79,8 @@ public abstract class BlazeJavacArguments {
   /** The Inputs' path and digest received from a WorkRequest */
   public abstract ImmutableMap<String, ByteString> inputsAndDigest();
 
+  public abstract OptionalInt requestId();
+
   public static Builder builder() {
     return new AutoValue_BlazeJavacArguments.Builder()
         .classPath(ImmutableList.of())
@@ -91,7 +94,8 @@ public abstract class BlazeJavacArguments {
         .processorPath(ImmutableList.of())
         .plugins(ImmutableList.of())
         .failFast(false)
-        .inputsAndDigest(ImmutableMap.of());
+        .inputsAndDigest(ImmutableMap.of())
+        .requestId(OptionalInt.empty());
   }
 
   /** {@link BlazeJavacArguments}Builder. */
@@ -126,6 +130,8 @@ public abstract class BlazeJavacArguments {
     Builder failFast(boolean failFast);
 
     Builder inputsAndDigest(ImmutableMap<String, ByteString> inputsAndDigest);
+
+    Builder requestId(OptionalInt requestId);
 
     BlazeJavacArguments build();
   }
