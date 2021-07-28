@@ -267,7 +267,6 @@ java_library(
     srcs = [
         "SpawnCheckingCacheEvent.java",
         "SpawnExecutingEvent.java",
-        "SpawnProgressEvent.java",
         "SpawnRunner.java",
         "SpawnSchedulingEvent.java",
     ],
