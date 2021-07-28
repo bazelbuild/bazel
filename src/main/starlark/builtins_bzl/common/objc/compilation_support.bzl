@@ -30,8 +30,6 @@ def _build_variable_extensions(
     if hasattr(ctx.attr, "pch") and ctx.attr.pch != None:
         extensions["pch_file"] = ctx.file.pch.path
 
-    extensions["module_maps_dir"] = intermediate_artifacts.swift_module_map.file().path
-
     extensions["modules_cache_path"] = ctx.genfiles_dir.path + "/" + "_objc_module_cache"
 
     if "ARCHIVE_VARIABLE" in variable_categories:

@@ -1048,7 +1048,8 @@ public class CompilationSupport implements StarlarkValue {
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setConfiguration(buildConfiguration);
+            .setConfiguration(buildConfiguration)
+            .addVariableCategory(VariableCategory.MODULE_MAP_VARIABLES);
 
     CompilationResult compilationResult;
 

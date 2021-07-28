@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -124,25 +125,21 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--ios_multi_cpus=i386,x86_64");
 
     CommandAction action = (CommandAction) lipoLibAction("//x:x");
-    String i386Lib =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-fl.a";
-    String x8664Lib =
-        configurationBin("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS) + "x/x-fl.a";
+    String i386Lib = "x/x-ios_i386-fl.a";
+    String x8664Lib = "x/x-ios_x86_64-fl.a";
 
-    assertThat(Artifact.asExecPaths(action.getInputs()))
-        .containsExactly(
-            i386Lib, x8664Lib, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+    assertThat(Artifact.toRootRelativePaths(action.getInputs())).containsAtLeast(i386Lib, x8664Lib);
 
-    assertThat(action.getArguments())
-        .containsExactly(
-            MOCK_XCRUNWRAPPER_EXECUTABLE_PATH,
-            LIPO,
-            "-create",
-            i386Lib,
-            x8664Lib,
-            "-o",
-            execPathEndingWith(action.getOutputs(), "x_lipo.a"))
-        .inOrder();
+    assertContainsSublist(
+        action.getArguments(),
+        ImmutableList.of(MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
+    String binFragment =
+        removeConfigFragment(targetConfig.getBinFragment(RepositoryName.MAIN) + "/");
+    assertThat(removeConfigFragment(action.getArguments()))
+        .containsAtLeast(binFragment + i386Lib, binFragment + x8664Lib);
+    assertContainsSublist(
+        action.getArguments(),
+        ImmutableList.of("-o", execPathEndingWith(action.getOutputs(), "x_lipo.a")));
 
     assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
         .containsExactly("x/x_lipo.a");
@@ -162,8 +159,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//package:test");
 
-    String i386Bin =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "package/test-fl.a";
+    String i386Bin = "i386-fl.a";
     Artifact libArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(libArtifact);
     CommandAction objcLibCompileAction =
@@ -193,13 +189,11 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     CommandAction i386BinAction =
         (CommandAction)
-            getGeneratingAction(
-                getFirstArtifactEndingWith(action.getInputs(), i386Prefix + "package/test-fl.a"));
+            getGeneratingAction(getFirstArtifactEndingWith(action.getInputs(), "i386-fl.a"));
 
     CommandAction x8664BinAction =
         (CommandAction)
-            getGeneratingAction(
-                getFirstArtifactEndingWith(action.getInputs(), x8664Prefix + "package/test-fl.a"));
+            getGeneratingAction(getFirstArtifactEndingWith(action.getInputs(), "x86_64-fl.a"));
 
     assertThat(Artifact.asExecPaths(i386BinAction.getInputs()))
         .contains(i386Prefix + "package/libcclib.a");
@@ -215,18 +209,18 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--ios_multi_cpus=x86_64", "--ios_cpu=x86_64", "--watchos_cpus=i386,armv7k");
 
     CommandAction action = (CommandAction) lipoLibAction("//x:x");
-    String i386Bin = configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x-fl.a";
-    String armv7kBin = configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-        + "x/x-fl.a";
+    String i386Bin = "x/x-watchos_i386-fl.a";
+    String armv7kBin = "x/x-watchos_armv7k-fl.a";
 
-    assertThat(Artifact.asExecPaths(action.getInputs()))
-        .containsExactly(
-            i386Bin, armv7kBin, MOCK_XCRUNWRAPPER_PATH, MOCK_XCRUNWRAPPER_EXECUTABLE_PATH);
+    assertThat(Artifact.toRootRelativePaths(action.getInputs()))
+        .containsAtLeast(i386Bin, armv7kBin);
 
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         MOCK_XCRUNWRAPPER_EXECUTABLE_PATH, LIPO, "-create"));
-    assertThat(action.getArguments()).containsAtLeast(armv7kBin, i386Bin);
+    String binFragment =
+        removeConfigFragment(targetConfig.getBinFragment(RepositoryName.MAIN) + "/");
+    assertThat(removeConfigFragment(action.getArguments()))
+        .containsAtLeast(binFragment + armv7kBin, binFragment + i386Bin);
     assertContainsSublist(action.getArguments(), ImmutableList.of(
         "-o", execPathEndingWith(action.getOutputs(), "x_lipo.a")));
 
@@ -334,8 +328,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//x:x");
 
-    String i386Lib =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "x/x-fl.a";
+    String i386Lib = "i386-fl.a";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Lib);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 
@@ -349,9 +342,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//x:x");
 
-    String armv7kLib =
-        configurationBin("armv7k", ConfigurationDistinguisher.APPLEBIN_WATCHOS)
-            + "x/x-fl.a";
+    String armv7kLib = "armv7k-fl.a";
     Artifact libArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), armv7kLib);
     CommandAction linkAction = (CommandAction) getGeneratingAction(libArtifact);
 
@@ -384,8 +375,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     Action lipoAction = lipoLibAction("//package:test");
 
-    String i386Bin =
-        configurationBin("i386", ConfigurationDistinguisher.APPLEBIN_WATCHOS) + "package/test-fl.a";
+    String i386Bin = "i386-fl.a";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
 

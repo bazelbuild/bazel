@@ -103,7 +103,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       CcToolchainProvider childToolchain = entry.getValue();
 
       IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
+          ObjcRuleClasses.intermediateArtifacts(ruleContext, ruleContext.getConfiguration());
 
       ObjcCommon common =
           common(
@@ -120,21 +120,16 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
                       .map(CcInfo::getCcLinkingContext)
                       .collect(ImmutableList.toImmutableList()));
 
-      librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
+      Artifact archive = intermediateArtifacts.strippedSingleArchitectureLibrary(childCpu);
+      librariesToLipo.add(archive);
 
       CompilationSupport compilationSupport =
           new CompilationSupport.Builder(ruleContext, cppSemantics)
-              .setConfig(childToolchainConfig)
               .setToolchainProvider(childToolchain)
               .setOutputGroupCollector(outputGroupCollector)
               .build();
 
-      compilationSupport
-          .registerCompileAndArchiveActions(
-              common.getCompilationArtifacts().get(), ObjcCompilationContext.EMPTY)
-          .registerFullyLinkAction(
-              objcProvider, intermediateArtifacts.strippedSingleArchitectureLibrary())
-          .validateAttributes();
+      compilationSupport.registerFullyLinkAction(objcProvider, archive).validateAttributes();
       ruleContext.assertNoErrors();
 
       addTransitivePropagatedKeys(objcProviderBuilder, objcProvider);

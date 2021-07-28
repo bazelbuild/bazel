@@ -154,8 +154,8 @@ public final class IntermediateArtifacts implements StarlarkValue {
    * The artifact which is the fully-linked static library comprised of statically linking compiled
    * sources and dependencies together.
    */
-  public Artifact strippedSingleArchitectureLibrary() {
-    return appendExtension("-fl.a");
+  public Artifact strippedSingleArchitectureLibrary(String childCpu) {
+    return appendExtension("-" + childCpu + "-fl.a");
   }
 
   /**

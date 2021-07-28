@@ -698,7 +698,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       // across a configuration transition.
       Action lipoAction = lipoLibAction(libLabel);
       if (lipoAction != null) {
-        Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "-fl.a");
+        Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), "fl.a");
         linkAction = (CommandAction) getGeneratingAction(binArtifact);
       }
     }
