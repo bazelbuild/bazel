@@ -300,7 +300,7 @@ public class CommonCommandOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
+      converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, profile Bazel and write data to the specified "
               + "file. Use bazel analyze-profile to analyze the profile.")
@@ -331,7 +331,7 @@ public class CommonCommandOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
+      converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, write memory usage data to the specified file at phase ends and stable heap to"
               + " master log at end of build.")

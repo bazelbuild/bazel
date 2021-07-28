@@ -62,10 +62,10 @@ EOF
   bazel \
       --unix_digest_hash_attribute_name=user.checksum.sha256 \
       build \
-      --profile=/tmp/profile_log \
+      --profile=profile_log \
       --record_full_profiler_data \
       //:foo || fail "Build failed"
-  grep -q "VFS xattr.*BUILD" /tmp/profile_log || \
+  grep -q "VFS xattr.*BUILD" profile_log || \
       fail "Bazel did not perform getxattr() calls"
 }
 
