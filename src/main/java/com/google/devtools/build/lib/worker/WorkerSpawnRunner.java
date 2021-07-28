@@ -457,10 +457,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
         try {
           response = worker.getResponse(request.getRequestId());
-        } catch (InterruptedException e) {
-          finishWorkAsync(key, worker, request);
-          worker = null;
-          throw e;
         } catch (IOException e) {
           restoreInterrupt(e);
           // If protobuf or json reader couldn't parse the response, try to print whatever the
@@ -516,41 +512,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     return response;
-  }
-
-  /**
-   * Starts a thread to collect the response from a worker when it's no longer of interest.
-   *
-   * <p>This can happen either when we lost the race in dynamic execution or the build got
-   * interrupted. This takes ownership of the worker for purposes of returning it to the worker
-   * pool.
-   */
-  private void finishWorkAsync(WorkerKey key, Worker worker, WorkRequest request) {
-    Thread reaper =
-        new Thread(
-            () -> {
-              Worker w = worker;
-              try {
-                w.getResponse(request.getRequestId());
-              } catch (IOException | InterruptedException e1) {
-                // If this happens, we either can't trust the output of the worker, or we got
-                // interrupted while handling being interrupted. In the latter case, let's stop
-                // trying and just destroy the worker. If it's a singleplex worker, there will
-                // be a dangling response that we don't want to keep trying to read, so we destroy
-                // the worker.
-                try {
-                  workers.invalidateObject(key, w);
-                  w = null;
-                } catch (IOException | InterruptedException e2) {
-                  // The reaper thread can't do anything useful about this.
-                }
-              } finally {
-                if (w != null) {
-                  workers.returnObject(key, w);
-                }
-              }
-            });
-    reaper.start();
   }
 
   private static void restoreInterrupt(IOException e) {
