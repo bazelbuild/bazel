@@ -62,14 +62,12 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Tracks state for the UI. */
@@ -230,7 +228,6 @@ final class UiStateTracker {
       }
     }
 
-    @GuardedBy("this")
     private final LinkedHashMap<String, ProgressState> runningProgresses = new LinkedHashMap<>();
 
     /** Starts tracking the state of an action. */
@@ -334,13 +331,6 @@ final class UiStateTracker {
       ProgressState state =
           runningProgresses.computeIfAbsent(id, key -> new ProgressState(key, nanoChangeTime));
       state.latestEvent = event;
-    }
-
-    synchronized Optional<ProgressState> firstProgress() {
-      if (runningProgresses.isEmpty()) {
-        return Optional.empty();
-      }
-      return Optional.of(runningProgresses.entrySet().iterator().next().getValue());
     }
 
     /** Generates a human-readable description of this action's state. */
@@ -715,12 +705,12 @@ final class UiStateTracker {
   }
 
   private String describeActionProgress(ActionState action, int desiredWidth) {
-    Optional<ActionState.ProgressState> stateOpt = action.firstProgress();
-    if (!stateOpt.isPresent()) {
+    if (action.runningProgresses.isEmpty()) {
       return "";
     }
 
-    ActionState.ProgressState state = stateOpt.get();
+    ActionState.ProgressState state =
+        action.runningProgresses.entrySet().iterator().next().getValue();
     ActionProgressEvent event = state.latestEvent;
     String message = event.progress();
     if (message.isEmpty()) {
