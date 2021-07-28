@@ -304,13 +304,6 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public boolean hasLooseHeaders() {
-    return CppCompileAction.hasLooseHeaders(
-        cppCompileActionBuilder.getCcCompilationContext(),
-        cppCompileActionBuilder.getFeatureConfiguration());
-  }
-
-  @Override
   public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     return this != action;
   }
