@@ -84,7 +84,7 @@ public class RemoteExecutionService {
   private final RemoteOptions remoteOptions;
   @Nullable private final RemoteCache remoteCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
-  private final ImmutableSet<PathFragment> filesToDownload;
+  private final ImmutableSet<ActionInput> filesToDownload;
 
   public RemoteExecutionService(
       Path execRoot,
@@ -104,12 +104,7 @@ public class RemoteExecutionService {
     this.remoteOptions = remoteOptions;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
-
-    ImmutableSet.Builder<PathFragment> filesToDownloadBuilder = ImmutableSet.builder();
-    for (ActionInput actionInput : filesToDownload) {
-      filesToDownloadBuilder.add(actionInput.getExecPath());
-    }
-    this.filesToDownload = filesToDownloadBuilder.build();
+    this.filesToDownload = filesToDownload;
   }
 
   static Command buildCommand(

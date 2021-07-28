@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -178,18 +179,11 @@ public final class Utils {
 
   /** Returns {@code true} if outputs contains one or more top level outputs. */
   public static boolean hasFilesToDownload(
-      Collection<? extends ActionInput> outputs, ImmutableSet<PathFragment> filesToDownload) {
+      Collection<? extends ActionInput> outputs, ImmutableSet<ActionInput> filesToDownload) {
     if (filesToDownload.isEmpty()) {
       return false;
     }
-
-    for (ActionInput output : outputs) {
-      if (filesToDownload.contains(output.getExecPath())) {
-        return true;
-      }
-    }
-
-    return false;
+    return !Collections.disjoint(outputs, filesToDownload);
   }
 
   private static String statusName(int code) {
