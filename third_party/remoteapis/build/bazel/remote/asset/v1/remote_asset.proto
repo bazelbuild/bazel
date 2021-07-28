@@ -30,7 +30,7 @@ option java_package = "build.bazel.remote.asset.v1";
 option objc_class_prefix = "RA";
 
 // The Remote Asset API provides a mapping from a URI and Qualifiers to
-// Digests.
+// Digests.  
 //
 // Multiple URIs may be used to refer to the same content.  For example, the
 // same tarball may exist at multiple mirrors and thus be retrievable from
@@ -76,7 +76,7 @@ message Qualifier {
 }
 
 // The Fetch service resolves or fetches assets referenced by URI and
-// Qualifiers, returning a Digest for the content in
+// Qualifiers, returning a Digest for the content in 
 // [ContentAddressableStorage][build.bazel.remote.execution.v2.ContentAddressableStorage].
 //
 // As with other services in the Remote Execution API, any call may return an
@@ -92,7 +92,7 @@ service Fetch {
   //
   // Servers *SHOULD* ensure that referenced files are present in the CAS at the
   // time of the response, and (if supported) that they will remain available
-  // for a reasonable period of time. The TTLs of the referenced blobs *SHOULD*
+  // for a reasonable period of time. The lifetimes of the referenced blobs *SHOULD*
   // be increased if necessary and applicable.
   // In the event that a client receives a reference to content that is no
   // longer present, it *MAY* re-issue the request with
@@ -114,7 +114,7 @@ service Fetch {
   // Servers not implementing the complementary [Push][build.bazel.remote.asset.v1.Push]
   // API *MUST* reject requests containing qualifiers it does not support.
   //
-  // Servers **MAY** transform assets as part of the fetch. For example a
+  // Servers *MAY* transform assets as part of the fetch. For example a
   // tarball fetched by [FetchDirectory][build.bazel.remote.asset.v1.Fetch.FetchDirectory]
   // might be unpacked, or a Git repository
   // fetched by [FetchBlob][build.bazel.remote.asset.v1.Fetch.FetchBlob]
