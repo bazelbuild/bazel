@@ -49,8 +49,8 @@ class DisabledDataBindingV2Context implements DataBindingContext {
   @Override
   public void addProvider(RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
 
-    ImmutableList.Builder<Artifact> setterStores = ImmutableList.builder();
-    ImmutableList.Builder<Artifact> classInfos = ImmutableList.builder();
+    NestedSetBuilder<Artifact> setterStores = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> classInfos = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> brFiles = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<LabelJavaPackagePair> exportedLabelJavaPackages = ImmutableList.builder();
     NestedSetBuilder<LabelJavaPackagePair> targetNameAndJavaPackages =
@@ -61,8 +61,8 @@ class DisabledDataBindingV2Context implements DataBindingContext {
       Iterable<DataBindingV2Provider> exportsProviders =
           ruleContext.getPrerequisites("exports", DataBindingV2Provider.PROVIDER);
       for (DataBindingV2Provider provider : exportsProviders) {
-        setterStores.addAll(provider.getSetterStores());
-        classInfos.addAll(provider.getClassInfos());
+        setterStores.addTransitive(provider.getSetterStores());
+        classInfos.addTransitive(provider.getClassInfos());
         brFiles.addTransitive(provider.getTransitiveBRFiles());
         exportedLabelJavaPackages.addAll(provider.getLabelAndJavaPackages());
         targetNameAndJavaPackages.addTransitive(provider.getTransitiveLabelAndJavaPackages());

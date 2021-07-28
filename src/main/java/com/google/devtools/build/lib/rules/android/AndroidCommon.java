@@ -518,7 +518,7 @@ public class AndroidCommon {
       ImmutableList.Builder<Artifact> outputs = ImmutableList.<Artifact>builder();
       DataBindingV2Provider p =
           ruleContext.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
-      outputs.addAll(p.getSetterStores());
+      outputs.addAll(p.getSetterStores().toList());
       outputs.addAll(p.getTransitiveBRFiles().toList());
       additionalJavaInputsFromDatabinding = outputs.build();
     }
