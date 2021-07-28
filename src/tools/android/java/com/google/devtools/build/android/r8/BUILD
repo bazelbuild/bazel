@@ -16,7 +16,11 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(
         ["*.java"],
-        exclude = ["NoAndroidSdkStub.java"],
+        exclude = [
+            "NoAndroidSdkStub.java",
+            "CoreLibraryDesugar.java",
+            "Desugar.java",
+        ],
     ) + ["BUILD.tools"],
     visibility = ["//visibility:public"],
 )
