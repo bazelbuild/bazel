@@ -1311,39 +1311,39 @@ public class RemoteExecutionService {
     checkState(!shutdown.get(), "shutdown");
     checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
 
+    Collection<Path> outputFiles =
+        action.spawn.getOutputFiles().stream()
+            .map((inp) -> execRoot.getRelative(inp.getExecPath()))
+            .collect(ImmutableList.toImmutableList());
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.setExitCode(0);
+
+    UploadManifest manifest =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            remoteOptions.incompatibleRemoteSymlinks,
+            remoteOptions.allowSymlinkUpload);
+    manifest.addFiles(outputFiles);
+    manifest.setStdoutStderr(action.spawnExecutionContext.getFileOutErr());
+    manifest.addAction(action.actionKey, action.action, action.command);
+    if (manifest.getStderrDigest() != null) {
+      result.setStderrDigest(manifest.getStderrDigest());
+    }
+    if (manifest.getStdoutDigest() != null) {
+      result.setStdoutDigest(manifest.getStdoutDigest());
+    }
+
     CountDownLatch uploadStartedLatch = new CountDownLatch(1);
 
     Completable uploads = Completable.using(
-            remoteCache::retain,
-            remoteCache -> {
-              uploadStartedLatch.countDown();
+        remoteCache::retain,
+        remoteCache -> {
+          uploadStartedLatch.countDown();
 
-              Collection<Path> outputFiles =
-                  action.spawn.getOutputFiles().stream()
-                      .map((inp) -> execRoot.getRelative(inp.getExecPath()))
-                      .collect(ImmutableList.toImmutableList());
-
-              ActionResult.Builder result = ActionResult.newBuilder();
-              result.setExitCode(0);
-
-              UploadManifest manifest =
-                  new UploadManifest(
-                      digestUtil,
-                      remotePathResolver,
-                      result,
-                      remoteOptions.incompatibleRemoteSymlinks,
-                      remoteOptions.allowSymlinkUpload);
-              manifest.addFiles(outputFiles);
-              manifest.setStdoutStderr(action.spawnExecutionContext.getFileOutErr());
-              manifest.addAction(action.actionKey, action.action, action.command);
-              if (manifest.getStderrDigest() != null) {
-                result.setStderrDigest(manifest.getStderrDigest());
-              }
-              if (manifest.getStdoutDigest() != null) {
-                result.setStdoutDigest(manifest.getStdoutDigest());
-              }
-
-              return Completable.concatArray(
+          return Completable.concatArray(
                   uploadOutputs(remoteCache, action, manifest),
                   uploadActionResult(remoteCache, action, result.build()));
             },
