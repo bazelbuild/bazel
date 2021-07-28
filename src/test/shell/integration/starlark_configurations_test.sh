@@ -701,4 +701,31 @@ function test_rc_flag_alias_unsupported_with_space_assignment_syntax() {
   write_default_bazelrc
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/13751.
+function test_rule_exec_transition_warning() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > "${pkg}/rules.bzl" <<EOF
+def _impl(ctx):
+    pass
+
+demo = rule(
+    implementation = _impl,
+    cfg = config.exec(),
+)
+EOF
+
+  cat > "${pkg}/BUILD" <<EOF
+load(":rules.bzl", "demo")
+
+demo(name = "demo")
+EOF
+
+
+  bazel build //$pkg:demo >& "$TEST_log" && fail "Expected failure"
+  expect_not_log "crashed due to an internal error"
+  expect_log "`cfg` must be set to a transition appropriate for a rule"
+}
+
 run_suite "${PRODUCT_NAME} starlark configurations tests"
