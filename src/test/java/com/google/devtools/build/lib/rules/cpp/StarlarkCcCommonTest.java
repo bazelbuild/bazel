@@ -5236,9 +5236,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib or .dll");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.so' does not have any of the allowed extensions .ifso, .tbd or .lib");
-    assertThat(e)
-        .hasMessageThat()
         .contains("'a.lib' does not have any of the allowed extensions .so, .dylib or .dll");
     assertThat(e)
         .hasMessageThat()

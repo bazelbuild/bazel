@@ -14,6 +14,7 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
+load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 
@@ -24,6 +25,7 @@ exported_toplevels = {
     "_builtins_dummy": "overridden value",
 }
 exported_rules = {
+    "-cc_import": cc_import,
     "+objc_import": objc_import,
     "+objc_library": objc_library,
 }
