@@ -173,9 +173,8 @@ public class ManifestMergerAction {
         }
       }
     }
-    // Write resulting manifest to the output directory, maintaining full path to prevent collisions
-    Path output = outputDir.resolve(manifest.toString().replaceFirst("^/", ""));
-    Files.createDirectories(output.getParent());
+    // Write resulting manifest to a tmp file to prevent collisions
+    Path output = Files.createTempFile(outputDir, "AndroidManifest", ".xml");
     TransformerFactory.newInstance()
         .newTransformer()
         .transform(new DOMSource(doc), new StreamResult(output.toFile()));
