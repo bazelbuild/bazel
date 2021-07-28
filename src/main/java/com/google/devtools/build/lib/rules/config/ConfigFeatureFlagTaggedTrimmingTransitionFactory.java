@@ -122,4 +122,9 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
 
     return new ConfigFeatureFlagTaggedTrimmingTransition(requiredLabels);
   }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
+  }
 }

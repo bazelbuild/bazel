@@ -46,6 +46,9 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
     Preconditions.checkArgument(
+        transitionFactory1.transitionType().isCompatibleWith(transitionFactory2.transitionType()),
+        "transition factory types must be compatible");
+    Preconditions.checkArgument(
         !transitionFactory1.isSplit() || !transitionFactory2.isSplit(),
         "can't compose two split transition factories");
 

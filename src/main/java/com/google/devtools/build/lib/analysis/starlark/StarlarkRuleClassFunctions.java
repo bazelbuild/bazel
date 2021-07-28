@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -414,10 +415,18 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       } else if (cfg instanceof PatchTransition) {
         builder.cfg((PatchTransition) cfg);
       } else if (cfg instanceof TransitionFactory) {
-        @SuppressWarnings("unchecked")
-        TransitionFactory<RuleTransitionData> transitionFactory =
-            (TransitionFactory<RuleTransitionData>) cfg;
-        builder.cfg(transitionFactory);
+        TransitionFactory<? extends TransitionFactory.Data> transitionFactory =
+            (TransitionFactory<? extends TransitionFactory.Data>) cfg;
+        if (transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE)) {
+          @SuppressWarnings("unchecked") // Actually checked due to above isCompatibleWith call.
+          TransitionFactory<RuleTransitionData> ruleTransitionFactory =
+              (TransitionFactory<RuleTransitionData>) transitionFactory;
+          builder.cfg(ruleTransitionFactory);
+        } else {
+          throw Starlark.errorf(
+              "`cfg` must be set to a transition appropriate for a rule, not an attribute-specific"
+                  + " transition.");
+        }
       } else {
         // This is not technically true: it could also be a native transition, but this is the
         // most likely error case.
