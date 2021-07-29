@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -579,10 +580,19 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           builder.addTool((FilesToRunProvider) toolUnchecked);
+        } else if (toolUnchecked instanceof Depset) {
+          try {
+            builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));
+          } catch (TypeException e) {
+            throw Starlark.errorf(
+                "expected value of type 'File, FilesToRunProvider or Depset of Files' for a member "
+                    + "of parameter 'tools' but %s",
+                e.getMessage());
+          }
         } else {
           throw Starlark.errorf(
-              "expected value of type 'File or FilesToRunProvider' for a member of parameter"
-                  + " 'tools' but got %s instead",
+              "expected value of type 'File, FilesToRunProvider or Depset of Files' for a member of"
+                  + " parameter 'tools' but got %s instead",
               Starlark.type(toolUnchecked));
         }
       }

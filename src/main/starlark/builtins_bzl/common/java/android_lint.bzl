@@ -40,14 +40,15 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
 
     args = ctx.actions.args()
 
-    tool = linter.tool
     executable = linter.tool.executable
     transitive_inputs = [linter.data]
-    if executable.extension == "jar":
+    if executable.extension != "jar":
+        tools = [linter.tool]
+    else:
         args.add_all(toolchain.jvm_opt)
         args.add("-jar", executable)
         executable = java_runtime.java_executable_exec_path
-        transitive_inputs.append(java_runtime.files)
+        tools = [java_runtime.files, linter.tool]
 
     for output in java_info.java_outputs:
         if output.generated_source_jar != None:
@@ -101,7 +102,7 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
             transitive = transitive_inputs,
         ),
         outputs = [android_lint_out],
-        tools = [tool],
+        tools = tools,
         arguments = [args],
         execution_requirements = {"supports-workers": "1"},
     )
