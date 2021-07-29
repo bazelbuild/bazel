@@ -42,11 +42,15 @@ JAVAC_OPTIONS_SRCS = [
     "javac/WerrorCustomOption.java",
 ]
 
+JAVAC_TEST_SRCS = [
+    "javac/BootClassPathCachingFileManagerTest.java",
+]
+
 java_library(
     name = "javac",
     srcs = glob(
         ["javac/*.java"],
-        exclude = JAVAC_OPTIONS_SRCS,
+        exclude = JAVAC_OPTIONS_SRCS + JAVAC_TEST_SRCS,
     ),
     deps = [
         ":invalid_command_line_exception",
@@ -202,5 +206,18 @@ bootstrap_java_binary(
     deps = [
         ":starlark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
+    ],
+)
+
+java_test(
+    name = "BootClassPathCachingFileManagerTest",
+    srcs = ["javac/BootClassPathCachingFileManagerTest.java"],
+    deps = [
+        ":javac",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/java/jdk/langtools:javac",
+        "//third_party/protobuf:protobuf_java",
     ],
 )

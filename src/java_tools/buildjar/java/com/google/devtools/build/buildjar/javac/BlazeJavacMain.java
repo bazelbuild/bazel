@@ -50,8 +50,11 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
+import javax.tools.JavaFileObject;
+import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardLocation;
 
 /**
@@ -108,6 +111,11 @@ public class BlazeJavacMain {
 
     try (JavacFileManager fileManager =
         new ClassloaderMaskingFileManager(context, arguments.builtinProcessors())) {
+
+      bootFileManager = getBootFileManager(arguments);
+      if (bootFileManager != null) {
+        setLocations(bootFileManager, arguments);
+      }
 
       setLocations(fileManager, arguments);
 
@@ -305,6 +313,32 @@ public class BlazeJavacMain {
     }
   }
 
+  /** a javac file manager instance specific only for boot classpaths */
+  private static BootClassPathCachingFileManager bootFileManager;
+
+  /**
+   * Returns a BootClassPathCachingFileManager instance if it is a singleplex-worker with valid
+   * arguments
+   */
+  private static BootClassPathCachingFileManager getBootFileManager(BlazeJavacArguments arguments) {
+
+    if (!arguments.requestId().isPresent()) {
+      // worker mode is not enabled
+      return null;
+    }
+    if (arguments.requestId().getAsInt() != 0) {
+      // worker is not singleplex worker
+      return null;
+    }
+    if (!BootClassPathCachingFileManager.areArgumentsValid(arguments)) {
+      return null;
+    }
+
+    return (bootFileManager != null && !bootFileManager.needsUpdate(arguments))
+        ? bootFileManager
+        : new BootClassPathCachingFileManager(new Context(), arguments);
+  }
+
   /**
    * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
    * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
@@ -319,6 +353,16 @@ public class BlazeJavacMain {
     public ClassloaderMaskingFileManager(Context context, ImmutableSet<String> builtinProcessors) {
       super(context, true, UTF_8);
       this.builtinProcessors = builtinProcessors;
+    }
+
+    @Override
+    public Iterable<JavaFileObject> list(
+        Location location, String packageName, Set<Kind> kinds, boolean recurse)
+        throws IOException {
+      if (bootFileManager != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
+        return bootFileManager.list(location, packageName, kinds, recurse);
+      }
+      return super.list(location, packageName, kinds, recurse);
     }
 
     @Override
