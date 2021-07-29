@@ -738,7 +738,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   + "Rules may be instantiated only in a BUILD thread.");
         }
         RuleFactory.createAndAddRule(
-            pkgContext, ruleClass, attributeValues, thread.getSemantics(), thread.getCallStack());
+            pkgContext.getBuilder(),
+            ruleClass,
+            attributeValues,
+            pkgContext.getEventHandler(),
+            thread.getSemantics(),
+            thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(e);
       }
