@@ -13,9 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
-import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromRemoteCache;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
-
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
@@ -23,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -58,9 +54,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
     diskCache.uploadActionResult(context, actionKey, actionResult);
-
-    Spawn spawn = context.getSpawn();
-    if (spawn == null || shouldUploadLocalResultsToRemoteCache(options, spawn)) {
+    if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
       remoteCache.uploadActionResult(context, actionKey, actionResult);
     }
   }
@@ -76,9 +70,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, Digest digest, Path file) {
     try {
       diskCache.uploadFile(context, digest, file).get();
-
-      Spawn spawn = context.getSpawn();
-      if (spawn == null || shouldUploadLocalResultsToRemoteCache(options, spawn)) {
+      if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
         remoteCache.uploadFile(context, digest, file).get();
       }
     } catch (ExecutionException e) {
@@ -94,9 +86,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try {
       diskCache.uploadBlob(context, digest, data).get();
-
-      Spawn spawn = context.getSpawn();
-      if (spawn == null || shouldUploadLocalResultsToRemoteCache(options, spawn)) {
+      if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
         remoteCache.uploadBlob(context, digest, data).get();
       }
     } catch (ExecutionException e) {
@@ -155,8 +145,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     final OutputStream tempOut;
     tempOut = new LazyFileOutputStream(tempPath);
 
-    Spawn spawn = context.getSpawn();
-    if (spawn == null || shouldAcceptCachedResultFromRemoteCache(options, spawn)) {
+    if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
       ListenableFuture<Void> download =
           closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);
       return Futures.transformAsync(
@@ -183,8 +172,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       return diskCache.downloadActionResult(context, actionKey, inlineOutErr);
     }
 
-    Spawn spawn = context.getSpawn();
-    if (spawn == null || shouldAcceptCachedResultFromRemoteCache(options, spawn)) {
+    if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
       return Futures.transformAsync(
           remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
           (actionResult) -> {

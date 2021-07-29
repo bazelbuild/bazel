@@ -1768,6 +1768,64 @@ EOF
         || fail "should have worked"
 }
 
+function test_tag_no_cache() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+  tags = ["no-cache"]
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 remote"
+
+  bazel clean
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 remote"
+  expect_not_log "remote cache hit"
+}
+
+function test_tag_no_cache_for_disk_cache() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+  tags = ["no-cache"]
+)
+EOF
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel build \
+    --disk_cache=$CACHEDIR \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 .*-sandbox"
+
+  bazel clean
+
+  bazel build \
+    --disk_cache=$CACHEDIR \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 .*-sandbox"
+  expect_not_log "remote cache hit"
+}
+
 function test_tag_no_remote_cache() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -1790,10 +1848,39 @@ EOF
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:foo || "Failed to build //a:foo"
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
 
   expect_log "1 remote"
   expect_not_log "remote cache hit"
+}
+
+function test_tag_no_remote_cache_for_disk_cache() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \"$@\"",
+  tags = ["no-remote-cache"]
+)
+EOF
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel build \
+    --disk_cache=$CACHEDIR \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 .*-sandbox"
+
+  bazel clean
+
+  bazel build \
+    --disk_cache=$CACHEDIR \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 remote cache hit"
 }
 
 function test_tag_no_remote_exec() {

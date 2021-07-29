@@ -22,14 +22,11 @@ import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransfer;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromDiskCache;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
-import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -271,6 +268,10 @@ public class RemoteExecutionService {
     }
   }
 
+  private static boolean useRemoteCache(RemoteOptions options) {
+    return !isNullOrEmpty(options.remoteCache) || !isNullOrEmpty(options.remoteExecutor);
+  }
+
   private static boolean useDiskCache(RemoteOptions options) {
     return options.diskCache != null && !options.diskCache.isEmpty();
   }
@@ -281,10 +282,25 @@ public class RemoteExecutionService {
       return false;
     }
 
-    if (useDiskCache(remoteOptions)) {
-      return shouldAcceptCachedResultFromDiskCache(remoteOptions, spawn);
+    if (useRemoteCache(remoteOptions)) {
+      if (useDiskCache(remoteOptions)) {
+        // Combined cache
+        if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+          return Spawns.mayBeCachedRemotely(spawn);
+        } else {
+          return remoteOptions.remoteAcceptCached && Spawns.mayBeExecutedRemotely(spawn);
+        }
+      } else {
+        // Remote cache
+        return remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
+      }
     } else {
-      return shouldAcceptCachedResultFromRemoteCache(remoteOptions, spawn);
+      // Disk cache
+      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+        return Spawns.mayBeCached(spawn);
+      } else {
+        return remoteOptions.remoteAcceptCached && Spawns.mayBeCached(spawn);
+      }
     }
   }
 
@@ -294,10 +310,25 @@ public class RemoteExecutionService {
       return false;
     }
 
-    if (useDiskCache(remoteOptions)) {
-      return shouldUploadLocalResultsToDiskCache(remoteOptions, spawn);
+    if (useRemoteCache(remoteOptions)) {
+      if (useDiskCache(remoteOptions)) {
+        // Combined cache
+        if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+          return Spawns.mayBeCachedRemotely(spawn);
+        } else {
+          return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCachedRemotely(spawn);
+        }
+      } else {
+        // Remote cache
+        return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCachedRemotely(spawn);
+      }
     } else {
-      return shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn);
+      // Disk cache
+      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+        return Spawns.mayBeCached(spawn);
+      } else {
+        return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(spawn);
+      }
     }
   }
 
@@ -341,7 +372,7 @@ public class RemoteExecutionService {
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
     RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.createForSpawn(spawn, metadata);
+        RemoteActionExecutionContext.create(metadata);
 
     return new RemoteAction(
         spawn,
@@ -854,7 +885,7 @@ public class RemoteExecutionService {
   @Nullable
   public InMemoryOutput downloadOutputs(RemoteAction action, RemoteActionResult result)
       throws InterruptedException, IOException, ExecException {
-    checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
+    checkNotNull(remoteCache, "remoteCache can't be null");
 
     ActionResultMetadata metadata;
     try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
