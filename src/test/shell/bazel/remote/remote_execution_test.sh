@@ -1178,23 +1178,28 @@ genrule(
 EOF
 
   bazel build \
-    --experimental_action_cache_store_output_metadata \
-    --remote_executor=grpc://localhost:${worker_port} \
-    --remote_download_minimal \
-    //a:foobar || fail "Failed to build //a:foobar"
-
-  (! [[ -f bazel-bin/a/foo.txt ]] && ! [[ -f bazel-bin/a/foobar.txt ]]) \
-  || fail "Expected no files to have been downloaded"
-
-  bazel shutdown
-
-  bazel build \
+    --experimental_ui_debug_all_events \
     --experimental_action_cache_store_output_metadata \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
-  expect_log "1 process: 1 internal"
+  expect_log "START.*: \[.*\] Executing genrule //a:foobar"
+
+  (! [[ -e bazel-bin/a/foo.txt ]] && ! [[ -e bazel-bin/a/foobar.txt ]])
+  || fail "Expected no files to have been downloaded"
+  assert_equals "" "$(ls bazel-bin/a)"
+
+  bazel shutdown
+
+  bazel build \
+    --experimental_ui_debug_all_events \
+    --experimental_action_cache_store_output_metadata \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  expect_not_log "START.*: \[.*\] Executing genrule //a:foobar"
 }
 
 function test_downloads_toplevel() {

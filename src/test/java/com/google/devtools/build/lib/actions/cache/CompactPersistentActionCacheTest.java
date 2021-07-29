@@ -227,12 +227,12 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void putAndGet_saveRemoteFileMetadata() {
+  public void putAndGet_savesRemoteFileMetadata() {
     String key = "key";
     ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     RemoteFileArtifactValue metadata = createRemoteMetadata(artifact, "content");
-    entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
+    entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
 
     cache.put(key, entry);
     entry = cache.get(key);
@@ -241,12 +241,12 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void putAndGet_ignoreLocalFileMetadata() throws IOException {
+  public void putAndGet_ignoresLocalFileMetadata() throws IOException {
     String key = "key";
     ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata = createLocalMetadata(artifact, "content");
-    entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
+    entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
 
     cache.put(key, entry);
     entry = cache.get(key);
@@ -255,7 +255,7 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void putAndGet_treeMetadata_onlySaveRemoteFileMetadata() throws IOException {
+  public void putAndGet_treeMetadata_onlySavesRemoteFileMetadata() throws IOException {
     String key = "key";
     ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
     SpecialArtifact artifact =
@@ -276,7 +276,7 @@ public class CompactPersistentActionCacheTest {
                             artifact, PathFragment.create("file2")),
                         "content2")),
             Optional.empty());
-    entry.addOutputTree(artifact, metadata, /* saveFileMetadata= */ true);
+    entry.addOutputTree(artifact, metadata, /*saveFileMetadata=*/ true);
 
     cache.put(key, entry);
     entry = cache.get(key);
@@ -294,7 +294,7 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void putAndGet_treeMetadata_saveRemoteArchivedArtifact() {
+  public void putAndGet_treeMetadata_savesRemoteArchivedArtifact() {
     String key = "key";
     ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
     SpecialArtifact artifact =
@@ -303,7 +303,7 @@ public class CompactPersistentActionCacheTest {
     TreeArtifactValue metadata =
         createTreeMetadata(
             artifact, ImmutableMap.of(), Optional.of(createRemoteMetadata(artifact, "content")));
-    entry.addOutputTree(artifact, metadata, /* saveFileMetadata= */ true);
+    entry.addOutputTree(artifact, metadata, /*saveFileMetadata=*/ true);
 
     cache.put(key, entry);
     entry = cache.get(key);
@@ -315,7 +315,7 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void putAndGet_treeMetadata_ignoreLocalArchivedArtifact() throws IOException {
+  public void putAndGet_treeMetadata_ignoresLocalArchivedArtifact() throws IOException {
     String key = "key";
     ActionCache.Entry entry = new ActionCache.Entry(key, ImmutableMap.of(), false);
     SpecialArtifact artifact =
@@ -328,7 +328,7 @@ public class CompactPersistentActionCacheTest {
             Optional.of(
                 createLocalMetadata(
                     ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")));
-    entry.addOutputTree(artifact, metadata, /* saveFileMetadata= */ true);
+    entry.addOutputTree(artifact, metadata, /*saveFileMetadata=*/ true);
 
     cache.put(key, entry);
     entry = cache.get(key);
