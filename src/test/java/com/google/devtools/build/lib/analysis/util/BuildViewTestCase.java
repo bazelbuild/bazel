@@ -203,9 +203,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 
-/**
- * Common test code that creates a BuildView instance.
- */
+/** Common test code that creates a BuildView instance. */
 public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static final int LOADING_PHASE_THREADS = 20;
 
@@ -221,7 +219,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationCollection masterConfig;
-  protected BuildConfiguration targetConfig;  // "target" or "build" config
+  protected BuildConfiguration targetConfig; // "target" or "build" config
   private List<String> configurationArgs;
 
   protected OptionsParser optionsParser;
@@ -444,7 +442,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build();
     List<String> allArgs = new ArrayList<>();
     // TODO(dmarting): Add --stamp option only to test that requires it.
-    allArgs.add("--stamp");  // Stamp is now defaulted to false.
+    allArgs.add("--stamp"); // Stamp is now defaulted to false.
     allArgs.add("--experimental_extended_sanity_checks");
     // Always default to k8, even on mac and windows. Tests that need different cpu should set it
     // using {@link useConfiguration()} explicitly.
@@ -463,8 +461,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Target getTarget(String label)
-      throws NoSuchPackageException, NoSuchTargetException,
-      LabelSyntaxException, InterruptedException {
+      throws NoSuchPackageException, NoSuchTargetException, LabelSyntaxException,
+          InterruptedException {
     return getTarget(Label.parseAbsolute(label, ImmutableMap.of()));
   }
 
@@ -481,8 +479,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * <p>This method is useful for checking loading phase errors. Analysis phase errors can be
    * checked with {@link #getConfiguredTarget} and related methods.
    */
-  protected void assertTargetError(String label, String expectedError)
-      throws InterruptedException {
+  protected void assertTargetError(String label, String expectedError) throws InterruptedException {
     try {
       getTarget(label);
       fail("Expected loading phase failure for target " + label);
@@ -633,11 +630,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final void createBuildView() {
     Preconditions.checkNotNull(masterConfig);
-    Preconditions.checkState(getHostConfiguration().equals(getTargetConfiguration())
-        || getHostConfiguration().isHostConfiguration(),
+    Preconditions.checkState(
+        getHostConfiguration().equals(getTargetConfiguration())
+            || getHostConfiguration().isHostConfiguration(),
         "Host configuration %s is not a host configuration' "
-        + "and does not match target configuration %s",
-        getHostConfiguration(), getTargetConfiguration());
+            + "and does not match target configuration %s",
+        getHostConfiguration(),
+        getTargetConfiguration());
 
     skyframeExecutor.handleAnalysisInvalidatingChange();
 
@@ -701,9 +700,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Label candidateLabel = Label.parseAbsolute(label, ImmutableMap.of());
     for (ConfiguredTargetAndData candidate :
         view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-            reporter,
-            ctad.getConfiguredTarget(),
-            masterConfig)) {
+            reporter, ctad.getConfiguredTarget(), masterConfig)) {
       if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
         return candidate;
       }
@@ -760,10 +757,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         reporter, target, new StubAnalysisEnvironment(), masterConfig);
   }
 
-  protected RuleContext getRuleContext(ConfiguredTarget target,
-      AnalysisEnvironment analysisEnvironment) throws Exception {
-    return view.getRuleContextForTesting(
-        reporter, target, analysisEnvironment, masterConfig);
+  protected RuleContext getRuleContext(
+      ConfiguredTarget target, AnalysisEnvironment analysisEnvironment) throws Exception {
+    return view.getRuleContextForTesting(reporter, target, analysisEnvironment, masterConfig);
   }
 
   /**
@@ -775,13 +771,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // only works with StoredErrorEventListener despite the fact it accepts the interface
     // ErrorEventListener, so it's not possible to create it with reporter.
     // See BuildView.getRuleContextForTesting().
-    StoredEventHandler eventHandler = new StoredEventHandler() {
-      @Override
-      public synchronized void handle(Event e) {
-        super.handle(e);
-        reporter.handle(e);
-      }
-    };
+    StoredEventHandler eventHandler =
+        new StoredEventHandler() {
+          @Override
+          public synchronized void handle(Event e) {
+            super.handle(e);
+            reporter.handle(e);
+          }
+        };
     return view.getRuleContextForTesting(target, eventHandler, masterConfig);
   }
 
@@ -791,8 +788,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * used; instead tests should only assert on properties of the exposed provider instances and / or
    * the action graph.
    */
-  protected List<? extends TransitiveInfoCollection> getPrerequisites(ConfiguredTarget target,
-      String attributeName) throws Exception {
+  protected List<? extends TransitiveInfoCollection> getPrerequisites(
+      ConfiguredTarget target, String attributeName) throws Exception {
     return getRuleContext(target).getConfiguredTargetMap().get(attributeName);
   }
 
@@ -802,8 +799,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * used; instead tests should only assert on properties of the exposed provider instances and / or
    * the action graph.
    */
-  protected <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(ConfiguredTarget target,
-      String attributeName, Class<C> classType) throws Exception {
+  protected <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(
+      ConfiguredTarget target, String attributeName, Class<C> classType) throws Exception {
     return AnalysisUtils.getProviders(getPrerequisites(target, attributeName), classType);
   }
 
@@ -947,14 +944,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected Action getGeneratingActionInOutputGroup(
       ConfiguredTarget target, String outputName, String outputGroupName) {
-    NestedSet<Artifact> outputGroup =
-        OutputGroupInfo.get(target).getOutputGroup(outputGroupName);
+    NestedSet<Artifact> outputGroup = OutputGroupInfo.get(target).getOutputGroup(outputGroupName);
     return getGeneratingAction(outputName, outputGroup, "outputGroup/" + outputGroupName);
   }
 
   /**
-   * Returns the SpawnAction that generates an artifact.
-   * Implicitly assumes the action is a SpawnAction.
+   * Returns the SpawnAction that generates an artifact. Implicitly assumes the action is a
+   * SpawnAction.
    */
   protected final SpawnAction getGeneratingSpawnAction(Artifact artifact) {
     return (SpawnAction) getGeneratingAction(artifact);
@@ -1190,9 +1186,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Check that configuration of the target named 'ruleName' in the
-   * specified BUILD file fails with an error message containing
-   * 'expectedErrorMessage'.
+   * Check that configuration of the target named 'ruleName' in the specified BUILD file fails with
+   * an error message containing 'expectedErrorMessage'.
    *
    * @param packageName the package name of the generated BUILD file
    * @param ruleName the rule name for the rule in the generated BUILD file
@@ -1200,10 +1195,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @param lines the text of the rule.
    * @return the found error.
    */
-  protected Event checkError(String packageName,
-                             String ruleName,
-                             String expectedErrorMessage,
-                             String... lines) throws Exception {
+  protected Event checkError(
+      String packageName, String ruleName, String expectedErrorMessage, String... lines)
+      throws Exception {
     eventCollector.clear();
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
@@ -1275,9 +1269,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Check that configuration of the target named 'ruleName' in the
-   * specified BUILD file reports a warning message ending in
-   * 'expectedWarningMessage', and that no errors were reported.
+   * Check that configuration of the target named 'ruleName' in the specified BUILD file reports a
+   * warning message ending in 'expectedWarningMessage', and that no errors were reported.
    *
    * @param packageName the package name of the generated BUILD file
    * @param ruleName the rule name for the rule in the generated BUILD file
@@ -1285,13 +1278,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @param lines the text of the rule.
    * @return the found error.
    */
-  protected Event checkWarning(String packageName,
-                               String ruleName,
-                               String expectedWarningMessage,
-                               String... lines) throws Exception {
+  protected Event checkWarning(
+      String packageName, String ruleName, String expectedWarningMessage, String... lines)
+      throws Exception {
     eventCollector.clear();
-    ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName,
-        lines);
+    ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     assertWithMessage("Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error")
         .that(view.hasErrors(target))
         .isFalse();
@@ -1350,19 +1341,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .isEqualTo(expectedOuts.length);
   }
 
-  /**
-   * Asserts that there exists a configured target file for the given label.
-   */
+  /** Asserts that there exists a configured target file for the given label. */
   protected void assertConfiguredTargetExists(String label) throws Exception {
     assertThat(getFileConfiguredTarget(label)).isNotNull();
   }
 
-  /**
-   * Assert that the first label and the second label are both generated
-   * by the same command.
-   */
-  protected void assertSameGeneratingAction(String labelA, String labelB)
-      throws Exception {
+  /** Assert that the first label and the second label are both generated by the same command. */
+  protected void assertSameGeneratingAction(String labelA, String labelB) throws Exception {
     assertWithMessage("Action for " + labelA + " did not match " + labelB)
         .that(getGeneratingActionForLabel(labelB))
         .isSameInstanceAs(getGeneratingActionForLabel(labelA));
@@ -1434,8 +1419,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private Artifact getPackageRelativeDerivedArtifact(
       String packageRelativePath, ArtifactRoot root, ArtifactOwner owner) {
     return getDerivedArtifact(
-        owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
-        root, owner);
+        owner.getLabel().getPackageFragment().getRelative(packageRelativePath), root, owner);
   }
 
   /** Returns the input {@link Artifact}s to the given {@link Action} with the given exec paths. */
@@ -1460,7 +1444,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * ConfiguredTarget)} or its convenience methods should be used instead.
    */
   protected Artifact.DerivedArtifact getBinArtifactWithNoOwner(String rootRelativePath) {
-    return getDerivedArtifact(PathFragment.create(rootRelativePath),
+    return getDerivedArtifact(
+        PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
@@ -1531,7 +1516,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * instead.
    */
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
-    return getDerivedArtifact(PathFragment.create(rootRelativePath),
+    return getDerivedArtifact(
+        PathFragment.create(rootRelativePath),
         targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
@@ -1644,8 +1630,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * @return a shared artifact at the binary-root relative path {@code rootRelativePath} owned by
-   *         {@code owner}.
-   *
+   *     {@code owner}.
    * @param rootRelativePath the binary-root relative path of the artifact.
    * @param owner the artifact's owner.
    */
@@ -1688,37 +1673,46 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Verifies whether the rule checks the 'srcs' attribute validity.
    *
    * <p>At the call site it expects the {@code packageName} to contain:
+   *
    * <ol>
-   *   <li>{@code :gvalid} - genrule that outputs a valid file</li>
-   *   <li>{@code :ginvalid} - genrule that outputs an invalid file</li>
-   *   <li>{@code :gmix} - genrule that outputs a mix of valid and invalid
-   *       files</li>
-   *   <li>{@code :valid} - rule of type {@code ruleType} that has a valid
-   *       file, {@code :gvalid} and {@code :gmix} in the srcs</li>
-   *   <li>{@code :invalid} - rule of type {@code ruleType} that has an invalid
-   *       file, {@code :ginvalid} in the srcs</li>
-   *   <li>{@code :mix} - rule of type {@code ruleType} that has a valid and an
-   *       invalid file in the srcs</li>
+   *   <li>{@code :gvalid} - genrule that outputs a valid file
+   *   <li>{@code :ginvalid} - genrule that outputs an invalid file
+   *   <li>{@code :gmix} - genrule that outputs a mix of valid and invalid files
+   *   <li>{@code :valid} - rule of type {@code ruleType} that has a valid file, {@code :gvalid} and
+   *       {@code :gmix} in the srcs
+   *   <li>{@code :invalid} - rule of type {@code ruleType} that has an invalid file, {@code
+   *       :ginvalid} in the srcs
+   *   <li>{@code :mix} - rule of type {@code ruleType} that has a valid and an invalid file in the
+   *       srcs
    * </ol>
    *
    * @param packageName the package where the rules under test are located
    * @param ruleType rules under test types
    * @param expectedTypes expected file types
    */
-  protected void assertSrcsValidityForRuleType(String packageName, String ruleType,
-      String expectedTypes) throws Exception {
+  protected void assertSrcsValidityForRuleType(
+      String packageName, String ruleType, String expectedTypes) throws Exception {
     reporter.removeHandler(failFastHandler);
     String descriptionSingle = ruleType + " srcs file (expected " + expectedTypes + ")";
     String descriptionPlural = ruleType + " srcs files (expected " + expectedTypes + ")";
     String descriptionPluralFile = "(expected " + expectedTypes + ")";
-    assertSrcsValidity(ruleType, packageName + ":valid", false,
+    assertSrcsValidity(
+        ruleType,
+        packageName + ":valid",
+        false,
         "need at least one " + descriptionSingle,
         "'" + packageName + ":gvalid' does not produce any " + descriptionPlural,
         "'" + packageName + ":gmix' does not produce any " + descriptionPlural);
-    assertSrcsValidity(ruleType, packageName + ":invalid", true,
+    assertSrcsValidity(
+        ruleType,
+        packageName + ":invalid",
+        true,
         "source file '" + packageName + ":a.foo' is misplaced here " + descriptionPluralFile,
         "'" + packageName + ":ginvalid' does not produce any " + descriptionPlural);
-    assertSrcsValidity(ruleType, packageName + ":mix", true,
+    assertSrcsValidity(
+        ruleType,
+        packageName + ":mix",
+        true,
         "'" + packageName + ":a.foo' does not produce any " + descriptionPlural);
   }
 
@@ -1729,15 +1723,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if (expectedError) {
       assertThat(view.hasErrors(target)).isTrue();
       for (String expectedMessage : expectedMessages) {
-        String message = "in srcs attribute of " + ruleType + " rule " + targetName + ": "
-            + expectedMessage;
+        String message =
+            "in srcs attribute of " + ruleType + " rule " + targetName + ": " + expectedMessage;
         assertContainsEvent(message);
       }
     } else {
       assertThat(view.hasErrors(target)).isFalse();
       for (String expectedMessage : expectedMessages) {
-        String message = "in srcs attribute of " + ruleType + " rule " + target.getLabel() + ": "
-            + expectedMessage;
+        String message =
+            "in srcs attribute of "
+                + ruleType
+                + " rule "
+                + target.getLabel()
+                + ": "
+                + expectedMessage;
         assertDoesNotContainEvent(message);
       }
     }
@@ -1765,11 +1764,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Utility method for asserting that the contents of one collection are the
-   * same as those in a second plus some set of common elements.
+   * Utility method for asserting that the contents of one collection are the same as those in a
+   * second plus some set of common elements.
    */
-  protected void assertSameContentsWithCommonElements(Iterable<String> artifacts,
-      String[] expectedInputs, Iterable<String> common) {
+  protected void assertSameContentsWithCommonElements(
+      Iterable<String> artifacts, String[] expectedInputs, Iterable<String> common) {
     assertThat(artifacts)
         .containsExactlyElementsIn(Iterables.concat(Lists.newArrayList(expectedInputs), common));
   }
@@ -1789,8 +1788,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static void assertContainsSublist(
       String message, List<String> list, List<String> sublist) {
     if (Collections.indexOfSubList(list, sublist) == -1) {
-      fail((message == null ? "" : (message + ' '))
-          + "expected: <" + list + "> to contain sublist: <" + sublist + ">");
+      fail(
+          String.format(
+              "%sexpected: <%s> to contain sublist: <%s>",
+              message == null ? "" : (message + ' '), list, sublist));
     }
   }
 
@@ -1811,9 +1812,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return target.getProvider(FileProvider.class).getFilesToBuild();
   }
 
-  /**
-   * Returns all extra actions for that target (no transitive actions), no duplicate actions.
-   */
+  /** Returns all extra actions for that target (no transitive actions), no duplicate actions. */
   protected ImmutableList<Action> getExtraActionActions(ConfiguredTarget target) {
     LinkedHashSet<Action> result = new LinkedHashSet<>();
     for (Artifact artifact : getExtraActionArtifacts(target).toList()) {
@@ -1822,9 +1821,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.copyOf(result);
   }
 
-  /**
-   * Returns all extra actions for that target (including transitive actions).
-   */
+  /** Returns all extra actions for that target (including transitive actions). */
   protected ImmutableList<ExtraAction> getTransitiveExtraActionActions(ConfiguredTarget target) {
     ImmutableList.Builder<ExtraAction> result = new ImmutableList.Builder<>();
     for (Artifact artifact :
@@ -1878,7 +1875,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected NestedSet<Artifact> getFilesToRun(Label label) {
     return getConfiguredTarget(label, targetConfig)
-        .getProvider(FilesToRunProvider.class).getFilesToRun();
+        .getProvider(FilesToRunProvider.class)
+        .getFilesToRun();
   }
 
   protected NestedSet<Artifact> getFilesToRun(String label) throws Exception {
@@ -1979,11 +1977,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     customLoadingOptions = Options.parse(LoadingOptions.class, options).getOptions();
   }
 
-  protected AnalysisResult update(List<String> targets,
+  protected AnalysisResult update(
+      List<String> targets,
       boolean keepGoing,
       int loadingPhaseThreads,
       boolean doAnalysis,
-      EventBus eventBus) throws Exception {
+      EventBus eventBus)
+      throws Exception {
     return update(
         targets, ImmutableList.of(), keepGoing, loadingPhaseThreads, doAnalysis, eventBus);
   }
@@ -2061,65 +2061,71 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected static String getErrorMsgNoGoodFiles(
       String attrName, String ruleType, String ruleName, String depRuleName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": '"
-        + depRuleName + "' does not produce any " + ruleType + " " + attrName + " files";
+    return String.format(
+        "in %s attribute of %s rule %s: '%s' does not produce any %s %s files",
+        attrName, ruleType, ruleName, depRuleName, ruleType, attrName);
   }
 
   protected static String getErrorMsgMisplacedFiles(
       String attrName, String ruleType, String ruleName, String fileName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": source file '"
-        + fileName + "' is misplaced here";
+    return String.format(
+        "in %s attribute of %s rule %s: source file '%s' is misplaced here",
+        attrName, ruleType, ruleName, fileName);
   }
 
   protected static String getErrorNonExistingTarget(
       String attrName, String ruleType, String ruleName, String targetName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": target '"
-        + targetName + "' does not exist";
+    return String.format(
+        "in %s attribute of %s rule %s: target '%s' does not exist",
+        attrName, ruleType, ruleName, targetName);
   }
 
   protected static String getErrorNonExistingRule(
       String attrName, String ruleType, String ruleName, String targetName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": rule '"
-        + targetName + "' does not exist";
+    return String.format(
+        "in %s attribute of %s rule %s: rule '%s' does not exist",
+        attrName, ruleType, ruleName, targetName);
   }
 
   protected static String getErrorMsgMisplacedRules(
       String attrName, String ruleType, String ruleName, String depRuleType, String depRuleName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": "
-        + depRuleType + " rule '" + depRuleName + "' is misplaced here";
+    return String.format(
+        "in %s attribute of %s rule %s: %s rule '%s' is misplaced here",
+        attrName, ruleType, ruleName, depRuleType, depRuleName);
   }
 
   protected static String getErrorMsgNonEmptyList(
       String attrName, String ruleType, String ruleName) {
-    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": attribute "
-        + "must be non empty";
+    return String.format(
+        "in %s attribute of %s rule %s: attribute must be non empty", attrName, ruleType, ruleName);
   }
 
   protected static String getErrorMsgMandatoryMissing(String attrName, String ruleType) {
-    return "missing value for mandatory attribute '" + attrName + "' in '" + ruleType + "' rule";
+    return String.format(
+        "missing value for mandatory attribute '%s' in '%s' rule", attrName, ruleType);
   }
 
   protected static String getErrorMsgWrongAttributeValue(String value, String... expected) {
-    return String.format("has to be one of %s instead of '%s'",
+    return String.format(
+        "has to be one of %s instead of '%s'",
         StringUtil.joinEnglishList(ImmutableSet.copyOf(expected), "or", "'"), value);
   }
 
   protected static String getErrorMsgMandatoryProviderMissing(
       String offendingRule, String providerName) {
-    return String.format("'%s' does not have mandatory providers: '%s'",
-        offendingRule, providerName);
+    return String.format(
+        "'%s' does not have mandatory providers: '%s'", offendingRule, providerName);
   }
 
   /**
-   * Utility method for tests that result in errors early during
-   * package loading. Given the name of the package for the test,
-   * and the rules for the build file, create a scratch file, load
-   * the build file, and produce the package.
+   * Utility method for tests that result in errors early during package loading. Given the name of
+   * the package for the test, and the rules for the build file, create a scratch file, load the
+   * build file, and produce the package.
+   *
    * @param packageName the name of the package for the build file
    * @param lines the rules for the build file as an array of strings
    * @return the loaded package from the populated package cache
-   * @throws Exception if there is an error creating the temporary files
-   *    for the test.
+   * @throws Exception if there is an error creating the temporary files for the test.
    */
   protected com.google.devtools.build.lib.packages.Package createScratchPackageForImplicitCycle(
       String packageName, String... lines) throws Exception {
@@ -2130,9 +2136,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .getPackage(reporter, PackageIdentifier.createInMainRepo(packageName));
   }
 
-  /**
-   * A stub analysis environment.
-   */
+  /** A stub analysis environment. */
   protected class StubAnalysisEnvironment implements AnalysisEnvironment {
 
     @Override
@@ -2265,7 +2269,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       BaselineCoverageAction baselineAction =
           (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
       ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      baselineAction.newDeterministicWriter(ActionsTestUtil.createContext(reporter))
+      baselineAction
+          .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
           .writeOutputFile(bytes);
 
       for (String line : Splitter.on('\n').split(new String(bytes.toByteArray(), UTF_8))) {
@@ -2304,12 +2309,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     for (int i = 1; i < suffixes.length; i++) {
       if (artifact == null) {
         if (action == null) {
-          throw new IllegalStateException("No suffix " + suffixes[0] + " among artifacts: "
-              + ActionsTestUtil.baseArtifactNames(artifacts));
+          throw new IllegalStateException(
+              String.format(
+                  "No suffix %s among artifacts: %s",
+                  suffixes[0], ActionsTestUtil.baseArtifactNames(artifacts)));
         } else {
-          throw new IllegalStateException("No suffix " + suffixes[i]
-              + " among inputs of action " + action.describe() + ": "
-              + ActionsTestUtil.baseArtifactNames(artifacts));
+          throw new IllegalStateException(
+              String.format(
+                  "No suffix %s among inputs of action %s: %s",
+                  suffixes[i], action.describe(), ActionsTestUtil.baseArtifactNames(artifacts)));
         }
       }
 
@@ -2323,6 +2331,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Retrieves an instance of {@code PseudoAction} that is shadowed by an extra action
+   *
    * @param targetLabel Label of the target with an extra action
    * @param actionListenerLabel Label of the action listener
    */
