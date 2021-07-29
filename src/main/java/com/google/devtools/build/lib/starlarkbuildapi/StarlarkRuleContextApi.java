@@ -547,19 +547,19 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             defaultValue = "False",
             named = true,
             doc =
-                "<b>Use of this parameter is not recommended. See "
-                    + "<a href=\"../rules.$DOC_EXT#runfiles\">runfiles guide</a></b>. "
-                    + "<p>Whether to collect the data "
-                    + "runfiles from the dependencies in srcs, data and deps attributes."),
+                "<b>Use of this parameter is not recommended. See <a"
+                    + " href=\"https://docs.bazel.build/skylark/rules.html#runfiles\">runfiles"
+                    + " guide</a></b>. <p>Whether to collect the data runfiles from the"
+                    + " dependencies in srcs, data and deps attributes."),
         @Param(
             name = "collect_default",
             defaultValue = "False",
             named = true,
             doc =
-                "<b>Use of this parameter is not recommended. See "
-                    + "<a href=\"../rules.$DOC_EXT#runfiles\">runfiles guide</a></b>. "
-                    + "<p>Whether to collect the default "
-                    + "runfiles from the dependencies in srcs, data and deps attributes."),
+                "<b>Use of this parameter is not recommended. See <a"
+                    + " href=\"https://docs.bazel.build/skylark/rules.html#runfiles\">runfiles"
+                    + " guide</a></b>. <p>Whether to collect the default runfiles from the"
+                    + " dependencies in srcs, data and deps attributes."),
         @Param(
             name = "symlinks",
             defaultValue = "{}",
