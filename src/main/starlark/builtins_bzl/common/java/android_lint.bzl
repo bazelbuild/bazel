@@ -18,7 +18,7 @@ load(":common/rule_util.bzl", "create_dep")
 
 java_common = _builtins.toplevel.java_common
 
-def _impl(ctx, java_info, source_files, source_jars):
+def _impl(ctx, java_info, source_files, source_jars, compilation_info):
     # assuming that linting is enabled for all java rules i.e.
     # --experimental_run_android_lint_on_java_rules=true and
     # --experimental_limit_android_lint_to_android_constrained_java=false
@@ -65,15 +65,13 @@ def _impl(ctx, java_info, source_files, source_jars):
     bootclasspath = toolchain.bootclasspath
     transitive_inputs.append(bootclasspath)
 
-    plugin_info = java_info.plugins
-    transitive_inputs.append(plugin_info.processor_jars)
-    transitive_inputs.append(plugin_info.processor_data)
-
+    transitive_inputs.append(compilation_info.plugins.processor_jars)
+    transitive_inputs.append(compilation_info.plugins.processor_data)
     args.add_all("--sources", source_files)
     args.add_all("--source_jars", source_jars)
     args.add_all("--bootclasspath", bootclasspath)
     args.add_all("--classpath", classpath)
-    args.add_all("--plugins", plugin_info.processor_jars)
+    args.add_all("--plugins", compilation_info.plugins.processor_jars)
     args.add("--target_label", ctx.label)
 
     javac_opts = java_info.compilation_info.javac_options

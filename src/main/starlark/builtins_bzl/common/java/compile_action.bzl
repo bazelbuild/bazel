@@ -55,6 +55,20 @@ def _append_legacy_jars(attr, dep_list):
                     java_info = JavaInfo(output_jar = file, compile_jar = file)
                     dep_list.append(java_info)
 
+def _collect_plugins(deps, plugins):
+    transitive_processor_jars = []
+    transitive_processor_data = []
+    for plugin in plugins:
+        transitive_processor_jars.append(plugin.plugins.processor_jars)
+        transitive_processor_data.append(plugin.plugins.processor_data)
+    for dep in deps:
+        transitive_processor_jars.append(dep.plugins.processor_jars)
+        transitive_processor_data.append(dep.plugins.processor_data)
+    return struct(
+        processor_jars = depset(transitive = transitive_processor_jars),
+        processor_data = depset(transitive = transitive_processor_data),
+    )
+
 def _compile_action(ctx, extra_resources, source_files, source_jars, output_prefix):
     deps = ctx.attr.deps
     runtime_deps = _get_attr_safe(ctx, "runtime_deps", [])
@@ -120,7 +134,13 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
         files = files_depset,
         runfiles = runfiles,
     )
-    return java_info, default_info, files
+
+    compilation_info = struct(
+        plugins = _collect_plugins(deps_javainfo, plugins),
+        outputs = files,
+    )
+
+    return java_info, default_info, compilation_info
 
 COMPILE_ACTION = create_dep(
     _compile_action,
