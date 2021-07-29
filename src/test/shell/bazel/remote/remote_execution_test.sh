@@ -1186,8 +1186,9 @@ EOF
 
   expect_log "START.*: \[.*\] Executing genrule //a:foobar"
 
-  (! [[ -e bazel-bin/a/foo.txt ]] && ! [[ -e bazel-bin/a/foobar.txt ]])
+  (! [[ -e bazel-bin/a/foo.txt ]] && ! [[ -e bazel-bin/a/foobar.txt ]]) \
   || fail "Expected no files to have been downloaded"
+
   assert_equals "" "$(ls bazel-bin/a)"
 
   bazel shutdown
