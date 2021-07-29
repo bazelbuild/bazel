@@ -288,7 +288,7 @@ public class RemoteExecutionService {
         if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
           return Spawns.mayBeCachedRemotely(spawn);
         } else {
-          return remoteOptions.remoteAcceptCached && Spawns.mayBeExecutedRemotely(spawn);
+          return remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
         }
       } else {
         // Remote cache
