@@ -326,7 +326,6 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       Starlark.checkMutable(this);
       final String argName;
-      commandLine.recordArgStart();
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values);
@@ -391,7 +390,6 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       Starlark.checkMutable(this);
       final String argName;
-      commandLine.recordArgStart();
       if (values == Starlark.UNBOUND) {
         values = argNameOrValue;
         validateValues(values);
@@ -430,23 +428,30 @@ public abstract class Args implements CommandLineArgsApi {
         String terminateWith,
         Location loc)
         throws EvalException {
+      validateFormatString("format_each", formatEach);
+      validateFormatString("format_joined", formatJoined);
       StarlarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof Depset) {
         Depset starlarkNestedSet = (Depset) value;
         NestedSet<?> nestedSet = starlarkNestedSet.getSet();
+        if (nestedSet.isEmpty() && omitIfEmpty) {
+          return;
+        }
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
         Sequence<?> starlarkList = (Sequence) value;
+        if (starlarkList.isEmpty() && omitIfEmpty) {
+          return;
+        }
         if (expandDirectories) {
           scanForDirectories(starlarkList);
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(starlarkList);
       }
-      validateFormatString("format_each", formatEach);
-      validateFormatString("format_joined", formatJoined);
+      commandLine.recordArgStart();
       vectorArg
           .setLocation(loc)
           .setArgName(argName)

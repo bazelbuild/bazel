@@ -132,6 +132,26 @@ public class FlagPerLineTest extends BuildViewTestCase {
     expectLines("--foo=bar,baz,woof");
   }
 
+  /** Tests that an add_all (empty and omitted) following two adds works. */
+  @Test
+  public void args_combinedOmittedAddAllAndAdd() throws Exception {
+    args.addAll(
+        /* argNameOrValue= */ "", // ignored
+        /* values= */ StarlarkList.of(null),
+        /* mapEach= */ Starlark.NONE,
+        /* formatEach= */ Starlark.NONE,
+        /* beforeEach= */ Starlark.NONE,
+        /* omitIfEmpty= */ true, // the default
+        /* uniquify= */ false,
+        /* expandDirectories= */ false,
+        /* terminateWith= */ Starlark.NONE,
+        thread);
+    args.addArgument("--foo1", "bar", /* format= */ Starlark.NONE, thread);
+    args.addArgument("--foo2", "bar", /* format= */ Starlark.NONE, thread);
+
+    expectLines("--foo1=bar", "--foo2=bar");
+  }
+
   private void expectLines(String... lines) throws Exception {
     assertThat(toParamFile(args)).containsExactly((Object[]) lines).inOrder();
   }
