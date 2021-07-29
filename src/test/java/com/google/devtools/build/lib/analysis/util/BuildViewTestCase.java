@@ -285,21 +285,31 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ruleClassProvider = createRuleClassProvider();
     getOutputPath().createDirectoryAndParents();
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT),
-            PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod()),
-            PrecomputedValue.injected(
-                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                ruleClassProvider.getBuildInfoFactoriesAsMap()));
+        ImmutableList.<PrecomputedValue.Injected>builder()
+            .add(
+                PrecomputedValue.injected(
+                    PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT))
+            .add(PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()))
+            .add(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()))
+            .add(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
+                    Optional.empty()))
+            .add(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+                    RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY))
+            .add(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.ENABLE_BZLMOD, enableBzlmod()))
+            .add(
+                PrecomputedValue.injected(
+                    BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
+                    ruleClassProvider.getBuildInfoFactoriesAsMap()))
+            .addAll(extraPrecomputedValues())
+            .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
@@ -382,6 +392,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Returns whether or not to enable Bzlmod in this test. */
   protected boolean enableBzlmod() {
     return false;
+  }
+
+  /**
+   * Returns extra precomputed values to inject, both into Skyframe and the testing package loaders.
+   */
+  protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues() {
+    return ImmutableList.of();
   }
 
   protected void initializeMockClient() throws IOException {
