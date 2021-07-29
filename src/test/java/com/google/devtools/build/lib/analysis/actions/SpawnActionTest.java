@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.HashMap;
@@ -179,7 +181,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 scratch.file("/bin/java").asFragment(),
                 jarArtifact,
                 "MyMainClass",
-                asList("-jvmarg"))
+                NestedSetBuilder.create(Order.STABLE_ORDER, "-jvmarg"))
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(action);
     assertThat(action.getArguments())
@@ -200,7 +202,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 scratch.file("/bin/java").asFragment(),
                 jarArtifact,
                 "MyMainClass",
-                asList("-jvmarg"))
+                NestedSetBuilder.create(Order.STABLE_ORDER, "-jvmarg"))
             .addCommandLine(
                 CustomCommandLine.builder().add("-X").build(),
                 ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
@@ -249,7 +251,7 @@ public class SpawnActionTest extends BuildViewTestCase {
                 scratch.file("/bin/java").asFragment(),
                 jarArtifact,
                 "MyMainClass",
-                asList("-jvmarg"))
+                NestedSetBuilder.create(Order.STABLE_ORDER, "-jvmarg"))
             .addExecutableArguments("execArg1", "execArg2")
             .addCommandLine(CustomCommandLine.builder().add("arg1").build())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
@@ -404,7 +406,7 @@ public class SpawnActionTest extends BuildViewTestCase {
               builder.setExecutable(executable);
             } else {
               builder.setJavaExecutable(
-                  executable, jarArtifact, "Main", ImmutableList.<String>of());
+                  executable, jarArtifact, "Main", NestedSetBuilder.emptySet(Order.STABLE_ORDER));
             }
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");

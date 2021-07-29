@@ -1057,12 +1057,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return addTool(executableProvider);
     }
 
-    private Builder setJavaExecutable(PathFragment javaExecutable, Artifact deployJar,
-        List<String> jvmArgs, String... launchArgs) {
+    private Builder setJavaExecutable(
+        PathFragment javaExecutable,
+        Artifact deployJar,
+        NestedSet<String> jvmArgs,
+        String... launchArgs) {
       this.executableArgs =
           CustomCommandLine.builder()
               .addPath(javaExecutable)
-              .addAll(ImmutableList.copyOf(jvmArgs))
+              .addAll(jvmArgs)
               .addAll(ImmutableList.copyOf(launchArgs));
       toolsBuilder.add(deployJar);
       this.isShellCommand = false;
@@ -1080,7 +1083,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         PathFragment javaExecutable,
         Artifact deployJar,
         String javaMainClass,
-        List<String> jvmArgs) {
+        NestedSet<String> jvmArgs) {
       return setJavaExecutable(javaExecutable, deployJar, jvmArgs, "-cp",
           deployJar.getExecPathString(), javaMainClass);
     }
@@ -1096,7 +1099,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     public Builder setJarExecutable(
-        PathFragment javaExecutable, Artifact deployJar, List<String> jvmArgs) {
+        PathFragment javaExecutable, Artifact deployJar, NestedSet<String> jvmArgs) {
       return setJavaExecutable(javaExecutable, deployJar, jvmArgs, "-jar",
           deployJar.getExecPathString());
     }

@@ -46,6 +46,7 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
         tools = [linter.tool]
     else:
         args.add_all(toolchain.jvm_opt)
+        args.add_all(linter.jvm_opts)
         args.add("-jar", executable)
         executable = java_runtime.java_executable_exec_path
         tools = [java_runtime.files, linter.tool]

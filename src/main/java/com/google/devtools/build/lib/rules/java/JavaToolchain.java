@@ -86,8 +86,10 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools");
 
-    ImmutableList<String> jvmOpts =
-        ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list("jvm_opts");
+    NestedSet<String> jvmOpts =
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list("jvm_opts"));
 
     JavaToolchainTool javabuilder =
         JavaToolchainTool.fromRuleContext(
