@@ -34,11 +34,13 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -536,5 +538,33 @@ public final class Utils {
     // Format as single digit decimal number, but skipping the trailing .0.
     DecimalFormat fmt = new DecimalFormat("0.#");
     return String.format("%s %s", fmt.format(value / 1024.0), UNITS.get(unitIndex));
+  }
+
+  /** Returns {@code true} if the {@link Spawn} should accept cached result from remote cache. */
+  public static boolean shouldAcceptCachedResultFromRemoteCache(RemoteOptions options, Spawn spawn) {
+    return options.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
+  }
+
+  /** Returns {@code true} if the {@link Spawn} should accept cached result from disk cache. */
+  public static boolean shouldAcceptCachedResultFromDiskCache(RemoteOptions options, Spawn spawn) {
+    if (options.incompatibleRemoteResultsIgnoreDisk) {
+      return Spawns.mayBeCached(spawn);
+    } else {
+      return options.remoteAcceptCached && Spawns.mayBeCached(spawn);
+    }
+  }
+
+  /** Returns {@code true} if the {@link Spawn} should upload local results to remote cache. */
+  public static boolean shouldUploadLocalResultsToRemoteCache(RemoteOptions options, Spawn spawn) {
+    return options.remoteUploadLocalResults && Spawns.mayBeCachedRemotely(spawn);
+  }
+
+  /** Returns {@code true} if the {@link Spawn} should upload local results to disk cache. */
+  public static boolean shouldUploadLocalResultsToDiskCache(RemoteOptions options, Spawn spawn) {
+    if (options.incompatibleRemoteResultsIgnoreDisk) {
+      return Spawns.mayBeCached(spawn);
+    } else {
+      return options.remoteUploadLocalResults && Spawns.mayBeCached(spawn);
+    }
   }
 }

@@ -25,7 +25,11 @@ import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransf
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromDiskCache;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -278,13 +282,9 @@ public class RemoteExecutionService {
     }
 
     if (useDiskCache(remoteOptions)) {
-      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-        return Spawns.mayBeCached(spawn);
-      } else {
-        return remoteOptions.remoteAcceptCached && Spawns.mayBeCached(spawn);
-      }
+      return shouldAcceptCachedResultFromDiskCache(remoteOptions, spawn);
     } else {
-      return remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
+      return shouldAcceptCachedResultFromRemoteCache(remoteOptions, spawn);
     }
   }
 
@@ -295,13 +295,9 @@ public class RemoteExecutionService {
     }
 
     if (useDiskCache(remoteOptions)) {
-      if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
-        return Spawns.mayBeCached(spawn);
-      } else {
-        return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCached(spawn);
-      }
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, spawn);
     } else {
-      return remoteOptions.remoteUploadLocalResults && Spawns.mayBeCachedRemotely(spawn);
+      return shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn);
     }
   }
 
@@ -345,7 +341,7 @@ public class RemoteExecutionService {
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
     RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.create(metadata);
+        RemoteActionExecutionContext.createForSpawn(spawn, metadata);
 
     return new RemoteAction(
         spawn,
