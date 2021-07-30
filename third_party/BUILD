@@ -701,7 +701,7 @@ java_import(
 distrib_java_import(
     name = "xz",
     enable_distributions = ["debian"],
-    jars = ["xz/xz-1.5.jar"],
+    jars = ["xz/xz-1.9.jar"],
 )
 
 # To be used by the skylark example.
