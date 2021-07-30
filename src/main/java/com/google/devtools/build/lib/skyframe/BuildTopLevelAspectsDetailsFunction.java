@@ -136,7 +136,9 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
               /** inheritedRequiredProviders= */
               ImmutableList.of(),
               /** inheritedAttributeAspects= */
-              ImmutableList.of());
+              ImmutableList.of(),
+              /** allowAspectsParameters= */
+              false);
         } catch (EvalException e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(

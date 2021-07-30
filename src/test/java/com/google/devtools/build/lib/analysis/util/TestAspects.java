@@ -260,6 +260,8 @@ public class TestAspects {
       new SimpleStarlarkNativeAspect();
   public static final ParametrizedAspectWithProvider
       PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER = new ParametrizedAspectWithProvider();
+  public static final StarlarkNativeAspectWithProvider STARLARK_NATIVE_ASPECT_WITH_PROVIDER =
+      new StarlarkNativeAspectWithProvider();
 
   private static final AspectDefinition SIMPLE_ASPECT_DEFINITION =
       new AspectDefinition.Builder(SIMPLE_ASPECT).build();
@@ -486,6 +488,28 @@ public class TestAspects {
     }
   }
 
+  /** A native aspect exposed to Starlark and advertises a simple provider. */
+  public static class StarlarkNativeAspectWithProvider extends StarlarkNativeAspect
+      implements ConfiguredAspectFactory {
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      AspectDefinition.Builder builder =
+          new AspectDefinition.Builder(STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+      return builder.build();
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTargetAndData ctadBase,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        String toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
+    }
+  }
+
   /**
    * An aspect that has a definition depending on parameters provided by originating rule and
    * advertises a simple provider.
@@ -526,6 +550,11 @@ public class TestAspects {
                 .addAttribute("aspect_attr", attributes.get("aspect_attr", Type.STRING))
                 .build();
           };
+    }
+
+    @Override
+    public ImmutableSet<String> getParamAttributes() {
+      return ImmutableSet.of("aspect_attr");
     }
   }
 

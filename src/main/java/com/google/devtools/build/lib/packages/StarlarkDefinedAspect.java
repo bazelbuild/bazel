@@ -272,11 +272,17 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       String baseAspectName,
       AspectsListBuilder aspectsList,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
-      ImmutableList<String> inheritedAttributeAspects)
+      ImmutableList<String> inheritedAttributeAspects,
+      boolean allowAspectsParameters)
       throws EvalException {
+
     if (!this.isExported()) {
       throw Starlark.errorf(
           "Aspects should be top-level values in extension files that define them.");
+    }
+
+    if (!allowAspectsParameters && !this.paramAttributes.isEmpty()) {
+      throw Starlark.errorf("Cannot use parameterized aspect %s at the top level.", this.getName());
     }
 
     if (!this.requiredAspects.isEmpty()) {
@@ -306,7 +312,8 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
             this.getName(),
             aspectsList,
             requiredAspectInheritedRequiredProviders.build(),
-            requiredAspectInheritedAttributeAspects.build());
+            requiredAspectInheritedAttributeAspects.build(),
+            allowAspectsParameters);
       }
     }
 

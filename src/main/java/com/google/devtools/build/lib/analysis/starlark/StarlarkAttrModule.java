@@ -268,7 +268,9 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             /** inheritedRequiredProviders= */
             ImmutableList.of(),
             /** inheritedAttributeAspects= */
-            ImmutableList.of());
+            ImmutableList.of(),
+            /** allowAspectsParameters= */
+            true);
       }
     }
 
