@@ -102,35 +102,13 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     final PackageFactory pkgFactory;
     BlazeDirectories directories =
         new BlazeDirectories(
-            new ServerDirectories(outputBase, outputBase, outputBase),
+            new ServerDirectories(rootDirectory, outputBase, outputBase),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
-    mockToolsConfig.create("bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
-    mockToolsConfig.create("bazel_tools_workspace/tools/build_defs/repo/BUILD");
-    mockToolsConfig.create(
-        "bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
-        "def maybe(repo_rule, name, **kwargs):",
-        "  if name not in native.existing_rules():",
-        "    repo_rule(name = name, **kwargs)");
-    mockToolsConfig.create(
-        "bazel_tools_workspace/tools/build_defs/repo/http.bzl",
-        "def http_archive(**kwargs):",
-        "  pass",
-        "",
-        "def http_file(**kwargs):",
-        "  pass");
-    mockToolsConfig.create(
-        "bazel_tools_workspace/tools/jdk/local_java_repository.bzl",
-        "def local_java_repository(**kwargs):",
-        "  pass");
-    mockToolsConfig.create(
-        "bazel_tools_workspace/tools/jdk/remote_java_repository.bzl",
-        "def remote_java_repository(**kwargs):",
-        "  pass");
-
+    analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 

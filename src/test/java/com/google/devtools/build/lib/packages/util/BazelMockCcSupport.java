@@ -65,7 +65,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   public String getMockCrosstoolPath() {
-    return "bazel_tools_workspace/tools/cpp/";
+    return "embedded_tools/tools/cpp/";
   }
 
   @Override
