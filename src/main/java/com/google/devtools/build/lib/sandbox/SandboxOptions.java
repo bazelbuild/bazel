@@ -80,11 +80,12 @@ public class SandboxOptions extends OptionsBase {
   }
 
   @Option(
-      name = "ignore_unsupported_sandboxing",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Do not print a warning when sandboxed execution is not supported on this system.")
+    name = "ignore_unsupported_sandboxing",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Do not print a warning when sandboxed execution is not supported on this system."
+  )
   public boolean ignoreUnsupportedSandboxing;
 
   @Option(
@@ -114,19 +115,21 @@ public class SandboxOptions extends OptionsBase {
   public String sandboxBase;
 
   @Option(
-      name = "sandbox_fake_hostname",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Change the current hostname to 'localhost' for sandboxed actions.")
+    name = "sandbox_fake_hostname",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Change the current hostname to 'localhost' for sandboxed actions."
+  )
   public boolean sandboxFakeHostname;
 
   @Option(
-      name = "sandbox_fake_username",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Change the current username to 'nobody' for sandboxed actions.")
+    name = "sandbox_fake_username",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Change the current username to 'nobody' for sandboxed actions."
+  )
   public boolean sandboxFakeUsername;
 
   @Option(
@@ -184,13 +187,14 @@ public class SandboxOptions extends OptionsBase {
   public TriState useSandboxfs;
 
   @Option(
-      name = "experimental_sandboxfs_path",
-      defaultValue = "sandboxfs",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Path to the sandboxfs binary to use when --experimental_use_sandboxfs is true. If a "
-              + "bare name, use the first binary of that name found in the PATH.")
+    name = "experimental_sandboxfs_path",
+    defaultValue = "sandboxfs",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Path to the sandboxfs binary to use when --experimental_use_sandboxfs is true. If a "
+            + "bare name, use the first binary of that name found in the PATH."
+  )
   public String sandboxfsPath;
 
   @Option(
@@ -243,48 +247,50 @@ public class SandboxOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_collect_local_sandbox_action_metrics",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "When enabled, execution statistics (such as user and system time) are recorded for "
-              + "locally executed actions which use sandboxing")
+    name = "experimental_collect_local_sandbox_action_metrics",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "When enabled, execution statistics (such as user and system time) are recorded for "
+            + "locally executed actions which use sandboxing"
+  )
   public boolean collectLocalSandboxExecutionStatistics;
 
   @Option(
-      name = "experimental_enable_docker_sandbox",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Enable Docker-based sandboxing. This option has no effect if Docker is not installed.")
+    name = "experimental_enable_docker_sandbox",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help = "Enable Docker-based sandboxing. This option has no effect if Docker is not installed.")
   public boolean enableDockerSandbox;
 
   @Option(
-      name = "experimental_docker_image",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Specify a Docker image name (e.g. \"ubuntu:latest\") that should be used to execute a"
-              + " sandboxed action when using the docker strategy and the action itself doesn't"
-              + " already have a container-image attribute in its remote_execution_properties in"
-              + " the platform description. The value of this flag is passed verbatim to 'docker"
-              + " run', so it supports the same syntax and mechanisms as Docker itself.")
+    name = "experimental_docker_image",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "Specify a Docker image name (e.g. \"ubuntu:latest\") that should be used to execute "
+            + "a sandboxed action when using the docker strategy and the action itself doesn't "
+            + "already have a container-image attribute in its remote_execution_properties in the "
+            + "platform description. The value of this flag is passed verbatim to 'docker run', so "
+            + "it supports the same syntax and mechanisms as Docker itself."
+  )
   public String dockerImage;
 
   @Option(
-      name = "experimental_docker_use_customized_images",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If enabled, injects the uid and gid of the current user into the Docker image before"
-              + " using it. This is required if your build / tests depend on the user having a name"
-              + " and home directory inside the container. This is on by default, but you can"
-              + " disable it in case the automatic image customization feature doesn't work in your"
-              + " case or you know that you don't need it.")
+    name = "experimental_docker_use_customized_images",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.EXECUTION},
+    help =
+        "If enabled, injects the uid and gid of the current user into the Docker image before "
+            + "using it. This is required if your build / tests depend on the user having a name "
+            + "and home directory inside the container. This is on by default, but you can disable "
+            + "it in case the automatic image customization feature doesn't work in your case or "
+            + "you know that you don't need it."
+  )
   public boolean dockerUseCustomizedImages;
 
   @Option(
@@ -353,9 +359,8 @@ public class SandboxOptions extends OptionsBase {
       },
       help =
           "If set to true, enables the legacy implicit fallback from sandboxed to local strategy."
-              + " This flag will eventually default to false and then become a no-op. Use"
-              + " --strategy, --spawn_strategy, or --dynamic_local_strategy to configure fallbacks"
-              + " instead.")
+              + " This flag will eventually default to false and then become a no-op. You should"
+              + " use --strategy or --spawn_strategy to configure fallbacks instead.")
   public boolean legacyLocalFallback;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */

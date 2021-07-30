@@ -88,37 +88,26 @@ public final class SpawnStrategyResolver implements ActionContext {
             .getContext(SpawnStrategyRegistry.class)
             .getStrategies(spawn, actionExecutionContext.getEventHandler());
 
-    List<? extends SpawnStrategy> execableStrategies =
+    strategies =
         strategies.stream()
             .filter(spawnActionContext -> spawnActionContext.canExec(spawn, actionExecutionContext))
             .collect(Collectors.toList());
 
-    if (execableStrategies.isEmpty()) {
-      // Legacy implicit fallbacks should be a last-ditch option after all other strategies are
-      // found non-executable.
-      List<? extends SpawnStrategy> fallbackStrategies =
-          strategies.stream()
-              .filter(
-                  spawnActionContext ->
-                      spawnActionContext.canExecWithLegacyFallback(spawn, actionExecutionContext))
-              .collect(Collectors.toList());
-
-      if (fallbackStrategies.isEmpty()) {
-        String message =
-            String.format(
-                "No usable spawn strategy found for spawn with mnemonic %s.  Your --spawn_strategy,"
-                    + " --genrule_strategy and/or --strategy flags are probably too strict. Visit"
-                    + " https://github.com/bazelbuild/bazel/issues/7480 for migration advice",
-                spawn.getMnemonic());
-        throw new UserExecException(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
-                .build());
-      }
-      return fallbackStrategies;
+    if (strategies.isEmpty()) {
+      String message =
+          String.format(
+              "No usable spawn strategy found for spawn with mnemonic %s.  Your"
+                  + " --spawn_strategy, --genrule_strategy and/or --strategy flags are probably too"
+                  + " strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
+                  + " migration advice",
+              spawn.getMnemonic());
+      throw new UserExecException(
+          FailureDetail.newBuilder()
+              .setMessage(message)
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
+              .build());
     }
 
-    return execableStrategies;
+    return strategies;
   }
 }

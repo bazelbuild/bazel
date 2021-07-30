@@ -433,8 +433,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
-      if (strategy.canExec(spawn, actionContextRegistry)
-          || strategy.canExecWithLegacyFallback(spawn, actionContextRegistry)) {
+      if (strategy.canExec(spawn, actionContextRegistry)) {
         return true;
       }
     }
@@ -475,8 +474,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
-      if (strategy.canExec(spawn, actionExecutionContext)
-          || strategy.canExecWithLegacyFallback(spawn, actionExecutionContext)) {
+      if (strategy.canExec(spawn, actionExecutionContext)) {
         return strategy.exec(spawn, actionExecutionContext, stopConcurrentSpawns);
       }
     }

@@ -50,22 +50,8 @@ public interface SpawnStrategy {
     }
   }
 
-  /**
-   * Returns whether this SpawnActionContext supports executing the given Spawn. This does not allow
-   * using the legacy fallback to local execution controlled by the {@code
-   * --incompatible_legacy_local_fallback} flag.
-   */
+  /** Returns whether this SpawnActionContext supports executing the given Spawn. */
   boolean canExec(Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry);
-
-  /**
-   * Returns true if this SpawnActionContext supports executing the given Spawn through a legacy
-   * fallback system. This will only be used if no SpawnActionContexts were able to execute it by
-   * normal means.
-   */
-  default boolean canExecWithLegacyFallback(
-      Spawn spawn, ActionContext.ActionContextRegistry actionContextRegistry) {
-    return false;
-  }
 
   /**
    * Performs any actions conditional on this strategy not only being registered but triggered as
