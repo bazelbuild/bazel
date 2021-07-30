@@ -34,10 +34,6 @@ public interface DynamicStrategyRegistry extends ActionContext {
     public String toString() {
       return name;
     }
-
-    public DynamicMode other() {
-      return this == REMOTE ? LOCAL : REMOTE;
-    }
   }
 
   /**
