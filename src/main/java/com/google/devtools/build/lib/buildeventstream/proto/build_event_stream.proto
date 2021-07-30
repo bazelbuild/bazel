@@ -867,8 +867,7 @@ message BuildMetrics {
 
   message MemoryMetrics {
     // Size of the JVM heap post build in bytes. This is only collected if
-    // --bep_publish_used_heap_size_post_build or --memory_profile is set, since
-    // it forces a full GC.
+    // --memory_profile is set, since it forces a full GC.
     int64 used_heap_size_post_build = 1;
 
     // Size of the peak JVM heap size in bytes post GC. Note that this reports 0

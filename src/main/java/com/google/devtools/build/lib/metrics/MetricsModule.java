@@ -36,6 +36,7 @@ public class MetricsModule extends BlazeModule {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
+        deprecationWarning = "Use --memory_profile=/dev/null instead",
         help =
             "When set we collect and publish used_heap_size_post_build "
                 + "from build_event_stream.proto. This forces a full GC and is off by default.")

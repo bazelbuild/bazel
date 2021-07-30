@@ -75,8 +75,8 @@ work that is reused.
 
 Note that `memory_metrics` may not be populated if there was no Java garbage
 collection during the command's execution. Users may set the
-`--bep_publish_used_heap_size_post_build` option which forces the garbage
-collector to run at the end of the command to populate `memory_metrics`.
+`--memory_profile=/dev/null` option which forces the garbage collector to run at
+the end of the command to populate `memory_metrics`.
 
 <p>
   <button class="btn btn-primary" type="button" data-toggle="collapse"
