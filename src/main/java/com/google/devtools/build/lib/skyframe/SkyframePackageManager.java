@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -104,6 +107,22 @@ class SkyframePackageManager implements PackageManager, CachingPackageLocator {
     // TODO(bazel-team): The implementation in PackageCache also checks for duplicate packages, see
     // BuildFileCache#getBuildFile [skyframe-loading]
     return pkgLocator.get().getPackageBuildFileNullable(packageName, syscalls);
+  }
+
+  @Override
+  public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    try {
+      Package pkg =
+          checkNotNull(
+              packageLoader.getPackage(eventHandler, packageName),
+              "Already loaded package not present: %s",
+              eventHandler);
+      return pkg.getBuildFileLabel().getName();
+    } catch (InterruptedException | NoSuchPackageException e) {
+      throw new IllegalStateException(
+          "Can't have error for loaded " + packageName + ", " + eventHandler, e);
+    }
   }
 
   @Override

@@ -110,6 +110,12 @@ public class GlobCacheTest {
                   return null;
                 }
               }
+
+              @Override
+              public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+                Path buildFileForPackage = getBuildFileForPackage(packageName);
+                return buildFileForPackage == null ? null : buildFileForPackage.getBaseName();
+              }
             },
             null,
             TestUtils.getPool(),
