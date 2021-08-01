@@ -274,9 +274,9 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
-    if ((enableHttpCache || enableDiskCache) && enableRemoteExecution) {
+    if (enableHttpCache && enableRemoteExecution) {
       throw createOptionsExitException(
-          "Cannot combine gRPC based remote execution with disk caching or HTTP-based caching",
+          "Cannot combine gRPC based remote execution with HTTP-based caching",
           FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
     }
 
@@ -292,7 +292,10 @@ public final class RemoteModule extends BlazeModule {
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-remote-logs");
     cleanAndCreateRemoteLogsDir(logDir);
 
-    if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
+    if ((enableHttpCache || enableDiskCache)  && !enableGrpcCache) {
+      // TODO(ron) here and probably above.
+      // TODO(ron): need to reutrn the cacheChannel to use below ...
+      // Maybe just call initRemoteAndDiskCache directly below
       initHttpAndDiskCache(env, authAndTlsOptions, remoteOptions, digestUtil);
       return;
     }
@@ -343,6 +346,10 @@ public final class RemoteModule extends BlazeModule {
         cacheChannel = execChannel.retain();
       }
     }
+    // TODO(ron): combine the two?
+    if (enableDiskCache && enableGrpcCache) {
+      // initGrpcAndDiskCache(env, authAndTlsOptions, remoteOptions, digestUtil);
+    }
 
     if (cacheChannel == null) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
@@ -350,6 +357,7 @@ public final class RemoteModule extends BlazeModule {
       if (loggingInterceptor != null) {
         interceptors.add(loggingInterceptor);
       }
+      // TODO(ron) fix this too? perhaps we set cacheChannel earlier
       cacheChannel =
           new ReferenceCountedChannel(
               new GoogleChannelConnectionFactory(
@@ -490,6 +498,9 @@ public final class RemoteModule extends BlazeModule {
             retrier);
 
     cacheChannel.release();
+    // compare A (grpc)
+    // cache client should create one of 3
+    // grpc ,disk or combo. make a method for it?
     RemoteCacheClient cacheClient =
         new GrpcCacheClient(
             cacheChannel.retain(),
@@ -501,9 +512,27 @@ public final class RemoteModule extends BlazeModule {
     uploader.release();
     buildEventArtifactUploaderFactoryDelegate.init(
         new ByteStreamBuildEventArtifactUploaderFactory(
+            // TODO(ron): is this correct for a combo disk and grpc client, just grpc
+            // check what we for the non grpc  case, how to init buildEventArtifactUploaderFD
             uploader, cacheClient, remoteBytestreamUriPrefix, buildRequestId, invocationId));
 
     if (enableRemoteExecution) {
+
+      if(enableDiskCache) {
+        try {
+        cacheClient = RemoteCacheClientFactory.createDiskAndRemoteClient(
+            env.getWorkingDirectory(),
+            remoteOptions.diskCache,
+            remoteOptions.remoteVerifyDownloads,
+            digestUtil,
+            cacheClient,
+            remoteOptions);
+        } catch (IOException e) {
+          handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
+          return;
+        }
+      }
+
       RemoteExecutionClient remoteExecutor;
       if (remoteOptions.remoteExecutionKeepalive) {
         RemoteRetrier execRetrier =
@@ -526,11 +555,13 @@ public final class RemoteModule extends BlazeModule {
             new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
       }
       execChannel.release();
+      // As long as cacheClient matches initGrpcAndDisk we are good.
       RemoteExecutionCache remoteCache =
           new RemoteExecutionCache(cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
-              env, remoteOptions, remoteCache, remoteExecutor, retryScheduler, digestUtil, logDir);
+              env, remoteOptions, remoteCache, remoteExecutor, retryScheduler, digestUtil,
+              logDir);
       repositoryRemoteExecutorFactoryDelegate.init(
           new RemoteRepositoryRemoteExecutorFactory(
               remoteCache,

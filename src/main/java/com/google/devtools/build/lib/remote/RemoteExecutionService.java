@@ -357,6 +357,10 @@ public class RemoteExecutionService {
   public RemoteActionResult lookupCache(RemoteAction action)
       throws IOException, InterruptedException {
     checkNotNull(remoteCache, "remoteCache can't be null");
+    java.io.File file = new java.io.File("/tmp/blog.log");
+    com.google.common.io.CharSink chs = com.google.common.io.Files.asCharSink(
+      file, com.google.common.base.Charsets.UTF_8, com.google.common.io.FileWriteMode.APPEND);
+    chs.write("IN lookupCache for " + remoteCache.cacheProtocol.getClass().toString()+ "\n");
     ActionResult actionResult =
         remoteCache.downloadActionResult(
             action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);

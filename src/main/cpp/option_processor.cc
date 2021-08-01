@@ -447,11 +447,13 @@ blaze_exit_code::ExitCode OptionProcessor::GetRcFiles(
   if (!lost_files.empty()) {
     std::string joined_lost_rcs;
     blaze_util::JoinStrings(lost_files, '\n', &joined_lost_rcs);
+    /*
     BAZEL_LOG(WARNING)
         << "The following rc files are no longer being read, please transfer "
            "their contents or import their path into one of the standard rc "
            "files:\n"
         << joined_lost_rcs;
+*/
   }
 
   return blaze_exit_code::SUCCESS;

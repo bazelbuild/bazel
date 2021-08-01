@@ -101,9 +101,7 @@ StartupOptions::StartupOptions(const string &product_name,
   if (blaze::IsRunningWithinTest()) {
     output_root = blaze_util::MakeAbsolute(blaze::GetPathEnv("TEST_TMPDIR"));
     max_idle_secs = 15;
-    BAZEL_LOG(USER) << "$TEST_TMPDIR defined: output root default is '"
-                    << output_root << "' and max_idle_secs default is '"
-                    << max_idle_secs << "'.";
+    //BAZEL_LOG(USER) << "$TEST_TMPDIR defined: output root default is '" << output_root << "' and max_idle_secs default is '" << max_idle_secs << "'.";
   } else {
     output_root = workspace_layout->GetOutputRoot();
     max_idle_secs = 3 * 3600;

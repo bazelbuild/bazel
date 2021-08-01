@@ -42,6 +42,20 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   private final DiskCacheClient diskCache;
   private final RemoteOptions options;
 
+
+  private void logit(String msg) {
+    try {
+    java.io.File file = new java.io.File("/tmp/blog.log");
+    com.google.common.io.CharSink chs = com.google.common.io.Files.asCharSink(
+        file, com.google.common.base.Charsets.UTF_8, com.google.common.io.FileWriteMode.APPEND);
+    chs.write(msg);
+    chs.write("\n");}
+    catch (IOException ioe) {
+      // ignore
+    }
+
+  }
+
   public DiskAndRemoteCacheClient(
       DiskCacheClient diskCache, RemoteCacheClient remoteCache, RemoteOptions options) {
     this.diskCache = Preconditions.checkNotNull(diskCache);
@@ -69,8 +83,10 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     try {
+      logit("disk up file");
       diskCache.uploadFile(context, digest, file).get();
       if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
+        logit("remote up file");
         remoteCache.uploadFile(context, digest, file).get();
       }
     } catch (ExecutionException e) {
@@ -85,8 +101,10 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try {
+      logit("disk up blob");
       diskCache.uploadBlob(context, digest, data).get();
       if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteUploadLocalResults) {
+        logit("rem up blob");
         remoteCache.uploadBlob(context, digest, data).get();
       }
     } catch (ExecutionException e) {
@@ -100,10 +118,20 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
+    // if remote execution, find missing digests should only look at
+    // the remote cache, not the disk cache because the remote executor only
+    // has access to the remote cache, not the disk cache.
+    // Also, the current code for the DiskCache always returns all digests as missing
+    // and we don't want to transfer all the files all the time.
+    if (options.isRemoteExecutionEnabled()) {
+      logit("single fmd");
+      //return remoteCache.findMissingDigests(context, digests);
+    }
     ListenableFuture<ImmutableSet<Digest>> remoteQuery =
         remoteCache.findMissingDigests(context, digests);
     ListenableFuture<ImmutableSet<Digest>> diskQuery =
         diskCache.findMissingDigests(context, digests);
+    logit("both fmd");
     return Futures.whenAllSucceed(remoteQuery, diskQuery)
         .call(
             () ->
@@ -138,6 +166,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     if (diskCache.contains(digest)) {
+      logit("disk dblob");
       return diskCache.downloadBlob(context, digest, out);
     }
 
@@ -146,6 +175,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     tempOut = new LazyFileOutputStream(tempPath);
 
     if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
+      logit("rem dblob");
       ListenableFuture<Void> download =
           closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);
       return Futures.transformAsync(
@@ -168,17 +198,21 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    logit("disk disk check ac");
     if (diskCache.containsActionResult(actionKey)) {
+      logit("disk down ac");
       return diskCache.downloadActionResult(context, actionKey, inlineOutErr);
     }
 
     if (!options.incompatibleRemoteResultsIgnoreDisk || options.remoteAcceptCached) {
+      logit("rem down ac");
       return Futures.transformAsync(
           remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
           (actionResult) -> {
             if (actionResult == null) {
               return Futures.immediateFuture(null);
             } else {
+              logit("disk up ac");
               diskCache.uploadActionResult(context, actionKey, actionResult);
               return Futures.immediateFuture(actionResult);
             }

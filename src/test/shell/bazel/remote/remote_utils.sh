@@ -53,6 +53,7 @@ function stop_worker() {
     kill -9 "${pid}"
     rm -rf "${pid_file}"
   fi
+
   if [ -d "${work_path}" ]; then
     rm -rf "${work_path}"
   fi
@@ -60,3 +61,5 @@ function stop_worker() {
     rm -rf "${cas_path}"
   fi
 }
+
+# TODO(ron): add get_stat method
