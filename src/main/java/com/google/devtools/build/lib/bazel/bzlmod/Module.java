@@ -16,7 +16,9 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -44,6 +46,71 @@ public abstract class Module {
   public abstract int getCompatibilityLevel();
 
   /**
+   * Target patterns identifying execution platforms to register when this module is selected. Note
+   * that these are what was written in module files verbatim, and don't contain canonical repo
+   * names.
+   */
+  public abstract ImmutableList<String> getExecutionPlatformsToRegister();
+
+  /**
+   * Target patterns identifying toolchains to register when this module is selected. Note that
+   * these are what was written in module files verbatim, and don't contain canonical repo names.
+   */
+  public abstract ImmutableList<String> getToolchainsToRegister();
+
+  /**
+   * Target patterns (with canonical repo names) identifying execution platforms to register when
+   * this module is selected. We need the key of this module in the dep graph to know its canonical
+   * repo name.
+   */
+  public final ImmutableList<String> getCanonicalizedExecutionPlatformsToRegister(ModuleKey key)
+      throws ExternalDepsException {
+    return canonicalizeTargetPatterns(getExecutionPlatformsToRegister(), key);
+  }
+
+  /**
+   * Target patterns (with canonical repo names) identifying toolchains to register when this module
+   * is selected. We need the key of this module in the dep graph to know its canonical repo name.
+   */
+  public final ImmutableList<String> getCanonicalizedToolchainsToRegister(ModuleKey key)
+      throws ExternalDepsException {
+    return canonicalizeTargetPatterns(getToolchainsToRegister(), key);
+  }
+
+  /**
+   * Rewrites the given target patterns to have canonical repo names, assuming that they're
+   * originally written in the context of the module identified by {@code key} and {@code module}.
+   */
+  private ImmutableList<String> canonicalizeTargetPatterns(
+      ImmutableList<String> targetPatterns, ModuleKey key) throws ExternalDepsException {
+    ImmutableList.Builder<String> renamedPatterns = ImmutableList.builder();
+    for (String pattern : targetPatterns) {
+      if (!pattern.startsWith("@")) {
+        renamedPatterns.add("@" + key.getCanonicalRepoName() + pattern);
+        continue;
+      }
+      int doubleSlashIndex = pattern.indexOf("//");
+      if (doubleSlashIndex == -1) {
+        throw ExternalDepsException.withMessage(
+            Code.BAD_MODULE, "%s refers to malformed target pattern: %s", key, pattern);
+      }
+      String repoName = pattern.substring(1, doubleSlashIndex);
+      ModuleKey depKey = getDeps().get(repoName);
+      if (depKey == null) {
+        throw ExternalDepsException.withMessage(
+            Code.BAD_MODULE,
+            "%s refers to target pattern %s with unknown repo %s",
+            key,
+            pattern,
+            repoName);
+      }
+      renamedPatterns.add(
+          "@" + depKey.getCanonicalRepoName() + pattern.substring(doubleSlashIndex));
+    }
+    return renamedPatterns.build();
+  }
+
+  /**
    * The direct dependencies of this module. The key type is the repo name of the dep, and the value
    * type is the ModuleKey (name+version) of the dep.
    */
@@ -64,7 +131,9 @@ public abstract class Module {
     return new AutoValue_Module.Builder()
         .setName("")
         .setVersion(Version.EMPTY)
-        .setCompatibilityLevel(0);
+        .setCompatibilityLevel(0)
+        .setExecutionPlatformsToRegister(ImmutableList.of())
+        .setToolchainsToRegister(ImmutableList.of());
   }
 
   /**
@@ -90,6 +159,12 @@ public abstract class Module {
 
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);
+
+    /** Optional; defaults to an empty list. */
+    public abstract Builder setExecutionPlatformsToRegister(ImmutableList<String> value);
+
+    /** Optional; defaults to an empty list. */
+    public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
     public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 

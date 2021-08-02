@@ -69,9 +69,38 @@ public interface ModuleFileGlobalsApi {
             named = true,
             positional = false,
             defaultValue = "0"),
-        // TODO(wyv): bazel_compatibility, module_rule_exports, toolchains & platforms
+        @Param(
+            name = "execution_platforms_to_register",
+            doc =
+                "A list of already-defined execution platforms to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
+        @Param(
+            name = "toolchains_to_register",
+            doc =
+                "A list of already-defined toolchains to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
+        // TODO(wyv): bazel_compatibility, module_rule_exports
       })
-  void module(String name, String version, StarlarkInt compatibilityLevel)
+  void module(
+      String name,
+      String version,
+      StarlarkInt compatibilityLevel,
+      Iterable<?> executionPlatformsToRegister,
+      Iterable<?> toolchainsToRegister)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

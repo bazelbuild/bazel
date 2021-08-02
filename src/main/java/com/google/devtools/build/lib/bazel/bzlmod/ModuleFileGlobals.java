@@ -37,7 +37,12 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
   public ModuleFileGlobals() {}
 
   @Override
-  public void module(String name, String version, StarlarkInt compatibilityLevel)
+  public void module(
+      String name,
+      String version,
+      StarlarkInt compatibilityLevel,
+      Iterable<?> executionPlatformsToRegister,
+      Iterable<?> toolchainsToRegister)
       throws EvalException {
     if (moduleCalled) {
       throw Starlark.errorf("the module() directive can only be called once");
@@ -53,7 +58,12 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
     module
         .setName(name)
         .setVersion(parsedVersion)
-        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"));
+        .setCompatibilityLevel(compatibilityLevel.toInt("compatibility_level"))
+        .setExecutionPlatformsToRegister(
+            checkAllAbsolutePatterns(
+                executionPlatformsToRegister, "execution_platforms_to_register"))
+        .setToolchainsToRegister(
+            checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
   }
 
   @Override
@@ -94,6 +104,20 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
     }
 
     return result.build();
+  }
+
+  private static ImmutableList<String> checkAllAbsolutePatterns(Iterable<?> iterable, String where)
+      throws EvalException {
+    ImmutableList<String> list = checkAllStrings(iterable, where);
+    for (String item : list) {
+      if (!item.startsWith("//") && !item.startsWith("@")) {
+        throw Starlark.errorf(
+            "Expected absolute target patterns (must begin with '//' or '@') for '%s' argument, but"
+                + " got '%s' in the sequence",
+            where, item);
+      }
+    }
+    return list;
   }
 
   @Override
