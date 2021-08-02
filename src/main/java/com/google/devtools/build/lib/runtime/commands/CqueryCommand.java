@@ -81,7 +81,7 @@ public final class CqueryCommand implements BlazeCommand {
           "cquery should include 'tags = [\"manual\"]' targets by default",
           ImmutableList.of("--build_manual_tests"));
       optionsParser.parse(
-          PriorityCategory.COMPUTED_DEFAULT,
+          PriorityCategory.SOFTWARE_REQUIREMENT,
           // https://github.com/bazelbuild/bazel/issues/11078
           "cquery should not exclude test_suite rules",
           ImmutableList.of("--noexpand_test_suites"));
@@ -93,6 +93,10 @@ public final class CqueryCommand implements BlazeCommand {
                 "--include_config_fragments_provider="
                     + cqueryOptions.showRequiredConfigFragments));
       }
+      optionsParser.parse(
+          PriorityCategory.SOFTWARE_REQUIREMENT,
+          "cquery should not exclude tests",
+          ImmutableList.of("--nobuild_tests_only"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("Cquery's known options failed to parse", e);
     }

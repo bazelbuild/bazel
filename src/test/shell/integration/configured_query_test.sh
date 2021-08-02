@@ -793,6 +793,20 @@ EOF
   assert_contains "//$pkg:my_test" output
 }
 
+function test_build_tests_only_override() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+cc_binary(
+  name = "not_a_test",
+  srcs = ["not_a_test.cc"])
+EOF
+
+  bazel cquery --build_tests_only "//$pkg:all" > output 2>"$TEST_log" || \
+    fail "Expected success"
+  assert_contains "//$pkg:not_a_test" output
+}
+
 function test_label_output_shows_alias_labels() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
