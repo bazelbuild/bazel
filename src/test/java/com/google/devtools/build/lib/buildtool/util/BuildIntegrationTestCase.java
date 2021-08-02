@@ -176,6 +176,14 @@ public abstract class BuildIntegrationTestCase {
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
 
+  private static final ImmutableList<Injected> BAZEL_REPOSITORY_PRECOMPUTED_VALUES =
+      ImmutableList.of(
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
+
   protected EventCollectionApparatus createEvents() {
     return new EventCollectionApparatus();
   }
@@ -416,10 +424,15 @@ public abstract class BuildIntegrationTestCase {
 
       @Override
       public ImmutableList<Injected> getPrecomputedValues() {
-        return ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false));
+        ImmutableList.Builder<Injected> builder = ImmutableList.builder();
+        return builder
+            .add(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
+                    Optional.empty()),
+                PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false))
+            .addAll(BAZEL_REPOSITORY_PRECOMPUTED_VALUES)
+            .build();
       }
     };
   }
@@ -441,18 +454,24 @@ public abstract class BuildIntegrationTestCase {
     checkState(
         connectivityModule instanceof ConnectivityStatusProvider,
         "Module returned by getConnectivityModule() does not implement ConnectivityStatusProvider");
-    return new BlazeRuntime.Builder()
-        .setFileSystem(fileSystem)
-        .setProductName(TestConstants.PRODUCT_NAME)
-        .setBugReporter(bugReporter)
-        .setStartupOptionsProvider(startupOptionsParser)
-        .addBlazeModule(connectivityModule)
-        .addBlazeModule(getMockBazelRepositoryModule())
-        .addBlazeModule(getSpawnModule())
-        .addBlazeModule(new IncludeScanningModule())
-        .addBlazeModule(getBuildInfoModule())
-        .addBlazeModule(getRulesModule())
-        .addBlazeModule(getStrategyModule());
+    BlazeRuntime.Builder builder =
+        new BlazeRuntime.Builder()
+            .setFileSystem(fileSystem)
+            .setProductName(TestConstants.PRODUCT_NAME)
+            .setBugReporter(bugReporter)
+            .setStartupOptionsProvider(startupOptionsParser)
+            .addBlazeModule(connectivityModule)
+            .addBlazeModule(getMockBazelRepositoryModule())
+            .addBlazeModule(getSpawnModule())
+            .addBlazeModule(getBuildInfoModule())
+            .addBlazeModule(getRulesModule())
+            .addBlazeModule(getStrategyModule());
+
+    if ("blaze".equals(TestConstants.PRODUCT_NAME)) {
+      // include scanning isn't supported in bazel
+      builder.addBlazeModule(new IncludeScanningModule());
+    }
+    return builder;
   }
 
   protected List<String> getStartupOptions() {
