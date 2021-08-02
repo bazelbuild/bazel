@@ -272,6 +272,7 @@ public final class RemoteOptions extends OptionsBase {
               + " cache, but not uploaded to the remote cache.\n"
               + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
               + " cache, but not in the remote cache.\n"
+              + "\tno-remote-exec actions can hit the disk cache.\n"
               + "See #8216 for details.")
   public boolean incompatibleRemoteResultsIgnoreDisk;
 
