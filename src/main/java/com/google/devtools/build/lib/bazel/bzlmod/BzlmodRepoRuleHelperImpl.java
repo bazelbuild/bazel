@@ -32,7 +32,7 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
       throws InterruptedException, IOException {
 
     RootModuleFileValue root =
-        (RootModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (env.valuesMissing()) {
       return null;
     }

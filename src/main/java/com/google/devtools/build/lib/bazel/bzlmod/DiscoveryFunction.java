@@ -41,17 +41,16 @@ public class DiscoveryFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     RootModuleFileValue root =
-        (RootModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
       return null;
     }
-    ModuleKey rootModuleKey = ModuleKey.create(root.getModule().getName(), Version.EMPTY);
+    String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
     Map<ModuleKey, Module> depGraph = new HashMap<>();
-    depGraph.put(
-        rootModuleKey, rewriteDepKeys(root.getModule(), overrides, rootModuleKey.getName()));
+    depGraph.put(ModuleKey.ROOT, rewriteDepKeys(root.getModule(), overrides, rootModuleName));
     Queue<ModuleKey> unexpanded = new ArrayDeque<>();
-    unexpanded.add(rootModuleKey);
+    unexpanded.add(ModuleKey.ROOT);
     while (!unexpanded.isEmpty()) {
       Set<SkyKey> unexpandedSkyKeys = new HashSet<>();
       while (!unexpanded.isEmpty()) {
@@ -72,8 +71,7 @@ public class DiscoveryFunction implements SkyFunction {
           depGraph.put(depKey, null);
         } else {
           depGraph.put(
-              depKey,
-              rewriteDepKeys(moduleFileValue.getModule(), overrides, rootModuleKey.getName()));
+              depKey, rewriteDepKeys(moduleFileValue.getModule(), overrides, rootModuleName));
           unexpanded.add(depKey);
         }
       }
@@ -81,17 +79,20 @@ public class DiscoveryFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    return DiscoveryValue.create(root.getModule().getName(), ImmutableMap.copyOf(depGraph));
+    return DiscoveryValue.create(ImmutableMap.copyOf(depGraph));
   }
 
   private static Module rewriteDepKeys(
       Module module, ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
     return module.withDepKeysTransformed(
         depKey -> {
-          Version newVersion = depKey.getVersion();
+          if (rootModuleName.equals(depKey.getName())) {
+            return ModuleKey.ROOT;
+          }
 
+          Version newVersion = depKey.getVersion();
           @Nullable ModuleOverride override = overrides.get(depKey.getName());
-          if (override instanceof NonRegistryOverride || rootModuleName.equals(depKey.getName())) {
+          if (override instanceof NonRegistryOverride) {
             newVersion = Version.EMPTY;
           } else if (override instanceof SingleVersionOverride) {
             Version overrideVersion = ((SingleVersionOverride) override).getVersion();

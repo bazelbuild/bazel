@@ -21,11 +21,13 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 public abstract class ModuleKey {
 
+  public static final ModuleKey ROOT = create("", Version.EMPTY);
+
   public static ModuleKey create(String name, Version version) {
     return new AutoValue_ModuleKey(name, version);
   }
 
-  /** The name of the module. Can be empty for the root module (if it doesn't specify a name). */
+  /** The name of the module. Must be empty for the root module. */
   public abstract String getName();
 
   /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
@@ -33,13 +35,17 @@ public abstract class ModuleKey {
 
   @Override
   public final String toString() {
-    return (getName().isEmpty() ? "_" : getName())
-        + "@"
-        + (getVersion().isEmpty() ? "_" : getVersion().toString());
+    if (this.equals(ROOT)) {
+      return "<root>";
+    }
+    return getName() + "@" + (getVersion().isEmpty() ? "_" : getVersion().toString());
   }
 
   /** Returns the canonical name of the repo backing this module. */
   public String getCanonicalRepoName() {
+    if (this.equals(ROOT)) {
+      return "";
+    }
     return getName() + "." + getVersion();
   }
 }

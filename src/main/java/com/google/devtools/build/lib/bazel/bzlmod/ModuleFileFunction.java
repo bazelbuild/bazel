@@ -80,7 +80,7 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
 
-    if (skyKey.equals(ModuleFileValue.keyForRootModule())) {
+    if (skyKey.equals(ModuleFileValue.KEY_FOR_ROOT_MODULE)) {
       return computeForRootModule(starlarkSemantics, env);
     }
 
@@ -128,7 +128,7 @@ public class ModuleFileFunction implements SkyFunction {
     }
     byte[] moduleFile = readFile(moduleFilePath.asPath());
     ModuleFileGlobals moduleFileGlobals =
-        execModuleFile(moduleFile, ModuleFileValue.ROOT_MODULE_KEY, starlarkSemantics, env);
+        execModuleFile(moduleFile, ModuleKey.ROOT, starlarkSemantics, env);
     Module module = moduleFileGlobals.buildModule(null);
 
     // Check that overrides don't contain the root module itself.

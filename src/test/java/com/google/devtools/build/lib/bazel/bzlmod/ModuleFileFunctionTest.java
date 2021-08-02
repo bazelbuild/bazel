@@ -181,11 +181,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.keyForRootModule()), evaluationContext);
+        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.keyForRootModule());
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.getModule())
         .isEqualTo(
             Module.builder()
@@ -222,11 +222,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.keyForRootModule()), evaluationContext);
+        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.keyForRootModule());
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.getModule())
         .isEqualTo(Module.builder().addDep("B", createModuleKey("B", "1.0")).build());
     assertThat(rootModuleFileValue.getOverrides()).isEmpty();
@@ -243,7 +243,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<RootModuleFileValue> result =
-        driver.evaluate(ImmutableList.of(ModuleFileValue.keyForRootModule()), evaluationContext);
+        driver.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString()).contains("invalid override for the root module");
   }

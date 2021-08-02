@@ -20,7 +20,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
-import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -77,18 +76,13 @@ public class RepositoryMappingFunction implements SkyFunction {
       RepositoryName repositoryName, SelectionValue selectionValue) {
     ModuleKey moduleKey =
         repositoryName.isMain()
-            ? ModuleKey.create(selectionValue.getRootModuleName(), Version.EMPTY)
+            ? ModuleKey.ROOT
             : selectionValue.getCanonicalRepoNameLookup().get(repositoryName.strippedName());
     if (moduleKey == null) {
       return Optional.empty();
     }
     Module module = selectionValue.getDepGraph().get(moduleKey);
     ImmutableMap.Builder<RepositoryName, RepositoryName> repoMapping = ImmutableMap.builder();
-    // In case of a repository refers to the main repository with @<main repo name>, we should
-    // map it to the main repo identifier to avoid "fetching" the main repo.
-    repoMapping.put(
-        RepositoryName.createFromValidStrippedName(selectionValue.getRootModuleName()),
-        RepositoryName.MAIN);
     // module.getDeps() contains a mapping of Bazel module dependencies from the required repo name
     // to the module key. Go through them to construct the repo mappings.
     for (Map.Entry<String, ModuleKey> dep : module.getDeps().entrySet()) {
@@ -97,6 +91,8 @@ public class RepositoryMappingFunction implements SkyFunction {
       if (expectedRepoName.equals(canonicalRepoName)) {
         continue;
       }
+      // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
+      // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
       repoMapping.put(
           RepositoryName.createFromValidStrippedName(expectedRepoName),
           RepositoryName.createFromValidStrippedName(canonicalRepoName));
@@ -136,9 +132,6 @@ public class RepositoryMappingFunction implements SkyFunction {
     // If there's no existing mapping to "foo", we should add a mapping from "foo" to "foo.1.3"
     // anyways.
     for (Map.Entry<String, ModuleKey> entry : moduleNameLookup.entrySet()) {
-      if (entry.getKey().equals(selectionValue.getRootModuleName())) {
-        continue;
-      }
       mapping.putIfAbsent(
           RepositoryName.createFromValidStrippedName(entry.getKey()),
           RepositoryName.createFromValidStrippedName(entry.getValue().getCanonicalRepoName()));

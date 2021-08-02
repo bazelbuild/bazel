@@ -30,12 +30,12 @@ import javax.annotation.Nullable;
 /** The result of {@link ModuleFileFunction}. */
 public abstract class ModuleFileValue implements SkyValue {
 
-  public static final ModuleKey ROOT_MODULE_KEY = ModuleKey.create("", Version.EMPTY);
+  public static final ModuleFileValue.Key KEY_FOR_ROOT_MODULE = key(ModuleKey.ROOT, null);
 
   /**
-   * The module resulting from the module file evaluation. Note, in particular, that the version of
-   * this module might not match the one in the requesting {@link SkyKey}, especially when there is
-   * a non-registry override in play.
+   * The module resulting from the module file evaluation. Note that the name and version of this
+   * module might not match the one in the requesting {@link SkyKey} in certain circumstances (for
+   * example, for the root module, or when non-registry overrides are in play.
    */
   public abstract Module getModule();
 
@@ -77,15 +77,6 @@ public abstract class ModuleFileValue implements SkyValue {
 
   public static Key key(ModuleKey moduleKey, @Nullable ModuleOverride override) {
     return Key.create(moduleKey, override);
-  }
-
-  /**
-   * The {@link SkyKey} used to retrieve the ModuleFileValue for the root module. This is needed
-   * because we don't know the name of the root module before we evaluate its module file. This also
-   * means that there exist two valid keys for the root module.
-   */
-  public static Key keyForRootModule() {
-    return Key.create(ROOT_MODULE_KEY, null);
   }
 
   /** {@link SkyKey} for {@link ModuleFileValue} computation. */

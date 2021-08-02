@@ -179,7 +179,7 @@ public class SelectionFunction implements SkyFunction {
     }
     ImmutableMap<ModuleKey, Module> depGraph = discovery.getDepGraph();
     RootModuleFileValue rootModule =
-        (RootModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (rootModule == null) {
       return null;
     }
@@ -238,23 +238,25 @@ public class SelectionFunction implements SkyFunction {
     // We can also take this opportunity to check that none of the remaining modules conflict with
     // each other (e.g. same module name but different compatibility levels, or not satisfying
     // multiple_version_override).
-    DepGraphWalker walker =
-        new DepGraphWalker(newDepGraph, discovery.getRootModuleName(), overrides, selectionGroups);
+    DepGraphWalker walker = new DepGraphWalker(newDepGraph, overrides, selectionGroups);
     try {
       newDepGraph = walker.walk();
     } catch (ExternalDepsException e) {
       throw new SelectionFunctionException(e);
     }
 
+    // Build reverse lookups. The root module is not meaningfully used by these so we skip it (it's
+    // guaranteed to be the first in iteration order).
     ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
         newDepGraph.keySet().stream()
+            .skip(1)
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
     ImmutableMap<String, ModuleKey> moduleNameLookup =
         newDepGraph.keySet().stream()
+            .skip(1)
             .filter(key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
             .collect(toImmutableMap(ModuleKey::getName, key -> key));
-    return SelectionValue.create(
-        discovery.getRootModuleName(), newDepGraph, canonicalRepoNameLookup, moduleNameLookup);
+    return SelectionValue.create(newDepGraph, canonicalRepoNameLookup, moduleNameLookup);
   }
 
   /**
@@ -264,18 +266,15 @@ public class SelectionFunction implements SkyFunction {
   static class DepGraphWalker {
     private static final Joiner JOINER = Joiner.on(", ");
     private final ImmutableMap<ModuleKey, Module> oldDepGraph;
-    private final ModuleKey rootModuleKey;
     private final ImmutableMap<String, ModuleOverride> overrides;
     private final ImmutableMap<ModuleKey, SelectionGroup> selectionGroups;
     private final HashMap<String, ExistingModule> moduleByName;
 
     DepGraphWalker(
         ImmutableMap<ModuleKey, Module> oldDepGraph,
-        String rootModuleName,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<ModuleKey, SelectionGroup> selectionGroups) {
       this.oldDepGraph = oldDepGraph;
-      this.rootModuleKey = ModuleKey.create(rootModuleName, Version.EMPTY);
       this.overrides = overrides;
       this.selectionGroups = selectionGroups;
       this.moduleByName = new HashMap<>();
@@ -289,8 +288,8 @@ public class SelectionFunction implements SkyFunction {
       ImmutableMap.Builder<ModuleKey, Module> newDepGraph = ImmutableMap.builder();
       Set<ModuleKey> known = new HashSet<>();
       Queue<ModuleKeyAndDependent> toVisit = new ArrayDeque<>();
-      toVisit.add(ModuleKeyAndDependent.create(rootModuleKey, null));
-      known.add(rootModuleKey);
+      toVisit.add(ModuleKeyAndDependent.create(ModuleKey.ROOT, null));
+      known.add(ModuleKey.ROOT);
       while (!toVisit.isEmpty()) {
         ModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
         ModuleKey key = moduleKeyAndDependent.getModuleKey();

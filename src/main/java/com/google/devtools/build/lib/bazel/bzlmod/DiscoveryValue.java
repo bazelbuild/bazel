@@ -22,18 +22,15 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/** The result of discovery, containing the dependency graph and overrides. */
+/** The result of discovery, containing the initial dependency graph. */
 @AutoValue
 public abstract class DiscoveryValue implements SkyValue {
 
   @AutoCodec public static final SkyKey KEY = () -> SkyFunctions.DISCOVERY;
 
-  public static DiscoveryValue create(
-      String rootModuleName, ImmutableMap<ModuleKey, Module> depGraph) {
-    return new AutoValue_DiscoveryValue(rootModuleName, depGraph);
+  public static DiscoveryValue create(ImmutableMap<ModuleKey, Module> depGraph) {
+    return new AutoValue_DiscoveryValue(depGraph);
   }
-
-  public abstract String getRootModuleName();
 
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
 }
