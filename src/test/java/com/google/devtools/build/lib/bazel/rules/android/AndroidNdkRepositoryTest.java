@@ -67,13 +67,6 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
 
   @Before
   public void setup() throws Exception {
-    // This test needs to use Bazel's repository semantics, and so we need to set up the required
-    // repositories in @bazel_tools and @platforms.
-    if (!TestConstants.PRODUCT_NAME.equals("bazel")) {
-      MockPlatformSupport.setup(mockToolsConfig);
-      // TODO(wyv): consider removing this test within Google.
-      mockToolsConfig.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
-    }
     BazelMockCcSupport.INSTANCE.setup(mockToolsConfig);
     // Replace the default host cc toolchain with one that uses Bazel platform constraints.
     BazelMockCcSupport.INSTANCE.setupCcToolchainConfig(

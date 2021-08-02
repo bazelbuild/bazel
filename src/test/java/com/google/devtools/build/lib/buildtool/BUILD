@@ -689,7 +689,7 @@ build_test(
         ":QueryIntegrationTest",
         ":SymlinkDependencyAnalysisTest",
         # Disabled in Google.
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:BazelAndroidTests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests",
         # Disabled in Google.
