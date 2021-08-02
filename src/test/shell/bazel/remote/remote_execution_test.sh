@@ -2137,6 +2137,51 @@ EOF
   rm -rf $cache
 }
 
+function test_combined_cache_with_no_remote_cache_tag() {
+  # Test that actions with no-remote-cache tag can hit disk cache of a combined cache but
+  # remote cache is disabled.
+
+  local cache="${TEST_TMPDIR}/cache"
+  local disk_flags="--disk_cache=$cache"
+  local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+genrule(
+name = 'test',
+cmd = 'echo "Hello world" > \$@',
+outs = [ 'test.txt' ],
+tags = ['no-remote-cache'],
+)
+EOF
+
+  rm -rf $cache
+  mkdir $cache
+
+  # Build and push to disk cache but not remote cache
+  bazel build $disk_flags $grpc_flags --incompatible_remote_results_ignore_disk=true //a:test \
+    || fail "Failed to build //a:test with combined cache"
+  cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
+
+  # Fetch from disk cache
+  bazel clean
+  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
+    || fail "Failed to fetch //a:test from disk cache"
+  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Disk cache generated different result"
+
+  # No cache result from grpc cache, rebuild target
+  bazel clean
+  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
+    || fail "Failed to build //a:test"
+  expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
+  expect_log "1 .*-sandbox" "Rebuild target failed"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+    || fail "Rebuilt target generated different result"
+}
+
 function test_repo_remote_exec() {
   # Test that repository_ctx.execute can execute a command remotely.
 
@@ -2784,3 +2829,5 @@ EOF
 }
 
 run_suite "Remote execution and remote cache tests"
+
+}

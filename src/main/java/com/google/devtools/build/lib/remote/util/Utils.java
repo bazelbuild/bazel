@@ -34,11 +34,13 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -536,5 +538,51 @@ public final class Utils {
     // Format as single digit decimal number, but skipping the trailing .0.
     DecimalFormat fmt = new DecimalFormat("0.#");
     return String.format("%s %s", fmt.format(value / 1024.0), UNITS.get(unitIndex));
+  }
+
+  public static boolean shouldAcceptCachedResultFromRemoteCache(RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+  }
+
+  public static boolean shouldAcceptCachedResultFromDiskCache(RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCached(spawn));
+    }
+  }
+
+  public static boolean shouldAcceptCachedResultFromCombinedCache(RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local cache. Actions
+      // which are tagged with `no-remote-cache` can still hit the disk cache.
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
+      return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+    }
+  }
+
+  public static boolean shouldUploadLocalResultsToRemoteCache(RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    return remoteOptions.remoteUploadLocalResults && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+  }
+
+  public static boolean shouldUploadLocalResultsToDiskCache(RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      return remoteOptions.remoteUploadLocalResults && (spawn == null || Spawns.mayBeCached(spawn));
+    }
+  }
+
+  public static boolean shouldUploadLocalResultsToCombinedDisk(RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local cache. Actions
+      // which are tagged with `no-remote-cache` can still hit the disk cache.
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
+      return remoteOptions.remoteUploadLocalResults && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+    }
   }
 }

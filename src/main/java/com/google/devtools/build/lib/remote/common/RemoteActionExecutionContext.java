@@ -14,9 +14,15 @@
 package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.devtools.build.lib.actions.Spawn;
+import javax.annotation.Nullable;
 
 /** A context that provide remote execution related information for executing an action remotely. */
 public interface RemoteActionExecutionContext {
+
+  /** Returns the {@link Spawn} of the action being executed or {@code null}. */
+  @Nullable
+  Spawn getSpawn();
 
   /** Returns the {@link RequestMetadata} for the action being executed. */
   RequestMetadata getRequestMetadata();
@@ -29,6 +35,11 @@ public interface RemoteActionExecutionContext {
 
   /** Creates a {@link SimpleRemoteActionExecutionContext} with given {@link RequestMetadata}. */
   static RemoteActionExecutionContext create(RequestMetadata metadata) {
-    return new SimpleRemoteActionExecutionContext(metadata, new NetworkTime());
+    return new SimpleRemoteActionExecutionContext(/*spawn=*/ null, metadata, new NetworkTime());
+  }
+
+  /** Creates a {@link SimpleRemoteActionExecutionContext} with given {@link Spawn} and {@link RequestMetadata}. */
+  static RemoteActionExecutionContext createForSpawn(Spawn spawn, RequestMetadata metadata) {
+    return new SimpleRemoteActionExecutionContext(spawn, metadata, new NetworkTime());
   }
 }

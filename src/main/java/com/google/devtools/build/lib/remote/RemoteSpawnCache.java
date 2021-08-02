@@ -17,6 +17,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -79,6 +80,11 @@ final class RemoteSpawnCache implements SpawnCache {
     this.verboseFailures = verboseFailures;
     this.cmdlineReporter = cmdlineReporter;
     this.remoteExecutionService = remoteExecutionService;
+  }
+
+  @VisibleForTesting
+  RemoteExecutionService getRemoteExecutionService() {
+    return remoteExecutionService;
   }
 
   @Override
