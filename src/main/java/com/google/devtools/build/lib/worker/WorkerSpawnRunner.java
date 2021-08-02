@@ -181,12 +181,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       MetadataProvider inputFileCache = context.getMetadataProvider();
 
-      SortedMap<PathFragment, HashCode> workerFiles =
-          WorkerFilesHash.getWorkerFilesWithHashes(
-              spawn, context.getArtifactExpander(), context.getMetadataProvider());
-
-      HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
-
       SandboxInputs inputFiles;
       try (SilentCloseable c1 =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
@@ -245,40 +239,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     SpawnResult result = builder.build();
     reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
     return result;
-  }
-
-  /**
-   * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
-   * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
-   * protobuf ({@code flagFiles}).
-   */
-  private ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
-      Spawn spawn, List<String> flagFiles) throws UserExecException {
-    ImmutableList.Builder<String> workerArgs = ImmutableList.builder();
-    for (String arg : spawn.getArguments()) {
-      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
-        flagFiles.add(arg);
-      } else {
-        workerArgs.add(arg);
-      }
-    }
-
-    if (flagFiles.isEmpty()) {
-      throw createUserExecException(
-          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()),
-          Code.NO_FLAGFILE);
-    }
-
-    ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
-
-    workerOptions.workerExtraFlags.stream()
-        .filter(entry -> entry.getKey().equals(spawn.getMnemonic()))
-        .forEach(entry -> mnemonicFlags.add(entry.getValue()));
-
-    return workerArgs
-        .add("--persistent_worker")
-        .addAll(MoreObjects.firstNonNull(mnemonicFlags.build(), ImmutableList.<String>of()))
-        .build();
   }
 
   private WorkRequest createWorkRequest(
