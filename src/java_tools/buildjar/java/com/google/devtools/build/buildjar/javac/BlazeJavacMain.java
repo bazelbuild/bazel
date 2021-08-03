@@ -112,9 +112,9 @@ public class BlazeJavacMain {
     try (JavacFileManager fileManager =
         new ClassloaderMaskingFileManager(context, arguments.builtinProcessors())) {
 
-      bootFileManager = getBootFileManager(arguments);
-      if (bootFileManager != null) {
-        setLocations(bootFileManager, arguments);
+      BootClassPathCachingFileManager tempBootFileManager = getBootFileManager(arguments);
+      if (tempBootFileManager != null) {
+        setLocations(tempBootFileManager, arguments);
       }
 
       setLocations(fileManager, arguments);
@@ -314,13 +314,20 @@ public class BlazeJavacMain {
   }
 
   /** a javac file manager instance specific only for boot classpaths */
-  private static BootClassPathCachingFileManager bootFileManager;
+  private static volatile BootClassPathCachingFileManager bootFileManager;
 
   /**
    * Returns a BootClassPathCachingFileManager instance if it is a singleplex-worker with valid
    * arguments
    */
-  private static BootClassPathCachingFileManager getBootFileManager(BlazeJavacArguments arguments) {
+  private static synchronized BootClassPathCachingFileManager getBootFileManager(
+      BlazeJavacArguments arguments) {
+    bootFileManager = getBootFileManagerHelper(arguments);
+    return bootFileManager;
+  }
+
+  private static synchronized BootClassPathCachingFileManager getBootFileManagerHelper(
+      BlazeJavacArguments arguments) {
 
     if (!arguments.requestId().isPresent()) {
       // worker mode is not enabled
@@ -359,8 +366,9 @@ public class BlazeJavacMain {
     public Iterable<JavaFileObject> list(
         Location location, String packageName, Set<Kind> kinds, boolean recurse)
         throws IOException {
-      if (bootFileManager != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
-        return bootFileManager.list(location, packageName, kinds, recurse);
+      BootClassPathCachingFileManager tempBootFileManager = bootFileManager;
+      if (tempBootFileManager != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
+        return tempBootFileManager.list(location, packageName, kinds, recurse);
       }
       return super.list(location, packageName, kinds, recurse);
     }
