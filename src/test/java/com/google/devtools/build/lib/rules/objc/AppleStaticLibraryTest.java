@@ -195,10 +195,10 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         (CommandAction)
             getGeneratingAction(getFirstArtifactEndingWith(action.getInputs(), "x86_64-fl.a"));
 
-    assertThat(Artifact.asExecPaths(i386BinAction.getInputs()))
-        .contains(i386Prefix + "package/libcclib.a");
-    assertThat(Artifact.asExecPaths(x8664BinAction.getInputs()))
-        .contains(x8664Prefix + "package/libcclib.a");
+    assertThat(removeConfigFragment(Artifact.asExecPaths(i386BinAction.getInputs())))
+        .contains(removeConfigFragment(i386Prefix + "package/libcclib.a"));
+    assertThat(removeConfigFragment(Artifact.asExecPaths(x8664BinAction.getInputs())))
+        .contains(removeConfigFragment(x8664Prefix + "package/libcclib.a"));
   }
 
   @Test
@@ -495,73 +495,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     assertThat(compileArgs1).contains("FLAG_2_OFF");
     assertThat(compileArgs2).contains("FLAG_1_OFF");
     assertThat(compileArgs2).contains("FLAG_2_OFF");
-  }
-
-  @Test
-  public void testFeatureFlags_oneFlagOn() throws Exception {
-    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
-    scratchFeatureFlagTestLib();
-    scratch.file(
-        "test/BUILD",
-        "apple_static_library(",
-        "    name = 'static_lib',",
-        "    deps = ['//lib:objcLib'],",
-        "    platform_type = 'ios',",
-        "    feature_flags = {",
-        "      '//lib:flag2': 'on',",
-        "    },",
-        "    transitive_configs = ['//lib:flag1', '//lib:flag2'],",
-        ")");
-
-    CommandAction linkAction = linkLibAction("//test:static_lib");
-    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
-
-    CommandAction flag1offCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1off.o"));
-    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
-
-    String compileArgs1 = Joiner.on(" ").join(flag1offCompileAction.getArguments());
-    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
-    assertThat(compileArgs1).contains("FLAG_1_OFF");
-    assertThat(compileArgs1).contains("FLAG_2_ON");
-    assertThat(compileArgs2).contains("FLAG_1_OFF");
-    assertThat(compileArgs2).contains("FLAG_2_ON");
-  }
-
-  @Test
-  public void testFeatureFlags_allFlagsOn() throws Exception {
-    useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
-    scratchFeatureFlagTestLib();
-    scratch.file(
-        "test/BUILD",
-        "apple_static_library(",
-        "    name = 'static_lib',",
-        "    deps = ['//lib:objcLib'],",
-        "    platform_type = 'ios',",
-        "    feature_flags = {",
-        "      '//lib:flag1': 'on',",
-        "      '//lib:flag2': 'on',",
-        "    },",
-        "    transitive_configs = ['//lib:flag1', '//lib:flag2'],",
-        ")");
-
-    CommandAction linkAction = linkLibAction("//test:static_lib");
-    CommandAction objcLibArchiveAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
-
-    CommandAction flag1onCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag1on.o"));
-    CommandAction flag2onCompileAction = (CommandAction) getGeneratingAction(
-        getFirstArtifactEndingWith(objcLibArchiveAction.getInputs(), "flag2on.o"));
-
-    String compileArgs1 = Joiner.on(" ").join(flag1onCompileAction.getArguments());
-    String compileArgs2 = Joiner.on(" ").join(flag2onCompileAction.getArguments());
-    assertThat(compileArgs1).contains("FLAG_1_ON");
-    assertThat(compileArgs1).contains("FLAG_2_ON");
-    assertThat(compileArgs2).contains("FLAG_1_ON");
-    assertThat(compileArgs2).contains("FLAG_2_ON");
   }
 
   @Test

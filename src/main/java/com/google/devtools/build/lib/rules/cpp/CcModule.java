@@ -122,7 +122,7 @@ public abstract class CcModule
         CppModuleMap> {
 
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
-      ImmutableList.of("executable", "dynamic_library");
+      ImmutableList.of("executable", "dynamic_library", "archive");
 
   private static final ImmutableList<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableList.of("bazel_internal/test_rules/cc");
@@ -2170,6 +2170,9 @@ public abstract class CcModule
     }
     Language language = parseLanguage(languageString);
     validateOutputType(outputType);
+    if (outputType.equals("archive")) {
+      checkPrivateStarlarkificationAllowlist(thread);
+    }
     boolean isStampingEnabled =
         isStampingEnabled(stamp.toInt("stamp"), actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider =
@@ -2179,16 +2182,26 @@ public abstract class CcModule
     Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType dynamicLinkTargetType = null;
+    LinkTargetType staticLinkTargetType = null;
     if (language == Language.CPP) {
-      if (outputType.equals("executable")) {
-        dynamicLinkTargetType = LinkTargetType.EXECUTABLE;
-      } else if (outputType.equals("dynamic_library")) {
-        dynamicLinkTargetType = LinkTargetType.DYNAMIC_LIBRARY;
+      switch (outputType) {
+        case "executable":
+          dynamicLinkTargetType = LinkTargetType.EXECUTABLE;
+          break;
+        case "dynamic_library":
+          dynamicLinkTargetType = LinkTargetType.DYNAMIC_LIBRARY;
+          break;
+        case "archive":
+          throw Starlark.errorf("Language 'c++' does not support 'archive'");
+        default:
+          // fall through
       }
     } else if (language == Language.OBJC && outputType.equals("executable")) {
       dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
     } else if (language == Language.OBJCPP && outputType.equals("executable")) {
       dynamicLinkTargetType = LinkTargetType.OBJCPP_EXECUTABLE;
+    } else if (language == Language.OBJC && outputType.equals("archive")) {
+      staticLinkTargetType = LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE;
     } else {
       throw Starlark.errorf("Language '%s' does not support %s", language, outputType);
     }
@@ -2226,10 +2239,8 @@ public abstract class CcModule
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .setIsStampingEnabled(isStampingEnabled)
             .addTransitiveAdditionalLinkerInputs(additionalInputsSet)
-            .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(
                 Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
-            .setShouldCreateStaticLibraries(false)
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"))
             .setLinkedArtifactNameSuffix(convertFromNoneable(linkedArtifactNameSuffixObject, ""))
             .setNeverLink(convertFromNoneable(neverLinkObject, false))
@@ -2248,6 +2259,11 @@ public abstract class CcModule
                     && CppHelper.useInterfaceSharedLibraries(
                         cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
             .addLinkerOutputs(linkerOutputs);
+    if (staticLinkTargetType != null) {
+      helper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
+    } else {
+      helper.setShouldCreateStaticLibraries(false).setDynamicLinkType(dynamicLinkTargetType);
+    }
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }

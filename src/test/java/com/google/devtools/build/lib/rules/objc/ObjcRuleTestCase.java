@@ -989,11 +989,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * value.
    */
   protected void checkMinimumOs_invalid_nonVersion(RuleType ruleType) throws Exception {
-    checkError("x", "x",
-        String.format(
-            MultiArchSplitTransitionProvider.INVALID_VERSION_STRING_ERROR_FORMAT,
-            "foobar"),
-        ruleType.target(scratch, "x", "x", "minimum_os_version", "'foobar'"));
+    checkError(
+        "x", "x", "the form", ruleType.target(scratch, "x", "x", "minimum_os_version", "'foobar'"));
   }
 
   /**
@@ -1001,10 +998,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * value.
    */
   protected void checkMinimumOs_invalid_containsAlphabetic(RuleType ruleType) throws Exception {
-    checkError("x", "x",
-        String.format(
-            MultiArchSplitTransitionProvider.INVALID_VERSION_STRING_ERROR_FORMAT,
-            "4.3alpha"),
+    checkError(
+        "x",
+        "x",
+        "Invalid version string",
         ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3alpha'"));
   }
 
@@ -1013,10 +1010,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
    * value.
    */
   protected void checkMinimumOs_invalid_tooManyComponents(RuleType ruleType) throws Exception {
-    checkError("x", "x",
-        String.format(
-            MultiArchSplitTransitionProvider.INVALID_VERSION_STRING_ERROR_FORMAT,
-            "4.3.1"),
+    checkError(
+        "x",
+        "x",
+        "Invalid version string",
         ruleType.target(scratch, "x", "x", "minimum_os_version", "'4.3.1'"));
   }
 

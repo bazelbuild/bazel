@@ -116,6 +116,11 @@ _X_C_RUNE_RULE = {
     ),
 }
 
+_PLATFORM_RULE = {
+    "platform_type": attr.string(mandatory = True),
+    "minimum_os_version": attr.string(),
+}
+
 def _union(*dictionaries):
     result = {}
     for dictionary in dictionaries:
@@ -131,4 +136,5 @@ common_attrs = struct(
     COPTS_RULE = _COPTS_RULE,
     X_C_RUNE_RULE = _X_C_RUNE_RULE,
     LICENSES = semantics.get_licenses_attr(),
+    PLATFORM_RULE = _PLATFORM_RULE,
 )
