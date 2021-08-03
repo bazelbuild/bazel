@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory.ChannelConnection;
 import com.google.devtools.build.lib.remote.grpc.DynamicConnectionPool;
@@ -28,6 +31,8 @@ import io.grpc.Status;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * A wrapper around a {@link DynamicConnectionPool} exposing {@link Channel} and a reference count.
@@ -54,6 +59,7 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
           return this;
         }
       };
+  private final AtomicReference<String> authorityRef = new AtomicReference<>();
 
   public ReferenceCountedChannel(ChannelConnectionFactory connectionFactory) {
     this.dynamicConnectionPool =
@@ -94,20 +100,70 @@ public class ReferenceCountedChannel extends Channel implements ReferenceCounted
     }
   }
 
+  static class CloseOnStartClientCall<ReqT, RespT> extends ClientCall<ReqT, RespT> {
+    private final Status status;
+
+    CloseOnStartClientCall(Status status) {
+      this.status = status;
+    }
+
+    @Override
+    public void start(Listener<RespT> responseListener, Metadata headers) {
+      responseListener.onClose(status, new Metadata());
+    }
+
+    @Override
+    public void request(int numMessages) {
+
+    }
+
+    @Override
+    public void cancel(@Nullable String message, @Nullable Throwable cause) {
+
+    }
+
+    @Override
+    public void halfClose() {
+
+    }
+
+    @Override
+    public void sendMessage(ReqT message) {
+
+    }
+  }
+
+  private SharedConnection acquireSharedConnection() throws IOException, InterruptedException {
+    try {
+      SharedConnection sharedConnection = dynamicConnectionPool.create().blockingGet();
+      ChannelConnection connection = (ChannelConnection) sharedConnection.getUnderlyingConnection();
+      authorityRef.compareAndSet(null, connection.getChannel().authority());
+      return sharedConnection;
+    } catch (RuntimeException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+      throw e;
+    }
+  }
+
   @Override
   public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> newCall(
       MethodDescriptor<RequestT, ResponseT> methodDescriptor, CallOptions callOptions) {
-    SharedConnection sharedConnection = dynamicConnectionPool.create().blockingGet();
-    ChannelConnection connection = (ChannelConnection) sharedConnection.getUnderlyingConnection();
-    return new ConnectionCleanupCall<>(
-        connection.getChannel().newCall(methodDescriptor, callOptions), sharedConnection);
+    try {
+      SharedConnection sharedConnection = acquireSharedConnection();
+      return new ConnectionCleanupCall<>(sharedConnection.call(methodDescriptor, callOptions), sharedConnection);
+    } catch (IOException e) {
+      return new CloseOnStartClientCall<>(Status.UNKNOWN.withCause(e));
+    } catch (InterruptedException e) {
+      return new CloseOnStartClientCall<>(Status.CANCELLED.withCause(e));
+    }
   }
 
   @Override
   public String authority() {
-    SharedConnection sharedConnection = dynamicConnectionPool.create().blockingGet();
-    ChannelConnection connection = (ChannelConnection) sharedConnection.getUnderlyingConnection();
-    return connection.getChannel().authority();
+    String authority = authorityRef.get();
+    checkNotNull(authority, "create a connection first to get the authority");
+    return authority;
   }
 
   @Override
