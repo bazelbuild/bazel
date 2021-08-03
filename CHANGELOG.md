@@ -1,3 +1,11 @@
+## Release 5.0.0-pre.20210728.1 (2021-08-03)
+
+```
+Baseline: d4dd2038039ecbc63e2d3037855c31145b335ad4
+```
+
+This release contains contributions from many people at Google, as well as Yannic Bonenberger, Yannic Bonenberger.
+
 ## Release 5.0.0-pre.20210722.2 (2021-07-29)
 
 ```
