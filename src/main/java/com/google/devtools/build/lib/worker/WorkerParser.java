@@ -103,9 +103,11 @@ class WorkerParser {
     }
 
     if (flagFiles.isEmpty()) {
-      throw createUserExecException(
-          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()),
-          FailureDetails.Worker.Code.NO_FLAGFILE);
+      throw new UserExecException(
+          FailureDetails.FailureDetail.newBuilder()
+              .setMessage(String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()))
+              .setWorker(FailureDetails.Worker.newBuilder().setCode(FailureDetails.Worker.Code.NO_FLAGFILE))
+              .build());
     }
 
     ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
@@ -118,15 +120,6 @@ class WorkerParser {
         .add("--persistent_worker")
         .addAll(MoreObjects.firstNonNull(mnemonicFlags.build(), ImmutableList.of()))
         .build();
-  }
-
-  private static UserExecException createUserExecException(
-      String message, FailureDetails.Worker.Code detailedCode) {
-    return new UserExecException(
-        FailureDetails.FailureDetail.newBuilder()
-            .setMessage(message)
-            .setWorker(FailureDetails.Worker.newBuilder().setCode(detailedCode))
-            .build());
   }
 
   /** A pair of the {@link WorkerKey} and the list of flag files. */
