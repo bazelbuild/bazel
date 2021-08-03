@@ -21,6 +21,11 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
 
+/**
+ * A helper class to process a {@link Spawn} into a {@link WorkerKey}, which is used to select a
+ * persistent worker process (actions with equal keys are allowed to use the same worker process),
+ * and a separate list of flag files. The result is encapsulated as a {@link WorkerConfig}.
+ */
 class WorkerParser {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
@@ -124,6 +129,7 @@ class WorkerParser {
             .build());
   }
 
+  /** A pair of the {@link WorkerKey} and the list of flag files. */
   public static class WorkerConfig {
     private final WorkerKey workerKey;
     private final List<String> flagFiles;
