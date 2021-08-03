@@ -1,3 +1,54 @@
+## Release 5.0.0-pre.20210728.1 (2021-08-03)
+
+```
+Baseline: d4dd2038039ecbc63e2d3037855c31145b335ad4
+```
+
+This release contains contributions from many people at Google, as well as Yannic Bonenberger, Yannic Bonenberger.
+
+## Release 5.0.0-pre.20210722.2 (2021-07-29)
+
+```
+Baseline: 0d94a3471cd845a2c401be4b3c9059eaeb8dcda0
+
+Cherry picks:
+
+   + 0eef11411d09732266f79f46bfd91bbbf2db6c44:
+     Fix broken targets in nightly 2021.07.22-1
+```
+
+Important changes:
+
+  - Consider label_keyed_string_dict attributes when gathering
+    instrumented files for coverage.
+  - Remove flag
+    --experimental_forward_instrumented_files_info_by_default, now
+    that this behavior is the default.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Daniel Wagner-Hall, Yannic Bonenberger.
+
+## Release 5.0.0-pre.20210720.2 (2021-07-27)
+
+```
+Baseline: a52b1320da06c85d5aaa1ece9eb46acabd09b33f
+
+Cherry picks:
+
+   + eb956e8b6a7d12fe2c75d67abfd8c950b4c9508e:
+     Fix NPE with `--watchfs` as startup option.
+```
+
+Incompatible changes:
+
+  - Enforce the `--profile` path to be absolute.
+  - Enforce the --memory_profile path to be absolute.
+
+Important changes:
+
+  - --run_validations defaults to true.
+
+This release contains contributions from many people at Google, as well as Joe Lencioni.
+
 ## Release 5.0.0-pre.20210708.4 (2021-07-16)
 
 ```
