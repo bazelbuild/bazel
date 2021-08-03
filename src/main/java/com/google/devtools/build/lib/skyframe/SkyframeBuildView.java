@@ -88,9 +88,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
-import com.google.devtools.build.lib.skyframe.ToplevelStarlarkAspectFunction.TopLevelAspectsValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Pair;
@@ -382,7 +380,7 @@ public final class SkyframeBuildView {
   public SkyframeAnalysisResult configureTargets(
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
-      ImmutableList<TopLevelAspectsKey> topLevelAspectsKey,
+      List<AspectValueKey> aspectKeys,
       Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
@@ -399,7 +397,7 @@ public final class SkyframeBuildView {
           skyframeExecutor.configureTargets(
               eventHandler,
               ctKeys,
-              topLevelAspectsKey,
+              aspectKeys,
               keepGoing,
               numThreads,
               cpuHeavySkyKeysThreadPoolSize);
@@ -407,33 +405,21 @@ public final class SkyframeBuildView {
       enableAnalysis(false);
     }
 
-    int numOfAspects = 0;
-    if (!topLevelAspectsKey.isEmpty()) {
-      numOfAspects =
-          topLevelAspectsKey.size() * topLevelAspectsKey.get(0).getTopLevelAspectsClasses().size();
-    }
-    Map<AspectKey, ConfiguredAspect> aspects = Maps.newHashMapWithExpectedSize(numOfAspects);
+    Map<AspectKey, ConfiguredAspect> aspects = Maps.newHashMapWithExpectedSize(aspectKeys.size());
     Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
     NestedSetBuilder<Package> packages =
         singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
-    ImmutableList.Builder<AspectKey> aspectKeysBuilder = ImmutableList.builder();
-
-    for (TopLevelAspectsKey key : topLevelAspectsKey) {
-      TopLevelAspectsValue value = (TopLevelAspectsValue) result.get(key);
+    for (AspectValueKey aspectKey : aspectKeys) {
+      AspectValue value = (AspectValue) result.get(aspectKey);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;
       }
-      for (SkyValue val : value.getTopLevelAspectsValues()) {
-        AspectValue aspectValue = (AspectValue) val;
-        aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
-        if (packages != null) {
-          packages.addTransitive(aspectValue.getTransitivePackagesForPackageRootResolution());
-        }
-        aspectKeysBuilder.add(aspectValue.getKey());
+      aspects.put(value.getKey(), value.getConfiguredAspect());
+      if (packages != null) {
+        packages.addTransitive(value.getTransitivePackagesForPackageRootResolution());
       }
     }
-    ImmutableList<AspectKey> aspectKeys = aspectKeysBuilder.build();
 
     Collection<ConfiguredTarget> cts = Lists.newArrayListWithCapacity(ctKeys.size());
     for (ConfiguredTargetKey value : ctKeys) {
@@ -575,7 +561,7 @@ public final class SkyframeBuildView {
           BuildConfigurationValue.Key configKey =
               ctKey instanceof ConfiguredTargetKey
                   ? ((ConfiguredTargetKey) ctKey).getConfigurationKey()
-                  : ((AspectKey) ctKey).getAspectConfigurationKey();
+                  : ((AspectValueKey) ctKey).getAspectConfigurationKey();
           eventBus.post(
               new AnalysisFailureEvent(
                   ctKey,
@@ -611,9 +597,13 @@ public final class SkyframeBuildView {
               .collect(toImmutableList());
 
       aspects =
-          aspects.entrySet().stream()
-              .filter(e -> topLevelActionConflictReport.isErrorFree(e.getKey()))
-              .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+          aspectKeys.stream()
+              .filter(topLevelActionConflictReport::isErrorFree)
+              .map(result::get)
+              .map(AspectValue.class::cast)
+              .collect(
+                  ImmutableMap.toImmutableMap(
+                      AspectValue::getKey, AspectValue::getConfiguredAspect));
     }
 
     return new SkyframeAnalysisResult(
@@ -755,15 +745,17 @@ public final class SkyframeBuildView {
           .reportCycles(errorInfo.getCycleInfo(), errorKey, eventHandler);
       Exception cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
-      if (errorKey.argument() instanceof TopLevelAspectsKey) {
+
+      if (errorKey.argument() instanceof AspectValueKey) {
         // We skip Aspects in the keepGoing case; the failures should already have been reported to
         // the event handler.
         if (!keepGoing && noKeepGoingException == null) {
-          TopLevelAspectsKey aspectKey = (TopLevelAspectsKey) errorKey.argument();
+          AspectValueKey aspectKey = (AspectValueKey) errorKey.argument();
           failedAspectLabel = aspectKey.getBaseConfiguredTargetKey();
+
           String errorMsg =
               String.format(
-                  "Analysis of aspects '%s' failed; build aborted", aspectKey.getDescription());
+                  "Analysis of aspect '%s' failed; build aborted", aspectKey.getDescription());
           noKeepGoingException = createViewCreationFailedException(cause, errorMsg);
         }
         continue;
@@ -784,7 +776,7 @@ public final class SkyframeBuildView {
       }
       Preconditions.checkState(
           errorKey.argument() instanceof ConfiguredTargetKey,
-          "expected '%s' to be a TopLevelAspectsKey or ConfiguredTargetKey",
+          "expected '%s' to be a AspectValueKey or ConfiguredTargetKey",
           errorKey.argument());
       ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
       Label topLevelLabel = label.getLabel();
