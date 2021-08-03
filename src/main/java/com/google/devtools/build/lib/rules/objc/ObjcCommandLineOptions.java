@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -183,18 +181,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "when signing."
   )
   public boolean deviceDebugEntitlements;
-
-  @Option(
-    name = "apple_sdk",
-    defaultValue = "null",
-    converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Location of target that will provide the appropriate Apple SDK for the current build "
-            + "configuration."
-  )
-  public Label appleSdk;
 
   @Option(
       name = "incompatible_avoid_hardcoded_objc_compilation_flags",
