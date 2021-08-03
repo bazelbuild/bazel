@@ -2696,4 +2696,25 @@ EOF
   expect_log "2 processes: 1 internal, 1 remote"
 }
 
+function test_grpc_connection_errors_are_propagated() {
+  # Test that errors when creating grpc connection are propagated instead of crashing Bazel.
+  # https://github.com/bazelbuild/bazel/issues/13724
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpcs://localhost:${worker_port} \
+      --tls_certificate=/nope \
+      //a:foo >& $TEST_log && fail "Expected to fail" || true
+
+  expect_log "ERROR: Failed to query remote execution capabilities: Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope"
+}
+
 run_suite "Remote execution and remote cache tests"
