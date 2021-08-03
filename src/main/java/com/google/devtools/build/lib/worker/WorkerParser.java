@@ -9,12 +9,11 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +53,12 @@ class WorkerParser {
     this.binTools = binTools;
   }
 
-  public WorkerConfig compute(Spawn spawn, SpawnRunner.SpawnExecutionContext context)
+  /**
+   * Processes the given {@link Spawn} and {@link SpawnExecutionContext} to compute the worker key.
+   * This involves splitting the command line into the worker startup command and the separate list
+   * of flag files. Returns a pair of the {@link WorkerKey} and list of flag files.
+   */
+  public WorkerConfig compute(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
     // We assume that the spawn to be executed always gets at least one @flagfile.txt or
     // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
