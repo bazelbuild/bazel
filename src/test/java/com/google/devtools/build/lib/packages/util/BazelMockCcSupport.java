@@ -36,12 +36,14 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    throw new UnsupportedOperationException("TODO");
+    // TODO(b/195425240): Silently unsupported.
+    return "";
   }
 
   @Override
   protected String[] getRealFilesystemTools(String crosstoolTop) {
-    throw new UnsupportedOperationException("TODO");
+    // TODO(b/195425240): Silently unsupported.
+    return new String[0];
   }
 
   @Override
