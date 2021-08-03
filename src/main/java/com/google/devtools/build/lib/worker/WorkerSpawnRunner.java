@@ -81,8 +81,6 @@ import java.util.regex.Pattern;
 final class WorkerSpawnRunner implements SpawnRunner {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
-  public static final String REASON_NO_FLAGFILE =
-      "because the command-line arguments do not contain at least one @flagfile or --flagfile=";
   public static final String REASON_NO_TOOLS = "because the action has no tools";
   /**
    * The verbosity level implied by `--worker_verbose`. This value allows for manually setting some
@@ -90,14 +88,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   private static final int VERBOSE_LEVEL = 10;
 
-  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
-  private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
-
   private final SandboxHelpers helpers;
   private final Path execRoot;
   private final WorkerPool workers;
   private final ExtendedEventHandler reporter;
-  private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
@@ -120,7 +114,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
     this.reporter = reporter;
-    this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
