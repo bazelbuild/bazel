@@ -17,18 +17,21 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.ModuleFileGlobalsApi;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 
-/** Implementation of the global functions available to a module file. */
-public class ModuleFileGlobals implements ModuleFileGlobalsApi {
-
+/** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
+@DocumentMethods
+public class ModuleFileGlobals {
   private boolean moduleCalled = false;
   private final Module.Builder module = Module.builder();
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
@@ -36,7 +39,75 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
 
   public ModuleFileGlobals() {}
 
-  @Override
+  @StarlarkMethod(
+      name = "module",
+      doc =
+          "Declares certain properties of the Bazel module represented by the current Bazel repo."
+              + " These properties are either essential metadata of the module (such as the name"
+              + " and version), or affect behavior of the current module and its dependents.  <p>It"
+              + " should be called at most once. It can be omitted only if this module is the root"
+              + " module (as in, if it's not going to be depended on by another module).",
+      parameters = {
+        @Param(
+            name = "name",
+            // TODO(wyv): explain module name format
+            doc =
+                "The name of the module. Can be omitted only if this module is the root module (as"
+                    + " in, if it's not going to be depended on by another module).",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+        @Param(
+            name = "version",
+            // TODO(wyv): explain version format
+            doc =
+                "The version of the module. Can be omitted only if this module is the root module"
+                    + " (as in, if it's not going to be depended on by another module).",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+        @Param(
+            name = "compatibility_level",
+            // TODO(wyv): See X for more details
+            doc =
+                "The compatibility level of the module; this should be changed every time a major"
+                    + " incompatible change is introduced. This is essentially the \"major"
+                    + " version\" of the module in terms of SemVer, except that it's not embedded"
+                    + " in the version string itself, but exists as a separate field. Modules with"
+                    + " different compatibility levels participate in version resolution as if"
+                    + " they're modules with different names, but the final dependency graph"
+                    + " cannot contain multiple modules with the same name but different"
+                    + " compatibility levels (unless <code>multiple_version_override</code> is in"
+                    + " effect; see there for more details).",
+            named = true,
+            positional = false,
+            defaultValue = "0"),
+        @Param(
+            name = "execution_platforms_to_register",
+            doc =
+                "A list of already-defined execution platforms to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
+        @Param(
+            name = "toolchains_to_register",
+            doc =
+                "A list of already-defined toolchains to be registered when this module is"
+                    + " selected. Should be a list of absolute target patterns (ie. beginning with"
+                    + " either <code>@</code> or <code>//</code>). See <a"
+                    + " href=\"../../toolchains.html\">toolchain resolution</a> for more"
+                    + " information.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            defaultValue = "[]"),
+        // TODO(wyv): module_rule_exports
+      })
   public void module(
       String name,
       String version,
@@ -66,7 +137,29 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
             checkAllAbsolutePatterns(toolchainsToRegister, "toolchains_to_register"));
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "bazel_dep",
+      doc = "Declares a direct dependency on another Bazel module.",
+      parameters = {
+        @Param(
+            name = "name",
+            doc = "The name of the module to be added as a direct dependency.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "version",
+            doc = "The version of the module to be added as a direct dependency.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "repo_name",
+            doc =
+                "The name of the external repo representing this dependency. This is by default the"
+                    + " name of the module.",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+      })
   public void bazelDep(String name, String version, String repoName) throws EvalException {
     if (repoName.isEmpty()) {
       repoName = name;
@@ -120,7 +213,54 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
     return list;
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "single_version_override",
+      doc =
+          "Specifies that a dependency should still come from a registry, but its version should"
+              + " be pinned, or its registry overridden, or a list of patches applied. This"
+              + " directive can only be used by the root module; in other words, if a module"
+              + " specifies any overrides, it cannot be used as a dependency by others.",
+      parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "version",
+            doc =
+                "Overrides the declared version of this module in the dependency graph. In other"
+                    + " words, this module will be \"pinned\" to this override version. This"
+                    + " attribute can be omitted if all one wants to override is the registry or"
+                    + " the patches. ",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+        @Param(
+            name = "registry",
+            doc =
+                "Overrides the registry for this module; instead of finding this module from the"
+                    + " default list of registries, the given registry should be used.",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+        @Param(
+            name = "patches",
+            doc =
+                "A list of labels pointing to patch files to apply for this module. The patch files"
+                    + " must exist in the source tree of the top level project. They are applied in"
+                    + " the list order.",
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]"),
+        @Param(
+            name = "patch_strip",
+            doc = "Same as the --strip argument of Unix patch.",
+            named = true,
+            positional = false,
+            defaultValue = "0"),
+      })
   public void singleVersionOverride(
       String moduleName,
       String version,
@@ -143,7 +283,41 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
             patchStrip.toInt("single_version_override.patch_strip")));
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "multiple_version_override",
+      doc =
+          "Specifies that a dependency should still come from a registry, but multiple versions of"
+              + " it should be allowed to coexist. This directive can only be used by the root"
+              + " module; in other words, if a module specifies any overrides, it cannot be used"
+              + " as a dependency by others.",
+      parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "versions",
+            // TODO(wyv): See X for more details
+            doc =
+                "Explicitly specifies the versions allowed to coexist. These versions must already"
+                    + " be present in the dependency graph pre-selection. Dependencies on this"
+                    + " module will be \"upgraded\" to the nearest higher allowed version at the"
+                    + " same compatibility level, whereas dependencies that have a higher version"
+                    + " than any allowed versions at the same compatibility level will cause an"
+                    + " error.",
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            named = true,
+            positional = false),
+        @Param(
+            name = "registry",
+            doc =
+                "Overrides the registry for this module; instead of finding this module from the"
+                    + " default list of registries, the given registry should be used.",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+      })
   public void multipleVersionOverride(String moduleName, Iterable<?> versions, String registry)
       throws EvalException {
     ImmutableList.Builder<Version> parsedVersionsBuilder = new ImmutableList.Builder<>();
@@ -161,7 +335,57 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
     addOverride(moduleName, MultipleVersionOverride.create(parsedVersions, registry));
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "archive_override",
+      doc =
+          "Specifies that this dependency should come from an archive file (zip, gzip, etc) at a"
+              + " certain location, instead of from a registry. This directive can only be used by"
+              + " the root module; in other words, if a module specifies any overrides, it cannot"
+              + " be used as a dependency by others.",
+      parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "urls",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Iterable.class, generic1 = String.class),
+            },
+            doc = "The URLs of the archive; can be http(s):// or file:// URLs.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "integrity",
+            doc = "The expected checksum of the archive file, in Subresource Integrity format.",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+        @Param(
+            name = "strip_prefix",
+            doc = "A directory prefix to strip from the extracted files.",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+        @Param(
+            name = "patches",
+            doc =
+                "A list of labels pointing to patch files to apply for this module. The patch files"
+                    + " must exist in the source tree of the top level project. They are applied in"
+                    + " the list order.",
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]"),
+        @Param(
+            name = "patch_strip",
+            doc = "Same as the --strip argument of Unix patch.",
+            named = true,
+            positional = false,
+            defaultValue = "0"),
+      })
   public void archiveOverride(
       String moduleName,
       Object urls,
@@ -184,7 +408,46 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
             patchStrip.toInt("archive_override.patch_strip")));
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "git_override",
+      doc =
+          "Specifies that a dependency should come from a certain commit of a Git repository. This"
+              + " directive can only be used by the root module; in other words, if a module"
+              + " specifies any overrides, it cannot be used as a dependency by others.",
+      parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "remote",
+            doc = "The URL of the remote Git repository.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "commit",
+            doc = "The commit that should be checked out.",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
+        @Param(
+            name = "patches",
+            doc =
+                "A list of labels pointing to patch files to apply for this module. The patch files"
+                    + " must exist in the source tree of the top level project. They are applied in"
+                    + " the list order.",
+            allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]"),
+        @Param(
+            name = "patch_strip",
+            doc = "Same as the --strip argument of Unix patch.",
+            named = true,
+            positional = false,
+            defaultValue = "0"),
+      })
   public void gitOverride(
       String moduleName, String remote, String commit, Iterable<?> patches, StarlarkInt patchStrip)
       throws EvalException {
@@ -197,7 +460,24 @@ public class ModuleFileGlobals implements ModuleFileGlobalsApi {
             patchStrip.toInt("git_override.patch_strip")));
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "local_path_override",
+      doc =
+          "Specifies that a dependency should come from a certain directory on local disk. This"
+              + " directive can only be used by the root module; in other words, if a module"
+              + " specifies any overrides, it cannot be used as a dependency by others.",
+      parameters = {
+        @Param(
+            name = "module_name",
+            doc = "The name of the Bazel module dependency to apply this override to.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "path",
+            doc = "The path to the directory where this module is.",
+            named = true,
+            positional = false),
+      })
   public void localPathOverride(String moduleName, String path) throws EvalException {
     addOverride(moduleName, LocalPathOverride.create(path));
   }
