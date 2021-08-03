@@ -55,12 +55,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -74,7 +75,6 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -274,7 +275,10 @@ public class BuildView {
             .map(TargetAndConfiguration::getConfiguredTargetKey)
             .collect(Collectors.toList());
 
-    ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
+    Multimap<Pair<Label, String>, BuildConfiguration> aspectConfigurations =
+        ArrayListMultimap.create();
+
+    List<AspectValueKey> aspectKeys = new ArrayList<>();
     for (String aspect : aspects) {
       // Syntax: label%aspect
       int delimiterPosition = aspect.indexOf('%');
@@ -314,38 +318,43 @@ public class BuildView {
               createFailureDetail(errorMessage, Analysis.Code.ASPECT_LABEL_SYNTAX_ERROR),
               e);
         }
+
         String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
-        aspectClassesBuilder.add(new StarlarkAspectClass(starlarkFileLabel, starlarkFunctionName));
+        for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
+          aspectConfigurations.put(
+              Pair.of(targetSpec.getLabel(), aspect), targetSpec.getConfiguration());
+          aspectKeys.add(
+              AspectValueKey.createStarlarkAspectKey(
+                  targetSpec.getLabel(),
+                  // For invoking top-level aspects, use the top-level configuration for both the
+                  // aspect and the base target while the top-level configuration is untrimmed.
+                  targetSpec.getConfiguration(),
+                  targetSpec.getConfiguration(),
+                  starlarkFileLabel,
+                  starlarkFunctionName));
+        }
       } else {
         final NativeAspectClass aspectFactoryClass =
             ruleClassProvider.getNativeAspectClassMap().get(aspect);
 
         if (aspectFactoryClass != null) {
-          aspectClassesBuilder.add(aspectFactoryClass);
+          for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
+            // For invoking top-level aspects, use the top-level configuration for both the
+            // aspect and the base target while the top-level configuration is untrimmed.
+            BuildConfiguration configuration = targetSpec.getConfiguration();
+            aspectConfigurations.put(Pair.of(targetSpec.getLabel(), aspect), configuration);
+            aspectKeys.add(
+                AspectValueKey.createAspectKey(
+                    targetSpec.getLabel(),
+                    configuration,
+                    new AspectDescriptor(aspectFactoryClass, AspectParameters.EMPTY),
+                    configuration));
+          }
         } else {
           String errorMessage = "Aspect '" + aspect + "' is unknown";
           throw new ViewCreationFailedException(
               errorMessage, createFailureDetail(errorMessage, Analysis.Code.ASPECT_NOT_FOUND));
         }
-      }
-    }
-
-    Multimap<Pair<Label, String>, BuildConfiguration> aspectConfigurations =
-        ArrayListMultimap.create();
-    ImmutableList<AspectClass> aspectClasses = aspectClassesBuilder.build();
-    ImmutableList.Builder<TopLevelAspectsKey> aspectsKeys = ImmutableList.builder();
-    for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-      BuildConfiguration configuration = targetSpec.getConfiguration();
-      for (AspectClass aspectClass : aspectClasses) {
-        aspectConfigurations.put(
-            Pair.of(targetSpec.getLabel(), aspectClass.getName()), configuration);
-      }
-      // For invoking top-level aspects, use the top-level configuration for both the
-      // aspect and the base target while the top-level configuration is untrimmed.
-      if (!aspectClasses.isEmpty()) {
-        aspectsKeys.add(
-            AspectValueKey.createTopLevelAspectsKey(
-                aspectClasses, targetSpec.getLabel(), configuration));
       }
     }
 
@@ -373,7 +382,7 @@ public class BuildView {
           skyframeBuildView.configureTargets(
               eventHandler,
               topLevelCtKeys,
-              aspectsKeys.build(),
+              aspectKeys,
               Suppliers.memoize(configurationLookupSupplier),
               topLevelOptions,
               eventBus,
