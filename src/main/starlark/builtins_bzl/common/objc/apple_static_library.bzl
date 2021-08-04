@@ -50,18 +50,10 @@ def _apple_static_library_impl(ctx):
         deps = cpu_to_deps_map[key]
 
         common_variables = compilation_support.build_common_variables(
-            ctx,
-            child_toolchain[cc_common.CcToolchainInfo],
-            True,
-            False,
-            False,
-            False,
-            cpu_to_deps_map[key],
-            [],
-            [],
-            [],
-            False,
-            False,
+            ctx = ctx,
+            toolchain = child_toolchain[cc_common.CcToolchainInfo],
+            use_pch = True,
+            deps = cpu_to_deps_map[key],
         )
 
         avoid_objc_providers = []

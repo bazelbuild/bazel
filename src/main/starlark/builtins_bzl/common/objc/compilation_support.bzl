@@ -26,8 +26,8 @@ def _build_variable_extensions(
         intermediate_artifacts,
         variable_categories,
         arc_enabled,
-        fully_link_archive,
-        objc_provider):
+        fully_link_archive = None,
+        objc_provider = None):
     extensions = {}
     if hasattr(ctx.attr, "pch") and ctx.attr.pch != None:
         extensions["pch_file"] = ctx.file.pch.path
@@ -64,16 +64,16 @@ def _build_variable_extensions(
 def _build_common_variables(
         ctx,
         toolchain,
-        use_pch,
-        disable_layering_check,
-        disable_parse_hdrs,
-        empty_compilation_artifacts,
-        deps,
-        runtime_deps,
-        extra_import_libraries,
-        linkopts,
-        alwayslink,
-        has_module_map):
+        use_pch = False,
+        disable_layering_check = False,
+        disable_parse_hdrs = False,
+        empty_compilation_artifacts = False,
+        deps = [],
+        runtime_deps = [],
+        extra_import_libraries = [],
+        linkopts = [],
+        alwayslink = False,
+        has_module_map = False):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
     intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
     if empty_compilation_artifacts:
@@ -261,8 +261,8 @@ def _paths_to_include_args(paths):
 
 def _register_compile_and_archive_actions(
         common_variables,
-        extra_compile_args,
-        priority_headers):
+        extra_compile_args = [],
+        priority_headers = []):
     compilation_result = None
 
     if common_variables.compilation_artifacts.archive != None:
@@ -287,9 +287,9 @@ def _register_compile_and_archive_actions(
             common_variables,
             extra_compile_args,
             priority_headers,
-            None,
-            None,
-            [],
+            link_type = None,
+            link_action_input = None,
+            variable_categories = [],
         )
 
     return compilation_result
@@ -326,16 +326,16 @@ def _cc_compile_and_link(
     extra_module_map_fc = None
     fc_for_swift_module_map = _build_feature_configuration(
         common_variables,
-        True,
-        True,
+        for_swift_module_map = True,
+        support_parse_headers = True,
     )
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "module_maps"):
         primary_module_map = intermediate_artifacts.internal_module_map
         arc_primary_module_map_fc = feature_configuration
         non_arc_primary_module_map_fc = _build_feature_configuration(
             common_variables,
-            True,
-            False,
+            for_swift_module_map = True,
+            support_parse_headers = False,
         )
         extra_module_map = intermediate_artifacts.swift_module_map
         extra_module_map_fc = fc_for_swift_module_map
@@ -344,8 +344,8 @@ def _cc_compile_and_link(
         arc_primary_module_map_fc = fc_for_swift_module_map
         non_arc_primary_module_map_fc = _build_feature_configuration(
             common_variables,
-            True,
-            False,
+            for_swift_module_map = True,
+            support_parse_headers = False,
         )
         extra_module_map = None
         extra_module_map_fc = None
@@ -356,9 +356,7 @@ def _cc_compile_and_link(
         ctx,
         intermediate_artifacts,
         variable_categories,
-        True,
-        None,
-        None,
+        arc_enabled = True,
     )
 
     (arc_compilation_context, arc_compilation_outputs) = _compile(
@@ -373,8 +371,8 @@ def _cc_compile_and_link(
         pch_header,
         primary_module_map,
         purpose,
-        True,
-        True,
+        generate_module_map = True,
+        should_process_headers = True,
     )
     purpose = "{}_non_objc_arc".format(_get_purpose(common_variables))
     non_arc_extensions = _build_variable_extensions(
@@ -382,9 +380,7 @@ def _cc_compile_and_link(
         ctx,
         intermediate_artifacts,
         variable_categories,
-        False,
-        None,
-        None,
+        arc_enabled = False,
     )
     (non_arc_compilation_context, non_arc_compilation_outputs) = _compile(
         common_variables,
@@ -398,8 +394,8 @@ def _cc_compile_and_link(
         pch_header,
         primary_module_map,
         purpose,
-        False,
-        False,
+        generate_module_map = False,
+        should_process_headers = False,
     )
 
     objc_compilation_context = common_variables.objc_compilation_context
@@ -463,7 +459,7 @@ def _cc_compile_and_link(
         common_variables.toolchain,
         feature_configuration,
         ctx,
-        True,
+        generate_hidden_top_level_group = True,
     )
     non_arc_output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
         non_arc_compilation_outputs,
@@ -472,7 +468,7 @@ def _cc_compile_and_link(
         common_variables.toolchain,
         feature_configuration,
         ctx,
-        True,
+        generate_hidden_top_level_group = True,
     )
 
     merged_output_groups = cc_helper.merge_output_groups(
@@ -552,9 +548,9 @@ def _register_fully_link_action(common_variables, objc_provider, name):
         ctx,
         common_variables.intermediate_artifacts,
         ["FULLY_LINK_VARIABLES"],
-        False,
-        output_archive,
-        objc_provider,
+        arc_enabled = False,
+        fully_link_archive = output_archive,
+        objc_provider = objc_provider,
     )
 
     linker_inputs = []

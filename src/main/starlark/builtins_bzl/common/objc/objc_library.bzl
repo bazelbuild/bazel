@@ -106,46 +106,20 @@ def _static_library(
         alwayslink = alwayslink,
     )
 
-def _to_static_library(
-        ctx,
-        feature_configuration,
-        cc_toolchain,
-        library):
-    if ((library.pic_static_library == None and
-         library.static_library == None) or
-        (library.dynamic_library == None and
-         library.interface_library == None)):
-        return library
-
-    return cc_common.create_library_to_link(
-        actions = ctx.actions,
-        feature_configuration = feature_configuration,
-        cc_toolchain = cc_toolchain,
-        alwayslink = library.alwayslink,
-        pic_objects = library.pic_objects,
-        objects = library.objects,
-        static_library = library.static_library,
-        pic_static_library = library.pic_static_library,
-    )
-
 def _objc_library_impl(ctx):
     _validate_attributes(ctx)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
 
     common_variables = compilation_support.build_common_variables(
-        ctx,
-        cc_toolchain,
-        True,
-        False,
-        False,
-        False,
-        ctx.attr.deps,
-        ctx.attr.runtime_deps,
-        [],
-        ctx.attr.linkopts,
-        ctx.attr.alwayslink,
-        True,
+        ctx = ctx,
+        toolchain = cc_toolchain,
+        use_pch = True,
+        deps = ctx.attr.deps,
+        runtime_deps = ctx.attr.runtime_deps,
+        linkopts = ctx.attr.linkopts,
+        alwayslink = ctx.attr.alwayslink,
+        has_module_map = True,
     )
     files = []
     if common_variables.compilation_artifacts.archive != None:
@@ -153,8 +127,6 @@ def _objc_library_impl(ctx):
 
     (cc_compilation_context, compilation_outputs, output_groups) = compilation_support.register_compile_and_archive_actions(
         common_variables,
-        [],
-        [],
     )
 
     compilation_support.validate_attributes(common_variables)
