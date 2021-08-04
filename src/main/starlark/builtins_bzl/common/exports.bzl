@@ -26,7 +26,7 @@ exported_toplevels = {
     "_builtins_dummy": "overridden value",
 }
 exported_rules = {
-    "-cc_import": cc_import,
+    "+cc_import": cc_import,
     "+objc_import": objc_import,
     "+objc_library": objc_library,
     "+apple_static_library": apple_static_library,
