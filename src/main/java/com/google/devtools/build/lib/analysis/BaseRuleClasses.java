@@ -520,4 +520,17 @@ public class BaseRuleClasses {
           .build();
     }
   }
+
+  /**
+   * Factory used by rules' definitions that exist for the sole purpose of providing documentation.
+   * For most of these rules, the actual rule is implemented in Starlark but the documentation
+   * generation mechanism does not work yet for Starlark rules. TODO(bazel-team): Delete once
+   * documentation tools work for Starlark.
+   */
+  public static class EmptyRuleConfiguredTargetFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) {
+      return null;
+    }
+  }
 }

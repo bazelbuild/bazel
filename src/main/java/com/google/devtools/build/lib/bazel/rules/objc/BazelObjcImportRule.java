@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.objc;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -30,7 +31,7 @@ public class BazelObjcImportRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("objc_import")
-        .factoryClass(BazelObjcImport.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .ancestors(ObjcImportBaseRule.class)
         .build();
   }

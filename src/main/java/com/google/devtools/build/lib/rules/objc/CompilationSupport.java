@@ -115,9 +115,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -958,29 +956,6 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-  @StarlarkMethod(name = "validate_attributes", documented = false)
-  public void validateAttributesForStarlark() throws EvalException {
-    try {
-      validateAttributes();
-    } catch (RuleErrorException ruleErrorException) {
-      throw new EvalException(ruleErrorException);
-    }
-  }
-
-  @StarlarkMethod(
-      name = "register_compile_and_archive_actions",
-      documented = false,
-      parameters = {@Param(name = "common", positional = false, named = true)})
-  public void registerCompileAndArchiveActionsForStarlark(ObjcCommon common)
-      throws EvalException, InterruptedException {
-    try {
-      registerCompileAndArchiveActions(
-          common, ExtraCompileArgs.NONE, ImmutableList.<PathFragment>of());
-    } catch (RuleErrorException ruleErrorException) {
-      throw new EvalException(ruleErrorException);
-    }
-  }
-
   /**
    * Registers all actions necessary to compile this rule's sources and archive them.
    *
@@ -997,33 +972,6 @@ public class CompilationSupport implements StarlarkValue {
         objcCompilationContext,
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of());
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(ObjcCommon common)
-      throws RuleErrorException, InterruptedException {
-    return registerCompileAndArchiveActions(
-        common, ExtraCompileArgs.NONE, ImmutableList.<PathFragment>of());
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @param priorityHeaders priority headers to be included before the dependency headers
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, List<PathFragment> priorityHeaders)
-      throws RuleErrorException, InterruptedException {
-    return registerCompileAndArchiveActions(common, ExtraCompileArgs.NONE, priorityHeaders);
   }
 
   /**
