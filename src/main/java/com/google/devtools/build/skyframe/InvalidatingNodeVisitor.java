@@ -261,8 +261,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                 // normal rdep. That information is used to remove this node as an rdep from the
                 // correct list of rdeps in the child -- because of our compact storage of rdeps,
                 // checking which list contains this parent could be expensive.
-                Set<SkyKey> signalingDeps =
-                    entry.isDone() ? ImmutableSet.of() : entry.getTemporaryDirectDeps().toSet();
                 Iterable<SkyKey> directDeps;
                 try {
                   directDeps =
@@ -277,29 +275,44 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                           + entry,
                       e);
                 }
+                // No need to do reverse dep surgery on nodes that are deleted/about to be deleted
+                // anyway.
                 Map<SkyKey, ? extends NodeEntry> depMap =
-                    graph.getBatch(key, Reason.INVALIDATION, directDeps);
-                for (Map.Entry<SkyKey, ? extends NodeEntry> directDepEntry : depMap.entrySet()) {
-                  NodeEntry dep = directDepEntry.getValue();
-                  if (dep != null) {
-                    if (dep.isDone() || !signalingDeps.contains(directDepEntry.getKey())) {
-                      try {
-                        dep.removeReverseDep(key);
-                      } catch (InterruptedException e) {
-                        throw new IllegalStateException(
-                            "Deletion cannot happen on a graph that may have blocking "
-                                + "operations: "
-                                + key
-                                + ", "
-                                + entry,
-                            e);
+                    graph.getBatch(
+                        key,
+                        Reason.INVALIDATION,
+                        Iterables.filter(
+                            directDeps,
+                            k ->
+                                !visited.contains(k)
+                                    && !pendingVisitations.contains(
+                                        Pair.of(k, InvalidationType.DELETED))));
+                if (!depMap.isEmpty()) {
+                  // Don't do set operation below for signalingDeps if there's no work.
+                  Set<SkyKey> signalingDeps =
+                      entry.isDone() ? ImmutableSet.of() : entry.getTemporaryDirectDeps().toSet();
+                  for (Map.Entry<SkyKey, ? extends NodeEntry> directDepEntry : depMap.entrySet()) {
+                    NodeEntry dep = directDepEntry.getValue();
+                    if (dep != null) {
+                      if (dep.isDone() || !signalingDeps.contains(directDepEntry.getKey())) {
+                        try {
+                          dep.removeReverseDep(key);
+                        } catch (InterruptedException e) {
+                          throw new IllegalStateException(
+                              "Deletion cannot happen on a graph that may have blocking "
+                                  + "operations: "
+                                  + key
+                                  + ", "
+                                  + entry,
+                              e);
+                        }
+                      } else {
+                        // This step is not strictly necessary, since all in-progress nodes are
+                        // deleted during graph cleaning, which happens in a single
+                        // DeletingNodeVisitor visitation, aka the one right now. We leave this
+                        // here in case the logic changes.
+                        dep.removeInProgressReverseDep(key);
                       }
-                    } else {
-                      // This step is not strictly necessary, since all in-progress nodes are
-                      // deleted during graph cleaning, which happens in a single
-                      // DeletingNodeVisitor visitation, aka the one right now. We leave this
-                      // here in case the logic changes.
-                      dep.removeInProgressReverseDep(key);
                     }
                   }
                 }

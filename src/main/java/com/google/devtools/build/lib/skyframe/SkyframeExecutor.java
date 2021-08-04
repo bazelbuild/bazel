@@ -962,6 +962,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return tracksStateForIncrementality();
   }
 
+  @ForOverride
+  protected boolean shouldDeleteActionNodesWhenDroppingAnalysis() {
+    return true;
+  }
+
   /**
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
@@ -1115,8 +1120,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final void deleteAnalysisNodes() {
     memoizingEvaluator.delete(
         keepBuildConfigurationNodesWhenDiscardingAnalysis
-            ? SkyframeExecutor::basicAnalysisInvalidatingPredicate
-            : SkyframeExecutor::fullAnalysisInvalidatingPredicate);
+            ? shouldDeleteActionNodesWhenDroppingAnalysis()
+                ? SkyframeExecutor::basicAnalysisInvalidatingPredicateWithActions
+                : SkyframeExecutor::basicAnalysisInvalidatingPredicate
+            : shouldDeleteActionNodesWhenDroppingAnalysis()
+                ? SkyframeExecutor::fullAnalysisInvalidatingPredicateWithActions
+                : SkyframeExecutor::fullAnalysisInvalidatingPredicate);
   }
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
@@ -1125,10 +1134,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return key instanceof ArtifactNestedSetKey || key instanceof ActionLookupKey;
   }
 
+  // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
+  // en masse is cheaper than deleting via graph traversal (b/192863968).
+  private static boolean basicAnalysisInvalidatingPredicateWithActions(SkyKey key) {
+    return basicAnalysisInvalidatingPredicate(key) || key instanceof ActionLookupData;
+  }
+
   // We may also want to remove BuildConfigurationValue.Keys to fix a minor memory leak there.
   private static boolean fullAnalysisInvalidatingPredicate(SkyKey key) {
-    return key instanceof ArtifactNestedSetKey
-        || key instanceof ActionLookupKey
+    return basicAnalysisInvalidatingPredicate(key) || key instanceof BuildConfigurationValue.Key;
+  }
+
+  private static boolean fullAnalysisInvalidatingPredicateWithActions(SkyKey key) {
+    return basicAnalysisInvalidatingPredicateWithActions(key)
         || key instanceof BuildConfigurationValue.Key;
   }
 
