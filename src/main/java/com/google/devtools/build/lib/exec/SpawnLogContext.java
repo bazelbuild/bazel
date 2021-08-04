@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.protobuf.util.Durations;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -147,6 +148,7 @@ public class SpawnLogContext implements ActionContext {
       builder.setProgressMessage(progressMessage);
     }
     builder.setMnemonic(spawn.getMnemonic());
+    builder.setWalltime(Durations.fromNanos(result.getMetrics().executionWallTime().toNanos()));
     executionLog.write(builder.build());
   }
 
