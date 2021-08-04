@@ -1021,6 +1021,36 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
+  public void testExitCode_remoteMessage() throws Exception {
+    remoteOptions.remoteLocalFallback = false;
+
+    RemoteSpawnRunner runner = newSpawnRunner();
+
+    ExecutionStatusException cause =
+        new ExecutionStatusException(
+            com.google.rpc.Status.getDefaultInstance(),
+            ExecuteResponse.newBuilder().setMessage("beep and indeed boop").build());
+
+    when(cache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(ActionKey.class),
+            /* inlineOutErr= */ eq(false)))
+        .thenReturn(null);
+    when(executor.executeRemotely(
+            any(RemoteActionExecutionContext.class),
+            any(ExecuteRequest.class),
+            any(OperationObserver.class)))
+        .thenThrow(new IOException("reasons", cause));
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = getSpawnContext(spawn);
+
+    SpawnResult result = runner.exec(spawn, policy);
+    assertThat(result.exitCode()).isEqualTo(ExitCode.REMOTE_ERROR.getNumericExitCode());
+    assertThat(result.getFailureMessage()).contains("beep and indeed boop");
+  }
+
+  @Test
   public void testMaterializeParamFiles() throws Exception {
     testParamFilesAreMaterializedForFlag("--materialize_param_files");
   }

@@ -497,6 +497,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
       errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
     }
 
+    if (exception.getCause() instanceof ExecutionStatusException) {
+      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+      if (e.getResponse() != null) {
+        if (!e.getResponse().getMessage().isEmpty()) {
+          errorMessage += "\n" + e.getResponse().getMessage();
+        }
+      }
+    }
+
     return new SpawnResult.Builder()
         .setRunnerName(getName())
         .setStatus(status)
