@@ -102,10 +102,6 @@ public class UrlRewriter {
     ImmutableList<URL> rewritten =
         urls.stream().map(rewriter).flatMap(Collection::stream).collect(toImmutableList());
 
-    if (!urls.equals(rewritten)) {
-      log.accept(String.format("Rewritten %s as %s", urls, rewritten));
-    }
-
     return rewritten;
   }
 
