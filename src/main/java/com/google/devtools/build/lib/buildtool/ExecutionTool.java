@@ -781,7 +781,9 @@ public class ExecutionTool {
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
-                .build()),
+                .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
+                .build(),
+            PathFragment.create(env.getDirectories().getRelativeOutputPath())),
         env.getTopDownActionCache(),
         request.getPackageOptions().checkOutputFiles
             ? modifiedOutputFiles

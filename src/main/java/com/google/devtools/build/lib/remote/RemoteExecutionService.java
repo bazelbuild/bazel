@@ -77,7 +77,6 @@ import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteActionFileArtifactValue;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
@@ -623,12 +622,11 @@ public class RemoteExecutionService {
       }
       metadataInjector.injectFile(
           output,
-          new RemoteActionFileArtifactValue(
+          new RemoteFileArtifactValue(
               DigestUtil.toBinaryDigest(outputMetadata.digest()),
               outputMetadata.digest().getSizeBytes(),
               /*locationIndex=*/ 1,
-              context.getRequestMetadata().getActionId(),
-              outputMetadata.isExecutable()));
+              context.getRequestMetadata().getActionId()));
     }
   }
 

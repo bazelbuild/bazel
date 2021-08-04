@@ -388,6 +388,17 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
+      name = "experimental_action_cache_store_output_metadata",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      help = "Whether to store output metadata in the action cache")
+  public boolean actionCacheStoreOutputMetadata;
+
+  @Option(
       name = "discard_actions_after_execution",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

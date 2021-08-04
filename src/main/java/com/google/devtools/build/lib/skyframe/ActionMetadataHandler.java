@@ -406,7 +406,6 @@ final class ActionMetadataHandler implements MetadataHandler {
         !output.isTreeArtifact() && !output.isChildOfDeclaredDirectory(),
         "Tree artifacts and their children must be injected via injectTree: %s",
         output);
-    checkState(executionMode.get(), "Tried to inject %s outside of execution", output);
 
     store.putArtifactData(output, metadata);
   }
@@ -415,7 +414,6 @@ final class ActionMetadataHandler implements MetadataHandler {
   public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
-    checkState(executionMode.get(), "Tried to inject %s outside of execution", output);
     checkArgument(
         archivedTreeArtifactsEnabled == tree.getArchivedRepresentation().isPresent(),
         "Archived representation presence mismatched for: %s with archivedTreeArtifactsEnabled: %s",

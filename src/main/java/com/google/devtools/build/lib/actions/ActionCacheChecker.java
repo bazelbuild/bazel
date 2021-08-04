@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
@@ -30,14 +37,18 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -54,10 +65,13 @@ import javax.annotation.Nullable;
  * otherwise lightweight, and should be constructed anew and discarded for each build request.
  */
 public class ActionCacheChecker {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final ActionKeyContext actionKeyContext;
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
   private final CacheConfig cacheConfig;
+  private final PathFragment derivedPathPrefix;
 
   @Nullable private final ActionCache actionCache; // Null when not enabled.
 
@@ -67,6 +81,8 @@ public class ActionCacheChecker {
     abstract boolean enabled();
     // True iff --verbose_explanations flag is set.
     abstract boolean verboseExplanations();
+
+    abstract boolean storeOutputMetadata();
 
     public static Builder builder() {
       return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
@@ -79,6 +95,8 @@ public class ActionCacheChecker {
 
       public abstract Builder setEnabled(boolean value);
 
+      public abstract Builder setStoreOutputMetadata(boolean value);
+
       public abstract CacheConfig build();
     }
   }
@@ -88,19 +106,25 @@ public class ActionCacheChecker {
       ArtifactResolver artifactResolver,
       ActionKeyContext actionKeyContext,
       Predicate<? super Action> executionFilter,
-      @Nullable CacheConfig cacheConfig) {
+      @Nullable CacheConfig cacheConfig,
+      PathFragment derivedPathPrefix) {
     this.executionFilter = executionFilter;
     this.actionKeyContext = actionKeyContext;
     this.artifactResolver = artifactResolver;
     this.cacheConfig =
         cacheConfig != null
             ? cacheConfig
-            : CacheConfig.builder().setEnabled(true).setVerboseExplanations(false).build();
+            : CacheConfig.builder()
+                .setEnabled(true)
+                .setVerboseExplanations(false)
+                .setStoreOutputMetadata(false)
+                .build();
     if (this.cacheConfig.enabled()) {
       this.actionCache = Preconditions.checkNotNull(actionCache);
     } else {
       this.actionCache = null;
     }
+    this.derivedPathPrefix = derivedPathPrefix;
   }
 
   public boolean isActionExecutionProhibited(Action action) {
@@ -113,8 +137,8 @@ public class ActionCacheChecker {
   }
 
   /**
-   * Checks whether one of existing output paths is already used as a key.
-   * If yes, returns it - otherwise uses first output file as a key
+   * Checks whether one of existing output paths is already used as a key. If yes, returns it -
+   * otherwise uses first output file as a key
    */
   private ActionCache.Entry getCacheEntry(Action action) {
     if (!cacheConfig.enabled()) {
@@ -135,6 +159,26 @@ public class ActionCacheChecker {
     }
   }
 
+  @Nullable
+  private static FileArtifactValue getCachedMetadata(
+      @Nullable CachedOutputMetadata cachedOutputMetadata, Artifact artifact) {
+    if (cachedOutputMetadata == null) {
+      return null;
+    }
+
+    if (artifact.isTreeArtifact()) {
+      TreeArtifactValue value =
+          cachedOutputMetadata.mergedTreeMetadata.get((SpecialArtifact) artifact);
+      if (value == null) {
+        return null;
+      }
+
+      return value.getMetadata();
+    } else {
+      return cachedOutputMetadata.remoteFileMetadata.get(artifact);
+    }
+  }
+
   /**
    * Validate metadata state for action input or output artifacts.
    *
@@ -144,6 +188,8 @@ public class ActionCacheChecker {
    *     but if this action doesn't yet know its inputs, we check the inputs from the cache.
    * @param metadataHandler provider of metadata for the artifacts this action interacts with.
    * @param checkOutput true to validate output artifacts, Otherwise, just validate inputs.
+   * @param cachedOutputMetadata a set of cached metadata that should be used instead of loading
+   *     from {@code metadataHandler}.
    * @return true if at least one artifact has changed, false - otherwise.
    */
   private static boolean validateArtifacts(
@@ -151,11 +197,17 @@ public class ActionCacheChecker {
       Action action,
       NestedSet<Artifact> actionInputs,
       MetadataHandler metadataHandler,
-      boolean checkOutput) {
+      boolean checkOutput,
+      @Nullable CachedOutputMetadata cachedOutputMetadata) {
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
     if (checkOutput) {
       for (Artifact artifact : action.getOutputs()) {
-        mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
+        FileArtifactValue metadata = getCachedMetadata(cachedOutputMetadata, artifact);
+        if (metadata == null) {
+          metadata = getMetadataMaybe(metadataHandler, artifact);
+        }
+
+        mdMap.put(artifact.getExecPathString(), metadata);
       }
     }
     for (Artifact artifact : actionInputs.toList()) {
@@ -168,11 +220,16 @@ public class ActionCacheChecker {
     if (handler != null) {
       if (cacheConfig.verboseExplanations()) {
         String keyDescription = action.describeKey();
-        reportRebuild(handler, action, keyDescription == null
-            ? "action command has changed"
-            : "action command has changed.\nNew action: " + keyDescription);
+        reportRebuild(
+            handler,
+            action,
+            keyDescription == null
+                ? "action command has changed"
+                : "action command has changed.\nNew action: " + keyDescription);
       } else {
-        reportRebuild(handler, action,
+        reportRebuild(
+            handler,
+            action,
             "action command has changed (try --verbose_explanations for more info)");
       }
     }
@@ -184,7 +241,11 @@ public class ActionCacheChecker {
         StringBuilder message = new StringBuilder();
         message.append("Effective client environment has changed. Now using\n");
         for (Map.Entry<String, String> entry : used.entrySet()) {
-          message.append("  ").append(entry.getKey()).append("=").append(entry.getValue())
+          message
+              .append("  ")
+              .append(entry.getKey())
+              .append("=")
+              .append(entry.getValue())
               .append("\n");
         }
         reportRebuild(handler, action, message.toString());
@@ -234,6 +295,113 @@ public class ActionCacheChecker {
     return usedEnvironment;
   }
 
+  private static class CachedOutputMetadata {
+    private final ImmutableMap<Artifact, RemoteFileArtifactValue> remoteFileMetadata;
+    // TreeArtifactValues merged from local files and remote metadata pulled from the action cache.
+    private final ImmutableMap<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata;
+
+    private CachedOutputMetadata(
+        ImmutableMap<Artifact, RemoteFileArtifactValue> remoteFileMetadata,
+        ImmutableMap<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata) {
+      this.remoteFileMetadata = remoteFileMetadata;
+      this.mergedTreeMetadata = mergedTreeMetadata;
+    }
+  }
+
+  private static CachedOutputMetadata loadCachedOutputMetadata(
+      Action action,
+      ActionCache.Entry entry,
+      MetadataHandler metadataHandler,
+      PathFragment derivedPathPrefix) {
+    ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> remoteFileMetadata =
+        ImmutableMap.builder();
+    ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata =
+        ImmutableMap.builder();
+
+    for (Artifact artifact : action.getOutputs()) {
+      if (artifact.isTreeArtifact()) {
+        SpecialArtifact parent = (SpecialArtifact) artifact;
+        SerializableTreeArtifactValue cachedTreeMetadata = entry.getOutputTree(parent);
+        if (cachedTreeMetadata == null) {
+          continue;
+        }
+
+        TreeArtifactValue localTreeMetadata;
+        try {
+          localTreeMetadata = metadataHandler.getTreeArtifactValue(parent);
+        } catch (IOException e) {
+          // Ignore the cached metadata if we encountered an error when loading corresponding
+          // local one.
+          logger.atWarning().withCause(e).log("Failed to load metadata for %s", parent);
+          continue;
+        }
+
+        boolean localTreeMetadataExists =
+            localTreeMetadata != null
+                && !localTreeMetadata.equals(TreeArtifactValue.MISSING_TREE_ARTIFACT);
+
+        Map<TreeFileArtifact, FileArtifactValue> childValues = new HashMap<>();
+        // Load remote child file metadata from cache.
+        cachedTreeMetadata
+            .childValues()
+            .forEach(
+                (key, value) ->
+                    childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value));
+        // Or add local one.
+        if (localTreeMetadataExists) {
+          localTreeMetadata.getChildValues().forEach(childValues::put);
+        }
+
+        Optional<ArchivedRepresentation> archivedRepresentation;
+        if (localTreeMetadataExists && localTreeMetadata.getArchivedRepresentation().isPresent()) {
+          archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
+        } else {
+          archivedRepresentation =
+              cachedTreeMetadata
+                  .archivedFileValue()
+                  .map(
+                      fileArtifactValue -> {
+                        Artifact.ArchivedTreeArtifact archivedTreeArtifact =
+                            Artifact.ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+                        return ArchivedRepresentation.create(
+                            archivedTreeArtifact, fileArtifactValue);
+                      });
+        }
+
+        TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
+        childValues.forEach(merged::putChild);
+        archivedRepresentation.ifPresent(merged::setArchivedRepresentation);
+
+        // Always inject merged tree if we have a tree from cache
+        mergedTreeMetadata.put(parent, merged.build());
+      } else {
+        RemoteFileArtifactValue cachedMetadata = entry.getOutputFile(artifact);
+        if (cachedMetadata == null) {
+          continue;
+        }
+
+        FileArtifactValue localMetadata;
+        try {
+          localMetadata = getMetadataOrConstant(metadataHandler, artifact);
+        } catch (FileNotFoundException ignored) {
+          localMetadata = null;
+        } catch (IOException e) {
+          // Ignore the cached metadata if we encountered an error when loading the corresponding
+          // local one.
+          logger.atWarning().withCause(e).log("Failed to load metadata for %s", artifact);
+          continue;
+        }
+
+        // Only inject remote metadata if the corresponding local one is missing.
+        if (localMetadata == null) {
+          remoteFileMetadata.put(artifact, cachedMetadata);
+        }
+      }
+    }
+
+    return new CachedOutputMetadata(remoteFileMetadata.build(), mergedTreeMetadata.build());
+  }
+
   /**
    * Checks whether {@code action} needs to be executed and returns a non-null Token if so.
    *
@@ -278,8 +446,10 @@ public class ActionCacheChecker {
     boolean inputsDiscovered = action.inputsDiscovered();
     if (!inputsDiscovered && resolvedCacheArtifacts != null) {
       // The action doesn't know its inputs, but the caller has a good idea of what they are.
-      Preconditions.checkState(action.discoversInputs(),
-          "Actions that don't know their inputs must discover them: %s", action);
+      checkState(
+          action.discoversInputs(),
+          "Actions that don't know their inputs must discover them: %s",
+          action);
       if (action instanceof ActionCacheAwareAction
           && ((ActionCacheAwareAction) action).storeInputsExecPathsInActionCache()) {
         actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
@@ -292,6 +462,13 @@ public class ActionCacheChecker {
       }
     }
     ActionCache.Entry entry = getCacheEntry(action);
+    CachedOutputMetadata cachedOutputMetadata = null;
+    // load remote metadata from action cache
+    if (entry != null && !entry.isCorrupted() && cacheConfig.storeOutputMetadata()) {
+      cachedOutputMetadata =
+          loadCachedOutputMetadata(action, entry, metadataHandler, derivedPathPrefix);
+    }
+
     if (mustExecute(
         action,
         entry,
@@ -300,7 +477,8 @@ public class ActionCacheChecker {
         artifactExpander,
         actionInputs,
         clientEnv,
-        remoteDefaultPlatformProperties)) {
+        remoteDefaultPlatformProperties,
+        cachedOutputMetadata)) {
       if (entry != null) {
         removeCacheEntry(action);
       }
@@ -310,6 +488,13 @@ public class ActionCacheChecker {
     if (!inputsDiscovered) {
       action.updateInputs(actionInputs);
     }
+
+    // Inject cached output metadata if we have an action cache hit
+    if (cachedOutputMetadata != null) {
+      cachedOutputMetadata.remoteFileMetadata.forEach(metadataHandler::injectFile);
+      cachedOutputMetadata.mergedTreeMetadata.forEach(metadataHandler::injectTree);
+    }
+
     return null;
   }
 
@@ -321,11 +506,12 @@ public class ActionCacheChecker {
       ArtifactExpander artifactExpander,
       NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
-      Map<String, String> remoteDefaultPlatformProperties)
+      Map<String, String> remoteDefaultPlatformProperties,
+      @Nullable CachedOutputMetadata cachedOutputMetadata)
       throws InterruptedException {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
-      Preconditions.checkState(action.isVolatile());
+      checkState(action.isVolatile());
       reportUnconditionalExecution(handler, action);
       actionCache.accountMiss(MissReason.UNCONDITIONAL_EXECUTION);
       return true;
@@ -340,7 +526,8 @@ public class ActionCacheChecker {
       reportCorruptedCacheEntry(handler, action);
       actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
       return true;
-    } else if (validateArtifacts(entry, action, actionInputs, metadataHandler, true)) {
+    } else if (validateArtifacts(
+        entry, action, actionInputs, metadataHandler, true, cachedOutputMetadata)) {
       reportChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_FILES);
       return true;
@@ -392,8 +579,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       Map<String, String> remoteDefaultPlatformProperties)
       throws IOException, InterruptedException {
-    Preconditions.checkState(
-        cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
+    checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
     Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
     String key = token.cacheKey;
     if (actionCache.get(key) != null) {
@@ -414,13 +600,19 @@ public class ActionCacheChecker {
         actionCache.remove(execPath);
       }
       if (!metadataHandler.artifactOmitted(output)) {
-        // Output files *must* exist and be accessible after successful action execution. We use the
-        // 'constant' metadata for the volatile workspace status output. The volatile output
-        // contains information such as timestamps, and even when --stamp is enabled, we don't want
-        // to rebuild everything if only that file changes.
-        FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
-        Preconditions.checkState(metadata != null);
-        entry.addFile(output.getExecPath(), metadata, /* saveExecPath= */ false);
+        if (output.isTreeArtifact()) {
+          SpecialArtifact parent = (SpecialArtifact) output;
+          TreeArtifactValue metadata = metadataHandler.getTreeArtifactValue(parent);
+          entry.addOutputTree(parent, metadata, cacheConfig.storeOutputMetadata());
+        } else {
+          // Output files *must* exist and be accessible after successful action execution. We use
+          // the 'constant' metadata for the volatile workspace status output. The volatile output
+          // contains information such as timestamps, and even when --stamp is enabled, we don't
+          // want to rebuild everything if only that file changes.
+          FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
+          checkState(metadata != null);
+          entry.addOutputFile(output, metadata, cacheConfig.storeOutputMetadata());
+        }
       }
     }
 
@@ -433,7 +625,7 @@ public class ActionCacheChecker {
             : ImmutableSet.of();
 
     for (Artifact input : action.getInputs().toList()) {
-      entry.addFile(
+      entry.addInputFile(
           input.getExecPath(),
           getMetadataMaybe(metadataHandler, input),
           /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
@@ -531,7 +723,13 @@ public class ActionCacheChecker {
         reportCorruptedCacheEntry(handler, action);
         actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
         changed = true;
-      } else if (validateArtifacts(entry, action, action.getInputs(), metadataHandler, false)) {
+      } else if (validateArtifacts(
+          entry,
+          action,
+          action.getInputs(),
+          metadataHandler,
+          false,
+          /*cachedOutputMetadata=*/ null)) {
         reportChanged(handler, action);
         actionCache.accountMiss(MissReason.DIFFERENT_FILES);
         changed = true;
@@ -547,7 +745,8 @@ public class ActionCacheChecker {
       // it in the cache entry and just use empty string instead.
       entry = new ActionCache.Entry("", ImmutableMap.of(), false);
       for (Artifact input : action.getInputs().toList()) {
-        entry.addFile(input.getExecPath(), getMetadataMaybe(metadataHandler, input));
+        entry.addInputFile(
+            input.getExecPath(), getMetadataMaybe(metadataHandler, input), /*saveExecPath=*/ true);
       }
     }
 
@@ -559,25 +758,24 @@ public class ActionCacheChecker {
     }
   }
 
-  /**
-   * Returns an action key. It is always set to the first output exec path string.
-   */
+  /** Returns an action key. It is always set to the first output exec path string. */
   private static String getKeyString(Action action) {
-    Preconditions.checkState(!action.getOutputs().isEmpty());
+    checkState(!action.getOutputs().isEmpty());
     return action.getOutputs().iterator().next().getExecPathString();
   }
 
-
   /**
-   * In most cases, this method should not be called directly - reportXXX() methods
-   * should be used instead. This is done to avoid cost associated with building
-   * the message.
+   * In most cases, this method should not be called directly - reportXXX() methods should be used
+   * instead. This is done to avoid cost associated with building the message.
    */
   private static void reportRebuild(@Nullable EventHandler handler, Action action, String message) {
     // For MiddlemanAction, do not report rebuild.
     if (handler != null && !action.getActionType().isMiddleman()) {
-      handler.handle(Event.of(
-          EventKind.DEPCHECKER, null, "Executing " + action.prettyPrint() + ": " + message + "."));
+      handler.handle(
+          Event.of(
+              EventKind.DEPCHECKER,
+              null,
+              "Executing " + action.prettyPrint() + ": " + message + "."));
     }
   }
 
