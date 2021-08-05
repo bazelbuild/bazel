@@ -699,3 +699,22 @@ build_test(
         "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidDataBindingV2Test",
     ],
 )
+
+java_test(
+    name = "SubcommandEventTest",
+    srcs = ["SubcommandEventTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
