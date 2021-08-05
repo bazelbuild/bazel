@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -38,14 +39,41 @@ public class ObjcCppSemantics implements CppSemantics {
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer) {
-    actionBuilder
-        // Without include scanning, we need the entire crosstool filegroup, including header files,
-        // as opposed to just the "compile" filegroup.  Even with include scanning, we need the
-        // system framework headers since they are not being scanned right now.
-        // TODO(waltl): do better with include scanning.
-        .addTransitiveMandatoryInputs(actionBuilder.getToolchain().getAllFilesIncludingLibc())
-        .setShouldScanIncludes(
-            configuration.getFragment(CppConfiguration.class).objcShouldScanIncludes());
+    Artifact sourceFile = actionBuilder.getSourceFile();
+    CcToolchainProvider toolchain = actionBuilder.getToolchain();
+
+    // Two things have to be true to perform #include scanning:
+    //  1. The toolchain configuration has to generally enable it.
+    //     This is the default unless the --noexperimental_objc_include_scanning flag was specified.
+    //  2. The file must not be a not-for-preprocessing assembler source file.
+    //     Assembler without C preprocessing can use the '.include' pseudo-op which is not
+    //     understood by the include scanner, so we'll disable scanning, and instead require
+    //     the declared sources to state (possibly overapproximate) the dependencies.
+    //     Assembler with preprocessing can also use '.include', but supporting both kinds
+    //     of inclusion for that use-case is ridiculous.
+    boolean shouldScanIncludes =
+        configuration.getFragment(CppConfiguration.class).objcShouldScanIncludes()
+            && !sourceFile.isFileType(CppFileTypes.ASSEMBLER)
+            && !sourceFile.isFileType(CppFileTypes.CPP_MODULE);
+    if (shouldScanIncludes && actionBuilder.getGrepIncludes() == null) {
+      ruleErrorConsumer.ruleError(
+          "When include scanning is turned on, the rule must pass grep_includes");
+    }
+
+    actionBuilder.setShouldScanIncludes(shouldScanIncludes);
+
+    // If include scanning is enabled, we can use the filegroup without header files - they are
+    // found by include scanning.  We still need the system framework headers since they are not
+    // being scanned right now, but those are placed in the "compile" file group.
+    actionBuilder.addTransitiveMandatoryInputs(
+        actionBuilder.getShouldScanIncludes()
+            ? actionBuilder.getToolchain().getCompilerFilesWithoutIncludes()
+            : configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
+                    && !actionBuilder.getSourceFile().isTreeArtifact()
+                ? (actionBuilder.getActionName().equals(CppActionNames.ASSEMBLE)
+                    ? toolchain.getAsFiles()
+                    : toolchain.getCompilerFiles())
+                : toolchain.getAllFiles());
   }
 
   @Override
