@@ -383,6 +383,9 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           .build();
     }
 
+    /**
+     * Hash including the explicit command line options as well as the residue, e.g. the targets.
+     */
     public long getExplicitCommandLineHash() {
       long hash = 0;
       for (Entry<String, Object> starlarkOption : commandOptions.getStarlarkOptions().entrySet()) {
@@ -396,6 +399,9 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           continue;
         }
         hash = hash * 31 + canonicalOptionDesc.getCanonicalForm().hashCode();
+      }
+      for (String r : commandOptions.getResidue()) {
+        hash = hash * 31 + r.hashCode();
       }
       return hash;
     }
