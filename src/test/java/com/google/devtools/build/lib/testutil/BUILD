@@ -236,6 +236,23 @@ java_library(
     ],
 )
 
+java_library(
+    name = "FakeResourceOwner_lib",
+    srcs = [
+        "FakeResourceOwner.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
 java_test(
     name = "TestUtilTests",
     size = "small",
