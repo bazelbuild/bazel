@@ -41,10 +41,10 @@ import java.util.regex.Pattern;
 /** An immutable set of package name prefixes that should be ignored. */
 @AutoCodec
 public class IgnoredPackagePrefixesValue implements SkyValue {
-  private final Set<PathFragment> ignoredPackagePrefixes;
+//  private final Set<PathFragment> ignoredPackagePrefixes;
   private final ImmutableSet<PathFragment> bazelignoreEntries;
-  private final ImmutableSet<String> wildcardPatterns;
-  private final Map<String, Pattern> patternCache;
+//  private final ImmutableSet<String> wildcardPatterns;
+//  private final Map<String, Pattern> patternCache;
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY_LIST =
@@ -53,20 +53,20 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     bazelignoreEntries = Preconditions.checkNotNull(patterns);
 
-    ImmutableSet.Builder<String> wildcardPatternsBuilder = ImmutableSet.builder();
-    ignoredPackagePrefixes = Sets.newConcurrentHashSet();
-
-    for (PathFragment pattern: patterns) {
-      String path = pattern.getPathString();
-      if (UnixGlob.isWildcardFree(path)) {
-        ignoredPackagePrefixes.add(pattern);
-      } else {
-        wildcardPatternsBuilder.add(path);
-      }
-    }
-
-    wildcardPatterns = wildcardPatternsBuilder.build();
-    patternCache = Maps.newHashMap();
+//    ImmutableSet.Builder<String> wildcardPatternsBuilder = ImmutableSet.builder();
+//    ignoredPackagePrefixes = Sets.newConcurrentHashSet();
+//
+//    for (PathFragment pattern: patterns) {
+//      String path = pattern.getPathString();
+//      if (UnixGlob.isWildcardFree(path)) {
+//        ignoredPackagePrefixes.add(pattern);
+//      } else {
+//        wildcardPatternsBuilder.add(path);
+//      }
+//    }
+//
+//    wildcardPatterns = wildcardPatternsBuilder.build();
+//    patternCache = Maps.newHashMap();
   }
 
   @AutoCodec.Instantiator
@@ -85,23 +85,24 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   }
 
   public ImmutableSet<PathFragment> getPatterns() {
-    return ImmutableSet.copyOf(ignoredPackagePrefixes);
+    return bazelignoreEntries;
+//    return ImmutableSet.copyOf(ignoredPackagePrefixes);
   }
 
-  public boolean isPathFragmentIgnored(PathFragment base) {
-    for (PathFragment ignoredPrefix: ignoredPackagePrefixes) {
-      if (base.startsWith(ignoredPrefix)) {
-        return true;
-      }
-    }
-    for (String pattern: wildcardPatterns) {
-      if (UnixGlob.matches(pattern + "/**", base.getPathString(), null)) {
+//  public boolean isPathFragmentIgnored(PathFragment base) {
+//    for (PathFragment ignoredPrefix: ignoredPackagePrefixes) {
+//      if (base.startsWith(ignoredPrefix)) {
+//        return true;
+//      }
+//    }
+//    for (String pattern: wildcardPatterns) {
+//      if (UnixGlob.matches(pattern + "/**", base.getPathString(), null)) {
 //        ignoredPackagePrefixes.add(base);
-        return true;
-      }
-    }
-    return false;
-  }
+//        return true;
+//      }
+//    }
+//    return false;
+//  }
 
   @Override
   public int hashCode() {

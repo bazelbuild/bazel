@@ -314,7 +314,17 @@ public class PackageLookupFunction implements SkyFunction {
   private static boolean isPackageIgnored(
           PackageIdentifier id, IgnoredPackagePrefixesValue ignoredPatternsValue) {
     PathFragment packageFragment = id.getPackageFragment();
-    return ignoredPatternsValue.isPathFragmentIgnored(packageFragment);
+    for (PathFragment pattern : ignoredPatternsValue.getPatterns()) {
+      if (isPackageIgnored(packageFragment, pattern)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isPackageIgnored(
+          PathFragment packageFragment, PathFragment pattern) {
+    return UnixGlob.matches(pattern.getPathString() + "/**", packageFragment.getPathString(), null);
   }
 
   private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)

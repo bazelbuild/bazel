@@ -49,29 +49,29 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   }
 
   public static void getIgnoredPackagePrefixes(
-          RootedPath patternFile,
-          ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder,
-          EventHandler eventHandler)
-          throws IgnoredPatternsFunctionException {
+      RootedPath patternFile,
+      ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder,
+      EventHandler eventHandler)
+      throws IgnoredPatternsFunctionException {
     try (InputStreamReader reader =
-                 new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
+        new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
       ignoredPackagePrefixesBuilder.addAll(
-              CharStreams.readLines(reader, new PathFragmentLineProcessor(eventHandler)));
+          CharStreams.readLines(reader, new PathFragmentLineProcessor(eventHandler)));
     } catch (IOException e) {
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
       throw new IgnoredPatternsFunctionException(
-              new InconsistentFilesystemException(
-                      patternFile.asPath()
-                              + " is not readable because: "
-                              + errorMessage
-                              + ". Was it modified mid-build?"));
+          new InconsistentFilesystemException(
+              patternFile.asPath()
+                  + " is not readable because: "
+                  + errorMessage
+                  + ". Was it modified mid-build?"));
     }
   }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-          throws SkyFunctionException, InterruptedException {
+      throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
     ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
@@ -106,8 +106,8 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
         }
         if (repositoryValue.repositoryExists()) {
           RootedPath rootedPatternFile =
-                  RootedPath.toRootedPath(
-                          Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
+              RootedPath.toRootedPath(
+                  Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
           if (patternFileValue == null) {
             return null;
@@ -126,7 +126,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   }
 
   private static final class PathFragmentLineProcessor
-          implements LineProcessor<ImmutableSet<PathFragment>> {
+      implements LineProcessor<ImmutableSet<PathFragment>> {
     private final ImmutableSet.Builder<PathFragment> patterns = ImmutableSet.builder();
     private final EventHandler eventHandler;
 
