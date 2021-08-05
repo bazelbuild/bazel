@@ -963,6 +963,28 @@ public class GrpcCacheClientTest {
   }
 
   @Test
+  public void downloadBlobDoesNotRetryZeroLengthRequests()
+      throws IOException, InterruptedException {
+    Backoff mockBackoff = Mockito.mock(Backoff.class);
+    final GrpcCacheClient client =
+        newClient(Options.getDefaults(RemoteOptions.class), () -> mockBackoff);
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            assertThat(request.getReadOffset()).isEqualTo(0);
+            ByteString data = ByteString.copyFromUtf8("abcdefg");
+            responseObserver.onNext(ReadResponse.newBuilder().setData(data).build());
+            responseObserver.onError(Status.INTERNAL.asException());
+          }
+        });
+    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
+  }
+
+  @Test
   public void downloadBlobPassesThroughDeadlineExceededWithoutProgress() throws IOException {
     Backoff mockBackoff = Mockito.mock(Backoff.class);
     Mockito.when(mockBackoff.nextDelayMillis(any(Exception.class))).thenReturn(-1L);
