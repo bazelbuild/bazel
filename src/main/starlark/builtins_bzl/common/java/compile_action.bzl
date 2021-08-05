@@ -23,6 +23,7 @@ load(
     "ALLOWED_RULES_IN_DEPS_WITH_WARNING",
     "COLLECT_SRCS_FROM_PROTO_LIBRARY",
     "EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY",
+    "EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY",
     "EXTRA_SRCS_TYPES",
 )
 
@@ -114,8 +115,8 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
         javac_opts = [ctx.expand_location(opt) for opt in ctx.attr.javacopts],
         neverlink = ctx.attr.neverlink,
         java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-        output = ctx.actions.declare_file(output_prefix + "%s.jar" % ctx.attr.name) if EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY else ctx.outputs.classjar,
-        output_source_jar = ctx.actions.declare_file(output_prefix + "%s-src.jar" % ctx.attr.name) if EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY else ctx.outputs.sourcejar,
+        output = ctx.actions.declare_file(output_prefix + "%s.jar" % ctx.attr.name) if EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else ctx.outputs.classjar,
+        output_source_jar = ctx.actions.declare_file(output_prefix + "%s-src.jar" % ctx.attr.name) if EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else ctx.outputs.sourcejar,
         strict_deps = _filter_strict_deps(ctx.fragments.java.strict_java_deps),
     )
 
