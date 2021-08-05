@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -311,14 +312,9 @@ public class PackageLookupFunction implements SkyFunction {
   }
 
   private static boolean isPackageIgnored(
-      PackageIdentifier id, IgnoredPackagePrefixesValue ignoredPatternsValue) {
+          PackageIdentifier id, IgnoredPackagePrefixesValue ignoredPatternsValue) {
     PathFragment packageFragment = id.getPackageFragment();
-    for (PathFragment pattern : ignoredPatternsValue.getPatterns(packageFragment)) {
-      if (packageFragment.startsWith(pattern)) {
-        return true;
-      }
-    }
-    return false;
+    return ignoredPatternsValue.isPathFragmentIgnored(packageFragment);
   }
 
   private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)

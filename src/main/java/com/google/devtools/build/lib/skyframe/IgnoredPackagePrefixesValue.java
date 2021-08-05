@@ -44,15 +44,13 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   private final Set<PathFragment> ignoredPackagePrefixes;
   private final ImmutableSet<PathFragment> bazelignoreEntries;
   private final ImmutableSet<String> wildcardPatterns;
-  private final Set<PathFragment> visitedPackage;
-  private final Root workspaceRoot;
   private final Map<String, Pattern> patternCache;
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY_LIST =
-          new IgnoredPackagePrefixesValue(ImmutableSet.of(), null);
+          new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
-  private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns, Root workspaceRoot) {
+  private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     bazelignoreEntries = Preconditions.checkNotNull(patterns);
 
     ImmutableSet.Builder<String> wildcardPatternsBuilder = ImmutableSet.builder();
@@ -69,13 +67,11 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
 
     wildcardPatterns = wildcardPatternsBuilder.build();
     patternCache = Maps.newHashMap();
-    visitedPackage = Sets.newHashSet();
-    this.workspaceRoot = workspaceRoot;
   }
 
   @AutoCodec.Instantiator
-  public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns, Root workspaceRoot) {
-    return patterns.isEmpty() ? EMPTY_LIST : new IgnoredPackagePrefixesValue(patterns, workspaceRoot);
+  public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
+    return patterns.isEmpty() ? EMPTY_LIST : new IgnoredPackagePrefixesValue(patterns);
   }
 
   /** Creates a key from the main repository. */
@@ -92,20 +88,19 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
     return ImmutableSet.copyOf(ignoredPackagePrefixes);
   }
 
-  public ImmutableSet<PathFragment> getPatterns(PathFragment base) {
-    if (workspaceRoot == null || visitedPackage.contains(base)) {
-      return ImmutableSet.copyOf(ignoredPackagePrefixes);
-    }
-    Path root = RootedPath.toRootedPath(workspaceRoot, base).asPath();
-    visitedPackage.add(base);
-    for (String pattern: wildcardPatterns) {
-      if (UnixGlob.matches(pattern, base.getPathString(), patternCache)) {
-        ignoredPackagePrefixes.add(base);
-        return ImmutableSet.copyOf(ignoredPackagePrefixes);
+  public boolean isPathFragmentIgnored(PathFragment base) {
+    for (PathFragment ignoredPrefix: ignoredPackagePrefixes) {
+      if (base.startsWith(ignoredPrefix)) {
+        return true;
       }
     }
-    collectIgnoredDirectories(root);
-    return ImmutableSet.copyOf(ignoredPackagePrefixes);
+    for (String pattern: wildcardPatterns) {
+      if (UnixGlob.matches(pattern + "/**", base.getPathString(), null)) {
+//        ignoredPackagePrefixes.add(base);
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -140,47 +135,6 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.IGNORED_PACKAGE_PREFIXES;
-    }
-  }
-
-  /**
-   * Scan directories iteratively under {@code rootDirectory} and match them to avaliable patterns
-   * in {@code wildcardPatterns}. Add the matched directories to {@code ignoredPackagePrefixesBuilder}.
-   *
-   * @param rootDirectory the directory of package
-   */
-  private void collectIgnoredDirectories(Path rootDirectory) {
-    Stack<Path> rootStack = new Stack<>();
-    rootStack.push(rootDirectory);
-    Stack<String> relativeStack = new Stack<>();
-    relativeStack.push("");
-
-    while (!rootStack.isEmpty()) {
-      Path root = rootStack.pop();
-      String relative = relativeStack.pop();
-      Collection<Dirent> dirents;
-      try {
-        dirents = root.readdir(Symlinks.FOLLOW);
-      } catch (Exception ignored) {
-        continue;
-      }
-
-      nextMatch:
-      for (Dirent dirent : dirents) {
-        String childRelative = relative.isEmpty()
-                ? dirent.getName()
-                : relative + "/" + dirent.getName();
-        if (dirent.getType() == Dirent.Type.DIRECTORY) {
-          for (String pattern: wildcardPatterns) {
-            if (UnixGlob.matches(pattern, childRelative, patternCache)) {
-              ignoredPackagePrefixes.add(PathFragment.create(childRelative));
-              continue nextMatch;
-            }
-          }
-          rootStack.push(root.getChild(dirent.getName()));
-          relativeStack.push(childRelative);
-        }
-      }
     }
   }
 }
