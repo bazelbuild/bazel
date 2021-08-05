@@ -41,7 +41,7 @@ def _base_common_impl(ctx, extra_resources, output_prefix):
     if lint_output:
         output_group["_validation"] = [lint_output]
 
-    return dict(
+    return struct(
         java = java_info,
         default = default_info,
         output_group = output_group,
