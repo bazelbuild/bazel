@@ -1,3 +1,4 @@
+
 // Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,57 +17,26 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
-import java.util.regex.Pattern;
 
 /** An immutable set of package name prefixes that should be ignored. */
 @AutoCodec
 public class IgnoredPackagePrefixesValue implements SkyValue {
-//  private final Set<PathFragment> ignoredPackagePrefixes;
-  private final ImmutableSet<PathFragment> bazelignoreEntries;
-//  private final ImmutableSet<String> wildcardPatterns;
-//  private final Map<String, Pattern> patternCache;
+  private final ImmutableSet<PathFragment> patterns;
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY_LIST =
           new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
   private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
-    bazelignoreEntries = Preconditions.checkNotNull(patterns);
-
-//    ImmutableSet.Builder<String> wildcardPatternsBuilder = ImmutableSet.builder();
-//    ignoredPackagePrefixes = Sets.newConcurrentHashSet();
-//
-//    for (PathFragment pattern: patterns) {
-//      String path = pattern.getPathString();
-//      if (UnixGlob.isWildcardFree(path)) {
-//        ignoredPackagePrefixes.add(pattern);
-//      } else {
-//        wildcardPatternsBuilder.add(path);
-//      }
-//    }
-//
-//    wildcardPatterns = wildcardPatternsBuilder.build();
-//    patternCache = Maps.newHashMap();
+    this.patterns = Preconditions.checkNotNull(patterns);
   }
 
   @AutoCodec.Instantiator
@@ -85,35 +55,19 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   }
 
   public ImmutableSet<PathFragment> getPatterns() {
-    return bazelignoreEntries;
-//    return ImmutableSet.copyOf(ignoredPackagePrefixes);
+    return patterns;
   }
-
-//  public boolean isPathFragmentIgnored(PathFragment base) {
-//    for (PathFragment ignoredPrefix: ignoredPackagePrefixes) {
-//      if (base.startsWith(ignoredPrefix)) {
-//        return true;
-//      }
-//    }
-//    for (String pattern: wildcardPatterns) {
-//      if (UnixGlob.matches(pattern + "/**", base.getPathString(), null)) {
-//        ignoredPackagePrefixes.add(base);
-//        return true;
-//      }
-//    }
-//    return false;
-//  }
 
   @Override
   public int hashCode() {
-    return bazelignoreEntries.hashCode();
+    return patterns.hashCode();
   }
 
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof IgnoredPackagePrefixesValue) {
       IgnoredPackagePrefixesValue other = (IgnoredPackagePrefixesValue) obj;
-      return this.bazelignoreEntries.equals(other.bazelignoreEntries);
+      return this.patterns.equals(other.patterns);
     }
     return false;
   }

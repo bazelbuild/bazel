@@ -84,7 +84,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       if (repositoryName.isMain()) {
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
           RootedPath rootedPatternFile =
-                  RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
+              RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
           if (patternFileValue == null) {
             return null;
@@ -100,7 +100,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       } else {
         // Make sure the repository is fetched.
         RepositoryDirectoryValue repositoryValue =
-                (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repositoryName));
+            (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repositoryName));
         if (repositoryValue == null) {
           return null;
         }
@@ -127,7 +127,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
 
   private static final class PathFragmentLineProcessor
       implements LineProcessor<ImmutableSet<PathFragment>> {
-    private final ImmutableSet.Builder<PathFragment> patterns = ImmutableSet.builder();
+    private final ImmutableSet.Builder<PathFragment> fragments = ImmutableSet.builder();
     private final EventHandler eventHandler;
 
     public PathFragmentLineProcessor(EventHandler eventHandler) {
@@ -145,13 +145,13 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
         eventHandler.handle(Event.warn((error + " (in .bazelignore glob pattern '" + line + "')")));
         return true;
       }
-      patterns.add(PathFragment.create(line));
+      fragments.add(PathFragment.create(line));
       return true;
     }
 
     @Override
     public ImmutableSet<PathFragment> getResult() {
-      return patterns.build();
+      return fragments.build();
     }
   }
 
