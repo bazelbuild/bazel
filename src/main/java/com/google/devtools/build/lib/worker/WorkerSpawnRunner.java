@@ -17,17 +17,13 @@ package com.google.devtools.build.lib.worker;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -67,11 +63,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 
 /**
  * A spawn runner that launches Spawns the first time they are used in a persistent mode and then
@@ -80,8 +73,6 @@ import java.util.regex.Pattern;
 final class WorkerSpawnRunner implements SpawnRunner {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
-  public static final String REASON_NO_FLAGFILE =
-      "because the command-line arguments do not contain at least one @flagfile or --flagfile=";
   public static final String REASON_NO_TOOLS = "because the action has no tools";
   /**
    * The verbosity level implied by `--worker_verbose`. This value allows for manually setting some
@@ -89,19 +80,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   private static final int VERBOSE_LEVEL = 10;
 
-  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
-  private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
-
   private final SandboxHelpers helpers;
   private final Path execRoot;
   private final WorkerPool workers;
-  private final boolean multiplex;
   private final ExtendedEventHandler reporter;
-  private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
+  private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
 
   public WorkerSpawnRunner(
@@ -118,12 +105,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
-    this.multiplex = multiplex;
     this.reporter = reporter;
-    this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
+    this.workerParser =
+        new WorkerParser(execRoot, multiplex, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
   }
 
@@ -178,23 +165,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           spawn.getEnvironment(),
           context.getFileOutErr());
 
-      // We assume that the spawn to be executed always gets at least one @flagfile.txt or
-      // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
-      // opposed to start-up options for the executed tool). Thus, we can extract those elements
-      // from
-      // its args and put them into the WorkRequest instead.
-      List<String> flagFiles = new ArrayList<>();
-      ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
-      ImmutableMap<String, String> env =
-          localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
-
       MetadataProvider inputFileCache = context.getMetadataProvider();
-
-      SortedMap<PathFragment, HashCode> workerFiles =
-          WorkerFilesHash.getWorkerFilesWithHashes(
-              spawn, context.getArtifactExpander(), context.getMetadataProvider());
-
-      HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
       SandboxInputs inputFiles;
       try (SilentCloseable c1 =
@@ -208,27 +179,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);
 
-      WorkerProtocolFormat protocolFormat = Spawns.getWorkerProtocolFormat(spawn);
-      if (!workerOptions.experimentalJsonWorkerProtocol) {
-        if (protocolFormat == WorkerProtocolFormat.JSON) {
-          throw new IOException(
-              "Persistent worker protocol format must be set to proto unless"
-                  + " --experimental_worker_allow_json_protocol is used");
-        }
-      }
-
-      WorkerKey key =
-          new WorkerKey(
-              workerArgs,
-              env,
-              execRoot,
-              Spawns.getWorkerKeyMnemonic(spawn),
-              workerFilesCombinedHash,
-              workerFiles,
-              context.speculating(),
-              multiplex && Spawns.supportsMultiplexWorkers(spawn),
-              Spawns.supportsWorkerCancellation(spawn),
-              protocolFormat);
+      WorkerParser.WorkerConfig workerConfig = workerParser.compute(spawn, context);
+      WorkerKey key = workerConfig.getWorkerKey();
+      List<String> flagFiles = workerConfig.getFlagFiles();
 
       spawnMetrics =
           SpawnMetrics.Builder.forWorkerExec()
@@ -263,40 +216,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     SpawnResult result = builder.build();
     reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
     return result;
-  }
-
-  /**
-   * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
-   * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
-   * protobuf ({@code flagFiles}).
-   */
-  private ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
-      Spawn spawn, List<String> flagFiles) throws UserExecException {
-    ImmutableList.Builder<String> workerArgs = ImmutableList.builder();
-    for (String arg : spawn.getArguments()) {
-      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
-        flagFiles.add(arg);
-      } else {
-        workerArgs.add(arg);
-      }
-    }
-
-    if (flagFiles.isEmpty()) {
-      throw createUserExecException(
-          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()),
-          Code.NO_FLAGFILE);
-    }
-
-    ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
-
-    workerOptions.workerExtraFlags.stream()
-        .filter(entry -> entry.getKey().equals(spawn.getMnemonic()))
-        .forEach(entry -> mnemonicFlags.add(entry.getValue()));
-
-    return workerArgs
-        .add("--persistent_worker")
-        .addAll(MoreObjects.firstNonNull(mnemonicFlags.build(), ImmutableList.<String>of()))
-        .build();
   }
 
   private WorkRequest createWorkRequest(
