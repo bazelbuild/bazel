@@ -137,8 +137,10 @@ public class CommandEnvironment {
     public void exit(AbruptExitException exception) {
       Preconditions.checkNotNull(exception);
       Preconditions.checkNotNull(exception.getExitCode());
-      if (pendingException.compareAndSet(null, Optional.of(exception))) {
-        // There was no exception, so we're the first one to ask for an exit. Interrupt the command.
+      if (pendingException.compareAndSet(null, Optional.of(exception))
+          && !Thread.currentThread().equals(commandThread)) {
+        // There was no exception, so we're the first one to ask for an exit. Interrupt the command
+        // if this exit is coming from a different thread, so that the command terminates promptly.
         commandThread.interrupt();
       }
     }
@@ -336,8 +338,10 @@ public class CommandEnvironment {
 
   void notifyOnCrash(String message) {
     shutdownReasonConsumer.accept(message);
-    // Give shutdown hooks priority in JVM and stop generating more data for modules to consume.
-    commandThread.interrupt();
+    if (!Thread.currentThread().equals(commandThread)) {
+      // Give shutdown hooks priority in JVM and stop generating more data for modules to consume.
+      commandThread.interrupt();
+    }
   }
 
   public OptionsProvider getStartupOptionsProvider() {
