@@ -25,12 +25,14 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
@@ -116,13 +118,11 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   }
 
   /** Initiates visitation and waits for completion. */
-  void run() throws InterruptedException {
+  final void run() throws InterruptedException {
     // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
     // the caller, and which are added by other threads during the run. Since no tasks have been
     // started yet, this is thread-safe.
-    for (Pair<SkyKey, InvalidationType> visitData : ImmutableList.copyOf(pendingVisitations)) {
-      executor.execute(() -> visit(ImmutableList.of(visitData.first), visitData.second));
-    }
+    enqueueJobs(ImmutableList.copyOf(pendingVisitations));
     try {
       executor.awaitQuiescence(/*interruptWorkers=*/ true);
     } catch (IllegalStateException e) {
@@ -131,15 +131,21 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       throw new IllegalStateException(e);
     }
 
-    // Note: implementations that do not support interruption also do not update pendingVisitations.
-    Preconditions.checkState(!getSupportInterruptions() || pendingVisitations.isEmpty(),
-        "All dirty nodes should have been processed: %s", pendingVisitations);
+    Preconditions.checkState(
+        pendingVisitations.isEmpty(),
+        "All dirty nodes should have been processed: %s",
+        pendingVisitations);
   }
 
-  protected abstract boolean getSupportInterruptions();
+  @ForOverride
+  protected void enqueueJobs(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList) {
+    for (Pair<SkyKey, InvalidationType> visitData : pendingList) {
+      executor.execute(() -> visit(ImmutableList.of(visitData.first), visitData.second));
+    }
+  }
 
   @VisibleForTesting
-  CountDownLatch getInterruptionLatchForTestingOnly() {
+  final CountDownLatch getInterruptionLatchForTestingOnly() {
     return executor.getInterruptionLatchForTestingOnly();
   }
 
@@ -164,7 +170,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
    * interrupt comes in.
    */
   static class InvalidationState {
-
     private final Set<Pair<SkyKey, InvalidationType>> pendingValues =
         Collections.newSetFromMap(
             new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
@@ -190,21 +195,20 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     }
   }
 
-  static class DirtyingInvalidationState extends InvalidationState {
+  static final class DirtyingInvalidationState extends InvalidationState {
     public DirtyingInvalidationState() {
       super(InvalidationType.CHANGED);
     }
   }
 
-  static class DeletingInvalidationState extends InvalidationState {
+  static final class DeletingInvalidationState extends InvalidationState {
     DeletingInvalidationState() {
       super(InvalidationType.DELETED);
     }
   }
 
   /** A node-deleting implementation. */
-  static class DeletingNodeVisitor extends InvalidatingNodeVisitor<InMemoryGraph> {
-
+  static final class DeletingNodeVisitor extends InvalidatingNodeVisitor<InMemoryGraph> {
     private final Set<SkyKey> visited = Sets.newConcurrentHashSet();
     private final boolean traverseGraph;
 
@@ -213,13 +217,31 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
         DirtyTrackingProgressReceiver progressReceiver,
         InvalidationState state,
         boolean traverseGraph) {
-      super(graph, progressReceiver, state);
+      super(
+          graph,
+          progressReceiver,
+          state,
+          NamedForkJoinPool.newNamedPool("deleting", DEFAULT_THREAD_COUNT));
       this.traverseGraph = traverseGraph;
     }
 
     @Override
-    protected boolean getSupportInterruptions() {
-      return true;
+    protected void enqueueJobs(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList) {
+      // To avoid contention and scheduling too many jobs for our #cpus, we start
+      // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
+      int listSize = pendingList.size();
+      for (int i = 0; i < DEFAULT_THREAD_COUNT; i++) {
+        int index = i;
+        executor.execute(
+            () ->
+                visit(
+                    Iterables.transform(
+                        pendingList.subList(
+                            index * listSize / DEFAULT_THREAD_COUNT,
+                            Math.min(listSize, (index + 1) * listSize / DEFAULT_THREAD_COUNT)),
+                        Pair::getFirst),
+                    InvalidationType.DELETED));
+      }
     }
 
     @Override
@@ -332,7 +354,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   }
 
   /** A node-dirtying implementation. */
-  static class DirtyingNodeVisitor extends InvalidatingNodeVisitor<QueryableGraph> {
+  static final class DirtyingNodeVisitor extends InvalidatingNodeVisitor<QueryableGraph> {
     private static final int SAFE_STACK_DEPTH = 1 << 9;
 
     private final Set<SkyKey> changed =
@@ -341,33 +363,12 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     private final Set<SkyKey> dirtied =
         Collections.newSetFromMap(
             new ConcurrentHashMap<>(EXPECTED_VISITED_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
-    private final boolean supportInterruptions;
 
     protected DirtyingNodeVisitor(
         QueryableGraph graph,
         DirtyTrackingProgressReceiver progressReceiver,
         InvalidationState state) {
       super(graph, progressReceiver, state);
-      this.supportInterruptions = true;
-    }
-
-    /**
-     * Use cases that do not require support for interruptibility can avoid unnecessary work by
-     * passing {@code false} for {@param supportInterruptions}.
-     */
-    protected DirtyingNodeVisitor(
-        QueryableGraph graph,
-        DirtyTrackingProgressReceiver progressReceiver,
-        InvalidationState state,
-        ForkJoinPool forkJoinPool,
-        boolean supportInterruptions) {
-      super(graph, progressReceiver, state, forkJoinPool);
-      this.supportInterruptions = supportInterruptions;
-    }
-
-    @Override
-    protected boolean getSupportInterruptions() {
-      return supportInterruptions;
     }
 
     @Override
@@ -421,10 +422,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           keysToGet.add(key);
         }
       }
-      if (supportInterruptions) {
-        for (SkyKey key : keysToGet) {
-          pendingVisitations.add(Pair.of(key, invalidationType));
-        }
+      for (SkyKey key : keysToGet) {
+        pendingVisitations.add(Pair.of(key, invalidationType));
       }
       final Map<SkyKey, ? extends ThinNodeEntry> entries;
       try {
@@ -474,9 +473,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       ThinNodeEntry entry = entries.get(key);
 
       if (entry == null) {
-        if (supportInterruptions) {
-          pendingVisitations.remove(Pair.of(key, invalidationType));
-        }
+        pendingVisitations.remove(Pair.of(key, invalidationType));
         return;
       }
 
@@ -484,9 +481,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       if (entry.isChanged() || (!isChanged && entry.isDirty())) {
         // If this node is already marked changed, or we are only marking this node
         // dirty, and it already is, move along.
-        if (supportInterruptions) {
-          pendingVisitations.remove(Pair.of(key, invalidationType));
-        }
+        pendingVisitations.remove(Pair.of(key, invalidationType));
         return;
       }
 
@@ -506,16 +501,12 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       }
       if (markedDirtyResult == null) {
         // Another thread has already dirtied this node. Don't do anything in this thread.
-        if (supportInterruptions) {
-          pendingVisitations.remove(Pair.of(key, invalidationType));
-        }
+        pendingVisitations.remove(Pair.of(key, invalidationType));
         return;
       }
 
       progressReceiver.invalidated(key, EvaluationProgressReceiver.InvalidationState.DIRTY);
-      if (supportInterruptions) {
-        pendingVisitations.remove(Pair.of(key, invalidationType));
-      }
+      pendingVisitations.remove(Pair.of(key, invalidationType));
 
       // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
       // only be marked dirty (because only a dependency of theirs has changed).
