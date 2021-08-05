@@ -1,4 +1,3 @@
-
 // Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +32,7 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY_LIST =
-          new IgnoredPackagePrefixesValue(ImmutableSet.of());
+      new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
   private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     this.patterns = Preconditions.checkNotNull(patterns);
