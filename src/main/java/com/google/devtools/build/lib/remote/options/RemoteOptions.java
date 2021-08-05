@@ -117,8 +117,8 @@ public final class RemoteOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
-              + " schemas are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets)."
-              + " If no schema is provided Bazel will default to grpcs. See: "
+              + " schemas are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If"
+              + " no schema is provided Bazel will default to grpcs. See: "
               + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public String remoteDownloader;
 
@@ -272,6 +272,7 @@ public final class RemoteOptions extends OptionsBase {
               + " cache, but not uploaded to the remote cache.\n"
               + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
               + " cache, but not in the remote cache.\n"
+              + "\tno-remote-exec actions can hit the disk cache.\n"
               + "See #8216 for details.")
   public boolean incompatibleRemoteResultsIgnoreDisk;
 

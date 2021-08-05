@@ -158,7 +158,7 @@ public class RemoteCache implements AutoCloseable {
         context, remotePathResolver, actionKey, action, command, outputs, outErr, resultBuilder);
     resultBuilder.setExitCode(exitCode);
     ActionResult result = resultBuilder.build();
-    if (exitCode == 0 && !action.getDoNotCache()) {
+    if (exitCode == 0) {
       cacheProtocol.uploadActionResult(context, actionKey, result);
     }
     return result;

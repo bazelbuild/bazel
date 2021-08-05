@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -25,7 +26,13 @@ import static com.google.devtools.build.lib.remote.RemoteCache.waitForBulkTransf
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.hasFilesToDownload;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromCombinedCache;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromDiskCache;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldDownloadAllSpawnOutputs;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToCombinedDisk;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToDiskCache;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -266,19 +273,56 @@ public class RemoteExecutionService {
     }
   }
 
-  /** Returns {@code true} if the result of spawn may be cached remotely. */
-  public boolean mayBeCachedRemotely(Spawn spawn) {
-    return remoteCache != null && Spawns.mayBeCached(spawn) && Spawns.mayBeCachedRemotely(spawn);
+  private static boolean useRemoteCache(RemoteOptions options) {
+    return !isNullOrEmpty(options.remoteCache) || !isNullOrEmpty(options.remoteExecutor);
   }
 
-  /** Returns {@code true} if the result of spawn may be cached. */
-  public boolean mayBeCached(Spawn spawn) {
-    return remoteCache != null && Spawns.mayBeCached(spawn);
+  private static boolean useDiskCache(RemoteOptions options) {
+    return options.diskCache != null && !options.diskCache.isEmpty();
+  }
+
+  /** Returns {@code true} if the {@code spawn} should accept cached results from remote cache. */
+  public boolean shouldAcceptCachedResult(Spawn spawn) {
+    if (remoteCache == null) {
+      return false;
+    }
+
+    if (useRemoteCache(remoteOptions)) {
+      if (useDiskCache(remoteOptions)) {
+        return shouldAcceptCachedResultFromCombinedCache(remoteOptions, spawn);
+      } else {
+        return shouldAcceptCachedResultFromRemoteCache(remoteOptions, spawn);
+      }
+    } else {
+      return shouldAcceptCachedResultFromDiskCache(remoteOptions, spawn);
+    }
+  }
+
+  /**
+   * Returns {@code true} if the local results of the {@code spawn} should be uploaded to remote
+   * cache.
+   */
+  public boolean shouldUploadLocalResults(Spawn spawn) {
+    if (remoteCache == null) {
+      return false;
+    }
+
+    if (useRemoteCache(remoteOptions)) {
+      if (useDiskCache(remoteOptions)) {
+        return shouldUploadLocalResultsToCombinedDisk(remoteOptions, spawn);
+      } else {
+        return shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn);
+      }
+    } else {
+      return shouldUploadLocalResultsToDiskCache(remoteOptions, spawn);
+    }
   }
 
   /** Returns {@code true} if the spawn may be executed remotely. */
   public boolean mayBeExecutedRemotely(Spawn spawn) {
-    return remoteCache != null && remoteExecutor != null && Spawns.mayBeExecutedRemotely(spawn);
+    return remoteCache instanceof RemoteExecutionCache
+        && remoteExecutor != null
+        && Spawns.mayBeExecutedRemotely(spawn);
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
@@ -313,7 +357,7 @@ public class RemoteExecutionService {
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
     RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.create(metadata);
+        RemoteActionExecutionContext.createForSpawn(spawn, metadata);
 
     return new RemoteAction(
         spawn,
@@ -434,11 +478,13 @@ public class RemoteExecutionService {
     }
   }
 
+
   /** Lookup the remote cache for the given {@link RemoteAction}. {@code null} if not found. */
   @Nullable
   public RemoteActionResult lookupCache(RemoteAction action)
       throws IOException, InterruptedException {
-    checkNotNull(remoteCache, "remoteCache can't be null");
+    checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
+
     ActionResult actionResult =
         remoteCache.downloadActionResult(
             action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
@@ -944,7 +990,8 @@ public class RemoteExecutionService {
   /** Upload outputs of a remote action which was executed locally to remote cache. */
   public void uploadOutputs(RemoteAction action)
       throws InterruptedException, IOException, ExecException {
-    checkNotNull(remoteCache, "remoteCache can't be null");
+    checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
+
     Collection<Path> outputFiles =
         action.spawn.getOutputFiles().stream()
             .map((inp) -> execRoot.getRelative(inp.getExecPath()))
@@ -966,8 +1013,8 @@ public class RemoteExecutionService {
    */
   public void uploadInputsIfNotPresent(RemoteAction action)
       throws IOException, InterruptedException {
-    checkNotNull(remoteCache, "remoteCache can't be null");
-    checkState(remoteCache instanceof RemoteExecutionCache);
+    checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
+
     RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) remoteCache;
     // Upload the command and all the inputs into the remote cache.
     Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
@@ -986,7 +1033,7 @@ public class RemoteExecutionService {
   public RemoteActionResult executeRemotely(
       RemoteAction action, boolean acceptCachedResult, OperationObserver observer)
       throws IOException, InterruptedException {
-    checkNotNull(remoteExecutor, "remoteExecutor can't be null");
+    checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
 
     ExecuteRequest.Builder requestBuilder =
         ExecuteRequest.newBuilder()

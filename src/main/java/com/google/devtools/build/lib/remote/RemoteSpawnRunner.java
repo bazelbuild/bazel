@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -170,12 +169,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     Preconditions.checkArgument(
-        Spawns.mayBeExecutedRemotely(spawn), "Spawn can't be executed remotely. This is a bug.");
+        remoteExecutionService.mayBeExecutedRemotely(spawn),
+        "Spawn can't be executed remotely. This is a bug.");
 
     Stopwatch totalTime = Stopwatch.createStarted();
-    boolean spawnCacheableRemotely = Spawns.mayBeCachedRemotely(spawn);
-    boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
-    boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
+    boolean uploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
+    boolean acceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
     SpawnMetrics.Builder spawnMetrics =

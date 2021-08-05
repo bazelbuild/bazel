@@ -17,6 +17,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -81,15 +82,17 @@ final class RemoteSpawnCache implements SpawnCache {
     this.remoteExecutionService = remoteExecutionService;
   }
 
+  @VisibleForTesting
+  RemoteExecutionService getRemoteExecutionService() {
+    return remoteExecutionService;
+  }
+
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-    boolean mayBeCached =
-        remoteExecutionService.mayBeCachedRemotely(spawn)
-            || (!useRemoteCache(options) && remoteExecutionService.mayBeCached(spawn));
-    if (!mayBeCached) {
-      // returning SpawnCache.NO_RESULT_NO_STORE in case the caching is disabled or in case
-      // the remote caching is disabled and the only configured cache is remote.
+    boolean shouldAcceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
+    boolean shouldUploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
+    if (!shouldAcceptCachedResult && !shouldUploadLocalResults) {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
 
@@ -102,8 +105,7 @@ final class RemoteSpawnCache implements SpawnCache {
             .setInputFiles(action.getInputFiles());
 
     Profiler prof = Profiler.instance();
-    if (options.remoteAcceptCached
-        || (options.incompatibleRemoteResultsIgnoreDisk && useDiskCache(options))) {
+    if (shouldAcceptCachedResult) {
       context.report(SPAWN_CHECKING_CACHE_EVENT);
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
@@ -162,8 +164,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
     context.prefetchInputs();
 
-    if (options.remoteUploadLocalResults
-        || (options.incompatibleRemoteResultsIgnoreDisk && useDiskCache(options))) {
+    if (shouldUploadLocalResults) {
       return new CacheHandle() {
         @Override
         public boolean hasResult() {
@@ -247,14 +248,6 @@ final class RemoteSpawnCache implements SpawnCache {
       reportedErrors.add(evt.getMessage());
       cmdlineReporter.handle(evt);
     }
-  }
-
-  private static boolean useRemoteCache(RemoteOptions options) {
-    return !isNullOrEmpty(options.remoteCache) || !isNullOrEmpty(options.remoteExecutor);
-  }
-
-  private static boolean useDiskCache(RemoteOptions options) {
-    return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
   @Override

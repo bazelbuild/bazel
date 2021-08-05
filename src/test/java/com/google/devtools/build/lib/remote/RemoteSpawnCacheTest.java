@@ -110,14 +110,13 @@ public class RemoteSpawnCacheTest {
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
   @Mock private RemoteCache remoteCache;
-  private RemoteSpawnCache cache;
   private FileOutErr outErr;
   private final List<ProgressStatus> progressUpdates = new ArrayList<>();
 
   private StoredEventHandler eventHandler = new StoredEventHandler();
 
   private Reporter reporter;
-  private RemoteExecutionService service;
+  private RemotePathResolver remotePathResolver;
 
   private final SpawnExecutionContext simplePolicy =
       new SpawnExecutionContext() {
@@ -202,7 +201,24 @@ public class RemoteSpawnCacheTest {
         ResourceSet.ZERO);
   }
 
+  private RemoteSpawnCache createRemoteSpawnCache() {
+    return remoteSpawnCacheWithOptions(Options.getDefaults(RemoteOptions.class));
+  }
+
   private RemoteSpawnCache remoteSpawnCacheWithOptions(RemoteOptions options) {
+    RemoteExecutionService service =
+        spy(
+            new RemoteExecutionService(
+                execRoot,
+                remotePathResolver,
+                BUILD_REQUEST_ID,
+                COMMAND_ID,
+                digestUtil,
+                options,
+                remoteCache,
+                null,
+                ImmutableSet.of(),
+                /* captureCorruptedOutputsDir= */ null));
     return new RemoteSpawnCache(execRoot, options, /* verboseFailures=*/ true, reporter, service);
   }
 
@@ -221,26 +237,11 @@ public class RemoteSpawnCacheTest {
     stdout.getParentDirectory().createDirectoryAndParents();
     stderr.getParentDirectory().createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     reporter = new Reporter(new EventBus());
     eventHandler = new StoredEventHandler();
     reporter.addHandler(eventHandler);
 
-    RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
-    service =
-        spy(
-            new RemoteExecutionService(
-                execRoot,
-                remotePathResolver,
-                BUILD_REQUEST_ID,
-                COMMAND_ID,
-                digestUtil,
-                options,
-                remoteCache,
-                null,
-                ImmutableSet.of(),
-                /* captureCorruptedOutputsDir= */ null));
-    cache = remoteSpawnCacheWithOptions(options);
+    remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
   }
@@ -249,6 +250,8 @@ public class RemoteSpawnCacheTest {
   @Test
   public void cacheHit() throws Exception {
     // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+    RemoteExecutionService service = cache.getRemoteExecutionService();
     ActionResult actionResult = ActionResult.getDefaultInstance();
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
@@ -306,6 +309,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void cacheMiss() throws Exception {
+    RemoteSpawnCache cache = createRemoteSpawnCache();
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
     SpawnResult result =
@@ -359,13 +363,13 @@ public class RemoteSpawnCacheTest {
     RemoteOptions withLocalCache = Options.getDefaults(RemoteOptions.class);
     withLocalCache.diskCache = PathFragment.create("/etc/something/cache/here");
     for (RemoteSpawnCache remoteSpawnCache :
-        ImmutableList.of(cache, remoteSpawnCacheWithOptions(withLocalCache))) {
+        ImmutableList.of(createRemoteSpawnCache(), remoteSpawnCacheWithOptions(withLocalCache))) {
       for (String requirement :
           ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {
         SimpleSpawn uncacheableSpawn =
             simpleSpawnWithExecutionInfo(ImmutableMap.of(requirement, ""));
         CacheHandle entry = remoteSpawnCache.lookup(uncacheableSpawn, simplePolicy);
-        verify(service, never()).lookupCache(any());
+        verify(remoteSpawnCache.getRemoteExecutionService(), never()).lookupCache(any());
         assertThat(entry.hasResult()).isFalse();
         SpawnResult result =
             new SpawnResult.Builder()
@@ -456,7 +460,7 @@ public class RemoteSpawnCacheTest {
   public void noRemoteCacheStillUsesLocalCache() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
-    cache = remoteSpawnCacheWithOptions(remoteOptions);
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     SimpleSpawn cacheableSpawn =
         simpleSpawnWithExecutionInfo(ImmutableMap.of(ExecutionRequirements.NO_REMOTE_CACHE, ""));
@@ -470,6 +474,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void noRemoteExecStillUsesCache() throws Exception {
+    RemoteSpawnCache cache = createRemoteSpawnCache();
     SimpleSpawn cacheableSpawn =
         simpleSpawnWithExecutionInfo(ImmutableMap.of(ExecutionRequirements.NO_REMOTE_EXEC, ""));
     cache.lookup(cacheableSpawn, simplePolicy);
@@ -483,6 +488,7 @@ public class RemoteSpawnCacheTest {
   @Test
   public void failedActionsAreNotUploaded() throws Exception {
     // Only successful action results are uploaded to the remote cache.
+    RemoteSpawnCache cache = createRemoteSpawnCache();
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     verify(remoteCache)
         .downloadActionResult(
@@ -519,6 +525,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void printWarningIfUploadFails() throws Exception {
+    RemoteSpawnCache cache = createRemoteSpawnCache();
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
     SpawnResult result =
@@ -563,6 +570,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void printWarningIfDownloadFails() throws Exception {
+    RemoteSpawnCache cache = createRemoteSpawnCache();
     doThrow(new IOException(io.grpc.Status.UNAVAILABLE.asRuntimeException()))
         .when(remoteCache)
         .downloadActionResult(
@@ -623,6 +631,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void orphanedCachedResultIgnored() throws Exception {
+    RemoteSpawnCache cache = createRemoteSpawnCache();
     Digest digest = digestUtil.computeAsUtf8("bla");
     ActionResult actionResult =
         ActionResult.newBuilder()
@@ -644,7 +653,7 @@ public class RemoteSpawnCacheTest {
               }
             });
     doThrow(new CacheNotFoundException(digest))
-        .when(service)
+        .when(cache.getRemoteExecutionService())
         .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(actionResult)));
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
@@ -696,6 +705,7 @@ public class RemoteSpawnCacheTest {
 
   @Test
   public void failedCacheActionAsCacheMiss() throws Exception {
+    RemoteSpawnCache cache = createRemoteSpawnCache();
     ActionResult actionResult = ActionResult.newBuilder().setExitCode(1).build();
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
@@ -713,7 +723,7 @@ public class RemoteSpawnCacheTest {
     // arrange
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
-    cache = remoteSpawnCacheWithOptions(remoteOptions);
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(
@@ -726,7 +736,8 @@ public class RemoteSpawnCacheTest {
     // assert
     assertThat(cacheHandle.hasResult()).isTrue();
     assertThat(cacheHandle.getResult().exitCode()).isEqualTo(0);
-    verify(service).downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
+    verify(cache.getRemoteExecutionService())
+        .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
   }
 
   @Test
@@ -734,7 +745,7 @@ public class RemoteSpawnCacheTest {
     // arrange
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
-    cache = remoteSpawnCacheWithOptions(remoteOptions);
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     IOException downloadFailure = new IOException("downloadMinimal failed");
 
@@ -743,7 +754,7 @@ public class RemoteSpawnCacheTest {
             any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(success);
     doThrow(downloadFailure)
-        .when(service)
+        .when(cache.getRemoteExecutionService())
         .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
 
     // act
@@ -751,7 +762,8 @@ public class RemoteSpawnCacheTest {
 
     // assert
     assertThat(cacheHandle.hasResult()).isFalse();
-    verify(service).downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
+    verify(cache.getRemoteExecutionService())
+        .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
     assertThat(eventHandler.getEvents().size()).isEqualTo(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
