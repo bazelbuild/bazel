@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -134,5 +135,22 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
 
     assertThat(topValid).containsExactly("valid/foo", "valid/bar", "valid/baz", "valid/top");
     assertThat(topTransitiveValid).containsExactly("valid/top_transitive");
+  }
+
+  @Test
+  public void testTransitiveValidationOutputGroupNotAllowedForStarlarkRules() throws Exception {
+    scratch.file(
+        "test/foo_rule.bzl",
+        "def _impl(ctx):",
+        "  return [OutputGroupInfo(_validation_transitive = depset())]",
+        "foo_rule = rule(implementation = _impl)");
+    scratch.file("test/BUILD", "load('//test:foo_rule.bzl', 'foo_rule')", "foo_rule(name='foo')");
+
+    AssertionError expected =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:foo"));
+
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("//test:foo_rule.bzl cannot access the _transitive_validation private API");
   }
 }

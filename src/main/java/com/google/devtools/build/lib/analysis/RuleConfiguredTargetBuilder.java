@@ -358,6 +358,13 @@ public final class RuleConfiguredTargetBuilder {
    */
   private void propagateTransitiveValidationOutputGroups() {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
+      Label rdeLabel =
+          ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
+      // only allow native and builtins to override transitive validation propagation
+      if (rdeLabel != null && !"@_builtins".equals(rdeLabel.getRepository().getName())) {
+        ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
+        return;
+      }
       addOutputGroup(
           OutputGroupInfo.VALIDATION,
           outputGroupBuilders.remove(OutputGroupInfo.VALIDATION_TRANSITIVE).build());
