@@ -503,14 +503,13 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         // executable (which is rare and somewhat questionable when deploy_env is specified), we can
         // exclude validations from deploy_env entirely from this rule, since this rule specifically
         // never builds the referenced code.
-        builder.setPropagateValidationActionOutputGroup(false);
         if (createExecutable) {
           // Executable classpath isn't affected by deploy_env, so build all collected validations.
-          builder.addOutputGroup(OutputGroupInfo.VALIDATION, validations.build());
+          builder.addOutputGroup(OutputGroupInfo.VALIDATION_TRANSITIVE, validations.build());
         } else {
           // Filter validations similar to JavaTargetAttributes.getRuntimeClassPathForArchive().
           builder.addOutputGroup(
-              OutputGroupInfo.VALIDATION,
+              OutputGroupInfo.VALIDATION_TRANSITIVE,
               NestedSetBuilder.wrap(
                   Order.STABLE_ORDER,
                   Iterables.filter(
