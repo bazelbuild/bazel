@@ -527,6 +527,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
             attributes,
             helper.getBootclasspathOrDefault(),
             common,
+            semantics,
             outputs);
     if (validation != null) {
       builder.addOutputGroup(
