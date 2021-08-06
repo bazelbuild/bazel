@@ -18,8 +18,14 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import java.io.StringReader;
+import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+
+import com.google.common.collect.ImmutableMap;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -235,5 +241,24 @@ public class UrlRewriterTest {
     assertThat(amended)
         .containsExactly(
             new URL("http://mycorp.com/bar"), new URL("https://othercorp.com/bar/xyz"));
+  }
+
+  @Test
+  public void rewritingUrlsWithAuthHeaders() throws Exception {
+    String creds = "user:password";
+    String config = "rewrite my.example.com/foo/(.*) " + creds + "@mycorp.com/foo/$1\n";
+
+    UrlRewriter munger = new UrlRewriter(str -> {}, "/dev/null", new StringReader(config));
+
+    List<URL> amended = munger.amend(ImmutableList.of(new URL("https://my.example.com/foo/bar")));
+    Map<URI, Map<String, String>> updatedAuthHeaders =
+            munger.updateAuthHeaders(amended, ImmutableMap.of());
+
+    String expectedToken = "Basic " + Base64.getEncoder().encodeToString(creds.getBytes(StandardCharsets.ISO_8859_1));
+    assertThat(updatedAuthHeaders)
+        .containsExactly(
+            new URI("https://user:password@mycorp.com/foo/bar"),
+            ImmutableMap.of("Authorization", expectedToken)
+        );
   }
 }

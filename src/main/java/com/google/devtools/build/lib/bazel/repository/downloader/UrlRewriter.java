@@ -20,22 +20,24 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -107,6 +109,32 @@ public class UrlRewriter {
     }
 
     return rewritten;
+  }
+
+  /**
+   * Updates {@code authHeaders} using the userInfo available in the provided {@code urls}.
+   *
+   * @param urls The input list of {@link URL}s. May be empty.
+   * @param authHeaders A map of the URLs and their corresponding auth tokens.
+   * @return A map of the updated authentication headers.
+   */
+  public Map<URI, Map<String, String>> updateAuthHeaders(List<URL> urls, Map<URI, Map<String, String>> authHeaders) {
+    ImmutableMap.Builder<URI, Map<String, String>> authHeadersBuilder =
+            ImmutableMap.<URI, Map<String, String>>builder().putAll(authHeaders);
+
+    for (URL url: urls) {
+      String userInfo = url.getUserInfo();
+      if (userInfo != null) {
+        try {
+          String token = "Basic " + Base64.getEncoder().encodeToString(userInfo.getBytes(StandardCharsets.ISO_8859_1));
+          authHeadersBuilder.put(url.toURI(), ImmutableMap.of("Authorization", token));
+        } catch (URISyntaxException e) {
+          // If the credentials extraction failed, we're letting bazel try without credentials.
+        }
+      }
+    }
+
+    return authHeadersBuilder.build();
   }
 
   private ImmutableList<URL> rewrite(URL url) {

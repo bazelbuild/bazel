@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -101,8 +102,11 @@ public class DownloadManager {
     }
 
     List<URL> rewrittenUrls = originalUrls;
+    Map<URI, Map<String, String>> rewrittenAuthHeaders = ImmutableMap.copyOf(authHeaders);
+
     if (rewriter != null) {
       rewrittenUrls = rewriter.amend(originalUrls);
+      rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrls, authHeaders);
     }
 
     URL mainUrl; // The "main" URL for this request
@@ -218,7 +222,7 @@ public class DownloadManager {
     try {
       downloader.download(
           rewrittenUrls,
-          authHeaders,
+          rewrittenAuthHeaders,
           checksum,
           canonicalId,
           destination,
