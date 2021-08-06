@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -78,6 +79,13 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     RULE_TYPE.scratchTarget(scratch,
         "minimum_os_version", "'8.0'",
         "platform_type", "'watchos'");
+    useConfiguration("--experimental_apple_mandatory_minimum_version");
+    getConfiguredTarget("//x:x");
+  }
+
+  @Test
+  public void testMandatoryMinimumOsVersionTrailingZeros() throws Exception {
+    RULE_TYPE.scratchTarget(scratch, "minimum_os_version", "'8.0.0'", "platform_type", "'watchos'");
     useConfiguration("--experimental_apple_mandatory_minimum_version");
     getConfiguredTarget("//x:x");
   }
@@ -446,6 +454,23 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testRepeatedDepsViaObjcLibraryAreNotInCommandLine() throws Exception {
+    scratch.file(
+        "package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':cclib', ':objcLib2'],",
+        "    platform_type = 'ios',",
+        ")",
+        "objc_library(name = 'objcLib2', srcs = [ 'b2.m' ], deps = [':objcLib'])",
+        "cc_library(name = 'cclib', srcs = ['cclib.cc'], deps = [':objcLib'])",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+
+    CommandAction action = linkLibAction("//package:test");
+    assertThat(action.getArguments()).containsNoDuplicates();
+  }
+
+  @Test
   // Tests that if there is a cc_library in avoid_deps, and it is present in deps, it will
   // be avoided, as well as its transitive dependencies.
   public void testAvoidDepsObjects_avoidCcLibrary() throws Exception {
@@ -580,5 +605,23 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
     assertThat(validation).contains("y.h.processed");
     assertThat(validation).contains("z.h.processed");
+  }
+
+  @Test
+  public void testRunfiles() throws Exception {
+    scratch.file(
+        "package/BUILD",
+        "apple_static_library(",
+        "    name = 'test',",
+        "    deps = [':objcLib'],",
+        "    platform_type = 'ios',",
+        ")",
+        "objc_library(name = 'objcLib', srcs = [ 'b.m' ])");
+    useConfiguration("--xcode_version=5.8");
+
+    ConfiguredTarget target = getConfiguredTarget("//package:test");
+    assertThat(
+            artifactsToStrings(target.get(DefaultInfo.PROVIDER).getDataRunfiles().getArtifacts()))
+        .contains("/ package/test_lipo.a");
   }
 }

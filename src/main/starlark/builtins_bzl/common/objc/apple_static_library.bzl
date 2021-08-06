@@ -58,6 +58,7 @@ def _apple_static_library_impl(ctx):
 
         avoid_objc_providers = []
         avoid_cc_providers = []
+
         if len(cpu_to_avoid_deps_map.keys()):
             for dep in cpu_to_avoid_deps_map[key]:
                 if apple_common.Objc in dep:
@@ -99,8 +100,10 @@ def _apple_static_library_impl(ctx):
         platform,
     )
 
+    runfiles = ctx.runfiles(files = files_to_build, collect_default = True, collect_data = True)
+
     return [
-        DefaultInfo(files = depset(files_to_build)),
+        DefaultInfo(files = depset(files_to_build), runfiles = runfiles),
         objc_provider,
         OutputGroupInfo(**output_groups),
         apple_common.AppleStaticLibrary(archive = output_archive, objc = objc_provider),
@@ -115,6 +118,12 @@ def _validate_minimum_os(ctx):
 
     minimum_os_version = apple_common.dotted_version(ctx.attr.minimum_os_version)
     components = ctx.attr.minimum_os_version.split(".")
+    for i in range(len(components) - 1, 0, -1):
+        if components[i] == "0":
+            components.pop()
+        else:
+            break
+
     if len(components) > 2:
         fail("Invalid version string. Cannot have more than two components")
     for component in components:

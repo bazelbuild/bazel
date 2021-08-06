@@ -49,6 +49,8 @@ def _build_variable_extensions(
             cc_libs[cc_lib.path] = True
         exclusively_objc_libs = []
         for objc_lib in objc_provider.jre_ordered_objc_libraries():
+            if objc_lib.path in cc_libs:
+                continue
             exclusively_objc_libs.append(objc_lib.path)
 
         import_paths = []
