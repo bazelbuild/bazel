@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.Serializabl
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -46,9 +47,10 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -56,8 +58,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * An implementation of the ActionCache interface that uses a {@link StringIndexer} to reduce memory
  * footprint and saves cached actions using the {@link PersistentMap}.
  */
-@ConditionallyThreadSafe // condition: each instance must instantiated with
-// different cache root
+@ConditionallyThreadSafe // condition: each instance must be instantiated with different cache root
 public class CompactPersistentActionCache implements ActionCache {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int SAVE_INTERVAL_SECONDS = 3;
@@ -80,7 +81,7 @@ public class CompactPersistentActionCache implements ActionCache {
     private long nextUpdateSecs;
 
     public ActionMap(
-        Map<Integer, byte[]> map,
+        ConcurrentMap<Integer, byte[]> map,
         PersistentStringIndexer indexer,
         Clock clock,
         Path mapFile,
@@ -193,9 +194,7 @@ public class CompactPersistentActionCache implements ActionCache {
     Path cacheFile = cacheFile(cacheRoot);
     Path journalFile = journalFile(cacheRoot);
     Path indexFile = cacheRoot.getChild("filename_index_v" + VERSION + ".blaze");
-    // we can now use normal hash map as backing map, since dependency checker
-    // will manually purge records from the action cache.
-    Map<Integer, byte[]> backingMap = new HashMap<>();
+    ConcurrentMap<Integer, byte[]> backingMap = new ConcurrentHashMap<>();
 
     PersistentStringIndexer indexer;
     try {
@@ -334,10 +333,7 @@ public class CompactPersistentActionCache implements ActionCache {
     if (index < 0) {
       return null;
     }
-    byte[] data;
-    synchronized (this) {
-      data = map.get(index);
-    }
+    byte[] data = map.get(index);
     try {
       return data != null ? decode(indexer, data) : null;
     } catch (IOException e) {
@@ -367,25 +363,25 @@ public class CompactPersistentActionCache implements ActionCache {
     // updating the VALIDATION_KEY. If the most recent update loses the race,
     // a value lower than the indexer size will remain in the validation record.
     // This will still pass the integrity check.
-    synchronized (this) {
-      map.put(VALIDATION_KEY, buffer.array());
-      // Now update record itself.
-      map.put(index, content);
-    }
+    map.put(VALIDATION_KEY, buffer.array());
+    // Now update record itself.
+    map.put(index, content);
   }
 
   @Override
-  public synchronized void remove(String key) {
+  public void remove(String key) {
     map.remove(indexer.getIndex(key));
   }
 
+  @ThreadSafety.ThreadHostile
   @Override
-  public synchronized long save() throws IOException {
+  public long save() throws IOException {
     long indexSize = indexer.save();
     long mapSize = map.save();
     return indexSize + mapSize;
   }
 
+  @ThreadSafety.ThreadHostile
   @Override
   public void clear() {
     indexer.clear();
@@ -393,7 +389,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
-  public synchronized String toString() {
+  public String toString() {
     StringBuilder builder = new StringBuilder();
     // map.size() - 1 to avoid counting the validation key.
     builder.append("Action cache (" + (map.size() - 1) + " records):\n");
@@ -427,7 +423,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   /** Dumps action cache content. */
   @Override
-  public synchronized void dump(PrintStream out) {
+  public void dump(PrintStream out) {
     out.println("String indexer content:\n");
     out.println(indexer);
     out.println("Action cache (" + map.size() + " records):\n");
