@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -28,14 +29,30 @@ import com.google.devtools.build.skyframe.SkyValue;
 /** An immutable set of package name prefixes that should be ignored. */
 @AutoCodec
 public class IgnoredPackagePrefixesValue implements SkyValue {
-  private final ImmutableSet<PathFragment> patterns;
+  private final ImmutableSet<PathFragment> ignoredPrefixes;
+  private final ImmutableSet<String> wildcardPatterns;
 
   @AutoCodec @AutoCodec.VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY_LIST =
       new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
   private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
-    this.patterns = Preconditions.checkNotNull(patterns);
+    Preconditions.checkNotNull(patterns);
+
+    ImmutableSet.Builder<String> wildcardPatternsBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<PathFragment> ignoredPrefixesBuilder = ImmutableSet.builder();
+
+    for (PathFragment pattern: patterns) {
+      String path = pattern.getPathString();
+      if (UnixGlob.isWildcardFree(path)) {
+        ignoredPrefixesBuilder.add(pattern);
+      } else {
+        wildcardPatternsBuilder.add(path);
+      }
+    }
+
+    wildcardPatterns = wildcardPatternsBuilder.build();
+    ignoredPrefixes = ignoredPrefixesBuilder.build();
   }
 
   @AutoCodec.Instantiator
@@ -54,19 +71,33 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   }
 
   public ImmutableSet<PathFragment> getPatterns() {
-    return patterns;
+    return ignoredPrefixes;
+  }
+
+  public boolean isPathFragmentIgnored(PathFragment path) {
+    for (PathFragment ignoredPrefix : ignoredPrefixes) {
+      if (path.startsWith(ignoredPrefix)) {
+        return true;
+      }
+    }
+    for (String pattern : wildcardPatterns) {
+      if (UnixGlob.matches(pattern + "/**", path.getPathString(), null)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
   public int hashCode() {
-    return patterns.hashCode();
+    return ignoredPrefixes.hashCode() ;
   }
 
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof IgnoredPackagePrefixesValue) {
       IgnoredPackagePrefixesValue other = (IgnoredPackagePrefixesValue) obj;
-      return this.patterns.equals(other.patterns);
+      return this.ignoredPrefixes.equals(other.ignoredPrefixes) && this.wildcardPatterns.equals(other.wildcardPatterns);
     }
     return false;
   }
