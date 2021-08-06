@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
@@ -70,12 +71,12 @@ public class TargetCycleReporterTest extends BuildViewTestCase {
                 + "target //foo:c");
 
     SkyKey starlarkAspectKey =
-        AspectValueKey.createStarlarkAspectKey(
+        AspectValueKey.createTopLevelAspectsKey(
+            ImmutableList.of(
+                new StarlarkAspectClass(
+                    Label.parseAbsoluteUnchecked("//foo:b"), "my Starlark key")),
             Label.parseAbsoluteUnchecked("//foo:a"),
-            targetConfig,
-            targetConfig,
-            Label.parseAbsoluteUnchecked("//foo:b"),
-            "my Starlark key");
+            targetConfig);
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, starlarkAspectKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "

@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
  * target cannot be completed because of an error in one of its dependencies.
  */
 public class AnalysisFailureEvent implements BuildEvent {
-  @Nullable private final AspectValueKey failedAspect;
+  @Nullable private final AspectKey failedAspect;
   private final ConfiguredTargetKey failedTarget;
   private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
@@ -48,12 +48,12 @@ public class AnalysisFailureEvent implements BuildEvent {
   public AnalysisFailureEvent(
       ActionLookupKey failedTarget, BuildEventId configuration, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(
-        failedTarget instanceof ConfiguredTargetKey || failedTarget instanceof AspectValueKey);
+        failedTarget instanceof ConfiguredTargetKey || failedTarget instanceof AspectKey);
     if (failedTarget instanceof ConfiguredTargetKey) {
       this.failedAspect = null;
       this.failedTarget = (ConfiguredTargetKey) failedTarget;
     } else {
-      this.failedAspect = (AspectValueKey) failedTarget;
+      this.failedAspect = (AspectKey) failedTarget;
       this.failedTarget = failedAspect.getBaseConfiguredTargetKey();
     }
     if (configuration != null) {
@@ -65,7 +65,7 @@ public class AnalysisFailureEvent implements BuildEvent {
   }
 
   public AnalysisFailureEvent(
-      AspectValueKey failedAspect, BuildEventId configuration, NestedSet<Cause> rootCauses) {
+      AspectKey failedAspect, BuildEventId configuration, NestedSet<Cause> rootCauses) {
     this.failedAspect = failedAspect;
     this.failedTarget = failedAspect.getBaseConfiguredTargetKey();
     if (configuration != null) {
