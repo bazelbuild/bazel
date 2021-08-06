@@ -22,6 +22,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 /** Options used by {@link BuildEventServiceModule}. */
 public class BuildEventServiceOptions extends OptionsBase {
@@ -50,6 +51,19 @@ public class BuildEventServiceOptions extends OptionsBase {
             + "default value is '0' which means that there is no timeout."
   )
   public Duration besTimeout;
+
+  @Option(
+      name = "bes_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Specify a header in NAME=VALUE form that will be included in BES requests. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Map.Entry<String, String>> besHeaders;
 
   @Option(
       name = "bes_best_effort",

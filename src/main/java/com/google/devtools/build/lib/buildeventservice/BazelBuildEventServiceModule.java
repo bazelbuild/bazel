@@ -24,8 +24,11 @@ import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceC
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceGrpcClient;
 import io.grpc.ManagedChannel;
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Bazel's BES module.
@@ -36,6 +39,10 @@ public class BazelBuildEventServiceModule
   @AutoValue
   abstract static class BackendConfig {
     abstract String besBackend();
+
+    abstract @Nullable String besProxy();
+
+    abstract List<Map.Entry<String, String>> besHeaders();
 
     abstract AuthAndTLSOptions authAndTLSOptions();
   }
@@ -53,24 +60,27 @@ public class BazelBuildEventServiceModule
       BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
     BackendConfig newConfig =
         new AutoValue_BazelBuildEventServiceModule_BackendConfig(
-            besOptions.besBackend, authAndTLSOptions);
+            besOptions.besBackend, besOptions.besProxy, besOptions.besHeaders, authAndTLSOptions);
     if (client == null || !Objects.equals(config, newConfig)) {
       clearBesClient();
       config = newConfig;
       client =
           new BuildEventServiceGrpcClient(
-              newGrpcChannel(besOptions, authAndTLSOptions),
-              GoogleAuthUtils.newCallCredentials(authAndTLSOptions));
+              newGrpcChannel(config),
+              GoogleAuthUtils.newCallCredentials(config.authAndTLSOptions()),
+              config.besHeaders());
     }
     return client;
   }
 
   // newGrpcChannel is only defined so it can be overridden in tests to not use a real network link.
   @VisibleForTesting
-  protected ManagedChannel newGrpcChannel(
-      BuildEventServiceOptions besOptions, AuthAndTLSOptions authAndTLSOptions) throws IOException {
+  protected ManagedChannel newGrpcChannel(BackendConfig config) throws IOException {
     return GoogleAuthUtils.newChannel(
-        besOptions.besBackend, besOptions.besProxy, authAndTLSOptions, /* interceptors= */ null);
+        config.besBackend(),
+        config.besProxy(),
+        config.authAndTLSOptions(),
+        /* interceptors= */ null);
   }
 
   @Override

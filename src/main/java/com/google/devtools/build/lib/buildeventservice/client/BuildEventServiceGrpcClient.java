@@ -28,13 +28,18 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.CallCredentials;
+import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
+import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
+import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
@@ -48,11 +53,24 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   private final PublishBuildEventBlockingStub besBlocking;
 
   public BuildEventServiceGrpcClient(
-      ManagedChannel channel, @Nullable CallCredentials callCredentials) {
-    this(
-        withCallCredentials(PublishBuildEventGrpc.newStub(channel), callCredentials),
-        withCallCredentials(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials),
-        channel);
+      ManagedChannel channel,
+      @Nullable CallCredentials callCredentials,
+      List<Map.Entry<String, String>> headers) {
+    ClientInterceptor interceptor = null;
+    if (!headers.isEmpty()) {
+      Metadata extraHeaders = new Metadata();
+      headers.forEach(
+          header ->
+              extraHeaders.put(
+                  Metadata.Key.of(header.getKey(), Metadata.ASCII_STRING_MARSHALLER),
+                  header.getValue()));
+      interceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders);
+    }
+    this.besAsync =
+        configureStub(PublishBuildEventGrpc.newStub(channel), callCredentials, interceptor);
+    this.besBlocking =
+        configureStub(PublishBuildEventGrpc.newBlockingStub(channel), callCredentials, interceptor);
+    this.channel = channel;
   }
 
   @VisibleForTesting
@@ -65,9 +83,10 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
     this.channel = channel;
   }
 
-  private static <T extends AbstractStub<T>> T withCallCredentials(
-      T stub, @Nullable CallCredentials callCredentials) {
+  private static <T extends AbstractStub<T>> T configureStub(
+      T stub, @Nullable CallCredentials callCredentials, @Nullable ClientInterceptor interceptor) {
     stub = callCredentials != null ? stub.withCallCredentials(callCredentials) : stub;
+    stub = interceptor != null ? stub.withInterceptors(interceptor) : stub;
     return stub;
   }
 
