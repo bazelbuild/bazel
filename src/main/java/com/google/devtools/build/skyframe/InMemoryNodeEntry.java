@@ -454,6 +454,13 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  public synchronized void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
+    assertKeepRdeps();
+    Preconditions.checkState(isDone(), this);
+    ReverseDepsUtility.removeReverseDepsMatching(this, deletedKeys);
+  }
+
+  @Override
   public synchronized void removeInProgressReverseDep(SkyKey reverseDep) {
     appendToReverseDepOperations(reverseDep, Op.REMOVE);
   }

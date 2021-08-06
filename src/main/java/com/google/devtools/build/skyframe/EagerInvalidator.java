@@ -40,7 +40,7 @@ public final class EagerInvalidator {
       InMemoryGraph graph,
       Iterable<SkyKey> diff,
       DirtyTrackingProgressReceiver progressReceiver,
-      InvalidationState state,
+      InvalidatingNodeVisitor.DeletingInvalidationState state,
       boolean traverseGraph)
       throws InterruptedException {
     DeletingNodeVisitor visitor =
@@ -57,7 +57,7 @@ public final class EagerInvalidator {
       InMemoryGraph graph,
       Iterable<SkyKey> diff,
       DirtyTrackingProgressReceiver progressReceiver,
-      InvalidationState state,
+      InvalidatingNodeVisitor.DeletingInvalidationState state,
       boolean traverseGraph) {
     state.update(diff);
     return state.isEmpty() ? null

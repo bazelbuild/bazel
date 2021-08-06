@@ -28,11 +28,14 @@ import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
 import com.google.errorprone.annotations.ForOverride;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
@@ -117,20 +120,17 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     this.pendingVisitations = state.pendingValues;
   }
 
+  private static final Duration MIN_TIME_FOR_LOGGING = Duration.ofMillis(10);
+
   /** Initiates visitation and waits for completion. */
   final void run() throws InterruptedException {
-    // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
-    // the caller, and which are added by other threads during the run. Since no tasks have been
-    // started yet, this is thread-safe.
-    enqueueJobs(ImmutableList.copyOf(pendingVisitations));
-    try {
-      executor.awaitQuiescence(/*interruptWorkers=*/ true);
-    } catch (IllegalStateException e) {
-      // TODO(mschaller): Remove this wrapping after debugging the invalidation-after-OOMing-eval
-      // problem. The wrapping provides a stack trace showing what caused the invalidation.
-      throw new IllegalStateException(e);
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged("invalidation", MIN_TIME_FOR_LOGGING)) {
+      // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
+      // the caller, and which are added by other threads during the run. Since no tasks have been
+      // started yet, this is thread-safe.
+      runInternal(ImmutableList.copyOf(pendingVisitations));
     }
-
     Preconditions.checkState(
         pendingVisitations.isEmpty(),
         "All dirty nodes should have been processed: %s",
@@ -138,9 +138,20 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   }
 
   @ForOverride
-  protected void enqueueJobs(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList) {
-    for (Pair<SkyKey, InvalidationType> visitData : pendingList) {
-      executor.execute(() -> visit(ImmutableList.of(visitData.first), visitData.second));
+  protected void runInternal(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList)
+      throws InterruptedException {
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged("invalidation enqueuing", MIN_TIME_FOR_LOGGING)) {
+      for (Pair<SkyKey, InvalidationType> visitData : pendingList) {
+        executor.execute(() -> visit(ImmutableList.of(visitData.first), visitData.second));
+      }
+    }
+    try {
+      executor.awaitQuiescence(/*interruptWorkers=*/ true);
+    } catch (IllegalStateException e) {
+      // TODO(mschaller): Remove this wrapping after debugging the invalidation-after-OOMing-eval
+      // problem. The wrapping provides a stack trace showing what caused the invalidation.
+      throw new IllegalStateException(e);
     }
   }
 
@@ -202,8 +213,16 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   }
 
   static final class DeletingInvalidationState extends InvalidationState {
+    private final ConcurrentHashMap<SkyKey, Boolean> doneKeysWithRdepsToRemove =
+        new ConcurrentHashMap<>(EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT);
+
     DeletingInvalidationState() {
       super(InvalidationType.DELETED);
+    }
+
+    @Override
+    boolean isEmpty() {
+      return super.isEmpty() && doneKeysWithRdepsToRemove.isEmpty();
     }
   }
 
@@ -211,36 +230,59 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   static final class DeletingNodeVisitor extends InvalidatingNodeVisitor<InMemoryGraph> {
     private final Set<SkyKey> visited = Sets.newConcurrentHashSet();
     private final boolean traverseGraph;
+    private final ConcurrentHashMap<SkyKey, Boolean> doneKeysWithRdepsToRemove;
 
     DeletingNodeVisitor(
         InMemoryGraph graph,
         DirtyTrackingProgressReceiver progressReceiver,
-        InvalidationState state,
+        DeletingInvalidationState state,
         boolean traverseGraph) {
       super(
           graph,
           progressReceiver,
           state,
-          NamedForkJoinPool.newNamedPool("deleting", DEFAULT_THREAD_COUNT));
+          NamedForkJoinPool.newNamedPool("deleting node visitor", DEFAULT_THREAD_COUNT));
       this.traverseGraph = traverseGraph;
+      this.doneKeysWithRdepsToRemove = state.doneKeysWithRdepsToRemove;
     }
 
     @Override
-    protected void enqueueJobs(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList) {
-      // To avoid contention and scheduling too many jobs for our #cpus, we start
-      // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
-      int listSize = pendingList.size();
-      for (int i = 0; i < DEFAULT_THREAD_COUNT; i++) {
-        int index = i;
-        executor.execute(
-            () ->
-                visit(
-                    Iterables.transform(
-                        pendingList.subList(
-                            index * listSize / DEFAULT_THREAD_COUNT,
-                            Math.min(listSize, (index + 1) * listSize / DEFAULT_THREAD_COUNT)),
-                        Pair::getFirst),
-                    InvalidationType.DELETED));
+    protected void runInternal(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList)
+        throws InterruptedException {
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged("invalidation enqueuing", MIN_TIME_FOR_LOGGING)) {
+        // To avoid contention and scheduling too many jobs for our #cpus, we start
+        // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
+        int listSize = pendingList.size();
+        for (int i = 0; i < DEFAULT_THREAD_COUNT; i++) {
+          int index = i;
+          executor.execute(
+              () ->
+                  visit(
+                      Iterables.transform(
+                          pendingList.subList(
+                              index * listSize / DEFAULT_THREAD_COUNT,
+                              Math.min(listSize, (index + 1) * listSize / DEFAULT_THREAD_COUNT)),
+                          Pair::getFirst),
+                      InvalidationType.DELETED));
+        }
+      }
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged("invalidation graph traversal", MIN_TIME_FOR_LOGGING)) {
+        executor.awaitQuiescence(/*interruptWorkers=*/ true);
+      }
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged("reverse dep removal", MIN_TIME_FOR_LOGGING)) {
+        doneKeysWithRdepsToRemove.forEachEntry(
+            /*parallelismThreshold=*/ 1024,
+            e -> {
+              NodeEntry entry = graph.get(null, Reason.RDEP_REMOVAL, e.getKey());
+              if (entry == null) {
+                return;
+              }
+              entry.removeReverseDepsFromDoneEntryDueToDeletion(visited);
+            });
+        doneKeysWithRdepsToRemove.clear();
       }
     }
 
@@ -259,7 +301,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       }
       final Map<SkyKey, ? extends NodeEntry> entries =
           graph.getBatch(null, Reason.INVALIDATION, unvisitedKeys);
-      for (final SkyKey key : unvisitedKeys) {
+      for (SkyKey key : unvisitedKeys) {
         executor.execute(
             () -> {
               NodeEntry entry = entries.get(key);
@@ -315,26 +357,31 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                       entry.isDone() ? ImmutableSet.of() : entry.getTemporaryDirectDeps().toSet();
                   for (Map.Entry<SkyKey, ? extends NodeEntry> directDepEntry : depMap.entrySet()) {
                     NodeEntry dep = directDepEntry.getValue();
-                    if (dep != null) {
-                      if (dep.isDone() || !signalingDeps.contains(directDepEntry.getKey())) {
-                        try {
-                          dep.removeReverseDep(key);
-                        } catch (InterruptedException e) {
-                          throw new IllegalStateException(
-                              "Deletion cannot happen on a graph that may have blocking "
-                                  + "operations: "
-                                  + key
-                                  + ", "
-                                  + entry,
-                              e);
-                        }
-                      } else {
-                        // This step is not strictly necessary, since all in-progress nodes are
-                        // deleted during graph cleaning, which happens in a single
-                        // DeletingNodeVisitor visitation, aka the one right now. We leave this
-                        // here in case the logic changes.
-                        dep.removeInProgressReverseDep(key);
+                    if (dep == null) {
+                      continue;
+                    }
+                    if (dep.isDone()) {
+                      doneKeysWithRdepsToRemove.putIfAbsent(directDepEntry.getKey(), Boolean.TRUE);
+                      continue;
+                    }
+                    if (!signalingDeps.contains(directDepEntry.getKey())) {
+                      try {
+                        dep.removeReverseDep(key);
+                      } catch (InterruptedException e) {
+                        throw new IllegalStateException(
+                            "Deletion cannot happen on a graph that may have blocking "
+                                + "operations: "
+                                + key
+                                + ", "
+                                + entry,
+                            e);
                       }
+                    } else {
+                      // This step is not strictly necessary, since all in-progress nodes are
+                      // deleted during graph cleaning, which happens in a single
+                      // DeletingNodeVisitor visitation, aka the one right now. We leave this
+                      // here in case the logic changes.
+                      dep.removeInProgressReverseDep(key);
                     }
                   }
                 }

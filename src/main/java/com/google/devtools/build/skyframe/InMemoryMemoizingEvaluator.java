@@ -23,6 +23,8 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
@@ -31,6 +33,7 @@ import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvali
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -61,7 +64,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   private Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
   private Set<SkyKey> valuesToDirty = new LinkedHashSet<>();
   private Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
-  private final InvalidationState deleterState = new DeletingInvalidationState();
+  private final DeletingInvalidationState deleterState = new DeletingInvalidationState();
   private final Differencer differencer;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
   private final EventFilter eventFilter;
@@ -119,16 +122,21 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     Iterables.addAll(valuesToDirty, diff);
   }
 
+  private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);
+
   @Override
   public void delete(Predicate<SkyKey> deletePredicate) {
-    valuesToDelete.addAll(
-        Maps.filterEntries(
-                graph.getAllValues(),
-                input -> {
-                  Preconditions.checkNotNull(input.getKey(), "Null SkyKey in entry: %s", input);
-                  return input.getValue().isDirty() || deletePredicate.test(input.getKey());
-                })
-            .keySet());
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
+      valuesToDelete.addAll(
+          Maps.filterEntries(
+                  graph.getAllValues(),
+                  input -> {
+                    Preconditions.checkNotNull(input.getKey(), "Null SkyKey in entry: %s", input);
+                    return input.getValue().isDirty() || deletePredicate.test(input.getKey());
+                  })
+              .keySet());
+    }
   }
 
   @Override

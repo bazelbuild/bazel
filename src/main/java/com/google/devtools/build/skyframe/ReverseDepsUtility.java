@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
@@ -122,6 +123,13 @@ abstract class ReverseDepsUtility {
   /** See {@link #addReverseDep} method. */
   static void removeReverseDep(InMemoryNodeEntry entry, SkyKey reverseDep) {
     maybeDelayReverseDepOp(entry, reverseDep, Op.REMOVE);
+  }
+
+  static void removeReverseDepsMatching(InMemoryNodeEntry entry, Set<SkyKey> deletedKeys) {
+    consolidateData(entry);
+    ImmutableSet<SkyKey> currentReverseDeps =
+        ImmutableSet.copyOf(getReverseDeps(entry, /*checkConsistency=*/ true));
+    writeReverseDepsSet(entry, Sets.difference(currentReverseDeps, deletedKeys));
   }
 
   static ImmutableCollection<SkyKey> getReverseDeps(

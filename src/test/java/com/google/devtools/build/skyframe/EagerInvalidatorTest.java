@@ -541,7 +541,11 @@ public class EagerInvalidatorTest {
       Iterable<SkyKey> diff = ImmutableList.copyOf(keys);
       DeletingNodeVisitor deletingNodeVisitor =
           EagerInvalidator.createDeletingVisitorIfNeeded(
-              graph, diff, new DirtyTrackingProgressReceiver(progressReceiver), state, true);
+              graph,
+              diff,
+              new DirtyTrackingProgressReceiver(progressReceiver),
+              (InvalidatingNodeVisitor.DeletingInvalidationState) state,
+              true);
       if (deletingNodeVisitor != null) {
         visitor.set(deletingNodeVisitor);
         deletingNodeVisitor.run();
@@ -559,7 +563,7 @@ public class EagerInvalidatorTest {
     }
 
     @Override
-    protected InvalidatingNodeVisitor.InvalidationState newInvalidationState() {
+    protected InvalidatingNodeVisitor.DeletingInvalidationState newInvalidationState() {
       return new InvalidatingNodeVisitor.DeletingInvalidationState();
     }
 
@@ -588,8 +592,14 @@ public class EagerInvalidatorTest {
       assertThat(receiver.getUnenqueuedDirtyKeys()).containsExactly(diff.get(0), skyKey("ab"));
 
       // Delete the node, and ensure that the tracker is no longer tracking it:
-      Preconditions.checkNotNull(EagerInvalidator.createDeletingVisitorIfNeeded(graph, diff,
-          receiver, state, true)).run();
+      Preconditions.checkNotNull(
+              EagerInvalidator.createDeletingVisitorIfNeeded(
+                  graph,
+                  diff,
+                  receiver,
+                  (InvalidatingNodeVisitor.DeletingInvalidationState) state,
+                  true))
+          .run();
       assertThat(receiver.getUnenqueuedDirtyKeys()).isEmpty();
     }
   }
