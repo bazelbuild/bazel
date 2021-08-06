@@ -95,12 +95,10 @@ public final class RuleConfiguredTargetBuilder {
   private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
   private final LinkedHashSet<String> ruleImplSpecificRequiredConfigFragments =
       new LinkedHashSet<>();
-  private boolean propagateValidationActionOutputGroup = true;
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     // Avoid building validations in analysis tests (b/143988346)
-    propagateValidationActionOutputGroup = !ruleContext.getRule().isAnalysisTest();
     add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
   }
@@ -161,7 +159,7 @@ public final class RuleConfiguredTargetBuilder {
               .getAllArtifacts());
     }
 
-    if (propagateValidationActionOutputGroup) {
+    if (propagateValidationActionOutputGroup()) {
       propagateTransitiveValidationOutputGroups();
     }
 
@@ -276,6 +274,10 @@ public final class RuleConfiguredTargetBuilder {
         providers,
         generatingActions.getActions(),
         generatingActions.getArtifactsByOutputLabel());
+  }
+
+  private boolean propagateValidationActionOutputGroup() {
+    return !ruleContext.getRule().isAnalysisTest();
   }
 
   /** Actually process */
@@ -649,12 +651,6 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder setFilesToBuild(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
-    return this;
-  }
-
-  /** Sets whether to propagate the validation actions output group. This is true by default. */
-  public RuleConfiguredTargetBuilder setPropagateValidationActionOutputGroup(boolean propagate) {
-    this.propagateValidationActionOutputGroup = propagate;
     return this;
   }
 
