@@ -357,10 +357,16 @@ public final class RuleConfiguredTargetBuilder {
    * validation action output group itself.
    */
   private void propagateTransitiveValidationOutputGroups() {
-    collectTransitiveValidationOutputGroups(
-        ruleContext,
-        unused -> true,
-        validationArtifacts -> addOutputGroup(OutputGroupInfo.VALIDATION, validationArtifacts));
+    if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
+      addOutputGroup(
+          OutputGroupInfo.VALIDATION,
+          outputGroupBuilders.remove(OutputGroupInfo.VALIDATION_TRANSITIVE).build());
+    } else {
+      collectTransitiveValidationOutputGroups(
+          ruleContext,
+          unused -> true,
+          validationArtifacts -> addOutputGroup(OutputGroupInfo.VALIDATION, validationArtifacts));
+    }
   }
 
   /**
