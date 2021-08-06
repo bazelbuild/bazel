@@ -85,21 +85,6 @@ java_test(
 )
 
 java_test(
-    name = "BogusExecutionTimeTest",
-    srcs = ["BogusExecutionTimeTest.java"],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:junit4",
-    ],
-)
-
-java_test(
     name = "CompileAfterOptionChangeTest",
     srcs = ["CompileAfterOptionChangeTest.java"],
     tags = [
@@ -663,7 +648,6 @@ build_test(
     targets = [
         ":ActionListenerIntegrationTest",
         ":AqueryBuildToolTest",
-        ":BogusExecutionTimeTest",
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
         ":CompileOneDependencyIntegrationTest",
