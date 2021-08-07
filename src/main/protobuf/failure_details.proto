@@ -146,6 +146,7 @@ message FailureDetail {
     Toolchain toolchain = 177;
     StarlarkLoading starlark_loading = 179;
     ExternalDeps external_deps = 181;
+    DiffAwareness diff_awareness = 182;
   }
 
   reserved 102; // For internal use
@@ -1254,6 +1255,15 @@ message ExternalDeps {
     VERSION_RESOLUTION_ERROR = 3 [(metadata) = { exit_code: 48 }];
     INVALID_REGISTRY_URL = 4 [(metadata) = { exit_code: 48 }];
     ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
+  }
+
+  Code code = 1;
+}
+
+message DiffAwareness {
+  enum Code {
+    DIFF_AWARENESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    DIFF_STAT_FAILED = 1 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

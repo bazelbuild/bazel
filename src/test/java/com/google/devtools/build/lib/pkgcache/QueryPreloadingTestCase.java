@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -162,11 +163,12 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
         .containsAtLeastElementsIn(asLabelSet(expectedLabels));
   }
 
-  protected void syncPackages() throws InterruptedException {
+  protected void syncPackages() throws InterruptedException, AbruptExitException {
     syncPackages(ModifiedFileSet.EVERYTHING_MODIFIED);
   }
 
-  protected void syncPackages(ModifiedFileSet modifiedFileSet) throws InterruptedException {
+  protected void syncPackages(ModifiedFileSet modifiedFileSet)
+      throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter, modifiedFileSet, Root.fromPath(rootDirectory));

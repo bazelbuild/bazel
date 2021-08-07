@@ -318,7 +318,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Diff diff =
         skyframeExecutor.getDiff(
             /*tsgm=*/ null,
-            ImmutableList.of(PathFragment.create("foo/foo.txt")),
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
             root,
             /*fsvcThreads=*/ 1);
 
@@ -335,7 +335,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Diff diff =
         skyframeExecutor.getDiff(
             /*tsgm=*/ null,
-            ImmutableList.of(PathFragment.create("foo/foo.txt")),
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
             root,
             /*fsvcThreads=*/ 1);
 
@@ -358,7 +358,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Diff diff =
         skyframeExecutor.getDiff(
             /*tsgm=*/ null,
-            ImmutableList.of(PathFragment.create("foo/foo.txt")),
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/foo.txt")).build(),
             root,
             /*fsvcThreads=*/ 1);
 

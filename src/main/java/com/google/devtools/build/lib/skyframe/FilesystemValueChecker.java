@@ -683,9 +683,9 @@ public class FilesystemValueChecker {
         concurrentDirtyKeysWithoutNewValues.add(key);
       } else {
         if (oldValue == null) {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, new Delta(newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(newValue));
         } else {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, new Delta(oldValue, newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(oldValue, newValue));
         }
       }
     }

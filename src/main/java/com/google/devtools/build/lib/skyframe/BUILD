@@ -1457,10 +1457,14 @@ java_library(
 
 java_library(
     name = "filesystem_value_checker",
-    srcs = ["FilesystemValueChecker.java"],
+    srcs = [
+        "FileSystemValueCheckerInferringAncestors.java",
+        "FilesystemValueChecker.java",
+    ],
     deps = [
         ":action_execution_value",
         ":action_metadata_handler",
+        ":directory_listing_state_value",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
         ":tree_artifact_value",
@@ -1469,11 +1473,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",

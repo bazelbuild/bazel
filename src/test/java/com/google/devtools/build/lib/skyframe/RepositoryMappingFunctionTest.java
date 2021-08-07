@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -46,7 +47,8 @@ import org.junit.runners.JUnit4;
 public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   private FakeRegistry registry;
 
-  private EvaluationResult<RepositoryMappingValue> eval(SkyKey key) throws InterruptedException {
+  private EvaluationResult<RepositoryMappingValue> eval(SkyKey key)
+      throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,

@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.Maps;
 import java.util.Collection;
 import java.util.Map;
@@ -53,32 +54,25 @@ public interface Differencer {
     Map<SkyKey, Delta> changedKeysWithNewAndOldValues();
 
     /** Represents the delta between two values of the same key. */
-    final class Delta {
-      @Nullable private final SkyValue oldValue;
-      private final SkyValue newValue;
-
-      public Delta(SkyValue newValue) {
-        this(null, newValue);
-      }
-
-      public Delta(SkyValue oldValue, SkyValue newValue) {
-        this.oldValue = oldValue;
-        this.newValue = checkNotNull(newValue);
-      }
-
+    @AutoValue
+    abstract class Delta {
       /** Returns the old value, if any. */
       @Nullable
-      public SkyValue getOldValue() {
-        return oldValue;
-      }
+      public abstract SkyValue oldValue();
 
       /** Returns the new value. */
-      public SkyValue getNewValue() {
-        return newValue;
+      public abstract SkyValue newValue();
+
+      public static Delta create(SkyValue newValue) {
+        return create(/*oldValue=*/ null, newValue);
+      }
+
+      public static Delta create(SkyValue oldValue, SkyValue newValue) {
+        return new AutoValue_Differencer_DiffWithDelta_Delta(oldValue, checkNotNull(newValue));
       }
 
       public static Map<SkyKey, SkyValue> newValues(Map<SkyKey, Delta> delta) {
-        return Maps.transformValues(delta, Delta::getNewValue);
+        return Maps.transformValues(delta, Delta::newValue);
       }
     }
   }

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl.ManagedDirectoriesListener;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -111,7 +112,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     public void describeTo(Description description) {}
   }
 
-  private <T extends SkyValue> EvaluationResult<T> eval(SkyKey key) throws InterruptedException {
+  private <T extends SkyValue> EvaluationResult<T> eval(SkyKey key)
+      throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
@@ -349,7 +351,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   private WorkspaceFileValue parseWorkspaceFileValueImpl(String[] lines)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, AbruptExitException {
     RootedPath workspaceFile = createWorkspaceFile(lines);
     WorkspaceFileKey key = WorkspaceFileValue.key(workspaceFile);
     EvaluationResult<WorkspaceFileValue> result = eval(key);
