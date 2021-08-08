@@ -1,6 +1,26 @@
 load("//tools/proto/private/rules:proto_toolchain.bzl", "proto_toolchain")
 load("//tools/proto/private/rules:proto_toolchain_alias.bzl", "proto_toolchain_alias")
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//tools/proto/private/rules:srcs",
+    ],
+    visibility = [
+        "//tools/proto:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]) + [
+        "//tools/proto/private/rules:bzl_srcs",
+    ],
+    visibility = [
+        "//tools/proto:__pkg__",
+    ],
+)
+
 proto_toolchain(
     name = "default_toolchain_impl",
     compiler = "@com_google_protobuf//:protoc",

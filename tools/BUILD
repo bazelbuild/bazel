@@ -82,6 +82,7 @@ filegroup(
         "//tools/cpp:bzl_srcs",
         "//tools/jdk:bzl_srcs",
         "//tools/osx:bzl_srcs",
+        "//tools/proto:bzl_srcs",
         "//tools/python:bzl_srcs",
         "//tools/sh:bzl_srcs",
     ],
