@@ -1,0 +1,24 @@
+load("//tools/proto/private/rules:proto_toolchain.bzl", "proto_toolchain")
+load("//tools/proto/private/rules:proto_toolchain_alias.bzl", "proto_toolchain_alias")
+
+proto_toolchain(
+    name = "default_toolchain_impl",
+    compiler = "@com_google_protobuf//:protoc",
+)
+
+toolchain(
+    name = "default_toolchain",
+    toolchain = ":default_toolchain_impl",
+    toolchain_type = "@bazel_tools//tools/proto:toolchain_type",
+)
+
+proto_toolchain_alias(
+    name = "toolchain_alias",
+    tags = [
+        # Does not work with the current LTS of Bazel (4.x) because its
+        # `@bazel_tools` doesn't contain the required toolchain type.
+        "manual",
+    ],
+    # Must be visible to all `proto_library` and `*_proto_library` targets.
+    visibility = ["//visibility:public"],
+)

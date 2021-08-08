@@ -8,6 +8,7 @@ filegroup(
         "//src/test/shell/bazel/android:srcs",
         "//src/test/shell/bazel/apple:srcs",
         "//src/test/shell/bazel/remote:srcs",
+        "//src/test/shell/bazel/proto:srcs",
         "//src/test/shell/bazel/testdata:srcs",
         "//tools/aquery_differ:srcs",
     ],

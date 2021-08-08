@@ -204,6 +204,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     this.options = options;
   }
 
+  @Override
   public ImmutableList<String> protocOpts() {
     return protocOpts;
   }

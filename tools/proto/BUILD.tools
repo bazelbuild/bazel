@@ -1,0 +1,5 @@
+# The toolchain type used to distinguish Protobuf toolchains.
+toolchain_type(
+    name = "toolchain_type",
+    visibility = ["//visibility:public"],
+)
