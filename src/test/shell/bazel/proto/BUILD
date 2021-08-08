@@ -15,4 +15,7 @@ sh_test(
     data = [
         "//src/test/shell/bazel:test-deps",
     ],
+    tags = [
+        "no_windows",  # TODO(yannic): Make this run on Windows.
+    ],
 )
