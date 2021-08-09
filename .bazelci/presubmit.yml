@@ -260,11 +260,6 @@ tasks:
       - "//tools/jdk/..."
       - "//tools/python/..."
       - "//tools/test/..."
-      # These tests fail with our new Windows image:
-      # https://github.com/bazelbuild/bazel/issues/13816
-      - "-//src/test/shell/bazel:resource_compiler_toolchain_test"
-      - "-//src/test/shell/integration:loading_phase_tests"
-      - "-//src/test/shell/integration:target_compatible_with_test"
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/java/com/google/devtools/build/android/desugar/nest/..."
