@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -437,14 +438,14 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
           // Also add the BUILD file of the extension.
           if (buildFiles) {
-            // Can be null in genquery: see http://b/123795023#comment6.
-            String baseName =
-                cachingPackageLocator.getBaseNameForLoadedPackage(
+            Path buildFileForLoad =
+                cachingPackageLocator.getBuildFileForPackage(
                     loadTarget.getLabel().getLabel().getPackageIdentifier());
-            if (baseName != null) {
+            if (buildFileForLoad != null) {
               Label buildFileLabel =
                   Label.createUnvalidated(
-                      loadTarget.getLabel().getLabel().getPackageIdentifier(), baseName);
+                      loadTarget.getLabel().getLabel().getPackageIdentifier(),
+                      buildFileForLoad.getBaseName());
               addIfUniqueLabel(
                   getNode(new FakeLoadTarget(buildFileLabel, pkg)), seenLabels, dependentFiles);
             }
