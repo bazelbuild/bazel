@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidDataBindingProcessorBuilder;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
@@ -139,9 +138,10 @@ class DataBindingV2Context implements DataBindingContext {
       RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer) {
 
     JavaPluginInfo javaPluginInfo =
-        JavaInfo.getJavaInfo(
-                ruleContext.getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR))
-            .getJavaPluginInfo();
+        (JavaPluginInfo)
+            ruleContext
+                .getPrerequisite(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR)
+                .get(JavaPluginInfo.PROVIDER.getKey());
 
     ImmutableList<Artifact> annotationProcessorOutputs =
         DataBinding.getMetadataOutputs(ruleContext, useUpdatedArgs, metadataOutputSuffixes);
