@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** {@link NotifyingHelper} that additionally implements the {@link InMemoryGraph} interface. */
@@ -64,7 +65,7 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+  public ConcurrentHashMap<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
     return ((InMemoryGraph) delegate).getAllValuesMutable();
   }
 }

@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Event;
@@ -128,14 +127,17 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   public void delete(Predicate<SkyKey> deletePredicate) {
     try (AutoProfiler ignored =
         GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
-      valuesToDelete.addAll(
-          Maps.filterEntries(
-                  graph.getAllValues(),
-                  input -> {
-                    Preconditions.checkNotNull(input.getKey(), "Null SkyKey in entry: %s", input);
-                    return input.getValue().isDirty() || deletePredicate.test(input.getKey());
-                  })
-              .keySet());
+      Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
+      graph
+          .getAllValuesMutable()
+          .forEachEntry(
+              /*parallelismThreshold=*/ 1024,
+              e -> {
+                if (e.getValue().isDirty() || deletePredicate.test(e.getKey())) {
+                  toDelete.add(e.getKey());
+                }
+              });
+      valuesToDelete.addAll(toDelete);
     }
   }
 
