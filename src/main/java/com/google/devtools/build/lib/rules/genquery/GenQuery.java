@@ -617,14 +617,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       }
       return pkg.getBuildFile().getPath();
     }
-
-    @Override
-    public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
-      // TODO(b/123795023): we should have the data here but we don't have all packages for Starlark
-      //  loads present here.
-      Package pkg = pkgMap.get(packageName);
-      return pkg == null ? null : pkg.getBuildFileLabel().getName();
-    }
   }
 
   private static class BrokenQueryScopeException extends Exception {

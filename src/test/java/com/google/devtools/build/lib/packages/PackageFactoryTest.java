@@ -1251,11 +1251,6 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
               public Path getBuildFileForPackage(PackageIdentifier packageName) {
                 return null;
               }
-
-              @Override
-              public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
-                return null;
-              }
             },
             null,
             TestUtils.getPool(),
