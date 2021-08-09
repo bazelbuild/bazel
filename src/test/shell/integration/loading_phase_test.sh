@@ -598,8 +598,8 @@ function test_path_from_subdir() {
   cd "$pkg/subdir"
   bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
       || fail "Expected success"
-  assert_contains "^//$pkg:BUILD\$" output
-  assert_contains "^//$pkg:foo\$" output
+  assert_contains "^//$pkg:BUILD" output
+  assert_contains "^//$pkg:foo" output
 }
 
 function test_target_with_BUILD() {
@@ -607,7 +607,7 @@ function test_target_with_BUILD() {
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
   echo 'filegroup(name = "foo/BUILD", srcs = [])' > "$pkg/BUILD" || fail "echo"
   bazel query "$pkg/foo/BUILD" >output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "^//$pkg:foo/BUILD\$" output
+  assert_contains "^//$pkg:foo/BUILD" output
 }
 
 function test_directory_with_BUILD() {
@@ -615,7 +615,7 @@ function test_directory_with_BUILD() {
   mkdir -p "$pkg/BUILD" || fail "could not create \"$pkg/BUILD\""
   touch "$pkg/BUILD/BUILD" || fail "Couldn't touch"
   bazel query "$pkg/BUILD" >output 2> "$TEST_log" || fail "Expected success"
-  assert_contains "^//$pkg/BUILD:BUILD\$" output
+  assert_contains "^//$pkg/BUILD:BUILD" output
 }
 
 function test_missing_BUILD() {

@@ -629,7 +629,7 @@ EOF
   # Validate that we get the dependency chain printed out.
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraint //target_skipping:foo1$"
+  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraint //target_skipping:foo1"
   expect_log 'FAILED: Build did NOT complete successfully'
 
   # Validate the test.
@@ -644,7 +644,7 @@ EOF
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:generated_test$'
   expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraint //target_skipping:foo1$"
+  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraint //target_skipping:foo1"
   expect_log 'FAILED: Build did NOT complete successfully'
 }
 
@@ -692,7 +692,7 @@ EOF
   expect_log '^Dependency chain:$'
   expect_log '^    //target_skipping:generated_test$'
   expect_log '^    //target_skipping:generate_with_tool$'
-  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraints \[//target_skipping:foo1, //target_skipping:bar2\]$"
+  expect_log "^    //target_skipping:generator_tool   <-- target platform didn't satisfy constraints \[//target_skipping:foo1, //target_skipping:bar2\]"
   expect_log 'FAILED: Build did NOT complete successfully'
 }
 
@@ -848,7 +848,7 @@ EOF
 
   # Make sure that the contents of the file are what we expect.
   cp ../${PRODUCT_NAME}-bin/target_skipping/host_tool_message.txt "${TEST_log}"
-  expect_log '^Hello World$'
+  expect_log 'Hello World'
 }
 
 # Validates that we successfully skip analysistest rule targets when they
@@ -916,8 +916,8 @@ function test_query() {
   bazel query \
     'deps(//target_skipping:sh_foo1)' &> "${TEST_log}" \
     || fail "Bazel query failed unexpectedly."
-  expect_log '^//target_skipping:sh_foo1$'
-  expect_log '^//target_skipping:genrule_foo1$'
+  expect_log '^//target_skipping:sh_foo1'
+  expect_log '^//target_skipping:genrule_foo1'
 }
 
 # Run a cquery on a target that is compatible. This should pass.
