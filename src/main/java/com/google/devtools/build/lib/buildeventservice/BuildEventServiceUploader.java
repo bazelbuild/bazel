@@ -592,7 +592,8 @@ public final class BuildEventServiceUploader implements Runnable {
       throw e;
     } finally {
       logger.atInfo().log("About to cancel all local file uploads");
-      try (AutoProfiler ignored = GoogleAutoProfilerUtils.logged("local file upload cancelation")) {
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged("local file upload cancellation")) {
         // Cancel all local file uploads that may still be running
         // of events that haven't been uploaded.
         EventLoopCommand event;
