@@ -724,6 +724,12 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   public void testBuildfilesWithDuplicates() {}
 
   @Override
+  public void bzlPackageBadDueToBrokenLoad() {}
+
+  @Override
+  public void bzlPackageBadDueToBrokenSyntax() {}
+
+  @Override
   public void testTargetsFromBuildfilesAndRealTargets() {}
 
   // siblings() operator.
