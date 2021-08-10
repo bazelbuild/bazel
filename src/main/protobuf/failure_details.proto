@@ -269,6 +269,8 @@ message BuildProgress {
         [(metadata) = { exit_code: 45 }];
     BES_STREAM_COMPLETED_WITH_UNSENT_EVENTS_ERROR = 16
         [(metadata) = { exit_code: 45 }];
+    BES_STREAM_COMPLETED_WITH_REMOTE_ERROR = 19
+        [(metadata) = { exit_code: 45 }];
     BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE = 17
         [(metadata) = { exit_code: 38 }];
     reserved 1, 2, 18; // For internal use

@@ -527,6 +527,11 @@ public final class BuildEventServiceUploader implements Runnable {
                           : BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNSENT_EVENTS_ERROR;
                   throw withFailureDetail(status.asException(), bpCode, status.getDescription());
                 }
+              } else if (lastEventSent && ackQueue.isEmpty()) {
+                throw withFailureDetail(
+                    streamStatus.asException(),
+                    BuildProgress.Code.BES_STREAM_COMPLETED_WITH_REMOTE_ERROR,
+                    streamStatus.getDescription());
               }
 
               if (!shouldRetryStatus(streamStatus)) {
