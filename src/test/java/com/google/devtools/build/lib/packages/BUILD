@@ -50,6 +50,8 @@ java_test(
     deps = [
         ":PackageTestsUtil",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -65,9 +67,11 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:test_policy",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tests_for_target_pattern_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -77,6 +81,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -104,12 +109,26 @@ java_test(
     ],
     test_class = "com.google.devtools.build.lib.packages.BazelDocumentationTest",
     deps = [
-        ":testutil",
+        ":DocumentationTestUtil",
         "//src/main/java/com/google/devtools/build/lib/bazel:main",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
         "//third_party:guava",
         "//third_party:junit4",
         "@bazel_tools//tools/java/runfiles",
+    ],
+)
+
+java_library(
+    name = "DocumentationTestUtil",
+    srcs = ["DocumentationTestUtil.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/exec:test_policy",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:truth",
     ],
 )
 
@@ -124,8 +143,6 @@ java_library(
         "@rules_cc//cc:srcs",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -134,7 +151,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/exec:test_policy",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -142,7 +158,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
@@ -160,6 +175,5 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:truth",
     ],
 )

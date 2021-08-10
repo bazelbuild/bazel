@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.packages.util;
+package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -35,7 +35,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Utility functions for validating correctness of Bazel documentation. */
-public abstract class DocumentationTestUtil {
+abstract class DocumentationTestUtil {
 
   private static final class DummyBuiltinCommandModule extends BuiltinCommandModule {
     DummyBuiltinCommandModule() {
@@ -54,7 +54,7 @@ public abstract class DocumentationTestUtil {
    * Validates that a user manual {@code documentationSource} contains only the flags actually
    * provided by a given set of modules.
    */
-  public static void validateUserManual(
+  static void validateUserManual(
       List<Class<? extends BlazeModule>> modules,
       ConfiguredRuleClassProvider ruleClassProvider,
       String documentationSource,
