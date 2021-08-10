@@ -440,8 +440,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new QueryTransitivePackagePreloader(this::getDriver),
             syscalls,
             pkgLocator,
-            numPackagesLoaded,
-            this);
+            numPackagesLoaded);
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
@@ -729,7 +728,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     memoizingEvaluator.dump(summarize, out);
   }
 
-  public abstract void dumpPackages(PrintStream out);
+  @ForOverride
+  protected abstract void dumpPackages(PrintStream out);
 
   public void setOutputService(OutputService outputService) {
     this.outputService = outputService;
@@ -2639,6 +2639,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Preconditions.checkState(
           !packageName.getRepository().isDefault(), "package must be absolute: %s", packageName);
       return deletedPackages.get().contains(packageName);
+    }
+
+    PackageLookupValue getPackageLookupValue(PackageIdentifier pkgName) {
+      try {
+        return (PackageLookupValue)
+            memoizingEvaluator.getExistingValue(PackageLookupValue.key(pkgName));
+      } catch (InterruptedException e) {
+        throw new IllegalStateException(
+            String.format(
+                "Evaluator %s should not be interruptible (%s)", memoizingEvaluator, pkgName),
+            e);
+      }
+    }
+
+    void dumpPackages(PrintStream out) {
+      SkyframeExecutor.this.dumpPackages(out);
     }
   }
 

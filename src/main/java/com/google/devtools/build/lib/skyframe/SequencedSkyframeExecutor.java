@@ -920,7 +920,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void dumpPackages(PrintStream out) {
+  protected void dumpPackages(PrintStream out) {
     Iterable<SkyKey> packageSkyKeys =
         Iterables.filter(
             memoizingEvaluator.getValues().keySet(),

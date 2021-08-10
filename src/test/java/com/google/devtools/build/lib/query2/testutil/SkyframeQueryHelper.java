@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -303,7 +304,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       throw new IllegalStateException(e);
     }
     pkgManager = skyframeExecutor.getPackageManager();
-    targetParser = pkgManager.newTargetPatternPreloader();
+    targetParser = new SkyframeTargetPatternEvaluator(skyframeExecutor);
   }
 
   @Override
