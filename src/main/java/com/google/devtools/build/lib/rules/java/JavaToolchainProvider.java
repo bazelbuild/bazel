@@ -98,6 +98,7 @@ public class JavaToolchainProvider extends NativeInfo
       NestedSet<String> jvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
+      boolean javacSupportsWorkerCancellation,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,
       JavaToolchainTool javaBuilder,
@@ -145,6 +146,7 @@ public class JavaToolchainProvider extends NativeInfo
         jvmOptions,
         javacSupportsWorkers,
         javacSupportsMultiplexWorkers,
+        javacSupportsWorkerCancellation,
         packageConfiguration,
         jacocoRunner,
         proguardAllowlister,
@@ -175,6 +177,7 @@ public class JavaToolchainProvider extends NativeInfo
   private final NestedSet<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final boolean javacSupportsMultiplexWorkers;
+  private final boolean javacSupportsWorkerCancellation;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
   private final FilesToRunProvider proguardAllowlister;
@@ -206,6 +209,7 @@ public class JavaToolchainProvider extends NativeInfo
       NestedSet<String> jvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
+      boolean javacSupportsWorkerCancellation,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       FilesToRunProvider proguardAllowlister,
@@ -235,6 +239,7 @@ public class JavaToolchainProvider extends NativeInfo
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
+    this.javacSupportsWorkerCancellation = javacSupportsWorkerCancellation;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
     this.proguardAllowlister = proguardAllowlister;
@@ -394,6 +399,11 @@ public class JavaToolchainProvider extends NativeInfo
   /** Returns whether JavaBuilders supports running persistent workers in multiplex mode */
   public boolean getJavacSupportsMultiplexWorkers() {
     return javacSupportsMultiplexWorkers;
+  }
+
+  /** Returns whether JavaBuilders supports running persistent workers with cancellation */
+  public boolean getJavacSupportsWorkerCancellation() {
+    return javacSupportsWorkerCancellation;
   }
 
   /** Returns the global {@code java_plugin_configuration} data. */
