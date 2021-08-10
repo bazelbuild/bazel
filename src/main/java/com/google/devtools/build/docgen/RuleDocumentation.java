@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.DocgenConsts.RuleType;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -312,42 +311,6 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       default:
         return value;
     }
-  }
-
-  /**
-   * Returns a set of examples based on markups which can be used as BUILD file
-   * contents for testing.
-   */
-  Set<String> extractExamples() throws BuildEncyclopediaDocException {
-    String[] lines = htmlDocumentation.split(DocgenConsts.LS);
-    Set<String> examples = new HashSet<>();
-    StringBuilder sb = null;
-    boolean inExampleCode = false;
-    int lineCount = 0;
-    for (String line : lines) {
-      if (!inExampleCode) {
-        if (DocgenConsts.BLAZE_RULE_EXAMPLE_START.matcher(line).matches()) {
-          inExampleCode = true;
-          sb = new StringBuilder();
-        } else if (DocgenConsts.BLAZE_RULE_EXAMPLE_END.matcher(line).matches()) {
-          throw new BuildEncyclopediaDocException(fileName, startLineCount + lineCount,
-              "No matching start example tag (#BLAZE_RULE.EXAMPLE) for end example tag.");
-        }
-      } else {
-        if (DocgenConsts.BLAZE_RULE_EXAMPLE_END.matcher(line).matches()) {
-          inExampleCode = false;
-          examples.add(sb.toString());
-          sb = null;
-        } else if (DocgenConsts.BLAZE_RULE_EXAMPLE_START.matcher(line).matches()) {
-          throw new BuildEncyclopediaDocException(fileName, startLineCount + lineCount,
-              "No start example tags (#BLAZE_RULE.EXAMPLE) in a row.");
-        } else {
-          sb.append(line + DocgenConsts.LS);
-        }
-      }
-      lineCount++;
-    }
-    return examples;
   }
 
   /**
