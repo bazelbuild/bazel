@@ -1629,6 +1629,47 @@ public class CompilationSupport implements StarlarkValue {
     return Optional.fromNullable(pchHdr);
   }
 
+  /**
+   * Registers an action that will generate a clang module map for this target, using the hdrs
+   * attribute of this rule.
+   */
+  public CompilationSupport registerGenerateModuleMapAction(
+      CompilationArtifacts compilationArtifacts) throws RuleErrorException, InterruptedException {
+    // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
+    // dropped.
+    // TODO(b/32225593): Include private headers in the module map.
+    CcCompilationHelper ccCompilationHelper =
+        new CcCompilationHelper(
+            ruleContext,
+            ruleContext,
+            ruleContext.getLabel(),
+            CppHelper.getGrepIncludes(ruleContext),
+            cppSemantics,
+            getFeatureConfigurationForSwiftModuleMap(
+                ruleContext, toolchain, buildConfiguration, cppSemantics),
+            CcCompilationHelper.SourceCategory.CC_AND_OBJC,
+            toolchain,
+            toolchain.getFdoContext(),
+            buildConfiguration,
+            TargetUtils.getExecutionInfo(
+                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
+            /* shouldProcessHeaders= */ false);
+
+    ImmutableSortedSet<Artifact> publicHeaders =
+        Stream.concat(
+                attributes.hdrs().toList().stream(),
+                compilationArtifacts.getAdditionalHdrs().toList().stream())
+            .collect(toImmutableSortedSet(naturalOrder()));
+
+    CppModuleMap moduleMap = intermediateArtifacts.swiftModuleMap();
+
+    ccCompilationHelper.setCppModuleMap(moduleMap).addPublicHeaders(publicHeaders);
+
+    ccCompilationHelper.compile(ruleContext);
+
+    return this;
+  }
+
   /** Registers an action to generate an extra clang module map. */
   private CompilationSupport generateExtraModuleMap(
       CppModuleMap moduleMap,
