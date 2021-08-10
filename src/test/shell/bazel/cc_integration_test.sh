@@ -1382,4 +1382,40 @@ EOF
       fail "bazel build should've succeeded with --features=compiler_param_file"
 }
 
+function test_clang_libcxx() {
+  local -r clang_tool=$(which clang)
+  if [[ ! -x ${clang_tool:-/usr/bin/clang_tool} ]]; then
+    echo "clang not installed. Skipping test."
+    return
+  fi
+
+  local package="${FUNCNAME[0]}"
+  mkdir -p "${package}"
+  cat > ${package}/BUILD <<EOF
+cc_binary(
+  name = 'hello',
+  copts = [
+    '-stdlib=libc++',
+  ],
+  linkopts = [
+    '-stdlib=libc++',
+  ],
+  srcs = ['hello.cc'],
+)
+EOF
+
+  cat > ${package}/hello.cc <<EOF
+#include <iostream>
+
+int main() {
+  std::cout << "Hello, libc++ " << _LIBCPP_VERSION << "!" << std::endl;
+}
+EOF
+
+  CC="${clang_tool}" bazel build //${package}:hello \
+    &> "${TEST_log}" || fail "bazel build with libc++ failed"
+
+  bazel-bin/${package}/hello || fail "the built binary failed to run"
+}
+
 run_suite "cc_integration_test"
