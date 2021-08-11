@@ -1294,10 +1294,6 @@ public class RemoteExecutionService {
 
   private Completable uploadActionResult(
       RemoteCache remoteCache, RemoteAction action, ActionResult result) {
-    if (action.action.getDoNotCache()) {
-      return Completable.complete();
-    }
-
     return RxFutures.toCompletable(
         () ->
             remoteCache.uploadActionResult(
