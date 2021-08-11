@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
@@ -294,10 +296,13 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             retrier,
             DIGEST_UTIL,
             uploader);
+    Reporter reporter = new Reporter(new EventBus());
     RemoteExecutionCache remoteCache =
-        new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
+        new RemoteExecutionCache(reporter, cacheProtocol, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
+            reporter,
+            /*verboseFailures=*/true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",

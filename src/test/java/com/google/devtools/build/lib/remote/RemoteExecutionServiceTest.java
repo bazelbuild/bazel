@@ -16,6 +16,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -45,24 +46,30 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.UploadManifest;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
@@ -77,6 +84,7 @@ import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -103,6 +111,7 @@ public class RemoteExecutionServiceTest {
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
   private FileOutErr outErr;
+  private Reporter reporter;
   private InMemoryRemoteCache cache;
   private RemoteActionExecutionContext remoteActionExecutionContext;
 
@@ -125,7 +134,9 @@ public class RemoteExecutionServiceTest {
     checkNotNull(stderr.getParentDirectory()).createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
 
-    cache = new InMemoryRemoteCache(remoteOptions, digestUtil);
+    reporter = new Reporter(new EventBus());
+
+    cache = new InMemoryRemoteCache(reporter, remoteOptions, digestUtil);
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
@@ -1044,6 +1055,659 @@ public class RemoteExecutionServiceTest {
     verify(injector, never()).injectFile(eq(a1), remoteFileMatchingDigest(d1));
   }
 
+  @Test
+  public void uploadOutputs_uploadSymlinks_absoluteFileSymlinkAsFile() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(link));
+    Digest digest = digestUtil.compute(target);
+    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_absoluteDirectorySymlinkAsDirectory() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path foo = execRoot.getRelative("dir/foo");
+    FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("link");
+    link.createSymbolicLink(dir);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(link));
+    Digest digest = digestUtil.compute(foo);
+    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest)))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_noUploadSymlinks_relativeFileSymlinkAsFile() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    link.createSymbolicLink(target.relativeTo(execRoot));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ false,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(link));
+    Digest digest = digestUtil.compute(target);
+    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_noUploadSymlinks_relativeDirectorySymlinkAsDirectory() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path foo = execRoot.getRelative("dir/foo");
+    FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("link");
+    link.createSymbolicLink(dir.relativeTo(execRoot));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ false,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(link));
+    Digest digest = digestUtil.compute(foo);
+    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest)))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("link").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_relativeFileSymlinkAsSymlink() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    link.createSymbolicLink(target.relativeTo(execRoot));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(link));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_relativeDirectorySymlinkAsSymlink() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path file = execRoot.getRelative("dir/foo");
+    FileSystemUtils.writeContent(file, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("link");
+    link.createSymbolicLink(dir.relativeTo(execRoot));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(link));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectorySymlinksBuilder().setPath("link").setTarget("dir");
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_danglingSymlinkError() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    link.createSymbolicLink(target.relativeTo(execRoot));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(link)));
+    assertThat(e).hasMessageThat().contains("dangling");
+    assertThat(e).hasMessageThat().contains("/execroot/link");
+    assertThat(e).hasMessageThat().contains("target");
+  }
+
+  @Test
+  public void uploadOutputs_noAllowSymlinks_symlinksCauseError() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path link = execRoot.getRelative("link");
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    link.createSymbolicLink(target.relativeTo(execRoot));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ false);
+    ExecException e = assertThrows(ExecException.class, () -> um.addFiles(ImmutableList.of(link)));
+    assertThat(e).hasMessageThat().contains("symbolic link");
+    assertThat(e).hasMessageThat().contains("--remote_allow_symlink_upload");
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_absoluteFileSymlinkInDirectoryAsFile() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(dir));
+    Digest digest = digestUtil.compute(target);
+    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("link").setDigest(digest)))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_absoluteDirectorySymlinkInDirectoryAsDirectory() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path bardir = execRoot.getRelative("bardir");
+    bardir.createDirectory();
+    Path foo = execRoot.getRelative("bardir/foo");
+    FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(bardir);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(dir));
+    Digest digest = digestUtil.compute(foo);
+    assertThat(um.getDigestToFile())
+        .containsExactly(digest, execRoot.getRelative("dir/link/foo"));
+
+    Directory barDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest))
+            .build();
+    Digest barDigest = digestUtil.compute(barDir);
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("link").setDigest(barDigest)))
+            .addChildren(barDir)
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_noUploadSymlinks_relativeFileSymlinkInDirectoryAsFile() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(PathFragment.create("../target"));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ false,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(dir));
+    Digest digest = digestUtil.compute(target);
+    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(FileNode.newBuilder().setName("link").setDigest(digest)))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_noUploadSymlinks_relativeDirectorySymlinkInDirectoryAsDirectory() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path bardir = execRoot.getRelative("bardir");
+    bardir.createDirectory();
+    Path foo = execRoot.getRelative("bardir/foo");
+    FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(PathFragment.create("../bardir"));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ false,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(dir));
+    Digest digest = digestUtil.compute(foo);
+    assertThat(um.getDigestToFile())
+        .containsExactly(digest, execRoot.getRelative("dir/link/foo"));
+
+    Directory barDir =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("foo").setDigest(digest))
+            .build();
+    Digest barDigest = digestUtil.compute(barDir);
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("link").setDigest(barDigest)))
+            .addChildren(barDir)
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_relativeFileSymlinkInDirectoryAsSymlink() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(PathFragment.create("../target"));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(dir));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../target")))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_relativeDirectorySymlinkInDirectoryAsSymlink() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path bardir = execRoot.getRelative("bardir");
+    bardir.createDirectory();
+    Path foo = execRoot.getRelative("bardir/foo");
+    FileSystemUtils.writeContent(foo, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(PathFragment.create("../bardir"));
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    um.addFiles(ImmutableList.of(dir));
+    assertThat(um.getDigestToFile()).isEmpty();
+
+    Tree tree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../bardir")))
+            .build();
+    Digest treeDigest = digestUtil.compute(tree);
+
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("dir").setTreeDigest(treeDigest);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void uploadOutputs_uploadSymlinks_danglingSymlinkInDirectoryError() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path target = execRoot.getRelative("target");
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ true);
+    IOException e = assertThrows(IOException.class, () -> um.addFiles(ImmutableList.of(dir)));
+    assertThat(e).hasMessageThat().contains("dangling");
+    assertThat(e).hasMessageThat().contains("/execroot/dir/link");
+    assertThat(e).hasMessageThat().contains("/execroot/target");
+  }
+
+  @Test
+  public void uploadOutputs_noAllowSymlinks_symlinkInDirectoryError() throws Exception {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    Path dir = execRoot.getRelative("dir");
+    dir.createDirectory();
+    Path target = execRoot.getRelative("target");
+    FileSystemUtils.writeContent(target, new byte[] {1, 2, 3, 4, 5});
+    Path link = execRoot.getRelative("dir/link");
+    link.createSymbolicLink(target);
+
+    UploadManifest um =
+        new UploadManifest(
+            digestUtil,
+            remotePathResolver,
+            result,
+            /*uploadSymlinks=*/ true,
+            /*allowSymlinks=*/ false);
+    ExecException e = assertThrows(ExecException.class, () -> um.addFiles(ImmutableList.of(dir)));
+    assertThat(e).hasMessageThat().contains("symbolic link");
+    assertThat(e).hasMessageThat().contains("dir/link");
+    assertThat(e).hasMessageThat().contains("--remote_allow_symlink_upload");
+  }
+
+  @Test
+  public void uploadOutputs_uploadDirectory_works() throws Exception {
+    // Test that uploading a directory works.
+
+    // arrange
+    Digest fooDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/a/foo"), "xyz");
+    Digest quxDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/bar/qux"), "abc");
+    Digest barDigest =
+        fakeFileCache.createScratchInputDirectory(
+            ActionInputHelper.fromPath("outputs/bar"),
+            Tree.newBuilder()
+                .setRoot(
+                    Directory.newBuilder()
+                        .addFiles(
+                            FileNode.newBuilder()
+                                .setIsExecutable(true)
+                                .setName("qux")
+                                .setDigest(quxDigest)
+                                .build())
+                        .build())
+                .build());
+    Path fooFile = execRoot.getRelative("outputs/a/foo");
+    Path quxFile = execRoot.getRelative("outputs/bar/qux");
+    quxFile.setExecutable(true);
+    Path barDir = execRoot.getRelative("outputs/bar");
+    Artifact outputFile = ActionsTestUtil.createArtifact(artifactRoot, fooFile);
+    Artifact outputDirectory = ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        artifactRoot, barDir.relativeTo(execRoot));
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputFile, outputDirectory));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult = new SpawnResult.Builder()
+        .setExitCode(0)
+        .setStatus(SpawnResult.Status.SUCCESS)
+        .setRunnerName("test")
+        .build();
+
+    // act
+    UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
+    service.uploadOutputs(action, spawnResult);
+
+    // assert
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("outputs/a/foo").setDigest(fooDigest);
+    expectedResult.addOutputDirectoriesBuilder().setPath("outputs/bar").setTreeDigest(barDigest);
+    assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
+
+    ImmutableList<Digest> toQuery = ImmutableList.of(fooDigest, quxDigest, barDigest);
+    assertThat(getFromFuture(cache.findMissingDigests(remoteActionExecutionContext, toQuery))).isEmpty();
+  }
+
+  @Test
+  public void uploadOutputs_uploadEmptyDirectory_works() throws Exception {
+    // Test that uploading an empty directory works.
+
+    // arrange
+    final Digest barDigest =
+        fakeFileCache.createScratchInputDirectory(
+            ActionInputHelper.fromPath("outputs/bar"),
+            Tree.newBuilder().setRoot(Directory.newBuilder().build()).build());
+    final Path barDir = execRoot.getRelative("outputs/bar");
+    Artifact outputDirectory = ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        artifactRoot, barDir.relativeTo(execRoot));
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputDirectory));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult = new SpawnResult.Builder()
+        .setExitCode(0)
+        .setStatus(SpawnResult.Status.SUCCESS)
+        .setRunnerName("test")
+        .build();
+
+    // act
+    UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
+    service.uploadOutputs(action, spawnResult);
+
+    // assert
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("outputs/bar").setTreeDigest(barDigest);
+    assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
+    assertThat(
+            getFromFuture(
+                cache.findMissingDigests(
+                    remoteActionExecutionContext, ImmutableList.of(barDigest))))
+        .isEmpty();
+  }
+
+  @Test
+  public void uploadOutputs_uploadNestedDirectory_works() throws Exception {
+    // Test that uploading a nested directory works.
+
+    // arrange
+    final Digest wobbleDigest =
+        fakeFileCache.createScratchInput(
+            ActionInputHelper.fromPath("outputs/bar/test/wobble"), "xyz");
+    final Digest quxDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/bar/qux"), "abc");
+    final Directory testDirMessage =
+        Directory.newBuilder()
+            .addFiles(FileNode.newBuilder().setName("wobble").setDigest(wobbleDigest).build())
+            .build();
+    final Digest testDigest = digestUtil.compute(testDirMessage);
+    final Tree barTree =
+        Tree.newBuilder()
+            .setRoot(
+                Directory.newBuilder()
+                    .addFiles(
+                        FileNode.newBuilder()
+                            .setIsExecutable(true)
+                            .setName("qux")
+                            .setDigest(quxDigest))
+                    .addDirectories(
+                        DirectoryNode.newBuilder().setName("test").setDigest(testDigest)))
+            .addChildren(testDirMessage)
+            .build();
+    final Digest barDigest =
+        fakeFileCache.createScratchInputDirectory(
+            ActionInputHelper.fromPath("outputs/bar"), barTree);
+
+    final Path quxFile = execRoot.getRelative("outputs/bar/qux");
+    quxFile.setExecutable(true);
+    final Path barDir = execRoot.getRelative("outputs/bar");
+
+    Artifact outputDirectory = ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        artifactRoot, barDir.relativeTo(execRoot));
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputDirectory));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult = new SpawnResult.Builder()
+        .setExitCode(0)
+        .setStatus(SpawnResult.Status.SUCCESS)
+        .setRunnerName("test")
+        .build();
+
+    // act
+    UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
+    service.uploadOutputs(action, spawnResult);
+
+    // assert
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputDirectoriesBuilder().setPath("outputs/bar").setTreeDigest(barDigest);
+    assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
+
+    ImmutableList<Digest> toQuery = ImmutableList.of(wobbleDigest, quxDigest, barDigest);
+    assertThat(getFromFuture(cache.findMissingDigests(remoteActionExecutionContext, toQuery))).isEmpty();
+  }
+
+  @Test
+  public void uploadOutputs_emptyOutputs_doNotPerformUpload() throws Exception {
+    // Test that uploading an empty output does not try to perform an upload.
+
+    // arrange
+    Digest emptyDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/bar/test/wobble"), "");
+    Path file = execRoot.getRelative("outputs/bar/test/wobble");
+    Artifact outputFile = ActionsTestUtil.createArtifact(artifactRoot, file);
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputFile));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult = new SpawnResult.Builder()
+        .setExitCode(0)
+        .setStatus(SpawnResult.Status.SUCCESS)
+        .setRunnerName("test")
+        .build();
+
+    // act
+    service.uploadOutputs(action, spawnResult);
+
+    // assert
+    assertThat(getFromFuture(cache.findMissingDigests(remoteActionExecutionContext, ImmutableSet.of(emptyDigest))))
+        .containsExactly(emptyDigest);
+  }
+
   private Spawn newSpawnFromResult(RemoteActionResult result) {
     return newSpawnFromResult(ImmutableMap.of(), result);
   }
@@ -1125,6 +1789,8 @@ public class RemoteExecutionServiceTest {
   private RemoteExecutionService newRemoteExecutionService(
       RemoteOptions remoteOptions, Collection<? extends ActionInput> topLevelOutputs) {
     return new RemoteExecutionService(
+        reporter,
+        /*verboseFailures=*/ true,
         execRoot,
         remotePathResolver,
         "none",

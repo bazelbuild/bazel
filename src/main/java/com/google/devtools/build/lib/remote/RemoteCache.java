@@ -130,7 +130,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    * deduplicate uploads, this can be combined for the case where different clients want to wait for
    * the same blob to be uploaded.
    */
-  public final ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
     checkState(!closed.get(), "closed");
 
@@ -207,7 +207,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    * @param digest the digest of the file.
    * @param file the file to upload.
    */
-  public final ListenableFuture<Void> uploadFile(
+  public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
@@ -242,7 +242,7 @@ public class RemoteCache extends AbstractReferenceCounted {
    * @param digest the digest of the file.
    * @param data the BLOB to upload.
    */
-  public final ListenableFuture<Void> uploadBlob(
+  public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;

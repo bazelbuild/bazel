@@ -123,6 +123,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.remoteExecutionService = remoteExecutionService;
   }
 
+  @VisibleForTesting
+  RemoteExecutionService getRemoteExecutionService() {
+    return remoteExecutionService;
+  }
+
   @Override
   public String getName() {
     return "remote";
@@ -562,7 +567,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     try (SilentCloseable c = Profiler.instance().profile(UPLOAD_TIME, "upload outputs")) {
-      remoteExecutionService.uploadOutputs(action);
+      remoteExecutionService.uploadOutputs(action, result);
     } catch (IOException e) {
       if (verboseFailures) {
         report(Event.debug("Upload to remote cache failed: " + e.getMessage()));

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Digest;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -30,12 +30,13 @@ import java.util.Map;
 class InMemoryRemoteCache extends RemoteCache {
 
   InMemoryRemoteCache(
+      Reporter reporter,
       Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(casEntries), options, digestUtil);
+    super(reporter, new InMemoryCacheClient(casEntries), options, digestUtil);
   }
 
-  InMemoryRemoteCache(RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(), options, digestUtil);
+  InMemoryRemoteCache(Reporter reporter, RemoteOptions options, DigestUtil digestUtil) {
+    super(reporter, new InMemoryCacheClient(), options, digestUtil);
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)
@@ -73,16 +74,5 @@ class InMemoryRemoteCache extends RemoteCache {
 
   int getNumFailedDownloads() {
     return ((InMemoryCacheClient) cacheProtocol).getNumFailedDownloads();
-  }
-
-  ImmutableSet<Digest> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests)
-      throws IOException, InterruptedException {
-    return Utils.getFromFuture(cacheProtocol.findMissingDigests(context, digests));
-  }
-
-  @Override
-  public void close() {
-    cacheProtocol.close();
   }
 }
