@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.UploadManifest;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -344,9 +345,10 @@ final class ExecutionServer extends ExecutionImplBase {
 
       ActionResult result = null;
       try {
-        result =
-            cache.upload(
-                context,
+        UploadManifest manifest =
+            UploadManifest.create(
+                cache.getRemoteOptions(),
+                digestUtil,
                 RemotePathResolver.createDefault(workingDirectory),
                 actionKey,
                 action,
@@ -354,6 +356,10 @@ final class ExecutionServer extends ExecutionImplBase {
                 outputs,
                 outErr,
                 exitCode);
+        manifest.awaitUploadOutputs(context, cache);
+        ActionResult actionResult = manifest.getActionResult();
+        getFromFuture(cache.uploadActionResult(context, actionKey, actionResult));
+        result = actionResult;
       } catch (ExecException e) {
         if (errStatus == null) {
           errStatus =
