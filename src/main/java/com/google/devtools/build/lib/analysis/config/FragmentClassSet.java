@@ -24,18 +24,21 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.util.AbstractSet;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import javax.annotation.concurrent.Immutable;
 
 /**
- * A wrapper class for an {@code ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>>}
- * object. Interning these objects allows us to do cheap reference equality checks when these sets
- * are in frequently used keys. For good measure, we also compute a fingerprint.
+ * A wrapper class for an {@code ImmutableSortedSet<Class<? extends Fragment>>}. Interning these
+ * objects allows us to do cheap reference equality checks when these sets are in frequently used
+ * keys. For good measure, we also compute a fingerprint.
  */
 @AutoCodec
-public final class FragmentClassSet implements Iterable<Class<? extends Fragment>> {
+@Immutable
+public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment>> {
 
   /**
    * Sorts fragments by class name. This produces a stable order which, e.g., facilitates consistent
@@ -85,12 +88,14 @@ public final class FragmentClassSet implements Iterable<Class<? extends Fragment
     this.hashCode = hashCode;
   }
 
+  @Override
   public int size() {
     return fragments.size();
   }
 
-  public boolean contains(Class<? extends Fragment> fragment) {
-    return fragments.contains(fragment);
+  @Override
+  public boolean contains(Object o) {
+    return fragments.contains(o);
   }
 
   /** Returns a set of fragment classes identical to this one but without the given fragment. */
