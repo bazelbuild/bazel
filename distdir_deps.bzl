@@ -402,17 +402,17 @@ http_archive(
 
 gen_workspace_stanza = rule(
     attrs = {
-        "repos": attr.string_list(doc = "Set of repos to inlcude"),
+        "repos": attr.string_list(doc = "Set of repos to include."),
         "out": attr.output(mandatory = True),
         "preamble": attr.string(doc = "Preamble."),
-        "postamble": attr.string(doc = "setup rules to follow repos."),
+        "postamble": attr.string(doc = "Set of rules to follow repos."),
         "template": attr.label(
-            doc = "Template WORKSPACE file. May not be used with preable or postamble." +
-                  "Repo stanzas can be include with the syntax '{repo name}'.",
+            doc = "Template WORKSPACE file. May not be used with preamble or postamble." +
+                  "Repo stanzas can be included using the syntax '{repo name}'.",
             allow_single_file = True,
             mandatory = False,
         ),
-        "use_maybe": attr.bool(doc = "Use maybe() invocation instead of http_archive"),
+        "use_maybe": attr.bool(doc = "Use maybe() invocation instead of http_archive."),
     },
     doc = "Use specifications from DIST_DEPS to generate WORKSPACE http_archive stanzas or to" +
           "drop them into a template.",
