@@ -260,11 +260,19 @@ describes the output formats <code>bazel query</code> supports.
   <code>dir/...</code>, etc.
 </p>
 
-<h3 id='sky-query'>Sky query</h3>
+<h3 id='sky-query'>Sky Query</h3>
+
+<i>Sky Query</i> is a mode of query that operates over a specified <i>universe scope</i>.
+
+<h4 id='sky-query-special-functions'>Special functions available only in SkyQuery</h4>
+
+Sky Query mode has the additional query functions <a href='#allrdeps'><code>allrdeps</code></a> and
+<a href='#rbuildfiles'><code>rbuildfiles</code></a>. These functions operate over the entire
+universe scope (which is why they don't make sense for normal Query).
+
 
 <p>
-  Query has two different implementations, with slightly different features. The alternative one is
-  called "Sky Query", and is activated by passing the following two flags:
+  Sky Query mode is activated by passing the following two flags:
   (<code>--universe_scope</code> or <code>--infer_universe_scope</code>) and
   <code>--order_output=no</code>.
   <code>--universe_scope=&lt;target_pattern1&gt;,...,&lt;target_patternN&gt;</code> tells query to
@@ -273,7 +281,7 @@ describes the output formats <code>bazel query</code> supports.
   the <a href='#allrdeps'><code>allrdeps</code></a> and
   <a href='#rbuildfiles'><code>rbuildfiles</code></a> operators only return results from this scope.
   <code>--infer_universe_scope</code> tells Bazel to infer a value for <code>--universe_scope</code>
-  from the query expression. This inferred value is simply the list of unique target patterns in the
+  from the query expression. This inferred value is the list of unique target patterns in the
   query expression, but this might not be what you want. For example:
 </p>
 <pre>
@@ -281,22 +289,22 @@ describes the output formats <code>bazel query</code> supports.
 </pre>
 <p>
   The list of unique target patterns in this query expression is <code>["//my:target"]</code>, so
-  Bazel will treat this the same as the invocation
+  Bazel treats this the same as the invocation:
 </p>
 <pre>
    bazel query --universe_scope=//my:target --order_output=no "allrdeps(//my:target)"
 </pre>
 <p>
-  But the result of that query with that --universe_scope will just be <code>//my:target</code>;
-  none of the rdeps of <code>//my:target</code> will be in the universe, by construction! On the
-  other hand, consider:
+  But the result of that query with <code>--universe_scope</code> is only <code>//my:target</code>;
+  none of the reverse dependencies of <code>//my:target</code> will be in the universe, by
+  construction! On the other hand, consider:
 <pre>
    bazel query --infer_universe_scope --order_output=no "tests(//a/... + b/...) intersect allrdeps(siblings(rbuildfiles(my/starlark/file.bzl)))"
 </pre>
 <p>
   This is a meaningful query invocation that is trying to compute the test targets in the
   <a href='#tests'><code>tests</code></a> expansion of the targets under some directories that
-  transitively depend on targets whose definition uses a certain bzl file. Here,
+  transitively depend on targets whose definition uses a certain <code>.bzl</code> file. Here,
   <code>--infer_universe_scope</code> is a convenience, especially in the case where the choice of
   <code>--universe_scope</code> would otherwise require you to parse the query expression yourself.
 </p>
