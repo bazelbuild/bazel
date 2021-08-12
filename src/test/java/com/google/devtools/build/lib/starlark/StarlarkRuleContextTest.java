@@ -2448,6 +2448,31 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testArgsMapEachFunctionAllowClosure() throws Exception {
+    // lambda
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "def local_fn(x): return 'local:%s' % x",
+            "args = ctx.actions.args()",
+            "args.add_all(['a', 'b'], allow_closure=True, map_each=lambda x: 'lambda:%s' % x)",
+            "args.add_joined(['c', 'd'], join_with=';', allow_closure=True, map_each=local_fn)",
+            "args.set_param_file_format('multiline')",
+            "ctx.actions.write(output=out, content=args)"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    // Args content ends the file with a newline
+    assertThat(ev.eval("action.content")).isEqualTo("lambda:a\nlambda:b\nlocal:c;local:d\n");
+  }
+
+  @Test
   public void testTemplateExpansionActionInterface() throws Exception {
     scratch.file(
         "test/rules.bzl",
