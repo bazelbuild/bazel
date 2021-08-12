@@ -32,10 +32,10 @@ public class BuildEventServiceOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Specifies the build event service (BES) backend endpoint as HOST or HOST:PORT. Disabled"
-              + " by default.The supported schemas are grpc and grpcs (grpc with TLS enabled). If"
-              + " no schema is provided bazel'll default to grpcs. Specify grpc:// schema to"
-              + " disable TLS.")
+          "Specifies the build event service (BES) backend endpoint in the form"
+              + " [SCHEME://]HOST[:PORT]. The default is to disable BES uploads. Supported schemes"
+              + " are grpc and grpcs (grpc with TLS enabled). If no scheme is provided, Bazel"
+              + " assumes grpcs.")
   public String besBackend;
 
   @Option(
