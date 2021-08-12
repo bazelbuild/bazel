@@ -16,7 +16,7 @@
 
 load(":default_java_toolchain.bzl", "JVM8_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
 
-def _detect_java_version(repository_ctx, java_bin):
+def _detect_java_version(repository_ctx, java_bin, visibility = ["//visibility:public"]):
     properties_out = repository_ctx.execute([java_bin, "-XshowSettings:properties"]).stderr
     # This returns an indented list of properties separated with newlines:
     # "  java.vendor.url.bug = ... \n"
@@ -54,13 +54,14 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
       java_home: Path to the JDK.
       version: Version of the JDK.
       runtime_name: name of java_runtime target if it already exists.
+      visibility: Visibility that will be applied to the java runtime target
     """
     if runtime_name == None:
         runtime_name = name
         native.java_runtime(
             name = runtime_name,
             java_home = java_home,
-            visibility = ["//visibility:public"],
+            visibility = visibility,
         )
 
     native.config_setting(
