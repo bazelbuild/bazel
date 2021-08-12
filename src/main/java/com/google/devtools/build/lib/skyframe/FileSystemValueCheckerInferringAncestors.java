@@ -165,6 +165,10 @@ final class FileSystemValueCheckerInferringAncestors {
     ImmutableList<Future<?>> futures =
         nodeStates.entrySet().stream()
             .filter(e -> e.getValue().childrenToProcess.get() == 0)
+            // Materialize all leaves before scheduling them -- otherwise, we could race with the
+            // processing code which decrements childrenToProcess.
+            .collect(toImmutableList())
+            .stream()
             .map(
                 e ->
                     executor.submit(
