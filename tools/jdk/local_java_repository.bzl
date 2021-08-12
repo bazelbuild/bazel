@@ -16,7 +16,7 @@
 
 load(":default_java_toolchain.bzl", "JVM8_TOOLCHAIN_CONFIGURATION", "default_java_toolchain")
 
-def _detect_java_version(repository_ctx, java_bin, visibility = ["//visibility:public"]):
+def _detect_java_version(repository_ctx, java_bin):
     properties_out = repository_ctx.execute([java_bin, "-XshowSettings:properties"]).stderr
     # This returns an indented list of properties separated with newlines:
     # "  java.vendor.url.bug = ... \n"
@@ -38,7 +38,7 @@ def _detect_java_version(repository_ctx, java_bin, visibility = ["//visibility:p
         return minor
     return major
 
-def local_java_runtime(name, java_home, version, runtime_name = None):
+def local_java_runtime(name, java_home, version, runtime_name = None, visibility = ["//visibility:public"]):
     """Defines a java_runtime target together with Java runtime and compile toolchain definitions.
 
     Java runtime toolchain is constrained by flag --java_runtime_version having
