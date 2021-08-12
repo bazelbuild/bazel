@@ -36,10 +36,12 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -162,21 +164,20 @@ final class FileSystemValueCheckerInferringAncestors {
       throws InterruptedException, AbruptExitException {
     ExecutorService executor = Executors.newFixedThreadPool(nThreads);
 
-    ImmutableList<Future<?>> futures =
+    // Materialize all leaves before scheduling them -- otherwise, we could race with the
+    // processing code which decrements childrenToProcess.
+    ImmutableList<Callable<Void>> leaves =
         nodeStates.entrySet().stream()
             .filter(e -> e.getValue().childrenToProcess.get() == 0)
-            // Materialize all leaves before scheduling them -- otherwise, we could race with the
-            // processing code which decrements childrenToProcess.
-            .collect(toImmutableList())
-            .stream()
-            .map(
+            .<Callable<Void>>map(
                 e ->
-                    executor.submit(
-                        () -> {
-                          processEntry(e.getKey(), e.getValue());
-                          return null;
-                        }))
+                    () -> {
+                      processEntry(e.getKey(), e.getValue());
+                      return null;
+                    })
             .collect(toImmutableList());
+
+    List<Future<Void>> futures = executor.invokeAll(leaves);
 
     if (ExecutorUtil.interruptibleShutdown(executor)) {
       throw new InterruptedException();
