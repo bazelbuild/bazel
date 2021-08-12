@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.util.List;
@@ -418,16 +419,29 @@ public class WorkRequestHandler implements AutoCloseable {
               request.getRequestId()));
     } else {
       if (ri.thread.isAlive() && !ri.isCancelled()) {
-        ri.setCancelled();
-        cancelCallback.accept(request.getRequestId(), ri.thread);
-        Optional<WorkResponse.Builder> builder = ri.takeBuilder();
-        if (builder.isPresent()) {
-          WorkResponse response =
-              builder.get().setWasCancelled(true).setRequestId(request.getRequestId()).build();
-          synchronized (this) {
-            messageProcessor.writeWorkResponse(response);
-          }
-        }
+        Thread t =
+            new Thread(
+                () -> {
+                  ri.setCancelled();
+                  try {
+                    cancelCallback.accept(request.getRequestId(), ri.thread);
+                    Optional<WorkResponse.Builder> builder = ri.takeBuilder();
+                    if (builder.isPresent()) {
+                      WorkResponse response =
+                          builder
+                              .get()
+                              .setWasCancelled(true)
+                              .setRequestId(request.getRequestId())
+                              .build();
+                      synchronized (this) {
+                        messageProcessor.writeWorkResponse(response);
+                      }
+                    }
+                  } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                  }
+                });
+        t.start();
       }
     }
   }

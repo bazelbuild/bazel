@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
+import com.google.devtools.build.buildjar.javac.CancelCompilerPlugin.CancelRequestException;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
@@ -86,6 +87,8 @@ public class BlazeJavacMain {
     try {
       processPluginArgs(
           arguments.plugins(), arguments.javacOptions(), arguments.blazeJavacOptions());
+    } catch (CancelRequestException e) {
+      return BlazeJavacResult.cancelled(e.getMessage());
     } catch (InvalidCommandLineException e) {
       return BlazeJavacResult.error(e.getMessage());
     }
@@ -129,12 +132,16 @@ public class BlazeJavacMain {
                   /* classes= */ ImmutableList.of(),
                   fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
                   context);
+
       try {
         status = fromResult(((JavacTaskImpl) task).doCall());
       } catch (PropagatedException e) {
         throw e.getCause();
       }
     } catch (Throwable t) {
+      if (t.getCause() instanceof CancelRequestException) {
+        return BlazeJavacResult.cancelled(t.getCause().getMessage());
+      }
       t.printStackTrace(errWriter);
       status = Status.CRASH;
     } finally {
