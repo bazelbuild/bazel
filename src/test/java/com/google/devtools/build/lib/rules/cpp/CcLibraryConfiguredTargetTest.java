@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -2020,5 +2021,117 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .getFilesToBuild()
                 .toList())
         .isNotEmpty();
+  }
+
+  @Test
+  public void testRpathIsNotAddedWhenThereAreNoSoDeps() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
+    scratch.file(
+        "BUILD",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        ")");
+
+    ConfiguredTarget main = getConfiguredTarget("//:main");
+    Artifact mainBin = getBinArtifact("main", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    assertThat(Joiner.on(" ").join(action.getLinkCommandLine().arguments())).doesNotContain(
+        "-Wl,-rpath");
+  }
+
+  @Test
+  public void testRpathAndLinkPathsWithoutTransitions() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+    useConfiguration("--cpu=k8", "--compilation_mode=fastbuild");
+
+    scratch.file(
+        "no-transition/BUILD",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    deps = ['dep1'],",
+        ")",
+        "",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")");
+
+    ConfiguredTarget main = getConfiguredTarget("//no-transition:main");
+    Artifact mainBin = getBinArtifact("main", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
+    assertThat(linkArgv).contains("-Lbazel-out/k8-fastbuild/bin/_solib_k8");
+    assertThat(linkArgv).contains("-lno-transition_Slibdep1");
+    assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain(
+        "-Wl,-rpath,$ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-Lbazel-out/k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-lST-");
+  }
+
+  @Test
+  public void testRpathRootIsAddedEvenWithTransitionedDepsOnly() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+    useConfiguration("--cpu=k8", "--compilation_mode=fastbuild");
+
+    scratch.file(
+        "transition/BUILD",
+        "load(':custom_transition.bzl', 'apply_custom_transition')",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    deps = ['dep1'],",
+        ")",
+        "",
+        "apply_custom_transition(",
+        "    name = 'dep1',",
+        "    deps = [",
+        "        ':dep2',",
+        "    ],",
+        ")",
+        "",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")");
+
+    ConfiguredTarget main = getConfiguredTarget("//transition:main");
+    Artifact mainBin = getBinArtifact("main", main);
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLine().arguments();
+    assertThat(linkArgv).contains("-Wl,-rpath,$ORIGIN/../_solib_k8/");
+    assertThat(Joiner.on(" ").join(linkArgv)).contains(
+        "-Wl,-rpath,$ORIGIN/../_solib_k8/../../../k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv)).contains("-Lbazel-out/k8-fastbuild-ST-");
+    assertThat(Joiner.on(" ").join(linkArgv)).containsMatch("-lST-[0-9a-f]+_transition_Slibdep2");
+    assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain(
+        "-Lbazel-out/k8-fastbuild/bin/_solib_k8");
+    assertThat(Joiner.on(" ").join(linkArgv)).doesNotContain("-ltransition_Slibdep2");
   }
 }

@@ -267,7 +267,10 @@ public class LibrariesToLinkCollector {
         // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked
         // under solibDir, so don't check it and don't include solibDir.
         if (!featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
-          if (libDir.equals(solibDir)) {
+          // The first fragment is bazel-out, and the second may contain a configuration mnemonic.
+          // We should always add the default solib dir because that's where libraries will be found
+          // e.g. in remote execution, so we ignore the first two fragments.
+          if (libDir.subFragment(2).equals(solibDir.subFragment(2))) {
             includeSolibDir = true;
           }
           if (libDir.equals(toolchainLibrariesSolibDir)) {
