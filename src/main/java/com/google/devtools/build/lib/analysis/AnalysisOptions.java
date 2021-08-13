@@ -166,19 +166,4 @@ public class AnalysisOptions extends OptionsBase {
               + " be used. Example value: \"HOST_CPUS*0.5\".",
       converter = CpuResourceConverter.class)
   public int oomSensitiveSkyFunctionsSemaphoreSize;
-
-  @Option(
-      name = "incompatible_ignore_duplicate_top_level_aspects",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "If true, remove duplicates from --aspects list by keeping only the first occurrence of"
-              + " every aspect. Otherwise, throw validation error if duplicate aspects are"
-              + " encountered.")
-  public boolean ignoreDuplicateTopLevelAspects;
 }

@@ -904,7 +904,7 @@ public class AspectTest extends AnalysisTestCase {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
-    useConfiguration("--incompatible_ignore_duplicate_top_level_aspects=false");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
     reporter.removeHandler(failFastHandler);
 
     assertThrows(

@@ -620,6 +620,22 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
   public boolean incompatibleTopLevelAspectsRequireProviders;
 
   @Option(
+      name = "incompatible_top_level_aspects_dependency",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If set to true, a dependency between the top level aspects will be built based on their"
+              + " required aspect providers, advertised providers and required aspects. Otherwise,"
+              + " each aspect in the list will run independently and its required aspects will be"
+              + " ignored.")
+  public boolean incompatibleTopLevelAspectsDependOnAspects;
+
+  @Option(
       name = "experimental_required_aspects",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -698,6 +714,9 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
             .setBool(
                 INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS,
                 incompatibleTopLevelAspectsRequireProviders)
+            .setBool(
+                INCOMPATIBLE_TOP_LEVEL_ASPECTS_DEPENDENCY,
+                incompatibleTopLevelAspectsDependOnAspects)
             .setBool(EXPERIMENTAL_REQUIRED_ASPECTS, experimentalRequiredAspects)
             .build();
     return INTERNER.intern(semantics);
@@ -770,6 +789,8 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       "-incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
+  public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_DEPENDENCY =
+      "-incompatible_top_level_aspects_dependency";
   public static final String EXPERIMENTAL_REQUIRED_ASPECTS = "-experimental_required_aspects";
 
   // non-booleans
