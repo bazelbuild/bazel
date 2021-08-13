@@ -154,14 +154,14 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
    *
    * <p>May generate rule errors on bad settings (e.g. wrong target types).
    */
-  boolean constraintValuesMatch(RuleContext ruleContext) {
+  private static boolean constraintValuesMatch(RuleContext ruleContext) {
     List<ConstraintValueInfo> constraintValues = new ArrayList<>();
     for (TransitiveInfoCollection dep :
         ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE)) {
       if (!PlatformProviderUtils.hasConstraintValue(dep)) {
         ruleContext.attributeError(
             ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE,
-            String.format(dep.getLabel() + " is not a constraint_value"));
+            dep.getLabel() + " is not a constraint_value");
       } else {
         constraintValues.add(PlatformProviderUtils.constraintValue(dep));
       }
@@ -224,7 +224,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
    * Check to make sure this config_setting contains and sets least one of {values, define_values,
    * flag_value or constraint_values}.
    */
-  private boolean valuesAreSet(
+  private static boolean valuesAreSet(
       ImmutableMultimap<String, String> nativeFlagSettings,
       Map<Label, String> userDefinedFlagSettings,
       Iterable<Label> constraintValues,
@@ -572,7 +572,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
    *
    * @param expectedValue the raw value the config_setting expects
    * @param flagTarget the target of the flag whose value is being checked
-   * @param @param ruleContext this rule's RuleContext
+   * @param ruleContext this rule's RuleContext
    */
   private static String maybeCanonicalizeLabel(
       String expectedValue, TransitiveInfoCollection flagTarget, RuleContext ruleContext) {

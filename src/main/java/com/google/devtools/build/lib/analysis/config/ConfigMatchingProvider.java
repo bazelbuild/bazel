@@ -83,23 +83,11 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
     ImmutableSet<Map.Entry<Label, String>> flagSettings = flagSettingsMap().entrySet();
     ImmutableSet<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap().entrySet();
 
-    if (!settings.containsAll(otherSettings)) {
-      // not a superset
-      return false;
+    if (!settings.containsAll(otherSettings) || !flagSettings.containsAll(otherFlagSettings)) {
+      return false; // Not a superset.
     }
 
-    if (!flagSettings.containsAll(otherFlagSettings)) {
-      // not a superset
-      return false;
-    }
-
-    if (!(settings.size() > otherSettings.size()
-        || flagSettings.size() > otherFlagSettings.size())) {
-      // not a proper superset
-      return false;
-    }
-
-    return true;
+    return settings.size() > otherSettings.size() || flagSettings.size() > otherFlagSettings.size();
   }
 
   /** Format this provider as its label. */

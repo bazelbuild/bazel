@@ -1861,7 +1861,6 @@ java_library(
         ":config/transitions/no_transition",
         ":config/transitions/null_transition",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:guava",
     ],
 )

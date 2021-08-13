@@ -65,8 +65,6 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.syntax.Location;
 
 /**
  * Builder class for analyzed rule instances.
@@ -88,11 +86,11 @@ public final class RuleConfiguredTargetBuilder {
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
-  private NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
+  private final NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
   private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
-  private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
+  private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
   private final LinkedHashSet<String> ruleImplSpecificRequiredConfigFragments =
       new LinkedHashSet<>();
 
@@ -354,8 +352,8 @@ public final class RuleConfiguredTargetBuilder {
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
    *
-   * <p>Note that in addition to {@link LabelClass.DEPENDENCY}, there is also {@link
-   * LabelClass.FILESET_ENTRY}, however the fileset implementation takes care of propagating the
+   * <p>Note that in addition to {@link LabelClass#DEPENDENCY}, there is also {@link
+   * LabelClass#FILESET_ENTRY}, however the fileset implementation takes care of propagating the
    * validation action output group itself.
    */
   private void propagateTransitiveValidationOutputGroups() {
@@ -502,28 +500,6 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
-  /** Add a specific provider. */
-  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
-      TransitiveInfoProvider provider) {
-    providersBuilder.add(provider);
-    return this;
-  }
-
-  /** Add a collection of specific providers. */
-  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviders(
-      Iterable<TransitiveInfoProvider> providers) {
-    providersBuilder.addAll(providers);
-    return this;
-  }
-
-  /** Add a collection of specific providers. */
-  public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviders(
-      TransitiveInfoProviderMap providers) {
-    providersBuilder.addAll(providers);
-    return this;
-  }
-
-
   /**
    * Add a specific provider with a given value.
    *
@@ -537,23 +513,21 @@ public final class RuleConfiguredTargetBuilder {
   /** Add a specific provider with a given value. */
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
       Class<? extends T> key, T value) {
-    Preconditions.checkNotNull(key);
-    Preconditions.checkNotNull(value);
     providersBuilder.put(key, value);
     return this;
   }
 
-  /**
-   * Add a Starlark transitive info. The provider value must be safe (i.e. a String, a Boolean, an
-   * Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed from
-   * these in Starlark using lists, sets, structs or dicts). Otherwise an EvalException is thrown.
-   */
-  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(
-      String name, Object value, Location loc) throws EvalException {
-    providersBuilder.put(name, value);
+  /** Adds a specific provider. */
+  public RuleConfiguredTargetBuilder addProvider(TransitiveInfoProvider provider) {
+    providersBuilder.add(provider);
     return this;
   }
 
+  /** Add a collection of specific providers. */
+  public RuleConfiguredTargetBuilder addProviders(TransitiveInfoProviderMap providers) {
+    providersBuilder.addAll(providers);
+    return this;
+  }
   /**
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
    * providers defined in Starlark. The provider symbol must be exported.
@@ -710,10 +684,10 @@ public final class RuleConfiguredTargetBuilder {
    * to be very small. The small-size of analysis tests are enforced by evaluating the size of this
    * object.
    */
-  private static class TransitiveLabelsInfo implements TransitiveInfoProvider {
+  private static final class TransitiveLabelsInfo implements TransitiveInfoProvider {
     private final NestedSet<Label> labels;
 
-    public TransitiveLabelsInfo(NestedSet<Label> labels) {
+    TransitiveLabelsInfo(NestedSet<Label> labels) {
       this.labels = labels;
     }
 

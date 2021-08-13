@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Objects;
 
@@ -35,16 +34,14 @@ import java.util.Objects;
  *   ComposingTransition(transition1, transition2): { someSetting = $oldVal + " foo bar" }
  * </pre>
  */
-@AutoCodec
-public class ComposingTransition implements ConfigurationTransition {
-  private ConfigurationTransition transition1;
-  private ConfigurationTransition transition2;
+public final class ComposingTransition implements ConfigurationTransition {
+  private final ConfigurationTransition transition1;
+  private final ConfigurationTransition transition2;
 
   /**
    * Creates a {@link ComposingTransition} that applies the sequence: {@code fromOptions ->
    * transition1 -> transition2 -> toOptions }.
    */
-  @AutoCodec.Instantiator
   ComposingTransition(ConfigurationTransition transition1, ConfigurationTransition transition2) {
     this.transition1 = transition1;
     this.transition2 = transition2;

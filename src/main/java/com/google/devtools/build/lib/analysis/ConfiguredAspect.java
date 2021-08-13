@@ -105,7 +105,7 @@ public final class ConfiguredAspect implements ProviderCollection {
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {
-    return new ConfiguredAspect(real.getActions(), real.getProviders());
+    return new ConfiguredAspect(real.actions, real.providers);
   }
 
   public static ConfiguredAspect forNonapplicableTarget() {
@@ -148,7 +148,7 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    private void checkProviderClass(Class<? extends TransitiveInfoProvider> providerClass) {
+    private static void checkProviderClass(Class<? extends TransitiveInfoProvider> providerClass) {
       Preconditions.checkNotNull(providerClass);
     }
 
@@ -175,12 +175,9 @@ public final class ConfiguredAspect implements ProviderCollection {
      * Adds a set of files to an output group.
      */
     public Builder addOutputGroup(String name, NestedSet<Artifact> artifacts) {
-      NestedSetBuilder<Artifact> nestedSetBuilder = outputGroupBuilders.get(name);
-      if (nestedSetBuilder == null) {
-        nestedSetBuilder = NestedSetBuilder.<Artifact>stableOrder();
-        outputGroupBuilders.put(name, nestedSetBuilder);
-      }
-      nestedSetBuilder.addTransitive(artifacts);
+      outputGroupBuilders
+          .computeIfAbsent(name, k -> NestedSetBuilder.stableOrder())
+          .addTransitive(artifacts);
       return this;
     }
 
@@ -236,9 +233,7 @@ public final class ConfiguredAspect implements ProviderCollection {
       }
 
       addProvider(
-          createExtraActionProvider(
-              /* actionsWithoutExtraAction= */ ImmutableSet.<ActionAnalysisMetadata>of(),
-              ruleContext));
+          createExtraActionProvider(/*actionsWithoutExtraAction=*/ ImmutableSet.of(), ruleContext));
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
       GeneratingActions generatingActions =

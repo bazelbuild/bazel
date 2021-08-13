@@ -25,7 +25,7 @@ import java.io.OutputStream;
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final boolean showKind;
 
-  public LabelAndConfigurationOutputFormatterCallback(
+  LabelAndConfigurationOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,

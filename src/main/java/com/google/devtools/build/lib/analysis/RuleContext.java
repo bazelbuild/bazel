@@ -37,7 +37,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
@@ -180,9 +179,7 @@ public final class RuleContext extends TargetContext
       return src;
     }
 
-    /**
-     * Targets from FilesetEntry.files, or null if the user omitted it.
-     */
+    /** Targets from FilesetEntry.files, or null if the user omitted it. */
     @Nullable
     public ImmutableList<TransitiveInfoCollection> getFiles() {
       return files;
@@ -385,26 +382,27 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * If this target's configuration suppresses analysis failures, this returns a list
-   * of strings, where each string corresponds to a description of an error that occurred during
-   * processing this target.
+   * If this target's configuration suppresses analysis failures, this returns a list of strings,
+   * where each string corresponds to a description of an error that occurred during processing this
+   * target.
    *
    * @throws IllegalStateException if this target's configuration does not suppress analysis
    *     failures (if {@code getConfiguration().allowAnalysisFailures()} is false)
    */
   public List<String> getSuppressedErrorMessages() {
-    Preconditions.checkState(getConfiguration().allowAnalysisFailures(),
+    Preconditions.checkState(
+        getConfiguration().allowAnalysisFailures(),
         "Error messages can only be retrieved via RuleContext if allow_analysis_failures is true");
-    Preconditions.checkState(reporter instanceof SuppressingErrorReporter,
-        "Unexpected error reporter");
+    Preconditions.checkState(
+        reporter instanceof SuppressingErrorReporter, "Unexpected error reporter");
     return ((SuppressingErrorReporter) reporter).getErrorMessages();
   }
 
   /**
-   * If this <code>RuleContext</code> is for an aspect implementation, returns that aspect.
-   * (it is the last aspect in the list of aspects applied to a target; all other aspects
-   * are the ones main aspect sees as specified by its "required_aspect_providers")
-   * Otherwise returns <code>null</code>.
+   * If this <code>RuleContext</code> is for an aspect implementation, returns that aspect. (it is
+   * the last aspect in the list of aspects applied to a target; all other aspects are the ones main
+   * aspect sees as specified by its "required_aspect_providers") Otherwise returns <code>null
+   * </code>.
    */
   @Nullable
   public Aspect getMainAspect() {
@@ -418,30 +416,22 @@ public final class RuleContext extends TargetContext
     return ruleClassNameForLogging;
   }
 
-  /**
-   * Returns the workspace name for the rule.
-   */
+  /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
     return rule.getPackage().getWorkspaceName();
   }
 
-  /**
-   * The configuration conditions that trigger this rule's configurable attributes.
-   */
+  /** The configuration conditions that trigger this rule's configurable attributes. */
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }
 
-  /**
-   * Returns the host configuration for this rule.
-   */
+  /** Returns the host configuration for this rule. */
   public BuildConfiguration getHostConfiguration() {
     return hostConfiguration;
   }
 
-  /**
-   * All aspects applied to the rule.
-   */
+  /** All aspects applied to the rule. */
   public ImmutableList<AspectDescriptor> getAspectDescriptors() {
     return aspectDescriptors;
   }
@@ -484,9 +474,7 @@ public final class RuleContext extends TargetContext
     return targetMap.get(attributeName);
   }
 
-  /**
-   * Returns an immutable map from attribute name to list of fileset entries.
-   */
+  /** Returns an immutable map from attribute name to list of fileset entries. */
   public ListMultimap<String, ConfiguredFilesetEntry> getFilesetEntryMap() {
     return filesetEntryMap;
   }
@@ -517,16 +505,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * We have to re-implement this method here because it is declared in the interface {@link
-   * ActionConstructionContext}. This class inherits from {@link TargetContext} which doesn't
-   * implement the {@link ActionConstructionContext} interface.
-   */
-  @Override
-  public ActionKeyContext getActionKeyContext() {
-    return super.getActionKeyContext();
-  }
-
-  /**
    * An opaque symbol generator to be used when identifying objects by their action owner/index of
    * creation. Only needed if an object needs to know whether it was created by the same action
    * owner in the same order as another object. Each symbol must call {@link
@@ -536,9 +514,7 @@ public final class RuleContext extends TargetContext
     return actionOwnerSymbolGenerator;
   }
 
-  /**
-   * Returns a configuration fragment for this this target.
-   */
+  /** Returns a configuration fragment for this this target. */
   @Nullable
   public <T extends Fragment> T getFragment(Class<T> fragment, ConfigurationTransition transition) {
     return getFragment(fragment, fragment.getSimpleName(), "", transition);
@@ -647,8 +623,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Convenience function for subclasses to report non-attribute-specific
-   * errors in the current rule.
+   * Convenience function for subclasses to report non-attribute-specific errors in the current
+   * rule.
    */
   @Override
   public void ruleError(String message) {
@@ -656,8 +632,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Convenience function for subclasses to report non-attribute-specific
-   * warnings in the current rule.
+   * Convenience function for subclasses to report non-attribute-specific warnings in the current
+   * rule.
    */
   @Override
   public void ruleWarning(String message) {
@@ -665,11 +641,10 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Convenience function for subclasses to report attribute-specific errors in
-   * the current rule.
+   * Convenience function for subclasses to report attribute-specific errors in the current rule.
    *
-   * <p>If the name of the attribute starts with <code>$</code>
-   * it is replaced with a string <code>(an implicit dependency)</code>.
+   * <p>If the name of the attribute starts with <code>$</code> it is replaced with a string <code>
+   * (an implicit dependency)</code>.
    */
   @Override
   public void attributeError(String attrName, String message) {
@@ -679,8 +654,8 @@ public final class RuleContext extends TargetContext
   /**
    * Like attributeError, but does not mark the configured target as errored.
    *
-   * <p>If the name of the attribute starts with <code>$</code>
-   * it is replaced with a string <code>(an implicit dependency)</code>.
+   * <p>If the name of the attribute starts with <code>$</code> it is replaced with a string <code>
+   * (an implicit dependency)</code>.
    */
   @Override
   public void attributeWarning(String attrName, String message) {
@@ -688,25 +663,25 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns an artifact beneath the root of either the "bin" or "genfiles"
-   * tree, whose path is based on the name of this target and the current
-   * configuration.  The choice of which tree to use is based on the rule with
-   * which this target (which must be an OutputFile or a Rule) is associated.
+   * Returns an artifact beneath the root of either the "bin" or "genfiles" tree, whose path is
+   * based on the name of this target and the current configuration. The choice of which tree to use
+   * is based on the rule with which this target (which must be an OutputFile or a Rule) is
+   * associated.
    */
   public Artifact createOutputArtifact() {
     Target target = getTarget();
-    PathFragment rootRelativePath = getPackageDirectory()
-        .getRelative(PathFragment.create(target.getName()));
+    PathFragment rootRelativePath =
+        getPackageDirectory().getRelative(PathFragment.create(target.getName()));
 
     return internalCreateOutputArtifact(rootRelativePath, target, OutputFile.Kind.FILE);
   }
 
   /**
-   * Returns an artifact beneath the root of either the "bin" or "genfiles"
-   * tree, whose path is based on the name of this target and the current
-   * configuration, with a script suffix appropriate for the current host platform. ({@code .cmd}
-   * for Windows, otherwise {@code .sh}). The choice of which tree to use is based on the rule with
-   * which this target (which must be an OutputFile or a Rule) is associated.
+   * Returns an artifact beneath the root of either the "bin" or "genfiles" tree, whose path is
+   * based on the name of this target and the current configuration, with a script suffix
+   * appropriate for the current host platform. ({@code .cmd} for Windows, otherwise {@code .sh}).
+   * The choice of which tree to use is based on the rule with which this target (which must be an
+   * OutputFile or a Rule) is associated.
    */
   public Artifact createOutputArtifactScript() {
     Target target = getTarget();
@@ -715,8 +690,8 @@ public final class RuleContext extends TargetContext
 
     String fileExtension = isExecutedOnWindows ? ".cmd" : ".sh";
 
-    PathFragment rootRelativePath = getPackageDirectory()
-        .getRelative(PathFragment.create(target.getName() + fileExtension));
+    PathFragment rootRelativePath =
+        getPackageDirectory().getRelative(PathFragment.create(target.getName() + fileExtension));
 
     return internalCreateOutputArtifact(rootRelativePath, target, OutputFile.Kind.FILE);
   }
@@ -727,23 +702,24 @@ public final class RuleContext extends TargetContext
    * @see #createOutputArtifact()
    */
   public Artifact createOutputArtifact(OutputFile out) {
-    PathFragment packageRelativePath = getPackageDirectory()
-        .getRelative(PathFragment.create(out.getName()));
+    PathFragment packageRelativePath =
+        getPackageDirectory().getRelative(PathFragment.create(out.getName()));
     return internalCreateOutputArtifact(packageRelativePath, out, out.getKind());
   }
 
   /**
-   * Implementation for {@link #createOutputArtifact()} and
-   * {@link #createOutputArtifact(OutputFile)}. This is private so that
-   * {@link #createOutputArtifact(OutputFile)} can have a more specific
-   * signature.
+   * Implementation for {@link #createOutputArtifact()} and {@link
+   * #createOutputArtifact(OutputFile)}. This is private so that {@link
+   * #createOutputArtifact(OutputFile)} can have a more specific signature.
    */
-  private Artifact internalCreateOutputArtifact(PathFragment rootRelativePath,
-      Target target, OutputFile.Kind outputFileKind) {
+  private Artifact internalCreateOutputArtifact(
+      PathFragment rootRelativePath, Target target, OutputFile.Kind outputFileKind) {
     Preconditions.checkState(
         target.getLabel().getPackageIdentifier().equals(getLabel().getPackageIdentifier()),
         "Creating output artifact for target '%s' in different package than the rule '%s' "
-            + "being analyzed", target.getLabel(), getLabel());
+            + "being analyzed",
+        target.getLabel(),
+        getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
     switch (outputFileKind) {
@@ -860,17 +836,23 @@ public final class RuleContext extends TargetContext
    */
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
-    Preconditions.checkState(rootRelativePath.startsWith(getPackageDirectory()),
+    Preconditions.checkState(
+        rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
-        rootRelativePath, getPackageDirectory(), getLabel());
+        rootRelativePath,
+        getPackageDirectory(),
+        getLabel());
     return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root, contentBasedPath);
   }
 
   @Override
   public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-    Preconditions.checkState(rootRelativePath.startsWith(getPackageDirectory()),
+    Preconditions.checkState(
+        rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
-        rootRelativePath, getPackageDirectory(), getLabel());
+        rootRelativePath,
+        getPackageDirectory(),
+        getLabel());
     return getAnalysisEnvironment().getTreeArtifact(rootRelativePath, root);
   }
 
@@ -916,8 +898,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the dependencies through a {@code LABEL_DICT_UNARY} attribute as a map from
-   * a string to a {@link TransitiveInfoCollection}.
+   * Returns the dependencies through a {@code LABEL_DICT_UNARY} attribute as a map from a string to
+   * a {@link TransitiveInfoCollection}.
    */
   public Map<String, TransitiveInfoCollection> getPrerequisiteMap(String attributeName) {
     Preconditions.checkState(attributes().has(attributeName, BuildType.LABEL_DICT_UNARY));
@@ -1019,8 +1001,7 @@ public final class RuleContext extends TargetContext
           String attributeName, BuiltinProvider<C> provider) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
-        ImmutableListMultimap.builder();
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result = ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
       if (prerequisiteProvider != null) {
@@ -1282,9 +1263,7 @@ public final class RuleContext extends TargetContext
     try {
       return Starlark.call(starlarkThread, func, args, kwargs);
     } catch (EvalException e) {
-      throwWithRuleError(e.getMessageWithStack());
-      // Pacify compiler.
-      return null;
+      throw throwWithRuleError(e.getMessageWithStack());
     }
   }
 
@@ -1438,18 +1417,17 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the sole file in the "srcs" attribute. Reports an error and
-   * (possibly) returns null if "srcs" does not identify a single file of the
-   * expected type.
+   * Returns the sole file in the "srcs" attribute. Reports an error and (possibly) returns null if
+   * "srcs" does not identify a single file of the expected type.
    */
   public Artifact getSingleSource(String fileTypeName) {
     List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs").list();
     switch (srcs.size()) {
-      case 0 : // error already issued by getSrc()
+      case 0: // error already issued by getSrc()
         return null;
-      case 1 : // ok
+      case 1: // ok
         return Iterables.getOnlyElement(srcs);
-      default :
+      default:
         attributeError("srcs", "only a single " + fileTypeName + " is allowed here");
         return srcs.get(0);
     }
@@ -1482,9 +1460,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Check that all targets that were specified as sources are from the same
-   * package as this rule. Output a warning or an error for every target that is
-   * imported from a different package.
+   * Check that all targets that were specified as sources are from the same package as this rule.
+   * Output a warning or an error for every target that is imported from a different package.
    */
   public void checkSrcsSamePackage(boolean onlyWarn) {
     PathFragment packageName = getLabel().getPackageFragment();
@@ -1498,9 +1475,12 @@ public final class RuleContext extends TargetContext
       Label associatedLabel = srcItem.getOwner();
       PathFragment itemPackageName = associatedLabel.getPackageFragment();
       if (!itemPackageName.equals(packageName)) {
-        String message = "please do not import '" + associatedLabel + "' directly. "
-            + "You should either move the file to this package or depend on "
-            + "an appropriate rule there";
+        String message =
+            "please do not import '"
+                + associatedLabel
+                + "' directly. "
+                + "You should either move the file to this package or depend on "
+                + "an appropriate rule there";
         if (onlyWarn) {
           attributeWarning("srcs", message);
         } else {
@@ -1510,11 +1490,10 @@ public final class RuleContext extends TargetContext
     }
   }
 
-
   /**
-   * Returns the label to which the {@code NODEP_LABEL} attribute
-   * {@code attrName} refers, checking that it is a valid label, and that it is
-   * referring to a local target. Reports a warning otherwise.
+   * Returns the label to which the {@code NODEP_LABEL} attribute {@code attrName} refers, checking
+   * that it is a valid label, and that it is referring to a local target. Reports a warning
+   * otherwise.
    */
   public Label getLocalNodepLabelAttribute(String attrName) {
     Label label = attributes().get(attrName, BuildType.NODEP_LABEL);
@@ -1602,11 +1581,11 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Like {@link #getOutputArtifacts()} but for a singular output item.
-   * Reports an error if the "out" attribute is not a singleton.
+   * Like {@link #getOutputArtifacts()} but for a singular output item. Reports an error if the
+   * "out" attribute is not a singleton.
    *
-   * @return null if the output list is empty, the artifact for the first item
-   *         of the output list otherwise
+   * @return null if the output list is empty, the artifact for the first item of the output list
+   *     otherwise
    */
   public Artifact getOutputArtifact() {
     List<Artifact> outs = getOutputArtifacts();
@@ -1625,9 +1604,7 @@ public final class RuleContext extends TargetContext
     return getDerivedArtifact(file, getConfiguration().getBinDirectory(getLabel().getRepository()));
   }
 
-  /**
-   * Returns true if the target for this context is a test target.
-   */
+  /** Returns true if the target for this context is a test target. */
   public boolean isTestTarget() {
     return TargetUtils.isTestRule(getTarget());
   }
@@ -1875,9 +1852,7 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /**
-     * Adds attributes which are defined by an Aspect (and not by RuleClass).
-     */
+    /** Adds attributes which are defined by an Aspect (and not by RuleClass). */
     public Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
       this.aspectAttributes = ImmutableMap.copyOf(aspectAttributes);
       return this;
@@ -1963,16 +1938,21 @@ public final class RuleContext extends TargetContext
 
       Target srcTarget = src.getTarget();
       if (!(srcTarget instanceof FileTarget)) {
-        attributeError("entries", String.format(
-            "Invalid 'srcdir' target '%s'. Must be another Fileset or package",
-            srcTarget.getLabel()));
+        attributeError(
+            "entries",
+            String.format(
+                "Invalid 'srcdir' target '%s'. Must be another Fileset or package",
+                srcTarget.getLabel()));
         return false;
       }
 
       if (srcTarget instanceof OutputFile) {
-        attributeWarning("entries", String.format("'srcdir' target '%s' is not an input file. "
-            + "This forces the Fileset to be executed unconditionally",
-            srcTarget.getLabel()));
+        attributeWarning(
+            "entries",
+            String.format(
+                "'srcdir' target '%s' is not an input file. "
+                    + "This forces the Fileset to be executed unconditionally",
+                srcTarget.getLabel()));
       }
 
       return true;
@@ -2063,9 +2043,9 @@ public final class RuleContext extends TargetContext
     }
 
     /**
-     * Post a raw event to the analysis environment's event handler. This circumvents normal
-     * error and warning reporting functionality to post events, and should only be used
-     * in rare cases where a custom event needs to be handled.
+     * Post a raw event to the analysis environment's event handler. This circumvents normal error
+     * and warning reporting functionality to post events, and should only be used in rare cases
+     * where a custom event needs to be handled.
      */
     public void post(Postable event) {
       env.getEventHandler().post(event);
@@ -2102,10 +2082,10 @@ public final class RuleContext extends TargetContext
       if (isWarning) {
         return String.format(
             "%s is unexpected here%s; continuing anyway",
-            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND),
-            msgReason);
+            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND), msgReason);
       }
-      return String.format("%s is misplaced here%s",
+      return String.format(
+          "%s is misplaced here%s",
           AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND), msgReason);
     }
 
@@ -2143,7 +2123,8 @@ public final class RuleContext extends TargetContext
         validateRuleDependency(prerequisite, attribute);
       } else if (prerequisiteTarget instanceof FileTarget) {
         if (attribute.isStrictLabelCheckingEnabled()) {
-          if (!attribute.getAllowedFileTypesPredicate()
+          if (!attribute
+              .getAllowedFileTypesPredicate()
               .apply(((FileTarget) prerequisiteTarget).getFilename())) {
             if (prerequisiteTarget instanceof InputFile
                 && !((InputFile) prerequisiteTarget).getPath().exists()) {
@@ -2152,16 +2133,19 @@ public final class RuleContext extends TargetContext
                   && !((InputFile) prerequisiteTarget).getFilename().contains(".")) {
                 // There are no allowed files in the attribute but it's not a valid rule,
                 // and the filename doesn't contain a dot --> probably a misspelled rule
-                attributeError(attribute.getName(),
-                    "rule '" + prerequisiteLabel + "' does not exist");
+                attributeError(
+                    attribute.getName(), "rule '" + prerequisiteLabel + "' does not exist");
               } else {
-                attributeError(attribute.getName(),
-                    "target '" + prerequisiteLabel + "' does not exist");
+                attributeError(
+                    attribute.getName(), "target '" + prerequisiteLabel + "' does not exist");
               }
             } else {
               // The file exists but has a bad extension
-              reportBadPrerequisite(attribute, prerequisite,
-                  "expected " + attribute.getAllowedFileTypesPredicate(), false);
+              reportBadPrerequisite(
+                  attribute,
+                  prerequisite,
+                  "expected " + attribute.getAllowedFileTypesPredicate(),
+                  false);
             }
           }
         }
@@ -2224,7 +2208,8 @@ public final class RuleContext extends TargetContext
         // It's not a label or label_list attribute.
         return;
       }
-      if (allowedFileTypes == FileTypeSet.ANY_FILE && !attribute.isNonEmpty()
+      if (allowedFileTypes == FileTypeSet.ANY_FILE
+          && !attribute.isNonEmpty()
           && !attribute.isSingleArtifact()) {
         return;
       }
@@ -2308,9 +2293,7 @@ public final class RuleContext extends TargetContext
         // but maybe prerequisite provides required providers? do not reject yet.
         unfulfilledRequirements.add(
             badPrerequisiteMessage(
-                prerequisite,
-                "expected " + attribute.getAllowedRuleClassesPredicate(),
-                false));
+                prerequisite, "expected " + attribute.getAllowedRuleClassesPredicate(), false));
       }
       return false;
     }
@@ -2464,9 +2447,7 @@ public final class RuleContext extends TargetContext
       return !errorMessages.isEmpty();
     }
 
-    /**
-     * Returns the error message strings reported to this error consumer.
-     */
+    /** Returns the error message strings reported to this error consumer. */
     public List<String> getErrorMessages() {
       return errorMessages;
     }

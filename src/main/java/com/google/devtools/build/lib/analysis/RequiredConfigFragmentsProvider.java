@@ -22,12 +22,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
 
 /**
- * Provides a user-friendly list of the
- * {@link Fragment}s and
- * {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} required by this target
- * and its transitive dependencies.
+ * Provides a user-friendly list of the {@link Fragment}s and {@link
+ * com.google.devtools.build.lib.analysis.config.FragmentOptions} required by this target and its
+ * transitive dependencies.
  *
- * <p>See {@link ConfiguredTargetFactory#getRequiredConfigFragments) for details.
+ * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for details.
  */
 @Immutable
 public class RequiredConfigFragmentsProvider implements TransitiveInfoProvider {
@@ -50,7 +49,7 @@ public class RequiredConfigFragmentsProvider implements TransitiveInfoProvider {
     }
     ImmutableSet.Builder<String> merged = ImmutableSet.builder();
     for (RequiredConfigFragmentsProvider provider : providers) {
-      merged.addAll(provider.getRequiredConfigFragments());
+      merged.addAll(provider.requiredConfigFragments);
     }
     return new RequiredConfigFragmentsProvider(merged.build());
   }

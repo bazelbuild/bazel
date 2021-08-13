@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -56,8 +58,8 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
 
   private final Optional<ImmutableMap<Label, String>> flags;
 
-  AndroidFeatureFlagSetProvider(Optional<? extends Map<Label, String>> flags) {
-    this.flags = flags.transform(ImmutableMap::copyOf);
+  private AndroidFeatureFlagSetProvider(Optional<ImmutableMap<Label, String>> flags) {
+    this.flags = flags;
   }
 
   @Override
@@ -140,8 +142,8 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
         .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
         .keySet()
         .stream()
-        .map(label -> label.toString())
-        .collect(ImmutableSet.toImmutableSet());
+        .map(Label::toString)
+        .collect(toImmutableSet());
   }
 
   /**
@@ -171,15 +173,12 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
       super(NAME, AndroidFeatureFlagSetProvider.class);
     }
 
-    public String getName() {
-      return NAME;
-    }
-
     @Override
     public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(Dict.noneableCast(flags, Label.class, String.class, "flags")));
+          Optional.of(
+              ImmutableMap.copyOf(Dict.noneableCast(flags, Label.class, String.class, "flags"))));
     }
   }
 }
