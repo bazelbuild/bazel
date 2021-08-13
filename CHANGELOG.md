@@ -1,3 +1,44 @@
+## Release 5.0.0-pre.20210802.5 (2021-08-13)
+
+```
+Baseline: 23f171e2208700dc2f2f65f5ccb32bacd7aec87d
+
+Cherry picks:
+
+   + 7b4f9826d2d38ac7d071a4ada7b8a40a7a78226d:
+     Automated rollback of commit
+     7649f610c45190735fd7de433b15679b21b2d91b.
+   + 14e4a78a4a6a8bd208adfd5360968750929bc3e6:
+     Automated rollback of commit
+     23f171e2208700dc2f2f65f5ccb32bacd7aec87d.
+   + 99a85e79a11cef98d0e08db21ab94833398381af:
+     Automated rollback of commit
+     92f7b58672baffe5a230f675d7197c2a10892284.
+```
+
+Incompatible changes:
+
+  - JavaToolchainInfo.jvm_opt returns Depset instead of a list.
+
+Important changes:
+
+  - When using MemoryProfiler with multiple GCs via the
+    --memory_profile_stable_heap_parameters flag, we do a more
+    precise calculation of heap used at the end of the build. This
+    will generally result in lower values.
+  - --bep_publish_used_heap_size_post_build is deprecated. Use
+    --memory_profile=/dev/null instead.
+
+This release contains contributions from many people at Google, as well as Andrew Katson, Christopher Peterson Sauer, Dan Bamikiya, Keith Smiley, Rai, Yannic Bonenberger.
+
+## Release 5.0.0-pre.20210728.1 (2021-08-03)
+
+```
+Baseline: d4dd2038039ecbc63e2d3037855c31145b335ad4
+```
+
+This release contains contributions from many people at Google, as well as Yannic Bonenberger, Yannic Bonenberger.
+
 ## Release 5.0.0-pre.20210722.2 (2021-07-29)
 
 ```
