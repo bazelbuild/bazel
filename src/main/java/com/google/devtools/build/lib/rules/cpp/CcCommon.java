@@ -125,7 +125,8 @@ public final class CcCommon {
           CppActionNames.CLIF_MATCH,
           CppActionNames.LINKSTAMP_COMPILE,
           CppActionNames.CC_FLAGS_MAKE_VARIABLE,
-          CppActionNames.LTO_BACKEND);
+          CppActionNames.LTO_BACKEND,
+          CppActionNames.CPP_HEADER_ANALYSIS);
 
   public static final ImmutableSet<String> ALL_LINK_ACTIONS =
       ImmutableSet.of(

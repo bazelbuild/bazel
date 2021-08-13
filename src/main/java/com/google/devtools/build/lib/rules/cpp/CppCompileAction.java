@@ -1276,7 +1276,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   protected String getRawProgressMessage() {
-    return "Compiling " + getSourceFile().prettyPrint();
+    return (actionName.equals(CppActionNames.CPP_HEADER_ANALYSIS)
+            ? "Header analysis for "
+            : "Compiling ")
+        + getSourceFile().prettyPrint();
   }
 
   /**
@@ -1723,7 +1726,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         return featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC)
             ? OBJC_COMPILE_MNEMONIC + suffix
             : CPP_COMPILE_MNEMONIC + suffix;
-
+      case CppActionNames.CPP_HEADER_ANALYSIS:
+        return "CppHeaderAnalysis";
       default:
         return CPP_COMPILE_MNEMONIC;
     }
