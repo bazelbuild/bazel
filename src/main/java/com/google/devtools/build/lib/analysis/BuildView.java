@@ -275,10 +275,6 @@ public class BuildView {
             .collect(Collectors.toList());
 
     ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
-    if (viewOptions.ignoreDuplicateTopLevelAspects) {
-      // remove duplicates from aspects list
-      aspects = ImmutableSet.copyOf(aspects).asList();
-    }
     for (String aspect : aspects) {
       // Syntax: label%aspect
       int delimiterPosition = aspect.indexOf('%');
