@@ -340,9 +340,9 @@ public final class ConfiguredTargetFactory {
 
     try {
       Class<?> missingFragmentClass = null;
-      for (Class<?> fragmentClass :
+      for (Class<? extends Fragment> fragmentClass :
           configurationFragmentPolicy.getRequiredConfigurationFragments()) {
-        if (!configuration.hasFragment(fragmentClass.asSubclass(Fragment.class))) {
+        if (!configuration.hasFragment(fragmentClass)) {
           MissingFragmentPolicy missingFragmentPolicy =
               configurationFragmentPolicy.getMissingFragmentPolicy(fragmentClass);
           if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE) {
@@ -456,8 +456,9 @@ public final class ConfiguredTargetFactory {
       String configurationId) {
     RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
     Set<Class<?>> missingFragments = new LinkedHashSet<>();
-    for (Class<?> fragment : configurationFragmentPolicy.getRequiredConfigurationFragments()) {
-      if (!ruleContext.getConfiguration().hasFragment(fragment.asSubclass(Fragment.class))) {
+    for (Class<? extends Fragment> fragment :
+        configurationFragmentPolicy.getRequiredConfigurationFragments()) {
+      if (!ruleContext.getConfiguration().hasFragment(fragment)) {
         missingFragments.add(fragment);
       }
     }

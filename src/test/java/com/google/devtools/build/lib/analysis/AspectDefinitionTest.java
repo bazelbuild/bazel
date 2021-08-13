@@ -192,8 +192,7 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequireBuiltinProviders_addsTwoSetsOfRequiredProvidersAndNames()
-      throws Exception {
+  public void testRequireBuiltinProviders_addsTwoSetsOfRequiredProvidersAndNames() {
     AspectDefinition requiresProviders =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
             .requireProviderSets(
@@ -245,7 +244,7 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequireStarlarkProviders_addsTwoSetsOfRequiredProviders() throws Exception {
+  public void testRequireStarlarkProviders_addsTwoSetsOfRequiredProviders() {
     AspectDefinition requiresProviders =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
             .requireStarlarkProviderSets(
@@ -314,13 +313,14 @@ public class AspectDefinitionTest {
   @Test
   public void testRequiresConfigurationFragments_propagatedToConfigurationFragmentPolicy()
       throws Exception {
-    AspectDefinition requiresFragments = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .requiresConfigurationFragments(Integer.class, String.class)
-        .build();
+    AspectDefinition requiresFragments =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requiresConfigurationFragments(FooFragment.class, BarFragment.class)
+            .build();
     assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
     assertThat(
-        requiresFragments.getConfigurationFragmentPolicy().getRequiredConfigurationFragments())
-            .containsExactly(Integer.class, String.class);
+            requiresFragments.getConfigurationFragmentPolicy().getRequiredConfigurationFragments())
+        .containsExactly(FooFragment.class, BarFragment.class);
   }
 
   private static class FooFragment extends Fragment {}
@@ -328,7 +328,7 @@ public class AspectDefinitionTest {
   private static class BarFragment extends Fragment {}
 
   @Test
-  public void testMissingFragmentPolicy_propagatedToConfigurationFragmentPolicy() throws Exception {
+  public void testMissingFragmentPolicy_propagatedToConfigurationFragmentPolicy() {
     AspectDefinition missingFragments =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
             .setMissingFragmentPolicy(FooFragment.class, MissingFragmentPolicy.IGNORE)
@@ -356,8 +356,7 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequiresConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy()
-      throws Exception {
+  public void testRequiresConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
     AspectDefinition requiresFragments =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
             .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of("test_fragment"))
@@ -370,8 +369,7 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequiresHostConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy()
-      throws Exception {
+  public void testRequiresHostConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
     AspectDefinition requiresFragments =
         ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
             .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
@@ -386,13 +384,12 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testEmptyStarlarkConfigurationFragmentPolicySetup_hasNonNullPolicy()
-      throws Exception {
+  public void testEmptyStarlarkConfigurationFragmentPolicySetup_hasNonNullPolicy() {
     AspectDefinition noPolicy =
         ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.<String>of())
+            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
             .originalBuilder()
-            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.<String>of())
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
             .build();
     assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
   }

@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -501,7 +502,8 @@ public final class AspectDefinition {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
+    public Builder requiresConfigurationFragments(
+        Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           ImmutableSet.copyOf(configurationFragments));
       return this;
@@ -519,7 +521,7 @@ public final class AspectDefinition {
      * <p>The value is inherited by subclasses.
      */
     public Builder requiresConfigurationFragments(
-        ConfigurationTransition transition, Class<?>... configurationFragments) {
+        ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           transition, ImmutableSet.copyOf(configurationFragments));
       return this;
