@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -414,7 +415,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         builder.setHasStarlarkRuleTransition();
       } else if (cfg instanceof PatchTransition) {
         builder.cfg((PatchTransition) cfg);
+      } else if (cfg instanceof StarlarkExposedRuleTransitionFactory) {
+        StarlarkExposedRuleTransitionFactory transition =
+            (StarlarkExposedRuleTransitionFactory) cfg;
+        builder.cfg(transition);
+        transition.addToStarlarkRule(bazelContext, builder);
       } else if (cfg instanceof TransitionFactory) {
+        // This may be redundant with StarlarkExposedRuleTransitionFactory infra
         TransitionFactory<? extends TransitionFactory.Data> transitionFactory =
             (TransitionFactory<? extends TransitionFactory.Data>) cfg;
         if (transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE)) {
@@ -428,8 +435,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   + " transition.");
         }
       } else {
-        // This is not technically true: it could also be a native transition, but this is the
-        // most likely error case.
         throw Starlark.errorf(
             "`cfg` must be set to a transition object initialized by the transition() function.");
       }

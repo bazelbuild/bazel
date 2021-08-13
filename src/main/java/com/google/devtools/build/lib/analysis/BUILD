@@ -306,6 +306,7 @@ java_library(
         ":config/transitions/null_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
+        ":config/transitions/starlark_exposed_rule_transition_factory",
         ":config/transitions/transition_factory",
         ":configurations_collector",
         ":configured_target",
@@ -1948,6 +1949,19 @@ java_library(
     name = "config/transitions/transition_factory",
     srcs = ["config/transitions/TransitionFactory.java"],
     deps = [":config/transitions/configuration_transition"],
+)
+
+java_library(
+    name = "config/transitions/starlark_exposed_rule_transition_factory",
+    srcs = ["config/transitions/StarlarkExposedRuleTransitionFactory.java"],
+    deps = [
+        ":config/transitions/transition_factory",
+        ":rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+    ],
 )
 
 # TODO(b/144899336): This should be analysis/constraints/BUILD

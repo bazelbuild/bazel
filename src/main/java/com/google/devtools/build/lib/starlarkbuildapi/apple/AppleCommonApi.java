@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
@@ -67,6 +68,13 @@ public interface AppleCommonApi<
               + "</pre>",
       structField = true)
   StructApi getPlatformTypeStruct();
+
+  @StarlarkMethod(
+      name = "apple_crosstool_transition",
+      doc = "Testing the Apple crosstool transition",
+      documented = false,
+      structField = true)
+  StarlarkExposedRuleTransitionFactory getAppleCrosstoolTransition();
 
   @StarlarkMethod(
       name = "platform",
