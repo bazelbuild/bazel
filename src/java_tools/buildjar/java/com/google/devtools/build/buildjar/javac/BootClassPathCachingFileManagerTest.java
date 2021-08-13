@@ -45,62 +45,48 @@ public class BootClassPathCachingFileManagerTest {
             temporaryFolder.newFolder().toPath().resolve("BootClassPath1.jar"),
             temporaryFolder.newFolder().toPath().resolve("BootClassPath2.jar"));
 
-    ImmutableList<Path> bootClassPaths =
-        ImmutableList.of(bootClassPathsCandidates.get(0), bootClassPathsCandidates.get(1));
-
-    ImmutableMap<String, ByteString> inputsAndDigest =
-        ImmutableMap.<String, ByteString>builder()
-            .put(
-                bootClassPaths.get(0).toString(),
-                ByteString.copyFromUtf8(bootClassPaths.get(0).toString()))
-            .put(
-                bootClassPaths.get(1).toString(),
-                ByteString.copyFromUtf8(bootClassPaths.get(1).toString()))
-            .build();
-
     BlazeJavacArguments arguments =
-        BlazeJavacArguments.builder()
-            .bootClassPath(bootClassPaths)
-            .inputsAndDigest(inputsAndDigest)
-            .classOutput(temporaryFolder.newFolder().toPath().resolve("output_0.jar"))
-            .build();
+        createBlazeJavacArguments(
+            /* bootClassPaths= */ ImmutableList.of(
+                bootClassPathsCandidates.get(0), bootClassPathsCandidates.get(1)),
+            /* classOutput= */ "output_0.jar");
 
-    bootFileManager = new BootClassPathCachingFileManager(new Context(), arguments);
+    bootFileManager =
+        new BootClassPathCachingFileManager(
+            new Context(), BootClassPathCachingFileManager.Key.create(arguments));
   }
 
   @Test
-  public void testNeedsUpdate() throws IOException {
-    ImmutableList<Path> bootClassPaths =
-        ImmutableList.of(
-            bootClassPathsCandidates.get(0),
-            bootClassPathsCandidates.get(1),
-            bootClassPathsCandidates.get(2));
-
-    ImmutableMap<String, ByteString> inputsAndDigest =
-        ImmutableMap.<String, ByteString>builder()
-            .put(
-                bootClassPaths.get(0).toString(),
-                ByteString.copyFromUtf8(bootClassPaths.get(0).toString()))
-            .put(
-                bootClassPaths.get(1).toString(),
-                ByteString.copyFromUtf8(bootClassPaths.get(1).toString()))
-            .put(
-                bootClassPaths.get(2).toString(),
-                ByteString.copyFromUtf8(bootClassPaths.get(2).toString()))
-            .build();
-
+  public void testBootClassPathCachingFileManagerKey_withSameBootClassPathsCombination()
+      throws IOException {
     BlazeJavacArguments arguments =
-        BlazeJavacArguments.builder()
-            .bootClassPath(bootClassPaths)
-            .inputsAndDigest(inputsAndDigest)
-            .classOutput(temporaryFolder.newFolder().toPath().resolve("output_1.jar"))
-            .build();
+        createBlazeJavacArguments(
+            /* bootClassPaths= */ ImmutableList.of(
+                bootClassPathsCandidates.get(0), bootClassPathsCandidates.get(1)),
+            /* classOutput= */ "output_1.jar");
 
-    assertThat(bootFileManager.needsUpdate(arguments)).isFalse();
+    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
+
+    assertThat(key).isEqualTo(bootFileManager.getKey());
   }
 
   @Test
-  public void testNeedsUpdate_withDifferentDigest() throws IOException {
+  public void testBootClassPathCachingFileManagerKey_withExtraBootClassPath() throws IOException {
+    BlazeJavacArguments arguments =
+        createBlazeJavacArguments(
+            /* bootClassPaths= */ ImmutableList.of(
+                bootClassPathsCandidates.get(0),
+                bootClassPathsCandidates.get(1),
+                bootClassPathsCandidates.get(2)),
+            /* classOutput= */ "output_1.jar");
+
+    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
+
+    assertThat(key).isNotEqualTo(bootFileManager.getKey());
+  }
+
+  @Test
+  public void testBootClassPathCachingFileManagerKey_withDifferentDigest() throws IOException {
     ImmutableList<Path> bootClassPaths =
         ImmutableList.of(bootClassPathsCandidates.get(0), bootClassPathsCandidates.get(1));
 
@@ -119,7 +105,9 @@ public class BootClassPathCachingFileManagerTest {
             .classOutput(temporaryFolder.newFolder().toPath().resolve("output_1.jar"))
             .build();
 
-    assertThat(bootFileManager.needsUpdate(arguments)).isTrue();
+    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
+
+    assertThat(key).isNotEqualTo(bootFileManager.getKey());
   }
 
   @Test
@@ -164,5 +152,26 @@ public class BootClassPathCachingFileManagerTest {
                     .classOutput(temporaryFolder.newFolder().toPath().resolve("output_1.jar"))
                     .build()))
         .isFalse();
+  }
+
+  /**
+   * A helper method to create BlazeJavacArguments.
+   *
+   * @param bootClassPaths the combination of boot classPaths.
+   * @param classOutput the name of the output jar,
+   */
+  private BlazeJavacArguments createBlazeJavacArguments(
+      ImmutableList<Path> bootClassPaths, String classOutput) throws IOException {
+    ImmutableMap.Builder<String, ByteString> inputsAndDigest = ImmutableMap.builder();
+    for (Path bootClassPath : bootClassPaths) {
+      inputsAndDigest.put(
+          bootClassPath.toString(), ByteString.copyFromUtf8(bootClassPath.toString()));
+    }
+
+    return BlazeJavacArguments.builder()
+        .bootClassPath(bootClassPaths)
+        .inputsAndDigest(inputsAndDigest.build())
+        .classOutput(temporaryFolder.newFolder().toPath().resolve(classOutput))
+        .build();
   }
 }

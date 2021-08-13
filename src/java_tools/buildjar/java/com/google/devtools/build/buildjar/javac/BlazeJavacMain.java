@@ -49,7 +49,9 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.tools.Diagnostic;
@@ -112,13 +114,9 @@ public class BlazeJavacMain {
     Log.instance(context).setWriters(errWriter);
     Options.instance(context).put("-Xlint:path", "path");
 
-    try (JavacFileManager fileManager =
-        new ClassloaderMaskingFileManager(context, arguments.builtinProcessors())) {
-
-      BootClassPathCachingFileManager tempBootFileManager = getBootFileManager(arguments);
-      if (tempBootFileManager != null) {
-        setLocations(tempBootFileManager, arguments);
-      }
+    try (ClassloaderMaskingFileManager fileManager =
+        new ClassloaderMaskingFileManager(
+            context, arguments.builtinProcessors(), getMatchingBootFileManager(arguments))) {
 
       setLocations(fileManager, arguments);
 
@@ -320,37 +318,31 @@ public class BlazeJavacMain {
     }
   }
 
-  /** a javac file manager instance specific only for boot classpaths */
-  private static volatile BootClassPathCachingFileManager bootFileManager;
+  /**
+   * Multiple javac file manager instances each specific for a combination of bootClassPaths with
+   * their digest.
+   */
+  private static final Map<BootClassPathCachingFileManager.Key, BootClassPathCachingFileManager>
+      bootFileManagers = new HashMap<>();
 
   /**
-   * Returns a BootClassPathCachingFileManager instance if it is a singleplex-worker with valid
-   * arguments
+   * Returns a BootClassPathCachingFileManager instance that matches the combination of
+   * bootClassPaths and their digest in the case of a worker with valid arguments.
    */
-  private static synchronized BootClassPathCachingFileManager getBootFileManager(
+  private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
       BlazeJavacArguments arguments) {
-    bootFileManager = getBootFileManagerHelper(arguments);
-    return bootFileManager;
-  }
-
-  private static synchronized BootClassPathCachingFileManager getBootFileManagerHelper(
-      BlazeJavacArguments arguments) {
-
     if (!arguments.requestId().isPresent()) {
       // worker mode is not enabled
       return null;
     }
-    if (arguments.requestId().getAsInt() != 0) {
-      // worker is not singleplex worker
-      return null;
-    }
     if (!BootClassPathCachingFileManager.areArgumentsValid(arguments)) {
+      // arguments not valid
       return null;
     }
 
-    return (bootFileManager != null && !bootFileManager.needsUpdate(arguments))
-        ? bootFileManager
-        : new BootClassPathCachingFileManager(new Context(), arguments);
+    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
+    return bootFileManagers.computeIfAbsent(
+        key, x -> new BootClassPathCachingFileManager(new Context(), key));
   }
 
   /**
@@ -363,19 +355,24 @@ public class BlazeJavacMain {
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
     private final ImmutableSet<String> builtinProcessors;
+    /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
+    private final BootClassPathCachingFileManager bootFileManger;
 
-    public ClassloaderMaskingFileManager(Context context, ImmutableSet<String> builtinProcessors) {
+    public ClassloaderMaskingFileManager(
+        Context context,
+        ImmutableSet<String> builtinProcessors,
+        BootClassPathCachingFileManager bootFileManager) {
       super(context, true, UTF_8);
       this.builtinProcessors = builtinProcessors;
+      this.bootFileManger = bootFileManager;
     }
 
     @Override
     public Iterable<JavaFileObject> list(
         Location location, String packageName, Set<Kind> kinds, boolean recurse)
         throws IOException {
-      BootClassPathCachingFileManager tempBootFileManager = bootFileManager;
-      if (tempBootFileManager != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
-        return tempBootFileManager.list(location, packageName, kinds, recurse);
+      if (this.bootFileManger != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
+        return this.bootFileManger.list(location, packageName, kinds, recurse);
       }
       return super.list(location, packageName, kinds, recurse);
     }
