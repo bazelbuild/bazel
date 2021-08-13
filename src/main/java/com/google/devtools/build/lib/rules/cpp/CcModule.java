@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -268,8 +269,13 @@ public abstract class CcModule
       Object thinLtoInputBitcodeFile,
       Object thinLtoOutputObjectFile,
       boolean usePic,
-      boolean addLegacyCxxOptions)
+      boolean addLegacyCxxOptions,
+      Object variablesExtension)
       throws EvalException {
+    ImmutableList<VariablesExtension> variablesExtensions =
+        asDict(variablesExtension).isEmpty()
+            ? ImmutableList.of()
+            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
     return CompileBuildVariables.setupVariablesOrThrowEvalException(
         featureConfiguration.getFeatureConfiguration(),
         ccToolchainProvider,
@@ -292,7 +298,7 @@ public abstract class CcModule
         usePic,
         /* fdoStamp= */ null,
         /* dotdFileExecPath= */ null,
-        /* variablesExtensions= */ ImmutableList.of(),
+        variablesExtensions,
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),
         Depset.noneableCast(includeDirs, String.class, "framework_include_directories"),

@@ -99,6 +99,7 @@ _FEATURE_NAMES = struct(
     module_map_without_extern_module = "module_map_without_extern_module",
     generate_submodules = "generate_submodules",
     foo = "foo_feature",
+    check_additional_variables = "check_additional_variables_feature",
     library_search_directories = "library_search_directories",
     runtime_library_search_directories = "runtime_library_search_directories",
     uses_ifso_variables = "uses_ifso_variables",
@@ -1077,6 +1078,26 @@ _foo_feature = feature(
     name = _FEATURE_NAMES.foo,
 )
 
+_check_additional_variables_feature = feature(
+    name = _FEATURE_NAMES.check_additional_variables,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_compile],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "string_variable",
+                    flags = ["--my_string=%{string_variable}"],
+                ),
+                flag_group(
+                    expand_if_available = "list_variable",
+                    iterate_over = "list_variable",
+                    flags = ["--my_list_element=%{list_variable}"],
+                ),
+            ],
+        ),
+    ],
+)
+
 _library_search_directories_feature = feature(
     name = _FEATURE_NAMES.library_search_directories,
     enabled = True,
@@ -1286,6 +1307,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.change_tool: _change_tool_feature,
     _FEATURE_NAMES.module_map_without_extern_module: _module_map_without_extern_module_feature,
     _FEATURE_NAMES.foo: _foo_feature,
+    _FEATURE_NAMES.check_additional_variables: _check_additional_variables_feature,
     _FEATURE_NAMES.library_search_directories: _library_search_directories_feature,
     _FEATURE_NAMES.runtime_library_search_directories: _runtime_library_search_directories_feature,
     _FEATURE_NAMES.generate_submodules: _generate_submodules_feature,

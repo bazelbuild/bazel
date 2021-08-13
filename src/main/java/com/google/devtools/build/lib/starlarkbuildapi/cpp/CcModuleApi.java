@@ -392,7 +392,14 @@ public interface CcModuleApi<
             doc = "Unused.",
             named = true,
             positional = false,
-            defaultValue = "False")
+            defaultValue = "False"),
+        @Param(
+            name = "variables_extension",
+            doc = "A dictionary of additional variables used by compile actions.",
+            named = true,
+            positional = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
       })
   CcToolchainVariablesT getCompileBuildVariables(
       CcToolchainProviderT ccToolchainProvider,
@@ -409,7 +416,8 @@ public interface CcModuleApi<
       Object thinLtoInputBitcodeFile,
       Object thinLtoOutputObjectFile,
       boolean usePic,
-      boolean addLegacyCxxOptions)
+      boolean addLegacyCxxOptions,
+      Object variablesExtension)
       throws EvalException;
 
   @StarlarkMethod(
