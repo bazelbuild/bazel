@@ -172,7 +172,7 @@ function test_zipper_specify_path() {
   mkdir -p ${TEST_TMPDIR}/files
   echo "toto" > ${TEST_TMPDIR}/files/a.txt
   echo "titi" > ${TEST_TMPDIR}/files/b.txt
-  rm -fr ${TEST_TMPDIR}/expect/foo/bar
+  rm -fr ${TEST_TMPDIR}/expect/foo
   mkdir -p ${TEST_TMPDIR}/expect/foo/bar
   touch ${TEST_TMPDIR}/expect/empty.txt
   echo "toto" > ${TEST_TMPDIR}/expect/foo/a.txt
@@ -183,6 +183,26 @@ function test_zipper_specify_path() {
   ${ZIPPER} cC ${TEST_TMPDIR}/output.zip empty.txt= \
       foo/a.txt=${TEST_TMPDIR}/files/a.txt \
       foo/bar/b.txt=${TEST_TMPDIR}/files/b.txt
+  (cd ${TEST_TMPDIR}/out && $UNZIP -q ${TEST_TMPDIR}/output.zip)
+  diff -r ${TEST_TMPDIR}/expect ${TEST_TMPDIR}/out &> $TEST_log \
+      || fail "Unzip after zipper output is not expected"
+}
+
+function test_zipper_specify_path_with_pipe_delimiter() {
+  mkdir -p ${TEST_TMPDIR}/files
+  echo "toto" > ${TEST_TMPDIR}/files/a=.txt
+  echo "titi" > ${TEST_TMPDIR}/files/b.txt
+  rm -fr ${TEST_TMPDIR}/expect/foo
+  mkdir -p ${TEST_TMPDIR}/expect/foo/bar
+  touch ${TEST_TMPDIR}/expect/empty.txt
+  echo "toto" > ${TEST_TMPDIR}/expect/foo/a=.txt
+  echo "titi" > ${TEST_TMPDIR}/expect/foo/bar/b.txt
+  rm -fr ${TEST_TMPDIR}/out
+  mkdir -p ${TEST_TMPDIR}/out
+
+  ${ZIPPER} cCP ${TEST_TMPDIR}/output.zip "empty.txt|" \
+      "foo/a=.txt|${TEST_TMPDIR}/files/a.txt" \
+      "foo/bar/b.txt|${TEST_TMPDIR}/files/b.txt"
   (cd ${TEST_TMPDIR}/out && $UNZIP -q ${TEST_TMPDIR}/output.zip)
   diff -r ${TEST_TMPDIR}/expect ${TEST_TMPDIR}/out &> $TEST_log \
       || fail "Unzip after zipper output is not expected"

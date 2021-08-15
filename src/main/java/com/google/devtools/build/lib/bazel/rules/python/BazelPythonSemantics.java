@@ -356,15 +356,15 @@ public class BazelPythonSemantics implements PythonSemantics {
     PathFragment workspaceName = runfilesSupport.getWorkspaceName();
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
     inputsBuilder.add(stubFile);
-    argv.addPrefixedExecPath("__main__.py=", stubFile);
+    argv.addPrefixedExecPath("__main__.py|", stubFile);
     boolean legacyExternalRunfiles = ruleContext.getConfiguration().legacyExternalRunfiles();
 
     // Creating __init__.py files under each directory
-    argv.add("__init__.py=");
+    argv.add("__init__.py|");
     argv.addDynamicString(
-        getZipRunfilesPath("__init__.py", workspaceName, legacyExternalRunfiles) + "=");
+        getZipRunfilesPath("__init__.py", workspaceName, legacyExternalRunfiles) + "|");
     for (String path : runfilesSupport.getRunfiles().getEmptyFilenames().toList()) {
-      argv.addDynamicString(getZipRunfilesPath(path, workspaceName, legacyExternalRunfiles) + "=");
+      argv.addDynamicString(getZipRunfilesPath(path, workspaceName, legacyExternalRunfiles) + "|");
     }
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
@@ -373,7 +373,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       if (!artifact.equals(executable) && !artifact.equals(zipFile)) {
         argv.addDynamicString(
             getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName, legacyExternalRunfiles)
-                + "="
+                + "|"
                 + artifact.getExecPathString());
         inputsBuilder.add(artifact);
       }
@@ -385,7 +385,7 @@ public class BazelPythonSemantics implements PythonSemantics {
             .addOutput(zipFile)
             .setExecutable(zipper)
             .useDefaultShellEnvironment()
-            .addCommandLine(CustomCommandLine.builder().add("cC").addExecPath(zipFile).build())
+            .addCommandLine(CustomCommandLine.builder().add("cCP").addExecPath(zipFile).build())
             // zipper can only consume file list options from param file not other options,
             // so write file list in the param file.
             .addCommandLine(

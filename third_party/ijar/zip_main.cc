@@ -286,28 +286,35 @@ char **read_filelist(char *filename) {
 
 // return real paths of the files
 char **parse_filelist(char *zipfile, char **file_entries, int nb_entries,
-                      bool flatten) {
+                      bool flatten, bool pipe_delimiter) {
   // no need to free since the path lists should live until the end of the
   // program
   char **files = static_cast<char **>(malloc(sizeof(char *) * nb_entries));
   char **zip_paths = file_entries;
   for (int i = 0; i < nb_entries; i++) {
-    char *p_eq = strchr(file_entries[i], '=');
-    if (p_eq != NULL) {
+    char delimiter;
+    if (pipe_delimiter) {
+      delimiter = '|';
+    } else {
+      delimiter = '=';
+    }
+
+    char *p_delimiter = strchr(file_entries[i], delimiter);
+    if (p_delimiter != NULL) {
       if (flatten) {
-        fprintf(stderr, "Unable to create zip file %s: %s.\n", zipfile,
-                "= can't be used with flatten");
+        fprintf(stderr, "Unable to create zip file %s: %s%s.\n", zipfile,
+                delimiter, " can't be used with flatten");
         free(files);
         return NULL;
       }
-      if (p_eq == file_entries[i]) {
-        fprintf(stderr, "Unable to create zip file %s: %s.\n", zipfile,
-                "A zip path should be given before =");
+      if (p_delimiter == file_entries[i]) {
+        fprintf(stderr, "Unable to create zip file %s: %s%s.\n", zipfile,
+                "A zip path should be given before ", delimiter);
         free(files);
         return NULL;
       }
-      *p_eq = '\0';
-      files[i] = p_eq + 1;
+      *p_delimiter = '\0';
+      files[i] = p_delimiter + 1;
       if (files[i][0] == '\0') {
         files[i] = NULL;
       }
@@ -321,13 +328,13 @@ char **parse_filelist(char *zipfile, char **file_entries, int nb_entries,
 
 // Execute the create operation
 int create(char *zipfile, char **file_entries, bool flatten, bool verbose,
-           bool compress) {
+           bool compress, bool pipe_delimiter) {
   int nb_entries = 0;
   while (file_entries[nb_entries] != NULL) {
     nb_entries++;
   }
   char **zip_paths = file_entries;
-  char **files = parse_filelist(zipfile, file_entries, nb_entries, flatten);
+  char **files = parse_filelist(zipfile, file_entries, nb_entries, flatten, pipe_delimiter);
   if (files == NULL) {
     return -1;
   }
@@ -398,6 +405,7 @@ int main(int argc, char **argv) {
   bool create = false;
   bool compress = false;
   bool flatten = false;
+  bool pipe_delimiter = false;
 
   if (argc < 3) {
     usage(argv[0]);
@@ -419,6 +427,9 @@ int main(int argc, char **argv) {
       break;
     case 'C':
       compress = true;
+      break;
+    case 'P':
+      pipe_delimiter = true;
       break;
     default:
       usage(argv[0]);
@@ -464,7 +475,7 @@ int main(int argc, char **argv) {
 
   if (create) {
     // Create a zip
-    return devtools_ijar::create(argv[2], filelist, flatten, verbose, compress);
+    return devtools_ijar::create(argv[2], filelist, flatten, verbose, compress, pipe_delimiter);
   } else {
     char* exdir = NULL;
     if (argc > 3 && strcmp(argv[3], "-d") == 0) {
