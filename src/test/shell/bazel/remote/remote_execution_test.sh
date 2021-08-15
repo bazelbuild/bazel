@@ -2058,6 +2058,179 @@ EOF
   expect_log "Setting both --remote_default_platform_properties and --remote_default_exec_properties is not allowed"
 }
 
+
+# TODO(ron): here.
+function test_genrule_combined_disk_remote_exec() {
+  # Test for the combined disk and grpc cache.
+  # Built items should be pushed to both the disk and grpc cache.
+  #   If --noremote_upload_local_results flag is set,
+  #   built items should only be pushed to the disk cache.
+  #   If --noremote_accept_cached flag is set,
+  #   built items should only be checked from the disk cache.
+  #    
+  # If an item is missing on disk cache, but present on grpc cache,
+  # then bazel should copy it from grpc cache to disk cache on fetch.
+
+  local cache="${TEST_TMPDIR}/disk_cache"
+  local disk_flags="--disk_cache=$cache"
+  local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
+  local remote_exec_flags="--remote_executor=grpc://localhost:${worker_port}"
+
+  #
+  # matrix:
+  #   disk_cache, remote_cache: remote_exec, disk_cache, remote_cache
+  #        exist        exist      no run    no update, no update
+  #        exist        notexist   no run    no update, no update
+  #        notexist     exist      no run    update,    no update
+  #        notexist     notexist   run OK    update,    update
+  #        notexist     notexist   run FAIL  no update,  no update
+  #
+  # flags:
+  #     --noremote_upload_local_results
+  #     --noremote_accept_cached
+  #     --incompatible_remote_results_ignore_disk=true
+  #
+  #  tags: [nocache, noremoteexec]
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+genrule(
+  name = 'test',
+  cmd = 'echo "Hello world" > $@',
+  outs = ['test.txt'],
+)
+
+genrule(
+  name = 'test2',
+  srcs = [':test'],
+  cmd = 'cat $(SRCS) > $@',
+  outs = ['test2.txt'],
+)
+EOF
+  rm -rf $cache
+  mkdir $cache
+
+  # TODO(ron): GrpcCacheClientTest has observers, maybe use those for combined
+  #
+  # https://github.com/bazelbuild/bazel/commit/5f4d6995db1eb6a9d35dc163c0150283e830aa3d
+  # RemoteCacheClient#findMissingBlobs as when used with remote execution findMissingBlobs() should
+  # only check the remote cache and not the local disk cache.
+  #
+ 
+  # 1) Build remote -> put in cache.
+  # 2) clean; Build again -> should come _local_ cache.
+  #
+  #   more scenarios
+  #    a) clean should come disk cache.
+  #    b) disable disk cache, should come from remote cache.
+  #    c) build with spawn remote, then turn off remote, should find locally.
+  #
+  # Build remotely, should not come from cache.
+  bazel clean
+  # bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+
+
+  echo "CASE: first remote build"
+  bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
+      || fail "Failed to fetch //a:test from disk cache"
+
+  echo "Hello world" > ${TEST_TMPDIR}/test_expected
+  expect_log "2 processes: 1 internal, 1 remote." "RON Fetch from disk cache failed [[$(cat $TEST_log)]]"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+      || fail "Disk cache generated different result [$(cat bazel-genfiles/a/test.txt)] [$(cat $TEST_TEMPDIR/test_expected)]"
+
+  disk_action_cache_files="$(count_disk_ac_files "$cache")"
+  remote_action_cache_files="$(count_remote_ac_files)"
+
+  # hmm, no ac there, we should verify it exists and we should delete the $cache/cas
+  [[ "$disk_action_cache_files" == 0 ]] || fail "Expected 0 disk action cache entries, not $disk_action_cache_files"
+  [[ "$remote_action_cache_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_action_cache_files"
+
+  # Build again should be cached remotely.
+  echo "CASE: build after clean should be cached"
+  bazel clean
+  bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
+      || fail "[BUILD AFTER CLEAN] Failed to fetch //a:test from disk cache"
+  expect_log "2 processes: 1 remote cache hit, 1 internal." "2b. RON Fetch from remote disk failed  [[$(cat $TEST_log)]]"
+
+  # hmm, no ac there, we should verify it exists and we should delete the $cache/cas
+
+  # stop the worker to clear the cache and then restart it.
+  # this ensures that if we hit the disk cache and it returns valid values
+  # for FindMissingBLobs, we are testing if the remote doesn't have it.
+
+  # TODO(ron): fixup / review all error messages
+  echo "CASE: build after cached clean should be cached in disk cache"
+  # TODO(ron) test with different executor and cache endpints?
+  stop_worker
+  start_worker
+
+  # RON: NOTE, disk_cache AC is populated here
+
+  # reset port
+  local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
+  local remote_exec_flags="--remote_executor=grpc://localhost:${worker_port}"
+
+  bazel clean
+  bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
+      || fail "2b [BUILD AFTER CACHED] failed to fetch //a:test from disk cache"
+  expect_log "2 processes: 1 remote cache hit, 1 internal." "211. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
+  # but we still don't know which remote-cache hit (disk or remote_cache)
+  # we have to check the log the worker to make sure it wasn't accessed.
+  # i.e. we want to keep the worker up and prove that we got this from the disk cache, not the worker.
+  # Maybe just use unit tests for that?
+  #  Or see worker SpawnStats (is there a /statusz?)
+  #  Or use BES |actions_executed| (build_event_stream.proto)
+
+
+  ##
+    # NOW we build a target that depended on the last target but we clean and clear the remote cache.
+    # We should get one remote hit from disk and and remote exec.
+
+    ###### do it again to verify but clear CACHEDIR
+    #rm -rf /tmp/cachedir
+    stop_worker
+    start_worker
+    # reset port
+    local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
+    local remote_exec_flags="--remote_executor=grpc://localhost:${worker_port}"
+
+    bazel clean
+    bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
+        || fail "2b [BUILD AFTER CACHED] failed to fetch //a:test from disk cache"
+    expect_log "3 processes: 1 remote cache hit, 1 internal, 1 remote." "3111. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
+  ## scope
+
+  ## scope don't clear disk or remote cache
+    # We should get two remote hits from the remote cache.
+    bazel clean
+
+    bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
+        || fail "2b [BUILD AFTER CACHED] failed to fetch //a:test from disk cache"
+    expect_log "3 processes: 2 remote cache hit, 1 internal." "321 a. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
+  ## scope
+
+
+  ## scope
+    # AGAIN we build a target that depended on the last target but we clean and clear the DISK cache.
+    # [we don't clear the remote cache]
+    # We should get two remote hits from the remote cache.
+
+    ###### do it again to verify but set a new cache dir
+    local cache2="${TEST_TMPDIR}/cache2"
+    local disk_flags="--disk_cache=$cache2"
+
+    #rm -rf /tmp/cachedir
+    bazel clean
+    # reset port
+
+    bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
+        || fail "2b [BUILD AFTER CACHED] failed to fetch //a:test from disk cache"
+    expect_log "3 processes: 1 remote cache hit, 1 internal, 1 remote." "321 b. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
+  ## scope
+}
+
+
 function test_genrule_combined_disk_grpc_cache() {
   # Test for the combined disk and grpc cache.
   # Built items should be pushed to both the disk and grpc cache.

@@ -274,9 +274,9 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
 
-    if ((enableHttpCache || enableDiskCache) && enableRemoteExecution) {
+    if (enableHttpCache && enableRemoteExecution) {
       throw createOptionsExitException(
-          "Cannot combine gRPC based remote execution with disk caching or HTTP-based caching",
+          "Cannot combine gRPC based remote execution with HTTP-based caching",
           FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
     }
 
@@ -504,6 +504,22 @@ public final class RemoteModule extends BlazeModule {
             uploader, cacheClient, remoteBytestreamUriPrefix, buildRequestId, invocationId));
 
     if (enableRemoteExecution) {
+
+      if(enableDiskCache) {
+        try {
+        cacheClient = RemoteCacheClientFactory.createDiskAndRemoteClient(
+            env.getWorkingDirectory(),
+            remoteOptions.diskCache,
+            remoteOptions.remoteVerifyDownloads,
+            digestUtil,
+            cacheClient,
+            remoteOptions);
+        } catch (IOException e) {
+          handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
+          return;
+        }
+      }
+
       RemoteExecutionClient remoteExecutor;
       if (remoteOptions.remoteExecutionKeepalive) {
         RemoteRetrier execRetrier =

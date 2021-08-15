@@ -269,6 +269,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
             }
 
             try {
+              // Don't want to reupload remote execution cache, just to disk cache
+              // remoteExecutionService.uploadOutputs(action);
               return downloadAndFinalizeSpawnResult(
                   action,
                   result,
