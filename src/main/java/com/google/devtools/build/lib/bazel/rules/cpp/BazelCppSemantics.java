@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 
 /** C++ compilation semantics. */
@@ -78,15 +80,20 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       RuleErrorConsumer ruleErrorConsumer) {
     CcToolchainProvider toolchain = actionBuilder.getToolchain();
     if (language == Language.CPP) {
+      CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
+      Artifact sourceFile = actionBuilder.getSourceFile();
       actionBuilder
           .addTransitiveMandatoryInputs(
-              configuration.getFragment(CppConfiguration.class).useSpecificToolFiles()
-                      && !actionBuilder.getSourceFile().isTreeArtifact()
+              cppConfig.useSpecificToolFiles() && !actionBuilder.getSourceFile().isTreeArtifact()
                   ? (actionBuilder.getActionName().equals(CppActionNames.ASSEMBLE)
                       ? toolchain.getAsFiles()
                       : toolchain.getCompilerFiles())
                   : toolchain.getAllFiles())
-          .setShouldScanIncludes(false);
+          .setShouldScanIncludes(
+              cppConfig.experimentalIncludeScanning()
+                  && featureConfiguration.getRequestedFeatures().contains("cc_include_scanning")
+                  && !sourceFile.isFileType(CppFileTypes.ASSEMBLER)
+                  && !sourceFile.isFileType(CppFileTypes.CPP_MODULE));
     } else {
       actionBuilder
           .addTransitiveMandatoryInputs(toolchain.getAllFilesIncludingLibc())
@@ -110,7 +117,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
 
   @Override
   public boolean allowIncludeScanning() {
-    return false;
+    return true;
   }
 
   @Override

@@ -459,14 +459,25 @@ public class CppRuleClasses {
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
+    private final boolean addGrepIncludes;
+
+    public CcIncludeScanningRule(boolean addGrepIncludes) {
+      this.addGrepIncludes = addGrepIncludes;
+    }
+
+    public CcIncludeScanningRule() {
+      this(true);
+    }
+
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$grep_includes", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
-                  .value(env.getToolsLabel("//tools/cpp:grep-includes")))
-          .build();
+      if (addGrepIncludes) {
+        builder.add(
+            attr("$grep_includes", LABEL)
+                .cfg(ExecutionTransitionFactory.create())
+                .value(env.getToolsLabel("//tools/cpp:grep-includes")));
+      }
+      return builder.build();
     }
 
     @Override

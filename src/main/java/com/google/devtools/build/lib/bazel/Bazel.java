@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule;
+import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;
@@ -77,7 +78,8 @@ public final class Bazel {
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
           com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
           com.google.devtools.build.lib.metrics.MetricsModule.class,
-          BazelBuiltinCommandModule.class);
+          BazelBuiltinCommandModule.class,
+          IncludeScanningModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
