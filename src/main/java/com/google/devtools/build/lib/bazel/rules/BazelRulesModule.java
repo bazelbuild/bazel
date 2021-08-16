@@ -528,6 +528,17 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
         help = "No-op")
     public boolean shadowedAction;
+
+    @Option(
+        name = "bep_publish_used_heap_size_post_build",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        deprecationWarning = "Has no effect. Use --memory_profile=/dev/null instead",
+        help =
+            "When set we collect and publish used_heap_size_post_build "
+                + "from build_event_stream.proto. This forces a full GC and is off by default.")
+    public Void bepPublishUsedHeapSizePostBuild;
   }
 
   @Override
