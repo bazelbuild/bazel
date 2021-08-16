@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -85,22 +85,22 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   public ImmutableSet<String> requiresOptionFragments(BuildOptions buildOptions) {
     // TODO(bazel-team): complexity cleanup: merge buildOptionInfo with TransitiveOptionDetails.
     Map<String, OptionInfo> optionToFragment = FunctionTransitionUtil.buildOptionInfo(buildOptions);
-    ImmutableSet.Builder<String> fragments = ImmutableSet.builder();
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
     for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
       if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        // Starlark flags don't belong to any fragment.
-        fragments.add(optionStarlarkName);
+        requiredFragments.addStarlarkOption(optionStarlarkName);
       } else {
         String optionNativeName = optionStarlarkName.substring(COMMAND_LINE_OPTION_PREFIX.length());
         OptionInfo optionInfo = optionToFragment.get(optionNativeName);
         // A null optionInfo means the flag is invalid. Starlark transitions independently catch and
         // report that (search the code for "do not correspond to valid settings").
         if (optionInfo != null) {
-          fragments.add(ClassName.getSimpleNameWithOuter(optionInfo.getOptionClass()));
+          requiredFragments.addOptionsClass(optionInfo.getOptionClass());
         }
       }
     }
-    return fragments.build();
+    return requiredFragments.build();
   }
 
   /** Exception class for exceptions thrown during application of a starlark-defined transition */

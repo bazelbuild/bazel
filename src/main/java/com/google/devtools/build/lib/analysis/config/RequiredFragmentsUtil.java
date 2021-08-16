@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
@@ -33,10 +33,8 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.util.ClassName;
 import java.util.Collection;
 import java.util.Optional;
-import java.util.TreeSet;
 
 /**
  * Utility methods for determining what {@link Fragment}s are required to analyze targets.
@@ -152,38 +150,31 @@ public class RequiredFragmentsUtil {
         == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
       return ImmutableSortedSet.of();
     }
-    ImmutableSortedSet.Builder<String> requiredFragments = ImmutableSortedSet.naturalOrder();
     // Add directly required fragments:
-
-    // Fragments explicitly required by the native target/aspect definition API:
-    configurationFragmentPolicy
-        .getRequiredConfigurationFragments()
-        .forEach(fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
-    // Fragments explicitly required by the Starlark target/aspect definition API:
-    configurationFragmentPolicy
-        .getRequiredStarlarkFragments()
-        .forEach(
-            starlarkName ->
-                requiredFragments.add(
-                    ClassName.getSimpleNameWithOuter(
-                        configuration.getStarlarkFragmentByName(starlarkName))));
-    // Fragments universally required by everything:
-    universallyRequiredFragments.forEach(
-        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder()
+            // Fragments explicitly required by the native target/aspect definition API:
+            .addFragmentClasses(configurationFragmentPolicy.getRequiredConfigurationFragments())
+            // Fragments explicitly required by the Starlark target/aspect definition API:
+            .addFragmentClasses(
+                Collections2.transform(
+                    configurationFragmentPolicy.getRequiredStarlarkFragments(),
+                    configuration::getStarlarkFragmentByName))
+            // Fragments universally required by everything:
+            .addFragmentClasses(universallyRequiredFragments);
     // Fragments required by attached select()s.
     configConditions.forEach(
         configCondition -> requiredFragments.addAll(configCondition.requiredFragmentOptions()));
     // We consider build settings (which are both targets and configuration) to require themselves:
-    if (buildSettingLabel.isPresent()) {
-      requiredFragments.add(buildSettingLabel.get().toString());
-    }
+    buildSettingLabel.ifPresent(requiredFragments::addStarlarkOption);
+
     // Fragments required by attached configuration transitions.
     for (ConfigurationTransition transition : associatedTransitions) {
       requiredFragments.addAll(transition.requiresOptionFragments(configuration.getOptions()));
     }
 
     // Optionally add transitively required fragments (only if --show_config_fragments=transitive):
-    requiredFragments.addAll(getRequiredFragmentsFromDeps(configuration, prerequisites));
+    addRequiredFragmentsFromDeps(requiredFragments, configuration, prerequisites);
     return requiredFragments.build();
   }
 
@@ -256,23 +247,18 @@ public class RequiredFragmentsUtil {
    *       the rule.
    * </ul>
    */
-  private static ImmutableSet<String> getRequiredFragmentsFromDeps(
-      BuildConfiguration configuration, Iterable<ConfiguredTargetAndData> prerequisites) {
-
-    TreeSet<String> requiredFragments = new TreeSet<>();
+  private static void addRequiredFragmentsFromDeps(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      BuildConfiguration configuration,
+      Iterable<ConfiguredTargetAndData> prerequisites) {
     CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
-    if (coreOptions.includeRequiredConfigFragmentsProvider
-        == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
-      return ImmutableSet.of();
-    }
-
     for (ConfiguredTargetAndData prereq : prerequisites) {
       // If the target depends on a Starlark build setting, conceptually that means it directly
       // requires that as an option (even though it's technically a dependency).
       BuildSettingProvider buildSettingProvider =
           prereq.getConfiguredTarget().getProvider(BuildSettingProvider.class);
       if (buildSettingProvider != null) {
-        requiredFragments.add(buildSettingProvider.getLabel().toString());
+        requiredFragments.addStarlarkOption(buildSettingProvider.getLabel());
       }
       if (coreOptions.includeRequiredConfigFragmentsProvider
           == CoreOptions.IncludeConfigFragmentsEnum.TRANSITIVE) {
@@ -280,12 +266,10 @@ public class RequiredFragmentsUtil {
         RequiredConfigFragmentsProvider depProvider =
             prereq.getConfiguredTarget().getProvider(RequiredConfigFragmentsProvider.class);
         if (depProvider != null) {
-          requiredFragments.addAll(depProvider.getRequiredConfigFragments());
+          requiredFragments.merge(depProvider);
         }
       }
     }
-
-    return ImmutableSet.copyOf(requiredFragments);
   }
 
   private RequiredFragmentsUtil() {}

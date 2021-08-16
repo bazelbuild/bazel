@@ -980,8 +980,11 @@ java_library(
     srcs = ["RequiredConfigFragmentsProvider.java"],
     deps = [
         ":config/fragment",
+        ":config/fragment_options",
         ":transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",
     ],
 )
@@ -1888,8 +1891,8 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/fragment_options",
+        ":required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",
     ],
 )

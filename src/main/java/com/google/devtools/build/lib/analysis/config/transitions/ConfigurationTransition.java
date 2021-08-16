@@ -14,14 +14,12 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.ClassName;
 import java.util.Map;
 
 /**
@@ -57,9 +55,9 @@ public interface ConfigurationTransition {
    * <p>Callers may ignore this method if they know they're not calling into a Starlark transition.
    */
   default ImmutableSet<String> requiresOptionFragments(BuildOptions options) {
-    return requiresOptionFragments().stream()
-        .map(ClassName::getSimpleNameWithOuter)
-        .collect(toImmutableSet());
+    return RequiredConfigFragmentsProvider.builder()
+        .addOptionsClasses(requiresOptionFragments())
+        .build();
   }
 
   /**
