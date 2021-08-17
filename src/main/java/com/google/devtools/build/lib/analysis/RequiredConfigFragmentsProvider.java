@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.ClassName;
 import java.util.List;
 
@@ -35,6 +36,11 @@ import java.util.List;
  */
 @Immutable
 public final class RequiredConfigFragmentsProvider implements TransitiveInfoProvider {
+
+  @SerializationConstant
+  public static final RequiredConfigFragmentsProvider EMPTY =
+      new RequiredConfigFragmentsProvider(ImmutableSet.of());
+
   private final ImmutableSet<String> requiredConfigFragments;
 
   public RequiredConfigFragmentsProvider(ImmutableSet<String> requiredConfigFragments) {
@@ -70,12 +76,6 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
 
     private Builder() {}
 
-    // TODO(b/149094955): This should never accept arbitrary strings.
-    public Builder addAll(Iterable<String> strings) {
-      this.strings.addAll(strings);
-      return this;
-    }
-
     public Builder addOptionsClass(Class<? extends FragmentOptions> optionsClass) {
       strings.add(ClassName.getSimpleNameWithOuter(optionsClass));
       return this;
@@ -90,7 +90,8 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
     }
 
     private Builder addClasses(Iterable<? extends Class<?>> classes) {
-      return addAll(Iterables.transform(classes, ClassName::getSimpleNameWithOuter));
+      strings.addAll(Iterables.transform(classes, ClassName::getSimpleNameWithOuter));
+      return this;
     }
 
     public Builder addDefine(String define) {
@@ -108,7 +109,8 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
     }
 
     public Builder merge(RequiredConfigFragmentsProvider provider) {
-      return addAll(provider.requiredConfigFragments);
+      strings.addAll(provider.requiredConfigFragments);
+      return this;
     }
 
     public ImmutableSortedSet<String> build() {

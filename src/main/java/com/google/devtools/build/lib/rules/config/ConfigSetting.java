@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -137,7 +136,9 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            requiredFragments != null ? requiredFragments.build() : ImmutableSet.of(),
+            requiredFragments != null
+                ? new RequiredConfigFragmentsProvider(requiredFragments.build())
+                : RequiredConfigFragmentsProvider.EMPTY,
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
@@ -146,7 +147,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
-        .addRequiredConfigFragments(configMatcher.requiredFragmentOptions())
+        .addRequiredConfigFragments(
+            configMatcher.requiredFragmentOptions().getRequiredConfigFragments())
         .build();
   }
 

@@ -164,13 +164,13 @@ public class RequiredFragmentsUtil {
             .addFragmentClasses(universallyRequiredFragments);
     // Fragments required by attached select()s.
     configConditions.forEach(
-        configCondition -> requiredFragments.addAll(configCondition.requiredFragmentOptions()));
+        configCondition -> requiredFragments.merge(configCondition.requiredFragmentOptions()));
     // We consider build settings (which are both targets and configuration) to require themselves:
     buildSettingLabel.ifPresent(requiredFragments::addStarlarkOption);
 
     // Fragments required by attached configuration transitions.
     for (ConfigurationTransition transition : associatedTransitions) {
-      requiredFragments.addAll(transition.requiresOptionFragments(configuration.getOptions()));
+      transition.addRequiredFragments(requiredFragments, configuration.getOptions());
     }
 
     // Optionally add transitively required fragments (only if --show_config_fragments=transitive):

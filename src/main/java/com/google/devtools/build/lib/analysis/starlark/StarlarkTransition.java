@@ -82,11 +82,10 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
   }
 
   @Override
-  public ImmutableSet<String> requiresOptionFragments(BuildOptions buildOptions) {
+  public void addRequiredFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptions buildOptions) {
     // TODO(bazel-team): complexity cleanup: merge buildOptionInfo with TransitiveOptionDetails.
     Map<String, OptionInfo> optionToFragment = FunctionTransitionUtil.buildOptionInfo(buildOptions);
-    RequiredConfigFragmentsProvider.Builder requiredFragments =
-        RequiredConfigFragmentsProvider.builder();
     for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
       if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         requiredFragments.addStarlarkOption(optionStarlarkName);
@@ -100,7 +99,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         }
       }
     }
-    return requiredFragments.build();
   }
 
   /** Exception class for exceptions thrown during application of a starlark-defined transition */

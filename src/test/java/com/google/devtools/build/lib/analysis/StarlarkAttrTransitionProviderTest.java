@@ -73,7 +73,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     scratch.file("myinfo/BUILD");
   }
 
-  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
+  private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
+      throws Exception {
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
@@ -1868,8 +1869,10 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             .getAttributeDefinition("dep")
             .getTransitionFactory()
             .create(AttributeTransitionData.builder().attributes(attributes).build());
-    assertThat(attrTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
-        .containsExactly("CppOptions");
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
+    attrTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
+    assertThat(requiredFragments.build()).containsExactly("CppOptions");
   }
 
   /**
@@ -2002,7 +2005,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOptionConversionDynamicMode() throws Exception {
+  public void testOptionConversionDynamicMode() {
     // TODO(waltl): check that dynamic_mode is parsed properly.
   }
 

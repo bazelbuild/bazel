@@ -43,21 +43,18 @@ public interface ConfigurationTransition {
   }
 
   /**
-   * {@link #requiresOptionFragments()} variation for Starlark transitions, which need a {@link
-   * BuildOptions} instance to map required options to their {@link FragmentOptions}.
+   * Adds required configuration fragments to the given {@link
+   * RequiredConfigFragmentsProvider.Builder}.
    *
-   * <p>This version pre-translates the fragments to their final string representations. This is
-   * because Starlark transitions can depend on both native fragments and Starlark flags. The latter
-   * are reported directly, not as part of a larger fragment.
+   * <p>A {@link BuildOptions} instance is provided for Starlark transitions, which need to to map
+   * required options to their {@link FragmentOptions}.
    *
-   * <p>Non-Starlark transitions should override {@link #requiresOptionFragments()} and ignore this.
-   *
-   * <p>Callers may ignore this method if they know they're not calling into a Starlark transition.
+   * <p>Non-Starlark transitions should override {@link #requiresOptionFragments} and keep the
+   * default implementation of this method.
    */
-  default ImmutableSet<String> requiresOptionFragments(BuildOptions options) {
-    return RequiredConfigFragmentsProvider.builder()
-        .addOptionsClasses(requiresOptionFragments())
-        .build();
+  default void addRequiredFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments, BuildOptions options) {
+    requiredFragments.addOptionsClasses(requiresOptionFragments());
   }
 
   /**
