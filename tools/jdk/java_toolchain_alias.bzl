@@ -35,6 +35,7 @@ def _java_runtime_alias(ctx):
 java_runtime_alias = rule(
     implementation = _java_runtime_alias,
     toolchains = ["@bazel_tools//tools/jdk:runtime_toolchain_type"],
+    incompatible_use_toolchain_transition = True,
 )
 
 def _java_host_runtime_alias(ctx):
@@ -113,4 +114,5 @@ def _java_toolchain_alias(ctx):
 java_toolchain_alias = rule(
     implementation = _java_toolchain_alias,
     toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
 )
