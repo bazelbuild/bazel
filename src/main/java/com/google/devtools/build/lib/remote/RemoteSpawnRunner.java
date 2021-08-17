@@ -193,7 +193,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       // Try to lookup the action in the action cache.
       RemoteActionResult cachedResult;
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-        cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
+        cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action, spawnMetrics) : null;
       }
       if (cachedResult != null) {
         if (cachedResult.getExitCode() != 0) {
@@ -269,8 +269,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
             }
 
             try {
-              // Don't want to reupload remote execution cache, just to disk cache
-              // remoteExecutionService.uploadOutputs(action);
               return downloadAndFinalizeSpawnResult(
                   action,
                   result,

@@ -20,6 +20,8 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.SpawnMetrics.CachedResultFrom;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -103,7 +105,9 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr,
+      SpawnMetrics.Builder spawnMetrics) {
+    spawnMetrics.setActionCacheFrom(CachedResultFrom.DISK);
     return Utils.downloadAsActionResult(
         actionKey, (digest, out) -> download(digest, out, /* isActionCache= */ true));
   }

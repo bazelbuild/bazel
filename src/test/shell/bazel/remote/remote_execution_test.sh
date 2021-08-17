@@ -2174,7 +2174,7 @@ EOF
   bazel clean
   bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test &> $TEST_log \
       || fail "2b [BUILD AFTER CACHED] failed to fetch //a:test from disk cache"
-  expect_log "2 processes: 1 remote cache hit, 1 internal." "211. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
+  expect_log "2 processes: 1 disk cache hit, 1 internal." "211. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
   # but we still don't know which remote-cache hit (disk or remote_cache)
   # we have to check the log the worker to make sure it wasn't accessed.
   # i.e. we want to keep the worker up and prove that we got this from the disk cache, not the worker.
@@ -2198,7 +2198,7 @@ EOF
     bazel clean
     bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
         || fail "2b [BUILD AFTER CACHED] failed to fetch //a:test from disk cache"
-    expect_log "3 processes: 1 remote cache hit, 1 internal, 1 remote." "3111. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
+    expect_log "3 processes: 1 disk cache hit, 1 internal, 1 remote." "3111. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
   ## scope
 
   ## scope don't clear disk or remote cache
@@ -2207,7 +2207,7 @@ EOF
 
     bazel build --spawn_strategy=remote --genrule_strategy=remote $remote_exec_flags $grpc_flags $disk_flags //a:test2 &> $TEST_log \
         || fail "2b [BUILD AFTER CACHED] failed to fetch //a:test from disk cache"
-    expect_log "3 processes: 2 remote cache hit, 1 internal." "321 a. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
+    expect_log "3 processes: 1 disk cache hit, 1 remote cache hit, 1 internal." "321 a. RON Fetch from disk cache failed  [[$(grep processes $TEST_log)]]"
   ## scope
 
 
@@ -2266,7 +2266,7 @@ EOF
   bazel clean
   bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
-  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 
@@ -2304,7 +2304,7 @@ EOF
   bazel clean
   bazel build $disk_flags $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
-  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 
@@ -2322,7 +2322,7 @@ EOF
   bazel clean
   bazel build $disk_flags //a:test &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
-  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 
@@ -2349,7 +2349,7 @@ EOF
   bazel clean
   bazel build $disk_flags //a:test &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
-  expect_log "1 remote cache hit" "Fetch from disk cache after copy from grpc cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache after copy from grpc cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 
@@ -2387,7 +2387,7 @@ EOF
   bazel clean
   bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
-  expect_log "1 remote cache hit" "Fetch from disk cache failed"
+  expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
     || fail "Disk cache generated different result"
 

@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -481,13 +482,15 @@ public class RemoteExecutionService {
 
   /** Lookup the remote cache for the given {@link RemoteAction}. {@code null} if not found. */
   @Nullable
-  public RemoteActionResult lookupCache(RemoteAction action)
+  public RemoteActionResult lookupCache(RemoteAction action, SpawnMetrics.Builder spawnMetrics)
       throws IOException, InterruptedException {
     checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
 
+    // todo ron set something here
     ActionResult actionResult =
         remoteCache.downloadActionResult(
-            action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
+            action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false,
+            spawnMetrics);
 
     if (actionResult == null) {
       return null;

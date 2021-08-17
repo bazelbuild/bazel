@@ -35,6 +35,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.SpawnMetrics.Builder;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
@@ -100,9 +102,10 @@ public class RemoteCache implements AutoCloseable {
   }
 
   public ActionResult downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr,
+      SpawnMetrics.Builder spawnMetrics)
       throws IOException, InterruptedException {
-    return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));
+    return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr, spawnMetrics));
   }
 
   /**

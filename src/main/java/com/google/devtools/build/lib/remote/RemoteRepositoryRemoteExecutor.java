@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -134,10 +135,12 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         buildAction(commandHash, merkleTree.getRootDigest(), platform, timeout, acceptCached);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
+    SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forRemoteExec();
     ActionResult actionResult;
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-      actionResult = remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true);
+      actionResult = remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true,
+          spawnMetrics);
     }
     if (actionResult == null || actionResult.getExitCode() != 0) {
       try (SilentCloseable c =

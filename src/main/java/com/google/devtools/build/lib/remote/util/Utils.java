@@ -146,7 +146,7 @@ public final class Utils {
             .setStatus(
                 exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
             .setExitCode(exitCode)
-            .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
+            .setRunnerName(cacheHit ? spawnMetrics.cacheResultsFrom() + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true);

@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.SpawnMetrics.CachedResultFrom;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -182,14 +184,15 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr,
+      SpawnMetrics.Builder spawnMetrics) {
     if (diskCache.containsActionResult(actionKey)) {
-      return diskCache.downloadActionResult(context, actionKey, inlineOutErr);
+      return diskCache.downloadActionResult(context, actionKey, inlineOutErr, spawnMetrics);
     }
 
     if (shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
       return Futures.transformAsync(
-          remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
+          remoteCache.downloadActionResult(context, actionKey, inlineOutErr, spawnMetrics),
           (actionResult) -> {
             if (actionResult == null) {
               return Futures.immediateFuture(null);

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 public final class SpawnMetrics {
@@ -47,6 +48,19 @@ public final class SpawnMetrics {
     }
   }
 
+  /** Indicates which cache we read the ActionResult from */
+  public static enum CachedResultFrom {
+    DISK("disk"),
+    REMOTE("remote"),
+    ;
+
+    private final String name;
+    private CachedResultFrom(String name) { this.name = name; }
+
+    @Override
+    public String toString() { return name;  }
+  }
+
   /** Any non important stats < than 10% will not be shown in the summary. */
   private static final double STATS_SHOW_THRESHOLD = 0.10;
 
@@ -68,6 +82,7 @@ public final class SpawnMetrics {
   private final long inputBytes;
   private final long inputFiles;
   private final long memoryEstimateBytes;
+  private final CachedResultFrom cachedResultFrom;
 
   private SpawnMetrics(Builder builder) {
     this.execKind = builder.execKind;
@@ -84,6 +99,7 @@ public final class SpawnMetrics {
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
+    this.cachedResultFrom = builder.actionCacheFrom;
   }
 
   /** The kind of execution the metrics refer to (remote/local/worker). */
@@ -195,6 +211,8 @@ public final class SpawnMetrics {
     return memoryEstimateBytes;
   }
 
+  public String cacheResultsFrom() { return cachedResultFrom.name; }
+
   /**
    * Generates a String representation of the stats.
    *
@@ -273,6 +291,7 @@ public final class SpawnMetrics {
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
+    private CachedResultFrom actionCacheFrom;
 
     public static Builder forLocalExec() {
       return forExec(ExecKind.LOCAL);
@@ -389,7 +408,7 @@ public final class SpawnMetrics {
       uploadTime = uploadTime.plus(metric.uploadTime());
       setupTime = setupTime.plus(metric.setupTime());
       executionWallTime = executionWallTime.plus(metric.executionWallTime());
-      for (Map.Entry<Integer, Duration> entry : metric.retryTime.entrySet()) {
+      for (Entry<Integer, Duration> entry : metric.retryTime.entrySet()) {
         addRetryTime(entry.getKey().intValue(), entry.getValue());
       }
       processOutputsTime = processOutputsTime.plus(metric.processOutputsTime());
@@ -408,6 +427,14 @@ public final class SpawnMetrics {
       inputBytes = Long.max(inputBytes, metric.inputBytes());
       memoryEstimateBytes = Long.max(memoryEstimateBytes, metric.memoryEstimate());
       return this;
+    }
+
+    public void setActionCacheFrom(CachedResultFrom actionCacheFrom) {
+      this.actionCacheFrom = actionCacheFrom;
+    }
+
+    public CachedResultFrom getActionCacheFrom() {
+      return actionCacheFrom;
     }
   }
 }

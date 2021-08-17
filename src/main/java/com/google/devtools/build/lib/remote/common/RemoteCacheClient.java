@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -70,11 +71,14 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @param actionKey The digest of the {@link Action} that generated the action result.
    * @param inlineOutErr A hint to the server to inline the stdout and stderr in the {@code
    *     ActionResult} message.
+   * @param spawnMetrics Stores information about where it was downloaded from
    * @return A Future representing pending download of an action result. If an action result for
    *     {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
   ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr);
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr,
+      SpawnMetrics.Builder spawnMetrics
+  );
 
   /**
    * Uploads an action result for the {@code actionKey}.

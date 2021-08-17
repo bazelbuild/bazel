@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -47,8 +48,9 @@ final class ActionCacheServer extends ActionCacheImplBase {
       RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
+      SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forOtherExec();
       ActionResult result =
-          cache.downloadActionResult(context, actionKey, /* inlineOutErr= */ false);
+          cache.downloadActionResult(context, actionKey, /* inlineOutErr= */ false, spawnMetrics);
 
       if (result == null) {
         responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));
