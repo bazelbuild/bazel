@@ -30,16 +30,12 @@ import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import io.grpc.CallCredentials;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
-import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.AbstractStub;
-import io.grpc.stub.MetadataUtils;
 import io.grpc.stub.StreamObserver;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Implementation of BuildEventServiceClient that uploads data using gRPC. */
@@ -55,17 +51,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
   public BuildEventServiceGrpcClient(
       ManagedChannel channel,
       @Nullable CallCredentials callCredentials,
-      List<Map.Entry<String, String>> headers) {
-    ClientInterceptor interceptor = null;
-    if (!headers.isEmpty()) {
-      Metadata extraHeaders = new Metadata();
-      headers.forEach(
-          header ->
-              extraHeaders.put(
-                  Metadata.Key.of(header.getKey(), Metadata.ASCII_STRING_MARSHALLER),
-                  header.getValue()));
-      interceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders);
-    }
+      ClientInterceptor interceptor) {
     this.besAsync =
         configureStub(PublishBuildEventGrpc.newStub(channel), callCredentials, interceptor);
     this.besBlocking =

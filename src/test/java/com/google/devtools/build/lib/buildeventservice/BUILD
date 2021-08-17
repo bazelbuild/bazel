@@ -26,7 +26,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
@@ -48,6 +47,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:buildeventservice-options",

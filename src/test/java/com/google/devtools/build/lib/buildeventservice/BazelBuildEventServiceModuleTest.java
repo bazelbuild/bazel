@@ -23,12 +23,15 @@ import static org.junit.Assume.assumeFalse;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.BackendConfig;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
@@ -66,6 +69,7 @@ import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.devtools.build.v1.StreamId;
 import com.google.protobuf.Empty;
 import io.grpc.ManagedChannel;
+import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -586,6 +590,26 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     assertThat(besModule.getBesKeywords(besOptions, null))
         .containsExactly("user_keyword=keyword0", "user_keyword=keyword1");
+  }
+
+  @Test
+  public void testMakeGrpcMetadata() throws Exception {
+    runBuildWithOptions();
+    BuildEventServiceOptions besOptions = new BuildEventServiceOptions();
+    AuthAndTLSOptions authAndTLSOptions = new AuthAndTLSOptions();
+    besOptions.besBackend = "bes-backend";
+    besOptions.besProxy = "bes-proxy";
+    besOptions.besHeaders =
+        ImmutableMap.of("key1", "val1", "key2", "val2", "key3", "val3").entrySet().asList();
+    BackendConfig newConfig = BackendConfig.create(besOptions, authAndTLSOptions);
+
+    Metadata metadata = BazelBuildEventServiceModule.makeGrpcMetadata(newConfig);
+    assertThat(metadata.get(Metadata.Key.of("key1", Metadata.ASCII_STRING_MARSHALLER)))
+        .isEqualTo("val1");
+    assertThat(metadata.get(Metadata.Key.of("key2", Metadata.ASCII_STRING_MARSHALLER)))
+        .isEqualTo("val2");
+    assertThat(metadata.get(Metadata.Key.of("key3", Metadata.ASCII_STRING_MARSHALLER)))
+        .isEqualTo("val3");
   }
 
   /** Regression test for b/111653523. */
