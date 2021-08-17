@@ -465,14 +465,14 @@ java_runtime_version_alias(
 )
 
 java_runtime_version_alias(
-    name = "remotejdk_14",
-    runtime_version = "remotejdk_14",
+    name = "remotejdk_15",
+    runtime_version = "remotejdk_15",
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
-    name = "remotejdk_15",
-    runtime_version = "remotejdk_15",
+    name = "remotejdk_16",
+    runtime_version = "remotejdk_16",
     visibility = ["//visibility:public"],
 )
 
