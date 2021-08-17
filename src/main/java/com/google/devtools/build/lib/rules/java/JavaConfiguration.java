@@ -283,21 +283,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return enforceProguardFileExtension;
   }
 
-  /** Returns the raw translation targets. */
-  public ImmutableList<Label> getTranslationTargets() {
-    return translationTargets;
-  }
-
-  /** Returns true if the we should build translations. */
-  public boolean buildTranslations() {
-    return (bundleTranslations != TriState.NO) && !translationTargets.isEmpty();
-  }
-
-  /** Returns whether translations were explicitly disabled. */
-  public boolean isTranslationsDisabled() {
-    return bundleTranslations == TriState.NO;
-  }
-
   /** Stores a String name and an optional associated label. */
   @AutoValue
   public abstract static class NamedLabel {

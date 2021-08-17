@@ -99,7 +99,8 @@ java_runtime_version_alias = rule(
 
 def _java_toolchain_alias(ctx):
     """An experimental implementation of java_toolchain_alias using toolchain resolution."""
-    ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
+    toolchain_info = ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]
+    toolchain = toolchain_info.java
     return struct(
         providers = [
             toolchain_info,
@@ -112,5 +113,4 @@ def _java_toolchain_alias(ctx):
 java_toolchain_alias = rule(
     implementation = _java_toolchain_alias,
     toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )

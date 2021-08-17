@@ -461,54 +461,18 @@ _JDKS = [
 java_runtime_version_alias(
     name = "remote_jdk11",
     runtime_version = "remotejdk_11",
-==== BASE ====
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk11_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk11_win//:jdk",
-            "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
-            "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
-            "//src/conditions:linux_s390x": "@remotejdk11_linux_s390x//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
-==== BASE ====
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
-==== BASE ====
     name = "remotejdk_14",
     runtime_version = "remotejdk_14",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk14_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk14_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk14_linux//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
-==== BASE ====
     visibility = ["//visibility:public"],
 )
 
 java_runtime_version_alias(
-==== BASE ====
     name = "remotejdk_15",
     runtime_version = "remotejdk_15",
-    selected_java_runtime = select(
-        {
-            "//src/conditions:darwin": "@remotejdk15_macos//:jdk",
-            "//src/conditions:windows": "@remotejdk15_win//:jdk",
-            "//src/conditions:linux_x86_64": "@remotejdk15_linux//:jdk",
-        },
-        no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
-                         " provide one using `--host_javabase.`",
-    ),
-==== BASE ====
     visibility = ["//visibility:public"],
 )
 
