@@ -451,15 +451,6 @@ public interface JavaCommonApi<
   ProviderApi getJavaRuntimeProvider();
 
   @StarlarkMethod(
-      name = "is_java_toolchain_resolution_enabled_do_not_use",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
-      },
-      doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
-  boolean isJavaToolchainResolutionEnabled(StarlarkRuleContextT ruleContext) throws EvalException;
-
-  @StarlarkMethod(
       name = "MessageBundleInfo",
       doc = "The provider used to supply message bundles for translation",
       structField = true,
