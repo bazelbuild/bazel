@@ -291,7 +291,7 @@ public final class SpawnMetrics {
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
-    private CachedResultFrom actionCacheFrom;
+    private CachedResultFrom actionCacheFrom = CachedResultFrom.REMOTE;
 
     public static Builder forLocalExec() {
       return forExec(ExecKind.LOCAL);
