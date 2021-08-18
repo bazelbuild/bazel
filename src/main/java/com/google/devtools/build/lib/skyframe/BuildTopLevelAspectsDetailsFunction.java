@@ -89,19 +89,13 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       // duplicate aspects by keeping the first occurrence of each aspect.
       topLevelAspectsClasses = ImmutableSet.copyOf(topLevelAspectsClasses).asList();
 
-      try {
-        // Then return a list of indenpendent aspects to be applied on the top-level targets
-        ImmutableList<AspectDetails> aspectsDetailsList =
-            getIndependentTopLevelAspects(env, topLevelAspectsClasses);
-        if (aspectsDetailsList == null) {
-          return null; // some aspects are not loaded
-        }
-        return new BuildTopLevelAspectsDetailsValue(aspectsDetailsList);
-      } catch (AspectCreationException e) {
-        env.getListener().handle(Event.error(e.getMessage()));
-        throw new BuildTopLevelAspectsDetailsFunctionException(
-            new TopLevelAspectsDetailsBuildFailedException(e.getMessage()));
+      // Then return a list of indenpendent aspects to be applied on the top-level targets
+      ImmutableList<AspectDetails> aspectsDetailsList =
+          getIndependentTopLevelAspects(env, topLevelAspectsClasses);
+      if (aspectsDetailsList == null) {
+        return null; // some aspects are not loaded
       }
+      return new BuildTopLevelAspectsDetailsValue(aspectsDetailsList);
     }
 
     ImmutableList<Aspect> topLevelAspects = getTopLevelAspects(env, topLevelAspectsClasses);
@@ -153,7 +147,7 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
   @Nullable
   private static ImmutableList<AspectDetails> getIndependentTopLevelAspects(
       Environment env, ImmutableList<AspectClass> topLevelAspectsClasses)
-      throws InterruptedException, AspectCreationException {
+      throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
     Map<SkyKey, ValueOrException<AspectCreationException>> loadedAspects =
         loadAspects(env, topLevelAspectsClasses);
     if (loadedAspects == null) {
@@ -161,23 +155,30 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     }
     ImmutableList.Builder<AspectDetails> aspectDetailsList = ImmutableList.builder();
 
-    for (AspectClass aspectClass : topLevelAspectsClasses) {
-      if (aspectClass instanceof StarlarkAspectClass) {
-        ValueOrException<AspectCreationException> valueOrException =
-            loadedAspects.get(
-                LoadStarlarkAspectFunction.createStarlarkAspectLoadingKey(
-                    (StarlarkAspectClass) aspectClass));
-        StarlarkAspectLoadingValue aspectLoadingValue =
-            (StarlarkAspectLoadingValue) valueOrException.get();
-        StarlarkAspect starlarkAspect = aspectLoadingValue.getAspect();
-        aspectDetailsList.add(
-            new AspectDetails(
+    try {
+      for (AspectClass aspectClass : topLevelAspectsClasses) {
+        if (aspectClass instanceof StarlarkAspectClass) {
+          ValueOrException<AspectCreationException> valueOrException =
+              loadedAspects.get(
+                  LoadStarlarkAspectFunction.createStarlarkAspectLoadingKey(
+                      (StarlarkAspectClass) aspectClass));
+          StarlarkAspectLoadingValue aspectLoadingValue =
+              (StarlarkAspectLoadingValue) valueOrException.get();
+          StarlarkAspect starlarkAspect = aspectLoadingValue.getAspect();
+          aspectDetailsList.add(
+              new AspectDetails(
                 ImmutableList.of(), new AspectDescriptor(starlarkAspect.getAspectClass())));
-      } else {
-        aspectDetailsList.add(
-            new AspectDetails(ImmutableList.of(), new AspectDescriptor(aspectClass)));
+        } else {
+          aspectDetailsList.add(
+              new AspectDetails(ImmutableList.of(), new AspectDescriptor(aspectClass)));
+        }
       }
-      }
+    } catch (AspectCreationException e) {
+      env.getListener().handle(Event.error(e.getMessage()));
+      throw new BuildTopLevelAspectsDetailsFunctionException(
+          new TopLevelAspectsDetailsBuildFailedException(e.getMessage()));
+    }
+
     return aspectDetailsList.build();
   }
 
