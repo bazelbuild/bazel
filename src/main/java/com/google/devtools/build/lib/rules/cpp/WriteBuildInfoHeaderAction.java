@@ -58,10 +58,11 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
    * Bazel by the workspace status module, and the value associated with said keys from the
    * workspace status files (stable and volatile) written by the workspace status action.
    *
-   * <p>Without input artifacts this action uses redacted build information.
+   * <p>When both {@link WriteBuildInfoHeaderAction#writeVolatileInfo} and
+   * {@link WriteBuildInfoHeaderAction#writeStableInfo} are <code>true</code>,
+   * this action uses redacted build information.
    *
-   * @param inputs Artifacts that contain build information, or an empty collection to use redacted
-   *     build information
+   * @param inputs Artifacts that contain build information; must not be empty
    * @param primaryOutput the C++ header Artifact created by this action
    * @param writeVolatileInfo whether to write the volatile part of the build information to the
    *     generated header
@@ -74,13 +75,9 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
       boolean writeVolatileInfo,
       boolean writeStableInfo) {
     super(ActionOwner.SYSTEM_ACTION_OWNER, inputs, primaryOutput, /*makeExecutable=*/ false);
-    if (!inputs.isEmpty()) {
-      // With non-empty inputs we should not generate both volatile and non-volatile data
-      // in the same header file.
-      Preconditions.checkState(writeVolatileInfo ^ writeStableInfo);
-    }
+    Preconditions.checkState(!inputs.isEmpty());
     Preconditions.checkState(
-        primaryOutput.isConstantMetadata() == (writeVolatileInfo && !inputs.isEmpty()));
+        primaryOutput.isConstantMetadata() == (writeVolatileInfo && !writeStableInfo));
 
     this.writeVolatileInfo = writeVolatileInfo;
     this.writeStableInfo = writeStableInfo;
@@ -114,7 +111,12 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
       }
     }
 
-    final boolean redacted = getInputs().isEmpty();
+    for (String key : values.keySet()) {
+      keys.putIfAbsent(key, WorkspaceStatusAction.Key.of(
+              WorkspaceStatusAction.KeyType.STRING, "", "redacted"));
+    }
+
+    final boolean redacted = writeStableInfo && writeVolatileInfo;
 
     return out -> {
       Writer writer = new OutputStreamWriter(out, UTF_8);

@@ -56,7 +56,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
             buildInfoContext,
             config,
             BUILD_INFO_REDACTED_HEADER_NAME,
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.create(Order.STABLE_ORDER, buildInfo, buildChangelist),
             true,
             true);
     WriteBuildInfoHeaderAction nonvolatileInfo =
@@ -96,7 +96,7 @@ public final class CppBuildInfo implements BuildInfoFactory {
         buildInfoContext.getBuildInfoArtifact(
             headerName,
             outputPath,
-            writeVolatileInfo && !inputs.isEmpty()
+            writeVolatileInfo && !writeNonVolatileInfo
                 ? BuildInfoType.NO_REBUILD
                 : BuildInfoType.FORCE_REBUILD_IF_CHANGED);
     return new WriteBuildInfoHeaderAction(

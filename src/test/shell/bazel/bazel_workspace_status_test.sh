@@ -56,6 +56,8 @@ echo BUILD_USER fake_user
 echo BUILD_HOST fake_host
 echo BUILD_EMBED_LABEL fake_label
 echo BUILD_TIMESTAMP 17
+echo STABLE_CUSTOM_VAR nonvolatile
+echo CUSTOM_VARIABLE volatile
 EOF
   chmod +x $cmd
 
@@ -72,10 +74,12 @@ EOF
   bazel build --stamp //a --workspace_status_command=$cmd || fail "build failed"
   cat bazel-out/volatile-status.txt > "$TEST_log"
   expect_log "BUILD_TIMESTAMP 17"
+  expect_log "CUSTOM_VARIABLE volatile"
   cat bazel-out/stable-status.txt > "$TEST_log"
   expect_log "BUILD_USER fake_user"
   expect_log "BUILD_HOST fake_host"
   expect_log "BUILD_EMBED_LABEL fake_label"
+  expect_log "STABLE_CUSTOM_VAR nonvolatile"
 }
 
 function test_workspace_status_cpp() {
@@ -86,6 +90,8 @@ function test_workspace_status_cpp() {
 #!/bin/bash
 
 echo BUILD_SCM_STATUS funky
+echo STABLE_CUSTOM_VAR nonvolatile
+echo CUSTOM_VARIABLE volatile
 EOF
   chmod +x $cmd
 
@@ -94,17 +100,25 @@ EOF
 #include <string>
 
 ::std::string BuildScmStatus() { return BUILD_SCM_STATUS; }
+::std::string StableCustomVar() { return STABLE_CUSTOM_VAR; }
+::std::string CustomVariable() { return CUSTOM_VARIABLE; }
 EOF
   cat > a/verify_scm_status.cc <<'EOF'
 #include <string>
 #include <iostream>
 
 ::std::string BuildScmStatus();
+::std::string StableCustomVar();
+::std::string CustomVariable();
 
 int main() {
   ::std::cout << "BUILD_SCM_STATUS is: " << BuildScmStatus();
+  ::std::cout << "STABLE_CUSTOM_VAR is: " << StableCustomVar();
+  ::std::cout << "CUSTOM_VARIABLE is: " << CustomVariable();
 
-  return ("funky" == BuildScmStatus()) ? 0 : 1;
+  return ("funky" == BuildScmStatus()
+      && "nonvolatile" == StableCustomVar()
+      && "volatile" == CustomVariable()) ? 0 : 1;
 }
 EOF
 
