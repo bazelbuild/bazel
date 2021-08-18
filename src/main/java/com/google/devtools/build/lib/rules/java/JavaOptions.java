@@ -71,41 +71,34 @@ public class JavaOptions extends FragmentOptions {
               + " instead; see #7849")
   public boolean disallowLegacyJavaToolchainFlags;
 
-  private static final String DEFAULT_JAVABASE = "@bazel_tools//tools/jdk:jdk";
-
   @Deprecated
   @Option(
       name = "javabase",
-      defaultValue = DEFAULT_JAVABASE,
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "JAVABASE used for the JDK invoked by Blaze. This is the "
-              + "java_runtime which will be used to execute "
-              + "external Java commands.")
+      help = "No-op. Kept here for backwards compatibility.")
   public Label javaBase;
-
-  private static final String DEFAULT_JAVA_TOOLCHAIN = "@bazel_tools//tools/jdk:remote_toolchain";
 
   @Deprecated
   @Option(
       name = "java_toolchain",
-      defaultValue = DEFAULT_JAVA_TOOLCHAIN,
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The name of the toolchain rule for Java.")
+      help = "No-op. Kept here for backwards compatibility.")
   public Label javaToolchain;
 
   @Deprecated
   @Option(
       name = "host_java_toolchain",
-      defaultValue = DEFAULT_JAVA_TOOLCHAIN,
+      defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The Java toolchain used to build tools that are executed during a build.")
+      help = "No-op. Kept here for backwards compatibility.")
   public Label hostJavaToolchain;
 
   @Deprecated
@@ -115,9 +108,7 @@ public class JavaOptions extends FragmentOptions {
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "JAVABASE used for the host JDK. This is the java_runtime which is used to execute "
-              + "tools during a build.")
+      help = "No-op.  Kept here for backwards compatibility.")
   public Label hostJavaBase;
 
   @Option(
@@ -576,41 +567,20 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
-
-  Label defaultJavaBase() {
-    return Label.parseAbsoluteUnchecked(DEFAULT_JAVABASE);
-  }
-
-  Label getHostJavaBase() {
-    if (hostJavaBase == null) {
-      return defaultHostJavaBase();
-    }
-    return hostJavaBase;
-  }
-
-  Label defaultHostJavaBase() {
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:remote_jdk11");
-  }
-
-  Label defaultJavaToolchain() {
-    return Label.parseAbsoluteUnchecked(DEFAULT_JAVA_TOOLCHAIN);
-  }
-
   @Override
   public FragmentOptions getHost() {
     // Note validation actions don't run in host config, so no need copying flags related to that.
     // TODO(b/171078539): revisit if relevant validations are run in host config
     JavaOptions host = (JavaOptions) getDefault();
 
-    host.javaBase = getHostJavaBase();
     if (hostJvmOpts == null || hostJvmOpts.isEmpty()) {
       host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
     } else {
       host.jvmOpts = hostJvmOpts;
     }
 
+
     host.javacOpts = hostJavacOpts;
-    host.javaToolchain = hostJavaToolchain;
 
     host.javaLauncher = hostJavaLauncher;
 
@@ -648,10 +618,8 @@ public class JavaOptions extends FragmentOptions {
     host.proguard = proguard;
 
     // Save host options for further use.
-    host.hostJavaBase = hostJavaBase;
     host.hostJavacOpts = hostJavacOpts;
     host.hostJavaLauncher = hostJavaLauncher;
-    host.hostJavaToolchain = hostJavaToolchain;
     host.hostJavaRuntimeVersion = hostJavaRuntimeVersion;
     host.hostJavaLanguageVersion = hostJavaLanguageVersion;
 
