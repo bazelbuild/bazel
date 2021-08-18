@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -123,7 +124,7 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
   }
 
   @Nullable
-  private static Map<SkyKey, SkyValue> loadAspects(
+  private static Map<SkyKey, ValueOrException<AspectCreationException>> loadAspects(
       Environment env, ImmutableList<AspectClass> topLevelAspectsClasses)
       throws InterruptedException {
     ImmutableList.Builder<StarlarkAspectLoadingKey> aspectLoadingKeys = ImmutableList.builder();
@@ -135,7 +136,8 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       }
     }
 
-    Map<SkyKey, SkyValue> loadedAspects = env.getValues(aspectLoadingKeys.build());
+    Map<SkyKey, ValueOrException<AspectCreationException>> loadedAspects =
+        env.getValuesOrThrow(aspectLoadingKeys.build(), AspectCreationException.class);
     if (env.valuesMissing()) {
       return null;
     }
@@ -145,29 +147,38 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
   @Nullable
   private static ImmutableList<AspectDetails> getIndependentTopLevelAspects(
       Environment env, ImmutableList<AspectClass> topLevelAspectsClasses)
-      throws InterruptedException {
-    Map<SkyKey, SkyValue> loadedAspects = loadAspects(env, topLevelAspectsClasses);
+      throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
+    Map<SkyKey, ValueOrException<AspectCreationException>> loadedAspects =
+        loadAspects(env, topLevelAspectsClasses);
     if (loadedAspects == null) {
       return null;
     }
     ImmutableList.Builder<AspectDetails> aspectDetailsList = ImmutableList.builder();
 
-    for (AspectClass aspectClass : topLevelAspectsClasses) {
-      if (aspectClass instanceof StarlarkAspectClass) {
-        StarlarkAspectLoadingValue aspectLoadingValue =
-            (StarlarkAspectLoadingValue)
-                loadedAspects.get(
-                    LoadStarlarkAspectFunction.createStarlarkAspectLoadingKey(
-                        (StarlarkAspectClass) aspectClass));
-        StarlarkAspect starlarkAspect = aspectLoadingValue.getAspect();
-        aspectDetailsList.add(
-            new AspectDetails(
-                ImmutableList.of(), new AspectDescriptor(starlarkAspect.getAspectClass())));
-      } else {
-        aspectDetailsList.add(
-            new AspectDetails(ImmutableList.of(), new AspectDescriptor(aspectClass)));
+    try {
+      for (AspectClass aspectClass : topLevelAspectsClasses) {
+        if (aspectClass instanceof StarlarkAspectClass) {
+          ValueOrException<AspectCreationException> valueOrException =
+              loadedAspects.get(
+                  LoadStarlarkAspectFunction.createStarlarkAspectLoadingKey(
+                      (StarlarkAspectClass) aspectClass));
+          StarlarkAspectLoadingValue aspectLoadingValue =
+              (StarlarkAspectLoadingValue) valueOrException.get();
+          StarlarkAspect starlarkAspect = aspectLoadingValue.getAspect();
+          aspectDetailsList.add(
+              new AspectDetails(
+                  ImmutableList.of(), new AspectDescriptor(starlarkAspect.getAspectClass())));
+        } else {
+          aspectDetailsList.add(
+              new AspectDetails(ImmutableList.of(), new AspectDescriptor(aspectClass)));
+        }
       }
+    } catch (AspectCreationException e) {
+      env.getListener().handle(Event.error(e.getMessage()));
+      throw new BuildTopLevelAspectsDetailsFunctionException(
+          new TopLevelAspectsDetailsBuildFailedException(e.getMessage()));
     }
+
     return aspectDetailsList.build();
   }
 
@@ -176,20 +187,23 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       Environment env, ImmutableList<AspectClass> topLevelAspectsClasses)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
     AspectsListBuilder aspectsList = new AspectsListBuilder();
-    Map<SkyKey, SkyValue> loadedAspects = loadAspects(env, topLevelAspectsClasses);
+    Map<SkyKey, ValueOrException<AspectCreationException>> loadedAspects =
+        loadAspects(env, topLevelAspectsClasses);
     if (loadedAspects == null) {
       return null;
     }
 
     for (AspectClass aspectClass : topLevelAspectsClasses) {
       if (aspectClass instanceof StarlarkAspectClass) {
-        StarlarkAspectLoadingValue aspectLoadingValue =
-            (StarlarkAspectLoadingValue)
-                loadedAspects.get(
-                    LoadStarlarkAspectFunction.createStarlarkAspectLoadingKey(
-                        (StarlarkAspectClass) aspectClass));
-        StarlarkAspect starlarkAspect = aspectLoadingValue.getAspect();
         try {
+          ValueOrException<AspectCreationException> valueOrException =
+              loadedAspects.get(
+                  LoadStarlarkAspectFunction.createStarlarkAspectLoadingKey(
+                      (StarlarkAspectClass) aspectClass));
+          StarlarkAspectLoadingValue aspectLoadingValue =
+              (StarlarkAspectLoadingValue) valueOrException.get();
+          StarlarkAspect starlarkAspect = aspectLoadingValue.getAspect();
+
           starlarkAspect.attachToAspectsList(
               /** baseAspectName= */
               null,
@@ -200,7 +214,7 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
               ImmutableList.of(),
               /** allowAspectsParameters= */
               false);
-        } catch (EvalException e) {
+        } catch (EvalException | AspectCreationException e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
               new TopLevelAspectsDetailsBuildFailedException(e.getMessage()));
