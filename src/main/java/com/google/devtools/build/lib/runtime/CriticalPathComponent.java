@@ -235,7 +235,7 @@ public class CriticalPathComponent {
    */
   synchronized void addDepInfo(CriticalPathComponent dep, long componentFinishNanos) {
     long currentElapsedTime = componentFinishNanos - startNanos;
-    long aggregatedElapsedTime = dep.getAggregatedElapsedTimeNanos() + currentElapsedTime;
+    long aggregatedElapsedTime = dep.aggregatedElapsedTime + currentElapsedTime;
     // This corrects the overlapping run time.
     if (dep.finishNanos > startNanos) {
       aggregatedElapsedTime -= dep.finishNanos - startNanos;
@@ -289,12 +289,7 @@ public class CriticalPathComponent {
    * <p>Critical path is defined as : action_execution_time + max(child_critical_path).
    */
   Duration getAggregatedElapsedTime() {
-    return Duration.ofNanos(getAggregatedElapsedTimeNanos());
-  }
-
-  private long getAggregatedElapsedTimeNanos() {
-    Preconditions.checkState(!isRunning, "Still running %s", this);
-    return aggregatedElapsedTime;
+    return Duration.ofNanos(aggregatedElapsedTime);
   }
 
   /**
