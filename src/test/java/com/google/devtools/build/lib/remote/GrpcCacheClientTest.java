@@ -54,6 +54,7 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -632,7 +633,8 @@ public class GrpcCacheClientTest {
     remoteCache.downloadActionResult(
         context,
         DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-        /* inlineOutErr= */ false);
+        /* inlineOutErr= */ false,
+        SpawnMetrics.Builder.forRemoteExec());
   }
 
   @Test
@@ -928,7 +930,7 @@ public class GrpcCacheClientTest {
         });
     assertThat(
             getFromFuture(
-                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false)))
+                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false, SpawnMetrics.Builder.forRemoteExec())))
         .isNull();
   }
 

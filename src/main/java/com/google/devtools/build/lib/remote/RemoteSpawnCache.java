@@ -132,8 +132,7 @@ final class RemoteSpawnCache implements SpawnCache {
               createSpawnResult(
                   result.getExitCode(),
                   /*cacheHit=*/ true,
-                  // TODO(ron): update here.
-                  "fail", //spawnMetrics.getActionCacheFrom().name(),
+                  spawnMetrics.getActionCacheFrom().name(),
                   inMemoryOutput,
                   spawnMetrics.build(),
                   spawn.getMnemonic());
