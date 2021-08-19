@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -93,7 +92,7 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr, SpawnMetrics.Builder spawnMetrics) {
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     ActionResult actionResult = ac.get(actionKey);
     if (actionResult == null) {
       return Futures.immediateFailedFuture(new CacheNotFoundException(actionKey.getDigest()));

@@ -42,8 +42,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.actions.SpawnMetrics;
-import com.google.devtools.build.lib.actions.SpawnMetrics.CachedResultFrom;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
@@ -250,9 +248,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr,
-      SpawnMetrics.Builder spawnMetrics) {
-    spawnMetrics.setActionCacheFrom(CachedResultFrom.REMOTE);
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)

@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
-import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -257,7 +256,7 @@ public class RemoteSpawnCacheTest {
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false), any()))
+            /* inlineOutErr= */ eq(false)))
         .thenAnswer(
             new Answer<ActionResult>() {
               @Override
@@ -370,7 +369,7 @@ public class RemoteSpawnCacheTest {
         SimpleSpawn uncacheableSpawn =
             simpleSpawnWithExecutionInfo(ImmutableMap.of(requirement, ""));
         CacheHandle entry = remoteSpawnCache.lookup(uncacheableSpawn, simplePolicy);
-        verify(remoteSpawnCache.getRemoteExecutionService(), never()).lookupCache(any(), any());
+        verify(remoteSpawnCache.getRemoteExecutionService(), never()).lookupCache(any());
         assertThat(entry.hasResult()).isFalse();
         SpawnResult result =
             new SpawnResult.Builder()
@@ -406,8 +405,7 @@ public class RemoteSpawnCacheTest {
           .downloadActionResult(
               any(RemoteActionExecutionContext.class),
               any(ActionKey.class),
-              /* inlineOutErr= */ eq(false),
-              any(SpawnMetrics.Builder.class));
+              /* inlineOutErr= */ eq(false));
       assertThat(entry.hasResult()).isFalse();
       SpawnResult result =
           new SpawnResult.Builder()
@@ -444,8 +442,7 @@ public class RemoteSpawnCacheTest {
           .downloadActionResult(
               any(RemoteActionExecutionContext.class),
               any(ActionKey.class),
-              /* inlineOutErr= */ eq(false),
-              any(SpawnMetrics.Builder.class));
+              /* inlineOutErr= */ eq(false));
       assertThat(entry.hasResult()).isFalse();
       SpawnResult result =
           new SpawnResult.Builder()
@@ -472,8 +469,7 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false),
-            any(SpawnMetrics.Builder.class));
+            /* inlineOutErr= */ eq(false));
   }
 
   @Test
@@ -486,8 +482,7 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false),
-            any(SpawnMetrics.Builder.class));
+            /* inlineOutErr= */ eq(false));
   }
 
   @Test
@@ -499,8 +494,7 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false),
-            any(SpawnMetrics.Builder.class));
+            /* inlineOutErr= */ eq(false));
     assertThat(entry.hasResult()).isFalse();
     SpawnResult result =
         new SpawnResult.Builder()
@@ -582,8 +576,8 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false),
-            any(SpawnMetrics.Builder.class));
+            /* inlineOutErr= */ eq(false));
+
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
     SpawnResult result =
@@ -646,8 +640,7 @@ public class RemoteSpawnCacheTest {
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false),
-            any(SpawnMetrics.Builder.class)))
+            /* inlineOutErr= */ eq(false)))
         .thenAnswer(
             new Answer<ActionResult>() {
               @Override
@@ -717,8 +710,7 @@ public class RemoteSpawnCacheTest {
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false),
-            any(SpawnMetrics.Builder.class)))
+            /* inlineOutErr= */ eq(false)))
         .thenReturn(actionResult);
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
@@ -735,7 +727,7 @@ public class RemoteSpawnCacheTest {
 
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(
-            any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false), any()))
+            any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(success);
 
     // act
@@ -759,7 +751,7 @@ public class RemoteSpawnCacheTest {
 
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(
-            any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false), any()))
+            any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
         .thenReturn(success);
     doThrow(downloadFailure)
         .when(cache.getRemoteExecutionService())
