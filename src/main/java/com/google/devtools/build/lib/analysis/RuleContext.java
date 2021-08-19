@@ -50,8 +50,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
@@ -212,7 +210,7 @@ public final class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
   private final ConstraintSemantics<RuleContext> constraintSemantics;
-  private final ImmutableSet<String> requiredConfigFragments;
+  @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   /** Map of exec group names to ActionOwners. */
@@ -259,7 +257,7 @@ public final class RuleContext extends TargetContext
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection execGroupCollection,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ImmutableSet<String> requiredConfigFragments,
+      @Nullable RequiredConfigFragmentsProvider requiredConfigFragments,
       String toolsRepository,
       StarlarkSemantics starlarkSemantics,
       Mutability mutability) {
@@ -1321,7 +1319,7 @@ public final class RuleContext extends TargetContext
    */
   public ImmutableSortedSet<String> getRequiredConfigFragments() {
     ImmutableSortedSet.Builder<String> ans = ImmutableSortedSet.naturalOrder();
-    ans.addAll(requiredConfigFragments);
+    ans.addAll(requiredConfigFragments.getRequiredConfigFragments());
     for (Expander makeVariableExpander : makeVariableExpanders) {
       for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
         // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
@@ -1662,21 +1660,7 @@ public final class RuleContext extends TargetContext
    * rule.
    */
   public boolean shouldIncludeRequiredConfigFragmentsProvider() {
-    IncludeConfigFragmentsEnum setting =
-        getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .includeRequiredConfigFragmentsProvider;
-    switch (setting) {
-      case OFF:
-        return false;
-      case DIRECT_HOST_ONLY:
-        return getConfiguration().isHostConfiguration();
-      case DIRECT:
-      case TRANSITIVE:
-        return true;
-    }
-    throw new IllegalStateException("Unknown setting: " + setting);
+    return requiredConfigFragments != null;
   }
 
   @Override
@@ -1709,7 +1693,7 @@ public final class RuleContext extends TargetContext
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
     private ConstraintSemantics<RuleContext> constraintSemantics;
-    private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
+    @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
 
     @VisibleForTesting
     public Builder(
@@ -1920,7 +1904,8 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    public Builder setRequiredConfigFragments(ImmutableSet<String> requiredConfigFragments) {
+    public Builder setRequiredConfigFragments(
+        @Nullable RequiredConfigFragmentsProvider requiredConfigFragments) {
       this.requiredConfigFragments = requiredConfigFragments;
       return this;
     }

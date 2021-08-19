@@ -314,7 +314,7 @@ public final class ConfiguredTargetFactory {
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
-                RequiredFragmentsUtil.getRequiredFragments(
+                RequiredFragmentsUtil.getRequiredFragmentsIfEnabled(
                     rule,
                     configuration,
                     ruleClassProvider.getUniversalFragments(),
@@ -536,7 +536,7 @@ public final class ConfiguredTargetFactory {
             .setExecProperties(ImmutableMap.of())
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
-                RequiredFragmentsUtil.getRequiredFragments(
+                RequiredFragmentsUtil.getRequiredFragmentsIfEnabled(
                     aspect,
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,

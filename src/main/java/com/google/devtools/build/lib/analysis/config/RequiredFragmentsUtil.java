@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * Utility methods for determining what {@link Fragment}s are required to analyze targets.
@@ -48,22 +49,20 @@ import java.util.Optional;
 public class RequiredFragmentsUtil {
 
   /**
-   * Returns a set of user-friendly strings identifying all pieces of configuration a target
-   * requires.
+   * Returns a {@link RequiredConfigFragmentsProvider} identifying all pieces of configuration a
+   * target requires, or {@code null} if required config fragments are not enabled (see {@link
+   * CoreOptions#includeRequiredConfigFragmentsProvider}).
    *
    * <p>The returned config state includes things that are known to be required at the time when the
    * target's dependencies have already been analyzed but before it's been analyzed itself. See
    * {@link RuleConfiguredTargetBuilder#maybeAddRequiredConfigFragmentsProvider} for the remaining
    * pieces of config state.
    *
-   * <p>The strings can be names of {@link Fragment}s, names of {@link FragmentOptions}, and labels
-   * of user-defined options such as Starlark flags and Android feature flags.
-   *
    * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
    * result includes only the config state considered to be directly required by this target. If
    * it's {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config state
    * needed by transitive dependencies. If it's {@link CoreOptions.IncludeConfigFragmentsEnum#OFF},
-   * this method just returns an empty set.
+   * this method returns {@code null}.
    *
    * <p>{@code select()}s and toolchain dependencies are considered when looking at what config
    * state is required.
@@ -79,16 +78,19 @@ public class RequiredFragmentsUtil {
    *     out which transitions are attached to the target. {@link TransitionFactory}, which
    *     determines the transitions, may read the target's attributes.
    * @param prerequisites all prerequisites of this aspect
-   * @return An alphabetically ordered set of required fragments, options, and labels of
-   *     user-defined options.
+   * @return {@link RequiredConfigFragmentsProvider} or {@code null} if not enabled
    */
-  public static ImmutableSortedSet<String> getRequiredFragments(
+  @Nullable
+  public static RequiredConfigFragmentsProvider getRequiredFragmentsIfEnabled(
       Rule target,
       BuildConfiguration configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
+    if (!requiredFragmentsEnabled(configuration)) {
+      return null;
+    }
     return getRequiredFragments(
         target.isBuildSetting() ? Optional.of(target.getLabel()) : Optional.empty(),
         configuration,
@@ -112,10 +114,10 @@ public class RequiredFragmentsUtil {
    * @param configConditions <code>config_settings</code> required by <code>select</code>s on the
    *     associated target. Used for figuring out which transitions are attached to the target.
    * @param prerequisites all prerequisites of this aspect
-   * @return An alphabetically ordered set of required fragments, options, and labels of
-   *     user-defined options.
+   * @return {@link RequiredConfigFragmentsProvider} or {@code null} if not enabled
    */
-  public static ImmutableSortedSet<String> getRequiredFragments(
+  @Nullable
+  public static RequiredConfigFragmentsProvider getRequiredFragmentsIfEnabled(
       Aspect aspect,
       Rule associatedTarget,
       BuildConfiguration configuration,
@@ -123,6 +125,9 @@ public class RequiredFragmentsUtil {
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
+    if (!requiredFragmentsEnabled(configuration)) {
+      return null;
+    }
     return getRequiredFragments(
         /*buildSettingLabel=*/ Optional.empty(),
         configuration,
@@ -137,7 +142,7 @@ public class RequiredFragmentsUtil {
   }
 
   /** Internal implementation that handles any source (target or aspect). */
-  private static ImmutableSortedSet<String> getRequiredFragments(
+  private static RequiredConfigFragmentsProvider getRequiredFragments(
       Optional<Label> buildSettingLabel,
       BuildConfiguration configuration,
       FragmentClassSet universallyRequiredFragments,
@@ -145,11 +150,6 @@ public class RequiredFragmentsUtil {
       Collection<ConfigMatchingProvider> configConditions,
       Collection<ConfigurationTransition> associatedTransitions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
-    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
-    if (coreOptions.includeRequiredConfigFragmentsProvider
-        == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
-      return ImmutableSortedSet.of();
-    }
     // Add directly required fragments:
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder()
@@ -175,7 +175,7 @@ public class RequiredFragmentsUtil {
 
     // Optionally add transitively required fragments (only if --show_config_fragments=transitive):
     addRequiredFragmentsFromDeps(requiredFragments, configuration, prerequisites);
-    return requiredFragments.build();
+    return new RequiredConfigFragmentsProvider(requiredFragments.build());
   }
 
   /**
@@ -270,6 +270,21 @@ public class RequiredFragmentsUtil {
         }
       }
     }
+  }
+
+  private static boolean requiredFragmentsEnabled(BuildConfiguration config) {
+    IncludeConfigFragmentsEnum setting =
+        config.getOptions().get(CoreOptions.class).includeRequiredConfigFragmentsProvider;
+    switch (setting) {
+      case OFF:
+        return false;
+      case DIRECT_HOST_ONLY:
+        return config.isHostConfiguration();
+      case DIRECT:
+      case TRANSITIVE:
+        return true;
+    }
+    throw new AssertionError(setting);
   }
 
   private RequiredFragmentsUtil() {}
