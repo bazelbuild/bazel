@@ -55,6 +55,12 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
   /** Merges the values of two {@link RequiredConfigFragmentsProvider} instances. */
   public static RequiredConfigFragmentsProvider merge(
       RequiredConfigFragmentsProvider a, RequiredConfigFragmentsProvider b) {
+    if (a == EMPTY) {
+      return b;
+    }
+    if (b == EMPTY) {
+      return a;
+    }
     return builder().merge(a).merge(b).build();
   }
 
@@ -62,14 +68,21 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
   public static RequiredConfigFragmentsProvider merge(
       List<RequiredConfigFragmentsProvider> providers) {
     checkArgument(!providers.isEmpty());
-    if (providers.size() == 1) {
-      return providers.get(0);
-    }
-    RequiredConfigFragmentsProvider.Builder merged = builder();
+    RequiredConfigFragmentsProvider.Builder merged = null;
+    RequiredConfigFragmentsProvider candidate = EMPTY;
     for (RequiredConfigFragmentsProvider provider : providers) {
-      merged.merge(provider);
+      if (provider == EMPTY) {
+        continue;
+      }
+      if (merged != null) {
+        merged.merge(provider);
+      } else if (candidate == EMPTY) {
+        candidate = provider;
+      } else {
+        merged = builder().merge(candidate).merge(provider);
+      }
     }
-    return merged.build();
+    return merged == null ? candidate : merged.build();
   }
 
   public static Builder builder() {
@@ -125,7 +138,11 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
     }
 
     public RequiredConfigFragmentsProvider build() {
-      return new RequiredConfigFragmentsProvider(strings.build());
+      ImmutableSet<String> strings = this.strings.build();
+      if (strings.isEmpty()) {
+        return EMPTY;
+      }
+      return new RequiredConfigFragmentsProvider(strings);
     }
   }
 }
