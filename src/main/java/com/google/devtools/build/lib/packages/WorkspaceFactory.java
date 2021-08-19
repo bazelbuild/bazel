@@ -140,7 +140,8 @@ public class WorkspaceFactory {
               /*repoMapping=*/ ImmutableMap.of(),
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       List<String> globs = new ArrayList<>(); // unused

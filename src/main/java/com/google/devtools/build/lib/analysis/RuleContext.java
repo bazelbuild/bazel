@@ -1202,7 +1202,8 @@ public final class RuleContext extends TargetContext
             getTarget().getPackage().getRepositoryMapping(),
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             getSymbolGenerator(),
-            getLabel())
+            getLabel(),
+            /*networkAllowlistForTests=*/ null)
         .storeInThread(thread);
     return thread;
   }

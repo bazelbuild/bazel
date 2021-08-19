@@ -263,7 +263,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         .ifPresent(
             label ->
                 builder.add(
-                    Allowlist.getAttributeFromAllowlistName("$network_allowlist").value(label)));
+                    Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
 
     return builder.build();
   }

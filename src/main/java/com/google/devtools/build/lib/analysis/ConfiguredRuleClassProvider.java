@@ -131,7 +131,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   /** Builder for {@link ConfiguredRuleClassProvider}. */
-  public static class Builder implements RuleDefinitionEnvironment {
+  public static final class Builder implements RuleDefinitionEnvironment {
     private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
     private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();
     private Label preludeLabel;
@@ -570,7 +570,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
           constraintSemantics,
-          thirdPartyLicenseExistencePolicy);
+          thirdPartyLicenseExistencePolicy,
+          networkAllowlistForTests);
     }
 
     @Override
@@ -578,14 +579,14 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       return toolsRepository;
     }
 
-    public Builder setNetworkAllowlistForTests(Label allowlist) {
-      networkAllowlistForTests = allowlist;
-      return this;
-    }
-
     @Override
     public Optional<Label> getNetworkAllowlistForTests() {
       return Optional.ofNullable(networkAllowlistForTests);
+    }
+
+    public Builder setNetworkAllowlistForTests(Label allowlist) {
+      networkAllowlistForTests = allowlist;
+      return this;
     }
   }
 
@@ -682,6 +683,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
+  @Nullable private final Label networkAllowlistForTests;
+
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
@@ -708,7 +712,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy) {
+      ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
+      @Nullable Label networkAllowlistForTests) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -739,6 +744,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.constraintSemantics = constraintSemantics;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.allFragments = FragmentClassSet.union(configurationFragmentClasses, universalFragments);
+    this.networkAllowlistForTests = networkAllowlistForTests;
   }
 
   /**
@@ -952,7 +958,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
             repoMapping,
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(fileLabel),
-            /*analysisRuleLabel=*/ null)
+            /*analysisRuleLabel=*/ null,
+            networkAllowlistForTests)
         .storeInThread(thread);
   }
 

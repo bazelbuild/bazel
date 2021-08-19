@@ -664,7 +664,8 @@ public final class PackageFactory {
               pkgBuilder.getRepositoryMapping(),
               pkgBuilder.getConvertedLabelsInPackage(),
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.

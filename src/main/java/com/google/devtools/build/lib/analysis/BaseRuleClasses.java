@@ -265,7 +265,7 @@ public class BaseRuleClasses {
           .ifPresent(
               label ->
                   builder.add(
-                      Allowlist.getAttributeFromAllowlistName("$network_allowlist").value(label)));
+                      Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
 
       return builder.build();
     }

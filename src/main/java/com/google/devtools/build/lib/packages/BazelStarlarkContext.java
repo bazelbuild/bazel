@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.HashMap;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -29,6 +30,10 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
 // TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
+// TODO(brandjon): Use composition rather than inheritance for RuleDefinitionEnvironment; clients
+// should retrieve the RDE (if it exists) from this class in order to access e.g. the network
+// allowlist. The toolsRepository info will be duplicated between this class and RDE but we can
+// enforce consistency with a precondition check.
 public final class BazelStarlarkContext
     implements RuleDefinitionEnvironment,
         Label.HasRepoMapping,
@@ -62,6 +67,8 @@ public final class BazelStarlarkContext
   private final HashMap<String, Label> convertedLabelsInPackage;
   private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
+  @Nullable private final Label networkAllowlistForTests;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
@@ -93,7 +100,8 @@ public final class BazelStarlarkContext
       ImmutableMap<RepositoryName, RepositoryName> repoMapping,
       HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
-      @Nullable Label analysisRuleLabel) {
+      @Nullable Label analysisRuleLabel,
+      @Nullable Label networkAllowlistForTests) {
     this.phase = Preconditions.checkNotNull(phase);
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
@@ -101,6 +109,7 @@ public final class BazelStarlarkContext
     this.convertedLabelsInPackage = convertedLabelsInPackage;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
+    this.networkAllowlistForTests = networkAllowlistForTests;
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */
@@ -151,6 +160,11 @@ public final class BazelStarlarkContext
   @Override
   public String getContextForUncheckedException() {
     return firstNonNull(analysisRuleLabel, phase).toString();
+  }
+
+  @Override
+  public Optional<Label> getNetworkAllowlistForTests() {
+    return Optional.ofNullable(networkAllowlistForTests);
   }
 
   /**
