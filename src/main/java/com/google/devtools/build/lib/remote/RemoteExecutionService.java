@@ -497,11 +497,14 @@ public class RemoteExecutionService {
       throws IOException, InterruptedException {
     checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
 
-    // todo ron set something here
     FutureCachedActionResult futureActionResult =
         remoteCache.downloadFutureCachedActionResult(
             action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
 
+    if (futureActionResult == null) {
+      return null;
+    }
+    
     ActionResult actionResult = getFromFuture(futureActionResult.getFutureAction());
     if (actionResult == null) {
       return null;
