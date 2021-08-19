@@ -1312,14 +1312,9 @@ public final class RuleContext extends TargetContext
     return constraintSemantics;
   }
 
-  /**
-   * Returns the configuration fragments this rule uses.
-   *
-   * <p>Returned results are alphabetically ordered.
-   */
-  public ImmutableSortedSet<String> getRequiredConfigFragments() {
-    ImmutableSortedSet.Builder<String> ans = ImmutableSortedSet.naturalOrder();
-    ans.addAll(requiredConfigFragments.getRequiredConfigFragments());
+  /** Returns the configuration fragments this rule uses. */
+  public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
+    RequiredConfigFragmentsProvider.Builder merged = null;
     for (Expander makeVariableExpander : makeVariableExpanders) {
       for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
         // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
@@ -1327,11 +1322,14 @@ public final class RuleContext extends TargetContext
         // "--define foo=bar" impacts the rule's output.
         if (rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
             || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable)) {
-          ans.add("--define:" + makeVariable);
+          if (merged == null) {
+            merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
+          }
+          merged.addDefine(makeVariable);
         }
       }
     }
-    return ans.build();
+    return merged == null ? requiredConfigFragments : merged.build();
   }
 
   private void checkAttributeIsDependency(String attributeName) {

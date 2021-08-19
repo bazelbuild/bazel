@@ -1417,7 +1417,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
     ruleTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
-    assertThat(requiredFragments.build()).containsExactly("CppOptions");
+    assertThat(requiredFragments.build().getRequiredConfigFragments())
+        .containsExactly("CppOptions");
   }
 
   /**

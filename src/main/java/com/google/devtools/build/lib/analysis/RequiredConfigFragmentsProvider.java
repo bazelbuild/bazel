@@ -34,6 +34,7 @@ import java.util.List;
  *
  * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for details.
  */
+// TODO(b/149094955): Make this more structured instead of storing raw strings.
 @Immutable
 public final class RequiredConfigFragmentsProvider implements TransitiveInfoProvider {
 
@@ -43,7 +44,7 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
 
   private final ImmutableSet<String> requiredConfigFragments;
 
-  public RequiredConfigFragmentsProvider(ImmutableSet<String> requiredConfigFragments) {
+  private RequiredConfigFragmentsProvider(ImmutableSet<String> requiredConfigFragments) {
     this.requiredConfigFragments = requiredConfigFragments;
   }
 
@@ -51,7 +52,13 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
     return requiredConfigFragments;
   }
 
-  /** Merges the values of multiple {@link RequiredConfigFragmentsProvider}s. */
+  /** Merges the values of two {@link RequiredConfigFragmentsProvider} instances. */
+  public static RequiredConfigFragmentsProvider merge(
+      RequiredConfigFragmentsProvider a, RequiredConfigFragmentsProvider b) {
+    return builder().merge(a).merge(b).build();
+  }
+
+  /** Merges the values of one or more {@link RequiredConfigFragmentsProvider} instances. */
   public static RequiredConfigFragmentsProvider merge(
       List<RequiredConfigFragmentsProvider> providers) {
     checkArgument(!providers.isEmpty());
@@ -62,7 +69,7 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
     for (RequiredConfigFragmentsProvider provider : providers) {
       merged.merge(provider);
     }
-    return new RequiredConfigFragmentsProvider(merged.build());
+    return merged.build();
   }
 
   public static Builder builder() {
@@ -70,7 +77,6 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
   }
 
   /** Builder for required config fragments. */
-  // TODO(b/149094955): Have this build a structured version of RequiredConfigFragmentsProvider.
   public static final class Builder {
     private final ImmutableSortedSet.Builder<String> strings = ImmutableSortedSet.naturalOrder();
 
@@ -118,8 +124,8 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
       return this;
     }
 
-    public ImmutableSortedSet<String> build() {
-      return strings.build();
+    public RequiredConfigFragmentsProvider build() {
+      return new RequiredConfigFragmentsProvider(strings.build());
     }
   }
 }

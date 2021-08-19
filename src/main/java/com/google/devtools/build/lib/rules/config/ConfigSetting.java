@@ -137,7 +137,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
             requiredFragments != null
-                ? new RequiredConfigFragmentsProvider(requiredFragments.build())
+                ? requiredFragments.build()
                 : RequiredConfigFragmentsProvider.EMPTY,
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 

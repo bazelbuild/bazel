@@ -264,11 +264,9 @@ public final class ConfiguredAspect implements ProviderCollection {
     private void maybeAddRequiredConfigFragmentsProvider() {
       if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
         addProvider(
-            new RequiredConfigFragmentsProvider(
-                ImmutableSet.<String>builder()
-                    .addAll(ruleContext.getRequiredConfigFragments())
-                    .addAll(aspectImplSpecificRequiredConfigFragments.build())
-                    .build()));
+            RequiredConfigFragmentsProvider.merge(
+                ruleContext.getRequiredConfigFragments(),
+                aspectImplSpecificRequiredConfigFragments.build()));
       }
     }
   }

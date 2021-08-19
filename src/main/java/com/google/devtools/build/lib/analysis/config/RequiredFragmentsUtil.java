@@ -175,7 +175,7 @@ public class RequiredFragmentsUtil {
 
     // Optionally add transitively required fragments (only if --show_config_fragments=transitive):
     addRequiredFragmentsFromDeps(requiredFragments, configuration, prerequisites);
-    return new RequiredConfigFragmentsProvider(requiredFragments.build());
+    return requiredFragments.build();
   }
 
   /**

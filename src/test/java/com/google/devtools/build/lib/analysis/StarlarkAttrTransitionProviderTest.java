@@ -1872,7 +1872,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
     attrTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
-    assertThat(requiredFragments.build()).containsExactly("CppOptions");
+    assertThat(requiredFragments.build().getRequiredConfigFragments())
+        .containsExactly("CppOptions");
   }
 
   /**

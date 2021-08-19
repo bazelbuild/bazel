@@ -323,11 +323,9 @@ public final class RuleConfiguredTargetBuilder {
   private void maybeAddRequiredConfigFragmentsProvider() {
     if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
       addProvider(
-          new RequiredConfigFragmentsProvider(
-              ImmutableSet.<String>builder()
-                  .addAll(ruleContext.getRequiredConfigFragments())
-                  .addAll(ruleImplSpecificRequiredConfigFragments.build())
-                  .build()));
+          RequiredConfigFragmentsProvider.merge(
+              ruleContext.getRequiredConfigFragments(),
+              ruleImplSpecificRequiredConfigFragments.build()));
     }
   }
 
