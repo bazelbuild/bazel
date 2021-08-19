@@ -435,6 +435,15 @@ public interface JavaCommonApi<
   JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
   @StarlarkMethod(
+      name = "JavaPluginInfo",
+      doc =
+          "The key used to retrieve the provider that contains information about the Java "
+              + "plugins. The same value is accessible as <code>JavaPluginInfo</code>. <br>"
+              + "Prefer using <code>JavaPluginInfo</code> in new code.",
+      structField = true)
+  ProviderApi getJavaPluginProvider();
+
+  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
