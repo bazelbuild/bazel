@@ -182,5 +182,5 @@ COMPILE_ACTION = create_dep(
             providers = [JavaPluginInfo],
         ),
     },
-    ["java", "google_java", "cpp"],
+    ["java", "cpp"],
 )
