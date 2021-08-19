@@ -105,7 +105,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
     help =
         "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
-            + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu."
+            + "built with --cpu set values in --ios_multi_cpu."
   )
   public boolean enableCcDeps;
 

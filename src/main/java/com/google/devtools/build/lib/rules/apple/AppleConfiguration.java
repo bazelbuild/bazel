@@ -215,7 +215,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    *     the effective architecture.
    * <li>If the multi cpus flag (e.g. {@code --ios_multi_cpus}) is set and non-empty, then the first
    *     such architecture is returned.
-   * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.
    * <li>Use the default.
    * </ol>
    */
@@ -272,7 +271,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * that is the effective architecture.</li>
    * <li>If the multi-cpu flag (for example, {@code --ios_multi_cpus}) is non-empty, then, return
    * all architectures from that flag.</li>
-   * <li>In the case of iOS, use {@code --ios_cpu} for backwards compatibility.</li>
    * <li>Use the default.</li></ol>
    *
    * @throws IllegalArgumentException if {@code --apple_platform_type} is set (via prior

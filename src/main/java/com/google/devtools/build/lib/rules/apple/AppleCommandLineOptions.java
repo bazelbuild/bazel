@@ -190,7 +190,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
-  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
   /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU = "i386";
@@ -204,16 +203,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   /** The default Catalyst CPU value. */
   public static final String DEFAULT_CATALYST_CPU = "x86_64";
-
-  @Option(
-    name = "ios_cpu",
-    defaultValue = DEFAULT_IOS_CPU,
-    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-    effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = {OptionMetadataTag.DEPRECATED},
-    help = "Specifies to target CPU of iOS compilation."
-  )
-  public String iosCpu;
 
   @Option(
     name = "apple_compiler",
