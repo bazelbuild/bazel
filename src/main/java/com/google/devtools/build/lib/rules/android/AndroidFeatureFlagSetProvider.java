@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -36,6 +33,7 @@ import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 
@@ -135,15 +133,12 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     return Optional.of(ImmutableMap.copyOf(expectedValues));
   }
 
-  /** Returns the feature flags this rule sets as user-friendly strings. */
-  public static ImmutableSet<String> getFlagNames(RuleContext ruleContext) {
+  /** Returns the feature flags set by the given rule. */
+  public static Set<Label> getFeatureFlags(RuleContext ruleContext) {
     return ruleContext
         .attributes()
         .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
-        .keySet()
-        .stream()
-        .map(Label::toString)
-        .collect(toImmutableSet());
+        .keySet();
   }
 
   /**

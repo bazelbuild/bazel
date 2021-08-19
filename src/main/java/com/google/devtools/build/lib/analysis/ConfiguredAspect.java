@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -126,11 +124,16 @@ public final class ConfiguredAspect implements ProviderCollection {
         new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
-    private final LinkedHashSet<String> aspectImplSpecificRequiredConfigFragments =
-        new LinkedHashSet<>();
+
+    @Nullable
+    private final RequiredConfigFragmentsProvider.Builder aspectImplSpecificRequiredConfigFragments;
 
     public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
+      this.aspectImplSpecificRequiredConfigFragments =
+          ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+              ? RequiredConfigFragmentsProvider.builder()
+              : null;
     }
 
     public <T extends TransitiveInfoProvider> Builder addProvider(
@@ -210,12 +213,12 @@ public final class ConfiguredAspect implements ProviderCollection {
     }
 
     /**
-     * Supplements {@link #maybeAddRequiredConfigFragmentsProvider} with aspect
-     * implementation-specific requirements.
+     * If enabled, returns a {@link RequiredConfigFragmentsProvider.Builder} to supplement {@link
+     * #maybeAddRequiredConfigFragmentsProvider} with aspect implementation-specific requirements.
      */
-    public Builder addRequiredConfigFragments(Collection<String> fragments) {
-      aspectImplSpecificRequiredConfigFragments.addAll(fragments);
-      return this;
+    public RequiredConfigFragmentsProvider.Builder
+        getAspectImplSpecificRequiredConfigFragmentsBuilder() {
+      return Preconditions.checkNotNull(aspectImplSpecificRequiredConfigFragments);
     }
 
     public ConfiguredAspect build() throws ActionConflictException, InterruptedException {
@@ -264,7 +267,7 @@ public final class ConfiguredAspect implements ProviderCollection {
             new RequiredConfigFragmentsProvider(
                 ImmutableSet.<String>builder()
                     .addAll(ruleContext.getRequiredConfigFragments())
-                    .addAll(aspectImplSpecificRequiredConfigFragments)
+                    .addAll(aspectImplSpecificRequiredConfigFragments.build())
                     .build()));
       }
     }

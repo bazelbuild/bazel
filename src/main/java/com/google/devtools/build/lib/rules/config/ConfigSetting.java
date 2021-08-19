@@ -141,14 +141,18 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
                 : RequiredConfigFragmentsProvider.EMPTY,
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
+    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
+      builder
+          .getRuleImplSpecificRequiredConfigFragmentsBuilder()
+          .merge(configMatcher.requiredFragmentOptions());
+    }
+    return builder
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
-        .addRequiredConfigFragments(
-            configMatcher.requiredFragmentOptions().getRequiredConfigFragments())
         .build();
   }
 

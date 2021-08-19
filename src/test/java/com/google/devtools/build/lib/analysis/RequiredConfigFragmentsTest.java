@@ -187,8 +187,8 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         throws ActionConflictException, InterruptedException {
       ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
       String customDefine = ruleContext.attributes().get("custom_define", Type.STRING);
-      if (!customDefine.isEmpty()) {
-        builder.addRequiredConfigFragments(ImmutableSet.of("--define:" + customDefine));
+      if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider() && !customDefine.isEmpty()) {
+        builder.getAspectImplSpecificRequiredConfigFragmentsBuilder().addDefine(customDefine);
       }
       return builder.build();
     }

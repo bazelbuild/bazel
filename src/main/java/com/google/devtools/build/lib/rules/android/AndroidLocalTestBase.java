@@ -368,11 +368,16 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     // Just confirming that there are no aliases being used here.
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);
-    // Report set feature flags as required "config fragments".
-    // While these aren't technically fragments, in practice they're user-defined settings with
-    // the same meaning: pieces of configuration the rule requires to work properly. So it makes
-    // sense to treat them equivalently for "requirements" reporting purposes.
-    builder.addRequiredConfigFragments(AndroidFeatureFlagSetProvider.getFlagNames(ruleContext));
+
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
+      // Report set feature flags as required "config fragments".
+      // While these aren't technically fragments, in practice they're user-defined settings with
+      // the same meaning: pieces of configuration the rule requires to work properly. So it makes
+      // sense to treat them equivalently for "requirements" reporting purposes.
+      builder
+          .getRuleImplSpecificRequiredConfigFragmentsBuilder()
+          .addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(ruleContext));
+    }
 
     if (oneVersionOutputArtifact != null) {
       builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, oneVersionOutputArtifact);

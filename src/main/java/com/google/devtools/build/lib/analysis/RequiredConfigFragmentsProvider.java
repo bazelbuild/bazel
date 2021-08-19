@@ -103,6 +103,11 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
       return addStarlarkOption(starlarkOption.toString());
     }
 
+    public Builder addStarlarkOptions(Iterable<Label> starlarkOptions) {
+      strings.addAll(Iterables.transform(starlarkOptions, Label::toString));
+      return this;
+    }
+
     public Builder addStarlarkOption(String starlarkOption) {
       strings.add(starlarkOption);
       return this;

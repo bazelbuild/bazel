@@ -56,9 +56,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -91,11 +89,16 @@ public final class RuleConfiguredTargetBuilder {
   private Runfiles persistentTestRunnerRunfiles;
   private Artifact executable;
   private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
-  private final LinkedHashSet<String> ruleImplSpecificRequiredConfigFragments =
-      new LinkedHashSet<>();
+
+  @Nullable
+  private final RequiredConfigFragmentsProvider.Builder ruleImplSpecificRequiredConfigFragments;
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
+    this.ruleImplSpecificRequiredConfigFragments =
+        ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+            ? RequiredConfigFragmentsProvider.builder()
+            : null;
     // Avoid building validations in analysis tests (b/143988346)
     add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
     add(VisibilityProvider.class, new VisibilityProviderImpl(ruleContext.getVisibility()));
@@ -323,7 +326,7 @@ public final class RuleConfiguredTargetBuilder {
           new RequiredConfigFragmentsProvider(
               ImmutableSet.<String>builder()
                   .addAll(ruleContext.getRequiredConfigFragments())
-                  .addAll(ruleImplSpecificRequiredConfigFragments)
+                  .addAll(ruleImplSpecificRequiredConfigFragments.build())
                   .build()));
     }
   }
@@ -667,12 +670,12 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Supplements {@link #maybeAddRequiredConfigFragmentsProvider} with rule implementation-specific
-   * requirements.
+   * If enabled, returns a {@link RequiredConfigFragmentsProvider.Builder} to supplement {@link
+   * #maybeAddRequiredConfigFragmentsProvider} with rule implementation-specific requirements.
    */
-  public RuleConfiguredTargetBuilder addRequiredConfigFragments(Collection<String> fragments) {
-    ruleImplSpecificRequiredConfigFragments.addAll(fragments);
-    return this;
+  public RequiredConfigFragmentsProvider.Builder
+      getRuleImplSpecificRequiredConfigFragmentsBuilder() {
+    return Preconditions.checkNotNull(ruleImplSpecificRequiredConfigFragments);
   }
 
   /**

@@ -684,6 +684,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           additionalMergedManifests);
     }
 
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
+      // Report set feature flags as required "config fragments".
+      // While these aren't technically fragments, in practice they're user-defined settings with
+      // the same meaning: pieces of configuration the rule requires to work properly. So it makes
+      // sense to treat them equivalently for "requirements" reporting purposes.
+      builder
+          .getRuleImplSpecificRequiredConfigFragmentsBuilder()
+          .addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(ruleContext));
+    }
+
     return builder
         .setFilesToBuild(filesToBuild)
         .addProvider(
@@ -708,11 +718,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
-        // Report set feature flags as required "config fragments".
-        // While these aren't technically fragments, in practice they're user-defined settings with
-        // the same meaning: pieces of configuration the rule requires to work properly. So it makes
-        // sense to treat them equivalently for "requirements" reporting purposes.
-        .addRequiredConfigFragments(AndroidFeatureFlagSetProvider.getFlagNames(ruleContext))
         .addOutputGroup("android_deploy_info", deployInfo);
   }
 
