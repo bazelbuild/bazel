@@ -113,7 +113,7 @@ ANDROID_LINT_ACTION = create_dep(
     call = _impl,
     attrs = {
         "_java_toolchain": attr.label(
-            default = "@//tools/jdk:current_java_toolchain",
+            default = "@bazel_tools//tools/jdk:current_java_toolchain",
             providers = [java_common.JavaToolchainInfo],
         ),
     },
