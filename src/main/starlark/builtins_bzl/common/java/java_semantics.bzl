@@ -16,6 +16,8 @@
 Java Semantics
 """
 
+load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS")
+
 def _macro_preprocess(kwargs):
     pass
 
@@ -29,6 +31,10 @@ def _preprocess(ctx):
     return []
 
 def _postprocess(ctx, base_info):
+    proguard_specs_provider = VALIDATE_PROGUARD_SPECS.call(ctx)
+    base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
+    base_info.extra_providers.append(proguard_specs_provider)
+
     return base_info.java_info
 
 semantics = struct(
@@ -36,8 +42,15 @@ semantics = struct(
     EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = True,
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
     EXTRA_SRCS_TYPES = [],
-    EXTRA_ATTRIBUTES = {},
-    EXTRA_DEPS = [],
+    EXTRA_ATTRIBUTES = {
+        "_proguard_allowlister": attr.label(
+            allow_single_file = True,
+            default = "@bazel_tools//tools/jdk:proguard_whitelister",
+            cfg = "exec",
+            executable = True,
+        ),
+    },
+    EXTRA_DEPS = [VALIDATE_PROGUARD_SPECS],
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1
         "cc_library",
