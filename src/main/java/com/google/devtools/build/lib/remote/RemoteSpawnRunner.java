@@ -368,6 +368,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setTotalTime(totalTime.elapsed())
             .setNetworkTime(networkTimeEnd)
             .build(),
+        result.getCacheName(),
         spawn.getMnemonic());
   }
 

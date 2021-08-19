@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -102,8 +103,14 @@ public class RemoteCache implements AutoCloseable {
   public ActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
-    return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));
+    return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr).getFutureAction());
   }
+
+  public FutureCachedActionResult downloadFutureCachedActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    return cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr);
+  }
+
 
   /**
    * Upload a local file to the remote cache.

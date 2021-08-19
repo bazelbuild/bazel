@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -247,7 +248,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public FutureCachedActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
@@ -256,11 +257,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
             .build();
-    return Utils.refreshIfUnauthenticatedAsync(
+    return FutureCachedActionResult.fromRemote(Utils.refreshIfUnauthenticatedAsync(
         () ->
             retrier.executeAsync(
                 () -> handleStatus(acFutureStub(context).getActionResult(request))),
-        callCredentialsProvider);
+        callCredentialsProvider));
   }
 
   @Override

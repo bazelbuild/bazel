@@ -73,7 +73,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @return A Future representing pending download of an action result. If an action result for
    *     {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
-  ListenableFuture<ActionResult> downloadActionResult(
+  FutureCachedActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr);
 
   /**

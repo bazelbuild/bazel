@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -181,15 +182,15 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public FutureCachedActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     if (diskCache.containsActionResult(actionKey)) {
       return diskCache.downloadActionResult(context, actionKey, inlineOutErr);
     }
 
     if (shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
-      return Futures.transformAsync(
-          remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
+      return FutureCachedActionResult.fromRemote(Futures.transformAsync(
+          remoteCache.downloadActionResult(context, actionKey, inlineOutErr).getFutureAction(),
           (actionResult) -> {
             if (actionResult == null) {
               return Futures.immediateFuture(null);
@@ -198,9 +199,9 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
               return Futures.immediateFuture(actionResult);
             }
           },
-          MoreExecutors.directExecutor());
+          MoreExecutors.directExecutor()));
     } else {
-      return Futures.immediateFuture(null);
+      return FutureCachedActionResult.fromRemote(Futures.immediateFuture(null));
     }
   }
 }
