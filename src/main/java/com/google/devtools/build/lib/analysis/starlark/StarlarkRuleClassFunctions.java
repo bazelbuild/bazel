@@ -54,6 +54,8 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
@@ -299,6 +301,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Object cfg,
       Object execGroups,
       Object compileOneFiletype,
+      Object name,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
@@ -461,7 +464,36 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       builder.setPreferredDependencyPredicate(FileType.of((String) compileOneFiletype));
     }
 
-    return new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+    StarlarkRuleFunction starlarkRuleFunction =
+        new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+    // If a name= parameter is supplied (and we're currently initializing a .bzl module), export the
+    // rule immediately under that name; otherwise the rule will be exported by the postAssignHook
+    // set up in BzlLoadFunction.
+    //
+    // Because exporting can raise multiple errors, we need to accumulate them here into a single
+    // EvalException. This is a code smell because any non-ERROR events will be lost, and any
+    // location
+    // information in the events will be overwritten by the location of this rule's definition.
+    // However, this is currently fine because StarlarkRuleFunction#export only creates events that
+    // are ERRORs and that have the rule definition as their location.
+    // TODO(brandjon): Instead of accumulating events here, consider registering the rule in the
+    // BazelStarlarkContext, and exporting such rules after module evaluation in
+    // BzlLoadFunction#execAndExport.
+    if (name != Starlark.NONE && bzlModule != null) {
+      StoredEventHandler handler = new StoredEventHandler();
+      starlarkRuleFunction.export(handler, bzlModule.label(), (String) name);
+      if (handler.hasErrors()) {
+        StringBuilder errors =
+            handler.getEvents().stream()
+                .filter(e -> e.getKind() == EventKind.ERROR)
+                .reduce(
+                    new StringBuilder(),
+                    (sb, ev) -> sb.append("\n").append(ev.getMessage()),
+                    StringBuilder::append);
+        throw Starlark.errorf("Errors in exporting %s: %s", name, errors.toString());
+      }
+    }
+    return starlarkRuleFunction;
   }
 
   /**
@@ -756,6 +788,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */
+    // To avoid losing event information in the case where the rule was defined with an explicit
+    // name= arg, all events should be created using errorf(). See the comment in rule() above for
+    // details.
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
       Preconditions.checkState(ruleClass == null && builder != null);
