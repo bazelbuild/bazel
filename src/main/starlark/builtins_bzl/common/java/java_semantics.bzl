@@ -44,7 +44,7 @@ semantics = struct(
     EXTRA_SRCS_TYPES = [],
     EXTRA_ATTRIBUTES = {
         "_proguard_allowlister": attr.label(
-            allow_single_file = True,
+            allow_files = True,
             default = "@bazel_tools//tools/jdk:proguard_whitelister",
             cfg = "exec",
             executable = True,
