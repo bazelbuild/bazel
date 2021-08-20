@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -452,6 +453,34 @@ public class EagerInvalidatorTest {
       }
     }
     return result;
+  }
+
+  @Test
+  public void allNodesProcessed() throws Exception {
+    graph = new InMemoryGraphImpl();
+    ImmutableList.Builder<SkyKey> keysToDelete =
+        ImmutableList.builderWithExpectedSize(InvalidatingNodeVisitor.DEFAULT_THREAD_COUNT - 1);
+    for (int i = 0; i < InvalidatingNodeVisitor.DEFAULT_THREAD_COUNT - 1; i++) {
+      keysToDelete.add(GraphTester.nonHermeticKey("key" + i));
+    }
+    invalidate(graph, progressReceiver, keysToDelete.build().toArray(new SkyKey[0]));
+    assertThat(state.isEmpty()).isTrue();
+  }
+
+  @Test
+  public void deletingInsideForkJoinPoolWorks() throws Exception {
+    graph = new InMemoryGraphImpl();
+    ForkJoinPool outerPool = new ForkJoinPool(1);
+    outerPool
+        .submit(
+            () -> {
+              try {
+                invalidate(graph, progressReceiver, GraphTester.nonHermeticKey("a"));
+              } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+              }
+            })
+        .get();
   }
 
   @Test

@@ -46,18 +46,6 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
 
     /**
      * Sets the {@link ForkJoinPool} that will be used by the to-be-built
-     * {@link ForkJoinQuiescingExecutor}. The given {@link ForkJoinPool} will _not_ be shut down on
-     * completion of the {@link ForkJoinQuiescingExecutor}.
-     */
-    public Builder withoutOwnershipOf(ForkJoinPool forkJoinPool) {
-      Preconditions.checkState(this.forkJoinPool == null);
-      this.forkJoinPool = forkJoinPool;
-      this.owned = false;
-      return this;
-    }
-
-    /**
-     * Sets the {@link ForkJoinPool} that will be used by the to-be-built
      * {@link ForkJoinQuiescingExecutor}. The given {@link ForkJoinPool} will be shut down on
      * completion of the {@link ForkJoinQuiescingExecutor}.
      */
@@ -94,8 +82,8 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
 
   @Override
   protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
-    if (ForkJoinTask.inForkJoinPool()) {
-      @SuppressWarnings("unused") 
+    if (ForkJoinTask.getPool() == executorService) {
+      @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError = ForkJoinTask.adapt(runnable).fork();
     } else {
       super.executeWrappedRunnable(runnable, executorService);
