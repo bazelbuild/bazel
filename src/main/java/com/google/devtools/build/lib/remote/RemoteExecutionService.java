@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -487,22 +488,19 @@ public class RemoteExecutionService {
       throws IOException, InterruptedException {
     checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
 
-    FutureCachedActionResult futureActionResult =
-        remoteCache.downloadFutureCachedActionResult(
+    Pair<ActionResult, String> actionResultWithCacheName =
+        remoteCache.downloadActionResultWithCacheName(
             action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
-
-    if (futureActionResult == null) {
+    if (actionResultWithCacheName == null) {
       return null;
     }
+    ActionResult actionResult = actionResultWithCacheName.first;
+    String cacheName = actionResultWithCacheName.second;
 
-    ActionResult actionResult = getFromFuture(futureActionResult.getFutureAction());
     if (actionResult == null) {
       return null;
     }
-
-    return Pair.of(RemoteActionResult.createFromCache(actionResult), futureActionResult.getCacheName()) ;
-
-
+    return Pair.of(RemoteActionResult.createFromCache(actionResult), cacheName);
   }
 
   private static Path toTmpDownloadPath(Path actualPath) {

@@ -189,8 +189,9 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     }
 
     if (shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
+      FutureCachedActionResult rp = remoteCache.downloadActionResult(context, actionKey, inlineOutErr);
       return FutureCachedActionResult.fromRemote(Futures.transformAsync(
-          remoteCache.downloadActionResult(context, actionKey, inlineOutErr).getFutureAction(),
+          rp.getFutureAction(),
           (actionResult) -> {
             if (actionResult == null) {
               return Futures.immediateFuture(null);

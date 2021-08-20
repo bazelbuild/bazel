@@ -574,7 +574,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public FutureCachedActionResult/* FutureCachedActionResult*/ downloadActionResult(
+  public FutureCachedActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     return FutureCachedActionResult.fromRemote(Utils.downloadAsActionResult(
         actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false)));

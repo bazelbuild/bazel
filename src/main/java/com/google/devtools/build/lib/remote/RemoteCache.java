@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -106,12 +107,13 @@ public class RemoteCache implements AutoCloseable {
     return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr).getFutureAction());
   }
 
-  public FutureCachedActionResult downloadFutureCachedActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr);
+  public Pair<ActionResult, String> downloadActionResultWithCacheName(
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
+      throws IOException, InterruptedException {
+    //Pair<ListenableFuture<ActionResult>, String> ar = cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr);
+    FutureCachedActionResult ar = cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr);
+    return Pair.of(getFromFuture(ar.getFutureAction()), ar.getCacheName());
   }
-
-
   /**
    * Upload a local file to the remote cache.
    *

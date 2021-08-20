@@ -196,8 +196,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
         cachedResultWithCacheName = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
       }
-      RemoteActionResult cachedResult = cachedResultWithCacheName.first;
-      if (cachedResult != null) {
+      if (cachedResultWithCacheName != null && cachedResultWithCacheName.first != null) {
+        RemoteActionResult cachedResult = cachedResultWithCacheName.first;
         if (cachedResult.getExitCode() != 0) {
           // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
           // actions (tests).
@@ -209,6 +209,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 action,
                 cachedResult,
                 /* cacheHit= */ true,
+                cachedResultWithCacheName.second,
                 spawn,
                 totalTime,
                 () -> action.getNetworkTime().getDuration(),
@@ -250,7 +251,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-              // NOTE: ron, this makes it hard to just change doLookup, but never set the cache name here.
               result =
                   remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }
@@ -276,6 +276,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   action,
                   result,
                   result.cacheHit(),
+                  getName(),
                   spawn,
                   totalTime,
                   () -> action.getNetworkTime().getDuration(),
@@ -343,6 +344,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       RemoteAction action,
       RemoteActionResult result,
       boolean cacheHit,
+      String cacheName,
       Spawn spawn,
       Stopwatch totalTime,
       Supplier<Duration> networkTime,
@@ -364,7 +366,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return createSpawnResult(
         result.getExitCode(),
         cacheHit,
-        getName(),
+        cacheName,
         inMemoryOutput,
         spawnMetrics
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
