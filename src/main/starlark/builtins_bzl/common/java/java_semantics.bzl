@@ -48,6 +48,12 @@ semantics = struct(
             default = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
             providers = [JavaPluginInfo],
         ),
+        "_proguard_allowlister": attr.label(
+            allow_files = True,
+            default = "@bazel_tools//tools/jdk:proguard_whitelister",
+            cfg = "exec",
+            executable = True,
+        ),
     },
     EXTRA_DEPS = [],
     ALLOWED_RULES_IN_DEPS = [
