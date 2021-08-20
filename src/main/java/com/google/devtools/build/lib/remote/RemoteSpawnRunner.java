@@ -198,6 +198,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       }
       if (cachedResultWithCacheName != null && cachedResultWithCacheName.first != null) {
         RemoteActionResult cachedResult = cachedResultWithCacheName.first;
+        String cacheName = cachedResultWithCacheName.second;
         if (cachedResult.getExitCode() != 0) {
           // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
           // actions (tests).
@@ -209,7 +210,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 action,
                 cachedResult,
                 /* cacheHit= */ true,
-                cachedResultWithCacheName.second,
+                cacheName == null ? getName() : cacheName,
                 spawn,
                 totalTime,
                 () -> action.getNetworkTime().getDuration(),
