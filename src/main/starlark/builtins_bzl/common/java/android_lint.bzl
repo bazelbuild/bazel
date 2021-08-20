@@ -111,10 +111,4 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
 
 ANDROID_LINT_ACTION = create_dep(
     call = _impl,
-    attrs = {
-        "_java_toolchain": attr.label(
-            default = "@//tools/jdk:current_java_toolchain",
-            providers = [java_common.JavaToolchainInfo],
-        ),
-    },
 )

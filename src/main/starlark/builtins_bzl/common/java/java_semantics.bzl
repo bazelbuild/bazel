@@ -16,6 +16,9 @@
 Java Semantics
 """
 
+java_common = _builtins.toplevel.java_common
+JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
+
 def _macro_preprocess(kwargs):
     pass
 
@@ -36,7 +39,16 @@ semantics = struct(
     EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = False,
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
     EXTRA_SRCS_TYPES = [],
-    EXTRA_ATTRIBUTES = {},
+    EXTRA_ATTRIBUTES = {
+        "_java_toolchain": attr.label(
+            default = "@bazel_tools//tools/jdk:current_java_toolchain",
+            providers = [java_common.JavaToolchainInfo],
+        ),
+        "_java_plugins": attr.label(
+            default = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
+            providers = [JavaPluginInfo],
+        ),
+    },
     EXTRA_DEPS = [],
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1

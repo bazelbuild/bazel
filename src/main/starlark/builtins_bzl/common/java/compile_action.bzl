@@ -173,14 +173,6 @@ COMPILE_ACTION = create_dep(
         ),
         "javacopts": attr.string_list(),
         "neverlink": attr.bool(),
-        "_java_toolchain": attr.label(
-            default = "@//tools/jdk:current_java_toolchain",
-            providers = [java_common.JavaToolchainInfo],
-        ),
-        "_java_plugins": attr.label(
-            default = "@//tools/jdk:java_plugins_flag_alias",
-            providers = [JavaPluginInfo],
-        ),
     },
-    ["java", "google_java", "cpp"],
+    ["java", "cpp"],
 )
