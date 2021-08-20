@@ -278,12 +278,13 @@ public class SkydocMain {
 
     for (Entry<String, Object> envEntry : sortedBindings.entrySet()) {
       if (ruleFunctions.containsKey(envEntry.getValue())) {
-        RuleInfo.Builder ruleInfoBuild = ruleFunctions.get(envEntry.getValue()).getRuleInfo();
-        // Use symbol name as the rule name only if not already set in the call to rule()
-        if ("".equals(ruleInfoBuild.getRuleName())) {
-          ruleInfoBuild.setRuleName(envEntry.getKey());
+        RuleInfo ruleInfo = ruleFunctions.get(envEntry.getValue()).getRuleInfo().build();
+        // Use symbol name as the rule name only if not already set in the call to rule().
+        if ("".equals(ruleInfo.getRuleName())) {
+          // We make a copy so that additional exports are not affected by setting the rule name on
+          // this builder
+          ruleInfo = ruleInfo.toBuilder().setRuleName(envEntry.getKey()).build();
         }
-        RuleInfo ruleInfo = ruleInfoBuild.build();
         ruleInfoMap.put(ruleInfo.getRuleName(), ruleInfo);
       }
       if (providerInfos.containsKey(envEntry.getValue())) {

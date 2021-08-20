@@ -221,6 +221,34 @@ public final class SkydocTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRuleWithMultipleExports() throws Exception {
+    scratch.file(
+        "/execroot/io_bazel/test/test.bzl",
+        "def rule_impl(ctx):",
+        "  return []",
+        "",
+        "rule_one = rule(",
+        "    doc = 'Rule one',",
+        "    implementation = rule_impl,",
+        ")",
+        "",
+        "rule_two = rule_one");
+
+    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
+
+    skydocMain.eval(
+        StarlarkSemantics.DEFAULT,
+        Label.parseAbsoluteUnchecked("//test:test.bzl"),
+        ruleInfoMap,
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder(),
+        ImmutableMap.builder());
+
+    assertThat(ruleInfoMap.build().keySet()).containsExactly("rule_one", "rule_two");
+  }
+
+  @Test
   public void testRuleExportedWithSpecifiedName() throws Exception {
     scratch.file(
         "/execroot/io_bazel/test/test.bzl",
