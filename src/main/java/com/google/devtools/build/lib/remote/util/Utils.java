@@ -140,14 +140,13 @@ public final class Utils {
       String runnerName,
       @Nullable InMemoryOutput inMemoryOutput,
       SpawnMetrics spawnMetrics,
-      String cacheName,
       String mnemonic) {
     SpawnResult.Builder builder =
         new SpawnResult.Builder()
             .setStatus(
                 exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
             .setExitCode(exitCode)
-            .setRunnerName(cacheHit ? cacheName + " cache hit" : runnerName)
+            .setRunnerName(cacheHit ? runnerName + " cache hit" : runnerName)
             .setCacheHit(cacheHit)
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true);

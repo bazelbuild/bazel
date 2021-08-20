@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -191,10 +192,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
       context.report(SPAWN_CHECKING_CACHE_EVENT);
 
       // Try to lookup the action in the action cache.
-      RemoteActionResult cachedResult;
+      Pair<RemoteActionResult, String> cachedResultWithCacheName;
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-        cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
+        cachedResultWithCacheName = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
       }
+      RemoteActionResult cachedResult = cachedResultWithCacheName.first;
       if (cachedResult != null) {
         if (cachedResult.getExitCode() != 0) {
           // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
@@ -248,6 +250,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
+              // NOTE: ron, this makes it hard to just change doLookup, but never set the cache name here.
               result =
                   remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }
@@ -368,7 +371,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setTotalTime(totalTime.elapsed())
             .setNetworkTime(networkTimeEnd)
             .build(),
-        result.getCacheName(),
         spawn.getMnemonic());
   }
 
