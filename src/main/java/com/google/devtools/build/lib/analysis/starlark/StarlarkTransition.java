@@ -88,7 +88,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     Map<String, OptionInfo> optionToFragment = FunctionTransitionUtil.buildOptionInfo(buildOptions);
     for (String optionStarlarkName : Iterables.concat(getInputs(), getOutputs())) {
       if (!optionStarlarkName.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
-        requiredFragments.addStarlarkOption(optionStarlarkName);
+        requiredFragments.addStarlarkOption(Label.parseAbsoluteUnchecked(optionStarlarkName));
       } else {
         String optionNativeName = optionStarlarkName.substring(COMMAND_LINE_OPTION_PREFIX.length());
         OptionInfo optionInfo = optionToFragment.get(optionNativeName);

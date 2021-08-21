@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -309,8 +310,8 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    resource_configuration_filters = ['ar_XB'])");
 
     ConfiguredTarget ct = getConfiguredTarget("//java/com/google/android/foo:local_test");
-    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getRequiredConfigFragments())
-        .contains("//java/com/google/android/foo:flag1");
+    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())
+        .containsExactly(Label.parseAbsoluteUnchecked("//java/com/google/android/foo:flag1"));
   }
 
   @Override

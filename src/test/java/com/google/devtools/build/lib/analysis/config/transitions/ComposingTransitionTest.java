@@ -238,7 +238,7 @@ public class ComposingTransitionTest {
     RequiredConfigFragmentsProvider.Builder requiredFragments =
         RequiredConfigFragmentsProvider.builder();
     composed.addRequiredFragments(requiredFragments, BuildOptions.builder().build());
-    assertThat(requiredFragments.build().getRequiredConfigFragments())
-        .containsExactly("CppOptions", "JavaOptions");
+    assertThat(requiredFragments.build().getOptionsClasses())
+        .containsExactly(CppOptions.class, JavaOptions.class);
   }
 }

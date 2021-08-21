@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -34,22 +36,59 @@ import java.util.List;
  *
  * <p>See {@link com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil} for details.
  */
-// TODO(b/149094955): Make this more structured instead of storing raw strings.
 @Immutable
 public final class RequiredConfigFragmentsProvider implements TransitiveInfoProvider {
 
   @SerializationConstant
   public static final RequiredConfigFragmentsProvider EMPTY =
-      new RequiredConfigFragmentsProvider(ImmutableSet.of());
+      new RequiredConfigFragmentsProvider(
+          ImmutableSet.of(),
+          FragmentClassSet.of(ImmutableSet.of()),
+          ImmutableSet.of(),
+          ImmutableSet.of());
 
-  private final ImmutableSet<String> requiredConfigFragments;
+  private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
+  private final FragmentClassSet fragmentClasses;
+  private final ImmutableSet<String> defines;
+  private final ImmutableSet<Label> starlarkOptions;
 
-  private RequiredConfigFragmentsProvider(ImmutableSet<String> requiredConfigFragments) {
-    this.requiredConfigFragments = requiredConfigFragments;
+  private RequiredConfigFragmentsProvider(
+      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses,
+      FragmentClassSet fragmentClasses,
+      ImmutableSet<String> defines,
+      ImmutableSet<Label> starlarkOptions) {
+    this.optionsClasses = optionsClasses;
+    this.fragmentClasses = fragmentClasses;
+    this.defines = defines;
+    this.starlarkOptions = starlarkOptions;
   }
 
-  public ImmutableSet<String> getRequiredConfigFragments() {
-    return requiredConfigFragments;
+  public ImmutableSet<Class<? extends FragmentOptions>> getOptionsClasses() {
+    return optionsClasses;
+  }
+
+  public FragmentClassSet getFragmentClasses() {
+    return fragmentClasses;
+  }
+
+  public ImmutableSet<String> getDefines() {
+    return defines;
+  }
+
+  public ImmutableSet<Label> getStarlarkOptions() {
+    return starlarkOptions;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add(
+            "optionsClasses",
+            Collections2.transform(optionsClasses, ClassName::getSimpleNameWithOuter))
+        .add("fragmentClasses", fragmentClasses)
+        .add("defines", defines)
+        .add("starlarkOptions", starlarkOptions)
+        .toString();
   }
 
   /** Merges the values of two {@link RequiredConfigFragmentsProvider} instances. */
@@ -91,58 +130,66 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
 
   /** Builder for required config fragments. */
   public static final class Builder {
-    private final ImmutableSortedSet.Builder<String> strings = ImmutableSortedSet.naturalOrder();
+    private final ImmutableSet.Builder<Class<? extends FragmentOptions>> optionsClasses =
+        ImmutableSet.builder();
+    private final ImmutableSet.Builder<Class<? extends Fragment>> fragmentClasses =
+        ImmutableSortedSet.orderedBy(FragmentClassSet.LEXICAL_FRAGMENT_SORTER);
+    private final ImmutableSet.Builder<String> defines = ImmutableSet.builder();
+    private final ImmutableSet.Builder<Label> starlarkOptions = ImmutableSet.builder();
 
     private Builder() {}
 
     public Builder addOptionsClass(Class<? extends FragmentOptions> optionsClass) {
-      strings.add(ClassName.getSimpleNameWithOuter(optionsClass));
+      optionsClasses.add(optionsClass);
       return this;
     }
 
     public Builder addOptionsClasses(Iterable<Class<? extends FragmentOptions>> optionsClasses) {
-      return addClasses(optionsClasses);
+      this.optionsClasses.addAll(optionsClasses);
+      return this;
     }
 
     public Builder addFragmentClasses(Iterable<Class<? extends Fragment>> fragmentClasses) {
-      return addClasses(fragmentClasses);
-    }
-
-    private Builder addClasses(Iterable<? extends Class<?>> classes) {
-      strings.addAll(Iterables.transform(classes, ClassName::getSimpleNameWithOuter));
+      this.fragmentClasses.addAll(fragmentClasses);
       return this;
     }
 
     public Builder addDefine(String define) {
-      strings.add("--define:" + define);
+      defines.add(define);
       return this;
     }
 
     public Builder addStarlarkOption(Label starlarkOption) {
-      return addStarlarkOption(starlarkOption.toString());
-    }
-
-    public Builder addStarlarkOptions(Iterable<Label> starlarkOptions) {
-      strings.addAll(Iterables.transform(starlarkOptions, Label::toString));
+      starlarkOptions.add(starlarkOption);
       return this;
     }
 
-    public Builder addStarlarkOption(String starlarkOption) {
-      strings.add(starlarkOption);
+    public Builder addStarlarkOptions(Iterable<Label> starlarkOptions) {
+      this.starlarkOptions.addAll(starlarkOptions);
       return this;
     }
 
     public Builder merge(RequiredConfigFragmentsProvider provider) {
-      strings.addAll(provider.requiredConfigFragments);
+      optionsClasses.addAll(provider.optionsClasses);
+      fragmentClasses.addAll(provider.fragmentClasses);
+      defines.addAll(provider.defines);
+      starlarkOptions.addAll(provider.starlarkOptions);
       return this;
     }
 
     public RequiredConfigFragmentsProvider build() {
-      ImmutableSet<String> strings = this.strings.build();
-      if (strings.isEmpty()) {
+      ImmutableSet<Class<? extends FragmentOptions>> optionsClasses = this.optionsClasses.build();
+      ImmutableSet<Class<? extends Fragment>> fragmentClasses = this.fragmentClasses.build();
+      ImmutableSet<String> defines = this.defines.build();
+      ImmutableSet<Label> starlarkOptions = this.starlarkOptions.build();
+      if (optionsClasses.isEmpty()
+          && fragmentClasses.isEmpty()
+          && defines.isEmpty()
+          && starlarkOptions.isEmpty()) {
         return EMPTY;
       }
-      return new RequiredConfigFragmentsProvider(strings);
+      return new RequiredConfigFragmentsProvider(
+          optionsClasses, FragmentClassSet.of(fragmentClasses), defines, starlarkOptions);
     }
   }
 }

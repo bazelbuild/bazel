@@ -980,6 +980,7 @@ java_library(
     srcs = ["RequiredConfigFragmentsProvider.java"],
     deps = [
         ":config/fragment",
+        ":config/fragment_class_set",
         ":config/fragment_options",
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

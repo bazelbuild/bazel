@@ -15,14 +15,15 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.base.Predicates.not;
-import static java.util.stream.Collectors.joining;
 
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.AbstractSet;
 import java.util.Arrays;
@@ -131,7 +132,6 @@ public final class FragmentClassSet extends AbstractSet<Class<? extends Fragment
 
   @Override
   public String toString() {
-    return String.format(
-        "FragmentClassSet[%s]", fragments.stream().map(Class::getName).collect(joining(",")));
+    return Collections2.transform(fragments, ClassName::getSimpleNameWithOuter).toString();
   }
 }
