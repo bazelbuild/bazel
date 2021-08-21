@@ -26,7 +26,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
@@ -574,10 +573,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public FutureCachedActionResult downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return FutureCachedActionResult.fromRemote(Utils.downloadAsActionResult(
-        actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false)));
+    return Utils.downloadAsActionResult(
+        actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false), "remote");
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")

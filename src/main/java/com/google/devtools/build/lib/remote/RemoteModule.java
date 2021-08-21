@@ -504,16 +504,15 @@ public final class RemoteModule extends BlazeModule {
             uploader, cacheClient, remoteBytestreamUriPrefix, buildRequestId, invocationId));
 
     if (enableRemoteExecution) {
-
-      if(enableDiskCache) {
+      if (enableDiskCache) {
         try {
-        cacheClient = RemoteCacheClientFactory.createDiskAndRemoteClient(
-            env.getWorkingDirectory(),
-            remoteOptions.diskCache,
-            remoteOptions.remoteVerifyDownloads,
-            digestUtil,
-            cacheClient,
-            remoteOptions);
+          cacheClient = RemoteCacheClientFactory.createDiskAndRemoteClient(
+              env.getWorkingDirectory(),
+              remoteOptions.diskCache,
+              remoteOptions.remoteVerifyDownloads,
+              digestUtil,
+              cacheClient,
+              remoteOptions);
         } catch (IOException e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;

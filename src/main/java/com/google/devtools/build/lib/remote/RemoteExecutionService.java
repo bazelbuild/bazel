@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -81,12 +80,12 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
-import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -98,7 +97,6 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -484,23 +482,18 @@ public class RemoteExecutionService {
 
   /** Lookup the remote cache for the given {@link RemoteAction}. {@code null} if not found. */
   @Nullable
-  public Pair<RemoteActionResult, String> lookupCache(RemoteAction action)
+  public CachedActionResult lookupCache(RemoteAction action)
       throws IOException, InterruptedException {
     checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
 
-    Pair<ActionResult, String> actionResultWithCacheName =
-        remoteCache.downloadActionResultWithCacheName(
-            action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
-    if (actionResultWithCacheName == null) {
-      return null;
-    }
-    ActionResult actionResult = actionResultWithCacheName.first;
-    String cacheName = actionResultWithCacheName.second;
+    CachedActionResult cachedActionResult = remoteCache.downloadActionResult(
+        action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
 
-    if (actionResult == null) {
+    if (cachedActionResult == null) {
       return null;
     }
-    return Pair.of(RemoteActionResult.createFromCache(actionResult), cacheName);
+
+    return cachedActionResult;
   }
 
   private static Path toTmpDownloadPath(Path actualPath) {

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -381,16 +382,18 @@ public final class Utils {
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")
-  public static ListenableFuture<ActionResult> downloadAsActionResult(
+  public static ListenableFuture<CachedActionResult> downloadAsActionResult(
       ActionKey actionDigest,
-      BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction) {
+      BiFunction<Digest, OutputStream, ListenableFuture<Void>> downloadFunction,
+      String cacheName) {
     ByteArrayOutputStream data = new ByteArrayOutputStream(/* size= */ 1024);
     ListenableFuture<Void> download = downloadFunction.apply(actionDigest.getDigest(), data);
     return FluentFuture.from(download)
         .transformAsync(
             (v) -> {
               try {
-                return Futures.immediateFuture(ActionResult.parseFrom(data.toByteArray()));
+                return Futures.immediateFuture(CachedActionResult.create(
+                    ActionResult.parseFrom(data.toByteArray()), cacheName));
               } catch (InvalidProtocolBufferException e) {
                 return Futures.immediateFailedFuture(e);
               }

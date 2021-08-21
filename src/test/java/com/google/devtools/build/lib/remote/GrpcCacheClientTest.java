@@ -928,7 +928,7 @@ public class GrpcCacheClientTest {
         });
     assertThat(
             getFromFuture(
-                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false).getFutureAction()))
+                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false)))
         .isNull();
   }
 

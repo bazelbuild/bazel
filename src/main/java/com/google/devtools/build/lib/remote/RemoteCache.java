@@ -39,20 +39,19 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
-import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -101,19 +100,12 @@ public class RemoteCache implements AutoCloseable {
     this.digestUtil = digestUtil;
   }
 
-  public ActionResult downloadActionResult(
+  public CachedActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
-    return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr).getFutureAction());
+    return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));
   }
 
-  public Pair<ActionResult, String> downloadActionResultWithCacheName(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
-      throws IOException, InterruptedException {
-    //Pair<ListenableFuture<ActionResult>, String> ar = cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr);
-    FutureCachedActionResult ar = cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr);
-    return Pair.of(getFromFuture(ar.getFutureAction()), ar.getCacheName());
-  }
   /**
    * Upload a local file to the remote cache.
    *

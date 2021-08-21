@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -182,27 +181,26 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public FutureCachedActionResult downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     if (diskCache.containsActionResult(actionKey)) {
       return diskCache.downloadActionResult(context, actionKey, inlineOutErr);
     }
 
     if (shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
-      FutureCachedActionResult rp = remoteCache.downloadActionResult(context, actionKey, inlineOutErr);
-      return FutureCachedActionResult.fromRemote(Futures.transformAsync(
-          rp.getFutureAction(),
-          (actionResult) -> {
-            if (actionResult == null) {
+      return Futures.transformAsync(
+          remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
+          (cachedActionResult) -> {
+            if (cachedActionResult == null || cachedActionResult.actionResult() == null) {
               return Futures.immediateFuture(null);
             } else {
-              diskCache.uploadActionResult(context, actionKey, actionResult);
-              return Futures.immediateFuture(actionResult);
+              diskCache.uploadActionResult(context, actionKey, cachedActionResult.actionResult());
+              return Futures.immediateFuture(cachedActionResult);
             }
           },
-          MoreExecutors.directExecutor()));
+          MoreExecutors.directExecutor());
     } else {
-      return FutureCachedActionResult.fromRemote(Futures.immediateFuture(null));
+      return Futures.immediateFuture(CachedActionResult.remote(null));
     }
   }
 }

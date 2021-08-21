@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
@@ -74,7 +75,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
-        .thenReturn(cachedResult);
+        .thenReturn(CachedActionResult.create(cachedResult, "test"));
 
     // Act
     ExecutionResult executionResult =
@@ -101,7 +102,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(1).build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
-        .thenReturn(cachedResult);
+        .thenReturn(CachedActionResult.create(cachedResult, "test"));
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
@@ -138,7 +139,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             .setStderrRaw(ByteString.copyFrom(stderr))
             .build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
-        .thenReturn(cachedResult);
+        .thenReturn(CachedActionResult.create(cachedResult, "test"));
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);

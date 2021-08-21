@@ -38,6 +38,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.FutureCachedActionResult;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -235,9 +235,14 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         callCredentialsProvider);
   }
 
-  private ListenableFuture<ActionResult> handleStatus(ListenableFuture<ActionResult> download) {
+  private ListenableFuture<CachedActionResult> handleStatus(ListenableFuture<ActionResult> download) {
+    ListenableFuture<CachedActionResult> cachedActionResultListenableFuture =
+        FluentFuture.from(download)
+        .transformAsync((ac) -> Futures.immediateFuture(CachedActionResult.remote(ac)),
+    MoreExecutors.directExecutor());
+
     return Futures.catchingAsync(
-        download,
+        cachedActionResultListenableFuture,
         StatusRuntimeException.class,
         (sre) ->
             sre.getStatus().getCode() == Code.NOT_FOUND
@@ -248,7 +253,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public FutureCachedActionResult downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
@@ -257,11 +262,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
             .build();
-    return FutureCachedActionResult.fromRemote(Utils.refreshIfUnauthenticatedAsync(
+    return Utils.refreshIfUnauthenticatedAsync(
         () ->
             retrier.executeAsync(
                 () -> handleStatus(acFutureStub(context).getActionResult(request))),
-        callCredentialsProvider));
+        callCredentialsProvider);
   }
 
   @Override

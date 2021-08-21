@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.remote.common;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * An interface for a remote caching protocol.
@@ -63,6 +65,26 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
     }
   }
 
+  @AutoValue
+  abstract class CachedActionResult {
+    public static CachedActionResult create(ActionResult actionResult, String cacheName) {
+      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, cacheName);
+    }
+
+    public static CachedActionResult remote(ActionResult actionResult) {
+      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "remote");
+    }
+
+    public static CachedActionResult disk(ActionResult actionResult) {
+      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "disk");
+    }
+
+    @Nullable
+    public abstract ActionResult actionResult();
+    public abstract String cacheName();
+
+  }
+
   /**
    * Downloads an action result for the {@code actionKey}.
    *
@@ -73,7 +95,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @return A Future representing pending download of an action result. If an action result for
    *     {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
-  FutureCachedActionResult downloadActionResult(
+  ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr);
 
   /**
