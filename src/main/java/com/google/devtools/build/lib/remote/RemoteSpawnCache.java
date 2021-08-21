@@ -116,7 +116,7 @@ final class RemoteSpawnCache implements SpawnCache {
           cachedActionResult = remoteExecutionService.lookupCache(action);
         }
         RemoteActionResult result = null;
-        if (cachedActionResult != null) {
+        if (cachedActionResult != null && cachedActionResult.actionResult() != null) {
           result = RemoteActionResult.createFromCache(cachedActionResult.actionResult());
         }
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a

@@ -197,7 +197,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         cachedActionResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
       }
       RemoteActionResult cachedResult = null;
-      if (cachedActionResult != null) {
+      if (cachedActionResult != null && cachedActionResult.actionResult() != null) {
         cachedResult = RemoteActionResult.createFromCache(cachedActionResult.actionResult());
       }
       if (cachedResult != null) {
