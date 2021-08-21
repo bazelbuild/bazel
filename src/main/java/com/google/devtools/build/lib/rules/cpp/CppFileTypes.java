@@ -34,6 +34,7 @@ public final class CppFileTypes {
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
   public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
+  public static final FileType BC_SOURCE = FileType.of(".bc");
 
   public static final FileTypeSet ALL_C_CLASS_SOURCE =
       FileTypeSet.of(

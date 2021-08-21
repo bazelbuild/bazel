@@ -64,7 +64,10 @@ public abstract class Link {
   /** The set of object files */
   public static final FileTypeSet OBJECT_FILETYPES =
       FileTypeSet.of(
-          CppFileTypes.OBJECT_FILE, CppFileTypes.PIC_OBJECT_FILE, CppFileTypes.CLIF_OUTPUT_PROTO);
+          CppFileTypes.OBJECT_FILE,
+          CppFileTypes.PIC_OBJECT_FILE,
+          CppFileTypes.CLIF_OUTPUT_PROTO,
+          CppFileTypes.BC_SOURCE);
 
   /**
    * Whether a particular link target requires PIC code.
