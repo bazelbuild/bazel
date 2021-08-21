@@ -1809,6 +1809,7 @@ def _impl(ctx):
 
     llvm_coverage_map_format_feature = feature(
         name = "llvm_coverage_map_format",
+        enabled = True,
         flag_sets = [
             flag_set(
                 actions = [
