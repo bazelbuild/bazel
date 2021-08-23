@@ -2267,6 +2267,19 @@ a user-friendly way.
   and cannot run under label.
 </p>
 
+<h4>Filtering logging outputs from Bazel</h4>
+
+<p>
+  When invoking a binary with <code>bazel run</code>, Bazel prints logging output from Bazel itself
+  and the binary under invocation. To make the logs less noisy, you can suppress the outputs from
+  Bazel itself with the <code>--ui_event_filters</code> and <code>--noshow_progress</code> flags.
+  For example:
+
+  <pre>
+  bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress //java/myapp:myapp
+  </pre>
+</p>
+
 <h3>Executing tests</h3>
 
 <p>
