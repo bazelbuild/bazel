@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,6 +34,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ThreadUtilsTest {
   // TODO(b/150299871): inspecting the output of GoogleLogger or mocking it seems too hard for now.
+  @Ignore("b/150299871") // TODO(b/150299871): Enable stack traces when they can be merged.
   @Test
   public void smoke() throws Exception {
     SettableFuture<Integer> future = SettableFuture.create();

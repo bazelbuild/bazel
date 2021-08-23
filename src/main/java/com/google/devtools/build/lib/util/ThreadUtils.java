@@ -78,16 +78,12 @@ public class ThreadUtils {
                   makeString(stackTraceAndState.trace));
             });
 
-    SlowInterruptInnerException inner =
-        new SlowInterruptInnerException("Wrapper exception for longest stack trace");
-    inner.setStackTrace(firstTrace.get().trace);
-    SlowInterruptException ex = new SlowInterruptException(inner);
-    bugReporter.sendBugReport(ex);
+    bugReporter.sendBugReport(new SlowInterruptException());
   }
 
   private static final class SlowInterruptException extends RuntimeException {
-    public SlowInterruptException(Exception inner) {
-      super("Slow interrupt", inner);
+    public SlowInterruptException() {
+      super("Slow interrupt");
     }
   }
 
@@ -153,11 +149,5 @@ public class ThreadUtils {
       builder.append('<').append(thread.getName()).append(' ').append(thread.getId()).append('>');
     }
     return builder.toString();
-  }
-
-  private static class SlowInterruptInnerException extends Exception {
-    SlowInterruptInnerException(String message) {
-      super(message);
-    }
   }
 }
