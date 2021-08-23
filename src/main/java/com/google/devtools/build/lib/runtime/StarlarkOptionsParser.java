@@ -109,8 +109,6 @@ public class StarlarkOptionsParser {
     ImmutableMap.Builder<String, Object> parsedOptions = new ImmutableMap.Builder<>();
     for (Map.Entry<String, Pair<String, Target>> option : unparsedOptions.entrySet()) {
       String loadedFlag = option.getKey();
-      // String loadedFlag =
-      // Label.parseAbsoluteUnchecked(option.getKey()).getDefaultCanonicalForm();
       String unparsedValue = option.getValue().first;
       Target buildSettingTarget = option.getValue().second;
       BuildSetting buildSetting =
@@ -157,11 +155,7 @@ public class StarlarkOptionsParser {
     if (value != null) {
       // --flag=value or -flag=value form
       Target buildSettingTarget = loadBuildSetting(name, nativeOptionsParser, eventHandler);
-      // Use the unambiguous canonical form to ensure we don't have
-      // duplicate options getting into the starlark options map.
-      unparsedOptions.put(
-          buildSettingTarget.getLabel().getDefaultCanonicalForm(),
-          new Pair<>(value, buildSettingTarget));
+      unparsedOptions.put(name, new Pair<>(value, buildSettingTarget));
     } else {
       boolean booleanValue = true;
       // check --noflag form
