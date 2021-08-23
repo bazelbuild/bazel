@@ -16,15 +16,23 @@ package com.google.testing.coverage;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import org.jacoco.core.internal.analysis.Instruction;
+import org.jacoco.core.internal.analysis.filter.IFilter;
+import org.jacoco.core.internal.analysis.filter.IFilterContext;
+import org.jacoco.core.internal.analysis.filter.IFilterOutput;
 import org.jacoco.core.internal.flow.IFrame;
 import org.jacoco.core.internal.flow.LabelInfo;
 import org.jacoco.core.internal.flow.MethodProbesVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /**
  * The mapper is a probes visitor that will cache control flow information as well as keeping track
@@ -57,6 +65,13 @@ public class MethodProbesMapper extends MethodProbesVisitor {
   private Instruction lastInstruction = null;
   private int currentLine = -1;
   private List<Label> currentLabels = new ArrayList<>();
+  private AbstractInsnNode currentInstructionNode = null;
+  private Map<AbstractInsnNode, Instruction> instructionMap = new HashMap<>();
+
+  // Filtering
+  private IFilter filter;
+  private IFilterContext filterContext;
+  private SimpleFilterOutput filterOutput = new SimpleFilterOutput();
 
   // Result
   private Map<Integer, BranchExp> lineToBranchExp = new TreeMap();
@@ -87,6 +102,22 @@ public class MethodProbesMapper extends MethodProbesVisitor {
   private Map<Instruction, Instruction> predecessors = new HashMap<>();
   private Map<Label, Instruction> labelToInsn = new HashMap<>();
 
+  public MethodProbesMapper(IFilterContext filterContext, IFilter filter) {
+    this.filterContext = filterContext;
+    this.filter = filter;
+  }
+
+  @Override
+  public void accept(MethodNode methodNode, MethodVisitor methodVisitor) {
+    methodVisitor.visitCode();
+    for (AbstractInsnNode i : methodNode.instructions) {
+      currentInstructionNode = i;
+      i.accept(methodVisitor);
+    }
+    filter.filter(methodNode, filterContext, filterOutput);
+    methodVisitor.visitEnd();
+  }
+
   /** Visitor method to append a new Instruction */
   private void visitInsn() {
     Instruction instruction = new Instruction(currentLine);
@@ -101,6 +132,7 @@ public class MethodProbesMapper extends MethodProbesVisitor {
     }
     currentLabels.clear(); // Update states
     lastInstruction = instruction;
+    instructionMap.put(currentInstructionNode, instruction);
   }
 
   // Plain visitors: called from adapter when no probe is needed
@@ -317,6 +349,12 @@ public class MethodProbesMapper extends MethodProbesVisitor {
   /** Finishing the method */
   @Override
   public void visitEnd() {
+    HashSet<Instruction> ignoredInstructions = new HashSet<>();
+    for (Map.Entry<AbstractInsnNode, Instruction> entry : instructionMap.entrySet()) {
+      if (filterOutput.ignored.contains(entry.getKey())) {
+        ignoredInstructions.add(entry.getValue());
+      }
+    }
 
     for (Jump jump : jumps) {
       Instruction insn = labelToInsn.get(jump.target);
@@ -328,6 +366,9 @@ public class MethodProbesMapper extends MethodProbesVisitor {
     for (Map.Entry<Integer, Instruction> entry : probeToInsn.entrySet()) {
       int probeId = entry.getKey();
       Instruction ins = entry.getValue();
+      if (ignoredInstructions.contains(ins)) {
+        continue;
+      }
 
       Instruction insn = ins;
       CovExp exp = new ProbeExp(probeId);
@@ -372,6 +413,9 @@ public class MethodProbesMapper extends MethodProbesVisitor {
 
     // Merge branches in the instructions on the same line
     for (Instruction insn : instructions) {
+      if (ignoredInstructions.contains(insn)) {
+        continue;
+      }
       if (insn.getBranchCounter().getTotalCount() > 1) {
         CovExp insnExp = insnToCovExp.get(insn);
         if (insnExp != null && (insnExp instanceof BranchExp)) {
@@ -401,6 +445,29 @@ public class MethodProbesMapper extends MethodProbesVisitor {
       source = i;
       target = l;
       branch = b;
+    }
+  }
+
+  class SimpleFilterOutput implements IFilterOutput {
+
+    private HashSet<AbstractInsnNode> ignored = new HashSet<>();
+    // Handle only ignore for now; most filters only use this.
+    @Override
+    public void ignore(AbstractInsnNode fromInclusive, AbstractInsnNode toInclusive) {
+      for (AbstractInsnNode n = fromInclusive; n != toInclusive; n = n.getNext()) {
+        ignored.add(n);
+      }
+      ignored.add(toInclusive);
+    }
+
+    @Override
+    public void merge(AbstractInsnNode i1, AbstractInsnNode i2) {
+      // TODO(cmita): Handle
+    }
+
+    @Override
+    public void replaceBranches(AbstractInsnNode source, Set<AbstractInsnNode> newTargets) {
+      // TODO(cmita): Handle
     }
   }
 }
