@@ -218,7 +218,7 @@ public final class AspectValueKey {
      * base target's configuration.
      */
     @Nullable
-    BuildConfigurationValue.Key getAspectConfigurationKey() {
+    public BuildConfigurationValue.Key getAspectConfigurationKey() {
       return aspectConfigurationKey;
     }
 

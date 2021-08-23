@@ -667,7 +667,9 @@ java_library(
         ":provider_collection",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:jsr305",
     ],
 )
 
@@ -700,6 +702,8 @@ java_library(
     deps = [
         ":configured_object_value",
         ":configured_target",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//third_party:jsr305",
     ],
 )
 
