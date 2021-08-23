@@ -477,7 +477,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disallow_resource_jars",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {
