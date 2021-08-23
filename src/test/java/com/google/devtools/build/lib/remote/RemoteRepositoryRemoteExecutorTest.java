@@ -75,7 +75,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
-        .thenReturn(CachedActionResult.create(cachedResult, "test"));
+        .thenReturn(CachedActionResult.remote(cachedResult));
 
     // Act
     ExecutionResult executionResult =
@@ -102,7 +102,7 @@ public class RemoteRepositoryRemoteExecutorTest {
     // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(1).build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
-        .thenReturn(CachedActionResult.create(cachedResult, "test"));
+        .thenReturn(CachedActionResult.remote(cachedResult));
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
@@ -139,7 +139,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             .setStderrRaw(ByteString.copyFrom(stderr))
             .build();
     when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
-        .thenReturn(CachedActionResult.create(cachedResult, "test"));
+        .thenReturn(CachedActionResult.remote(cachedResult));
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);

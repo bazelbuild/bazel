@@ -65,24 +65,31 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
     }
   }
 
+  /**
+   * Class to keep track of which cache (disk or remote) a given [cached] ActionResult
+   * comes from.
+   */
   @AutoValue
   abstract class CachedActionResult {
-    public static CachedActionResult create(ActionResult actionResult, String cacheName) {
-      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, cacheName);
-    }
-
     public static CachedActionResult remote(ActionResult actionResult) {
+      if (actionResult == null) {
+        return null;
+      }
       return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "remote");
     }
 
     public static CachedActionResult disk(ActionResult actionResult) {
+      if (actionResult == null) {
+        return null;
+      }
       return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "disk");
     }
 
-    @Nullable
+    /** A actionResult can have a cache name ascribed to it. */
     public abstract ActionResult actionResult();
-    public abstract String cacheName();
 
+    /** Indicates which cache the {@link #actionResult} came from (disk/remote) */
+    public abstract String cacheName();
   }
 
   /**

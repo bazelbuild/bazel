@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -192,14 +191,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
       context.report(SPAWN_CHECKING_CACHE_EVENT);
 
       // Try to lookup the action in the action cache.
-      CachedActionResult cachedActionResult;
+      RemoteActionResult cachedResult;
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-        cachedActionResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
+        cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
       }
-      RemoteActionResult cachedResult = null;
-      if (cachedActionResult != null && cachedActionResult.actionResult() != null) {
-        cachedResult = RemoteActionResult.createFromCache(cachedActionResult.actionResult());
-      }
+
       if (cachedResult != null) {
         if (cachedResult.getExitCode() != 0) {
           // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
@@ -212,7 +208,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 action,
                 cachedResult,
                 /* cacheHit= */ true,
-                cachedActionResult.cacheName(),
+                cachedResult.cacheName(),
                 spawn,
                 totalTime,
                 () -> action.getNetworkTime().getDuration(),

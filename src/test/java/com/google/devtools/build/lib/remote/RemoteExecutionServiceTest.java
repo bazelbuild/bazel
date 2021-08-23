@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
@@ -146,7 +147,7 @@ public class RemoteExecutionServiceTest {
         .setPath("outputs/bar")
         .setDigest(barDigest)
         .setIsExecutable(true);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -173,7 +174,7 @@ public class RemoteExecutionServiceTest {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFilesBuilder().setPath("execroot/outputs/foo").setDigest(fooDigest);
     builder.addOutputFilesBuilder().setPath("execroot/outputs/bar").setDigest(barDigest);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -210,7 +211,7 @@ public class RemoteExecutionServiceTest {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFilesBuilder().setPath("outputs/a/foo").setDigest(fooDigest);
     builder.addOutputDirectoriesBuilder().setPath("outputs/a/bar").setTreeDigest(barTreeDigest);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -236,7 +237,7 @@ public class RemoteExecutionServiceTest {
         cache.addContents(remoteActionExecutionContext, barTreeMessage.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectoriesBuilder().setPath("outputs/a/bar").setTreeDigest(barTreeDigest);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -281,7 +282,7 @@ public class RemoteExecutionServiceTest {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFilesBuilder().setPath("outputs/a/foo").setDigest(fooDigest);
     builder.addOutputDirectoriesBuilder().setPath("outputs/a/bar").setTreeDigest(barTreeDigest);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -331,7 +332,7 @@ public class RemoteExecutionServiceTest {
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectoriesBuilder().setPath("outputs/a/").setTreeDigest(treeDigest);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -352,7 +353,7 @@ public class RemoteExecutionServiceTest {
   public void downloadOutputs_relativeFileSymlink_success() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFileSymlinksBuilder().setPath("outputs/a/b/link").setTarget("../../foo");
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -371,7 +372,7 @@ public class RemoteExecutionServiceTest {
   public void downloadOutputs_relativeDirectorySymlink_success() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectorySymlinksBuilder().setPath("outputs/a/b/link").setTarget("foo");
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -397,7 +398,7 @@ public class RemoteExecutionServiceTest {
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectoriesBuilder().setPath("outputs/dir").setTreeDigest(treeDigest);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -416,7 +417,7 @@ public class RemoteExecutionServiceTest {
   public void downloadOutputs_absoluteFileSymlink_error() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputFileSymlinksBuilder().setPath("outputs/foo").setTarget("/abs/link");
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -434,7 +435,7 @@ public class RemoteExecutionServiceTest {
   public void downloadOutputs_absoluteDirectorySymlink_error() throws Exception {
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectorySymlinksBuilder().setPath("outputs/foo").setTarget("/abs/link");
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -459,7 +460,7 @@ public class RemoteExecutionServiceTest {
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectoriesBuilder().setPath("outputs/dir").setTreeDigest(treeDigest);
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -492,7 +493,7 @@ public class RemoteExecutionServiceTest {
             .setDigest(outputFileDigest));
     builder.addOutputFiles(
         OutputFile.newBuilder().setPath("outputs/otherfile").setDigest(otherFileDigest));
-    RemoteActionResult result = RemoteActionResult.createFromCache(builder.build());
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -522,7 +523,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file3").setDigest(digest3))
             .build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(actionResult);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -552,7 +553,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file3").setDigest(digest3))
             .build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(actionResult);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -581,7 +582,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file3").setDigest(digest3))
             .build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(actionResult);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -610,7 +611,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(digest2))
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file3").setDigest(digest3))
             .build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(actionResult);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -639,7 +640,7 @@ public class RemoteExecutionServiceTest {
             .setStdoutDigest(digestStdout)
             .setStderrDigest(digestStderr)
             .build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(actionResult);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, spyOutErr);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -678,7 +679,7 @@ public class RemoteExecutionServiceTest {
             .setStdoutDigest(digestStdout)
             .setStderrDigest(digestStderr)
             .build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(actionResult);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, spyOutErr);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -710,7 +711,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/foo.tmp").setDigest(d1))
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/foo").setDigest(d2))
             .build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
@@ -735,7 +736,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file1").setDigest(d1))
             .build();
 
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
@@ -764,7 +765,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file1").setDigest(d1))
             .build();
 
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
@@ -799,7 +800,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(d2))
             .build();
 
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
@@ -851,7 +852,7 @@ public class RemoteExecutionServiceTest {
                 OutputDirectory.newBuilder().setPath("outputs/dir").setTreeDigest(dt))
             .build();
 
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
@@ -918,7 +919,7 @@ public class RemoteExecutionServiceTest {
                 OutputDirectory.newBuilder().setPath("outputs/dir").setTreeDigest(dt))
             .build();
 
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
@@ -951,7 +952,7 @@ public class RemoteExecutionServiceTest {
             .setStderrDigest(dErr)
             .build();
 
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Spawn spawn = newSpawnFromResult(result);
     MetadataInjector injector = mock(MetadataInjector.class);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, injector);
@@ -986,7 +987,7 @@ public class RemoteExecutionServiceTest {
             .addOutputFiles(OutputFile.newBuilder().setPath("outputs/file2").setDigest(d2))
             .build();
 
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     // a1 should be provided as an InMemoryOutput
     PathFragment inMemoryOutputPathFragment = PathFragment.create("outputs/file1");
     Spawn spawn = newSpawnFromResultWithInMemoryOutput(result, inMemoryOutputPathFragment);
@@ -1023,7 +1024,7 @@ public class RemoteExecutionServiceTest {
     // arrange
     Digest d1 = cache.addContents(remoteActionExecutionContext, "in-memory output");
     ActionResult r = ActionResult.newBuilder().setExitCode(0).build();
-    RemoteActionResult result = RemoteActionResult.createFromCache(r);
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     Artifact a1 = ActionsTestUtil.createArtifact(artifactRoot, "file1");
     Spawn spawn =
         newSpawn(

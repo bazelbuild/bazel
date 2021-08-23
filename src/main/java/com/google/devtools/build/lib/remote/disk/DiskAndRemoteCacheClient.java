@@ -103,10 +103,10 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
-    // if remote execution, find missing digests should only look at
+    // If remote execution, find missing digests should only look at
     // the remote cache, not the disk cache because the remote executor only
     // has access to the remote cache, not the disk cache.
-    // Also, the current code for the DiskCache always returns all digests as missing
+    // Also, the DiskCache always returns all digests as missing
     // and we don't want to transfer all the files all the time.
     if (options.isRemoteExecutionEnabled()) {
       return remoteCache.findMissingDigests(context, digests);
@@ -191,7 +191,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       return Futures.transformAsync(
           remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
           (cachedActionResult) -> {
-            if (cachedActionResult == null || cachedActionResult.actionResult() == null) {
+            if (cachedActionResult == null) {
               return Futures.immediateFuture(null);
             } else {
               diskCache.uploadActionResult(context, actionKey, cachedActionResult.actionResult());
@@ -200,7 +200,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
           },
           MoreExecutors.directExecutor());
     } else {
-      return Futures.immediateFuture(CachedActionResult.remote(null));
+      return Futures.immediateFuture(null);
     }
   }
 }
