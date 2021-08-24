@@ -40,6 +40,7 @@ semantics = struct(
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
     EXTRA_SRCS_TYPES = [],
     EXTRA_ATTRIBUTES = {
+        "resource_strip_prefix": attr.string(),
         "_java_toolchain": attr.label(
             default = "@bazel_tools//tools/jdk:current_java_toolchain",
             providers = [java_common.JavaToolchainInfo],
