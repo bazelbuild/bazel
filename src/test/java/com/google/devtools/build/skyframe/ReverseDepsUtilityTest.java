@@ -33,7 +33,7 @@ public class ReverseDepsUtilityTest {
   @Parameters(name = "numElements-{0}")
   public static List<Object[]> parameters() {
     List<Object[]> params = new ArrayList<>();
-    for (int i = 1; i < 2; i++) {
+    for (int i = 0; i < 20; i++) {
       params.add(new Object[] {i});
     }
     return params;
@@ -92,7 +92,7 @@ public class ReverseDepsUtilityTest {
     ReverseDepsUtility.addReverseDep(example, Key.create(0));
     if (numElements == 0) {
       // Will not throw.
-      assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true)).isEmpty();
+      assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true)).hasSize(1);
     } else {
       assertThrows(
           RuntimeException.class,
