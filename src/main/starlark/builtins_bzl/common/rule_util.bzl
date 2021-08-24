@@ -14,7 +14,7 @@
 
 """Defines create_rule and create_dep macros"""
 
-def create_rule(impl, attrs = {}, deps = [], fragments = [], **kwargs):
+def create_rule(impl, attrs = {}, deps = [], fragments = [], remove_attrs = [], **kwargs):
     """Creates a rule composed from dependencies.
 
     Args:
@@ -26,6 +26,7 @@ def create_rule(impl, attrs = {}, deps = [], fragments = [], **kwargs):
             created using 'create_dep'. The keys of this dict are the parameter
             names received by 'impl'
         fragments: List of configuration fragments required by the rule
+        remove_attrs: List of attributes to remove from the implementation.
         **kwargs: extra args to be passed for rule creation
 
     Returns:
@@ -33,10 +34,18 @@ def create_rule(impl, attrs = {}, deps = [], fragments = [], **kwargs):
     """
     merged_attrs = dict()
     fragments = list(fragments)
+    merged_mandatory_attrs = []
+
     for dep in deps:
         merged_attrs.update(dep.attrs)
         fragments.extend(dep.fragments)
+        merged_mandatory_attrs.extend(dep.mandatory_attrs)
     merged_attrs.update(attrs)
+
+    for attr in remove_attrs:
+        if attr in merged_mandatory_attrs:
+            fail("Cannot remove mandatory attribute %s" % attr)
+        merged_attrs.pop(attr)
 
     return rule(
         implementation = impl,
@@ -45,24 +54,26 @@ def create_rule(impl, attrs = {}, deps = [], fragments = [], **kwargs):
         **kwargs
     )
 
-def create_dep(call, attrs = {}, fragments = []):
+def create_dep(call, attrs = {}, fragments = [], mandatory_attrs = None):
     """Combines a dependency's executable function, attributes, and fragments.
 
     Args:
         call: the executable function
         attrs: dict of required rule attrs
         fragments: list of required configuration fragments
-
+        mandatory_attrs: list of attributes that can't be removed later
+          (when not set, all attributes are mandatory)
     Returns:
         The struct
     """
-    return _create_dep(call, attrs, fragments)
+    return _create_dep(call, attrs, fragments, mandatory_attrs if mandatory_attrs else attrs.keys())
 
-def _create_dep(call, attrs = {}, fragments = []):
+def _create_dep(call, attrs = {}, fragments = [], mandatory_attrs = []):
     return struct(
         call = call,
         attrs = attrs,
         fragments = fragments,
+        mandatory_attrs = mandatory_attrs,
     )
 
 def create_composite_dep(merge_func, *deps):
@@ -77,12 +88,15 @@ def create_composite_dep(merge_func, *deps):
     """
     merged_attrs = dict()
     merged_frags = []
+    merged_mandatory_attrs = []
     for dep in deps:
         merged_attrs.update(dep.attrs)
         merged_frags.extend(dep.fragments)
+        merged_mandatory_attrs.extend(dep.mandatory_attrs)
 
     return _create_dep(
         call = merge_func,
         attrs = merged_attrs,
         fragments = merged_frags,
+        mandatory_attrs = merged_mandatory_attrs,
     )
