@@ -694,6 +694,42 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(ruleContext));
     }
 
+    // First propagate validations from most rule attributes as usual; then handle "deps" separately
+    // to propagate validations from each config split but avoid known-redundant Android Lint
+    // validations (b/168038145, b/180746622).
+    // TODO(b/180746622): remove custom filtering once semantically identical actions with
+    //   different configurations are deduped (while still propagating actions from all splits)
+    RuleConfiguredTargetBuilder.collectTransitiveValidationOutputGroups(
+        ruleContext,
+        attr -> !"deps".equals(attr),
+        validations -> builder.addOutputGroup(OutputGroupInfo.VALIDATION_TRANSITIVE, validations));
+    boolean filterSplitValidations = false; // propagate validations from first split unfiltered
+    for (List<? extends TransitiveInfoCollection> deps :
+        ruleContext.getSplitPrerequisites("deps").values()) {
+      for (OutputGroupInfo provider :
+          AnalysisUtils.getProviders(deps, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+        NestedSet<Artifact> validations = provider.getOutputGroup(OutputGroupInfo.VALIDATION);
+        if (filterSplitValidations) {
+          // Filter out Android Lint validations by name: we know these validations are expensive
+          // and duplicative between splits, so arbitrarily only propagate them from the first split
+          // (b/180746622). While it's cheesy to rely on naming patterns, more semantic filtering
+          // requires a lot of work (e.g., using an aspect that observes actions by mnemonic).
+          NestedSetBuilder<Artifact> filtered = NestedSetBuilder.stableOrder();
+          validations.toList().stream()
+              .filter(Artifact::hasKnownGeneratingAction)
+              .filter(a -> !a.getFilename().endsWith("android_lint_output.xml"))
+              .forEach(filtered::add);
+          validations = filtered.build();
+        }
+        if (!validations.isEmpty()) {
+          builder.addOutputGroup(OutputGroupInfo.VALIDATION_TRANSITIVE, validations);
+        }
+      }
+      // Filter out Android Lint Validations from any subsequent split,
+      // because they're redundant with those in the first split.
+      filterSplitValidations = true;
+    }
+
     return builder
         .setFilesToBuild(filesToBuild)
         .addProvider(
