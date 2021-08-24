@@ -159,6 +159,11 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
       return this;
     }
 
+    public Builder addDefines(Iterable<String> defines) {
+      this.defines.addAll(defines);
+      return this;
+    }
+
     public Builder addStarlarkOption(Label starlarkOption) {
       starlarkOptions.add(starlarkOption);
       return this;
