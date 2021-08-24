@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,19 +51,16 @@ class WorkerParser {
   private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   private final Path execRoot;
-  private final boolean multiplex;
   private final WorkerOptions workerOptions;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
 
   public WorkerParser(
       Path execRoot,
-      boolean multiplex,
       WorkerOptions workerOptions,
       LocalEnvProvider localEnvProvider,
       BinTools binTools) {
     this.execRoot = execRoot;
-    this.multiplex = multiplex;
     this.workerOptions = workerOptions;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
@@ -98,20 +96,49 @@ class WorkerParser {
                 + " --experimental_worker_allow_json_protocol is used");
       }
     }
-
     WorkerKey key =
-        new WorkerKey(
+        createWorkerKey(
+            spawn,
             workerArgs,
             env,
             execRoot,
-            Spawns.getWorkerKeyMnemonic(spawn),
             workerFilesCombinedHash,
             workerFiles,
+            workerOptions,
             context.speculating(),
-            multiplex && Spawns.supportsMultiplexWorkers(spawn),
-            Spawns.supportsWorkerCancellation(spawn),
             protocolFormat);
     return new WorkerConfig(key, flagFiles);
+  }
+
+  /**
+   * This method handles the logic of creating a WorkerKey (e.g., if sandboxing should be enabled or
+   * not, when to use multiplex-workers)
+   */
+  @VisibleForTesting
+  static WorkerKey createWorkerKey(
+      Spawn spawn,
+      ImmutableList<String> workerArgs,
+      ImmutableMap<String, String> env,
+      Path execRoot,
+      HashCode workerFilesCombinedHash,
+      SortedMap<PathFragment, HashCode> workerFiles,
+      WorkerOptions workerOptions,
+      boolean speculating,
+      WorkerProtocolFormat protocolFormat) {
+    return new WorkerKey(
+        workerArgs,
+        env,
+        execRoot,
+        Spawns.getWorkerKeyMnemonic(spawn),
+        workerFilesCombinedHash,
+        workerFiles,
+        /* sandboxed= */ workerOptions.workerSandboxing || speculating,
+        /* proxied= */ workerOptions.workerMultiplex
+            && Spawns.supportsMultiplexWorkers(spawn)
+            && !speculating
+            && !workerOptions.workerSandboxing,
+        Spawns.supportsWorkerCancellation(spawn),
+        protocolFormat);
   }
 
   /**

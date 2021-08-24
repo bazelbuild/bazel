@@ -95,7 +95,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SandboxHelpers helpers,
       Path execRoot,
       WorkerPool workers,
-      boolean multiplex,
       ExtendedEventHandler reporter,
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
@@ -109,8 +108,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
-    this.workerParser =
-        new WorkerParser(execRoot, multiplex, workerOptions, localEnvProvider, binTools);
+    this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
   }
 
@@ -426,7 +424,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 request,
                 workerOptions.workerCancellation && Spawns.supportsWorkerCancellation(spawn));
             worker = null;
-          } else if (!key.isSpeculative()) {
+          } else if (!context.speculating()) {
             // Non-sandboxed workers interrupted outside of dynamic execution can only mean that
             // the user interrupted the build, and we don't want to delay finishing. Instead we
             // kill the worker.
