@@ -3,7 +3,7 @@
 This document is a description of the code base and how Bazel is structured. It
 is intended for people willing to contribute to Bazel, not for end-users.
 
-## Introduction
+## Introduction 
 
 The code base of Bazel is large (~350KLOC production code and ~260 KLOC test
 code) and no one is familiar with the whole landscape: everyone knows their
