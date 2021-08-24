@@ -144,7 +144,7 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
 
 COMPILE_ACTION = create_dep(
     _compile_action,
-    {
+    attrs = {
         "srcs": attr.label_list(
             allow_files = [".java", ".srcjar", ".properties"] + semantics.EXTRA_SRCS_TYPES,
             flags = ["DIRECT_COMPILE_TIME_INPUT", "ORDER_INDEPENDENT"],
@@ -171,8 +171,31 @@ COMPILE_ACTION = create_dep(
             ],
             flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
         ),
+        "runtime_deps": attr.label_list(
+            allow_files = [".jar"],
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+            providers = [[CcInfo], [JavaInfo]],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+        ),
+        "exports": attr.label_list(
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+            providers = [[JavaInfo], [CcInfo]],
+        ),
+        "exported_plugins": attr.label_list(
+            providers = [JavaPluginInfo],
+            cfg = "exec",
+        ),
         "javacopts": attr.string_list(),
         "neverlink": attr.bool(),
+        "_java_toolchain": attr.label(
+            default = semantics.JAVA_TOOLCHAIN_LABEL,
+            providers = [java_common.JavaToolchainInfo],
+        ),
+        "_java_plugins": attr.label(
+            default = semantics.JAVA_PLUGINS_FLAG_ALIAS_LABEL,
+            providers = [JavaPluginInfo],
+        ),
     },
-    ["java", "cpp"],
+    fragments = ["java", "cpp"],
+    mandatory_attrs = ["srcs", "deps", "resources", "plugins", "javacopts", "neverlink"],
 )

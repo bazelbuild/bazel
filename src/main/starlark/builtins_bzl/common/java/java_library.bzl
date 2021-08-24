@@ -53,20 +53,6 @@ java_library = create_rule(
     _java_library_rule_impl,
     attrs = dict(
         {
-            "runtime_deps": attr.label_list(
-                allow_files = [".jar"],
-                allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-                providers = [[CcInfo], [JavaInfo]],
-                flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-            ),
-            "exports": attr.label_list(
-                allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
-                providers = [[JavaInfo], [CcInfo]],
-            ),
-            "exported_plugins": attr.label_list(
-                providers = [JavaPluginInfo],
-                cfg = "exec",
-            ),
             "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         },
         **dict(

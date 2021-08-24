@@ -38,23 +38,12 @@ semantics = struct(
     EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
     EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = True,
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
+    JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
+    JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
+    PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
     EXTRA_SRCS_TYPES = [],
     EXTRA_ATTRIBUTES = {
         "resource_strip_prefix": attr.string(),
-        "_java_toolchain": attr.label(
-            default = "@bazel_tools//tools/jdk:current_java_toolchain",
-            providers = [java_common.JavaToolchainInfo],
-        ),
-        "_java_plugins": attr.label(
-            default = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
-            providers = [JavaPluginInfo],
-        ),
-        "_proguard_allowlister": attr.label(
-            allow_files = True,
-            default = "@bazel_tools//tools/jdk:proguard_whitelister",
-            cfg = "exec",
-            executable = True,
-        ),
     },
     EXTRA_DEPS = [],
     ALLOWED_RULES_IN_DEPS = [

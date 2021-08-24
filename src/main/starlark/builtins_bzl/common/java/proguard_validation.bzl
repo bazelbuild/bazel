@@ -16,6 +16,7 @@
 Proguard
 """
 
+load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "create_dep")
 
 ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
@@ -72,6 +73,12 @@ VALIDATE_PROGUARD_SPECS = create_dep(
     _validate_proguard_specs_impl,
     {
         "proguard_specs": attr.label_list(allow_files = True),
+        "_proguard_allowlister": attr.label(
+            allow_files = True,
+            default = semantics.PROGUARD_ALLOWLISTER_LABEL,
+            cfg = "exec",
+            executable = True,
+        ),
     },
     [],
 )
