@@ -15,22 +15,3 @@ filegroup(
     ],
     visibility = ["//src:__subpackages__"],
 )
-
-# List of all java_library rules containing tests that are platform agnostic.
-java_library(
-    name = "BazelTests_lib",
-    exports = [
-        "//src/test/java/com/google/devtools/build/lib/bazel/debug:WorkspaceRuleEventTest_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/execlog:StableSortTest_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository:RepositoryTests_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:RepositoryCacheTests_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:DownloaderTestSuite_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:StarlarkTests_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules:BazelRuleTests_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools:NdkCrosstoolsTest_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/genrule:GenruleTests_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/java:JavaTests_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/ninja:NinjaTests_lib",
-    ],
-)

@@ -71,7 +71,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   // Default thread count is equal to the number of cores to exploit
   // that level of hardware parallelism, since invalidation should be CPU-bound.
   // We may consider increasing this in the future.
-  private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+  @VisibleForTesting
+  static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+
   private static final int EXPECTED_PENDING_SET_SIZE = DEFAULT_THREAD_COUNT * 8;
   private static final int EXPECTED_VISITED_SET_SIZE = 1024;
 
@@ -261,8 +263,8 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                   visit(
                       Iterables.transform(
                           pendingList.subList(
-                              index * listSize / DEFAULT_THREAD_COUNT,
-                              Math.min(listSize, (index + 1) * listSize / DEFAULT_THREAD_COUNT)),
+                              (index * listSize) / DEFAULT_THREAD_COUNT,
+                              ((index + 1) * listSize) / DEFAULT_THREAD_COUNT),
                           Pair::getFirst),
                       InvalidationType.DELETED));
         }

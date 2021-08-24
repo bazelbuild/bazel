@@ -31,7 +31,7 @@ def _base_common_impl(ctx, extra_resources, output_prefix):
     source_jars = _filter_srcs(srcs, "srcjar")
 
     java_info, default_info, compilation_info = COMPILE_ACTION.call(ctx, extra_resources, source_files, source_jars, output_prefix)
-    output_group = dict(
+    output_groups = dict(
         compilation_outputs = compilation_info.outputs,
         _source_jars = java_info.transitive_source_jars,
         _direct_source_jars = java_info.source_jars,
@@ -39,17 +39,20 @@ def _base_common_impl(ctx, extra_resources, output_prefix):
 
     lint_output = ANDROID_LINT_ACTION.call(ctx, java_info, source_files, source_jars, compilation_info)
     if lint_output:
-        output_group["_validation"] = [lint_output]
+        output_groups["_validation"] = [lint_output]
+
+    instrumented_files_info = coverage_common.instrumented_files_info(
+        ctx,
+        source_attributes = ["srcs"],
+        dependency_attributes = ["deps", "data", "resources", "resource_jars", "exports", "runtime_deps", "jars"],
+    )
 
     return struct(
-        java = java_info,
-        default = default_info,
-        output_group = output_group,
-        coverage = coverage_common.instrumented_files_info(
-            ctx,
-            source_attributes = ["srcs"],
-            dependency_attributes = ["deps", "data", "resources", "resource_jars", "exports", "runtime_deps", "jars"],
-        ),
+        java_info = java_info,
+        default_info = default_info,
+        instrumented_files_info = instrumented_files_info,
+        output_groups = output_groups,
+        extra_providers = [],
     )
 
 JAVA_COMMON_DEP = create_composite_dep(

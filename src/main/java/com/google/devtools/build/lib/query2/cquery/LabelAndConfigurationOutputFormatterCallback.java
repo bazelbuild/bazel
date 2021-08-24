@@ -13,19 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.ClassName;
 import java.io.OutputStream;
 
 /** Default Output callback for cquery. Prints a label and configuration pair per result. */
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final boolean showKind;
 
-  public LabelAndConfigurationOutputFormatterCallback(
+  LabelAndConfigurationOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
@@ -57,18 +61,32 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
               .append(")");
 
       if (options.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
-        RequiredConfigFragmentsProvider configFragmentsProvider =
-            keyedConfiguredTarget
-                .getConfiguredTarget()
-                .getProvider(RequiredConfigFragmentsProvider.class);
-        String requiredFragmentsOutput =
-            configFragmentsProvider != null
-                ? String.join(", ", configFragmentsProvider.getRequiredConfigFragments())
-                : "";
-        output.append(" [").append(requiredFragmentsOutput).append("]");
+        output.append(' ').append(requiredFragmentStrings(keyedConfiguredTarget));
       }
 
       addResult(output.toString());
     }
+  }
+
+  private static ImmutableSortedSet<String> requiredFragmentStrings(
+      KeyedConfiguredTarget keyedConfiguredTarget) {
+    RequiredConfigFragmentsProvider requiredFragments =
+        keyedConfiguredTarget
+            .getConfiguredTarget()
+            .getProvider(RequiredConfigFragmentsProvider.class);
+    if (requiredFragments == null) {
+      return ImmutableSortedSet.of();
+    }
+
+    return ImmutableSortedSet.<String>naturalOrder()
+        .addAll(
+            Iterables.transform(
+                requiredFragments.getOptionsClasses(), ClassName::getSimpleNameWithOuter))
+        .addAll(
+            Iterables.transform(
+                requiredFragments.getFragmentClasses(), ClassName::getSimpleNameWithOuter))
+        .addAll(Iterables.transform(requiredFragments.getDefines(), define -> "--define:" + define))
+        .addAll(Iterables.transform(requiredFragments.getStarlarkOptions(), Label::toString))
+        .build();
   }
 }

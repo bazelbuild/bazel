@@ -17,15 +17,7 @@ Java compile action
 """
 
 load(":common/rule_util.bzl", "create_dep")
-load(
-    ":common/java/java_semantics.bzl",
-    "ALLOWED_RULES_IN_DEPS",
-    "ALLOWED_RULES_IN_DEPS_WITH_WARNING",
-    "COLLECT_SRCS_FROM_PROTO_LIBRARY",
-    "EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY",
-    "EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY",
-    "EXTRA_SRCS_TYPES",
-)
+load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 ProtoInfo = _builtins.toplevel.ProtoInfo
@@ -79,7 +71,7 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
     srcs = ctx.files.srcs
 
     resources = []
-    if COLLECT_SRCS_FROM_PROTO_LIBRARY:
+    if semantics.COLLECT_SRCS_FROM_PROTO_LIBRARY:
         for resource in ctx.attr.resources:
             if ProtoInfo in resource:
                 resources.extend(resource[ProtoInfo].transitive_sources.to_list())
@@ -101,6 +93,13 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
     exports_javainfo = _filter_provider(JavaInfo, exports)
     _append_legacy_jars(exports, exports_javainfo)
 
+    if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY:
+        output = ctx.actions.declare_file(output_prefix + "%s.jar" % ctx.attr.name)
+        output_source_jar = ctx.actions.declare_file(output_prefix + "%s-src.jar" % ctx.attr.name)
+    else:
+        output = ctx.outputs.classjar
+        output_source_jar = ctx.outputs.sourcejar
+
     java_info = java_common.compile(
         ctx,
         source_files = source_files,
@@ -115,8 +114,8 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
         javac_opts = [ctx.expand_location(opt) for opt in ctx.attr.javacopts],
         neverlink = ctx.attr.neverlink,
         java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
-        output = ctx.actions.declare_file(output_prefix + "%s.jar" % ctx.attr.name) if EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else ctx.outputs.classjar,
-        output_source_jar = ctx.actions.declare_file(output_prefix + "%s-src.jar" % ctx.attr.name) if EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY else ctx.outputs.sourcejar,
+        output = output,
+        output_source_jar = output_source_jar,
         strict_deps = _filter_strict_deps(ctx.fragments.java.strict_java_deps),
     )
 
@@ -145,9 +144,9 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
 
 COMPILE_ACTION = create_dep(
     _compile_action,
-    {
+    attrs = {
         "srcs": attr.label_list(
-            allow_files = [".java", ".srcjar", ".properties"] + EXTRA_SRCS_TYPES,
+            allow_files = [".java", ".srcjar", ".properties"] + semantics.EXTRA_SRCS_TYPES,
             flags = ["DIRECT_COMPILE_TIME_INPUT", "ORDER_INDEPENDENT"],
         ),
         "data": attr.label_list(
@@ -165,23 +164,38 @@ COMPILE_ACTION = create_dep(
         ),
         "deps": attr.label_list(
             allow_files = [".jar"],
-            allow_rules = ALLOWED_RULES_IN_DEPS + ALLOWED_RULES_IN_DEPS_WITH_WARNING,
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_IN_DEPS_WITH_WARNING,
             providers = [
                 [CcInfo],
                 [JavaInfo],
             ],
             flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
         ),
+        "runtime_deps": attr.label_list(
+            allow_files = [".jar"],
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+            providers = [[CcInfo], [JavaInfo]],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+        ),
+        "exports": attr.label_list(
+            allow_rules = semantics.ALLOWED_RULES_IN_DEPS,
+            providers = [[JavaInfo], [CcInfo]],
+        ),
+        "exported_plugins": attr.label_list(
+            providers = [JavaPluginInfo],
+            cfg = "exec",
+        ),
         "javacopts": attr.string_list(),
         "neverlink": attr.bool(),
         "_java_toolchain": attr.label(
-            default = "@//tools/jdk:current_java_toolchain",
+            default = semantics.JAVA_TOOLCHAIN_LABEL,
             providers = [java_common.JavaToolchainInfo],
         ),
         "_java_plugins": attr.label(
-            default = "@//tools/jdk:java_plugins_flag_alias",
+            default = semantics.JAVA_PLUGINS_FLAG_ALIAS_LABEL,
             providers = [JavaPluginInfo],
         ),
     },
-    ["java", "google_java", "cpp"],
+    fragments = ["java", "cpp"],
+    mandatory_attrs = ["srcs", "deps", "resources", "plugins", "javacopts", "neverlink"],
 )

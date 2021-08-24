@@ -15,13 +15,14 @@ package com.google.devtools.build.lib.util;
 
 import static java.util.stream.Collectors.toCollection;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
@@ -48,6 +49,11 @@ public class ThreadUtils {
 
   /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
   public static synchronized void warnAboutSlowInterrupt() {
+    warnAboutSlowInterrupt(BugReporter.defaultInstance());
+  }
+
+  @VisibleForTesting
+  static synchronized void warnAboutSlowInterrupt(BugReporter bugReporter) {
     logger.atWarning().log("Interrupt took too long. Dumping thread state.");
     AtomicReference<StackTraceAndState> firstTrace = new AtomicReference<>();
     Thread.getAllStackTraces().entrySet().stream()
@@ -58,7 +64,13 @@ public class ThreadUtils {
         .forEach(
             e -> {
               StackTraceAndState stackTraceAndState = e.getKey();
-              firstTrace.compareAndSet(null, stackTraceAndState);
+              // Store longest trace but omit "Unsafe.park" calls: they are interruptible, so can't
+              // be the cause of the slow interrupt.
+              if (firstTrace.get() == null
+                  && (!stackTraceAndState.trace[0].getClassName().endsWith("misc.Unsafe")
+                      || !stackTraceAndState.trace[0].getMethodName().equals("park"))) {
+                firstTrace.compareAndSet(null, stackTraceAndState);
+              }
               logger.atWarning().log(
                   "%s %s%s",
                   stackTraceAndState.state,
@@ -66,15 +78,12 @@ public class ThreadUtils {
                   makeString(stackTraceAndState.trace));
             });
 
-    Exception inner = new Exception("Wrapper exception for longest stack trace");
-    inner.setStackTrace(firstTrace.get().trace);
-    SlowInterruptException ex = new SlowInterruptException(inner);
-    LoggingUtil.logToRemote(Level.WARNING, "Slow interrupt", ex);
+    bugReporter.sendBugReport(new SlowInterruptException());
   }
 
   private static final class SlowInterruptException extends RuntimeException {
-    public SlowInterruptException(Exception inner) {
-      super("Slow interruption...", inner);
+    public SlowInterruptException() {
+      super("Slow interrupt");
     }
   }
 

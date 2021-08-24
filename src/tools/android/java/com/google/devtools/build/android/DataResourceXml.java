@@ -323,6 +323,12 @@ public class DataResourceXml implements DataResource {
       case XML:
         return XmlResourceValues.parseSimple(eventReader, resourceType, start, namespacesCollector);
       default:
+        // TODO(b/193025750): The current version of the layoutlib prebuilt used by Bazel does not
+        // contain the macro type. This work around allows using macro resource types internally
+        // until the layoutlib preuilt is updated or the dependency on it is removed.
+        if ("macro".equals(resourceType.getName())) {
+          return XmlResourceValues.parseMacro(eventReader, start, namespacesCollector);
+        }
         throw new XMLStreamException(
             String.format("Unhandled resourceType %s", resourceType), start.getLocation());
     }

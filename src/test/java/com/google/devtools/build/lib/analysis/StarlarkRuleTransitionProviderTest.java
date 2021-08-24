@@ -1414,8 +1414,10 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
             .getRuleClassObject()
             .getTransitionFactory()
             .create(RuleTransitionData.create(testTarget));
-    assertThat(ruleTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
-        .containsExactly("CppOptions");
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
+    ruleTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
+    assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 
   /**

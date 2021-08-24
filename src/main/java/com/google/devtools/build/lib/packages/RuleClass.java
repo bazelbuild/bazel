@@ -34,6 +34,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -1036,25 +1037,26 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
+    public Builder requiresConfigurationFragments(
+        Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
     /**
-     * Declares that the implementation of the associated rule class requires the given
-     * fragments to be present in the given configuration that isn't the rule's configuration but
-     * is also readable by the rule.
+     * Declares that the implementation of the associated rule class requires the given fragments to
+     * be present in the given configuration that isn't the rule's configuration but is also
+     * readable by the rule.
      *
      * <p>You probably don't want to use this, because rules generally shouldn't read configurations
-     * other than their own. If you want to declare host config fragments, see
-     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
+     * other than their own. If you want to declare host config fragments, see {@link
+     * com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(ConfigurationTransition transition,
-        Class<?>... configurationFragments) {
+    public Builder requiresConfigurationFragments(
+        ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           transition, ImmutableSet.copyOf(configurationFragments));
       return this;

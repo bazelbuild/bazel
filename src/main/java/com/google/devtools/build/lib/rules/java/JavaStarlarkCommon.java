@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOpti
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -220,6 +219,11 @@ public class JavaStarlarkCommon
   }
 
   @Override
+  public ProviderApi getJavaPluginProvider() {
+    return JavaPluginInfo.PROVIDER;
+  }
+
+  @Override
   public Provider getJavaToolchainProvider() {
     return JavaToolchainProvider.PROVIDER;
   }
@@ -227,16 +231,6 @@ public class JavaStarlarkCommon
   @Override
   public Provider getJavaRuntimeProvider() {
     return JavaRuntimeInfo.PROVIDER;
-  }
-
-  @Override
-  public boolean isJavaToolchainResolutionEnabled(StarlarkRuleContext ruleContext)
-      throws EvalException {
-    return ruleContext
-        .getConfiguration()
-        .getOptions()
-        .get(PlatformOptions.class)
-        .useToolchainResolutionForJavaRules;
   }
 
   @Override

@@ -16,6 +16,9 @@ enforce structure as your workspace grows.
 If you need to disable the visibility check (for example when experimenting),
 use `--check_visibility=false`.
 
+For more details on package and subpackages, see
+<a href="build-ref.html">Concepts and terminology</a>.
+
 ## Visibility specifications
 
 All rule targets have a `visibility` attribute that takes a list of labels. One

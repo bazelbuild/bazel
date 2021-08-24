@@ -1646,6 +1646,57 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExportWithSpecifiedName() throws Exception {
+    evalAndExport(
+        ev, //
+        "def _impl(ctx): pass",
+        "a = rule(implementation = _impl, name = 'r')",
+        "z = a");
+
+    String aName = ((StarlarkRuleFunction) ev.lookup("a")).getRuleClass().getName();
+    assertThat(aName).isEqualTo("r");
+    String zName = ((StarlarkRuleFunction) ev.lookup("z")).getRuleClass().getName();
+    assertThat(zName).isEqualTo("r");
+  }
+
+  @Test
+  public void testExportWithSpecifiedNameFailure() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev, //
+        "def _impl(ctx): pass",
+        "rule(implementation = _impl, name = '1a')");
+
+    ev.assertContainsError("Invalid rule name: 1a");
+  }
+
+  @Test
+  public void testExportWithMultipleErrors() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev,
+        "def _impl(ctx): pass",
+        "rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'name' : attr.string(),",
+        "    'tags' : attr.string_list(),",
+        "  },",
+        "  name = '1a',",
+        ")");
+
+    ev.assertContainsError(
+        "Error in rule: Errors in exporting 1a: \n"
+            + "cannot add attribute: There is already a built-in attribute 'name' which cannot be"
+            + " overridden.\n"
+            + "cannot add attribute: There is already a built-in attribute 'tags' which cannot be"
+            + " overridden.\n"
+            + "Invalid rule name: 1a");
+  }
+
+  @Test
   public void testOutputToGenfiles() throws Exception {
     evalAndExport(ev, "def impl(ctx): pass", "r1 = rule(impl, output_to_genfiles=True)");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();

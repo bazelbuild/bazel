@@ -555,11 +555,11 @@ the compilation of binaries during the build.
 <p>
   Specifies the set of environment variables available during the execution of all actions.
   Variables can be either specified by name, in which case the value will be taken from the
-  invocation environment, or by the `name=value` pair which sets the value independent of the
+  invocation environment, or by the <code>name=value</code> pair which sets the value independent of the
   invocation environment.
 
-  This `--action_env` flag can be specified multiple times. If a value is assigned to the same
-  variable across multiple `--action_env` flags, the latest assignment wins.
+  This <code>--action_env</code> flag can be specified multiple times. If a value is assigned to the same
+  variable across multiple <code>--action_env</code> flags, the latest assignment wins.
 </p>
 
 <h4 id='flag--experimental_action_listener'>
@@ -2265,6 +2265,19 @@ a user-friendly way.
   except that it applies to the command being run by <code>bazel
   run</code> rather than to the tests being run by <code>bazel test</code>
   and cannot run under label.
+</p>
+
+<h4>Filtering logging outputs from Bazel</h4>
+
+<p>
+  When invoking a binary with <code>bazel run</code>, Bazel prints logging output from Bazel itself
+  and the binary under invocation. To make the logs less noisy, you can suppress the outputs from
+  Bazel itself with the <code>--ui_event_filters</code> and <code>--noshow_progress</code> flags.
+  For example:
+
+  <pre>
+  bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress //java/myapp:myapp
+  </pre>
 </p>
 
 <h3>Executing tests</h3>

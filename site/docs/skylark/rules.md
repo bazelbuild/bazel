@@ -143,7 +143,7 @@ example_library = rule(
 )
 ```
 
-These are examples of *dependency attributes*. Any attribute definied with
+These are examples of *dependency attributes*. Any attribute defined with
 [`attr.label_list`](lib/attr.html#label_list) (or
 [`attr.label`](lib/attr.html#label)) specifies dependencies of a certain type
 between a target and the targets whose labels (or the corresponding

@@ -2956,43 +2956,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(String.join(" ", javacopts)).contains("-source 6 -target 6");
   }
 
-  private boolean toolchainResolutionEnabled() throws Exception {
-    scratch.file(
-        "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  toolchain_resolution_enabled ="
-            + " java_common.is_java_toolchain_resolution_enabled_do_not_use(",
-        "      ctx = ctx)",
-        "  return MyInfo(",
-        "    toolchain_resolution_enabled = toolchain_resolution_enabled)",
-        "toolchain_resolution_enabled = rule(",
-        "  _impl,",
-        ");");
-
-    scratch.file(
-        "a/BUILD",
-        "load(':rule.bzl', 'toolchain_resolution_enabled')",
-        "toolchain_resolution_enabled(name='r')");
-
-    ConfiguredTarget r = getConfiguredTarget("//a:r");
-    return (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
-  }
-
-  @Test
-  public void testIsToolchainResolutionEnabled_disabled() throws Exception {
-    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules=false");
-
-    assertThat(toolchainResolutionEnabled()).isFalse();
-  }
-
-  @Test
-  public void testIsToolchainResolutionEnabled_enabled() throws Exception {
-    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules");
-
-    assertThat(toolchainResolutionEnabled()).isTrue();
-  }
-
   @Test
   public void testJavaRuntimeProviderFiles() throws Exception {
     scratch.file("a/a.txt", "hello");

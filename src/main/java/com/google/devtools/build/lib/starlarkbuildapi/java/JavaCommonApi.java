@@ -435,6 +435,15 @@ public interface JavaCommonApi<
   JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
   @StarlarkMethod(
+      name = "JavaPluginInfo",
+      doc =
+          "The key used to retrieve the provider that contains information about the Java "
+              + "plugins. The same value is accessible as <code>JavaPluginInfo</code>. <br>"
+              + "Prefer using <code>JavaPluginInfo</code> in new code.",
+      structField = true)
+  ProviderApi getJavaPluginProvider();
+
+  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
@@ -449,15 +458,6 @@ public interface JavaCommonApi<
               + "runtime being used.",
       structField = true)
   ProviderApi getJavaRuntimeProvider();
-
-  @StarlarkMethod(
-      name = "is_java_toolchain_resolution_enabled_do_not_use",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
-      },
-      doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
-  boolean isJavaToolchainResolutionEnabled(StarlarkRuleContextT ruleContext) throws EvalException;
 
   @StarlarkMethod(
       name = "MessageBundleInfo",

@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -268,8 +269,13 @@ public abstract class CcModule
       Object thinLtoInputBitcodeFile,
       Object thinLtoOutputObjectFile,
       boolean usePic,
-      boolean addLegacyCxxOptions)
+      boolean addLegacyCxxOptions,
+      Object variablesExtension)
       throws EvalException {
+    ImmutableList<VariablesExtension> variablesExtensions =
+        asDict(variablesExtension).isEmpty()
+            ? ImmutableList.of()
+            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
     return CompileBuildVariables.setupVariablesOrThrowEvalException(
         featureConfiguration.getFeatureConfiguration(),
         ccToolchainProvider,
@@ -292,7 +298,7 @@ public abstract class CcModule
         usePic,
         /* fdoStamp= */ null,
         /* dotdFileExecPath= */ null,
-        /* variablesExtensions= */ ImmutableList.of(),
+        variablesExtensions,
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),
         Depset.noneableCast(includeDirs, String.class, "framework_include_directories"),
@@ -870,21 +876,36 @@ public abstract class CcModule
 
     ImmutableList.Builder<LinkOptions> optionsBuilder = ImmutableList.builder();
     if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
+      // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
+      // make sense here since LinkerInput takes a list of flags. For storing user_link_flags
+      // without flattening they would have to be wrapped around a LinkerInput for which we keep
+      // a depset that isn't flattened till the end.
       LinkOptions options =
           LinkOptions.of(
               Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList(),
               BazelStarlarkContext.from(thread).getSymbolGenerator());
       optionsBuilder.add(options);
     } else if (userLinkFlagsObject instanceof Sequence) {
-      checkPrivateStarlarkificationAllowlist(thread);
-
       ImmutableList<Object> options =
           Sequence.cast(userLinkFlagsObject, Object.class, "user_link_flags[]").getImmutableList();
-      for (Object optionObject : options) {
-        ImmutableList<String> option =
-            Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-        optionsBuilder.add(
-            LinkOptions.of(option, BazelStarlarkContext.from(thread).getSymbolGenerator()));
+      if (!options.isEmpty()) {
+        if (options.get(0) instanceof String) {
+          optionsBuilder.add(
+              LinkOptions.of(
+                  Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
+                      .getImmutableList(),
+                  BazelStarlarkContext.from(thread).getSymbolGenerator()));
+        } else if (options.get(0) instanceof Sequence) {
+          for (Object optionObject : options) {
+            ImmutableList<String> option =
+                Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
+            optionsBuilder.add(
+                LinkOptions.of(option, BazelStarlarkContext.from(thread).getSymbolGenerator()));
+          }
+        } else {
+          throw Starlark.errorf(
+              "Elements of list in user_link_flags must be either Strings or lists.");
+        }
       }
     }
 

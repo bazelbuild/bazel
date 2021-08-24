@@ -449,7 +449,7 @@ public final class TestActionBuilder {
                 // empty one as a fallback.
                 MoreObjects.firstNonNull(
                     Allowlist.fetchPackageSpecificationProviderOrNull(
-                        ruleContext, "$network_allowlist"),
+                        ruleContext, "external_network"),
                     EMPTY_PACKAGES_PROVIDER));
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());

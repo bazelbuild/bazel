@@ -98,6 +98,8 @@ import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryPermissionsRule;
+import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
@@ -469,6 +471,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());
           builder.addRuleDefinition(new LocalConfigPlatformRule());
+          builder.addRuleDefinition(new CcSharedLibraryRule());
+          builder.addRuleDefinition(new CcSharedLibraryPermissionsRule());
 
           try {
             builder.addWorkspaceFileSuffix(

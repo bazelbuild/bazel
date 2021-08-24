@@ -103,18 +103,22 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
-    ListenableFuture<ImmutableSet<Digest>> remoteQuery =
-        remoteCache.findMissingDigests(context, digests);
     ListenableFuture<ImmutableSet<Digest>> diskQuery =
         diskCache.findMissingDigests(context, digests);
-    return Futures.whenAllSucceed(remoteQuery, diskQuery)
-        .call(
-            () ->
-                ImmutableSet.<Digest>builder()
-                    .addAll(remoteQuery.get())
-                    .addAll(diskQuery.get())
-                    .build(),
-            MoreExecutors.directExecutor());
+    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+      ListenableFuture<ImmutableSet<Digest>> remoteQuery =
+          remoteCache.findMissingDigests(context, digests);
+      return Futures.whenAllSucceed(remoteQuery, diskQuery)
+          .call(
+              () ->
+                  ImmutableSet.<Digest>builder()
+                      .addAll(remoteQuery.get())
+                      .addAll(diskQuery.get())
+                      .build(),
+              MoreExecutors.directExecutor());
+    } else {
+      return diskQuery;
+    }
   }
 
   private Path newTempPath() {

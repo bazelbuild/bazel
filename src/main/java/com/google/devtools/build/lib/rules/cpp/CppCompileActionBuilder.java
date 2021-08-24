@@ -80,6 +80,7 @@ public class CppCompileActionBuilder {
   private NestedSet<Artifact> additionalPrunableHeaders =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private ImmutableList<PathFragment> builtinIncludeDirectories;
+  private ImmutableList<Artifact> additionalOutputs = ImmutableList.of();
   // New fields need to be added to the copy constructor.
 
   /** Creates a builder from a rule and configuration. */
@@ -136,10 +137,16 @@ public class CppCompileActionBuilder {
     this.actionName = other.actionName;
     this.grepIncludes = other.grepIncludes;
     this.builtinIncludeDirectories = other.builtinIncludeDirectories;
+    this.additionalOutputs = ImmutableList.copyOf(other.additionalOutputs);
   }
 
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
     this.sourceFile = sourceFile;
+    return this;
+  }
+
+  public CppCompileActionBuilder setAdditionalOutputs(ImmutableList<Artifact> additionalOutputs) {
+    this.additionalOutputs = additionalOutputs;
     return this;
   }
 
@@ -297,7 +304,8 @@ public class CppCompileActionBuilder {
             getActionName(),
             cppSemantics,
             builtinIncludeDirectories,
-            grepIncludes);
+            grepIncludes,
+            additionalOutputs);
     return action;
   }
 

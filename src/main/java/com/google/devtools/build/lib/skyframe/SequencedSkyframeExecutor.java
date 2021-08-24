@@ -230,6 +230,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return recordingDiffer;
   }
 
+  @Override
+  protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
+    return new SkyframeProgressReceiver() {
+      @Override
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
+        super.invalidated(skyKey, state);
+        if (state == InvalidationState.DIRTY && skyKey instanceof FileValue.Key) {
+          incrementalBuildMonitor.reportInvalidatedFileValue();
+        }
+      }
+    };
+  }
+
   @Nullable
   @Override
   public WorkspaceInfoFromDiff sync(

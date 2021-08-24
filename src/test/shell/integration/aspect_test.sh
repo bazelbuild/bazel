@@ -794,4 +794,37 @@ inline int fourtyTwo() {
 EOF
 }
 
+function test_invalid_aspect_with_flag() {
+  # Create a simple cc library to test.
+  cat > BUILD <<EOF
+cc_library(
+  name = "number",
+  srcs = ["number.cc"],
+)
+EOF
+  cat > number.cc <<EOF
+int number() {
+  return 42;
+}
+EOF
+
+  cat > aspect.bzl <<EOF
+def _print_aspect_impl(target, ctx):
+    print(ctx.name)
+    return []
+
+print_aspect = aspect(
+    implementation = _print_aspect_impl,
+    attr_aspects = ['deps'],
+    # Aspects that use attrs are not usable at the command line.
+    attrs = {
+        "type": attr.string(values = ["foo", "bar"]),
+    },
+)
+EOF
+
+  bazel build //:number --aspects //:aspect.bzl%print_aspect &> $TEST_log && fail "Error expected"
+  expect_log "Cannot instantiate parameterized aspect .* at the top level"
+}
+
 run_suite "Tests for aspects"

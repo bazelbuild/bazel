@@ -19,13 +19,12 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidPlatformsTransitionApi;
 
 /**
  * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag to
@@ -33,11 +32,20 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidPlatformsTr
  * valid Android SDK via toolchain resolution. android_binary itself should only need the SDK, not
  * an NDK, so in theory every platform passed to "--android_platforms" should be equivalent.
  */
-public final class AndroidPlatformsTransition
-    implements PatchTransition, AndroidPlatformsTransitionApi {
+public final class AndroidPlatformsTransition implements PatchTransition {
+  private static final AndroidPlatformsTransition INSTANCE = new AndroidPlatformsTransition();
+
+  /** Machinery to expose the transition to Starlark. */
+  public static final class AndroidPlatformsTransitionFactory
+      implements StarlarkExposedRuleTransitionFactory {
+    @Override
+    public PatchTransition create(RuleTransitionData unused) {
+      return INSTANCE;
+    }
+  }
 
   public static TransitionFactory<RuleTransitionData> create() {
-    return TransitionFactories.of(new AndroidPlatformsTransition());
+    return new AndroidPlatformsTransitionFactory();
   }
 
   @Override

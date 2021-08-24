@@ -16,22 +16,53 @@
 Java Semantics
 """
 
-EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = True
-COLLECT_SRCS_FROM_PROTO_LIBRARY = False
-EXTRA_SRCS_TYPES = []
+java_common = _builtins.toplevel.java_common
+JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
-ALLOWED_RULES_IN_DEPS = [
-    "cc_binary",  # NB: linkshared=1
-    "cc_library",
-    "genrule",
-    "genproto",  # TODO(bazel-team): we should filter using providers instead (starlark rule).
-    "java_import",
-    "java_library",
-    "java_proto_library",
-    "java_lite_proto_library",
-    "proto_library",
-    "sh_binary",
-    "sh_library",
-]
+def _macro_preprocess(kwargs):
+    pass
 
-ALLOWED_RULES_IN_DEPS_WITH_WARNING = []
+def _check_rule(ctx):
+    pass
+
+def _check_dependency_rule_kinds(ctx):
+    pass
+
+def _preprocess(ctx):
+    return []
+
+def _postprocess(ctx, base_info):
+    return base_info.java_info
+
+semantics = struct(
+    EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
+    EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = True,
+    COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
+    JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
+    JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
+    PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
+    EXTRA_SRCS_TYPES = [],
+    EXTRA_ATTRIBUTES = {
+        "resource_strip_prefix": attr.string(),
+    },
+    EXTRA_DEPS = [],
+    ALLOWED_RULES_IN_DEPS = [
+        "cc_binary",  # NB: linkshared=1
+        "cc_library",
+        "genrule",
+        "genproto",  # TODO(bazel-team): we should filter using providers instead (starlark rule).
+        "java_import",
+        "java_library",
+        "java_proto_library",
+        "java_lite_proto_library",
+        "proto_library",
+        "sh_binary",
+        "sh_library",
+    ],
+    ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
+    macro_preprocess = _macro_preprocess,
+    check_rule = _check_rule,
+    check_dependency_rule_kinds = _check_dependency_rule_kinds,
+    preprocess = _preprocess,
+    postprocess = _postprocess,
+)

@@ -4299,6 +4299,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(
@@ -4403,6 +4404,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
     reporter.removeHandler(failFastHandler);
 
     // The call to `update` does not throw an exception when "--keep_going" is passed in the
@@ -4487,6 +4489,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(
@@ -4558,6 +4561,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
@@ -4630,6 +4634,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
@@ -4708,6 +4713,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'extra_dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
@@ -4803,6 +4809,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "rule_with_prov_b(",
         "  name = 'target_with_prov_b',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
@@ -4895,6 +4902,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(
@@ -5028,6 +5036,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "r0(",
         "  name = 't0',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(
@@ -5177,7 +5186,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
-    useConfiguration("--incompatible_ignore_duplicate_top_level_aspects=false");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
     reporter.removeHandler(failFastHandler);
 
     // The call to `update` does not throw an exception when "--keep_going" is passed in the
@@ -5256,6 +5265,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult = update(ImmutableList.of("test/defs.bzl%a1"), "//test:main");
 
@@ -5322,6 +5332,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 't2',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:t2", "//test:t1");
@@ -5407,6 +5418,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(
@@ -5502,6 +5514,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "simple_rule(",
         "  name = 'dep_target',",
         ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
 
     AnalysisResult analysisResult =
         update(
@@ -5532,9 +5545,124 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             "aspect a2 on target //test:main sees a3p = a3p_val");
   }
 
+  /**
+   * aspects = a1, a2; aspect a1 provides a1p provider and aspect a2 requires a1p provider. These
+   * top-level aspects are applied on top-level target `main` whose rule also provides a1p.
+   *
+   * <p>If the incompatible_top_level_aspects_dependency flag is used to establish the dependency
+   * between a1 and a2, the build will fail since a2 will receive provider a1p twice (from a1
+   * applied on `main` and from `main` target itself)
+   */
+  @Test
+  public void testTopLevelAspects_duplicateRuleProviderError() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a2p = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  return [a1p(value = 'aspect_a1p_val')]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  result = 'aspect a2 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  return [a2p(value = result)]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  provides = [a2p],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  return [a1p(value = 'rule_a1p_val')]",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'main')");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+    reporter.removeHandler(failFastHandler);
+
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result =
+          update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () -> update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main"));
+    }
+    assertContainsEvent("Provider a1p provided twice");
+  }
+
+  /**
+   * aspects = a1, a2; aspect a1 provides a1p provider and aspect a2 requires a1p provider. These
+   * top-level aspects are applied on top-level target `main` whose rule also provides a1p.
+   *
+   * <p>If the incompatible_top_level_aspects_dependency flag is not used, aspects a1 and a2 will
+   * run independently and the build will succeed. a2 will only see the value of a1p provided by
+   * my_rule.
+   */
+  @Test
+  public void testTopLevelAspects_duplicateRuleProviderPassed() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a2p = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  return [a1p(value = 'aspect_a1p_val')]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  result = 'aspect a2 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  return [a2p(value = result)]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  provides = [a2p],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  return [a1p(value = 'rule_a1p_val')]",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'main')");
+    reporter.removeHandler(failFastHandler);
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
+    assertThat(a2).isNotNull();
+    StarlarkProvider.Key a2Result =
+        new StarlarkProvider.Key(Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a2p");
+    StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
+    assertThat((String) a2ResultProvider.getValue("value"))
+        .isEqualTo("aspect a2 on target //test:main sees a1p = rule_a1p_val");
+  }
+
   @Test
   public void testTopLevelAspectRequiresAspect_stackOfRequiredAspects() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5556,7 +5684,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_aspectRequiredByMultipleAspects() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5580,7 +5709,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_aspectRequiredByMultipleAspects2() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5604,7 +5734,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_requireExistingAspect_passed() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5626,7 +5757,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_requireExistingAspect_failed() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5651,7 +5783,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_inheritDefaultValues() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5682,7 +5815,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inheritAttrAspectsFromSingleAspect()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5705,7 +5839,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inheritRequiredProvidersFromSingleAspect()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "cc = provider()",
@@ -5730,7 +5865,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresExistingAspect_inheritAttrAspectsFromSingleAspect()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5755,7 +5891,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresExistingAspect_inheritRequiredProvidersFromSingleAspect()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "cc = provider()",
@@ -5782,7 +5919,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inheritAttrAspectsFromMultipleAspects()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5810,7 +5948,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inheritRequiredProvidersFromMultipleAspects()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "cc = provider()",
@@ -5839,7 +5978,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_inheritAllAttrAspects() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "cc = provider()",
@@ -5868,7 +6008,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_inheritAllRequiredProviders() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "cc = provider()",
@@ -5898,7 +6039,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inheritAttrAspectsFromAspectsStack()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5924,7 +6066,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inheritRequiredProvidersFromAspectsStack()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "cc = provider()",
@@ -5952,7 +6095,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiringAspect_inheritAllAttrAspectsFromAspectsStack()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -5979,7 +6123,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inheritAllRequiredProvidersFromAspectsStack()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "cc = provider()",
@@ -6008,7 +6153,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_requiredNativeAspect_inheritsAttrAspects()
       throws Exception {
     exposeNativeAspectToStarlark();
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -6031,7 +6177,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_requiredNativeAspect_inheritsRequiredProviders()
       throws Exception {
     exposeNativeAspectToStarlark();
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "rule_prov = provider()",
@@ -6056,7 +6203,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_requiredNativeAspect_parametersNotAllowed()
       throws Exception {
     exposeNativeAspectToStarlark();
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -6078,7 +6226,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_requiredStarlarkAspect_parametersNotAllowed()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -6100,7 +6249,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_ruleAttributes() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "RequiredAspectProv = provider()",
@@ -6184,7 +6334,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // base_aspect propagates over base_dep attribute and requires first_required_aspect which
     // propagates over first_dep attribute and requires second_required_aspect which propagates over
     // second_dep attribute
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "BaseAspectProv = provider()",
@@ -6288,7 +6439,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_inheritRequiredProviders() throws Exception {
     // aspect_a requires provider Prov_A and requires aspect_b which requires
     // provider Prov_B and requires aspect_c which requires provider Prov_C
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "Prov_A = provider()",
@@ -6412,7 +6564,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testTopLevelAspectRequiresAspect_inspectRequiredAspectActions() throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "BaseAspectProvider = provider()",
@@ -6469,7 +6622,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_inspectRequiredAspectGeneratedFiles()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "BaseAspectProvider = provider()",
@@ -6520,7 +6674,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_withRequiredAspectProvidersSatisfied()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "prov_a = provider()",
@@ -6611,7 +6766,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   @Test
   public void testTopLevelAspectRequiresAspect_withRequiredAspectProvidersNotFound()
       throws Exception {
-    useConfiguration("--experimental_required_aspects");
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
     scratch.file(
         "test/defs.bzl",
         "prov_a = provider()",

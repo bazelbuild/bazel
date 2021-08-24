@@ -197,6 +197,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean uniquify,
         Boolean expandDirectories,
         Object terminateWith,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       throw Starlark.errorf("cannot modify frozen value");
@@ -213,6 +214,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean omitIfEmpty,
         Boolean uniquify,
         Boolean expandDirectories,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       throw Starlark.errorf("cannot modify frozen value");
@@ -322,6 +324,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean uniquify,
         Boolean expandDirectories,
         Object terminateWith,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       Starlark.checkMutable(this);
@@ -337,7 +340,7 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          validateMapEach(mapEach),
+          validateMapEach(mapEach, allowClosure),
           formatEach != Starlark.NONE ? (String) formatEach : null,
           beforeEach != Starlark.NONE ? (String) beforeEach : null,
           /* joinWith= */ null,
@@ -351,7 +354,8 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Nullable
-    private static StarlarkCallable validateMapEach(Object fn) throws EvalException {
+    private static StarlarkCallable validateMapEach(Object fn, boolean allowClosure)
+        throws EvalException {
       if (fn == Starlark.NONE) {
         return null;
       }
@@ -364,7 +368,7 @@ public abstract class Args implements CommandLineArgsApi {
         // This unfortunately disallows such trivially safe non-global
         // functions as "lambda x: x".
         // See https://github.com/bazelbuild/bazel/issues/12701.
-        if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
+        if (sfn.getModule().getGlobal(sfn.getName()) != sfn && !allowClosure) {
           throw Starlark.errorf(
               "to avoid unintended retention of analysis data structures, "
                   + "the map_each function (declared at %s) must be declared "
@@ -386,6 +390,7 @@ public abstract class Args implements CommandLineArgsApi {
         Boolean omitIfEmpty,
         Boolean uniquify,
         Boolean expandDirectories,
+        Boolean allowClosure,
         StarlarkThread thread)
         throws EvalException {
       Starlark.checkMutable(this);
@@ -401,7 +406,7 @@ public abstract class Args implements CommandLineArgsApi {
       addVectorArg(
           values,
           argName,
-          validateMapEach(mapEach),
+          validateMapEach(mapEach, allowClosure),
           formatEach != Starlark.NONE ? (String) formatEach : null,
           /* beforeEach= */ null,
           joinWith,

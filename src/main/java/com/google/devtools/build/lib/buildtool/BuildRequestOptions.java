@@ -306,17 +306,18 @@ public class BuildRequestOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "Comma-separated list of aspects to be applied to top-level targets. All aspects are"
-              + " applied to all top-level targets. If aspect <code>some_aspect</code> specifies"
-              + " required aspect providers via <code>required_aspect_providers</code>,"
-              + " <code>some_aspect</code> will run after every aspect that was mentioned before it"
-              + " in the aspects list and whose advertised providers satisfy"
-              + " <code>some_aspect</code> required aspect providers. <code>some_aspect</code> will"
-              + " then have access to the values of those aspects' providers. Aspects that do not"
-              + " have such dependency will run independently on the top-level targets."
-              + ""
-              + " Aspects are specified in the form <bzl-file-label>%<aspect_name>, for example"
-              + " '//tools:my_def.bzl%my_aspect', where 'my_aspect' is a top-level value from a"
-              + " file tools/my_def.bzl")
+              + " applied independently to all top-level targets except if"
+              + " <code>incompatible_top_level_aspects_dependency</code> is used. In this case, if"
+              + " aspect <code>some_aspect</code> specifies required aspect providers via"
+              + " <code>required_aspect_providers</code>, <code>some_aspect</code> will run after"
+              + " every aspect that was mentioned before it in the aspects list whose advertised"
+              + " providers satisfy <code>some_aspect</code> required aspect providers. Moreover,"
+              + " <code>some_aspect</code> will run after all its required aspects specified by"
+              + " <code>requires</code> attribute which otherwise will be ignored."
+              + " <code>some_aspect</code> will then have access to the values of those aspects'"
+              + " providers."
+              + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
+              + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
   public List<String> aspects;
 
   public BuildRequestOptions() throws OptionsParsingException {}

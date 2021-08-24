@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
@@ -40,29 +41,8 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
 
   @Before
   public void stageEmbeddedTools() throws Exception {
+    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
     // TODO(b/195130137): move these calls to somewhere common.
-    write(
-        "embedded_tools/tools/build_defs/repo/utils.bzl",
-        "def maybe(repo_rule, name, **kwargs):",
-        "  if name not in native.existing_rules():",
-        "    repo_rule(name = name, **kwargs)");
-    write("embedded_tools/tools/build_defs/repo/BUILD");
-    write(
-        "embedded_tools/tools/build_defs/repo/http.bzl",
-        "def http_archive(**kwargs):",
-        "  pass",
-        "",
-        "def http_file(**kwargs):",
-        "  pass");
-
-    write(
-        "embedded_tools/tools/jdk/local_java_repository.bzl",
-        "def local_java_repository(**kwargs):",
-        "  pass");
-    write(
-        "embedded_tools/tools/jdk/remote_java_repository.bzl",
-        "def remote_java_repository(**kwargs):",
-        "  pass");
     write("embedded_tools/tools/cpp/cc_configure.bzl", "def cc_configure(**kwargs):", "  pass");
 
     write("embedded_tools/tools/sh/BUILD");

@@ -825,6 +825,28 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCompileBuildVariablesWithVariablesExtension() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures("check_additional_variables_feature"));
+    useConfiguration("--features=check_additional_variables_feature");
+    assertThat(
+            commandLineForVariables(
+                CppActionNames.CPP_COMPILE,
+                "cc_common.create_compile_variables(",
+                "    feature_configuration = feature_configuration,",
+                "    cc_toolchain = toolchain,",
+                "    variables_extension = {",
+                "        'string_variable': 'foo',",
+                "        'list_variable': ['bar', 'baz']",
+                "    }",
+                ")"))
+        .containsAtLeast("--my_string=foo", "--my_list_element=bar", "--my_list_element=baz");
+  }
+
+  @Test
   public void testEmptyLinkVariables() throws Exception {
     assertThat(
             commandLineForVariables(
@@ -1622,7 +1644,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "linker_input = cc_common.create_linker_input(",
         "                 owner=Label('//toplevel'),",
-        "                 user_link_flags=depset(['-first_flag', '-second_flag']))",
+        "                 user_link_flags=[['-first_flag'], ['-second_flag']])",
         "top_linking_context_smoke = cc_common.create_linking_context(",
         "   linker_inputs=depset([linker_input]))",
         "def _create(ctx, feature_configuration, static_library, pic_static_library,",
@@ -6495,7 +6517,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "foo/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  linker_input = cc_common.create_linker_input(owner=ctx.label)",
+        "  linker_input = cc_common.create_linker_input(owner=ctx.label, user_link_flags=['-l'])",
         "  linking_context = cc_common.create_linking_context(",
         "     linker_inputs=depset([linker_input]))",
         "  linking_context = cc_common.create_linking_context(",
@@ -7263,8 +7285,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }
   }
-
-
 
   @Test
   public void testExpandedLinkstampApiRaisesError() throws Exception {

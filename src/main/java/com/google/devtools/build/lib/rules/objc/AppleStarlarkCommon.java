@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -65,6 +66,11 @@ public class AppleStarlarkCommon
         ObjcProvider,
         XcodeConfigInfo,
         ApplePlatform> {
+
+  @Override
+  public StarlarkExposedRuleTransitionFactory getAppleCrosstoolTransition() {
+    return new AppleCrosstoolTransition.AppleCrosstoolTransitionFactory();
+  }
 
   @VisibleForTesting
   public static final String DEPRECATED_KEY_ERROR =

@@ -40,7 +40,7 @@ public final class BazelCcImportRule implements RuleDefinition {
             BaseRuleClasses.NativeBuildRule.class,
             CcImportRule.class,
             CcToolchainRequiringRule.class)
-        .factoryClass(BazelCcImport.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
