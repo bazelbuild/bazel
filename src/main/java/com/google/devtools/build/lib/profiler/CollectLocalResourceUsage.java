@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -21,12 +23,15 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
   // TODO(twerth): Make these configurable.
   private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
   private static final long LOCAL_CPU_SLEEP_MILLIS = 200;
+
+  private final Consumer<Exception> bugReporter;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
@@ -38,6 +43,10 @@ public class CollectLocalResourceUsage extends Thread {
   private TimeSeries localMemoryUsage;
 
   private Stopwatch stopwatch;
+
+  CollectLocalResourceUsage(Consumer<Exception> bugReporter) {
+    this.bugReporter = checkNotNull(bugReporter);
+  }
 
   @Override
   public void run() {
@@ -64,15 +73,25 @@ public class CollectLocalResourceUsage extends Thread {
       }
       Duration nextElapsed = stopwatch.elapsed();
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
-      long memoryUsage =
-          memoryBean.getHeapMemoryUsage().getUsed() + memoryBean.getNonHeapMemoryUsage().getUsed();
+
+      long memoryUsage;
+      try {
+        memoryUsage =
+            memoryBean.getHeapMemoryUsage().getUsed()
+                + memoryBean.getNonHeapMemoryUsage().getUsed();
+      } catch (IllegalArgumentException e) {
+        // The JVM may report committed > max. See b/180619163.
+        bugReporter.accept(e);
+        memoryUsage = -1;
+      }
+
       double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
       double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
       synchronized (this) {
         if (localCpuUsage != null) {
           localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
         }
-        if (localMemoryUsage != null) {
+        if (localMemoryUsage != null && memoryUsage != -1) {
           long memoryUsageMb = memoryUsage / (1024 * 1024);
           localMemoryUsage.addRange(
               previousElapsed.toMillis(), nextElapsed.toMillis(), memoryUsageMb);
@@ -89,7 +108,7 @@ public class CollectLocalResourceUsage extends Thread {
     interrupt();
   }
 
-  public synchronized void logCollectedData() {
+  synchronized void logCollectedData() {
     if (!profilingStarted) {
       return;
     }
