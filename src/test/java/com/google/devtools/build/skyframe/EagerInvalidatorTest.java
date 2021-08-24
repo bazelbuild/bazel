@@ -484,6 +484,39 @@ public class EagerInvalidatorTest {
   }
 
   @Test
+  public void interruptRecoversNextTime() throws InterruptedException {
+    graph = new InMemoryGraphImpl();
+    SkyKey dep = GraphTester.nonHermeticKey("dep");
+    SkyKey toDelete = GraphTester.nonHermeticKey("top");
+    tester.getOrCreate(toDelete).addDependency(dep).setConstantValue(new StringValue("top"));
+    tester.set(dep, new StringValue("dep"));
+    eval(/*keepGoing=*/ false, toDelete);
+    Thread mainThread = Thread.currentThread();
+    assertThrows(
+        InterruptedException.class,
+        () ->
+            invalidateWithoutError(
+                new DirtyTrackingProgressReceiver(null) {
+                  @Override
+                  public void invalidated(SkyKey skyKey, InvalidationState state) {
+                    mainThread.interrupt();
+                    // Wait for the main thread to be interrupted uninterruptibly, because the
+                    // main thread is going to interrupt us, and we don't want to get into an
+                    // interrupt fight. Only if we get interrupted without the main thread also
+                    // being interrupted will this throw an InterruptedException.
+                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                        visitor.get().getInterruptionLatchForTestingOnly(),
+                        "Main thread was not interrupted");
+                  }
+                },
+                toDelete));
+    invalidateWithoutError(new DirtyTrackingProgressReceiver(null));
+    eval(/*keepGoing=*/ false, toDelete);
+    invalidateWithoutError(new DirtyTrackingProgressReceiver(null), toDelete);
+    eval(/*keepGoing=*/ false, toDelete);
+  }
+
+  @Test
   public void interruptThreadInReceiver() throws Exception {
     Random random = new Random(TestUtils.getRandomSeed());
     int graphSize = 1000;
