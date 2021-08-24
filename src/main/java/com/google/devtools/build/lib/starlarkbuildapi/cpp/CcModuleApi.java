@@ -680,14 +680,19 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
-            doc = "Depset of user link flags passed as strings. Sequence not accepted for now.",
+            doc =
+                "User link flags passed as strings. Accepts either [String], [[String]] or"
+                    + " depset(String). The latter is discouraged as it's only kept for"
+                    + " compatibility purposes, the depset is flattened. If you want to propagate"
+                    + " user_link_flags via unflattened depsets() wrap them in a LinkerInput so"
+                    + " that they are not flattened till the end.",
             positional = false,
             named = true,
             defaultValue = "None",
             allowedTypes = {
               @ParamType(type = NoneType.class),
-              @ParamType(type = Depset.class),
-              @ParamType(type = Sequence.class)
+              @ParamType(type = Depset.class, generic1 = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class)
             }),
         @Param(
             name = "additional_inputs",

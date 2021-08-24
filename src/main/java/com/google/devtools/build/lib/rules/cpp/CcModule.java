@@ -876,21 +876,36 @@ public abstract class CcModule
 
     ImmutableList.Builder<LinkOptions> optionsBuilder = ImmutableList.builder();
     if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
+      // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
+      // make sense here since LinkerInput takes a list of flags. For storing user_link_flags
+      // without flattening they would have to be wrapped around a LinkerInput for which we keep
+      // a depset that isn't flattened till the end.
       LinkOptions options =
           LinkOptions.of(
               Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList(),
               BazelStarlarkContext.from(thread).getSymbolGenerator());
       optionsBuilder.add(options);
     } else if (userLinkFlagsObject instanceof Sequence) {
-      checkPrivateStarlarkificationAllowlist(thread);
-
       ImmutableList<Object> options =
           Sequence.cast(userLinkFlagsObject, Object.class, "user_link_flags[]").getImmutableList();
-      for (Object optionObject : options) {
-        ImmutableList<String> option =
-            Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-        optionsBuilder.add(
-            LinkOptions.of(option, BazelStarlarkContext.from(thread).getSymbolGenerator()));
+      if (!options.isEmpty()) {
+        if (options.get(0) instanceof String) {
+          optionsBuilder.add(
+              LinkOptions.of(
+                  Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
+                      .getImmutableList(),
+                  BazelStarlarkContext.from(thread).getSymbolGenerator()));
+        } else if (options.get(0) instanceof Sequence) {
+          for (Object optionObject : options) {
+            ImmutableList<String> option =
+                Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
+            optionsBuilder.add(
+                LinkOptions.of(option, BazelStarlarkContext.from(thread).getSymbolGenerator()));
+          }
+        } else {
+          throw Starlark.errorf(
+              "Elements of list in user_link_flags must be either Strings or lists.");
+        }
       }
     }
 
