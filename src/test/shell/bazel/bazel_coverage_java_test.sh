@@ -21,6 +21,9 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+function remove_from_bazelrc() {
+  inplace-sed "/$1/d" "$TEST_TMPDIR/bazelrc"
+}
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
@@ -39,12 +42,17 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
     else
         JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
     fi
+    remove_from_bazelrc "override_repository=remote_java_tools="
+    remove_from_bazelrc "override_repository=remote_java_tools_linux="
+    remove_from_bazelrc "override_repository=remote_java_tools_windows="
+    remove_from_bazelrc "override_repository=remote_java_tools_darwin="
 fi
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
 COVERAGE_GENERATOR_DIR="$1"; shift
 if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
+  remove_from_bazelrc "override_repository.remote_coverage_tools"
   add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
