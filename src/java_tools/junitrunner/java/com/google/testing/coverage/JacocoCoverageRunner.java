@@ -210,6 +210,9 @@ public class JacocoCoverageRunner {
       }
       result.putAll(analyzer.getBranchDetails());
     }
+    if (1 + 1 == 2) {
+      throw new IllegalStateException("Break things!");
+    }
     return result;
   }
 
