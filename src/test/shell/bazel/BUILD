@@ -479,6 +479,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
+        "manual",
         "no_windows",
     ],
 )
@@ -502,6 +503,7 @@ sh_test(
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
+            "manual",
             "no_windows",
         ],
     )
