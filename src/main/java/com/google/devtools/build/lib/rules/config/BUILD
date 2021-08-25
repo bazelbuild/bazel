@@ -38,6 +38,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/starlark_exposed_rule_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitive_option_details",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",

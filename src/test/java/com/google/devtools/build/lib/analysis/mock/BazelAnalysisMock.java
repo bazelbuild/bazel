@@ -279,15 +279,16 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "package_group(",
         "    name='config_feature_flag',",
         "    includes=['@//tools/allowlists/config_feature_flag'],",
+        ")",
+        "package_group(",
+        "    name='config_feature_flag_setter',",
+        "    includes=['@//tools/allowlists/config_feature_flag:config_feature_flag_setter'],",
         ")");
 
     config.create(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(name='config_feature_flag', packages=['//...'])");
-
-    config.create(
-        "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(name='config_feature_flag', packages=['//...'])");
+        "package_group(name='config_feature_flag', packages=['//...'])",
+        "package_group(name='config_feature_flag_Setter', packages=['//...'])");
 
     config.create(
         "embedded_tools/tools/zip/BUILD",
