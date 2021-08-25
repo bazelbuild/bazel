@@ -359,7 +359,7 @@ final class ActionMetadataHandler implements MetadataHandler {
 
     if (archivedTreeArtifactsEnabled) {
       ArchivedTreeArtifact archivedTreeArtifact =
-          ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+          ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
       FileStatus statNoFollow =
           artifactPathResolver.toPath(archivedTreeArtifact).statIfFound(Symlinks.NOFOLLOW);
       if (statNoFollow != null) {

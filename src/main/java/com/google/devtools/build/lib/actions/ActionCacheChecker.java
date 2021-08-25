@@ -362,7 +362,7 @@ public class ActionCacheChecker {
                   .map(
                       fileArtifactValue -> {
                         Artifact.ArchivedTreeArtifact archivedTreeArtifact =
-                            Artifact.ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+                            Artifact.ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
                         return ArchivedRepresentation.create(
                             archivedTreeArtifact, fileArtifactValue);
                       });

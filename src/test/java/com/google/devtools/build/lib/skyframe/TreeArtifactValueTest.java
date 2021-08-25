@@ -687,7 +687,7 @@ public final class TreeArtifactValueTest {
   }
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(SpecialArtifact specialArtifact) {
-    return ArchivedTreeArtifact.create(specialArtifact, BIN_PATH);
+    return ArchivedTreeArtifact.createForTree(specialArtifact, BIN_PATH);
   }
 
   private SpecialArtifact createTreeArtifact(String execPath) {

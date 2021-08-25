@@ -220,7 +220,7 @@ public class CompactPersistentActionCacheTest {
     archivedArtifactValue.ifPresent(
         metadata -> {
           Artifact.ArchivedTreeArtifact artifact =
-              Artifact.ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+              Artifact.ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
           builder.setArchivedRepresentation(
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });

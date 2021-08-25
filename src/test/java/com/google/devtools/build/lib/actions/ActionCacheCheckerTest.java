@@ -463,7 +463,7 @@ public class ActionCacheCheckerTest {
     archivedArtifactValue.ifPresent(
         metadata -> {
           Artifact.ArchivedTreeArtifact artifact =
-              Artifact.ArchivedTreeArtifact.create(parent, derivedPathPrefix);
+              Artifact.ArchivedTreeArtifact.createForTree(parent, derivedPathPrefix);
           builder.setArchivedRepresentation(
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });
@@ -840,7 +840,8 @@ public class ActionCacheCheckerTest {
 
     runAction(action);
     writeIsoLatin1(
-        Artifact.ArchivedTreeArtifact.create(output, derivedPathPrefix).getPath(), "modified");
+        Artifact.ArchivedTreeArtifact.createForTree(output, derivedPathPrefix).getPath(),
+        "modified");
     // Not cached since local file changed
     runAction(action, metadataHandler);
 
@@ -929,7 +930,8 @@ public class ActionCacheCheckerTest {
 
     runAction(action);
     writeContentAsLatin1(
-        Artifact.ArchivedTreeArtifact.create(output, derivedPathPrefix).getPath(), "content");
+        Artifact.ArchivedTreeArtifact.createForTree(output, derivedPathPrefix).getPath(),
+        "content");
     // Cache hit
     runAction(action, metadataHandler);
 
@@ -1085,7 +1087,7 @@ public class ActionCacheCheckerTest {
       }
 
       Artifact.ArchivedTreeArtifact archivedTreeArtifact =
-          Artifact.ArchivedTreeArtifact.create(output, derivedPathPrefix);
+          Artifact.ArchivedTreeArtifact.createForTree(output, derivedPathPrefix);
       if (archivedTreeArtifact.getPath().exists()) {
         tree.setArchivedRepresentation(
             archivedTreeArtifact,

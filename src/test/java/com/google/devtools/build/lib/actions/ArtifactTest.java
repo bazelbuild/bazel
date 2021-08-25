@@ -458,7 +458,7 @@ public class ArtifactTest {
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("blaze-out"));
+        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("blaze-out"));
 
     assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
     assertThat(archivedTreeArtifact.getArtifactOwner())
@@ -476,7 +476,7 @@ public class ArtifactTest {
     SpecialArtifact tree = createTreeArtifact(rootDir, "tree", actionLookupData);
 
     ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("root"));
+        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("root"));
 
     assertThat(archivedTreeArtifact.getExecPathString())
         .isEqualTo("root/:archived_tree_artifacts/tree.zip");
@@ -491,7 +491,7 @@ public class ArtifactTest {
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("dir1/dir2"));
+        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("dir1/dir2"));
 
     assertThat(archivedTreeArtifact.getExecPathString())
         .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3/tree.zip");
@@ -507,7 +507,8 @@ public class ArtifactTest {
     PathFragment wrongPrefix = PathFragment.create("notAPrefix");
 
     assertThrows(
-        IllegalArgumentException.class, () -> ArchivedTreeArtifact.create(tree, wrongPrefix));
+        IllegalArgumentException.class,
+        () -> ArchivedTreeArtifact.createForTree(tree, wrongPrefix));
   }
 
   @Test
@@ -518,7 +519,7 @@ public class ArtifactTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> ArchivedTreeArtifact.create(tree, prefixOutsideOfRoot));
+        () -> ArchivedTreeArtifact.createForTree(tree, prefixOutsideOfRoot));
   }
 
   @Test
@@ -599,7 +600,7 @@ public class ArtifactTest {
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(
       ArtifactRoot root, String treeRelativePath) {
-    return ArchivedTreeArtifact.create(
+    return ArchivedTreeArtifact.createForTree(
         createTreeArtifact(root, treeRelativePath), root.getExecPath().subFragment(0, 1));
   }
 }
