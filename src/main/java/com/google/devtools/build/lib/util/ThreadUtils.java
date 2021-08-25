@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util;
 import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Utility to dump stack traces to logs and remotely log on slow interrupt. */
 public class ThreadUtils {
@@ -48,12 +50,14 @@ public class ThreadUtils {
   }
 
   /** Write a thread dump to the blaze.INFO log if interrupt took too long. */
-  public static synchronized void warnAboutSlowInterrupt() {
-    warnAboutSlowInterrupt(BugReporter.defaultInstance());
+  public static synchronized void warnAboutSlowInterrupt(
+      @Nullable String slowInterruptMessageSuffix) {
+    warnAboutSlowInterrupt(slowInterruptMessageSuffix, BugReporter.defaultInstance());
   }
 
   @VisibleForTesting
-  static synchronized void warnAboutSlowInterrupt(BugReporter bugReporter) {
+  static synchronized void warnAboutSlowInterrupt(
+      @Nullable String slowInterruptMessageSuffix, BugReporter bugReporter) {
     logger.atWarning().log("Interrupt took too long. Dumping thread state.");
     AtomicReference<StackTraceAndState> firstTrace = new AtomicReference<>();
     Thread.getAllStackTraces().entrySet().stream()
@@ -78,12 +82,19 @@ public class ThreadUtils {
                   makeString(stackTraceAndState.trace));
             });
 
-    bugReporter.sendBugReport(new SlowInterruptException());
+    SlowInterruptInnerException inner =
+        new SlowInterruptInnerException(
+            Joiner.on(' ')
+                .skipNulls()
+                .join("(Wrapper exception for longest stack trace)", slowInterruptMessageSuffix));
+    inner.setStackTrace(firstTrace.get().trace);
+    SlowInterruptException ex = new SlowInterruptException(inner);
+    bugReporter.sendBugReport(ex);
   }
 
   private static final class SlowInterruptException extends RuntimeException {
-    public SlowInterruptException() {
-      super("Slow interrupt");
+    public SlowInterruptException(SlowInterruptInnerException inner) {
+      super("Slow interrupt", inner);
     }
   }
 
@@ -149,5 +160,11 @@ public class ThreadUtils {
       builder.append('<').append(thread.getName()).append(' ').append(thread.getId()).append('>');
     }
     return builder.toString();
+  }
+
+  private static class SlowInterruptInnerException extends Exception {
+    SlowInterruptInnerException(String message) {
+      super(message);
+    }
   }
 }

@@ -860,7 +860,25 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         ImmutableList.copyOf(startupArgs), ImmutableList.copyOf(otherArgs));
   }
 
-  private static InterruptSignalHandler captureSigint() {
+  @Nullable
+  private static String getSlowInterruptMessageSuffix(Iterable<BlazeModule> modules) {
+    String slowInterruptMessageSuffix = null;
+    for (BlazeModule module : modules) {
+      String message = module.getSlowThreadInterruptMessageSuffix();
+      if (message != null) {
+        checkState(
+            slowInterruptMessageSuffix == null,
+            "Two messages: %s %s (%s)",
+            slowInterruptMessageSuffix,
+            message,
+            module);
+        slowInterruptMessageSuffix = message;
+      }
+    }
+    return slowInterruptMessageSuffix;
+  }
+
+  private static InterruptSignalHandler captureSigint(@Nullable String slowInterruptMessage) {
     Thread mainThread = Thread.currentThread();
     AtomicInteger numInterrupts = new AtomicInteger();
 
@@ -872,7 +890,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             count++;
             Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
             logger.atWarning().log("Slow interrupt number %d in batch mode", count);
-            ThreadUtils.warnAboutSlowInterrupt();
+            ThreadUtils.warnAboutSlowInterrupt(slowInterruptMessage);
           }
         };
 
@@ -901,7 +919,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * exit status of the program.
    */
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
-    InterruptSignalHandler signalHandler = captureSigint();
+    InterruptSignalHandler signalHandler = captureSigint(getSlowInterruptMessageSuffix(modules));
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
     logger.atInfo().log(
         "Running Bazel in batch mode with %s, startup args %s",
@@ -1035,7 +1053,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverPid,
               startupOptions.maxIdleSeconds,
               startupOptions.shutdownOnLowSysMem,
-              startupOptions.idleServerTasks);
+              startupOptions.idleServerTasks,
+              getSlowInterruptMessageSuffix(modules));
       rpcServerRef.set(rpcServer);
 
       // Register the signal handler.

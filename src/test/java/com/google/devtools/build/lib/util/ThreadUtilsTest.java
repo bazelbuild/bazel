@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,7 +33,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ThreadUtilsTest {
   // TODO(b/150299871): inspecting the output of GoogleLogger or mocking it seems too hard for now.
-  @Ignore("b/150299871") // TODO(b/150299871): Enable stack traces when they can be merged.
   @Test
   public void smoke() throws Exception {
     SettableFuture<Integer> future = SettableFuture.create();
@@ -66,7 +64,11 @@ public class ThreadUtilsTest {
     noParkThread.start();
     noParkThread2.start();
     waitForThreads.await();
-    ThreadUtils.warnAboutSlowInterrupt(bugReporter);
+    ThreadUtils.warnAboutSlowInterrupt("interrupt message", bugReporter);
+    assertThat(reportedException.get())
+        .hasCauseThat()
+        .hasMessageThat()
+        .isEqualTo("(Wrapper exception for longest stack trace) interrupt message");
     assertThat(reportedException.get().getCause().getStackTrace()[0].getMethodName())
         .isEqualTo("sleep");
     assertThat(reportedException.get().getCause().getStackTrace()[1].getMethodName())
