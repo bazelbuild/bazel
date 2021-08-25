@@ -1,3 +1,33 @@
+## Release 5.0.0-pre.20210817.2 (2021-08-25)
+
+```
+Baseline: a2cdeaa0a1d34ba4971171391667ce79231eb029
+
+Cherry picks:
+
+   + 68c9ba64baba9e8e733f1f03543def627cc5e002:
+     Fix terrible ForkJoinQuiescingExecutor latent bug exposed by new
+     usage of ForkJoinPool: only "adapt" a runnable to run in an
+     existing FJP if that existing FJP is the same as the executor's:
+     don't enqueue them to run in whatever random FJP is trying to
+     enqueue this runnable. Big props to michajlo@ for quickly
+     diagnosing this and suggesting the fix.
+```
+
+Incompatible changes:
+
+  - --bep_publish_used_heap_size_post_build is now a no-op and will
+    be deleted in a future release. Use --memory_profile=/dev/null
+    instead.
+
+New features:
+
+  - Args.add_all and Args.add_joined can now accept closures in
+    map_each if explicitly enabled via allow_closure.
+  - Add `--bes_header` flag to pass extra headers to the BES server.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Brentley Jones, Fabian Meumertzheim, Olek Wojnar.
+
 ## Release 5.0.0-pre.20210810.4 (2021-08-19)
 
 ```
