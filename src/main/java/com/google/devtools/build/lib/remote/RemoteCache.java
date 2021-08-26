@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -99,7 +100,7 @@ public class RemoteCache implements AutoCloseable {
     this.digestUtil = digestUtil;
   }
 
-  public ActionResult downloadActionResult(
+  public CachedActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
     return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));

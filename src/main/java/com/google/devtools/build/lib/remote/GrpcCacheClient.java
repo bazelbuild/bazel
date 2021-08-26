@@ -234,9 +234,12 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         callCredentialsProvider);
   }
 
-  private ListenableFuture<ActionResult> handleStatus(ListenableFuture<ActionResult> download) {
+  private ListenableFuture<CachedActionResult> handleStatus(
+      ListenableFuture<ActionResult> download) {
+    ListenableFuture<CachedActionResult> cachedActionResult =
+        Futures.transform(download, CachedActionResult::remote, MoreExecutors.directExecutor());
     return Futures.catchingAsync(
-        download,
+        cachedActionResult,
         StatusRuntimeException.class,
         (sre) ->
             sre.getStatus().getCode() == Code.NOT_FOUND
@@ -247,7 +250,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()

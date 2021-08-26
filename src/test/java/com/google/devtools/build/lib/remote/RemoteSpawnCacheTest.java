@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionR
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
@@ -258,14 +259,14 @@ public class RemoteSpawnCacheTest {
             any(ActionKey.class),
             /* inlineOutErr= */ eq(false)))
         .thenAnswer(
-            new Answer<ActionResult>() {
+            new Answer<CachedActionResult>() {
               @Override
-              public ActionResult answer(InvocationOnMock invocation) {
+              public CachedActionResult answer(InvocationOnMock invocation) {
                 RemoteActionExecutionContext context = invocation.getArgument(0);
                 RequestMetadata meta = context.getRequestMetadata();
                 assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
                 assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
-                return actionResult;
+                return CachedActionResult.remote(actionResult);
               }
             });
     doAnswer(
@@ -279,7 +280,8 @@ public class RemoteSpawnCacheTest {
                   return null;
                 })
         .when(service)
-        .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(actionResult)));
+        .downloadOutputs(
+            any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult))));
 
     // act
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
@@ -288,7 +290,9 @@ public class RemoteSpawnCacheTest {
 
     // assert
     // All other methods on RemoteActionCache have side effects, so we verify all of them.
-    verify(service).downloadOutputs(any(), eq(RemoteActionResult.createFromCache(actionResult)));
+    verify(service)
+        .downloadOutputs(
+            any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult))));
     verify(remoteCache, never())
         .upload(
             any(RemoteActionExecutionContext.class),
@@ -642,19 +646,20 @@ public class RemoteSpawnCacheTest {
             any(ActionKey.class),
             /* inlineOutErr= */ eq(false)))
         .thenAnswer(
-            new Answer<ActionResult>() {
+            new Answer<CachedActionResult>() {
               @Override
-              public ActionResult answer(InvocationOnMock invocation) {
+              public CachedActionResult answer(InvocationOnMock invocation) {
                 RemoteActionExecutionContext context = invocation.getArgument(0);
                 RequestMetadata meta = context.getRequestMetadata();
                 assertThat(meta.getCorrelatedInvocationsId()).isEqualTo(BUILD_REQUEST_ID);
                 assertThat(meta.getToolInvocationId()).isEqualTo(COMMAND_ID);
-                return actionResult;
+                return CachedActionResult.remote(actionResult);
               }
             });
     doThrow(new CacheNotFoundException(digest))
         .when(cache.getRemoteExecutionService())
-        .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(actionResult)));
+        .downloadOutputs(
+            any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult))));
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
@@ -711,7 +716,7 @@ public class RemoteSpawnCacheTest {
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
             /* inlineOutErr= */ eq(false)))
-        .thenReturn(actionResult);
+        .thenReturn(CachedActionResult.remote(actionResult));
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
 
@@ -728,7 +733,7 @@ public class RemoteSpawnCacheTest {
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
-        .thenReturn(success);
+        .thenReturn(CachedActionResult.remote(success));
 
     // act
     CacheHandle cacheHandle = cache.lookup(simpleSpawn, simplePolicy);
@@ -737,7 +742,8 @@ public class RemoteSpawnCacheTest {
     assertThat(cacheHandle.hasResult()).isTrue();
     assertThat(cacheHandle.getResult().exitCode()).isEqualTo(0);
     verify(cache.getRemoteExecutionService())
-        .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
+        .downloadOutputs(
+            any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(success))));
   }
 
   @Test
@@ -752,10 +758,11 @@ public class RemoteSpawnCacheTest {
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
-        .thenReturn(success);
+        .thenReturn(CachedActionResult.remote(success));
     doThrow(downloadFailure)
         .when(cache.getRemoteExecutionService())
-        .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
+        .downloadOutputs(
+            any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(success))));
 
     // act
     CacheHandle cacheHandle = cache.lookup(simpleSpawn, simplePolicy);
@@ -763,7 +770,8 @@ public class RemoteSpawnCacheTest {
     // assert
     assertThat(cacheHandle.hasResult()).isFalse();
     verify(cache.getRemoteExecutionService())
-        .downloadOutputs(any(), eq(RemoteActionResult.createFromCache(success)));
+        .downloadOutputs(
+            any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(success))));
     assertThat(eventHandler.getEvents().size()).isEqualTo(1);
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);

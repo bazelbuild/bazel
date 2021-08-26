@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -375,23 +376,28 @@ public class RemoteExecutionService {
   public static class RemoteActionResult {
     private final ActionResult actionResult;
     @Nullable private final ExecuteResponse executeResponse;
+    @Nullable private final String cacheName;
 
     /** Creates a new {@link RemoteActionResult} instance from a cached result. */
-    public static RemoteActionResult createFromCache(ActionResult cachedActionResult) {
+    public static RemoteActionResult createFromCache(CachedActionResult cachedActionResult) {
       checkArgument(cachedActionResult != null, "cachedActionResult is null");
-      return new RemoteActionResult(cachedActionResult, null);
+      return new RemoteActionResult(
+          cachedActionResult.actionResult(), null, cachedActionResult.cacheName());
     }
 
     /** Creates a new {@link RemoteActionResult} instance from a execute response. */
     public static RemoteActionResult createFromResponse(ExecuteResponse response) {
       checkArgument(response.hasResult(), "response doesn't have result");
-      return new RemoteActionResult(response.getResult(), response);
+      return new RemoteActionResult(response.getResult(), response, /* cacheName */ null);
     }
 
     public RemoteActionResult(
-        ActionResult actionResult, @Nullable ExecuteResponse executeResponse) {
+        ActionResult actionResult,
+        @Nullable ExecuteResponse executeResponse,
+        @Nullable String cacheName) {
       this.actionResult = actionResult;
       this.executeResponse = executeResponse;
+      this.cacheName = cacheName;
     }
 
     /** Returns the exit code of remote executed action. */
@@ -452,6 +458,12 @@ public class RemoteExecutionService {
       return executeResponse.getCachedResult();
     }
 
+    /** Returns cache name (disk/remote) when {@code cacheHit()} or {@code null} when not */
+    @Nullable
+    public String cacheName() {
+      return cacheName;
+    }
+
     /**
      * Returns the underlying {@link ExecuteResponse} or {@code null} if this result is from a
      * cache.
@@ -485,15 +497,15 @@ public class RemoteExecutionService {
       throws IOException, InterruptedException {
     checkState(shouldAcceptCachedResult(action.spawn), "spawn doesn't accept cached result");
 
-    ActionResult actionResult =
+    CachedActionResult cachedActionResult =
         remoteCache.downloadActionResult(
             action.remoteActionExecutionContext, action.actionKey, /* inlineOutErr= */ false);
 
-    if (actionResult == null) {
+    if (cachedActionResult == null) {
       return null;
     }
 
-    return RemoteActionResult.createFromCache(actionResult);
+    return RemoteActionResult.createFromCache(cachedActionResult);
   }
 
   private static Path toTmpDownloadPath(Path actualPath) {

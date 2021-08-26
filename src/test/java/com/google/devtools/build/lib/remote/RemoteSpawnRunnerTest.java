@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
@@ -340,7 +341,8 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteLocalFallback = true;
     remoteOptions.remoteUploadLocalResults = true;
 
-    ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
+    CachedActionResult failedAction =
+        CachedActionResult.remote(ActionResult.newBuilder().setExitCode(1).build());
     when(cache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
@@ -380,7 +382,8 @@ public class RemoteSpawnRunnerTest {
     // Test that bazel treats failed cache action as a cache miss and attempts to execute action
     // remotely
 
-    ActionResult failedAction = ActionResult.newBuilder().setExitCode(1).build();
+    CachedActionResult failedAction =
+        CachedActionResult.remote(ActionResult.newBuilder().setExitCode(1).build());
     when(cache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
@@ -746,7 +749,8 @@ public class RemoteSpawnRunnerTest {
     // arrange
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
+    CachedActionResult cachedResult =
+        CachedActionResult.remote(ActionResult.newBuilder().setExitCode(0).build());
     when(cache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
@@ -1129,10 +1133,13 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    RemoteActionResult actionResult = RemoteActionResult.createFromCache(succeededAction);
+    RemoteActionResult actionResult =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(succeededAction));
 
     RemoteSpawnRunner runner = newSpawnRunner();
-    doReturn(actionResult).when(service).lookupCache(any());
+    doReturn(RemoteActionResult.createFromCache(CachedActionResult.remote(succeededAction)))
+        .when(service)
+        .lookupCache(any());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -1182,12 +1189,15 @@ public class RemoteSpawnRunnerTest {
     remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
 
     ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    RemoteActionResult cachedActionResult = RemoteActionResult.createFromCache(succeededAction);
+    RemoteActionResult cachedActionResult =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(succeededAction));
     IOException downloadFailure = new IOException("downloadMinimal failed");
 
     RemoteSpawnRunner runner = newSpawnRunner();
 
-    doReturn(cachedActionResult).when(service).lookupCache(any());
+    doReturn(RemoteActionResult.createFromCache(CachedActionResult.remote(succeededAction)))
+        .when(service)
+        .lookupCache(any());
     doThrow(downloadFailure).when(service).downloadOutputs(any(), eq(cachedActionResult));
 
     Spawn spawn = newSimpleSpawn();
@@ -1211,8 +1221,9 @@ public class RemoteSpawnRunnerTest {
     Artifact topLevelOutput =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("foo.bin"));
 
-    ActionResult succeededAction = ActionResult.newBuilder().setExitCode(0).build();
-    RemoteActionResult cachedActionResult = RemoteActionResult.createFromCache(succeededAction);
+    RemoteActionResult cachedActionResult =
+        RemoteActionResult.createFromCache(
+            CachedActionResult.remote(ActionResult.newBuilder().setExitCode(0).build()));
 
     RemoteSpawnRunner runner = newSpawnRunner(ImmutableSet.of(topLevelOutput));
     doReturn(cachedActionResult).when(service).lookupCache(any());
