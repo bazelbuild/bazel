@@ -25,6 +25,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.util.function.Consumer;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * InMemoryFileInfo manages file contents by storing them entirely in memory.
@@ -33,10 +34,11 @@ import java.util.function.Consumer;
 public class InMemoryFileInfo extends FileInfo {
 
   /**
-   * Updates to the content must atomically update the lastModifiedTime. So all
-   * accesses to this field must be synchronized.
+   * Updates to the content must atomically update the lastModifiedTime. So all accesses to this
+   * field must be synchronized.
    */
-  protected byte[] content;
+  @GuardedBy("this")
+  private byte[] content;
 
   InMemoryFileInfo(Clock clock) {
     super(clock);
@@ -75,11 +77,14 @@ public class InMemoryFileInfo extends FileInfo {
 
       @Override
       public int read(ByteBuffer dst) {
-        if (offset >= content.length) {
-          return -1;
+        int length;
+        synchronized (InMemoryFileInfo.this) {
+          if (offset >= content.length) {
+            return -1;
+          }
+          length = Math.min(dst.remaining(), content.length - offset);
+          dst.put(content, offset, length);
         }
-        int length = Math.min(dst.remaining(), content.length - offset);
-        dst.put(content, offset, length);
         offset += length;
         return length;
       }
