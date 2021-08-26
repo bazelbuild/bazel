@@ -234,8 +234,15 @@ public final class ConfigurationResolver {
     return needConfigsFromSkyframe ? null : resolvedDeps;
   }
 
+  /**
+   * Translates a {@link DependencyKey} with configuration transition to the same objects with
+   * resolved configurations.
+   *
+   * <p>This is the single-argument version of {@link #resolveConfigurations}, whose documentation
+   * has more details.
+   */
   @Nullable
-  private ImmutableList<Dependency> resolveConfiguration(
+  public ImmutableList<Dependency> resolveConfiguration(
       DependencyKind dependencyKind, DependencyKey dependencyKey)
       throws ConfiguredValueCreationException, InterruptedException {
 
