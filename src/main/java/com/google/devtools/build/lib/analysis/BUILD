@@ -549,7 +549,6 @@ java_library(
     name = "blaze_version_info",
     srcs = ["BlazeVersionInfo.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//third_party:flogger",
         "//third_party:guava",
     ],
