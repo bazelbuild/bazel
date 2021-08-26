@@ -195,8 +195,9 @@ public class RuleClass {
         return param.getRuleClass() + " rules have to be under a "
             + StringUtil.joinEnglishList(values, "or", "'") + " directory";
       } else if (pathSegment == 1) {
-        return param.getRuleClass() + " rules are only allowed in "
-            + StringUtil.joinEnglishList(StringUtil.append(values, "//", ""), "or");
+        return param.getRuleClass()
+            + " rules are only allowed in "
+            + StringUtil.joinEnglishList(Iterables.transform(values, s -> "//" + s), "or");
       } else {
           return param.getRuleClass() + " rules are only allowed in packages which "
               + StringUtil.ordinal(pathSegment) + " is " + StringUtil.joinEnglishList(values, "or");
