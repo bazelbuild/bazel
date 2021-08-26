@@ -685,6 +685,19 @@ build_test(
 )
 
 java_test(
+    name = "ShutdownCommandTest",
+    srcs = ["ShutdownCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "SubcommandEventTest",
     srcs = ["SubcommandEventTest.java"],
     tags = [
