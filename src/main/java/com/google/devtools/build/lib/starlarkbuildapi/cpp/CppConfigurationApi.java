@@ -33,6 +33,24 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
     extends StarlarkValue {
 
   @StarlarkMethod(
+      name = "experimental_link_static_libraries_once",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_enable_target_export_check",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_cc_shared_library_debug",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "copts",
       structField = true,
       doc =
