@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1409,9 +1410,14 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertNoEvents();
     Rule testTarget = (Rule) ct.getTarget();
     ConfigurationTransition ruleTransition =
-        testTarget.getRuleClassObject().getTransitionFactory().create(testTarget);
-    assertThat(ruleTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
-        .containsExactly("CppOptions");
+        testTarget
+            .getRuleClassObject()
+            .getTransitionFactory()
+            .create(RuleTransitionData.create(testTarget));
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
+    ruleTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
+    assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 
   /**

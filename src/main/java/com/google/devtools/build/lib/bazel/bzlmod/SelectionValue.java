@@ -29,11 +29,24 @@ public abstract class SelectionValue implements SkyValue {
   @AutoCodec public static final SkyKey KEY = () -> SkyFunctions.SELECTION;
 
   public static SelectionValue create(
-      String rootModuleName, ImmutableMap<ModuleKey, Module> depGraph) {
-    return new AutoValue_SelectionValue(rootModuleName, depGraph);
+      ImmutableMap<ModuleKey, Module> depGraph,
+      ImmutableMap<String, ModuleKey> canonicalRepoNameLookup,
+      ImmutableMap<String, ModuleKey> moduleNameLookup) {
+    return new AutoValue_SelectionValue(depGraph, canonicalRepoNameLookup, moduleNameLookup);
   }
 
-  public abstract String getRootModuleName();
-
+  /** The post-selection dep graph. Must have BFS iteration order, starting from the root module. */
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
+
+  /**
+   * A mapping from a canonical repo name to the key of the module backing it. Does not include the
+   * root module.
+   */
+  public abstract ImmutableMap<String, ModuleKey> getCanonicalRepoNameLookup();
+
+  /**
+   * A mapping from a plain module name to the key of the module. Does not include the root module,
+   * or modules with multiple-version overrides.
+   */
+  public abstract ImmutableMap<String, ModuleKey> getModuleNameLookup();
 }

@@ -49,6 +49,10 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil.DummyWorkspaceStatusActionContext;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -73,7 +77,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -86,9 +93,12 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
@@ -117,6 +127,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
@@ -164,6 +175,14 @@ public abstract class BuildIntegrationTestCase {
 
   private Path workspace;
   protected RecordingExceptionHandler subscriberException = new RecordingExceptionHandler();
+
+  private static final ImmutableList<Injected> BAZEL_REPOSITORY_PRECOMPUTED_VALUES =
+      ImmutableList.of(
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
 
   protected EventCollectionApparatus createEvents() {
     return new EventCollectionApparatus();
@@ -381,14 +400,39 @@ public abstract class BuildIntegrationTestCase {
     return TestStrategyModule.getModule();
   }
 
-  private static BlazeModule getNoResolvedFileModule() {
+  private static BlazeModule getMockBazelRepositoryModule() {
     return new BlazeModule() {
       @Override
+      public void workspaceInit(
+          BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+        ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
+            new ImmutableMap.Builder<String, RepositoryFunction>()
+                .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
+                .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
+                .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+        builder.addSkyFunction(
+            SkyFunctions.REPOSITORY_DIRECTORY,
+            new RepositoryDelegatorFunction(
+                repositoryHandlers.build(),
+                null,
+                new AtomicBoolean(true),
+                ImmutableMap::of,
+                directories,
+                ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+                BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+      }
+
+      @Override
       public ImmutableList<Injected> getPrecomputedValues() {
-        return ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false));
+        ImmutableList.Builder<Injected> builder = ImmutableList.builder();
+        return builder
+            .add(
+                PrecomputedValue.injected(
+                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
+                    Optional.empty()),
+                PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false))
+            .addAll(BAZEL_REPOSITORY_PRECOMPUTED_VALUES)
+            .build();
       }
     };
   }
@@ -410,18 +454,24 @@ public abstract class BuildIntegrationTestCase {
     checkState(
         connectivityModule instanceof ConnectivityStatusProvider,
         "Module returned by getConnectivityModule() does not implement ConnectivityStatusProvider");
-    return new BlazeRuntime.Builder()
-        .setFileSystem(fileSystem)
-        .setProductName(TestConstants.PRODUCT_NAME)
-        .setBugReporter(bugReporter)
-        .setStartupOptionsProvider(startupOptionsParser)
-        .addBlazeModule(connectivityModule)
-        .addBlazeModule(getNoResolvedFileModule())
-        .addBlazeModule(getSpawnModule())
-        .addBlazeModule(new IncludeScanningModule())
-        .addBlazeModule(getBuildInfoModule())
-        .addBlazeModule(getRulesModule())
-        .addBlazeModule(getStrategyModule());
+    BlazeRuntime.Builder builder =
+        new BlazeRuntime.Builder()
+            .setFileSystem(fileSystem)
+            .setProductName(TestConstants.PRODUCT_NAME)
+            .setBugReporter(bugReporter)
+            .setStartupOptionsProvider(startupOptionsParser)
+            .addBlazeModule(connectivityModule)
+            .addBlazeModule(getMockBazelRepositoryModule())
+            .addBlazeModule(getSpawnModule())
+            .addBlazeModule(getBuildInfoModule())
+            .addBlazeModule(getRulesModule())
+            .addBlazeModule(getStrategyModule());
+
+    if ("blaze".equals(TestConstants.PRODUCT_NAME)) {
+      // include scanning isn't supported in bazel
+      builder.addBlazeModule(new IncludeScanningModule());
+    }
+    return builder;
   }
 
   protected List<String> getStartupOptions() {

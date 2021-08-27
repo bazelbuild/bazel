@@ -45,7 +45,9 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -80,7 +82,7 @@ public final class JavaCompileActionBuilder {
     private final NestedSet<Artifact> bootclasspathEntries;
 
     /** An argument to the javac >= 9 {@code --system} flag. */
-    @Nullable private final Artifact system;
+    @Nullable private final Optional<PathFragment> system;
 
     /** The list of classpath entries to search for annotation processors. */
     private final NestedSet<Artifact> processorPath;
@@ -101,7 +103,7 @@ public final class JavaCompileActionBuilder {
         Artifact outputJar,
         NestedSet<Artifact> classpathEntries,
         NestedSet<Artifact> bootclasspathEntries,
-        @Nullable Artifact system,
+        Optional<PathFragment> system,
         NestedSet<Artifact> processorPath,
         NestedSet<String> processorNames,
         ImmutableList<Artifact> sourceJars,
@@ -130,8 +132,8 @@ public final class JavaCompileActionBuilder {
               .addAllProcessor(processorNames.toList())
               .addAllProcessorpath(Artifact.toExecPaths(processorPath.toList()))
               .setOutputjar(outputJar.getExecPathString());
-      if (system != null) {
-        info.setSystem(system.getExecPathString());
+      if (system.isPresent()) {
+        info.setSystem(system.get().toString());
       }
       info.addAllArgument(arguments);
       builder.setExtension(JavaCompileInfo.javaCompileInfo, info.build());
@@ -215,17 +217,18 @@ public final class JavaCompileActionBuilder {
         .addTransitive(toolchain.getJavaRuntime().javaBaseInputs())
         .addTransitive(bootClassPath.bootclasspath())
         .addAll(sourcePathEntries)
-        .addAll(additionalInputs);
-    Stream.of(coverageArtifact, bootClassPath.system())
-        .filter(x -> x != null)
-        .forEachOrdered(mandatoryInputs::add);
+        .addAll(additionalInputs)
+        .addTransitive(bootClassPath.systemInputs());
+    if (coverageArtifact != null) {
+      mandatoryInputs.add(coverageArtifact);
+    }
 
     JavaCompileExtraActionInfoSupplier extraActionInfoSupplier =
         new JavaCompileExtraActionInfoSupplier(
             outputs.output(),
             classpathEntries,
             bootClassPath.bootclasspath(),
-            bootClassPath.system(),
+            bootClassPath.systemPath(),
             plugins.processorClasspath(),
             plugins.processorClasses(),
             sourceJars,
@@ -303,7 +306,9 @@ public final class JavaCompileActionBuilder {
     }
     result.addExecPath("--output_deps_proto", outputs.depsProto());
     result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
-    result.addExecPath("--system", bootClassPath.system());
+    if (bootClassPath.systemPath().isPresent()) {
+      result.addPath("--system", bootClassPath.systemPath().get());
+    }
     result.addExecPaths("--sourcepath", sourcePathEntries);
     result.addExecPaths("--processorpath", plugins.processorClasspath());
     result.addAll("--processors", plugins.processorClasses());

@@ -309,7 +309,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         for (Collection<Target> targets : resolvedTargets) {
           filteredTargets.addAll(targets);
         }
-        // TODO(bazel-core): Invoking the callback while holding onto the package
+        // TODO(b/121277360): Invoking the callback while holding onto the package
         // semaphore can lead to deadlocks.
         //
         // Also, if the semaphore has a small count, acquireAll can also lead to problems if we

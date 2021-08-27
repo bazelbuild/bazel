@@ -460,6 +460,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
           public Path getBuildFileForPackage(PackageIdentifier packageName) {
             return pkgLocatorRef.get().getPackageBuildFileNullable(packageName, syscallCacheRef);
           }
+
+          @Override
+          public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+            Path buildFileForPackage = getBuildFileForPackage(packageName);
+            return buildFileForPackage == null ? null : buildFileForPackage.getBaseName();
+          }
         };
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder

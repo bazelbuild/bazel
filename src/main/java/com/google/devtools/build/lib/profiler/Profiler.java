@@ -48,6 +48,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
@@ -369,7 +370,8 @@ public final class Profiler {
       boolean slimProfile,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
-      boolean collectTaskHistograms)
+      boolean collectTaskHistograms,
+      Consumer<Exception> bugReporter)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -424,7 +426,7 @@ public final class Profiler {
     profileCpuStartTime = getProcessCpuTime();
 
     if (enabledCpuUsageProfiling) {
-      cpuUsageThread = new CollectLocalResourceUsage();
+      cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
       cpuUsageThread.setDaemon(true);
       cpuUsageThread.start();
     }

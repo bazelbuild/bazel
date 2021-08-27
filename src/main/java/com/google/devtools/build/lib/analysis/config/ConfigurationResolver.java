@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -26,11 +28,13 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -58,6 +62,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -90,6 +95,79 @@ public final class ConfigurationResolver {
   private final TargetAndConfiguration ctgValue;
   private final BuildConfiguration hostConfiguration;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
+
+  /** The key for {@link #starlarkTransitionCache}. */
+  private static class StarlarkTransitionCacheKey {
+    private final ConfigurationTransition transition;
+    private final BuildOptions fromOptions;
+    private final int hashCode;
+
+    StarlarkTransitionCacheKey(ConfigurationTransition transition, BuildOptions fromOptions) {
+      // For rule self-transitions, the transition instance encapsulates both the transition logic
+      // and attributes of the target it's attached to. This is important: the same transition in
+      // the same configuration applied to distinct targets may produce different outputs. See
+      // StarlarkRuleTransitionProvider.FunctionPatchTransition for details.
+      // TODO(bazel-team): the transition code (i.e. StarlarkTransitionFunction) hashes on identity.
+      // Check that unnecessary copies of the transition function don't dilute this cache. Quick
+      // experimentation shows the # of such instances is very small. But it's unclear how strong
+      // of an interning contract there is.
+      this.transition = transition;
+      this.fromOptions = fromOptions;
+      this.hashCode = Objects.hash(transition, fromOptions);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == this) {
+        return true;
+      }
+      if (!(other instanceof StarlarkTransitionCacheKey)) {
+        return false;
+      }
+      return (this.transition.equals(((StarlarkTransitionCacheKey) other).transition)
+          && this.fromOptions.equals(((StarlarkTransitionCacheKey) other).fromOptions));
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+  }
+
+  /** The result of a {@link #starlarkTransitionCache} lookup. */
+  private static class StarlarkTransitionCacheValue {
+    final Map<String, BuildOptions> result;
+    /**
+     * Stores events for successful transitions. Transitions that fail aren't added to the cache.
+     * This is meant for non-error events like Starlark {@code print()} output. See {@link
+     * StarlarkIntegrationTest#testPrintFromTransitionImpl} for a test that covers this.
+     *
+     * <p>This is null if the transition lacks non-error events.
+     */
+    @Nullable final StoredEventHandler nonErrorEvents;
+
+    StarlarkTransitionCacheValue(
+        Map<String, BuildOptions> result, @Nullable StoredEventHandler nonErrorEvents) {
+      this.result = result;
+      this.nonErrorEvents = nonErrorEvents;
+    }
+  }
+
+  /**
+   * Caches the application of transitions that use Starlark.
+   *
+   * <p>This trivially includes {@link StarlarkTransition}s. But it also includes transitions that
+   * delegate to {@link StarlarkTransition}s, like some {@link ComposingTransition}s.
+   *
+   * <p>This cache was added to keep builds that heavily rely on Starlark transitions performant.
+   * The inspiring build is a large Apple binary that heavily relies on {@code objc_library.bzl},
+   * which applies a self-transition. The build applies this transition ~600,000 times. Each
+   * application has a cost, mostly from setup in translating Java objects to Starlark objects in
+   * {@link FunctionTransitionUtil#applyAndValidate}. This cache saves most of that work, reducing
+   * analysis phase CPU time by 17%.
+   */
+  private static final Cache<StarlarkTransitionCacheKey, StarlarkTransitionCacheValue>
+      starlarkTransitionCache = Caffeine.newBuilder().softValues().build();
 
   public ConfigurationResolver(
       SkyFunction.Environment env,
@@ -156,8 +234,15 @@ public final class ConfigurationResolver {
     return needConfigsFromSkyframe ? null : resolvedDeps;
   }
 
+  /**
+   * Translates a {@link DependencyKey} with configuration transition to the same objects with
+   * resolved configurations.
+   *
+   * <p>This is the single-argument version of {@link #resolveConfigurations}, whose documentation
+   * has more details.
+   */
   @Nullable
-  private ImmutableList<Dependency> resolveConfiguration(
+  public ImmutableList<Dependency> resolveConfiguration(
       DependencyKind dependencyKind, DependencyKey dependencyKey)
       throws ConfiguredValueCreationException, InterruptedException {
 
@@ -399,12 +484,21 @@ public final class ConfigurationResolver {
       Map<PackageValue.Key, PackageValue> buildSettingPackages,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
-    fromOptions =
+    StarlarkTransitionCacheKey cacheKey = new StarlarkTransitionCacheKey(transition, fromOptions);
+    StarlarkTransitionCacheValue cachedResult = starlarkTransitionCache.getIfPresent(cacheKey);
+    if (cachedResult != null) {
+      if (cachedResult.nonErrorEvents != null) {
+        cachedResult.nonErrorEvents.replayOn(eventHandler);
+      }
+      return cachedResult.result;
+    }
+    BuildOptions adjustedOptions =
         StarlarkTransition.addDefaultStarlarkOptions(fromOptions, transition, buildSettingPackages);
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
-        transition.apply(TransitionUtil.restrict(transition, fromOptions), handlerWithErrorStatus);
+        transition.apply(
+            TransitionUtil.restrict(transition, adjustedOptions), handlerWithErrorStatus);
 
     // We use a temporary StoredEventHandler instead of the caller's event handler because
     // StarlarkTransition.validate assumes no errors occurred. We need a StoredEventHandler to be
@@ -418,6 +512,12 @@ public final class ConfigurationResolver {
       throw new TransitionException("Errors encountered while applying Starlark transition");
     }
     result = StarlarkTransition.validate(transition, buildSettingPackages, result);
+    // If the transition errored (like bad Starlark code), this method already exited with an
+    // exception so the results won't go into the cache. We still want to collect non-error events
+    // like print() output.
+    StoredEventHandler nonErrorEvents =
+        !handlerWithErrorStatus.isEmpty() ? handlerWithErrorStatus : null;
+    starlarkTransitionCache.put(cacheKey, new StarlarkTransitionCacheValue(result, nonErrorEvents));
     return result;
   }
 

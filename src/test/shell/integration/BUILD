@@ -806,6 +806,16 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "watchfs_test",
+    srcs = ["watchfs_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
 ########################################################################
 # Test suites.
 

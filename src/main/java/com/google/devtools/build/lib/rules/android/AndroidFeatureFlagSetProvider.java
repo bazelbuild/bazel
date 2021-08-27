@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 
@@ -56,8 +56,8 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
 
   private final Optional<ImmutableMap<Label, String>> flags;
 
-  AndroidFeatureFlagSetProvider(Optional<? extends Map<Label, String>> flags) {
-    this.flags = flags.transform(ImmutableMap::copyOf);
+  private AndroidFeatureFlagSetProvider(Optional<ImmutableMap<Label, String>> flags) {
+    this.flags = flags;
   }
 
   @Override
@@ -133,15 +133,12 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     return Optional.of(ImmutableMap.copyOf(expectedValues));
   }
 
-  /** Returns the feature flags this rule sets as user-friendly strings. */
-  public static ImmutableSet<String> getFlagNames(RuleContext ruleContext) {
+  /** Returns the feature flags set by the given rule. */
+  public static Set<Label> getFeatureFlags(RuleContext ruleContext) {
     return ruleContext
         .attributes()
         .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
-        .keySet()
-        .stream()
-        .map(label -> label.toString())
-        .collect(ImmutableSet.toImmutableSet());
+        .keySet();
   }
 
   /**
@@ -171,15 +168,12 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
       super(NAME, AndroidFeatureFlagSetProvider.class);
     }
 
-    public String getName() {
-      return NAME;
-    }
-
     @Override
     public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(Dict.noneableCast(flags, Label.class, String.class, "flags")));
+          Optional.of(
+              ImmutableMap.copyOf(Dict.noneableCast(flags, Label.class, String.class, "flags"))));
     }
   }
 }

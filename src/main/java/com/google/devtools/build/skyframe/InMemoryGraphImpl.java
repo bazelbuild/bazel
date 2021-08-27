@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -33,8 +32,7 @@ import javax.annotation.Nullable;
  * <p>This class is public only for use in alternative graph implementations.
  */
 public class InMemoryGraphImpl implements InMemoryGraph {
-
-  protected final ConcurrentMap<SkyKey, NodeEntry> nodeMap;
+  protected final ConcurrentHashMap<SkyKey, NodeEntry> nodeMap;
   private final boolean keepEdges;
 
   @VisibleForTesting
@@ -122,7 +120,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+  public ConcurrentHashMap<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
     return nodeMap;
   }
 }

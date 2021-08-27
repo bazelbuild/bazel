@@ -87,12 +87,12 @@ EOF
       --unix_digest_hash_attribute_name=user.checksum.sha256 \
       build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --profile=/tmp/profile_log \
+      --profile=profile_log \
       --record_full_profiler_data \
       //:nothing || fail "Build failed"
-  grep -q "VFS md5.*file1" /tmp/profile_log && \
+  grep -q "VFS md5.*file1" profile_log && \
       fail "Bazel should not have computed a digest for file1"
-  grep -q "VFS md5.*file2" /tmp/profile_log || \
+  grep -q "VFS md5.*file2" profile_log || \
       fail "Bazel should have computed a digest for file2"
 }
 

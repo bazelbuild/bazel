@@ -14,18 +14,19 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 
@@ -60,7 +61,7 @@ public final class ConfigurationFragmentPolicy {
      * Use this policy to fail the analysis of that target with an error message; this is the
      * default.
      */
-    FAIL_ANALYSIS;
+    FAIL_ANALYSIS
   }
 
   /**
@@ -71,8 +72,8 @@ public final class ConfigurationFragmentPolicy {
      * Sets of configuration fragment classes required by this rule, a set for each configuration.
      * Duplicate entries will automatically be ignored by the SetMultimap.
      */
-    private final SetMultimap<ConfigurationTransition, Class<?>> requiredConfigurationFragments
-        = LinkedHashMultimap.create();
+    private final SetMultimap<ConfigurationTransition, Class<? extends Fragment>>
+        requiredConfigurationFragments = LinkedHashMultimap.create();
 
     /**
      * Sets of configuration fragments required by this rule, as defined by their Starlark names
@@ -87,25 +88,27 @@ public final class ConfigurationFragmentPolicy {
         new LinkedHashMap<>();
 
     /**
-     * Declares that the implementation of the associated rule class requires the given
-     * fragments to be present in this rule's target configuration only.
+     * Declares that the implementation of the associated rule class requires the given fragments to
+     * be present in this rule's target configuration only.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(Collection<Class<?>> configurationFragments) {
+    public Builder requiresConfigurationFragments(
+        Collection<Class<? extends Fragment>> configurationFragments) {
       requiresConfigurationFragments(NoTransition.INSTANCE, configurationFragments);
       return this;
     }
 
     /**
-     * Declares that the implementation of the associated rule class requires the given
-     * fragments to be present in the specified configuration. Valid transition values are
-     * HOST for the host configuration and NONE for the target configuration.
+     * Declares that the implementation of the associated rule class requires the given fragments to
+     * be present in the specified configuration. Valid transition values are HOST for the host
+     * configuration and NONE for the target configuration.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(ConfigurationTransition transition,
-        Collection<Class<?>> configurationFragments) {
+    public Builder requiresConfigurationFragments(
+        ConfigurationTransition transition,
+        Collection<Class<? extends Fragment>> configurationFragments) {
       // We can relax this assumption if needed. But it's already sketchy to let a rule see more
       // than its own configuration. So we don't want to casually proliferate this pattern.
       Preconditions.checkArgument(
@@ -184,7 +187,7 @@ public final class ConfigurationFragmentPolicy {
    * A dictionary that maps configurations (NONE for target configuration, HOST for host
    * configuration) to required configuration fragments.
    */
-  private final ImmutableSetMultimap<ConfigurationTransition, Class<?>>
+  private final ImmutableSetMultimap<ConfigurationTransition, Class<? extends Fragment>>
       requiredConfigurationFragments;
 
   /**
@@ -199,7 +202,8 @@ public final class ConfigurationFragmentPolicy {
 
   @AutoCodec.VisibleForSerialization
   ConfigurationFragmentPolicy(
-      ImmutableSetMultimap<ConfigurationTransition, Class<?>> requiredConfigurationFragments,
+      ImmutableSetMultimap<ConfigurationTransition, Class<? extends Fragment>>
+          requiredConfigurationFragments,
       ImmutableSetMultimap<ConfigurationTransition, String> starlarkRequiredConfigurationFragments,
       ImmutableMap<Class<?>, MissingFragmentPolicy> missingFragmentPolicy) {
     this.requiredConfigurationFragments = requiredConfigurationFragments;
@@ -208,10 +212,10 @@ public final class ConfigurationFragmentPolicy {
   }
 
   /**
-   * The set of required configuration fragments; this contains all fragments that can be
-   * accessed by the rule implementation under any configuration.
+   * The set of required configuration fragments; this contains all fragments that can be accessed
+   * by the rule implementation under any configuration.
    */
-  public Set<Class<?>> getRequiredConfigurationFragments() {
+  public ImmutableSet<Class<? extends Fragment>> getRequiredConfigurationFragments() {
     return ImmutableSet.copyOf(requiredConfigurationFragments.values());
   }
 
@@ -223,7 +227,7 @@ public final class ConfigurationFragmentPolicy {
    * com.google.devtools.build.lib.analysis.config.BuildConfiguration#getStarlarkFragmentByName} can
    * be used to convert this to Java fragment instances.
    */
-  public Collection<String> getRequiredStarlarkFragments() {
+  public ImmutableCollection<String> getRequiredStarlarkFragments() {
     return starlarkRequiredConfigurationFragments.values();
   }
   /**

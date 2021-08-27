@@ -87,9 +87,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageLoader",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
@@ -230,6 +233,23 @@ java_library(
         ":testutil",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "FakeResourceOwner_lib",
+    srcs = [
+        "FakeResourceOwner.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

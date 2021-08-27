@@ -221,19 +221,19 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
 
     @Override
-    public Rule createRule(
+    public Rule createAndAddRule(
         Package.Builder packageBuilder,
         StarlarkSemantics semantics,
         Map<String, Object> kwargs,
         EventHandler handler)
-        throws InterruptedException, InvalidRuleException {
+        throws InterruptedException, InvalidRuleException, NameConflictException {
       RuleClass ruleClass = builder.build(exportedName, exportedName);
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
       ImmutableList.Builder<CallStackEntry> callStack = ImmutableList.builder();
       // TODO(pcloudy): Optimize the callstack
       callStack.add(new CallStackEntry("RepositoryRuleFunction.createRule", Location.BUILTIN));
-      return RuleFactory.createRule(
+      return RuleFactory.createAndAddRule(
           packageBuilder, ruleClass, attributeValues, handler, semantics, callStack.build());
     }
   }

@@ -664,10 +664,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.collectCodeCoverage;
   }
 
-  public boolean experimentalForwardInstrumentedFilesInfoByDefault() {
-    return options.experimentalForwardInstrumentedFilesInfoByDefault;
-  }
-
   public RunUnder getRunUnder() {
     return options.runUnder;
   }

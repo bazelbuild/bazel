@@ -26,11 +26,10 @@ import java.util.concurrent.Future;
 // maintaining AQV.remainingTasks.
 public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
 
-  private ForkJoinQuiescingExecutor(
-      ForkJoinPool forkJoinPool, ErrorClassifier errorClassifier, boolean shutdownOnCompletion) {
+  private ForkJoinQuiescingExecutor(ForkJoinPool forkJoinPool, ErrorClassifier errorClassifier) {
     super(
         forkJoinPool,
-        shutdownOnCompletion,
+        /*shutdownOnCompletion=*/ true,
         /*failFastOnException=*/ true,
         errorClassifier);
   }
@@ -38,22 +37,9 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
   /** Builder for {@link ForkJoinQuiescingExecutor}. */
   public static class Builder {
     private ForkJoinPool forkJoinPool = null;
-    private boolean owned = false;
     private ErrorClassifier errorClassifier = ErrorClassifier.DEFAULT;
 
     private Builder() {
-    }
-
-    /**
-     * Sets the {@link ForkJoinPool} that will be used by the to-be-built
-     * {@link ForkJoinQuiescingExecutor}. The given {@link ForkJoinPool} will _not_ be shut down on
-     * completion of the {@link ForkJoinQuiescingExecutor}.
-     */
-    public Builder withoutOwnershipOf(ForkJoinPool forkJoinPool) {
-      Preconditions.checkState(this.forkJoinPool == null);
-      this.forkJoinPool = forkJoinPool;
-      this.owned = false;
-      return this;
     }
 
     /**
@@ -64,7 +50,6 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
     public Builder withOwnershipOf(ForkJoinPool forkJoinPool) {
       Preconditions.checkState(this.forkJoinPool == null);
       this.forkJoinPool = forkJoinPool;
-      this.owned = true;
       return this;
     }
 
@@ -81,9 +66,8 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
      * Returns a fresh {@link ForkJoinQuiescingExecutor} using the previously given options.
      */
     public ForkJoinQuiescingExecutor build() {
-      Preconditions.checkNotNull(forkJoinPool);
-      return new ForkJoinQuiescingExecutor(
-          forkJoinPool, errorClassifier, /*shutdownOnCompletion=*/ owned);
+      Preconditions.checkNotNull(forkJoinPool, "fork join pool must be supplied");
+      return new ForkJoinQuiescingExecutor(forkJoinPool, errorClassifier);
     }
   }
 
@@ -94,8 +78,8 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
 
   @Override
   protected void executeWrappedRunnable(WrappedRunnable runnable, ExecutorService executorService) {
-    if (ForkJoinTask.inForkJoinPool()) {
-      @SuppressWarnings("unused") 
+    if (ForkJoinTask.getPool() == executorService) {
+      @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError = ForkJoinTask.adapt(runnable).fork();
     } else {
       super.executeWrappedRunnable(runnable, executorService);

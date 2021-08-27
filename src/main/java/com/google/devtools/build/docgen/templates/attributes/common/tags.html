@@ -34,7 +34,8 @@
     Note: for the purposes of this tag, the disk-cache is considered a local cache, whereas
     the http and gRPC caches are considered remote.
     If a combined cache is specified (i.e. a cache with local and remote components),
-    it's treated as a remote cache and disabled entirely.
+    it's treated as a remote cache and disabled entirely unless <code>--incompatible_remote_results_ignore_disk</code>
+    is set in which case the local components will be used.
   </li>
 
   <li><code>no-remote-exec</code> keyword results in the action or test never being

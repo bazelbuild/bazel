@@ -78,7 +78,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
    *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param primaryOutput the primary output of this action
-   * @param resourceSet the resources consumed by executing this Action
+   * @param resourceSetOrBuilder the resources consumed by executing this Action
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
    * @param commandLineLimits the command line limits, from the build configuration

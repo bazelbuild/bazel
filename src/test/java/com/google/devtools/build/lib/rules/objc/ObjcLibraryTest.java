@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
@@ -36,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -58,6 +61,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -2282,5 +2286,118 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     getConfiguredTarget("//x:foo");
+  }
+
+  @Test
+  public void testRuntimeDeps() throws Exception {
+    scratch.file(
+        "x/defs.bzl",
+        "def _var_providing_rule_impl(ctx):",
+        "   return [",
+        "       CcInfo(),",
+        "       apple_common.new_dynamic_framework_provider(objc=ctx.attr.dep[apple_common.Objc])",
+        "   ]",
+        "var_providing_rule = rule(",
+        "   implementation = _var_providing_rule_impl,",
+        "   attrs = { 'dep': attr.label(),}",
+        ")");
+    scratch.file(
+        "x/BUILD",
+        "load('//x:defs.bzl', 'var_providing_rule')",
+        "objc_library(",
+        "    name = 'baz',",
+        "    srcs = ['baz.m'],",
+        ")",
+        "var_providing_rule(",
+        "    name = 'foo',",
+        "    dep = 'baz',",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.m'],",
+        "    runtime_deps = [':foo'],",
+        ")");
+    getConfiguredTarget("//x:bar");
+  }
+
+  @Test
+  public void testRightOrderCcLibs() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_library(",
+        "    name = 'qux',",
+        "    srcs = ['qux.cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'baz',",
+        "    srcs = ['baz.cc'],",
+        ")",
+        "objc_library(",
+        "    name = 'quux',",
+        "    srcs = ['quux.m'],",
+        "    deps = ['qux'],",
+        ")",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.cc'],",
+        "    deps = [':baz'],",
+        ")",
+        "objc_library(",
+        "    name = 'bar',",
+        "    srcs = ['bar.m'],",
+        "    deps = ['quux', ':foo'],",
+        ")");
+    assertThat(
+            artifactsToStrings(
+                getConfiguredTarget("//x:bar")
+                    .get(ObjcProvider.STARLARK_CONSTRUCTOR)
+                    .getCcLibraries()))
+        .containsExactly("/ x/libqux.a", "/ x/libfoo.a", "/ x/libbaz.a")
+        .inOrder();
+  }
+
+  @Test
+  public void correctToolFilesUsed() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_toolchain_alias(name = 'a')",
+        "objc_library(name = 'l', srcs = ['l.m'])",
+        "objc_library(name = 'asm', srcs = ['a.s'])",
+        "objc_library(name = 'preprocessed-asm', srcs = ['a.S'])");
+    useConfiguration("--incompatible_use_specific_tool_files");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+
+    RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
+    ActionAnalysisMetadata linkAction =
+        libTarget.getActions().stream()
+            .filter((a) -> a.getMnemonic().equals("CppLink"))
+            .collect(onlyElement());
+    assertThat(linkAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getArFiles().toList());
+
+    ActionAnalysisMetadata objcCompileAction =
+        libTarget.getActions().stream()
+            .filter((a) -> a.getMnemonic().equals("ObjcCompile"))
+            .collect(onlyElement());
+    assertThat(objcCompileAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
+
+    ActionAnalysisMetadata asmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(onlyElement());
+    assertThat(asmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getAsFiles().toList());
+
+    ActionAnalysisMetadata preprocessedAsmAction =
+        ((RuleConfiguredTarget) getConfiguredTarget("//a:preprocessed-asm"))
+            .getActions().stream()
+                .filter((a) -> a.getMnemonic().equals("CppCompile"))
+                .collect(onlyElement());
+    assertThat(preprocessedAsmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
   }
 }

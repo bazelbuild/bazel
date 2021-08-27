@@ -214,19 +214,24 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("legacy_create_init", TRISTATE).value(TriState.AUTO))
           /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(stamp) -->
-          Enable link stamping.
           Whether to encode build information into the binary. Possible values:
           <ul>
-            <li><code>stamp = 1</code>: Stamp the build information into the
-              binary. Stamped binaries are only rebuilt when their dependencies
-              change. Use this if there are tests that depend on the build
-              information.</li>
-            <li><code>stamp = 0</code>: Always replace build information by constant
-              values. This gives good build result caching.</li>
-            <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="../user-manual.html#flag--stamp">--[no]stamp</a> Blaze
-              flag.</li>
+            <li>
+              <code>stamp = 1</code>: Always stamp the build information into the binary, even in
+              <a href="../user-manual.html#flag--stamp"><code>--nostamp</code></a> builds. <b>This
+              setting should be avoided</b>, since it potentially kills remote caching for the
+              binary and any downstream actions that depend on it.
+            </li>
+            <li>
+              <code>stamp = 0</code>: Always replace build information by constant values. This
+              gives good build result caching.
+            </li>
+            <li>
+              <code>stamp = -1</code>: Embedding of build information is controlled by the
+              <a href="../user-manual.html#flag--stamp"><code>--[no]stamp</code></a> flag.
+            </li>
           </ul>
+          <p>Stamped binaries are <em>not</em> rebuilt unless their dependencies change.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
           // TODO(brandjon): Consider adding to py_interpreter a .mandatoryBuiltinProviders() of

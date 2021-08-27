@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
@@ -49,7 +49,7 @@ public abstract class JavaToolchainTool {
    * JVM flags to invoke the tool with, or empty if it is not a {@code _deploy.jar}. Location
    * expansion is performed on these flags using the inputs in {@link #data}.
    */
-  public abstract ImmutableList<String> jvmOpts();
+  public abstract NestedSet<String> jvmOpts();
 
   @Nullable
   static JavaToolchainTool fromRuleContext(
@@ -68,8 +68,10 @@ public abstract class JavaToolchainTool {
       dataArtifacts.addTransitive(files);
       locations.put(AliasProvider.getDependencyLabel(data), files.toList());
     }
-    ImmutableList<String> jvmOpts =
-        ruleContext.getExpander().withExecLocations(locations.build()).list(jvmOptsAttribute);
+    NestedSet<String> jvmOpts =
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            ruleContext.getExpander().withExecLocations(locations.build()).list(jvmOptsAttribute));
     return create(tool, dataArtifacts.build(), jvmOpts);
   }
 
@@ -78,12 +80,15 @@ public abstract class JavaToolchainTool {
     if (executable == null) {
       return null;
     }
-    return create(executable, NestedSetBuilder.emptySet(STABLE_ORDER), ImmutableList.of());
+    return create(
+        executable,
+        NestedSetBuilder.emptySet(STABLE_ORDER),
+        NestedSetBuilder.emptySet(STABLE_ORDER));
   }
 
   @AutoCodec.Instantiator
   static JavaToolchainTool create(
-      FilesToRunProvider tool, NestedSet<Artifact> data, ImmutableList<String> jvmOpts) {
+      FilesToRunProvider tool, NestedSet<Artifact> data, NestedSet<String> jvmOpts) {
     return new AutoValue_JavaToolchainTool(tool, data, jvmOpts);
   }
 

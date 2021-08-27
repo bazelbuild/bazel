@@ -115,9 +115,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -958,29 +956,6 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-  @StarlarkMethod(name = "validate_attributes", documented = false)
-  public void validateAttributesForStarlark() throws EvalException {
-    try {
-      validateAttributes();
-    } catch (RuleErrorException ruleErrorException) {
-      throw new EvalException(ruleErrorException);
-    }
-  }
-
-  @StarlarkMethod(
-      name = "register_compile_and_archive_actions",
-      documented = false,
-      parameters = {@Param(name = "common", positional = false, named = true)})
-  public void registerCompileAndArchiveActionsForStarlark(ObjcCommon common)
-      throws EvalException, InterruptedException {
-    try {
-      registerCompileAndArchiveActions(
-          common, ExtraCompileArgs.NONE, ImmutableList.<PathFragment>of());
-    } catch (RuleErrorException ruleErrorException) {
-      throw new EvalException(ruleErrorException);
-    }
-  }
-
   /**
    * Registers all actions necessary to compile this rule's sources and archive them.
    *
@@ -997,33 +972,6 @@ public class CompilationSupport implements StarlarkValue {
         objcCompilationContext,
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of());
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(ObjcCommon common)
-      throws RuleErrorException, InterruptedException {
-    return registerCompileAndArchiveActions(
-        common, ExtraCompileArgs.NONE, ImmutableList.<PathFragment>of());
-  }
-
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @param priorityHeaders priority headers to be included before the dependency headers
-   * @return this compilation support
-   * @throws RuleErrorException for invalid crosstool files
-   */
-  CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, List<PathFragment> priorityHeaders)
-      throws RuleErrorException, InterruptedException {
-    return registerCompileAndArchiveActions(common, ExtraCompileArgs.NONE, priorityHeaders);
   }
 
   /**
@@ -1048,7 +996,8 @@ public class CompilationSupport implements StarlarkValue {
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setConfiguration(buildConfiguration);
+            .setConfiguration(buildConfiguration)
+            .addVariableCategory(VariableCategory.MODULE_MAP_VARIABLES);
 
     CompilationResult compilationResult;
 
@@ -1678,47 +1627,6 @@ public class CompilationSupport implements StarlarkValue {
       pchHdr = ruleContext.getPrerequisiteArtifact("pch");
     }
     return Optional.fromNullable(pchHdr);
-  }
-
-  /**
-   * Registers an action that will generate a clang module map for this target, using the hdrs
-   * attribute of this rule.
-   */
-  public CompilationSupport registerGenerateModuleMapAction(
-      CompilationArtifacts compilationArtifacts) throws RuleErrorException, InterruptedException {
-    // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
-    // dropped.
-    // TODO(b/32225593): Include private headers in the module map.
-    CcCompilationHelper ccCompilationHelper =
-        new CcCompilationHelper(
-            ruleContext,
-            ruleContext,
-            ruleContext.getLabel(),
-            CppHelper.getGrepIncludes(ruleContext),
-            cppSemantics,
-            getFeatureConfigurationForSwiftModuleMap(
-                ruleContext, toolchain, buildConfiguration, cppSemantics),
-            CcCompilationHelper.SourceCategory.CC_AND_OBJC,
-            toolchain,
-            toolchain.getFdoContext(),
-            buildConfiguration,
-            TargetUtils.getExecutionInfo(
-                ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
-            /* shouldProcessHeaders= */ false);
-
-    ImmutableSortedSet<Artifact> publicHeaders =
-        Stream.concat(
-                attributes.hdrs().toList().stream(),
-                compilationArtifacts.getAdditionalHdrs().toList().stream())
-            .collect(toImmutableSortedSet(naturalOrder()));
-
-    CppModuleMap moduleMap = intermediateArtifacts.swiftModuleMap();
-
-    ccCompilationHelper.setCppModuleMap(moduleMap).addPublicHeaders(publicHeaders);
-
-    ccCompilationHelper.compile(ruleContext);
-
-    return this;
   }
 
   /** Registers an action to generate an extra clang module map. */

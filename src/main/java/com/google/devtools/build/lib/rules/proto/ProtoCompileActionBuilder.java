@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.collect.Iterables.isEmpty;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.OnDemandString;
 import java.util.HashSet;
@@ -319,7 +317,9 @@ public class ProtoCompileActionBuilder {
         ImmutableList.copyOf(ruleContext.getPrerequisites("deps", ProtoInfo.PROVIDER));
     NestedSet<Artifact> dependenciesDescriptorSets =
         ProtoCommon.computeDependenciesDescriptorSets(protoDeps);
-    if (protoInfo.getDirectProtoSources().isEmpty()) {
+
+    ProtoToolchainInfo protoToolchain = ProtoToolchainInfo.fromRuleContext(ruleContext);
+    if (protoToolchain == null || protoInfo.getDirectProtoSources().isEmpty()) {
       ruleContext.registerAction(
           FileWriteAction.createEmptyWithInputs(
               ruleContext.getActionOwner(), dependenciesDescriptorSets, output));
@@ -329,6 +329,7 @@ public class ProtoCompileActionBuilder {
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
+            protoToolchain,
             ImmutableList.of(
                 createDescriptorSetToolchain(
                     ruleContext.getFragment(ProtoConfiguration.class), output.getExecPathString())),
@@ -364,7 +365,7 @@ public class ProtoCompileActionBuilder {
             "--descriptor_set_out=$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ null,
-            /* forbiddenProtos= */ NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER)),
+            /* providedProtoSources= */ ImmutableList.of()),
         outReplacement,
         protocOpts.build());
   }
@@ -407,9 +408,14 @@ public class ProtoCompileActionBuilder {
       String flavorName,
       Exports useExports,
       Services allowServices) {
+    ProtoToolchainInfo protoToolchain = ProtoToolchainInfo.fromRuleContext(ruleContext);
+    if (protoToolchain == null) {
+      return;
+    }
     SpawnAction.Builder actions =
         createActions(
             ruleContext,
+            protoToolchain,
             toolchainInvocations,
             protoInfo,
             ruleLabel,
@@ -425,6 +431,7 @@ public class ProtoCompileActionBuilder {
   @Nullable
   private static SpawnAction.Builder createActions(
       RuleContext ruleContext,
+      ProtoToolchainInfo protoToolchain,
       List<ToolchainInvocation> toolchainInvocations,
       ProtoInfo protoInfo,
       Label ruleLabel,
@@ -432,7 +439,6 @@ public class ProtoCompileActionBuilder {
       String flavorName,
       Exports useExports,
       Services allowServices) {
-
     if (isEmpty(outputs)) {
       return null;
     }
@@ -447,18 +453,13 @@ public class ProtoCompileActionBuilder {
       }
     }
 
-    FilesToRunProvider compilerTarget = ruleContext.getExecutablePrerequisite(":proto_compiler");
-    if (compilerTarget == null) {
-      return null;
-    }
-
     boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
 
     result
         .addOutputs(outputs)
         .setResources(AbstractAction.DEFAULT_RESOURCE_SET)
         .useDefaultShellEnvironment()
-        .setExecutable(compilerTarget)
+        .setExecutable(protoToolchain.getCompiler())
         .addCommandLine(
             createCommandLineFromToolchains(
                 toolchainInvocations,
@@ -468,7 +469,7 @@ public class ProtoCompileActionBuilder {
                 areDepsStrict(ruleContext) ? Deps.STRICT : Deps.NON_STRICT,
                 arePublicImportsStrict(ruleContext) ? useExports : Exports.DO_NOT_USE,
                 allowServices,
-                ruleContext.getFragment(ProtoConfiguration.class).protocOpts(),
+                protoToolchain.getCompilerOptions(),
                 siblingRepositoryLayout),
             ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
         .setProgressMessage("Generating %s proto_library %s", flavorName, ruleContext.getLabel())

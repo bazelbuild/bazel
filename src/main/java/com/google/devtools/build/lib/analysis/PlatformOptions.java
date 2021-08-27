@@ -183,9 +183,7 @@ public class PlatformOptions extends FragmentOptions {
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
       },
-      help =
-          "If set to true, toolchain resolution will be used to resolve java_toolchain and"
-              + " java_runtime.")
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean useToolchainResolutionForJavaRules;
 
   @Option(

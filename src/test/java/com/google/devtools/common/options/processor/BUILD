@@ -17,7 +17,7 @@ java_test(
     resources = [":OptionTestFiles"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",  
-        "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor",
+        "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor_lib",
         "//third_party:compile_testing",
         "//third_party:guava",
         "//third_party:junit4",

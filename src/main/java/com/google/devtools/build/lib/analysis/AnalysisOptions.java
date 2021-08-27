@@ -136,7 +136,7 @@ public class AnalysisOptions extends OptionsBase {
 
   @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
-      defaultValue = "0",
+      defaultValue = "HOST_CPUS",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {

@@ -29,6 +29,11 @@ public final class DirectoryListingHelper {
     return new Dirent(name, Dirent.Type.FILE);
   }
 
+  /** Shorthand for {@link Dirent} of {@link Dirent.Type#SYMLINK} type with a given name. */
+  public static Dirent symlink(String name) {
+    return new Dirent(name, Dirent.Type.SYMLINK);
+  }
+
   /** Shorthand for {@link Dirent} of {@link Dirent.Type#DIRECTORY} type with a given name. */
   public static Dirent directory(String name) {
     return new Dirent(name, Dirent.Type.DIRECTORY);

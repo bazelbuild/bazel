@@ -260,13 +260,14 @@ bool ReadFile(const string& filename, string* content, int max_size) {
     return true;
   }
 
-  // In order for try-imports to be ignored gracefully we need to check for an error with the path and return false
-  // rather than die.
+  // In order for try-imports to be ignored gracefully we need to check for an
+  // error with the path and return false rather than die.
   std::string errorText;
   Path path = Path(filename, &errorText);
   if (!errorText.empty()) {
-      BAZEL_LOG(WARNING) << "Path is not valid " << filename << " " << errorText;
-      return false;
+    BAZEL_LOG(WARNING) << "Path is not valid: " << filename << " :"
+        << errorText;
+    return false;
   }
   return ReadFile(path, content, max_size);
 }

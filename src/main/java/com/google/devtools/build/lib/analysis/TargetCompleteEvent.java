@@ -312,6 +312,7 @@ public final class TargetCompleteEvent
 
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
   // field.
+
   private static void addImportantOutputs(
       CompletionContext completionContext,
       TargetComplete.Builder builder,
@@ -319,10 +320,6 @@ public final class TargetCompleteEvent
       Iterable<Artifact> artifacts) {
     addImportantOutputs(
         completionContext, builder, Artifact::getRootRelativePathString, converters, artifacts);
-  }
-
-  private static Iterable<Artifact> filterFilesets(Iterable<Artifact> artifacts) {
-    return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
   }
 
   private static void addImportantOutputs(
@@ -350,6 +347,10 @@ public final class TargetCompleteEvent
             throw new IllegalStateException(fileset + " should have been filtered out");
           }
         });
+  }
+
+  private static Iterable<Artifact> filterFilesets(Iterable<Artifact> artifacts) {
+    return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
   }
 
   public static BuildEventStreamProtos.File.Builder newFileFromArtifact(

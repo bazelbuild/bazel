@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
@@ -120,7 +121,8 @@ public class LocalConfigPlatformFunctionTest {
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//os:os"));
 
     @Before
-    public void addLocalConfigPlatform() throws InterruptedException, IOException {
+    public void addLocalConfigPlatform()
+        throws InterruptedException, IOException, AbruptExitException {
       scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform_test')");
       invalidatePackages();
     }

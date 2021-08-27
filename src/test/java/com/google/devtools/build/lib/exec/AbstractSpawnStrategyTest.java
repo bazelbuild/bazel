@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.Duration;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -364,6 +365,7 @@ public class AbstractSpawnStrategyTest {
             .setProgressMessage("my progress message")
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
+            .setWalltime(Duration.getDefaultInstance())
             .build();
     verify(messageOutput).write(expectedSpawnLog);
   }
@@ -488,6 +490,7 @@ public class AbstractSpawnStrategyTest {
         .setRunner("runner")
         .setStatus("NON_ZERO_EXIT")
         .setExitCode(23)
-        .setRemoteCacheable(true);
+        .setRemoteCacheable(true)
+        .setWalltime(Duration.getDefaultInstance());
   }
 }

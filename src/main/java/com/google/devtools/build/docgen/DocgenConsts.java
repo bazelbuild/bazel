@@ -135,16 +135,6 @@ public class DocgenConsts {
   public static final Pattern BLAZE_RULE_END = Pattern.compile(
       "^[\\s]*\\<!\\-\\-[\\s]*#END_BLAZE_RULE[\\s]*\\-\\-\\>[\\s]*\\*/");
   /**
-   * i.e. <!-- #BLAZE_RULE.EXAMPLE -->
-   */
-  public static final Pattern BLAZE_RULE_EXAMPLE_START = Pattern.compile(
-      "[\\s]*\\<!--[\\s]*#BLAZE_RULE.EXAMPLE[\\s]*--\\>[\\s]*");
-  /**
-   * i.e. <!-- #BLAZE_RULE.END_EXAMPLE -->
-   */
-  public static final Pattern BLAZE_RULE_EXAMPLE_END = Pattern.compile(
-      "[\\s]*\\<!--[\\s]*#BLAZE_RULE.END_EXAMPLE[\\s]*--\\>[\\s]*");
-  /**
    * i.e. <!-- #BLAZE_RULE(RULE_NAME).VARIABLE_NAME -->
    */
   public static final Pattern BLAZE_RULE_VAR_START = Pattern.compile(

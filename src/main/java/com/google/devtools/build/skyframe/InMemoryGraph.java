@@ -17,6 +17,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Maps;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
@@ -50,7 +51,7 @@ public interface InMemoryGraph extends ProcessableGraph {
   // Only for use by MemoizingEvaluator#delete
   Map<SkyKey, ? extends NodeEntry> getAllValues();
 
-  Map<SkyKey, ? extends NodeEntry> getAllValuesMutable();
+  ConcurrentHashMap<SkyKey, ? extends NodeEntry> getAllValuesMutable();
 
   static Map<SkyKey, SkyValue> transformDoneEntries(Map<SkyKey, ? extends NodeEntry> nodeMap) {
     return Collections.unmodifiableMap(

@@ -159,7 +159,8 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               rule.getPackage().getRepositoryMapping(),
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =

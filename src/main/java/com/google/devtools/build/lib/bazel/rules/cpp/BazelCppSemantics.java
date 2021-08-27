@@ -81,7 +81,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           .setShouldScanIncludes(false);
     } else {
       actionBuilder
-          .addTransitiveMandatoryInputs(toolchain.getAllFiles())
+          .addTransitiveMandatoryInputs(toolchain.getAllFilesIncludingLibc())
           .setShouldScanIncludes(false);
     }
   }

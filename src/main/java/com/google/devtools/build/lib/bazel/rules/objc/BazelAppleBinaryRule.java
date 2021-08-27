@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.bazel.rules.objc;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.objc.AppleBinaryBaseRule;
 import com.google.devtools.build.lib.rules.objc.AppleCrosstoolTransition;
@@ -39,7 +41,8 @@ public class BazelAppleBinaryRule implements RuleDefinition {
             ImplicitOutputsFunction.fromFunctions(ObjcRuleClasses.LIPOBIN_OUTPUT))
         .cfg(
             ComposingTransitionFactory.of(
-                (rule) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
+                (TransitionFactory<RuleTransitionData>)
+                    (unused) -> AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION,
                 new ConfigFeatureFlagTransitionFactory("feature_flags")))
         .build();
   }

@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -56,7 +57,6 @@ public class SelectionFunctionTest extends FoundationTestCase {
   }
 
   private void setUpSkyFunctions(
-      String rootModuleName,
       ImmutableMap<ModuleKey, Module> depGraph,
       ImmutableMap<String, ModuleOverride> overrides)
       throws Exception {
@@ -68,14 +68,14 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     new SkyFunction() {
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env) {
+                        // This is only called for the root module to get overrides.
                         Preconditions.checkArgument(
-                            skyKey.equals(ModuleFileValue.keyForRootModule()));
-                        return ModuleFileValue.create(
-                            Module.builder()
-                                .setName(rootModuleName)
-                                .setVersion(Version.EMPTY)
-                                .build(),
-                            overrides);
+                            skyKey.equals(ModuleFileValue.KEY_FOR_ROOT_MODULE));
+                        return RootModuleFileValue.create(
+                            depGraph.get(ModuleKey.ROOT),
+                            overrides,
+                            // This lookup is not used in this test
+                            ImmutableMap.of());
                       }
 
                       @Override
@@ -88,7 +88,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     new SkyFunction() {
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env) {
-                        return DiscoveryValue.create(rootModuleName, depGraph);
+                        return DiscoveryValue.create(depGraph);
                       }
 
                       @Override
@@ -105,10 +105,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
   @Test
   public void testSimpleDiamond() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -152,10 +151,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -179,16 +177,32 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("D")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(1)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"),
+            "D",
+            createModuleKey("D", "2.0"));
   }
 
   @Test
   public void testDiamondWithFurtherRemoval() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -233,10 +247,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -256,16 +269,32 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .addDep("D", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("D", "2.0"),
-            Module.builder().setName("D").setVersion(Version.parse("2.0")).build());
+            Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"),
+            "D",
+            createModuleKey("D", "2.0"));
   }
 
   @Test
   public void testCircularDependencyDueToSelection() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -304,10 +333,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -324,17 +352,29 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
                 .addDep("B", createModuleKey("B", "1.0"))
-                .build());
+                .build())
+        .inOrder();
     // D is completely gone.
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"));
   }
 
   @Test
   public void differentCompatibilityLevelIsRejected() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -388,10 +428,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //        \-> D 1.0 -> B 1.1
     //         \-> E 1.0 -> C 1.1
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.parse("1.0"))
@@ -459,10 +498,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //        \-> D 1.0 -> B 1.1
     //         \-> E 1.0 -> C 1.1
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("1.0"))
@@ -490,16 +528,36 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("E")
                 .setVersion(Version.parse("1.0"))
                 .addDep("C", createModuleKey("C", "1.1"))
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B.1.1",
+            createModuleKey("B", "1.1"),
+            "C.1.1",
+            createModuleKey("C", "1.1"),
+            "D.1.0",
+            createModuleKey("D", "1.0"),
+            "E.1.0",
+            createModuleKey("E", "1.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B",
+            createModuleKey("B", "1.1"),
+            "C",
+            createModuleKey("C", "1.1"),
+            "D",
+            createModuleKey("D", "1.0"),
+            "E",
+            createModuleKey("E", "1.0"));
   }
 
   @Test
   public void multipleVersionOverride_fork_allowedVersionMissingInDepGraph() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -533,10 +591,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
   public void multipleVersionOverride_fork_goodCase() throws Exception {
     // For more complex good cases, see the "diamond" test cases below.
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -561,10 +618,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -574,16 +630,24 @@ public class SelectionFunctionTest extends FoundationTestCase {
             createModuleKey("B", "1.0"),
             Module.builder().setName("B").setVersion(Version.parse("1.0")).build(),
             createModuleKey("B", "2.0"),
-            Module.builder().setName("B").setVersion(Version.parse("2.0")).build());
+            Module.builder().setName("B").setVersion(Version.parse("2.0")).build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "B.2.0",
+            createModuleKey("B", "2.0"));
+    // No B in the module name lookup because there's a multiple-version override.
+    assertThat(selectionValue.getModuleNameLookup()).isEmpty();
   }
 
   @Test
   public void multipleVersionOverride_fork_sameVersionUsedTwice() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -618,10 +682,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
   @Test
   public void multipleVersionOverride_diamond_differentCompatibilityLevels() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -668,10 +731,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -701,16 +763,32 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("D")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(2)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.1.0",
+            createModuleKey("D", "1.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"));
   }
 
   @Test
   public void multipleVersionOverride_diamond_sameCompatibilityLevel() throws Exception {
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -749,10 +827,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -774,7 +851,24 @@ public class SelectionFunctionTest extends FoundationTestCase {
             createModuleKey("D", "1.0"),
             Module.builder().setName("D").setVersion(Version.parse("1.0")).build(),
             createModuleKey("D", "2.0"),
-            Module.builder().setName("D").setVersion(Version.parse("2.0")).build());
+            Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B.1.0",
+            createModuleKey("B", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"),
+            "D.1.0",
+            createModuleKey("D", "1.0"),
+            "D.2.0",
+            createModuleKey("D", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B",
+            createModuleKey("B", "1.0"),
+            "C",
+            createModuleKey("C", "2.0"));
   }
 
   @Test
@@ -785,10 +879,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \-> B4@1.0 -> C@1.7  [allowed]
     //   \-> B5@1.0 -> C@2.0  [allowed]
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -881,7 +974,6 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     // A --> B1@1.0 -> C@1.3  [originally C@1.0]
     //   \-> B2@1.0 -> C@1.3  [allowed]
     //   \-> B3@1.0 -> C@1.7  [originally C@1.5]
@@ -889,7 +981,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \-> B5@1.0 -> C@2.0  [allowed]
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -946,7 +1038,38 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(2)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B1.1.0",
+            createModuleKey("B1", "1.0"),
+            "B2.1.0",
+            createModuleKey("B2", "1.0"),
+            "B3.1.0",
+            createModuleKey("B3", "1.0"),
+            "B4.1.0",
+            createModuleKey("B4", "1.0"),
+            "B5.1.0",
+            createModuleKey("B5", "1.0"),
+            "C.1.3",
+            createModuleKey("C", "1.3"),
+            "C.1.7",
+            createModuleKey("C", "1.7"),
+            "C.2.0",
+            createModuleKey("C", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B1",
+            createModuleKey("B1", "1.0"),
+            "B2",
+            createModuleKey("B2", "1.0"),
+            "B3",
+            createModuleKey("B3", "1.0"),
+            "B4",
+            createModuleKey("B4", "1.0"),
+            "B5",
+            createModuleKey("B5", "1.0"));
   }
 
   @Test
@@ -955,10 +1078,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \-> B2@1.0 -> C@1.7
     //   \-> B3@1.0 -> C@2.0  [allowed]
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -1030,10 +1152,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \-> B2@1.0 -> C@2.0  [allowed]
     //   \-> B3@1.0 -> C@3.0
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -1108,10 +1229,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \          \-> B4@1.1
     //   \-> B4@1.0 --> C@3.0
     setUpSkyFunctions(
-        "A",
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
-                createModuleKey("A", ""),
+                ModuleKey.ROOT,
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
@@ -1196,7 +1316,6 @@ public class SelectionFunctionTest extends FoundationTestCase {
       fail(result.getError().toString());
     }
     SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getRootModuleName()).isEqualTo("A");
     // A --> B1@1.0 --> C@1.0  [allowed]
     //   \          \-> B2@1.1
     //   \-> B2@1.1
@@ -1206,7 +1325,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     // C@1.5 and C@3.0, the versions violating the allowlist, are gone.
     assertThat(selectionValue.getDepGraph())
         .containsExactly(
-            createModuleKey("A", ""),
+            ModuleKey.ROOT,
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
@@ -1244,6 +1363,31 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
                 .setCompatibilityLevel(2)
-                .build());
+                .build())
+        .inOrder();
+    assertThat(selectionValue.getCanonicalRepoNameLookup())
+        .containsExactly(
+            "B1.1.0",
+            createModuleKey("B1", "1.0"),
+            "B2.1.1",
+            createModuleKey("B2", "1.1"),
+            "B3.1.0",
+            createModuleKey("B3", "1.0"),
+            "B4.1.1",
+            createModuleKey("B4", "1.1"),
+            "C.1.0",
+            createModuleKey("C", "1.0"),
+            "C.2.0",
+            createModuleKey("C", "2.0"));
+    assertThat(selectionValue.getModuleNameLookup())
+        .containsExactly(
+            "B1",
+            createModuleKey("B1", "1.0"),
+            "B2",
+            createModuleKey("B2", "1.1"),
+            "B3",
+            createModuleKey("B3", "1.0"),
+            "B4",
+            createModuleKey("B4", "1.1"));
   }
 }

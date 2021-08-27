@@ -47,12 +47,9 @@ public class CommonCommandOptions extends OptionsBase {
       name = "all_incompatible_changes",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      expansionFunction = AllIncompatibleChangesExpansion.class,
-      help =
-          "Enables all options of the form --incompatible_*. Use this option to find places where "
-              + "your build may break in the future due to deprecations or other changes.")
+      help = "No-op, being removed. See https://github.com/bazelbuild/bazel/issues/13892")
   public Void allIncompatibleChanges;
 
   @Option(
@@ -300,7 +297,7 @@ public class CommonCommandOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      converter = OptionsUtils.AbsolutePathFragmentConverter.class,
+      converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, profile Bazel and write data to the specified "
               + "file. Use bazel analyze-profile to analyze the profile.")

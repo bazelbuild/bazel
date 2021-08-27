@@ -73,7 +73,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
     Rule rule =
-        RuleFactory.createAndAddRuleImpl(
+        RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -130,7 +130,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     RuleClass ruleClass = provider.getRuleClassMap().get("bind");
     Rule rule =
-        RuleFactory.createAndAddRuleImpl(
+        RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -154,7 +154,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRuleImpl(
+                RuleFactory.createAndAddRule(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -178,7 +178,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRuleImpl(
+                RuleFactory.createAndAddRule(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -214,7 +214,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRuleImpl(
+                RuleFactory.createAndAddRule(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
@@ -226,9 +226,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         .isTrue();
   }
 
-  /**
-   * Tests mandatory attribute definitions for test rules.
-   */
+  /** Tests mandatory attribute definitions for test rules. */
   // TODO(ulfjack): Remove this check when we switch over to the builder
   // pattern, which will always guarantee that these attributes are present.
   @Test

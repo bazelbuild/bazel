@@ -15,10 +15,12 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
@@ -123,7 +125,15 @@ abstract class ReverseDepsUtility {
     maybeDelayReverseDepOp(entry, reverseDep, Op.REMOVE);
   }
 
-  static ImmutableSet<SkyKey> getReverseDeps(InMemoryNodeEntry entry) {
+  static void removeReverseDepsMatching(InMemoryNodeEntry entry, Set<SkyKey> deletedKeys) {
+    consolidateData(entry);
+    ImmutableSet<SkyKey> currentReverseDeps =
+        ImmutableSet.copyOf(getReverseDeps(entry, /*checkConsistency=*/ true));
+    writeReverseDepsSet(entry, Sets.difference(currentReverseDeps, deletedKeys));
+  }
+
+  static ImmutableCollection<SkyKey> getReverseDeps(
+      InMemoryNodeEntry entry, boolean checkConsistency) {
     consolidateData(entry);
 
     // TODO(bazel-team): Unfortunately, we need to make a copy here right now to be on the safe side
@@ -134,6 +144,9 @@ abstract class ReverseDepsUtility {
     } else {
       @SuppressWarnings("unchecked")
       List<SkyKey> reverseDeps = (List<SkyKey>) entry.getReverseDepsRawForReverseDepsUtil();
+      if (!checkConsistency) {
+        return ImmutableList.copyOf(reverseDeps);
+      }
       ImmutableSet<SkyKey> set = ImmutableSet.copyOf(reverseDeps);
       maybeAssertReverseDepsConsistency(
           set.size() == reverseDeps.size(),

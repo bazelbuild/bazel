@@ -130,7 +130,8 @@ public final class BazelEvaluationTestCase {
             /*repoMapping=*/ ImmutableMap.of(),
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(new Object()),
-            /*analysisRuleLabel=*/ null) // dummy value for tests
+            /*analysisRuleLabel=*/ null,
+            /*networkAllowlistForTests=*/ null) // dummy value for tests
         .storeInThread(thread);
   }
 

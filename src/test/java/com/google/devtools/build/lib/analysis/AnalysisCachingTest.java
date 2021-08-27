@@ -682,8 +682,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
           return !optionsThatCanChange.contains(changedOption);
         });
     builder.overrideTrimmingTransitionFactoryForTesting(
-        (rule) -> {
-          if (rule.getRuleClassObject().getName().equals("uses_irrelevant")) {
+        (ruleData) -> {
+          if (ruleData.rule().getRuleClassObject().getName().equals("uses_irrelevant")) {
             return NoTransition.INSTANCE;
           }
           return DiffResetOptions.CLEAR_IRRELEVANT;

@@ -22,6 +22,7 @@ import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
+import com.google.devtools.build.android.xml.MacroXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
@@ -277,6 +278,18 @@ public class XmlResourceValues {
       }
     }
     return attributeMap;
+  }
+
+  static XmlResourceValue parseMacro(
+      XMLEventReader eventReader, StartElement start, Namespaces.Collector namespacesCollector)
+      throws XMLStreamException {
+    if (isEndTag(eventReader.peek(), start.getName())) {
+      throw new XMLStreamException(
+          String.format("<macro> must have contents %s", start), start.getLocation());
+    }
+
+    String contents = readContentsAsString(eventReader, start.getName(), namespacesCollector);
+    return MacroXmlResourceValue.of(contents);
   }
 
   // TODO(corysmith): Replace this with real escaping system, preferably a performant high level xml

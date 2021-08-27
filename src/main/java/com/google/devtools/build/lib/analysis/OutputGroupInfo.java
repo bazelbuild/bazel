@@ -117,6 +117,10 @@ public final class OutputGroupInfo extends StructImpl
   public static final String VALIDATION_TOP_LEVEL =
       HIDDEN_OUTPUT_GROUP_PREFIX + "validation_top_level" + INTERNAL_SUFFIX;
 
+  /** Helper output group to override {@link #VALIDATION} outputs from dependencies */
+  public static final String VALIDATION_TRANSITIVE =
+      HIDDEN_OUTPUT_GROUP_PREFIX + "validation_transitive";
+
   /**
    * Temporary files created during building a rule, for example, .i, .d and .s files for C++
    * compilation.

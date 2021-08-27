@@ -36,10 +36,14 @@ java_library(
     testonly = 1,
     srcs = ["TestUtils.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party:guava",
     ],
 )

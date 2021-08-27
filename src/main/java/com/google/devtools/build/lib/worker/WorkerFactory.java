@@ -57,7 +57,7 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 
     Worker worker;
-    boolean sandboxed = workerSandboxing || key.isSpeculative();
+    boolean sandboxed = workerSandboxing || key.isSandboxed();
     if (sandboxed) {
       Path workDir = getSandboxedWorkerPath(key, workerId);
       worker = new SandboxedWorker(key, workerId, workDir, logFile);

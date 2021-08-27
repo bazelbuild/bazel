@@ -167,7 +167,7 @@ public final class RemoteModuleTest {
                     .setDigestFunction(Value.SHA256)
                     .build())
             .setCacheCapabilities(
-                CacheCapabilities.newBuilder().addDigestFunction(Value.SHA256).build())
+                CacheCapabilities.newBuilder().addDigestFunctions(Value.SHA256).build())
             .build();
     CapabilitiesImpl executionServerCapabilitiesImpl = new CapabilitiesImpl(caps);
     String executionServerName = "execution-server";
@@ -203,7 +203,7 @@ public final class RemoteModuleTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(Value.SHA256)
+                    .addDigestFunctions(Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -246,7 +246,7 @@ public final class RemoteModuleTest {
                     .setDigestFunction(Value.SHA256)
                     .build())
             .setCacheCapabilities(
-                CacheCapabilities.newBuilder().addDigestFunction(Value.SHA256).build())
+                CacheCapabilities.newBuilder().addDigestFunctions(Value.SHA256).build())
             .build();
     CapabilitiesImpl executionServerCapabilitiesImpl = new CapabilitiesImpl(caps);
     String executionServerName = "execution-server";
@@ -306,7 +306,7 @@ public final class RemoteModuleTest {
             .setLowApiVersion(ApiVersion.current.toSemVer())
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
-                CacheCapabilities.newBuilder().addDigestFunction(Value.SHA256).build())
+                CacheCapabilities.newBuilder().addDigestFunctions(Value.SHA256).build())
             .build();
     CapabilitiesImpl cacheServerCapabilitiesImpl = new CapabilitiesImpl(cacheOnlyCaps);
     String cacheServerName = "cache-server";

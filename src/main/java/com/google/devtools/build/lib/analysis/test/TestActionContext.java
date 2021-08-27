@@ -206,6 +206,7 @@ public interface TestActionContext extends ActionContext {
      * attempts are exhausted and then run with another strategy for another set of attempts. This
      * is rarely used, and should ideally be removed.
      */
+    @Nullable
     default TestRunnerSpawn getFallbackRunner() throws ExecException, InterruptedException {
       return null;
     }

@@ -38,7 +38,7 @@ def _detect_java_version(repository_ctx, java_bin):
         return minor
     return major
 
-def local_java_runtime(name, java_home, version, runtime_name = None):
+def local_java_runtime(name, java_home, version, runtime_name = None, visibility = ["//visibility:public"]):
     """Defines a java_runtime target together with Java runtime and compile toolchain definitions.
 
     Java runtime toolchain is constrained by flag --java_runtime_version having
@@ -54,12 +54,14 @@ def local_java_runtime(name, java_home, version, runtime_name = None):
       java_home: Path to the JDK.
       version: Version of the JDK.
       runtime_name: name of java_runtime target if it already exists.
+      visibility: Visibility that will be applied to the java runtime target
     """
     if runtime_name == None:
         runtime_name = name
         native.java_runtime(
             name = runtime_name,
             java_home = java_home,
+            visibility = visibility,
         )
 
     native.config_setting(

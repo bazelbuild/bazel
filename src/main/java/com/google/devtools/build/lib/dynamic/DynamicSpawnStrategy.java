@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -56,9 +58,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -494,6 +498,17 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     }
   }
 
+  @FormatMethod
+  private void stepLog(
+      Level level, @Nullable Throwable cause, @FormatString String fmt, Object... args) {
+    logger.at(level).withCause(cause).logVarargs(fmt, args);
+  }
+
+  @FormatMethod
+  private void debugLog(String fmt, Object... args) {
+    stepLog(Level.FINE, null, fmt, args);
+  }
+
   @Override
   public ImmutableList<SpawnResult> exec(
       final Spawn spawn, final ActionExecutionContext actionExecutionContext)
@@ -522,12 +537,49 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                       .setCode(FailureDetails.Spawn.Code.NO_USABLE_STRATEGY_FOUND)
                       .build())
               .build();
+      debugLog(
+          "Dynamic execution of %s can be done neither locally nor remotely%n",
+          spawn.getResourceOwner().prettyPrint());
       throw new UserExecException(failure);
     } else if (!localCanExec && remoteCanExec) {
+      // Extra logging to debug b/194373457
+      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+          "Dynamic execution of %s can only be done remotely: Local execution policy %s it, "
+              + "local strategies are %s.%n",
+          spawn.getResourceOwner().prettyPrint(),
+          executionPolicy.canRunLocally() ? "allows" : "forbids",
+          dynamicStrategyRegistry.getDynamicSpawnActionContexts(
+              spawn, DynamicStrategyRegistry.DynamicMode.LOCAL));
+      debugLog(
+          "Dynamic execution of %s can only be done remotely: Local execution policy %s it, "
+              + "local strategies are %s.%n",
+          spawn.getResourceOwner().prettyPrint(),
+          executionPolicy.canRunLocally() ? "allows" : "forbids",
+          dynamicStrategyRegistry.getDynamicSpawnActionContexts(
+              spawn, DynamicStrategyRegistry.DynamicMode.LOCAL));
       return runRemotely(spawn, actionExecutionContext, null);
     } else if (localCanExec && !remoteCanExec) {
+      // Extra logging to debug b/194373457
+      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+          "Dynamic execution of %s can only be done locally: Remote execution policy %s it, "
+              + "remote strategies are %s.%n",
+          spawn.getResourceOwner().prettyPrint(),
+          executionPolicy.canRunRemotely() ? "allows" : "forbids",
+          dynamicStrategyRegistry.getDynamicSpawnActionContexts(
+              spawn, DynamicStrategyRegistry.DynamicMode.REMOTE));
+      debugLog(
+          "Dynamic execution of %s can only be done locally: Remote execution policy %s it, "
+              + "remote strategies are %s.%n",
+          spawn.getResourceOwner().prettyPrint(),
+          executionPolicy.canRunRemotely() ? "allows" : "forbids",
+          dynamicStrategyRegistry.getDynamicSpawnActionContexts(
+              spawn, DynamicStrategyRegistry.DynamicMode.REMOTE));
       return runLocally(spawn, actionExecutionContext, null);
     }
+    // Extra logging to debug b/194373457
+    logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+        "Spawn %s dynamically executed both ways", spawn.getResourceOwner().describe());
+    debugLog("Dynamic execution of %s beginning%n", spawn.getResourceOwner().prettyPrint());
     // else both can exec. Fallthrough to below.
 
     // Semaphores to track termination of each branch. These are necessary to wait for the branch to
@@ -675,6 +727,16 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     } finally {
       checkState(localBranch.isDone());
       checkState(remoteBranch.isDone());
+      logger.atInfo().atMostEvery(1, TimeUnit.SECONDS).log(
+          "Dynamic execution of %s ended with local %s, remote %s%n",
+          spawn.getResourceOwner().prettyPrint(),
+          localBranch.isCancelled() ? "cancelled" : "done",
+          remoteBranch.isCancelled() ? "cancelled" : "done");
+      debugLog(
+          "Dynamic execution of %s ended with local %s, remote %s%n",
+          spawn.getResourceOwner().prettyPrint(),
+          localBranch.isCancelled() ? "cancelled" : "done",
+          remoteBranch.isCancelled() ? "cancelled" : "done");
     }
   }
 

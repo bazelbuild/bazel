@@ -82,6 +82,19 @@ xcode_config_alias(name = "current_xcode_config")
 
 xcode_version_flag(name = "xcode_version_flag")
 
+[
+    xcode_version_flag(
+        name = "xcode_version_flag_{}".format(precision),
+        precision = precision,
+    )
+    for precision in [
+        "major",
+        "minor",
+        "patch",
+        "exact",
+    ]
+]
+
 ios_sdk_version_flag(name = "ios_sdk_version_flag")
 
 tvos_sdk_version_flag(name = "tvos_sdk_version_flag")

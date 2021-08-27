@@ -220,7 +220,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label",
       doc =
-          "Creates a schema for a label attribute. This is a dependency attribute."
+          "<p>Creates a schema for a label attribute. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT
               + "<p>In addition to ordinary source files, this kind of attribute is often used to "
               + "refer to a tool -- for example, a compiler. Such tools are considered to be "
@@ -405,7 +405,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_list",
       doc =
-          "Creates a schema for a list-of-labels attribute. This is a dependency attribute."
+          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -501,8 +501,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_keyed_string_dict",
       doc =
-          "Creates a schema for an attribute holding a dictionary, where the keys are labels and "
-              + "the values are strings. This is a dependency attribute."
+          "<p>Creates a schema for an attribute holding a dictionary, where the keys are labels "
+              + "and the values are strings. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -626,7 +626,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "output",
-      doc = "Creates a schema for an output (label) attribute." + OUTPUT_ATTR_TEXT,
+      doc = "<p>Creates a schema for an output (label) attribute.</p>" + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = DOC_ARG,

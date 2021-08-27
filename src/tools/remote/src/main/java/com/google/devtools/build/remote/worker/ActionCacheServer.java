@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import io.grpc.stub.StreamObserver;
@@ -47,7 +48,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
       RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
-      ActionResult result =
+      CachedActionResult result =
           cache.downloadActionResult(context, actionKey, /* inlineOutErr= */ false);
 
       if (result == null) {
@@ -55,7 +56,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
         return;
       }
 
-      responseObserver.onNext(result);
+      responseObserver.onNext(result.actionResult());
       responseObserver.onCompleted();
     } catch (Exception e) {
       logger.atWarning().withCause(e).log("getActionResult request failed");

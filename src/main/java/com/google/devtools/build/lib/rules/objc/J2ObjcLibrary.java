@@ -39,11 +39,8 @@ import java.util.List;
  * linking into the final application bundle. See {@link J2ObjcLibraryBaseRule} for details.
  */
 public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
-  private final CppSemantics cppSemantics;
 
-  protected J2ObjcLibrary(CppSemantics cppSemantics) {
-    this.cppSemantics = cppSemantics;
-  }
+  protected J2ObjcLibrary(CppSemantics cppSemantics) {}
 
   public static final String NO_ENTRY_CLASS_ERROR_MSG =
       "Entry classes must be specified when flag --compilation_mode=opt is on in order to"
@@ -62,7 +59,6 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addDirectCcCompilationContexts(
             j2objcCcInfos.stream().map(J2ObjcCcInfo::getCcInfo).collect(toList()))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .setHasModuleMap()
         .build();
   }
 
@@ -86,18 +82,6 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
         J2ObjcMappingFileProvider.union(
             ruleContext.getPrerequisites("deps", J2ObjcMappingFileProvider.PROVIDER));
-
-    CompilationArtifacts moduleMapCompilationArtifacts =
-        new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-            .build();
-
-    new CompilationSupport.Builder(ruleContext, cppSemantics)
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-        .doNotUsePch()
-        .build()
-        .registerGenerateModuleMapAction(moduleMapCompilationArtifacts)
-        .validateAttributes();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))

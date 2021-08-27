@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
@@ -71,11 +72,12 @@ public interface AndroidStarlarkCommonApi<
   @StarlarkMethod(
       name = "android_platforms_transition",
       doc =
-          "A configuration for rules that uses the --android_platforms flag instead of"
-              + " --platforms.",
+          "A configuration for rules that uses the --android_platforms flag instead of --platforms."
+              + " This should only be used by Android rules during migration and is not for"
+              + " general use.",
       documented = false,
       structField = true)
-  AndroidPlatformsTransitionApi getAndroidPlatformsTransition();
+  StarlarkExposedRuleTransitionFactory getAndroidPlatformsTransition();
 
   @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",

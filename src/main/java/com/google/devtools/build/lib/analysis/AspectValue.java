@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -88,6 +89,17 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
   }
 
   @Override
+  public ProviderCollection getConfiguredObject() {
+    return getConfiguredAspect();
+  }
+
+  @Override
+  @Nullable
+  public BuildConfigurationValue.Key getConfigurationKey() {
+    return key.getAspectConfigurationKey();
+  }
+
+  @Override
   public String toString() {
     return getStringHelper()
         .add("key", key)
@@ -95,10 +107,5 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
         .add("aspect", aspect)
         .add("configuredAspect", configuredAspect)
         .toString();
-  }
-
-  @Override
-  public ProviderCollection getConfiguredObject() {
-    return getConfiguredAspect();
   }
 }

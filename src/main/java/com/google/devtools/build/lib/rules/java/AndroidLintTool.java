@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
@@ -83,8 +84,8 @@ abstract class AndroidLintTool implements StarlarkValue {
   }
 
   @StarlarkMethod(name = "jvm_opts", documented = false, structField = true)
-  public Sequence<String> starlarkJvmOpts() {
-    return StarlarkList.immutableCopyOf(tool().jvmOpts());
+  public Depset starlarkJvmOpts() {
+    return Depset.of(ElementType.STRING, tool().jvmOpts());
   }
 
   @StarlarkMethod(name = "data", documented = false, structField = true)

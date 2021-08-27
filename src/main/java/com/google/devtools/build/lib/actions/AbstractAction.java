@@ -455,7 +455,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   private Iterable<Artifact> archivedTreeArtifactOutputs(PathFragment derivedPathPrefix) {
     return Iterables.transform(
         Iterables.filter(outputs, Artifact::isTreeArtifact),
-        tree -> ArchivedTreeArtifact.create((SpecialArtifact) tree, derivedPathPrefix));
+        tree -> ArchivedTreeArtifact.createForTree((SpecialArtifact) tree, derivedPathPrefix));
   }
 
   /**

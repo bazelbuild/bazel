@@ -20,8 +20,11 @@ public final class BzlmodTestUtil {
   private BzlmodTestUtil() {}
 
   /** Simple wrapper around {@link ModuleKey#create} that takes a string version. */
-  public static ModuleKey createModuleKey(String name, String version)
-      throws Version.ParseException {
-    return ModuleKey.create(name, Version.parse(version));
+  public static ModuleKey createModuleKey(String name, String version) {
+    try {
+      return ModuleKey.create(name, Version.parse(version));
+    } catch (Version.ParseException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 }

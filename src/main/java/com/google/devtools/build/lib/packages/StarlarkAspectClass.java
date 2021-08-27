@@ -64,4 +64,9 @@ public final class StarlarkAspectClass implements AspectClass {
   public int hashCode() {
     return Objects.hash(extensionLabel, exportedName);
   }
+
+  @Override
+  public String toString() {
+    return getName();
+  }
 }

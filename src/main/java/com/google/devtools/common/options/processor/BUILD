@@ -12,8 +12,13 @@ filegroup(
 
 java_plugin(
     name = "options_preprocessor",
-    srcs = glob(["*.java"]),
     processor_class = "com.google.devtools.common.options.processor.OptionProcessor",
+    deps = [":options_preprocessor_lib"],
+)
+
+java_library(
+    name = "options_preprocessor_lib",
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//third_party:guava",

@@ -1780,6 +1780,33 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void bzlPackageBadDueToBrokenLoad() throws Exception {
+    writeFile("foo/BUILD", "load('//bar:bar.bzl', 'sym')");
+    writeFile("bar/BUILD", "load('//noexist:noexist.bzl', 'bad')");
+    writeFile("bar/bar.bzl", "sym = 0");
+    assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
+        .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+  }
+
+  @Test
+  public void bzlPackageBadDueToBrokenSyntax() throws Exception {
+    writeFile("foo/BUILD", "load('//bar:bar.bzl', 'sym')");
+    writeFile("bar/BUILD", "malformed syntax");
+    writeFile("bar/bar.bzl", "sym = 0");
+    assertThat(evalToListOfStrings("buildfiles(//foo:BUILD)"))
+        .containsExactly("//foo:BUILD", "//bar:bar.bzl", "//bar:BUILD");
+  }
+
+  @Test
+  public void buildfilesBazel() throws Exception {
+    writeFile("bar/BUILD.bazel");
+    writeFile("bar/bar.bzl", "sym = 0");
+    writeFile("foo/BUILD.bazel", "load('//bar:bar.bzl', 'sym')");
+    assertThat(evalToListOfStrings("buildfiles(foo:*)"))
+        .containsExactly("//foo:BUILD.bazel", "//bar:bar.bzl", "//bar:BUILD.bazel");
+  }
+
+  @Test
   public void testTargetsFromBuildfilesAndRealTargets() throws Exception {
     writeFile(
         "foo/BUILD", "load('//baz:baz.bzl', 'x')", "sh_library(name = 'foo', deps = ['//baz'])");
@@ -2122,4 +2149,3 @@ public abstract class AbstractQueryTest<T> {
     String getLabel(T target);
   }
 }
-

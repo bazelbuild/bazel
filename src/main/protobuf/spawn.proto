@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package tools.protos;
 
+import "google/protobuf/duration.proto";
+
 option java_package = "com.google.devtools.build.lib.exec";
 option java_outer_classname = "Protos";
 
@@ -126,4 +128,8 @@ message SpawnExec {
 
   // Was the Spawn result allowed to be cached remotely.
   bool remote_cacheable = 16;
+
+  // The wall time it took to execute the Spawn. This is only the time spent in
+  // the subprocess, not including the time doing setup and teardown.
+  google.protobuf.Duration walltime = 17;
 }

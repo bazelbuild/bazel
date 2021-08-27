@@ -317,6 +317,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new DelegatingActionTemplateExpansionFunction())
                 .put(SkyFunctions.ACTION_SKETCH, new ActionSketchFunction(actionKeyContext))
+                .put(
+                    SkyFunctions.ARTIFACT_NESTED_SET,
+                    ArtifactNestedSetFunction.createInstance(
+                        /*valueBasedChangePruningEnabled=*/ true))
                 .build(),
             differencer,
             evaluationProgressReceiver,
@@ -374,7 +378,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             options,
             new ActionCacheChecker(
-                actionCache, null, actionKeyContext, ALWAYS_EXECUTE_FILTER, null),
+                actionCache,
+                null,
+                actionKeyContext,
+                ALWAYS_EXECUTE_FILTER,
+                null,
+                PathFragment.create("bazel-out")),
             topDownActionCache,
             /*outputService=*/ null,
             /*incrementalAnalysis=*/ true);

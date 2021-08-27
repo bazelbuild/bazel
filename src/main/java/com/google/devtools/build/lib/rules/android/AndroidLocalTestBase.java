@@ -335,7 +335,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     new DeployArchiveBuilder(javaSemantics, ruleContext)
         .setOutputJar(deployJar)
         .setJavaStartClass(mainClass)
-        .setDeployManifestLines(ImmutableList.<String>of())
+        .setDeployManifestLines(ImmutableList.of())
         .setAttributes(attributes)
         .addRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
         .setIncludeBuildData(true)
@@ -368,11 +368,16 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     // Just confirming that there are no aliases being used here.
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);
-    // Report set feature flags as required "config fragments".
-    // While these aren't technically fragments, in practice they're user-defined settings with
-    // the same meaning: pieces of configuration the rule requires to work properly. So it makes
-    // sense to treat them equivalently for "requirements" reporting purposes.
-    builder.addRequiredConfigFragments(AndroidFeatureFlagSetProvider.getFlagNames(ruleContext));
+
+    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
+      // Report set feature flags as required "config fragments".
+      // While these aren't technically fragments, in practice they're user-defined settings with
+      // the same meaning: pieces of configuration the rule requires to work properly. So it makes
+      // sense to treat them equivalently for "requirements" reporting purposes.
+      builder
+          .getRuleImplSpecificRequiredConfigFragmentsBuilder()
+          .addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(ruleContext));
+    }
 
     if (oneVersionOutputArtifact != null) {
       builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, oneVersionOutputArtifact);
@@ -424,7 +429,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             helper.getBootclasspathOrDefault()));
   }
 
-  private void addJavaClassJarToArtifactsBuilder(
+  private static void addJavaClassJarToArtifactsBuilder(
       JavaCompilationArtifacts.Builder javaArtifactsBuilder,
       JavaTargetAttributes attributes,
       Artifact classJar) {
@@ -482,7 +487,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     return builder.build();
   }
 
-  private NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection deps) {
+  private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection deps) {
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
     // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
@@ -588,11 +593,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       String mainClass)
       throws InterruptedException, RuleErrorException;
 
-  /**
-   * Add compilation dependencies to the java compilation helper.
-   *
-   * @throws RuleErrorException
-   */
+  /** Adds compilation dependencies to the java compilation helper. */
   private JavaCompilationHelper getJavaCompilationHelperWithDependencies(
       RuleContext ruleContext,
       JavaSemantics javaSemantics,

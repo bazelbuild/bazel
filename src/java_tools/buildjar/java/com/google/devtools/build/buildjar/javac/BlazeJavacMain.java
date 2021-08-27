@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
+import com.google.devtools.build.buildjar.javac.CancelCompilerPlugin.CancelRequestException;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
@@ -48,10 +49,15 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
+import javax.tools.JavaFileObject;
+import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardLocation;
 
 /**
@@ -83,6 +89,8 @@ public class BlazeJavacMain {
     try {
       processPluginArgs(
           arguments.plugins(), arguments.javacOptions(), arguments.blazeJavacOptions());
+    } catch (CancelRequestException e) {
+      return BlazeJavacResult.cancelled(e.getMessage());
     } catch (InvalidCommandLineException e) {
       return BlazeJavacResult.error(e.getMessage());
     }
@@ -106,8 +114,9 @@ public class BlazeJavacMain {
     Log.instance(context).setWriters(errWriter);
     Options.instance(context).put("-Xlint:path", "path");
 
-    try (JavacFileManager fileManager =
-        new ClassloaderMaskingFileManager(context, arguments.builtinProcessors())) {
+    try (ClassloaderMaskingFileManager fileManager =
+        new ClassloaderMaskingFileManager(
+            context, arguments.builtinProcessors(), getMatchingBootFileManager(arguments))) {
 
       setLocations(fileManager, arguments);
 
@@ -121,12 +130,16 @@ public class BlazeJavacMain {
                   /* classes= */ ImmutableList.of(),
                   fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
                   context);
+
       try {
         status = fromResult(((JavacTaskImpl) task).doCall());
       } catch (PropagatedException e) {
         throw e.getCause();
       }
     } catch (Throwable t) {
+      if (t.getCause() instanceof CancelRequestException) {
+        return BlazeJavacResult.cancelled(t.getCause().getMessage());
+      }
       t.printStackTrace(errWriter);
       status = Status.CRASH;
     } finally {
@@ -306,6 +319,33 @@ public class BlazeJavacMain {
   }
 
   /**
+   * Multiple javac file manager instances each specific for a combination of bootClassPaths with
+   * their digest.
+   */
+  private static final Map<BootClassPathCachingFileManager.Key, BootClassPathCachingFileManager>
+      bootFileManagers = new HashMap<>();
+
+  /**
+   * Returns a BootClassPathCachingFileManager instance that matches the combination of
+   * bootClassPaths and their digest in the case of a worker with valid arguments.
+   */
+  private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
+      BlazeJavacArguments arguments) {
+    if (!arguments.requestId().isPresent()) {
+      // worker mode is not enabled
+      return null;
+    }
+    if (!BootClassPathCachingFileManager.areArgumentsValid(arguments)) {
+      // arguments not valid
+      return null;
+    }
+
+    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
+    return bootFileManagers.computeIfAbsent(
+        key, x -> new BootClassPathCachingFileManager(new Context(), key));
+  }
+
+  /**
    * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
    * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
    * annotation processor path, but we want to mask out any other classes to minimize class version
@@ -315,10 +355,26 @@ public class BlazeJavacMain {
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
     private final ImmutableSet<String> builtinProcessors;
+    /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
+    private final BootClassPathCachingFileManager bootFileManger;
 
-    public ClassloaderMaskingFileManager(Context context, ImmutableSet<String> builtinProcessors) {
+    public ClassloaderMaskingFileManager(
+        Context context,
+        ImmutableSet<String> builtinProcessors,
+        BootClassPathCachingFileManager bootFileManager) {
       super(context, true, UTF_8);
       this.builtinProcessors = builtinProcessors;
+      this.bootFileManger = bootFileManager;
+    }
+
+    @Override
+    public Iterable<JavaFileObject> list(
+        Location location, String packageName, Set<Kind> kinds, boolean recurse)
+        throws IOException {
+      if (this.bootFileManger != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
+        return this.bootFileManger.list(location, packageName, kinds, recurse);
+      }
+      return super.list(location, packageName, kinds, recurse);
     }
 
     @Override

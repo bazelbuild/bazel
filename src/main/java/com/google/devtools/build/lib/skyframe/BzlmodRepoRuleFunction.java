@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -152,16 +153,17 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     Package.Builder pkg = createExternalPackageBuilder(semantics);
     try {
       rule =
-          RuleFactory.createRule(
+          RuleFactory.createAndAddRule(
               pkg, ruleClass, attributeValues, env.getListener(), semantics, callStack.build());
-      // We need to actually build the package so that the rule has the correct package reference.
-      pkg.build();
+      return new BzlmodRepoRuleValue(pkg.build(), rule.getName());
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
+    } catch (NameConflictException e) {
+      // This literally cannot happen -- we just created the package!
+      throw new IllegalStateException(e);
     }
-    return new BzlmodRepoRuleValue(rule);
   }
 
   /** Loads modules from the given bzl file. */
@@ -217,16 +219,16 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     Package.Builder pkg = createExternalPackageBuilder(semantics);
     StoredEventHandler eventHandler = new StoredEventHandler();
     try {
-      rule = repoRuleCreator.createRule(pkg, semantics, repoSpec.attributes(), eventHandler);
-      // We need to actually build the package so that the rule has the correct package reference.
-      pkg.build();
+      rule = repoRuleCreator.createAndAddRule(pkg, semantics, repoSpec.attributes(), eventHandler);
+      return new BzlmodRepoRuleValue(pkg.build(), rule.getName());
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
+    } catch (NameConflictException e) {
+      // This literally cannot happen -- we just created the package!
+      throw new IllegalStateException(e);
     }
-
-    return new BzlmodRepoRuleValue(rule);
   }
 
   private BzlmodRepoRuleCreator getRepoRuleCreator(

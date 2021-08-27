@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -213,7 +214,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                         ruleContext.getConfiguration().legacyExternalRunfiles())
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
-        .setPropagateValidationActionOutputGroup(false)
+        .addOutputGroup(
+            OutputGroupInfo.VALIDATION_TRANSITIVE, NestedSetBuilder.emptySet(Order.STABLE_ORDER))
         .build();
   }
 
@@ -616,6 +618,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         return null;
       }
       return pkg.getBuildFile().getPath();
+    }
+
+    @Override
+    public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+      // TODO(b/123795023): we should have the data here but we don't have all packages for Starlark
+      //  loads present here.
+      Package pkg = pkgMap.get(packageName);
+      return pkg == null ? null : pkg.getBuildFileLabel().getName();
     }
   }
 

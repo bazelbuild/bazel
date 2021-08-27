@@ -251,7 +251,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(new ApiVersion(100, 0, 0, "").toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -274,7 +274,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(new ApiVersion(100, 0, 0, "").toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -297,7 +297,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.MD5)
+                    .addDigestFunctions(DigestFunction.Value.MD5)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -320,7 +320,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .build())
             .build();
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
@@ -348,7 +348,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -379,7 +379,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())
@@ -410,7 +410,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .build())
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder()
@@ -461,7 +461,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setCachePriorityCapabilities(
                         PriorityCapabilities.newBuilder()
                             .addPriorities(
@@ -503,7 +503,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .build())
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder()
@@ -591,7 +591,7 @@ public class RemoteServerCapabilitiesTest {
             .setHighApiVersion(ApiVersion.current.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
-                    .addDigestFunction(DigestFunction.Value.SHA256)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setActionCacheUpdateCapabilities(
                         ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
                     .build())

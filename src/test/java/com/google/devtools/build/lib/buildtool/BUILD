@@ -85,21 +85,6 @@ java_test(
 )
 
 java_test(
-    name = "BogusExecutionTimeTest",
-    srcs = ["BogusExecutionTimeTest.java"],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:junit4",
-    ],
-)
-
-java_test(
     name = "CompileAfterOptionChangeTest",
     srcs = ["CompileAfterOptionChangeTest.java"],
     tags = [
@@ -663,7 +648,6 @@ build_test(
     targets = [
         ":ActionListenerIntegrationTest",
         ":AqueryBuildToolTest",
-        ":BogusExecutionTimeTest",
         ":BuildResultTestCase",
         ":CompileAfterOptionChangeTest",
         ":CompileOneDependencyIntegrationTest",
@@ -689,7 +673,7 @@ build_test(
         ":QueryIntegrationTest",
         ":SymlinkDependencyAnalysisTest",
         # Disabled in Google.
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:BazelAndroidTests",
+        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests",
         # Disabled in Google.
@@ -697,5 +681,38 @@ build_test(
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/packages:BazelDocumentationTests",
         "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidDataBindingV2Test",
+    ],
+)
+
+java_test(
+    name = "ShutdownCommandTest",
+    srcs = ["ShutdownCommandTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "SubcommandEventTest",
+    srcs = ["SubcommandEventTest.java"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )

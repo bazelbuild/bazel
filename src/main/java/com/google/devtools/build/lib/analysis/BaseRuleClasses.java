@@ -186,7 +186,7 @@ public class BaseRuleClasses {
   public static final class TestBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
+      builder
           .addExecGroup(TEST_RUNNER_EXEC_GROUP)
           .requiresConfigurationFragments(TestConfiguration.class)
           // TestConfiguration only needed to create TestAction and TestProvider
@@ -259,8 +259,15 @@ public class BaseRuleClasses {
                       coverageReportGeneratorAttribute(
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
           // The target itself and run_under both run on the same machine.
-          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
-          .build();
+          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck());
+
+      env.getNetworkAllowlistForTests()
+          .ifPresent(
+              label ->
+                  builder.add(
+                      Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
+
+      return builder.build();
     }
 
     @Override
@@ -511,6 +518,19 @@ public class BaseRuleClasses {
           .type(RuleClassType.ABSTRACT)
           .ancestors(MakeVariableExpandingRule.class)
           .build();
+    }
+  }
+
+  /**
+   * Factory used by rules' definitions that exist for the sole purpose of providing documentation.
+   * For most of these rules, the actual rule is implemented in Starlark but the documentation
+   * generation mechanism does not work yet for Starlark rules. TODO(bazel-team): Delete once
+   * documentation tools work for Starlark.
+   */
+  public static class EmptyRuleConfiguredTargetFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) {
+      return null;
     }
   }
 }

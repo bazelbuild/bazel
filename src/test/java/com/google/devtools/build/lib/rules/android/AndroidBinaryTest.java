@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -3587,8 +3588,8 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  },",
         ")");
     ConfiguredTarget ct = getConfiguredTarget("//java/com/foo:foo");
-    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getRequiredConfigFragments())
-        .contains("//java/com/foo:flag1");
+    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())
+        .containsExactly(Label.parseAbsoluteUnchecked("//java/com/foo:flag1"));
   }
 
   @Test
