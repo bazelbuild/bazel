@@ -61,4 +61,22 @@ public class ModuleTest {
     assertThrows(
         ExternalDepsException.class, () -> module.getCanonicalizedToolchainsToRegister(key));
   }
+
+  @Test
+  public void withDepKeysTransformed() throws Exception {
+    assertThat(
+            Module.builder()
+                .addDep("dep_foo", createModuleKey("foo", "1.0"))
+                .addDep("dep_bar", createModuleKey("bar", "2.0"))
+                .build()
+                .withDepKeysTransformed(
+                    key ->
+                        createModuleKey(
+                            key.getName() + "_new", key.getVersion().getOriginal() + ".1")))
+        .isEqualTo(
+            Module.builder()
+                .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
+                .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
+                .build());
+  }
 }

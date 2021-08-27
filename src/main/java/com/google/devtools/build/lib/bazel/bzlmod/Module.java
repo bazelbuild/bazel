@@ -18,8 +18,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
-import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
@@ -123,8 +123,11 @@ public abstract class Module {
   @Nullable
   public abstract Registry getRegistry();
 
+  /** The module extensions used in this module. */
+  public abstract ImmutableList<ModuleExtensionUsage> getExtensionUsages();
+
   /** Returns a {@link Builder} that starts out with the same fields as this object. */
-  public abstract Builder toBuilder();
+  abstract Builder toBuilder();
 
   /** Returns a new, empty {@link Builder}. */
   public static Builder builder() {
@@ -141,11 +144,9 @@ public abstract class Module {
    * function.
    */
   public Module withDepKeysTransformed(UnaryOperator<ModuleKey> transform) {
-    ImmutableMap.Builder<String, ModuleKey> newDeps = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, ModuleKey> entry : getDeps().entrySet()) {
-      newDeps.put(entry.getKey(), transform.apply(entry.getValue()));
-    }
-    return toBuilder().setDeps(newDeps.build()).build();
+    return toBuilder()
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .build();
   }
 
   /** Builder type for {@link Module}. */
@@ -168,12 +169,21 @@ public abstract class Module {
 
     public abstract Builder setDeps(ImmutableMap<String, ModuleKey> value);
 
-    public abstract Builder setRegistry(Registry value);
-
     abstract ImmutableMap.Builder<String, ModuleKey> depsBuilder();
 
     public Builder addDep(String depRepoName, ModuleKey depKey) {
       depsBuilder().put(depRepoName, depKey);
+      return this;
+    }
+
+    public abstract Builder setRegistry(Registry value);
+
+    public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
+
+    abstract ImmutableList.Builder<ModuleExtensionUsage> extensionUsagesBuilder();
+
+    public Builder addExtensionUsage(ModuleExtensionUsage value) {
+      extensionUsagesBuilder().add(value);
       return this;
     }
 

@@ -41,6 +41,20 @@ java_library(
 )
 
 java_library(
+    name = "module_extension",
+    srcs = [
+        "ModuleExtensionUsage.java",
+        "Tag.java",
+    ],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "registry",
     srcs = [
         "IndexRegistry.java",
@@ -80,6 +94,7 @@ java_library(
     deps = [
         ":common",
         ":exception",
+        ":module_extension",
         ":registry",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
