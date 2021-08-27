@@ -1,3 +1,31 @@
+## Release 5.0.0-pre.20210824.2 (2021-08-27)
+
+```
+Baseline: 19ae197523191340a57b3bf93bdf8da66216ed46
+
+Cherry picks:
+
+   + 18bfed26c19bfa4505f04f73cec939f19fe47129:
+     Properly preserve state when interrupted during a deletion. Also
+     use best Bazel practices for reinitializing maps by reassigning,
+     since just clearing can retain memory. When enqueuing deleted
+     nodes, don't use more threads than there are nodes. Finally, fix
+     a test accidentally changed in
+     https://github.com/bazelbuild/bazel/commit/3ea75594bfdb5e67942501
+     55995c45a5adc00c28.
+```
+
+Incompatible changes:
+
+  - Flipped --incompatible_disallow_resource_jars (see
+    https://github.com/bazelbuild/bazel/issues/13221).
+
+Important changes:
+
+  - Disable --all_incompatible_changes flag.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Ben Lee, Grzegorz Lukasik, Ikko Ashimine.
+
 ## Release 5.0.0-pre.20210817.2 (2021-08-25)
 
 ```
