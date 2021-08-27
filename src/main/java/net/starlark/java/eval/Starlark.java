@@ -959,8 +959,8 @@ public final class Starlark {
    * @throws IllegalStateException exception if the Starlark profiler is already running or if the
    *     operating system's profiling resources for this process are already in use.
    */
-  public static void startCpuProfile(OutputStream out, Duration period) {
-    CpuProfiler.start(out, period);
+  public static boolean startCpuProfile(OutputStream out, Duration period) {
+    return CpuProfiler.start(out, period);
   }
 
   /**

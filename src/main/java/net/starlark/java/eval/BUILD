@@ -59,6 +59,7 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:flogger",
     ],
 )
 
@@ -96,7 +97,7 @@ cc_binary(
     srcs = select({
         "//src/conditions:darwin": ["cpu_profiler_posix.cc"],
         "//src/conditions:linux": ["cpu_profiler_posix.cc"],
-        "//conditions:default": ["cpu_profiler_windows.cc"],
+        "//conditions:default": ["cpu_profiler_unimpl.cc"],
     }),
     linkshared = 1,
     deps = ["@bazel_tools//tools/jdk:jni"],
