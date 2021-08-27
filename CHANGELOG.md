@@ -1,3 +1,61 @@
+## Release 5.0.0-pre.20210824.2 (2021-08-27)
+
+```
+Baseline: 19ae197523191340a57b3bf93bdf8da66216ed46
+
+Cherry picks:
+
+   + 18bfed26c19bfa4505f04f73cec939f19fe47129:
+     Properly preserve state when interrupted during a deletion. Also
+     use best Bazel practices for reinitializing maps by reassigning,
+     since just clearing can retain memory. When enqueuing deleted
+     nodes, don't use more threads than there are nodes. Finally, fix
+     a test accidentally changed in
+     https://github.com/bazelbuild/bazel/commit/3ea75594bfdb5e67942501
+     55995c45a5adc00c28.
+```
+
+Incompatible changes:
+
+  - Flipped --incompatible_disallow_resource_jars (see
+    https://github.com/bazelbuild/bazel/issues/13221).
+
+Important changes:
+
+  - Disable --all_incompatible_changes flag.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Ben Lee, Grzegorz Lukasik, Ikko Ashimine.
+
+## Release 5.0.0-pre.20210817.2 (2021-08-25)
+
+```
+Baseline: a2cdeaa0a1d34ba4971171391667ce79231eb029
+
+Cherry picks:
+
+   + 68c9ba64baba9e8e733f1f03543def627cc5e002:
+     Fix terrible ForkJoinQuiescingExecutor latent bug exposed by new
+     usage of ForkJoinPool: only "adapt" a runnable to run in an
+     existing FJP if that existing FJP is the same as the executor's:
+     don't enqueue them to run in whatever random FJP is trying to
+     enqueue this runnable. Big props to michajlo@ for quickly
+     diagnosing this and suggesting the fix.
+```
+
+Incompatible changes:
+
+  - --bep_publish_used_heap_size_post_build is now a no-op and will
+    be deleted in a future release. Use --memory_profile=/dev/null
+    instead.
+
+New features:
+
+  - Args.add_all and Args.add_joined can now accept closures in
+    map_each if explicitly enabled via allow_closure.
+  - Add `--bes_header` flag to pass extra headers to the BES server.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Brentley Jones, Fabian Meumertzheim, Olek Wojnar.
+
 ## Release 5.0.0-pre.20210810.4 (2021-08-19)
 
 ```
