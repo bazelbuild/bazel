@@ -238,7 +238,7 @@ public class RemoteExecutionService {
     private final Spawn spawn;
     private final SpawnExecutionContext spawnExecutionContext;
     private final RemoteActionExecutionContext remoteActionExecutionContext;
-    private final SortedMap<PathFragment, ActionInput> inputMap;
+    private final RemotePathResolver remotePathResolver;
     private final MerkleTree merkleTree;
     private final Digest commandHash;
     private final Command command;
@@ -249,7 +249,7 @@ public class RemoteExecutionService {
         Spawn spawn,
         SpawnExecutionContext spawnExecutionContext,
         RemoteActionExecutionContext remoteActionExecutionContext,
-        SortedMap<PathFragment, ActionInput> inputMap,
+        RemotePathResolver remotePathResolver,
         MerkleTree merkleTree,
         Digest commandHash,
         Command command,
@@ -258,7 +258,7 @@ public class RemoteExecutionService {
       this.spawn = spawn;
       this.spawnExecutionContext = spawnExecutionContext;
       this.remoteActionExecutionContext = remoteActionExecutionContext;
-      this.inputMap = inputMap;
+      this.remotePathResolver = remotePathResolver;
       this.merkleTree = merkleTree;
       this.commandHash = commandHash;
       this.command = command;
@@ -297,8 +297,9 @@ public class RemoteExecutionService {
      * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
      * ActionInput}.
      */
-    public SortedMap<PathFragment, ActionInput> getInputMap() {
-      return inputMap;
+    public SortedMap<PathFragment, ActionInput> getInputMap()
+        throws IOException, ForbiddenActionInputException {
+      return remotePathResolver.getInputMapping(spawnExecutionContext);
     }
 
     /**
@@ -400,7 +401,7 @@ public class RemoteExecutionService {
         spawn,
         context,
         remoteActionExecutionContext,
-        inputMap,
+        remotePathResolver,
         merkleTree,
         commandHash,
         command,
