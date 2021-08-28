@@ -407,7 +407,7 @@ public class FunctionTransitionUtil {
    * @param changedOptions the names of all options changed by this transition in label form e.g.
    *     "//command_line_option:cpu" for native options and "//myapp:foo" for starlark options.
    * @param optionInfoMap a map of all native options (name -> OptionInfo) present in {@code
-   *     toOptions}.
+   *     toOptions} (or {@code null} if it should be retrieved from {@code toOptions}).
    * @param toOptions the newly transitioned {@link BuildOptions} for which we need to updated
    *     {@code transitionDirectoryNameFragment} and {@code affectedByStarlarkTransition}.
    */
@@ -415,11 +415,15 @@ public class FunctionTransitionUtil {
   // should be the same configuration. Starlark transitions are flexible about the values they
   // take (e.g. bool-typed options can take 0/1, True/False, "0"/"1", or "True"/"False") which
   // makes it so that two configurations that are the same in value may hash differently.
-  private static void updateOutputDirectoryNameFragment(
-      Set<String> changedOptions, Map<String, OptionInfo> optionInfoMap, BuildOptions toOptions) {
+  public static void updateOutputDirectoryNameFragment(Set<String> changedOptions,
+      @Nullable Map<String, OptionInfo> optionInfoMap, BuildOptions toOptions) {
     // Return without doing anything if this transition hasn't changed any option values.
     if (changedOptions.isEmpty()) {
       return;
+    }
+
+    if (optionInfoMap == null) {
+      optionInfoMap = buildOptionInfo(toOptions);
     }
 
     CoreOptions buildConfigOptions = toOptions.get(CoreOptions.class);

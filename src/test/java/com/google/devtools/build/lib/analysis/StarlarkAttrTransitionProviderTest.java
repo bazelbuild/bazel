@@ -1931,6 +1931,122 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
+  private void genericExecStarlarkExecTransitionTest(String nativeOption, String value)
+      throws Exception {
+    writeAllowlistFile();
+    // This setup is a pure Starlark version of a cc_proto_library, fake_cc_proto_library, built in
+    // the exec configuration with a Starlark transition applied. Since the fake_cc_proto_library
+    // target :cc_proto_lib depends on the fake runtime :fake_protobuf both directly and
+    // transitively through :fake_protoc built after another exec transition, action conflicts were
+    // possible in the past due to the transition fragment of the output directory not being updated
+    // after this chain of exec -> Starlark -> exec transitions.
+    scratch.file("test/starlark/rules.bzl",
+        "_BUILD_SETTING = '//command_line_option:" + nativeOption + "'",
+        "def _set_native_opt_impl(settings, attr):",
+        "    return {_BUILD_SETTING: ['" + value + "']}",
+        "_set_native_opt = transition(",
+        "    implementation = _set_native_opt_impl,",
+        "    inputs = [],",
+        "    outputs = [_BUILD_SETTING],",
+        ")",
+        "def _apply_native_opt_transition_impl(ctx):",
+        "    pass",
+        "apply_native_opt_transition = rule(",
+        "    implementation = _apply_native_opt_transition_impl,",
+        "    attrs = {",
+        "        'target': attr.label(",
+        "            cfg = _set_native_opt,",
+        "        ),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "    },",
+        ")",
+        "def _fake_cc_proto_library_impl(ctx):",
+        "    return [",
+        "        ctx.attr._runtime[DefaultInfo],",
+        "        ctx.attr._runtime[CcInfo],",
+        "    ]",
+        "fake_cc_proto_library = rule(",
+        "    _fake_cc_proto_library_impl,",
+        "    attrs = {",
+        "        '_compiler': attr.label(",
+        "            default = '//test/starlark:fake_protoc',",
+        "            cfg = 'exec',",
+        "            executable = True,",
+        "        ),",
+        "        '_runtime': attr.label(",
+        "            default = '//test/starlark:fake_protobuf',",
+        "        ),",
+        "    },",
+        ")",
+        "def _fake_mock_impl(ctx):",
+        "    ctx.actions.write(ctx.outputs.out, '')",
+        "fake_mock = rule(",
+        "    _fake_mock_impl,",
+        "    attrs = {",
+        "        'library': attr.label(",
+        "            cfg = 'exec',",
+        "        ),",
+        "        'out': attr.output(",
+        "            mandatory = True,",
+        "        ),",
+        "    },",
+        ")"
+    );
+    scratch.file("test/starlark/BUILD",
+        "load(':rules.bzl', 'apply_native_opt_transition', 'fake_cc_proto_library', 'fake_mock')",
+        "cc_library(",
+        "    name = 'fake_protobuf',",
+        "    srcs = [",
+        "        'lib.cc',",
+        "    ],",
+        "    hdrs = [",
+        "        'lib.h',",
+        "    ],",
+        ")",
+        "cc_binary(",
+        "    name = 'fake_protoc',",
+        "    srcs = [",
+        "        'main.cc',",
+        "    ],",
+        "    deps = [",
+        "        ':fake_protobuf',",
+        "    ],",
+        ")",
+        "fake_cc_proto_library(",
+        "    name = 'cc_proto_lib',",
+        ")",
+        "apply_native_opt_transition(",
+        "    name = 'cc_proto_lib_with_native_opt_transition',",
+        "    target = ':cc_proto_lib',",
+        ")",
+        "fake_mock(",
+        "    name = 'mock',",
+        "    out = 'empty.gen',",
+        "    library = ':cc_proto_lib_with_native_opt_transition',",
+        ")"
+    );
+    // Note: calling getConfiguredTarget for each target doesn't activate conflict detection.
+    update(
+        ImmutableList.of("//test/starlark:mock"),
+        /*keepGoing=*/ false,
+        LOADING_PHASE_THREADS,
+        /*doAnalysis=*/ true,
+        new EventBus());
+    assertNoEvents();
+  }
+
+  @Test
+  public void testExecCoptExecTransitionChain() throws Exception {
+    genericExecStarlarkExecTransitionTest("copt", "-DFOO");
+  }
+
+  @Test
+  public void testExecHostCoptExecTransitionChain() throws Exception {
+    genericExecStarlarkExecTransitionTest("host_copt", "-DBAR");
+  }
+
   @Test
   public void starlarkSplitTransitionRequiredFragments() throws Exception {
     // All Starlark rule transitions are patch transitions, while all Starlark attribute transitions

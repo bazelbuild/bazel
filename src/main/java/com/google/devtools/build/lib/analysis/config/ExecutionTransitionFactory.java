@@ -23,12 +23,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -148,6 +152,19 @@ public class ExecutionTransitionFactory
         featureFlags.forEach(resultBuilder::removeStarlarkOption);
         result = resultBuilder.build();
       }
+
+      // The value of any native option previously affected by a Starlark transition may be changed
+      // by a transition to the execution platform. Additionally, if a Starlark transition affected
+      // the value of a `--host_foo_bar` option, the exec transition will propagate its value to
+      // `--foo_bar`.
+      Set<String> potentiallyChangedOptions = coreOptions.affectedByStarlarkTransition.stream()
+          .flatMap(opt -> opt.startsWith("host_")
+              ? Stream.of(opt, opt.substring("host_".length()))
+              : Stream.of(opt))
+          .map(opt -> StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX + opt)
+          .collect(Collectors.toSet());
+      FunctionTransitionUtil
+          .updateOutputDirectoryNameFragment(potentiallyChangedOptions, null, result);
 
       return result;
     }
