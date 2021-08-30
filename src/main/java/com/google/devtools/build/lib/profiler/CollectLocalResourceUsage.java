@@ -17,13 +17,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
 public class CollectLocalResourceUsage extends Thread {
@@ -31,7 +31,7 @@ public class CollectLocalResourceUsage extends Thread {
   private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
   private static final long LOCAL_CPU_SLEEP_MILLIS = 200;
 
-  private final Consumer<Exception> bugReporter;
+  private final BugReporter bugReporter;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
@@ -44,7 +44,7 @@ public class CollectLocalResourceUsage extends Thread {
 
   private Stopwatch stopwatch;
 
-  CollectLocalResourceUsage(Consumer<Exception> bugReporter) {
+  CollectLocalResourceUsage(BugReporter bugReporter) {
     this.bugReporter = checkNotNull(bugReporter);
   }
 
@@ -81,7 +81,7 @@ public class CollectLocalResourceUsage extends Thread {
                 + memoryBean.getNonHeapMemoryUsage().getUsed();
       } catch (IllegalArgumentException e) {
         // The JVM may report committed > max. See b/180619163.
-        bugReporter.accept(e);
+        bugReporter.sendBugReport(e);
         memoryUsage = -1;
       }
 

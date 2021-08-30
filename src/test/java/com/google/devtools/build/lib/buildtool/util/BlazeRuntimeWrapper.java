@@ -314,7 +314,7 @@ public class BlazeRuntimeWrapper {
               /*includePrimaryOutput=*/ false,
               /*includeTargetLabel=*/ false,
               /*collectTaskHistograms=*/ true,
-              runtime.getBugReporter()::sendBugReport);
+              runtime.getBugReporter());
 
       StoredEventHandler storedEventHandler = new StoredEventHandler();
       reporter.addHandler(storedEventHandler);

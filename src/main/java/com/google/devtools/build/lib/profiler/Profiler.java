@@ -21,6 +21,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -48,7 +49,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPOutputStream;
@@ -371,7 +371,7 @@ public final class Profiler {
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
       boolean collectTaskHistograms,
-      Consumer<Exception> bugReporter)
+      BugReporter bugReporter)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();

@@ -22,7 +22,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -105,7 +105,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     return buffer;
   }
 
@@ -124,7 +124,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
   }
 
   @Test
@@ -231,7 +231,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
       long before = clock.nanoTime();
@@ -281,7 +281,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     // Unlike the VFS_STAT event above, the remote execution event will not be recorded since we
     // don't record the slowest remote exec events (see ProfilerTask.java).
@@ -402,7 +402,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
     assertThat(ProfilerTask.VFS_STAT.collectsSlowestInstances()).isTrue();
@@ -594,7 +594,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
   }
@@ -653,7 +653,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
@@ -682,7 +682,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
@@ -707,7 +707,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ true,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "")) {
       profiler.logEvent(ProfilerTask.PHASE, "event1");
     }
@@ -740,7 +740,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ true,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     try (SilentCloseable c =
         profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "//foo:bar")) {
       profiler.logEvent(ProfilerTask.PHASE, "event1");
@@ -772,7 +772,7 @@ public final class ProfilerTest {
         /*includePrimaryOutput=*/ false,
         /*includeTargetLabel=*/ false,
         /*collectTaskHistograms=*/ true,
-        BugReport::sendBugReport);
+        BugReporter.defaultInstance());
     long curTime = Profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {
       Duration duration;
