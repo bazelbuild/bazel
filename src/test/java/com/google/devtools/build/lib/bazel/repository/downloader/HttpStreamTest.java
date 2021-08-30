@@ -39,6 +39,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPOutputStream;
@@ -200,6 +201,26 @@ public class HttpStreamTest {
     try (HttpStream stream = streamFactory.create(connection, AURL, BAD_CHECKSUM, reconnector)) {
       thrown.expect(IOException.class);
       thrown.expectMessage("Checksum");
+      ByteStreams.exhaust(stream);
+      fail("Should have thrown error before close()");
+    }
+  }
+
+  @Test
+  public void bigDataTruncated_throwsExpectedError() throws Exception {
+    byte[] bigData = new byte[HttpStream.PRECHECK_BYTES + 70001];
+    randoCalrissian.nextBytes(bigData);
+    byte[] truncated = Arrays.copyOfRange(bigData, 0, bigData.length - 1);
+    when(connection.getHeaderField("Content-Length")).thenReturn(String.valueOf(bigData.length));
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(truncated));
+    try (HttpStream stream =
+                 streamFactory.create(
+                         connection,
+                         AURL,
+                         makeChecksum(Hashing.sha256().hashBytes(bigData).toString()),
+                         reconnector)) {
+      thrown.expect(IOException.class);
+      thrown.expectMessage("Content-Length");
       ByteStreams.exhaust(stream);
       fail("Should have thrown error before close()");
     }
