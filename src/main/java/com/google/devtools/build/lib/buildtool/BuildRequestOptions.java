@@ -433,10 +433,7 @@ public class BuildRequestOptions extends OptionsBase {
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If set to true, the genfiles symlink will not be created. For more information, see "

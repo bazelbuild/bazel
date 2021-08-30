@@ -64,10 +64,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, the genfiles directory is folded into the bin directory.")
   public boolean mergeGenfilesDirectory;
 
@@ -76,10 +73,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, constraint settings from @bazel_tools are removed.")
   public boolean usePlatformsRepoForConstraints;
 
@@ -703,10 +697,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "Use graphless query and disable output ordering for genquery.")
   public Void incompatibleUseGraphlessQuery;
 

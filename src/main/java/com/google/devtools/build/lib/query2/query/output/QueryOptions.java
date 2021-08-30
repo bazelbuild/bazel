@@ -120,10 +120,7 @@ public class QueryOptions extends CommonQueryOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If this option is set, sorts --order_output=auto output in lexicographical order.")
   public boolean lexicographicalOutput;
 

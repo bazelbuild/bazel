@@ -150,10 +150,7 @@ public class BazelRuleClassProvider {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If true, Bazel uses an environment with a static value for PATH and does not "
                 + "inherit LD_LIBRARY_PATH or TMPDIR. Use --action_env=ENV_VARIABLE if you want to "

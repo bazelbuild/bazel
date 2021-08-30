@@ -350,10 +350,7 @@ public class SandboxOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, enables the legacy implicit fallback from sandboxed to local strategy."
               + " This flag will eventually default to false and then become a no-op. Use"

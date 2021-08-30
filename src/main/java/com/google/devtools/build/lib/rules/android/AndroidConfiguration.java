@@ -783,10 +783,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.EAGERNESS_TO_EXIT,
         },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If enabled, direct usage of the native Android rules is disabled. Please use the"
                 + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
@@ -797,10 +794,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
                 + " native)")

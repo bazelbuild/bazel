@@ -165,10 +165,7 @@ public class CommonQueryOptions extends OptionsBase {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "False by default, displays the target of the source file. "
               + "If true, displays the location of line 1 of source files in location outputs. "

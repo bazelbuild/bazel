@@ -480,10 +480,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
   public boolean disallowResourceJars;
@@ -541,10 +538,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "This flag is a noop and scheduled for removal.")
   public boolean dontCollectDataLibraries;
 
@@ -553,10 +547,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
   public boolean requireJavaPluginInfo;
 

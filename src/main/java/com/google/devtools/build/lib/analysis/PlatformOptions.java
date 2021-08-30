@@ -165,10 +165,7 @@ public class PlatformOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, the host platform will be inherited from @local_config_platform//:host, "
               + "instead of being based on the --cpu (and --host_cpu) flags.")
@@ -179,10 +176,7 @@ public class PlatformOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op. Kept here for backwards compatibility.")
   public boolean useToolchainResolutionForJavaRules;
 
@@ -225,10 +219,7 @@ public class PlatformOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, all rules will use the toolchain transition for toolchain dependencies.")
   public boolean overrideToolchainTransition;

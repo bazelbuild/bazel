@@ -151,10 +151,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "This flag enables exports provider and JavaInfo.transitive_exports call.")
   public boolean incompatibleEnableExportsProvider;
 
@@ -207,10 +204,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, rule create_linking_context will require linker_inputs instead of "
               + "libraries_to_link. The old getters of linking_context will also be disabled and "
@@ -283,10 +277,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Disables the to_json and to_proto methods of struct, which pollute the struct field"
               + " namespace. Instead, use json.encode or json.encode_indent for JSON, or"
@@ -298,10 +289,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Check the validity of elements added to depsets, in all constructors. Elements must be"
               + " immutable, but historically the depset(direct=...) constructor forgot to check."
@@ -314,10 +302,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, disable the ability to access providers on 'target' objects via field "
               + "syntax. Use provider-key syntax instead. For example, instead of using "
@@ -331,10 +316,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, disable the 'items' parameter of the depset constructor. Use "
               + "the 'transitive' and 'direct' parameters instead.")
@@ -353,10 +335,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, disables all license checking logic")
   public boolean incompatibleDisableThirdPartyLicenseChecking;
 
@@ -366,10 +345,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       category = "incompatible changes",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, the default value of the `allow_empty` argument of glob() is False.")
   public boolean incompatibleDisallowEmptyGlob;
 
@@ -378,10 +354,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "Deprecated. No-op.")
   // TODO(elenairina): Move option to graveyard after the flag is removed from the global blazerc.
   public boolean incompatibleDisallowLegacyJavaInfo;
@@ -391,10 +364,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, rule implementation functions may not return a struct. They must "
               + "instead return a list of provider instances.")
@@ -405,10 +375,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, the visibility of private rule attributes is checked with respect "
               + "to the rule definition, rather than the rule usage.")
@@ -419,10 +386,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, the API to create actions is only available on `ctx.actions`, "
               + "not on `ctx`.")
@@ -433,10 +397,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, disables the function `attr.license`.")
   public boolean incompatibleNoAttrLicense;
 
@@ -446,10 +407,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       // TODO(aiuto): change to OptionDocumentationCategory.STARLARK_SEMANTICS,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, enables the function `attr.applicable_licenses`.")
   public boolean incompatibleApplicableLicenses;
 
@@ -458,10 +416,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set, (used) source files are are package private unless exported explicitly. See "
               + "https://github.com/bazelbuild/proposals/blob/master/designs/"
@@ -473,10 +428,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, disables the `outputs` parameter of the `rule()` Starlark function.")
   public boolean incompatibleNoRuleOutputsParam;
 
@@ -485,10 +437,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, the command parameter of actions.run_shell will only accept string")
   public boolean incompatibleRunShellCommandString;
 
@@ -505,10 +454,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "When true, Bazel no longer modifies command line flags used for linking, and also "
               + "doesn't selectively decide which flags go to the param file and which don't.  "
@@ -520,10 +466,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "When true, Bazel will no longer allow using cc_configure from @bazel_tools. "
               + "Please see https://github.com/bazelbuild/bazel/issues/10134 for details and "
@@ -535,10 +478,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "When true, Bazel no longer returns a list from linking_context.libraries_to_link but "
               + "returns a depset instead.")
@@ -549,10 +489,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If set to true, unknown string escapes like `\\a` become rejected.")
   public boolean incompatibleRestrictStringEscapes;
 
@@ -561,10 +498,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true the default linkopts in the default toolchain are passed as linklibs "
               + "instead of linkopts to cc_toolchain_config")
@@ -575,10 +509,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, the jar_file, and host_javabase parameters in pack_sources and "
               + "host_javabase in compile will all be removed.")
@@ -608,10 +539,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       name = "incompatible_top_level_aspects_require_providers",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "If set to true, the top level aspect will honor its required providers and only run on"
@@ -623,10 +551,7 @@ public class BuildLanguageOptions extends OptionsBase implements Serializable {
       name = "incompatible_top_level_aspects_dependency",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "If set to true, a dependency between the top level aspects will be built based on their"
