@@ -1645,7 +1645,7 @@ public final class SkyframeActionExecutor {
     }
     if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
       // Bind the output to the prefix event.
-      eventHandler.handle(prefixEvent.withStdoutStderr(outErrBuffer));
+      eventHandler.handle(prefixEvent.withProcessOutput(new ActionOutputEventData(outErrBuffer)));
     } else {
       eventHandler.handle(prefixEvent);
     }
@@ -1734,6 +1734,45 @@ public final class SkyframeActionExecutor {
     public ActionInput getInput(String execPath) {
       ActionInput input = perActionCache.getInput(execPath);
       return input != null ? input : perBuildFileCache.getInput(execPath);
+    }
+  }
+
+  /** Adapts a {@link FileOutErr} to an {@link Event.ProcessOutput}. */
+  private static class ActionOutputEventData implements Event.ProcessOutput {
+    private final FileOutErr fileOutErr;
+
+    private ActionOutputEventData(FileOutErr fileOutErr) {
+      this.fileOutErr = fileOutErr;
+    }
+
+    @Override
+    public String getStdOutPath() {
+      return fileOutErr.getOutputPathFragment().getPathString();
+    }
+
+    @Override
+    public long getStdOutSize() throws IOException {
+      return fileOutErr.outSize();
+    }
+
+    @Override
+    public byte[] getStdOut() {
+      return fileOutErr.outAsBytes();
+    }
+
+    @Override
+    public String getStdErrPath() {
+      return fileOutErr.getErrorPathFragment().getPathString();
+    }
+
+    @Override
+    public long getStdErrSize() throws IOException {
+      return fileOutErr.errSize();
+    }
+
+    @Override
+    public byte[] getStdErr() {
+      return fileOutErr.errAsBytes();
     }
   }
 }

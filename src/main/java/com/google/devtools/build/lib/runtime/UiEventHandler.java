@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Event.ProcessOutput;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -385,7 +386,7 @@ public final class UiEventHandler implements EventHandler {
 
   @Nullable
   private byte[] getContentIfSmallEnough(
-      String name, long size, Supplier<byte[]> getContent, Supplier<PathFragment> getPath) {
+      String name, long size, Supplier<byte[]> getContent, Supplier<String> getPath) {
     if (size == 0) {
       // Avoid any possible I/O when we know it'll be empty anyway.
       return null;
@@ -412,13 +413,20 @@ public final class UiEventHandler implements EventHandler {
       // much memory.
       byte[] stdout = null;
       byte[] stderr = null;
-      if (event.hasStdoutStderr()) {
+      ProcessOutput processOutput = event.getProcessOutput();
+      if (processOutput != null) {
         stdout =
             getContentIfSmallEnough(
-                "stdout", event.getStdOutSize(), event::getStdOut, event::getStdOutPathFragment);
+                "stdout",
+                processOutput.getStdOutSize(),
+                processOutput::getStdOut,
+                processOutput::getStdOutPath);
         stderr =
             getContentIfSmallEnough(
-                "stderr", event.getStdErrSize(), event::getStdErr, event::getStdErrPathFragment);
+                "stderr",
+                processOutput.getStdErrSize(),
+                processOutput::getStdErr,
+                processOutput::getStdErrPath);
       }
 
       if (debugAllEvents) {
