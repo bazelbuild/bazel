@@ -774,6 +774,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     assertThat(runtimeWrapper.getCrashMessages())
         .containsExactly(
             TestConstants.PRODUCT_NAME + " is crashing: Crashed: (java.lang.OutOfMemoryError) ");
+    assertAndClearBugReporterStoredCrash(OutOfMemoryError.class);
   }
 
   /**

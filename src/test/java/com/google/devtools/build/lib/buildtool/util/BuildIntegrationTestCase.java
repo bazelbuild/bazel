@@ -20,6 +20,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -286,7 +287,20 @@ public abstract class BuildIntegrationTestCase {
     }
     LoggingUtil.installRemoteLoggerForTesting(null);
     testRoot.deleteTreesBelow(); // (comment out during debugging)
+    // Make sure that a test which crashes with on a bug report does not taint following ones with
+    // an unprocessed exception stored statically in BugReport.
+    BugReport.maybePropagateUnprocessedThrowableIfInTest();
     Thread.interrupted(); // If there was a crash in test case, main thread was interrupted.
+  }
+
+  /**
+   * Check and clear crash was reported in {@link BugReport}.
+   *
+   * <p>{@link BugReport} stores information about crashes in a static variable when running tests.
+   * Tests which deliberately cause crashes, need to clear that flag not to taint the environment.
+   */
+  protected static void assertAndClearBugReporterStoredCrash(Class<? extends Throwable> expected) {
+    assertThrows(expected, BugReport::maybePropagateUnprocessedThrowableIfInTest);
   }
 
   /**
