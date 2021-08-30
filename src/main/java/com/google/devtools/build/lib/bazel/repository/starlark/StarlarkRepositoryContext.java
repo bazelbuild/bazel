@@ -15,19 +15,14 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.github.difflib.patch.PatchFailedException;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
@@ -47,26 +42,17 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyKey;
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
@@ -77,7 +63,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -95,7 +80,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** Starlark API for the repository_rule's context. */
@@ -107,7 +91,7 @@ import net.starlark.java.syntax.Location;
             + " helper functions and information about attributes. You get a repository_ctx object"
             + " as an argument to the <code>implementation</code> function when you create a"
             + " repository rule.")
-public class StarlarkRepositoryContext implements StarlarkValue {
+public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private static final ImmutableList<String> WHITELISTED_REPOS_FOR_FLAG_ENABLED =
       ImmutableList.of("@rules_cc", "@bazel_tools");
   private static final ImmutableList<String> WHITELISTED_PATHS_FOR_FLAG_ENABLED =
@@ -115,22 +99,10 @@ public class StarlarkRepositoryContext implements StarlarkValue {
           "rules_cc/cc/private/toolchain/unix_cc_configure.bzl",
           "bazel_tools/tools/cpp/unix_cc_configure.bzl");
 
-  /** Max. number of command line args added as a profiler description. */
-  private static final int MAX_PROFILE_ARGS_LEN = 80;
-
   private final Rule rule;
   private final PathPackageLocator packageLocator;
-  private final Path outputDirectory;
   private final StructImpl attrObject;
-  private final StarlarkOS osObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
-  private final Environment env;
-  private final DownloadManager downloadManager;
-  private final double timeoutScaling;
-  @Nullable private final ProcessWrapper processWrapper;
-  private final Map<String, String> markerData;
-  private final StarlarkSemantics starlarkSemantics;
-  private final RepositoryRemoteExecutor remoteExecutor;
 
   /**
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
@@ -142,24 +114,25 @@ public class StarlarkRepositoryContext implements StarlarkValue {
       Path outputDirectory,
       ImmutableSet<PathFragment> ignoredPatterns,
       Environment environment,
-      Map<String, String> env,
+      ImmutableMap<String, String> env,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
-      Map<String, String> markerData,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor)
       throws EvalException {
+    super(
+        outputDirectory,
+        environment,
+        env,
+        downloadManager,
+        timeoutScaling,
+        processWrapper,
+        starlarkSemantics,
+        remoteExecutor);
     this.rule = rule;
     this.packageLocator = packageLocator;
-    this.outputDirectory = outputDirectory;
     this.ignoredPatterns = ignoredPatterns;
-    this.env = environment;
-    this.osObject = new StarlarkOS(env);
-    this.downloadManager = downloadManager;
-    this.timeoutScaling = timeoutScaling;
-    this.processWrapper = processWrapper;
-    this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -170,8 +143,11 @@ public class StarlarkRepositoryContext implements StarlarkValue {
       }
     }
     attrObject = StructProvider.STRUCT.create(attrBuilder.build(), "No such attribute '%s'");
-    this.starlarkSemantics = starlarkSemantics;
-    this.remoteExecutor = remoteExecutor;
+  }
+
+  @Override
+  protected String getIdentifyingStringForLogging() {
+    return rule.getLabel().toString();
   }
 
   @StarlarkMethod(
@@ -197,7 +173,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
     StarlarkPath starlarkPath = getPath(method, pathObject);
     Path path = starlarkPath.getPath();
     if (packageLocator.getPathEntries().stream().noneMatch(root -> path.startsWith(root.asPath()))
-        || path.startsWith(outputDirectory)) {
+        || path.startsWith(workingDirectory)) {
       return starlarkPath;
     }
     Path workspaceRoot = packageLocator.getWorkspaceFile().getParentDirectory();
@@ -214,46 +190,6 @@ public class StarlarkRepositoryContext implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "path",
-      doc =
-          "Returns a path from a string, label or path. If the path is relative, it will resolve "
-              + "relative to the repository directory. If the path is a label, it will resolve to "
-              + "the path of the corresponding file. Note that remote repositories are executed "
-              + "during the analysis phase and thus cannot depends on a target result (the "
-              + "label should point to a non-generated file). If path is a path, it will return "
-              + "that path as is.",
-      parameters = {
-        @Param(
-            name = "path",
-            allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = Label.class),
-              @ParamType(type = StarlarkPath.class)
-            },
-            doc = "string, label or path from which to create a path from")
-      })
-  public StarlarkPath path(Object path) throws EvalException, InterruptedException {
-    return getPath("path()", path);
-  }
-
-  private StarlarkPath getPath(String method, Object path)
-      throws EvalException, InterruptedException {
-    if (path instanceof String) {
-      PathFragment pathFragment = PathFragment.create(path.toString());
-      return new StarlarkPath(
-          pathFragment.isAbsolute()
-              ? outputDirectory.getFileSystem().getPath(pathFragment)
-              : outputDirectory.getRelative(pathFragment));
-    } else if (path instanceof Label) {
-      return getPathFromLabel((Label) path);
-    } else if (path instanceof StarlarkPath) {
-      return (StarlarkPath) path;
-    } else {
-      throw Starlark.errorf("%s can only take a string or a label.", method);
-    }
-  }
-
-  @StarlarkMethod(
       name = "report_progress",
       doc = "Updates the progress status for the fetching of this repository",
       parameters = {
@@ -262,6 +198,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
             allowedTypes = {@ParamType(type = String.class)},
             doc = "string describing the current status of the fetch progress")
       })
+  // TODO(wyv): migrate this to the base context.
   public void reportProgress(String status) {
     final String message = status == null ? "" : status;
     final String id = "@" + getName();
@@ -338,7 +275,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
 
   private void checkInOutputDirectory(String operation, StarlarkPath path)
       throws RepositoryFunctionException {
-    if (!path.getPath().getPathString().startsWith(outputDirectory.getPathString())) {
+    if (!path.getPath().getPathString().startsWith(workingDirectory.getPathString())) {
       throw new RepositoryFunctionException(
           Starlark.errorf(
               "Cannot %s outside of the repository directory for path %s", operation, path),
@@ -493,75 +430,8 @@ public class StarlarkRepositoryContext implements StarlarkValue {
     }
   }
 
-  @StarlarkMethod(
-      name = "read",
-      doc = "Reads the content of a file on the filesystem.",
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "path",
-            allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = Label.class),
-              @ParamType(type = StarlarkPath.class)
-            },
-            doc = "path of the file to read from."),
-      })
-  public String readFile(Object path, StarlarkThread thread)
-      throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath("read()", path);
-    WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newReadEvent(
-            p.toString(), rule.getLabel().toString(), thread.getCallerLocation());
-    env.getListener().post(w);
-    try {
-      return FileSystemUtils.readContent(p.getPath(), StandardCharsets.ISO_8859_1);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-  }
-
-  // Create parent directories for the given path
-  private static void makeDirectories(Path path) throws IOException {
-    Path parent = path.getParentDirectory();
-    if (parent != null) {
-      parent.createDirectoryAndParents();
-    }
-  }
-
-  @StarlarkMethod(
-      name = "os",
-      structField = true,
-      doc = "A struct to access information from the system.")
-  public StarlarkOS getOS() {
-    // Historically this event reported the location of the ctx.os expression,
-    // but that's no longer available in the interpreter API. Now we report the
-    // location of the rule's implementation function, and the user must inspect
-    // that code manually (or in a debugger) to find the offending ctx.os expression.
-    WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newOsEvent(
-            rule.getLabel().toString(),
-            rule.getRuleClassObject().getConfiguredTargetFunction().getLocation());
-    env.getListener().post(w);
-    return osObject;
-  }
-
-  private void createDirectory(Path directory) throws RepositoryFunctionException {
-    try {
-      if (!directory.exists()) {
-        makeDirectories(directory);
-        directory.createDirectory();
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    } catch (InvalidPathException e) {
-      throw new RepositoryFunctionException(
-          Starlark.errorf("Could not create %s: %s", directory, e.getMessage()),
-          Transience.PERSISTENT);
-    }
-  }
-
-  boolean isRemotable() {
+  @Override
+  protected boolean isRemotable() {
     Object remotable = rule.getAttr("$remotable");
     if (remotable != null) {
       return (Boolean) remotable;
@@ -569,226 +439,11 @@ public class StarlarkRepositoryContext implements StarlarkValue {
     return false;
   }
 
-  private boolean canExecuteRemote() {
-    boolean featureEnabled =
-        starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC);
-    boolean remoteExecEnabled = remoteExecutor != null;
-    return featureEnabled && isRemotable() && remoteExecEnabled;
-  }
-
-  private ImmutableMap<String, String> getExecProperties() throws EvalException {
+  @Override
+  protected ImmutableMap<String, String> getRemoteExecProperties() throws EvalException {
     return ImmutableMap.copyOf(
         Dict.cast(
             getAttr().getValue("exec_properties"), String.class, String.class, "exec_properties"));
-  }
-
-  private Map.Entry<PathFragment, Path> getRemotePathFromLabel(Label label)
-      throws EvalException, InterruptedException {
-    Path localPath = getPathFromLabel(label).getPath();
-    PathFragment remotePath =
-        label.getPackageIdentifier().getSourceRoot().getRelative(label.getName());
-    return Maps.immutableEntry(remotePath, localPath);
-  }
-
-  private StarlarkExecutionResult executeRemote(
-      Sequence<?> argumentsUnchecked, // <String> or <Label> expected
-      int timeout,
-      Map<String, String> environment,
-      boolean quiet,
-      String workingDirectory)
-      throws EvalException, InterruptedException {
-    Preconditions.checkState(canExecuteRemote());
-
-    ImmutableSortedMap.Builder<PathFragment, Path> inputsBuilder =
-        ImmutableSortedMap.naturalOrder();
-    ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
-    for (Object argumentUnchecked : argumentsUnchecked) {
-      if (argumentUnchecked instanceof Label) {
-        Label label = (Label) argumentUnchecked;
-        Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label);
-        argumentsBuilder.add(remotePath.getKey().toString());
-        inputsBuilder.put(remotePath);
-      } else {
-        argumentsBuilder.add(argumentUnchecked.toString());
-      }
-    }
-
-    ImmutableList<String> arguments = argumentsBuilder.build();
-
-    try (SilentCloseable c =
-        Profiler.instance()
-            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, profileArgsDesc("remote", arguments))) {
-      ExecutionResult result =
-          remoteExecutor.execute(
-              arguments,
-              inputsBuilder.build(),
-              getExecProperties(),
-              ImmutableMap.copyOf(environment),
-              workingDirectory,
-              Duration.ofSeconds(timeout));
-
-      String stdout = new String(result.stdout(), StandardCharsets.US_ASCII);
-      String stderr = new String(result.stderr(), StandardCharsets.US_ASCII);
-
-      if (!quiet) {
-        OutErr outErr = OutErr.SYSTEM_OUT_ERR;
-        outErr.printOut(stdout);
-        outErr.printErr(stderr);
-      }
-
-      return new StarlarkExecutionResult(result.exitCode(), stdout, stderr);
-    } catch (IOException e) {
-      throw Starlark.errorf("remote_execute failed: %s", e.getMessage());
-    }
-  }
-
-  private void validateExecuteArguments(Sequence<?> arguments) throws EvalException {
-    boolean isRemotable = isRemotable();
-    for (int i = 0; i < arguments.size(); i++) {
-      Object arg = arguments.get(i);
-      if (isRemotable) {
-        if (!(arg instanceof String || arg instanceof Label)) {
-          throw Starlark.errorf("Argument %d of execute is neither a label nor a string.", i);
-        }
-      } else {
-        if (!(arg instanceof String || arg instanceof Label || arg instanceof StarlarkPath)) {
-          throw Starlark.errorf("Argument %d of execute is neither a path, label, nor string.", i);
-        }
-      }
-    }
-  }
-
-  /** Returns the command line arguments as a string for display in the profiler. */
-  private static String profileArgsDesc(String method, List<String> args) {
-    StringBuilder b = new StringBuilder();
-    b.append(method).append(":");
-
-    final String sep = " ";
-    for (String arg : args) {
-      int appendLen = sep.length() + arg.length();
-      int remainingLen = MAX_PROFILE_ARGS_LEN - b.length();
-
-      if (appendLen <= remainingLen) {
-        b.append(sep);
-        b.append(arg);
-      } else {
-        String shortenedArg = (sep + arg).substring(0, remainingLen);
-        b.append(shortenedArg);
-        b.append("...");
-        break;
-      }
-    }
-
-    return b.toString();
-  }
-
-  @StarlarkMethod(
-      name = "execute",
-      doc =
-          "Executes the command given by the list of arguments. The execution time of the command"
-              + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
-              + " returns an <code>exec_result</code> structure containing the output of the"
-              + " command. The <code>environment</code> map can be used to override some"
-              + " environment variables to be passed to the process.",
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "arguments",
-            doc =
-                "List of arguments, the first element should be the path to the program to "
-                    + "execute."),
-        @Param(
-            name = "timeout",
-            named = true,
-            defaultValue = "600",
-            doc = "maximum duration of the command in seconds (default is 600 seconds)."),
-        @Param(
-            name = "environment",
-            defaultValue = "{}",
-            named = true,
-            doc = "force some environment variables to be set to be passed to the process."),
-        @Param(
-            name = "quiet",
-            defaultValue = "True",
-            named = true,
-            doc = "If stdout and stderr should be printed to the terminal."),
-        @Param(
-            name = "working_directory",
-            defaultValue = "\"\"",
-            named = true,
-            doc =
-                "Working directory for command execution.\n"
-                    + "Can be relative to the repository root or absolute."),
-      })
-  public StarlarkExecutionResult execute(
-      Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
-      StarlarkInt timeoutI,
-      Dict<?, ?> uncheckedEnvironment, // <String, String> expected
-      boolean quiet,
-      String workingDirectory,
-      StarlarkThread thread)
-      throws EvalException, RepositoryFunctionException, InterruptedException {
-    validateExecuteArguments(arguments);
-    int timeout = Starlark.toInt(timeoutI, "timeout");
-
-    Map<String, String> environment =
-        Dict.cast(uncheckedEnvironment, String.class, String.class, "environment");
-
-    if (canExecuteRemote()) {
-      return executeRemote(arguments, timeout, environment, quiet, workingDirectory);
-    }
-
-    // Execute on the local/host machine
-
-    List<String> args = new ArrayList<>(arguments.size());
-    for (Object arg : arguments) {
-      if (arg instanceof Label) {
-        args.add(getPathFromLabel((Label) arg).toString());
-      } else {
-        // String or StarlarkPath expected
-        args.add(arg.toString());
-      }
-    }
-
-    WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newExecuteEvent(
-            args,
-            timeout,
-            osObject.getEnvironmentVariables(),
-            environment,
-            outputDirectory.getPathString(),
-            quiet,
-            rule.getLabel().toString(),
-            thread.getCallerLocation());
-    env.getListener().post(w);
-    createDirectory(outputDirectory);
-
-    long timeoutMillis = Math.round(timeout * 1000L * timeoutScaling);
-    if (processWrapper != null) {
-      args =
-          processWrapper
-              .commandLineBuilder(args)
-              .setTimeout(Duration.ofMillis(timeoutMillis))
-              .build();
-    }
-
-    Path workingDirectoryPath = outputDirectory;
-    if (workingDirectory != null && !workingDirectory.isEmpty()) {
-      workingDirectoryPath = getPath("execute()", workingDirectory).getPath();
-    }
-    createDirectory(workingDirectoryPath);
-
-    try (SilentCloseable c =
-        Profiler.instance()
-            .profile(ProfilerTask.STARLARK_REPOSITORY_FN, profileArgsDesc("local", args))) {
-      return StarlarkExecutionResult.builder(osObject.getEnvironmentVariables())
-          .addArguments(args)
-          .setDirectory(workingDirectoryPath.getPathFile())
-          .addEnvironmentVariables(environment)
-          .setTimeout(timeoutMillis)
-          .setQuiet(quiet)
-          .execute();
-    }
   }
 
   @StarlarkMethod(
@@ -857,7 +512,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
             starlarkPath.toString(), strip, rule.getLabel().toString(), thread.getCallerLocation());
     env.getListener().post(w);
     try {
-      PatchUtil.apply(starlarkPath.getPath(), strip, outputDirectory);
+      PatchUtil.apply(starlarkPath.getPath(), strip, workingDirectory);
     } catch (PatchFailedException e) {
       throw new RepositoryFunctionException(
           Starlark.errorf("Error applying patch %s: %s", starlarkPath, e.getMessage()),
@@ -865,61 +520,6 @@ public class StarlarkRepositoryContext implements StarlarkValue {
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-  }
-
-  @StarlarkMethod(
-      name = "which",
-      doc =
-          "Returns the path of the corresponding program or None "
-              + "if there is no such program in the path.",
-      allowReturnNones = true,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "program", named = false, doc = "Program to find in the path."),
-      })
-  @Nullable
-  public StarlarkPath which(String program, StarlarkThread thread) throws EvalException {
-    WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newWhichEvent(
-            program, rule.getLabel().toString(), thread.getCallerLocation());
-    env.getListener().post(w);
-    if (program.contains("/") || program.contains("\\")) {
-      throw Starlark.errorf(
-          "Program argument of which() may not contain a / or a \\ ('%s' given)", program);
-    }
-    if (program.length() == 0) {
-      throw Starlark.errorf("Program argument of which() may not be empty");
-    }
-    try {
-      StarlarkPath commandPath = findCommandOnPath(program);
-      if (commandPath != null) {
-        return commandPath;
-      }
-
-      if (!program.endsWith(OsUtils.executableExtension())) {
-        program += OsUtils.executableExtension();
-        return findCommandOnPath(program);
-      }
-    } catch (IOException e) {
-      // IOException when checking executable file means we cannot read the file data so
-      // we cannot execute it, swallow the exception.
-    }
-    return null;
-  }
-
-  private StarlarkPath findCommandOnPath(String program) throws IOException {
-    for (String p : getPathEnvironment()) {
-      PathFragment fragment = PathFragment.create(p);
-      if (fragment.isAbsolute()) {
-        // We ignore relative path as they don't mean much here (relative to where? the workspace
-        // root?).
-        Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program.trim());
-        if (path.exists() && path.isFile(Symlinks.FOLLOW) && path.isExecutable()) {
-          return new StarlarkPath(path);
-        }
-      }
-    }
-    return null;
   }
 
   private void warnAboutChecksumError(List<URL> urls, String errorMessage) {
@@ -1068,7 +668,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
               Optional.<String>absent(),
               outputPath.getPath(),
               env.getListener(),
-              osObject.getEnvironmentVariables(),
+              envVariables,
               getName());
       if (executable) {
         outputPath.getPath().setExecutable(true);
@@ -1317,7 +917,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
       java.nio.file.Path tempDirectory =
           Files.createTempDirectory(Paths.get(outputPath.toString()), "temp");
       downloadDirectory =
-          outputDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
+          workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
 
       downloadedPath =
           downloadManager.download(
@@ -1328,7 +928,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
               Optional.of(type),
               downloadDirectory,
               env.getListener(),
-              osObject.getEnvironmentVariables(),
+              envVariables,
               getName());
     } catch (InterruptedException e) {
       env.getListener().post(w);
@@ -1544,55 +1144,9 @@ public class StarlarkRepositoryContext implements StarlarkValue {
     return urls;
   }
 
-  // This is just for test to overwrite the path environment
-  private static ImmutableList<String> pathEnv = null;
-
-  @VisibleForTesting
-  static void setPathEnvironment(String... pathEnv) {
-    StarlarkRepositoryContext.pathEnv = ImmutableList.<String>copyOf(pathEnv);
-  }
-
-  private ImmutableList<String> getPathEnvironment() {
-    if (pathEnv != null) {
-      return pathEnv;
-    }
-    String pathEnviron = osObject.getEnvironmentVariables().get("PATH");
-    if (pathEnviron == null) {
-      return ImmutableList.of();
-    }
-    return ImmutableList.copyOf(pathEnviron.split(File.pathSeparator));
-  }
-
   @Override
   public String toString() {
     return "repository_ctx[" + rule.getLabel() + "]";
-  }
-
-  // Resolve the label given by value into a file path.
-  private StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
-    RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
-    SkyKey fileSkyKey = FileValue.key(rootedPath);
-    FileValue fileValue = null;
-    try {
-      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
-    } catch (IOException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-
-    if (fileValue == null) {
-      throw RepositoryFunction.restart();
-    }
-    if (!fileValue.isFile() || fileValue.isSpecialFile()) {
-      throw Starlark.errorf("Not a regular file: %s", rootedPath.asPath().getPathString());
-    }
-
-    // A label does not contains space so it safe to use as a key.
-    try {
-      markerData.put("FILE:" + label, RepositoryFunction.fileValueToMarkerValue(fileValue));
-    } catch (IOException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-    return new StarlarkPath(rootedPath.asPath());
   }
 
   /**
@@ -1603,6 +1157,7 @@ public class StarlarkRepositoryContext implements StarlarkValue {
    * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
    * potentially more expensive operations.
    */
+  // TODO(wyv): somehow migrate this to the base context too.
   public void enforceLabelAttributes() throws EvalException, InterruptedException {
     StructImpl attr = getAttr();
     for (String name : attr.getFieldNames()) {
