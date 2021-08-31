@@ -269,47 +269,6 @@ public final class BuildTypeTest {
   }
 
   @Test
-  public void testFilesetEntry() throws Exception {
-    Label srcDir = Label.create("foo", "src");
-    Label entryLabel = Label.create("foo", "entry");
-    FilesetEntry input =
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entryLabel),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null);
-    assertThat(BuildType.FILESET_ENTRY.convert(input, null, currentRule)).isEqualTo(input);
-    assertThat(collectLabels(BuildType.FILESET_ENTRY, input)).containsExactly(entryLabel);
-  }
-
-  @Test
-  public void testFilesetEntryList() throws Exception {
-    Label srcDir = Label.create("foo", "src");
-    Label entry1Label = Label.create("foo", "entry1");
-    Label entry2Label = Label.create("foo", "entry");
-    List<FilesetEntry> input = ImmutableList.of(
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entry1Label),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null),
-        new FilesetEntry(
-            /* srcLabel */ srcDir,
-            /* files */ ImmutableList.of(entry2Label),
-            /* excludes */ null,
-            /* destDir */ null,
-            /* symlinkBehavior */ null,
-            /* stripPrefix */ null));
-    assertThat(BuildType.FILESET_ENTRY_LIST.convert(input, null, currentRule)).isEqualTo(input);
-    assertThat(collectLabels(BuildType.FILESET_ENTRY_LIST, input)).containsExactly(
-        entry1Label, entry2Label);
-  }
-
-  @Test
   public void testLabelWithRemapping() throws Exception {
     LabelConversionContext context =
         new LabelConversionContext(
