@@ -527,7 +527,10 @@ public class BazelCppRuleClasses {
                                   BazelCppSemantics.CC_SHARED_INFO_PROVIDER)),
                           ImmutableList.of(
                               StarlarkProviderIdentifier.forKey(
-                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_RULES_CC)))))
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_RULES_CC)),
+                          ImmutableList.of(
+                              StarlarkProviderIdentifier.forKey(
+                                  BazelCppSemantics.CC_SHARED_INFO_PROVIDER_BUILT_INS)))))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(malloc) -->
           Override the default dependency on malloc.
           <p>

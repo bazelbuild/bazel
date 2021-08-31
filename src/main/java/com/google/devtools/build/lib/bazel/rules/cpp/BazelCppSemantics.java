@@ -51,6 +51,11 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
+  public static final Provider.Key CC_SHARED_INFO_PROVIDER_BUILT_INS =
+      new StarlarkProvider.Key(
+          Label.parseAbsoluteUnchecked("@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
+          "CcSharedLibraryInfo");
+
   private enum Language {
     CPP,
     OBJC
@@ -130,6 +135,10 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       return ccSharedLibraryInfo;
     }
     ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_RULES_CC);
+    if (ccSharedLibraryInfo != null) {
+      return ccSharedLibraryInfo;
+    }
+    ccSharedLibraryInfo = (StructImpl) dep.get(CC_SHARED_INFO_PROVIDER_BUILT_INS);
     if (ccSharedLibraryInfo != null) {
       return ccSharedLibraryInfo;
     }
