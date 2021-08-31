@@ -352,12 +352,19 @@ public final class CcToolchainProvider extends NativeInfo
     // TODO(bazel-team): delete all of these.
     result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
 
-    // TODO(kmensah): Remove when Starlark dependencies can be updated to rely on
+    // TODO(bazel-team): Remove when Starlark dependencies can be updated to rely on
     // CcToolchainProvider.
     result.putAll(getAdditionalMakeVariables());
 
-    result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
-    result.put("ABI", getAbi());
+    String abiGlibcVersion = getAbiGlibcVersion();
+    if (abiGlibcVersion != null) {
+      result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
+    }
+
+    String abi = getAbi();
+    if (abi != null) {
+      result.put("ABI", getAbi());
+    }
 
     globalMakeEnvBuilder.putAll(result.build());
   }

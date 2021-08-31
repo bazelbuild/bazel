@@ -1045,11 +1045,15 @@ public interface CcModuleApi<
         @Param(
             name = "abi_version",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc = "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\""),
         @Param(
             name = "abi_libc_version",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc = "The glibc version used by the abi we're using."),
         @Param(
@@ -1097,8 +1101,8 @@ public interface CcModuleApi<
       String targetCpu,
       String targetLibc,
       String compiler,
-      String abiVersion,
-      String abiLibcVersion,
+      Object abiVersion,
+      Object abiLibcVersion,
       Sequence<?> toolPaths, // <StructApi> expected
       Sequence<?> makeVariables, // <StructApi> expected
       Object builtinSysroot,

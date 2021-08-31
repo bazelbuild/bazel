@@ -4605,20 +4605,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromStarlarkRequiredAbiVersion() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("abi_version");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_version");
-  }
-
-  @Test
-  public void testCcToolchainInfoFromStarlarkRequiredAbiLibcVersion() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("abi_libc_version");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_libc_version");
-  }
-
-  @Test
   public void testCcToolchainInfoFromStarlarkAllRequiredStringsPresent() throws Exception {
     setupStarlarkRuleForStringFieldsTesting("");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
@@ -5044,8 +5030,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
         "                compiler = 'compiler',",
-        "                abi_libc_version = 'abi_libc',",
-        "                abi_version = 'abi',",
         "        )",
         "cc_toolchain_config_rule = rule(",
         "    implementation = _impl,",

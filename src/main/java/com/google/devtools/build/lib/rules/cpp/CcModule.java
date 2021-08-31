@@ -1044,8 +1044,8 @@ public abstract class CcModule
       String targetCpu,
       String targetLibc,
       String compiler,
-      String abiVersion,
-      String abiLibcVersion,
+      Object abiVersion,
+      Object abiLibcVersion,
       Sequence<?> toolPaths, // <StarlarkInfo> expected
       Sequence<?> makeVariables, // <StarlarkInfo> expected
       Object builtinSysroot,
@@ -1209,8 +1209,8 @@ public abstract class CcModule
         targetCpu,
         targetLibc,
         compiler,
-        abiVersion,
-        abiLibcVersion,
+        convertFromNoneable(abiVersion, /* defaultValue= */ ""),
+        convertFromNoneable(abiLibcVersion, /* defaultValue= */ ""),
         toolPathList,
         makeVariablePairs.build(),
         convertFromNoneable(builtinSysroot, /* defaultValue= */ ""),
