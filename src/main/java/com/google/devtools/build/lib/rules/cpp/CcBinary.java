@@ -23,7 +23,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -973,10 +972,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    // Get the tool inputs necessary to run the dwp command.
-    NestedSet<Artifact> dwpFiles = toolchain.getDwpFiles();
-    Preconditions.checkState(!dwpFiles.isEmpty());
-
     // We apply a hierarchical action structure to limit the maximum number of inputs to any
     // single action.
     //
@@ -993,7 +988,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // action's input size.
     Packager packager =
         createIntermediateDwpPackagers(
-            context, dwpOutput, toolchain, dwpFiles, dwoFiles.toList(), 1);
+            context, dwpOutput, toolchain, toolchain.getDwpFiles(), dwoFiles.toList(), 1);
     packager.spawnAction.setMnemonic("CcGenerateDwp").addOutput(dwpOutput);
     packager.commandLine.addExecPath("-o", dwpOutput);
     context.registerAction(packager.build(context));
