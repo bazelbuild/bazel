@@ -126,7 +126,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       CompilationSupport compilationSupport =
           new CompilationSupport.Builder(ruleContext, cppSemantics)
               .setToolchainProvider(childToolchain)
-              .setOutputGroupCollector(outputGroupCollector)
               .build();
 
       compilationSupport.registerFullyLinkAction(objcProvider, archive).validateAttributes();

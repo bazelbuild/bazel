@@ -203,7 +203,7 @@ def _compile(
         quote_includes = objc_compilation_context.quote_includes,
         compilation_contexts = objc_compilation_context.cc_compilation_contexts,
         user_compile_flags = user_compile_flags,
-        grep_includes = common_variables.ctx.executable._grep_includes,
+        grep_includes = _get_grep_includes(common_variables.ctx),
         module_map = module_map,
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,
@@ -261,6 +261,36 @@ def _paths_to_include_args(paths):
         new_paths.append("-I" + path)
     return new_paths
 
+# TODO(bazel-team): This method can be deleted as soon as the native j2objc
+#  rules are deleted. The native rules are deprecated and will be replaced by
+#  better Starlark rules that are not a literal translation of the native
+#  implementation and use a better approach. This is not done by the Bazel team
+# but a separate team (tball@). This method is added so that common utility code
+# in CompilationSupport can be deleted from Java.
+def _register_compile_and_archive_actions_for_j2objc(
+        ctx,
+        toolchain,
+        intermediate_artifacts,
+        compilation_artifacts,
+        objc_compilation_context,
+        extra_compile_args):
+    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
+    common_variables = struct(
+        ctx = ctx,
+        intermediate_artifacts = intermediate_artifacts,
+        compilation_attributes = compilation_attributes,
+        compilation_artifacts = compilation_artifacts,
+        objc_compilation_context = objc_compilation_context,
+        toolchain = toolchain,
+        use_pch = False,
+        disable_layering_check = True,
+        disable_parse_headers = True,
+        objc_config = ctx.fragments.objc,
+        apple_config = ctx.fragments.apple,
+        objc_provider = None,
+    )
+    return _register_compile_and_archive_actions(common_variables, extra_compile_args)
+
 def _register_compile_and_archive_actions(
         common_variables,
         extra_compile_args = [],
@@ -295,6 +325,16 @@ def _register_compile_and_archive_actions(
         )
 
     return compilation_result
+
+def _get_grep_includes(ctx):
+    if hasattr(ctx.executable, "_grep_includes"):
+        return ctx.executable._grep_includes
+    elif hasattr(ctx.file, "_grep_includes"):
+        return ctx.file._grep_includes
+    elif hasattr(ctx.files, "_grep_includes"):
+        return ctx.files._grep_includes[0]
+
+    return None
 
 def _cc_compile_and_link(
         common_variables,
@@ -440,17 +480,21 @@ def _cc_compile_and_link(
         ],
     )
 
+    linking_contexts = []
+    if hasattr(common_variables.ctx.attr, "deps"):
+        linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps)
+
     cc_common.create_linking_context_from_compilation_outputs(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = common_variables.toolchain,
         compilation_outputs = compilation_outputs,
-        linking_contexts = cc_helper.get_linking_contexts_from_deps(common_variables.ctx.attr.deps),
+        linking_contexts = linking_contexts,
         name = common_variables.ctx.label.name + intermediate_artifacts.archive_file_name_suffix,
         language = language,
         disallow_dynamic_library = True,
         additional_inputs = additional_inputs,
-        grep_includes = ctx.executable._grep_includes,
+        grep_includes = _get_grep_includes(ctx),
         variables_extension = non_arc_extensions,
     )
 
@@ -537,7 +581,7 @@ def _generate_extra_module_map(
         module_map = module_map,
         purpose = purpose,
         name = common_variables.ctx.label.name,
-        grep_includes = common_variables.ctx.executable._grep_includes,
+        grep_includes = _get_grep_includes(common_variables.ctx),
     )
 
 def _register_fully_link_action(common_variables, objc_provider, name):
@@ -573,6 +617,7 @@ def _register_fully_link_action(common_variables, objc_provider, name):
 
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,
+    register_compile_and_archive_actions_for_j2objc = _register_compile_and_archive_actions_for_j2objc,
     build_common_variables = _build_common_variables,
     build_feature_configuration = _build_feature_configuration,
     validate_attributes = _validate_attributes,

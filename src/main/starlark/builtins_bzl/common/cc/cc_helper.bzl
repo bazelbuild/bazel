@@ -30,10 +30,11 @@ def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
 def _is_code_coverage_enabled(ctx):
     if ctx.coverage_instrumented():
         return True
-    for dep in ctx.attr.deps:
-        if CcInfo in dep:
-            if ctx.coverage_instrumented(dep):
-                return True
+    if hasattr(ctx.attr, "deps"):
+        for dep in ctx.attr.deps:
+            if CcInfo in dep:
+                if ctx.coverage_instrumented(dep):
+                    return True
     return False
 
 def _get_dynamic_libraries_for_runtime(cc_linking_context, linking_statically):
@@ -141,9 +142,10 @@ def _collect_compilation_prerequisites(ctx, compilation_context):
     # method accesses other fields in compilation_context. So far this has not
     # been a problem for any migrated rule.
     direct = []
-    for src in ctx.files.srcs:
-        if src.extension in CC_AND_OBJC_EXTENSIONS:
-            direct.append(src)
+    if hasattr(ctx.files, "srcs"):
+        for src in ctx.files.srcs:
+            if src.extension in CC_AND_OBJC_EXTENSIONS:
+                direct.append(src)
     return depset(direct = direct, transitive = [compilation_context.transitive_compilation_prerequisites()])
 
 def _collect_header_tokens(
@@ -169,8 +171,9 @@ def _collect_library_hidden_top_level_artifacts(
         ctx,
         files_to_compile):
     artifacts_to_force_builder = [files_to_compile]
-    for dep in ctx.attr.deps:
-        artifacts_to_force_builder.append(dep[OutputGroupInfo]["_hidden_top_level_INTERNAL_"])
+    if hasattr(ctx.attr, "deps"):
+        for dep in ctx.attr.deps:
+            artifacts_to_force_builder.append(dep[OutputGroupInfo]["_hidden_top_level_INTERNAL_"])
 
     return depset(transitive = artifacts_to_force_builder)
 

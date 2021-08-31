@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraCompileArgs;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
@@ -86,7 +85,10 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Tuple;
 
 /** J2ObjC transpilation aspect for Java and proto rules. */
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
@@ -118,14 +120,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private final String toolsRepository;
   private final Label ccToolchainType;
   private final LabelLateBoundDefault<CppConfiguration> ccToolchain;
-  private final CppSemantics cppSemantics;
   private final Label javaToolchain;
 
   public J2ObjcAspect(RuleDefinitionEnvironment env, CppSemantics cppSemantics) {
     this.toolsRepository = checkNotNull(env.getToolsRepository());
     this.ccToolchainType = CppRuleClasses.ccToolchainTypeAttribute(env);
     this.ccToolchain = CppRuleClasses.ccToolchainAttribute(env);
-    this.cppSemantics = cppSemantics;
     this.javaToolchain = JavaSemantics.javaToolchainAttribute(env);
   }
 
@@ -261,11 +261,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ObjcCommon common;
     CcCompilationContext ccCompilationContext = null;
 
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
     if (!j2ObjcSource.getObjcSrcs().isEmpty()) {
       common =
           common(
               ObjcCommon.Purpose.COMPILE_AND_LINK,
               ruleContext,
+              intermediateArtifacts,
               j2ObjcSource.getObjcSrcs(),
               j2ObjcSource.getObjcHdrs(),
               j2ObjcSource.getHeaderSearchPaths(),
@@ -275,22 +278,29 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       try {
         CcToolchainProvider ccToolchain =
             CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
-        CompilationSupport compilationSupport =
-            new CompilationSupport.Builder(ruleContext, cppSemantics)
-                .setToolchainProvider(ccToolchain)
-                .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
-                .doNotUsePch()
-                .disableLayeringCheck()
-                .disableParseHeaders()
-                .build();
-        ExtraCompileArgs extraCompileArgs =
+        ImmutableList<String> extraCompileArgs =
             j2objcCompileWithARC(ruleContext)
-                ? new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-arc-exceptions")
-                : new ExtraCompileArgs("-fno-strict-overflow", "-fobjc-weak");
+                ? ImmutableList.of("-fno-strict-overflow", "-fobjc-arc-exceptions")
+                : ImmutableList.of("-fno-strict-overflow", "-fobjc-weak");
 
-        compilationSupport.registerCompileAndArchiveActions(
-            common, extraCompileArgs, ImmutableList.<PathFragment>of());
-        ccCompilationContext = compilationSupport.getCcCompilationContext();
+        Object starlarkFunc =
+            ruleContext.getStarlarkDefinedBuiltin(
+                "register_compile_and_archive_actions_for_j2objc");
+        ruleContext.initStarlarkRuleContext();
+        Tuple compilationResult =
+            (Tuple)
+                ruleContext.callStarlarkOrThrowRuleError(
+                    starlarkFunc,
+                    ImmutableList.of(
+                        ruleContext.getStarlarkRuleContext(),
+                        ccToolchain,
+                        intermediateArtifacts,
+                        common.getCompilationArtifacts().get(),
+                        common.getObjcCompilationContext(),
+                        StarlarkList.immutableCopyOf(extraCompileArgs)),
+                    new HashMap<>());
+
+        ccCompilationContext = (CcCompilationContext) compilationResult.get(0);
       } catch (RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
       }
@@ -299,6 +309,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           common(
               ObjcCommon.Purpose.LINK_ONLY,
               ruleContext,
+              intermediateArtifacts,
               ImmutableList.<Artifact>of(),
               ImmutableList.<Artifact>of(),
               ImmutableList.<PathFragment>of(),
@@ -842,6 +853,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private static ObjcCommon common(
       ObjcCommon.Purpose purpose,
       RuleContext ruleContext,
+      IntermediateArtifacts intermediateArtifacts,
       List<Artifact> transpiledSources,
       List<Artifact> transpiledHeaders,
       List<PathFragment> headerSearchPaths,
@@ -849,8 +861,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       List<TransitiveInfoCollection> otherDeps)
       throws InterruptedException {
     ObjcCommon.Builder builder = new ObjcCommon.Builder(purpose, ruleContext);
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
 
     if (!transpiledSources.isEmpty() || !transpiledHeaders.isEmpty()) {
       CompilationArtifacts.Builder compilationArtifactsBuilder =

@@ -157,7 +157,6 @@ public class MultiArchBinarySupport {
         new CompilationSupport.Builder(ruleContext, cppSemantics)
             .setConfig(dependencySpecificConfiguration.config())
             .setToolchainProvider(dependencySpecificConfiguration.toolchain())
-            .setOutputGroupCollector(outputMapCollector)
             .build();
 
     compilationSupport

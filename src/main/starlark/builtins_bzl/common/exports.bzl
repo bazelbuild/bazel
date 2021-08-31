@@ -19,6 +19,7 @@ load("@_builtins//:common/java/java_library_macro.bzl", "java_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/apple_static_library.bzl", "apple_static_library")
+load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -33,4 +34,6 @@ exported_rules = {
     "objc_library": objc_library,
     "+apple_static_library": apple_static_library,
 }
-exported_to_java = {}
+exported_to_java = {
+    "register_compile_and_archive_actions_for_j2objc": compilation_support.register_compile_and_archive_actions_for_j2objc,
+}

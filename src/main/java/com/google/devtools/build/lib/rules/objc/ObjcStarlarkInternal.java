@@ -104,6 +104,9 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       })
   public Sequence<String> expandToolchainAndRuleContextVariables(
       StarlarkRuleContext starlarkRuleContext, Sequence<?> flags) throws EvalException {
+    if (flags.isEmpty()) {
+      return Sequence.cast(flags, String.class, "flags");
+    }
     ImmutableMap<String, String> toolchainMap =
         starlarkRuleContext
             .getRuleContext()
