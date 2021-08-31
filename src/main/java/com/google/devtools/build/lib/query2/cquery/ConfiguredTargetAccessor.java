@@ -217,6 +217,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
     ImmutableSet<Label> execConstraintLabels =
         getExecutionPlatformConstraints(rule, config.getFragment(PlatformConfiguration.class));
     ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
+    // Check if this specific target should be debugged for toolchain resolution.
+    boolean debugTarget =
+        config.getFragment(PlatformConfiguration.class).debugToolchainResolution(target.getLabel());
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
         ToolchainCollection.builder();
@@ -231,6 +234,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
                         .configurationKey(configurationKey)
                         .requiredToolchainTypeLabels(execGroup.requiredToolchains())
                         .execConstraintLabels(execGroup.execCompatibleWith())
+                        .debugTarget(debugTarget)
                         .build());
         if (context == null) {
           return null;
@@ -244,6 +248,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
                       .configurationKey(configurationKey)
                       .requiredToolchainTypeLabels(requiredToolchains)
                       .execConstraintLabels(execConstraintLabels)
+                      .debugTarget(debugTarget)
                       .build());
       if (defaultContext == null) {
         return null;

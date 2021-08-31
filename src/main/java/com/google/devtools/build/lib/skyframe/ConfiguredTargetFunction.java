@@ -528,11 +528,18 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
 
+    // Check if this specific target should be debugged for toolchain resolution.
+    boolean debugTarget =
+        configuration
+            .getFragment(PlatformConfiguration.class)
+            .debugToolchainResolution(targetAndConfig.getLabel());
+
     ToolchainContextKey.Builder toolchainContextKeyBuilder =
         ToolchainContextKey.key()
             .configurationKey(toolchainConfig)
             .requiredToolchainTypeLabels(requiredDefaultToolchains)
-            .execConstraintLabels(defaultExecConstraintLabels);
+            .execConstraintLabels(defaultExecConstraintLabels)
+            .debugTarget(debugTarget);
 
     if (parentToolchainContextKey != null) {
       // Find out what execution platform the parent used, and force that.
@@ -560,6 +567,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               .configurationKey(toolchainConfig)
               .requiredToolchainTypeLabels(execGroup.requiredToolchains())
               .execConstraintLabels(execGroup.execCompatibleWith())
+              .debugTarget(debugTarget)
               .build());
     }
 

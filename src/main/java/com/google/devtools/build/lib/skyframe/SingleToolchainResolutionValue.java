@@ -39,8 +39,26 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
       Label toolchainTypeLabel,
       ConfiguredTargetKey targetPlatformKey,
       List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
+    return key(
+        configurationKey,
+        toolchainTypeLabel,
+        targetPlatformKey,
+        availableExecutionPlatformKeys,
+        false);
+  }
+
+  public static SingleToolchainResolutionKey key(
+      BuildConfigurationValue.Key configurationKey,
+      Label toolchainTypeLabel,
+      ConfiguredTargetKey targetPlatformKey,
+      List<ConfiguredTargetKey> availableExecutionPlatformKeys,
+      boolean debugTarget) {
     return SingleToolchainResolutionKey.create(
-        configurationKey, toolchainTypeLabel, targetPlatformKey, availableExecutionPlatformKeys);
+        configurationKey,
+        toolchainTypeLabel,
+        targetPlatformKey,
+        availableExecutionPlatformKeys,
+        debugTarget);
   }
 
   /** {@link SkyKey} implementation used for {@link SingleToolchainResolutionFunction}. */
@@ -62,17 +80,21 @@ public abstract class SingleToolchainResolutionValue implements SkyValue {
 
     abstract ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys();
 
+    abstract boolean debugTarget();
+
     @AutoCodec.Instantiator
     static SingleToolchainResolutionKey create(
         BuildConfigurationValue.Key configurationKey,
         Label toolchainTypeLabel,
         ConfiguredTargetKey targetPlatformKey,
-        List<ConfiguredTargetKey> availableExecutionPlatformKeys) {
+        List<ConfiguredTargetKey> availableExecutionPlatformKeys,
+        boolean debugTarget) {
       return new AutoValue_SingleToolchainResolutionValue_SingleToolchainResolutionKey(
           configurationKey,
           toolchainTypeLabel,
           targetPlatformKey,
-          ImmutableList.copyOf(availableExecutionPlatformKeys));
+          ImmutableList.copyOf(availableExecutionPlatformKeys),
+          debugTarget);
     }
   }
 
