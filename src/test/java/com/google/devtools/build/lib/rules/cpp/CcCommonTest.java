@@ -102,11 +102,7 @@ public class CcCommonTest extends BuildViewTestCase {
     // We create .a for empty libraries, for simplicity (in Blaze).
     // But we avoid creating .so files for empty libraries,
     // because those have a potentially significant run-time startup cost.
-    if (emptyShouldOutputStaticLibrary()) {
-      assertThat(baseNamesOf(getFilesToBuild(emptylib))).isEqualTo("libemptylib.a");
-    } else {
-      assertThat(getFilesToBuild(emptylib).toList()).isEmpty();
-    }
+    assertThat(getFilesToBuild(emptylib).toList()).isEmpty();
     assertThat(
             emptylib
                 .get(CcInfo.PROVIDER)
@@ -114,10 +110,6 @@ public class CcCommonTest extends BuildViewTestCase {
                 .getDynamicLibrariesForRuntime(/* linkingStatically= */ false)
                 .isEmpty())
         .isTrue();
-  }
-
-  protected boolean emptyShouldOutputStaticLibrary() {
-    return !getAnalysisMock().isThisBazel();
   }
 
   @Test

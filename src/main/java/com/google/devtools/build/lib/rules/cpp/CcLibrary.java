@@ -22,10 +22,8 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DeniedImplicitOutputMarkerProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
@@ -44,7 +42,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -77,8 +74,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
   /** A string constant for the name of Windows def file output group. */
   public static final String DEF_FILE_OUTPUT_GROUP_NAME = "def_file";
-
-  public static final String IMPLICIT_OUTPUTS_ALLOWLIST = "allowed_cc_lib_implicit_outputs";
 
   private final CppSemantics semantics;
 
@@ -336,8 +331,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // contract wrt. implicit output files, if the contract says so. Behavior here differs
     // between Bazel and Blaze.
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-    if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
-        || !ccCompilationOutputs.isEmpty()) {
+    if (!ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
         String dllNameSuffix = CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration);
         linkingHelper.setLinkedDLLNameSuffix(dllNameSuffix);
@@ -502,21 +496,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             CcCommon.mergeOutputGroups(ImmutableList.of(currentOutputGroups, outputGroups.build())))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
         .addProvider(RunfilesProvider.withData(defaultRunfiles.build(), dataRunfiles.build()));
-
-    maybeAddDeniedImplicitOutputsProvider(targetBuilder, ruleContext);
-  }
-
-  private static void maybeAddDeniedImplicitOutputsProvider(
-      RuleConfiguredTargetBuilder targetBuilder, RuleContext ruleContext) {
-    if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
-        && !Allowlist.isAvailable(ruleContext, IMPLICIT_OUTPUTS_ALLOWLIST)) {
-      targetBuilder.addNativeDeclaredProvider(
-          new DeniedImplicitOutputMarkerProvider(
-              String.format(
-                  "Using implicit outputs from cc_library (%s) is forbidden. Use the rule"
-                      + " cc_implicit_output as an alternative.",
-                  ruleContext.getLabel())));
-    }
   }
 
   private static void warnAboutEmptyLibraries(RuleContext ruleContext,

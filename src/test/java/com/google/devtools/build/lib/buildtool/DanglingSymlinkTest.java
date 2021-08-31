@@ -66,9 +66,8 @@ public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
   @Test
   public void testGeneratedLibs() throws Exception {
     MockGenruleSupport.setup(mockToolsConfig);
+    write("test/liba.so");
     write("test/BUILD",
-        "cc_library(name = 'a',",
-        "           srcs = ['a.cc'])",
         "genrule(name = 'b',",
         "        srcs = ['liba.so'],",
         "        outs = ['libb.so'],",

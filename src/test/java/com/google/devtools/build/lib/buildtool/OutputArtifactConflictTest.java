@@ -72,7 +72,8 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
     } else {
       write("x/BUILD", "cc_binary(name = 'y', srcs = ['y.cc'], malloc = '//base:system_malloc')");
     }
-    write("x/y/BUILD", "cc_library(name = 'y')");
+    write("x/y/y.cc", "");
+    write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     write("x/y.cc", "int main() { return 0; }");
 
     if (modifyBuildFile) {
@@ -117,7 +118,8 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
     } else {
       write("x/BUILD", "genrule(name = 'y', outs = ['y.bad'], cmd = 'touch $@')");
     }
-    write("x/y/BUILD", "cc_library(name = 'y')");
+    write("x/y/y.cc", "");
+    write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     write(
         "x/aspect.bzl",
         "def _aspect_impl(target, ctx):",
@@ -277,7 +279,8 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
   @Test
   public void testNewTargetConflict() throws Exception {
     write("x/BUILD", "cc_binary(name = 'y', srcs = ['y.cc'], malloc = '//base:system_malloc')");
-    write("x/y/BUILD", "cc_library(name = 'y')");
+    write("x/y/y.cc", "");
+    write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     write("x/y.cc", "int main() { return 0; }");
     buildTarget("//x/y");
     events.assertNoWarningsOrErrors();
@@ -293,7 +296,8 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
   @Test
   public void testTwoOverlappingBuildsHasNoConflict() throws Exception {
     write("x/BUILD", "cc_binary(name = 'y', srcs = ['y.cc'], malloc = '//base:system_malloc')");
-    write("x/y/BUILD", "cc_library(name = 'y')");
+    write("x/y/y.cc", "");
+    write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     write("x/y.cc", "int main() { return 0; }");
     buildTarget("//x/y");
     events.assertNoWarningsOrErrors();
@@ -328,7 +332,8 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
         "load('//x:bad_rule.bzl', 'bad_rule')",
         "cc_binary(name = 'y', srcs = ['y.cc'], malloc = '//base:system_malloc')",
         "bad_rule(name = 'bad', deps = [':y'])");
-    write("x/y/BUILD", "cc_library(name = 'y')");
+    write("x/y/y.cc", "");
+    write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     write("x/y.cc", "int main() { return 0; }");
 
     runtimeWrapper.addOptions("--keep_going");
@@ -378,7 +383,8 @@ public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
     write("x/y.cc", "int main() { return 0; }");
     write("conflict/foo.cc", "int main() { return 0; }");
     write("conflict/bar.cc", "int main() { return 0; }");
-    write("x/y/BUILD", "cc_library(name = 'y')");
+    write("x/y/y.cc", "");
+    write("x/y/BUILD", "cc_library(name = 'y', srcs=['y.cc'])");
     runtimeWrapper.addOptions("--keep_going");
 
     assertThrows(

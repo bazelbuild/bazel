@@ -315,7 +315,6 @@ java_library(
         ":constraints/environment_collection",
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
-        ":denied_implicit_outputs_marker_provider",
         ":dependency",
         ":dependency_key",
         ":dependency_kind",
@@ -703,15 +702,6 @@ java_library(
         ":configured_target",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "denied_implicit_outputs_marker_provider",
-    srcs = ["DeniedImplicitOutputMarkerProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 

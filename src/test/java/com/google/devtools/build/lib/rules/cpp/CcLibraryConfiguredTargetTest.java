@@ -1711,33 +1711,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImplicitOutputsWhitelistNotOnWhitelist() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
-        "package_group(",
-        "    name = 'allowed_cc_lib_implicit_outputs',",
-        "    packages = [])");
-
-    scratch.file(
-        "foo/BUILD",
-        "filegroup(",
-        "    name = 'denied',",
-        "    srcs = [':libdenied_cc_lib.a'],",
-        ")",
-        "cc_library(",
-        "    name = 'denied_cc_lib',",
-        "    srcs = ['denied_cc_lib.cc'],",
-        ")");
-    checkError(
-        "//foo:denied",
-        "Using implicit outputs from cc_library (//foo:denied_cc_lib) is "
-            + "forbidden. Use the rule cc_implicit_output as an alternative.");
-  }
-
-  @Test
   public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
     if (analysisMock.isThisBazel()) {
       return;

@@ -226,13 +226,6 @@ public final class ConfiguredTargetFactory {
       Verify.verifyNotNull(rule);
       Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
 
-      DeniedImplicitOutputMarkerProvider deniedProvider =
-          rule.get(DeniedImplicitOutputMarkerProvider.PROVIDER);
-      if (deniedProvider != null) {
-        analysisEnvironment.getEventHandler().handle(Event.error(deniedProvider.getErrorMessage()));
-        return null;
-      }
-
       return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;

@@ -220,8 +220,22 @@ public class EnvironmentRestrictedBuildTest extends BuildIntegrationTestCase {
   @Test
   public void topLevelOutputFile() throws Exception {
     writeEnvironmentRules();
-    write("foo/BUILD",
-        "cc_library(name = 'bar', srcs = ['bar.cc'], compatible_with = ['//buildenv:one'])");
+    write(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  file = ctx.actions.declare_file('libbar.a')",
+        "  ctx.actions.write(file, 'hello')",
+        "  return [DefaultInfo(files = depset([file]))]",
+        "crule = rule(",
+        "  _impl,",
+        "  outputs = {",
+        "    'archive': 'lib%{name}.a'",
+        "  },",
+        ");");
+    write(
+        "foo/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "crule(name = 'bar', compatible_with = ['//buildenv:one'])");
     addOptions("--target_environment=//buildenv:one");
     buildTarget("//foo:libbar.a");
     assertThat(getResult().getSuccess()).isTrue();

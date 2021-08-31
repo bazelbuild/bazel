@@ -956,6 +956,9 @@ public abstract class AbstractQueryTest<T> {
 
     // Implicit dependencies:
     String hostDepsExpr = helper.getToolsRepository() + "//tools/cpp:malloc";
+    if (!analysisMock.isThisBazel()) {
+      hostDepsExpr += " + //tools/cpp:malloc.cc";
+    }
     String implicitDepsExpr = "";
     if (analysisMock.isThisBazel()) {
       implicitDepsExpr +=
