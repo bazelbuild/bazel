@@ -15,14 +15,12 @@ package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
-import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import com.google.devtools.build.lib.remote.RemoteCache;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -59,13 +57,11 @@ class OnDiskBlobStoreCache extends RemoteCache {
     }
   }
 
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException {
-    getFromFuture(cacheProtocol.uploadActionResult(context, actionKey, actionResult));
-  }
-
   public DigestUtil getDigestUtil() {
     return digestUtil;
+  }
+
+  public RemoteOptions getRemoteOptions() {
+    return options;
   }
 }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -72,7 +73,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
       RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
-      cache.uploadActionResult(context, actionKey, request.getActionResult());
+      getFromFuture(cache.uploadActionResult(context, actionKey, request.getActionResult()));
       responseObserver.onNext(request.getActionResult());
       responseObserver.onCompleted();
     } catch (Exception e) {
