@@ -160,7 +160,7 @@ public class RemoteCache implements AutoCloseable {
     resultBuilder.setExitCode(exitCode);
     ActionResult result = resultBuilder.build();
     if (exitCode == 0) {
-      cacheProtocol.uploadActionResult(context, actionKey, result);
+      getFromFuture(cacheProtocol.uploadActionResult(context, actionKey, result));
     }
     return result;
   }

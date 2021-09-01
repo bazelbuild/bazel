@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
-import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheBlockingStub;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
@@ -132,15 +131,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   private ByteStreamStub bsAsyncStub(RemoteActionExecutionContext context) {
     return ByteStreamGrpc.newStub(channel)
-        .withInterceptors(
-            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
-            new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
-  }
-
-  private ActionCacheBlockingStub acBlockingStub(RemoteActionExecutionContext context) {
-    return ActionCacheGrpc.newBlockingStub(channel)
         .withInterceptors(
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
             new NetworkTimeInterceptor(context::getNetworkTime))
@@ -267,25 +257,27 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException {
-    try {
-      Utils.refreshIfUnauthenticated(
-          () ->
-              retrier.execute(
-                  () ->
-                      acBlockingStub(context)
-                          .updateActionResult(
-                              UpdateActionResultRequest.newBuilder()
-                                  .setInstanceName(options.remoteInstanceName)
-                                  .setActionDigest(actionKey.getDigest())
-                                  .setActionResult(actionResult)
-                                  .build())),
-          callCredentialsProvider);
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
+    ListenableFuture<ActionResult> upload =
+        Utils.refreshIfUnauthenticatedAsync(
+            () ->
+                retrier.executeAsync(
+                    () ->
+                        Futures.catchingAsync(
+                            acFutureStub(context)
+                                .updateActionResult(
+                                    UpdateActionResultRequest.newBuilder()
+                                        .setInstanceName(options.remoteInstanceName)
+                                        .setActionDigest(actionKey.getDigest())
+                                        .setActionResult(actionResult)
+                                        .build()),
+                            StatusRuntimeException.class,
+                            (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
+                            MoreExecutors.directExecutor())),
+            callCredentialsProvider);
+
+    return Futures.transform(upload, ac -> null, MoreExecutors.directExecutor());
   }
 
   @Override

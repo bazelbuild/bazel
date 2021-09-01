@@ -112,11 +112,13 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException {
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     try (InputStream data = actionResult.toByteString().newInput()) {
       saveFile(actionKey.getDigest().getHash(), data, /* actionResult= */ true);
+      return Futures.immediateFuture(null);
+    } catch (IOException e) {
+      return Futures.immediateFailedFuture(e);
     }
   }
 

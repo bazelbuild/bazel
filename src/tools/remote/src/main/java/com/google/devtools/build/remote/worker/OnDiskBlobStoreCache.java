@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.remote.worker;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -24,7 +26,6 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
@@ -47,11 +48,10 @@ class OnDiskBlobStoreCache extends RemoteCache {
       RemoteActionExecutionContext context, Digest rootDigest, Path rootLocation)
       throws IOException, InterruptedException {
     rootLocation.createDirectoryAndParents();
-    Directory directory =
-        Directory.parseFrom(Utils.getFromFuture(downloadBlob(context, rootDigest)));
+    Directory directory = Directory.parseFrom(getFromFuture(downloadBlob(context, rootDigest)));
     for (FileNode file : directory.getFilesList()) {
       Path dst = rootLocation.getRelative(file.getName());
-      Utils.getFromFuture(downloadFile(context, dst, file.getDigest()));
+      getFromFuture(downloadFile(context, dst, file.getDigest()));
       dst.setExecutable(file.getIsExecutable());
     }
     for (DirectoryNode child : directory.getDirectoriesList()) {
@@ -62,7 +62,7 @@ class OnDiskBlobStoreCache extends RemoteCache {
   public void uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
       throws IOException, InterruptedException {
-    cacheProtocol.uploadActionResult(context, actionKey, actionResult);
+    getFromFuture(cacheProtocol.uploadActionResult(context, actionKey, actionResult));
   }
 
   public DigestUtil getDigestUtil() {
