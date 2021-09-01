@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -265,7 +266,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         BzlLoadFunction.getLoadsFromStarlarkFiles(chunk);
     ImmutableList<Label> loadLabels =
         BzlLoadFunction.getLoadLabels(
-            env.getListener(), programLoads, rootPackage, /*repoMapping=*/ ImmutableMap.of());
+            env.getListener(), programLoads, rootPackage, RepositoryMapping.ALWAYS_FALLBACK);
     if (loadLabels == null) {
       NoSuchPackageException e =
           PackageFunction.PackageFunctionException.builder()

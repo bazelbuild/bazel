@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -270,7 +271,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   private static List<ExpandedPattern> getTargetsToBuild(
       Environment env,
       TargetPatternPhaseKey options,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      RepositoryMapping repoMapping,
       List<String> failedPatterns)
       throws InterruptedException {
 

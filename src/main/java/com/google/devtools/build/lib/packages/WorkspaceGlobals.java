@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -236,7 +237,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     BazelModuleContext bzlModule =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     RepositoryName myName = getRepositoryName((bzlModule != null ? bzlModule.label() : null));
-    Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
+    RepositoryMapping renaming = builder.getRepositoryMappingFor(myName);
     return patterns.stream()
         .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))
         .collect(ImmutableList.toImmutableList());

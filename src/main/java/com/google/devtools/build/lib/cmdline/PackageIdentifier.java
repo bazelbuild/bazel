@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -120,8 +119,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   public static PackageIdentifier parse(
-      String input, String repo, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
+      String input, String repo, RepositoryMapping repositoryMapping) throws LabelSyntaxException {
     String packageName;
     int packageStartPos = input.indexOf("//");
     if (repo != null) {
@@ -150,12 +148,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     }
 
     if (repositoryMapping != null) {
-      RepositoryName repositoryName = RepositoryName.create(repo);
-      repositoryName = repositoryMapping.getOrDefault(repositoryName, repositoryName);
-      return create(repositoryName, PathFragment.create(packageName));
-    } else {
-      return create(repo, PathFragment.create(packageName));
+      RepositoryName mappedRepo = repositoryMapping.get(RepositoryName.create(repo));
+      if (mappedRepo != null) {
+        return create(mappedRepo, PathFragment.create(packageName));
+      }
     }
+    return create(repo, PathFragment.create(packageName));
   }
 
   public RepositoryName getRepository() {

@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -494,8 +494,7 @@ public class PackageFunction implements SkyFunction {
     }
 
     String workspaceName = workspaceNameValue.getName();
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping =
-        repositoryMappingValue.getRepositoryMapping();
+    RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
 
     Label preludeLabel = null;
     // Can be null in tests.
@@ -1239,7 +1238,7 @@ public class PackageFunction implements SkyFunction {
   @Nullable
   private LoadedPackageCacheEntry loadPackage(
       String workspaceName,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      RepositoryMapping repositoryMapping,
       ImmutableSet<PathFragment> repositoryIgnoredPatterns,
       PackageIdentifier packageId,
       RootedPath buildFilePath,

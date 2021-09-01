@@ -105,10 +105,18 @@ public final class Label
    * @param repositoryMapping map of repository names from the local name found in the current
    *     repository to the global name declared in the main repository
    */
+  public static Label parseAbsolute(String absName, RepositoryMapping repositoryMapping)
+      throws LabelSyntaxException {
+    return parseAbsolute(absName, /*defaultToMain=*/ true, repositoryMapping);
+  }
+
   public static Label parseAbsolute(
       String absName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws LabelSyntaxException {
-    return parseAbsolute(absName, /*defaultToMain=*/ true, repositoryMapping);
+    return parseAbsolute(
+        absName,
+        /*defaultToMain=*/ true,
+        RepositoryMapping.createAllowingFallback(repositoryMapping));
   }
 
   /**
@@ -133,9 +141,7 @@ public final class Label
    *     repository to the global name declared in the main repository
    */
   public static Label parseAbsolute(
-      String absName,
-      boolean defaultToMain,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      String absName, boolean defaultToMain, RepositoryMapping repositoryMapping)
       throws LabelSyntaxException {
     Preconditions.checkNotNull(repositoryMapping);
     String repo = defaultToMain ? "@" : RepositoryName.DEFAULT_REPOSITORY;
@@ -159,14 +165,25 @@ public final class Label
               labelParts.getPackageName(), labelParts.getTargetName(), repo, repositoryMapping);
       PathFragment packageFragment = pkgId.getPackageFragment();
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
-        RepositoryName globalRepo =
-            repositoryMapping.getOrDefault(RepositoryName.MAIN, RepositoryName.MAIN);
+        RepositoryName globalRepo = repositoryMapping.get(RepositoryName.MAIN);
+        if (globalRepo == null) {
+          globalRepo = RepositoryName.MAIN;
+        }
         pkgId = PackageIdentifier.create(globalRepo, packageFragment);
       }
       return create(pkgId, labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
     }
+  }
+
+  public static Label parseAbsolute(
+      String absName,
+      boolean defaultToMain,
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws LabelSyntaxException {
+    return parseAbsolute(
+        absName, defaultToMain, RepositoryMapping.createAllowingFallback(repositoryMapping));
   }
 
   /**
@@ -253,7 +270,7 @@ public final class Label
       throws LabelSyntaxException {
     Preconditions.checkArgument(!workspaceRelativePath.isAbsolute());
     if (LabelValidator.isAbsolute(label)) {
-      return parseAbsolute(label, ImmutableMap.of());
+      return parseAbsolute(label, RepositoryMapping.ALWAYS_FALLBACK);
     }
     int index = label.indexOf(':');
     if (index < 0) {
@@ -299,10 +316,7 @@ public final class Label
    * it is valid. Otherwise it throws a SyntaxException.
    */
   private static PackageIdentifier validatePackageName(
-      String packageIdentifier,
-      String name,
-      String repo,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      String packageIdentifier, String name, String repo, RepositoryMapping repositoryMapping)
       throws LabelSyntaxException {
     try {
       return PackageIdentifier.parse(packageIdentifier, repo, repositoryMapping);
@@ -548,7 +562,7 @@ public final class Label
    * that type here because logically it belongs in Bazel, above this package.
    */
   public interface HasRepoMapping {
-    ImmutableMap<RepositoryName, RepositoryName> getRepoMapping();
+    RepositoryMapping getRepoMapping();
   }
 
   /**
@@ -565,8 +579,7 @@ public final class Label
    * @param repositoryMapping the map of local repository names in external repository to global
    *     repository names in main repo; can be empty, but not null
    */
-  public Label getRelativeWithRemapping(
-      String relName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+  public Label getRelativeWithRemapping(String relName, RepositoryMapping repositoryMapping)
       throws LabelSyntaxException {
     Preconditions.checkNotNull(repositoryMapping);
     if (relName.isEmpty()) {
@@ -585,6 +598,13 @@ public final class Label
     } else {
       return getLocalTargetLabel(relName);
     }
+  }
+
+  public Label getRelativeWithRemapping(
+      String relName, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      throws LabelSyntaxException {
+    return getRelativeWithRemapping(
+        relName, RepositoryMapping.createAllowingFallback(repositoryMapping));
   }
 
   /**

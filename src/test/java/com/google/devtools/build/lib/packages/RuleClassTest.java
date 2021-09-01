@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -264,7 +265,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
             StarlarkSemantics.DEFAULT,
-            /*repositoryMapping=*/ ImmutableMap.of())
+            RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 

@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -726,7 +726,7 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
-    ImmutableMap<RepositoryName, RepositoryName> repoMapping = getRepositoryMapping(key, env);
+    RepositoryMapping repoMapping = getRepositoryMapping(key, env);
     if (repoMapping == null) {
       return null;
     }
@@ -803,26 +803,25 @@ public class BzlLoadFunction implements SkyFunction {
     return new BzlLoadValue(module, transitiveDigest);
   }
 
-  private static ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(
-      BzlLoadValue.Key key, Environment env) throws InterruptedException {
+  private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
+      throws InterruptedException {
     if (key.isBuiltins()) {
       // Builtins .bzls never have a repo mapping defined for them, so return without requesting a
       // RepositoryMappingValue. (NB: In addition to being a slight optimization, this avoids
       // adding a reverse dependency on the special //external package, which helps avoid tickling
       // some peculiarities of the Google-internal Skyframe implementation; see b/182293526 for
       // details.)
-      return ImmutableMap.of();
+      return RepositoryMapping.ALWAYS_FALLBACK;
     }
 
     Label enclosingFileLabel = key.getLabel();
 
-    ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
     if (key instanceof BzlLoadValue.KeyForWorkspace) {
       // Still during workspace file evaluation
       BzlLoadValue.KeyForWorkspace keyForWorkspace = (BzlLoadValue.KeyForWorkspace) key;
       if (keyForWorkspace.getWorkspaceChunk() == 0) {
         // There is no previous workspace chunk
-        repositoryMapping = ImmutableMap.of();
+        return RepositoryMapping.ALWAYS_FALLBACK;
       } else {
         SkyKey workspaceFileKey =
             WorkspaceFileValue.key(
@@ -830,27 +829,28 @@ public class BzlLoadFunction implements SkyFunction {
         WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
         // Note: we know for sure that the requested WorkspaceFileValue is fully computed so we do
         // not need to check if it is null
-        repositoryMapping =
+        return RepositoryMapping.create(
             workspaceFileValue
                 .getRepositoryMapping()
-                .getOrDefault(enclosingFileLabel.getRepository(), ImmutableMap.of());
+                .getOrDefault(enclosingFileLabel.getRepository(), ImmutableMap.of()));
       }
-    } else if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      // TODO(pcloudy): Implement repo mapping for bzlmod repos
-      return ImmutableMap.of();
-    } else {
-      // We are fully done with workspace evaluation so we should get the mappings from the
-      // final RepositoryMappingValue
-      PackageIdentifier packageIdentifier = enclosingFileLabel.getPackageIdentifier();
-      RepositoryMappingValue repositoryMappingValue =
-          (RepositoryMappingValue)
-              env.getValue(RepositoryMappingValue.key(packageIdentifier.getRepository()));
-      if (repositoryMappingValue == null) {
-        return null;
-      }
-      repositoryMapping = repositoryMappingValue.getRepositoryMapping();
     }
-    return repositoryMapping;
+
+    if (key instanceof BzlLoadValue.KeyForBzlmod) {
+      // TODO(pcloudy): Implement repo mapping for Bzlmod repos
+      return RepositoryMapping.ALWAYS_FALLBACK;
+    }
+
+    // We are fully done with workspace evaluation so we should get the mappings from the
+    // final RepositoryMappingValue
+    PackageIdentifier packageIdentifier = enclosingFileLabel.getPackageIdentifier();
+    RepositoryMappingValue repositoryMappingValue =
+        (RepositoryMappingValue)
+            env.getValue(RepositoryMappingValue.key(packageIdentifier.getRepository()));
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+    return repositoryMappingValue.getRepositoryMapping();
   }
 
   /**
@@ -864,7 +864,7 @@ public class BzlLoadFunction implements SkyFunction {
       EventHandler handler,
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
+      RepositoryMapping repoMapping) {
     Preconditions.checkArgument(!base.getRepository().isDefault());
 
     // It's redundant that getRelativeWithRemapping needs a Label;
@@ -1061,7 +1061,7 @@ public class BzlLoadFunction implements SkyFunction {
       Map<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler skyframeEventHandler,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
+      RepositoryMapping repositoryMapping)
       throws BzlLoadFailedException, InterruptedException {
     try (Mutability mu = Mutability.create("loading", label)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);

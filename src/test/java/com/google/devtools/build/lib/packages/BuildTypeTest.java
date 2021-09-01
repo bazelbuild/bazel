@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
@@ -46,7 +47,7 @@ public final class BuildTypeTest {
   private final LabelConversionContext labelConversionContext =
       new LabelConversionContext(
           currentRule,
-          /*repositoryMapping=*/ ImmutableMap.of(),
+          RepositoryMapping.ALWAYS_FALLBACK,
           /*convertedLabelsInPackage=*/ new HashMap<>());
 
   @Test
@@ -273,8 +274,9 @@ public final class BuildTypeTest {
     LabelConversionContext context =
         new LabelConversionContext(
             currentRule,
-            ImmutableMap.of(
-                RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo")),
+            RepositoryMapping.createAllowingFallback(
+                ImmutableMap.of(
+                    RepositoryName.create("@orig_repo"), RepositoryName.create("@new_repo"))),
             /* convertedLabelsInPackage= */ new HashMap<>());
     Label label = BuildType.LABEL.convert("@orig_repo//foo:bar", null, context);
     assertThat(label)

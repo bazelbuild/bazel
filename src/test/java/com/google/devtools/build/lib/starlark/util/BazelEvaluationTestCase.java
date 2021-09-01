@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -127,7 +128,7 @@ public final class BazelEvaluationTestCase {
             BazelStarlarkContext.Phase.LOADING,
             TestConstants.TOOLS_REPOSITORY,
             /*fragmentNameToClass=*/ null,
-            /*repoMapping=*/ ImmutableMap.of(),
+            /*repoMapping=*/ RepositoryMapping.ALWAYS_FALLBACK,
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             new SymbolGenerator<>(new Object()),
             /*analysisRuleLabel=*/ null,

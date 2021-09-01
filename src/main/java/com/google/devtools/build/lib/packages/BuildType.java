@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -157,12 +157,12 @@ public final class BuildType {
   /** Context in which to evaluate a label with repository remappings */
   public static class LabelConversionContext {
     private final Label label;
-    private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+    private final RepositoryMapping repositoryMapping;
     private final HashMap<String, Label> convertedLabelsInPackage;
 
     public LabelConversionContext(
         Label label,
-        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+        RepositoryMapping repositoryMapping,
         HashMap<String, Label> convertedLabelsInPackage) {
       this.label = label;
       this.repositoryMapping = repositoryMapping;
@@ -187,7 +187,7 @@ public final class BuildType {
       return converted;
     }
 
-    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+    RepositoryMapping getRepositoryMapping() {
       return repositoryMapping;
     }
 
@@ -444,7 +444,7 @@ public final class BuildType {
       try {
         // Enforce value is relative to the context.
         Label currentRule;
-        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+        RepositoryMapping repositoryMapping;
         if (context instanceof LabelConversionContext) {
           currentRule = ((LabelConversionContext) context).getLabel();
           repositoryMapping = ((LabelConversionContext) context).getRepositoryMapping();

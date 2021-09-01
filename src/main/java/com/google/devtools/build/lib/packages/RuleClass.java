@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -2156,7 +2156,7 @@ public class RuleClass {
    */
   private <T> BitSet populateDefinedRuleAttributeValues(
       Rule rule,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      RepositoryMapping repositoryMapping,
       AttributeValues<T> attributeValues,
       Interner<ImmutableList<?>> listInterner,
       HashMap<String, Label> convertedLabelsInPackage,
@@ -2494,7 +2494,7 @@ public class RuleClass {
       Rule rule,
       Attribute attr,
       Object buildLangValue,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+      RepositoryMapping repositoryMapping,
       Interner<ImmutableList<?>> listInterner,
       HashMap<String, Label> convertedLabelsInPackage)
       throws ConversionException {

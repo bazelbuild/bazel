@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -174,7 +175,10 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
     ImmutableList<Label> loadLabels =
         BzlLoadFunction.getLoadLabels(
-            env.getListener(), programLoads, ROOT_PACKAGE, /*repoMapping=*/ ImmutableMap.of());
+            env.getListener(),
+            programLoads,
+            ROOT_PACKAGE,
+            /*repoMapping=*/ RepositoryMapping.ALWAYS_FALLBACK);
     if (loadLabels == null) {
       NoSuchPackageException e =
           PackageFunction.PackageFunctionException.builder()

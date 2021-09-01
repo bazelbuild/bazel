@@ -40,7 +40,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.annotation.concurrent.Immutable;
@@ -818,8 +817,7 @@ public abstract class TargetPattern implements Serializable {
    * part of the pattern is not syntactically valid, the renaming simply does not match and the
    * string is returned unchanged.
    */
-  public static String renameRepository(
-      String pattern, Map<RepositoryName, RepositoryName> renaming) {
+  public static String renameRepository(String pattern, RepositoryMapping renaming) {
     if (!pattern.startsWith("@")) {
       return pattern;
     }

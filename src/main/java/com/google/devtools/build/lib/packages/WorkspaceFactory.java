@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -137,7 +138,7 @@ public class WorkspaceFactory {
               BazelStarlarkContext.Phase.WORKSPACE,
               /*toolsRepository=*/ null,
               /*fragmentNameToClass=*/ null,
-              /*repoMapping=*/ ImmutableMap.of(),
+              /*repoMapping=*/ RepositoryMapping.ALWAYS_FALLBACK,
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(workspaceFileKey),
               /*analysisRuleLabel=*/ null,

@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.HashMap;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -63,7 +63,7 @@ public final class BazelStarlarkContext
   @Nullable private final String toolsRepository;
   // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
-  private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
+  private final RepositoryMapping repoMapping;
   private final HashMap<String, Label> convertedLabelsInPackage;
   private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
@@ -97,7 +97,7 @@ public final class BazelStarlarkContext
       Phase phase,
       @Nullable String toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      RepositoryMapping repoMapping,
       HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
       @Nullable Label analysisRuleLabel,
@@ -130,7 +130,7 @@ public final class BazelStarlarkContext
    * in the BUILD files and the values are new repository names chosen by the main repository.
    */
   @Override
-  public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
+  public RepositoryMapping getRepoMapping() {
     return repoMapping;
   }
 

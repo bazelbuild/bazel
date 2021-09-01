@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -228,10 +229,10 @@ public class Package {
       externalPackageRepositoryMappings;
 
   /**
-   * The map of repository reassignments for BUILD packages. This will be empty for packages
-   * within the main workspace.
+   * The map of repository reassignments for BUILD packages. This will be empty for packages within
+   * the main workspace.
    */
-  private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+  private RepositoryMapping repositoryMapping;
 
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
@@ -307,7 +308,7 @@ public class Package {
   }
 
   /** Get the repository mapping for this package. */
-  public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+  public RepositoryMapping getRepositoryMapping() {
     return repositoryMapping;
   }
 
@@ -858,7 +859,7 @@ public class Package {
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
             workspaceName,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-            Builder.EMPTY_REPOSITORY_MAPPING)
+            RepositoryMapping.ALWAYS_FALLBACK)
         .setFilename(workspacePath);
   }
 
@@ -942,7 +943,7 @@ public class Package {
      * It contains an entry from "@<main workspace name>" to "@" for packages within the main
      * workspace.
      */
-    private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+    private final RepositoryMapping repositoryMapping;
 
     private RootedPath filename = null;
     private Label buildFileLabel = null;
@@ -1066,7 +1067,7 @@ public class Package {
         PackageIdentifier id,
         String workspaceName,
         boolean noImplicitFileExport,
-        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+        RepositoryMapping repositoryMapping) {
       this.pkg = new Package(id, workspaceName, packageSettings.succinctTargetNotFoundErrors());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
@@ -1124,7 +1125,7 @@ public class Package {
     }
 
     /** Get the repository mapping for this package */
-    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+    RepositoryMapping getRepositoryMapping() {
       return this.repositoryMapping;
     }
 
@@ -1159,12 +1160,12 @@ public class Package {
      * are only discovered while constructing the external package (e.g., the mapping of the name of
      * the main workspace to the canonical main name '@').
      */
-    ImmutableMap<RepositoryName, RepositoryName> getRepositoryMappingFor(RepositoryName name) {
+    RepositoryMapping getRepositoryMappingFor(RepositoryName name) {
       Map<RepositoryName, RepositoryName> mapping = externalPackageRepositoryMappings.get(name);
       if (mapping == null) {
-        return ImmutableMap.of();
+        return RepositoryMapping.ALWAYS_FALLBACK;
       } else {
-        return ImmutableMap.copyOf(mapping);
+        return RepositoryMapping.createAllowingFallback(mapping);
       }
     }
 
