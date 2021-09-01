@@ -22,6 +22,7 @@ import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.observers.TestObserver;
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -385,5 +386,83 @@ public class AsyncTaskCacheTest {
     if (error.get() != null) {
       throw error.get();
     }
+  }
+
+  @Test
+  public void execute_pendingShutdown_getCancellationError() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache
+        .executeIfNot(
+            "key1",
+            Single.create(
+                emitter -> {
+                  // never complete
+                }))
+        .test()
+        .assertNotComplete();
+    cache.shutdown();
+    cache.awaitTermination().test().assertNotComplete();
+
+    TestObserver<String> ob = cache.executeIfNot("key2", Single.just("value2")).test();
+
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void execute_afterShutdown_getCancellationError() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache.shutdown();
+    cache.awaitTermination().blockingAwait();
+
+    TestObserver<String> ob = cache.executeIfNot("key", Single.just("value")).test();
+
+    ob.assertError(e -> e instanceof CancellationException);
+  }
+
+  @Test
+  public void shutdownNow_cancelInProgressTasks() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    TestObserver<String> ob =
+        cache
+            .executeIfNot(
+                "key",
+                Single.create(
+                    emitter -> {
+                      // never complete
+                    }))
+            .test();
+    cache.shutdown();
+    cache.awaitTermination().test().assertNotComplete();
+    ob.assertNotComplete();
+
+    cache.shutdownNow();
+
+    ob.assertError(e -> e instanceof CancellationException);
+    cache.awaitTermination().test().assertComplete();
+  }
+
+  @Test
+  public void awaitTermination_pendingShutdown_completeAfterTaskFinished() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
+    cache.executeIfNot("key", Single.create(emitterRef::set)).test().assertNotComplete();
+    assertThat(emitterRef.get()).isNotNull();
+    cache.shutdown();
+
+    TestObserver<Void> ob = cache.awaitTermination().test();
+    ob.assertNotComplete();
+    emitterRef.get().onSuccess("value");
+
+    ob.assertComplete();
+  }
+
+  @Test
+  public void awaitTermination_afterShutdown_complete() {
+    AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
+    cache.shutdownNow();
+
+    TestObserver<Void> ob = cache.awaitTermination().test();
+
+    ob.assertComplete();
   }
 }
