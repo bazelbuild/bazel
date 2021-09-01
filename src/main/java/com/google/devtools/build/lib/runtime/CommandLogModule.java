@@ -20,13 +20,11 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.logging.Level;
 
 /** This module logs complete stdout / stderr output of Bazel to a local file. */
 public class CommandLogModule extends BlazeModule {
@@ -52,7 +50,8 @@ public class CommandLogModule extends BlazeModule {
     try {
       commandLog.delete();
     } catch (IOException ioException) {
-      LoggingUtil.logToRemote(Level.WARNING, "Unable to delete command.log", ioException);
+      env.getReporter()
+          .handle(Event.warn("Unable to delete command log: " + ioException.getMessage()));
     }
 
     try {
@@ -61,7 +60,8 @@ public class CommandLogModule extends BlazeModule {
         return OutErr.create(logOutputStream, logOutputStream);
       }
     } catch (IOException ioException) {
-      LoggingUtil.logToRemote(Level.WARNING, "Unable to delete or open command.log", ioException);
+      env.getReporter()
+          .handle(Event.warn("Unable to open command log: " + ioException.getMessage()));
     }
     return null;
   }
