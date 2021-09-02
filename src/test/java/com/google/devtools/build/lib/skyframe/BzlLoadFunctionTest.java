@@ -396,7 +396,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             "Unable to find package for @repository//dir:file.bzl: The repository '@repository' "
-                + "could not be resolved.");
+                + "could not be resolved: Repository '@repository' is not defined.");
   }
 
   @Test

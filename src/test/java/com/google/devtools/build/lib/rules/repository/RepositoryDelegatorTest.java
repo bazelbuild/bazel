@@ -440,6 +440,28 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   }
 
   @Test
+  public void loadRepositoryNotDefined() throws Exception {
+    // WORKSPACE is empty
+    scratch.overwriteFile(rootPath.getRelative("WORKSPACE").getPathString(), "");
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("foo"));
+    // Make it be evaluated every time, as we are testing evaluation.
+    differencer.invalidate(ImmutableSet.of(key));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
+    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
+    assertThat(repositoryDirectoryValue.getErrorMsg()).contains("Repository '@foo' is not defined");
+  }
+
+  @Test
   public void loadRepositoryFromBzlmod() throws Exception {
     scratch.overwriteFile(
         rootPath.getRelative("MODULE.bazel").getPathString(),

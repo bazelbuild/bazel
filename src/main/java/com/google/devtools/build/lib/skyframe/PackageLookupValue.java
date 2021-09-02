@@ -378,9 +378,11 @@ public abstract class PackageLookupValue implements SkyValue {
    */
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
     private final String repositoryName;
+    private final String reason;
 
-    NoRepositoryPackageLookupValue(String repositoryName) {
+    NoRepositoryPackageLookupValue(String repositoryName, String reason) {
       this.repositoryName = repositoryName;
+      this.reason = reason;
     }
 
     @Override
@@ -390,7 +392,7 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public String getErrorMsg() {
-      return String.format("The repository '%s' could not be resolved", repositoryName);
+      return String.format("The repository '%s' could not be resolved: %s", repositoryName, reason);
     }
   }
 }
