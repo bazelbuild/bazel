@@ -331,7 +331,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     // contract wrt. implicit output files, if the contract says so. Behavior here differs
     // between Bazel and Blaze.
     CcLinkingOutputs ccLinkingOutputs = CcLinkingOutputs.EMPTY;
-    if (!ccCompilationOutputs.isEmpty()) {
+    if (semantics.createEmptyArchive() || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
         String dllNameSuffix = CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration);
         linkingHelper.setLinkedDLLNameSuffix(dllNameSuffix);

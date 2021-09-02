@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -1456,8 +1456,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTargetAndData target =
         scratchConfiguredTargetAndData("a", "b", "cc_library(name = 'b', srcs = ['libb.so'])");
 
-    if (target.getTarget().getAssociatedRule().getImplicitOutputsFunction()
-        != ImplicitOutputsFunction.NONE) {
+    if (!analysisMock.isThisBazel()) {
       assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget())))
           .containsExactly("bin a/libb.a");
     } else {
@@ -2007,5 +2006,19 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//foo:lib");
     assertContainsEvent("requires --experimental_cc_implementation_deps");
+  }
+
+  @Test
+  public void testCcLibraryProducesEmptyArchive() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+    scratch.file("foo/BUILD", "cc_library(name = 'foo')");
+    assertThat(
+            getConfiguredTarget("//foo:foo")
+                .getProvider(FileProvider.class)
+                .getFilesToBuild()
+                .toList())
+        .isNotEmpty();
   }
 }

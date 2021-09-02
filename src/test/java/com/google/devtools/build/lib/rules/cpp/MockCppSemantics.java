@@ -83,4 +83,9 @@ public final class MockCppSemantics implements CppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
+
+  @Override
+  public boolean createEmptyArchive() {
+    return false;
+  }
 }

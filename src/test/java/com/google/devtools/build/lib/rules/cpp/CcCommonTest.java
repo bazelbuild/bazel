@@ -102,7 +102,6 @@ public class CcCommonTest extends BuildViewTestCase {
     // We create .a for empty libraries, for simplicity (in Blaze).
     // But we avoid creating .so files for empty libraries,
     // because those have a potentially significant run-time startup cost.
-    assertThat(getFilesToBuild(emptylib).toList()).isEmpty();
     assertThat(
             emptylib
                 .get(CcInfo.PROVIDER)

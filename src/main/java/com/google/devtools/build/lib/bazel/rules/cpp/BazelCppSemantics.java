@@ -151,4 +151,9 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
+
+  @Override
+  public boolean createEmptyArchive() {
+    return false;
+  }
 }
