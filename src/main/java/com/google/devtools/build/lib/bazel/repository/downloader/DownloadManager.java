@@ -233,8 +233,7 @@ public class DownloadManager {
       repositoryCache.put(
           checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
     } else if (repositoryCache.isEnabled()) {
-      String newSha256 = repositoryCache.put(destination, KeyType.SHA256, canonicalId);
-      eventHandler.handle(Event.info("SHA256 (" + rewrittenUrls.get(0) + ") = " + newSha256));
+      repositoryCache.put(destination, KeyType.SHA256, canonicalId);
     }
 
     return destination;
