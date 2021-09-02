@@ -165,11 +165,7 @@ public final class Label
               labelParts.getPackageName(), labelParts.getTargetName(), repo, repositoryMapping);
       PathFragment packageFragment = pkgId.getPackageFragment();
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
-        RepositoryName globalRepo = repositoryMapping.get(RepositoryName.MAIN);
-        if (globalRepo == null) {
-          globalRepo = RepositoryName.MAIN;
-        }
-        pkgId = PackageIdentifier.create(globalRepo, packageFragment);
+        pkgId = PackageIdentifier.create(RepositoryName.MAIN, packageFragment);
       }
       return create(pkgId, labelParts.getTargetName());
     } catch (BadLabelException e) {
