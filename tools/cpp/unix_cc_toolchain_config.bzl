@@ -1181,6 +1181,20 @@ def _impl(ctx):
         ],
     )
 
+    treat_warnings_as_errors_feature = feature(
+        name = "treat_warnings_as_errors",
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                flag_groups = [flag_group(flags = ["-Werror"])],
+            ),
+            flag_set(
+                actions = all_link_actions,
+                flag_groups = [flag_group(flags = ["-Wl,-fatal-warnings"])],
+            ),
+        ],
+    )
+
     is_linux = ctx.attr.target_libc != "macosx"
 
     # TODO(#8303): Mac crosstool should also declare every feature.
@@ -1231,6 +1245,7 @@ def _impl(ctx):
             user_compile_flags_feature,
             sysroot_feature,
             unfiltered_compile_flags_feature,
+            treat_warnings_as_errors_feature,
         ] + layering_check_features(ctx.attr.compiler)
     else:
         features = [
@@ -1250,6 +1265,7 @@ def _impl(ctx):
             user_compile_flags_feature,
             sysroot_feature,
             unfiltered_compile_flags_feature,
+            treat_warnings_as_errors_feature,
         ] + layering_check_features(ctx.attr.compiler)
 
     return cc_common.create_cc_toolchain_config_info(
