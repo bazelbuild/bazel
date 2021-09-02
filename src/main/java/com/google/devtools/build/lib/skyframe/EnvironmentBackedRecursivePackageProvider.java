@@ -165,7 +165,7 @@ public final class EnvironmentBackedRecursivePackageProvider
       }
 
       if (!repositoryValue.repositoryExists()) {
-        eventHandler.handle(Event.error(String.format("No such repository '%s'", repository)));
+        eventHandler.handle(Event.error(String.format("No such repository '%s': %s", repository, repositoryValue.getErrorMsg())));
         return;
       }
       roots.add(Root.fromPath(repositoryValue.getPath()));

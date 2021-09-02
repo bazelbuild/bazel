@@ -378,8 +378,7 @@ public class PackageLookupFunction implements SkyFunction {
           new RepositoryFetchException(id, e.getMessage()), Transience.PERSISTENT);
     }
     if (!repositoryValue.repositoryExists()) {
-      // TODO(ulfjack): Maybe propagate the error message from the repository delegator function?
-      return new PackageLookupValue.NoRepositoryPackageLookupValue(id.getRepository().getName());
+      return new PackageLookupValue.NoRepositoryPackageLookupValue(id.getRepository().getName(), repositoryValue.getErrorMsg());
     }
 
     // Check .bazelignore file after fetching the external repository.

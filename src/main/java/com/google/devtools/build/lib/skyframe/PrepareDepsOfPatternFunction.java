@@ -276,7 +276,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         if (!repositoryValue.repositoryExists()) {
           // This shouldn't be possible; we're given a repository, so we assume that the caller has
           // already checked for its existence.
-          throw new IllegalStateException(String.format("No such repository '%s'", repository));
+          throw new IllegalStateException(String.format("No such repository '%s': %s", repository, repositoryValue.getErrorMsg()));
         }
         roots.add(Root.fromPath(repositoryValue.getPath()));
       }
