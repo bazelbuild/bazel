@@ -535,6 +535,13 @@ public final class CcCommon {
       }
     }
 
+    if (ruleContext.attributes().has("data", LABEL_LIST)) {
+      for (TransitiveInfoCollection current : ruleContext.getPrerequisites("data")) {
+        builder.put(
+            AliasProvider.getDependencyLabel(current),
+            current.getProvider(FileProvider.class).getFilesToBuild().toList());
+      }
+    }
     // tokenize defines and substitute make variables
     for (String define : ruleContext.getExpander().withExecLocations(builder.build()).list(attr)) {
       List<String> tokens = new ArrayList<>();
