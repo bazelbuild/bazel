@@ -497,6 +497,18 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "embedded_tools/tools/jdk/remote_java_repository.bzl",
         "def remote_java_repository(**kwargs):",
         "  pass");
+    config.create(
+        "embedded_tools/tools/cpp/cc_configure.bzl", "def cc_configure(**kwargs):", "  pass");
+
+    config.create("embedded_tools/tools/sh/BUILD");
+    config.create(
+        "embedded_tools/tools/sh/sh_configure.bzl", "def sh_configure(**kwargs):", "  pass");
+    config.create("embedded_tools/tools/osx/BUILD");
+    config.create(
+        "embedded_tools/tools/osx/xcode_configure.bzl",
+        "def xcode_configure(*args, **kwargs):", // no positional arguments for XCode
+        "  pass");
+    config.create("embedded_tools/bin/sh", "def sh(**kwargs):", "  pass");
   }
 
   @Override
