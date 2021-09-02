@@ -77,8 +77,6 @@ public class RepositoryMappingFunction implements SkyFunction {
       RepositoryName repositoryName, SelectionValue selectionValue) {
     ModuleKey moduleKey =
         selectionValue.getCanonicalRepoNameLookup().get(repositoryName.strippedName());
-    System.out.println(
-        "strippedName='" + repositoryName.strippedName() + "',moduleKey=" + moduleKey);
     if (moduleKey == null) {
       return Optional.empty();
     }
