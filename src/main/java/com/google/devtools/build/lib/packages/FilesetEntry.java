@@ -30,10 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -129,24 +126,11 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
     return srcLabel;
   }
 
-  /** Returns the source label. */
-  @StarlarkMethod(name = "srcdir", documented = false, useStarlarkThread = true)
-  public Label getSrcStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    return getSrcLabel();
-  }
-
   /**
    * @return the destDir. Non null.
    */
   public PathFragment getDestDir() {
     return destDir;
-  }
-
-  @StarlarkMethod(name = "destdir", documented = false, useStarlarkThread = true)
-  public String getStarlarkDestDir(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    return getDestDir().toString();
   }
 
   /**
@@ -156,46 +140,22 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
     return symlinkBehavior;
   }
 
-  @StarlarkMethod(name = "symlinks", documented = false, useStarlarkThread = true)
-  public String getSymlinkBehaviorStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    return getSymlinkBehavior().toString();
-  }
-
-  /** Returns an immutable set of excludes. Null if none specified. */
-  @StarlarkMethod(
-      name = "excludes",
-      documented = false,
-      useStarlarkThread = true,
-      allowReturnNones = true)
+  /**
+   * @return an immutable set of excludes. Null if none specified.
+   */
   @Nullable
-  public ImmutableList<String> getExcludesStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    return getExcludes() == null ? null : getExcludes().asList();
-  }
-
-  /** Returns an immutable set of excludes. Null if none specified. */
   public ImmutableSet<String> getExcludes() {
     return excludes;
   }
 
-  /** Returns an immutable list of file labels. Null if none specified. */
-  @StarlarkMethod(
-      name = "files",
-      documented = false,
-      useStarlarkThread = true,
-      allowReturnNones = true)
-  @Nullable
-  public ImmutableList<Label> getFilesStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    return getFiles();
-  }
-
-  /** Returns an immutable list of file labels. Null if none specified. */
+  /**
+   * @return an immutable list of file labels. Null if none specified.
+   */
   @Nullable
   public ImmutableList<Label> getFiles() {
     return files;
   }
+
   /**
    * @return true if this Fileset should get files from the source directory.
    */
@@ -216,13 +176,9 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
     return labels;
   }
 
-  /** Returns the prefix that should be stripped from package-relative path names. */
-  @StarlarkMethod(name = "strip_prefix", documented = false, useStarlarkThread = true)
-  public String getStripPrefixStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    return getStripPrefix();
-  }
-
+  /**
+   * @return the prefix that should be stripped from package-relative path names.
+   */
   public String getStripPrefix() {
     return stripPrefix;
   }
@@ -289,4 +245,6 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
         && Objects.equal(symlinkBehavior, that.symlinkBehavior)
         && Objects.equal(stripPrefix, that.stripPrefix);
   }
+
+
 }
