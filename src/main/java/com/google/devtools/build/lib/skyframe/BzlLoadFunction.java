@@ -833,7 +833,7 @@ public class BzlLoadFunction implements SkyFunction {
         WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
         // Note: we know for sure that the requested WorkspaceFileValue is fully computed so we do
         // not need to check if it is null
-        return RepositoryMapping.create(
+        return RepositoryMapping.createAllowingFallback(
             workspaceFileValue
                 .getRepositoryMapping()
                 .getOrDefault(enclosingFileLabel.getRepository(), ImmutableMap.of()));
