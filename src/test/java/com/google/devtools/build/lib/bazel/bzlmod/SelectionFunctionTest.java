@@ -103,7 +103,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testSimpleDiamond() throws Exception {
+  public void diamond_simple() throws Exception {
     setUpSkyFunctions(
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
@@ -181,6 +181,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B.1.0",
             createModuleKey("B", "1.0"),
             "C.2.0",
@@ -198,7 +200,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testDiamondWithFurtherRemoval() throws Exception {
+  public void diamond_withFurtherRemoval() throws Exception {
     setUpSkyFunctions(
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
@@ -273,6 +275,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B.1.0",
             createModuleKey("B", "1.0"),
             "C.2.0",
@@ -290,7 +294,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testCircularDependencyDueToSelection() throws Exception {
+  public void circularDependencyDueToSelection() throws Exception {
     setUpSkyFunctions(
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
@@ -357,6 +361,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
     // D is completely gone.
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B.1.0",
             createModuleKey("B", "1.0"),
             "C.2.0",
@@ -532,6 +538,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B.1.1",
             createModuleKey("B", "1.1"),
             "C.1.1",
@@ -634,6 +642,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B.1.0",
             createModuleKey("B", "1.0"),
             "B.2.0",
@@ -767,6 +777,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B.1.0",
             createModuleKey("B", "1.0"),
             "C.2.0",
@@ -855,6 +867,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B.1.0",
             createModuleKey("B", "1.0"),
             "C.2.0",
@@ -1042,6 +1056,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B1.1.0",
             createModuleKey("B1", "1.0"),
             "B2.1.0",
@@ -1367,6 +1383,8 @@ public class SelectionFunctionTest extends FoundationTestCase {
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
+            "",
+            ModuleKey.ROOT,
             "B1.1.0",
             createModuleKey("B1", "1.0"),
             "B2.1.1",

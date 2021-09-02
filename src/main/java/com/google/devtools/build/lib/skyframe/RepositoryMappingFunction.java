@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
+import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -75,29 +76,14 @@ public class RepositoryMappingFunction implements SkyFunction {
   private Optional<RepositoryMapping> computeFromBzlmod(
       RepositoryName repositoryName, SelectionValue selectionValue) {
     ModuleKey moduleKey =
-        repositoryName.isMain()
-            ? ModuleKey.ROOT
-            : selectionValue.getCanonicalRepoNameLookup().get(repositoryName.strippedName());
+        selectionValue.getCanonicalRepoNameLookup().get(repositoryName.strippedName());
+    System.out.println(
+        "strippedName='" + repositoryName.strippedName() + "',moduleKey=" + moduleKey);
     if (moduleKey == null) {
       return Optional.empty();
     }
     Module module = selectionValue.getDepGraph().get(moduleKey);
-    ImmutableMap.Builder<RepositoryName, RepositoryName> repoMapping = ImmutableMap.builder();
-    // module.getDeps() contains a mapping of Bazel module dependencies from the required repo name
-    // to the module key. Go through them to construct the repo mappings.
-    for (Map.Entry<String, ModuleKey> dep : module.getDeps().entrySet()) {
-      String expectedRepoName = dep.getKey();
-      String canonicalRepoName = dep.getValue().getCanonicalRepoName();
-      if (expectedRepoName.equals(canonicalRepoName)) {
-        continue;
-      }
-      // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
-      // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
-      repoMapping.put(
-          RepositoryName.createFromValidStrippedName(expectedRepoName),
-          RepositoryName.createFromValidStrippedName(canonicalRepoName));
-    }
-    return Optional.of(RepositoryMapping.create(repoMapping.build()));
+    return Optional.of(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO));
   }
 
   private SkyValue computeFromWorkspace(

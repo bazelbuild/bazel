@@ -67,7 +67,10 @@ import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -164,6 +167,25 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                     SkyFunctions.BZL_LOAD,
                     BzlLoadFunction.create(
                         pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
+                .put(
+                    SkyFunctions.SELECTION,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env)
+                          throws SkyFunctionException, InterruptedException {
+                        // Dummy selection function that returns a dep graph with just the root
+                        // module in it.
+                        return SelectionValue.create(
+                            ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
+                            ImmutableMap.of("", ModuleKey.ROOT),
+                            ImmutableMap.of());
+                      }
+
+                      @Override
+                      public String extractTag(SkyKey skyKey) {
+                        return null;
+                      }
+                    })
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
@@ -284,6 +306,8 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
 
   @Test
   public void createRepoRule_bazelModules() throws Exception {
+    // Using a starlark rule in a RepoSpec requires having run Selection first.
+    driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
     EvaluationResult<BzlmodRepoRuleValue> result =
         driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("B")), evaluationContext);
     if (result.hasError()) {
@@ -301,6 +325,8 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
 
   @Test
   public void createRepoRule_moduleRules() throws Exception {
+    // Using a starlark rule in a RepoSpec requires having run Selection first.
+    driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
     EvaluationResult<BzlmodRepoRuleValue> result =
         driver.evaluate(ImmutableList.of(BzlmodRepoRuleValue.key("C")), evaluationContext);
     if (result.hasError()) {

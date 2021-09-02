@@ -245,14 +245,14 @@ public class SelectionFunction implements SkyFunction {
       throw new SelectionFunctionException(e);
     }
 
-    // Build reverse lookups. The root module is not meaningfully used by these so we skip it (it's
-    // guaranteed to be the first in iteration order).
+    // Build reverse lookups.
     ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
         newDepGraph.keySet().stream()
-            .skip(1)
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
     ImmutableMap<String, ModuleKey> moduleNameLookup =
         newDepGraph.keySet().stream()
+            // The root module is not meaningfully used by this lookup so we skip it (it's
+            // guaranteed to be the first in iteration order).
             .skip(1)
             .filter(key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
             .collect(toImmutableMap(ModuleKey::getName, key -> key));

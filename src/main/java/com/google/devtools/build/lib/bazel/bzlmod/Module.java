@@ -19,7 +19,10 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import java.util.Map;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
@@ -115,6 +118,42 @@ public abstract class Module {
    * type is the ModuleKey (name+version) of the dep.
    */
   public abstract ImmutableMap<String, ModuleKey> getDeps();
+
+  /**
+   * Used in {@link #getRepoMapping} to denote whether only repos from {@code bazel_dep}s should be
+   * returned, or repos from module extensions should also be returned.
+   */
+  public enum WhichRepoMappings {
+    BAZEL_DEPS_ONLY,
+    WITH_MODULE_EXTENSIONS_TOO
+  }
+
+  /** Returns the {@link RepositoryMapping} for the repo corresponding to this module. */
+  public final RepositoryMapping getRepoMapping(WhichRepoMappings whichRepoMappings) {
+    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
+      // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
+      // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
+      mapping.put(
+          RepositoryName.createFromValidStrippedName(dep.getKey()),
+          RepositoryName.createFromValidStrippedName(dep.getValue().getCanonicalRepoName()));
+    }
+    if (whichRepoMappings.equals(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO)) {
+      for (ModuleExtensionUsage usage : getExtensionUsages()) {
+        for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
+          // TODO(wyv): work out a rigorous canonical repo name format (and potentially a shorter
+          //   version when ambiguities aren't present).
+          String canonicalRepoName = usage.getExtensionName() + "." + entry.getValue();
+          mapping.put(
+              RepositoryName.createFromValidStrippedName(entry.getKey()),
+              RepositoryName.createFromValidStrippedName(canonicalRepoName));
+        }
+      }
+    }
+    // TODO(wyv): disallow fallback. (we can't do that cleanly right now because we need visibility
+    //   into stuff like @bazel_tools implicitly.)
+    return RepositoryMapping.createAllowingFallback(mapping.build());
+  }
 
   /**
    * The registry where this module came from. Must be null iff the module has a {@link

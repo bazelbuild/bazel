@@ -18,7 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -78,5 +84,46 @@ public class ModuleTest {
                 .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
                 .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
                 .build());
+  }
+
+  private static RepositoryMapping createRepositoryMapping(String... names) {
+    ImmutableMap.Builder<RepositoryName, RepositoryName> mappingBuilder = ImmutableMap.builder();
+    for (int i = 0; i < names.length; i += 2) {
+      mappingBuilder.put(
+          RepositoryName.createFromValidStrippedName(names[i]),
+          RepositoryName.createFromValidStrippedName(names[i + 1]));
+    }
+    return RepositoryMapping.createAllowingFallback(mappingBuilder.build());
+  }
+
+  @Test
+  public void getRepoMapping() throws Exception {
+    Module module =
+        Module.builder()
+            .addDep("my_foo", createModuleKey("foo", "1.0"))
+            .addDep("my_bar", createModuleKey("bar", "2.0"))
+            .addDep("my_root", ModuleKey.ROOT)
+            .addExtensionUsage(
+                ModuleExtensionUsage.builder()
+                    .setExtensionBzlFile("//:defs.bzl")
+                    .setExtensionName("maven")
+                    .setLocation(Location.BUILTIN)
+                    .setImports(ImmutableBiMap.of("my_guava", "guava"))
+                    .build())
+            .build();
+    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY))
+        .isEqualTo(
+            createRepositoryMapping("my_foo", "foo.1.0", "my_bar", "bar.2.0", "my_root", ""));
+    assertThat(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO))
+        .isEqualTo(
+            createRepositoryMapping(
+                "my_foo",
+                "foo.1.0",
+                "my_bar",
+                "bar.2.0",
+                "my_root",
+                "",
+                "my_guava",
+                "maven.guava"));
   }
 }
