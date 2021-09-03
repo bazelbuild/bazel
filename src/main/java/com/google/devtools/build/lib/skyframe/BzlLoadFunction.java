@@ -864,7 +864,7 @@ public class BzlLoadFunction implements SkyFunction {
       return selectionValue
           .getDepGraph()
           .get(moduleKey)
-          .getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY);
+          .getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, moduleKey);
     }
 
     // We are fully done with workspace evaluation so we should get the mappings from the

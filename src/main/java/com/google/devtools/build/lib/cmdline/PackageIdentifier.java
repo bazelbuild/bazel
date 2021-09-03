@@ -147,13 +147,11 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       throw new LabelSyntaxException(error);
     }
 
-    if (repositoryMapping != null) {
-      RepositoryName mappedRepo = repositoryMapping.get(RepositoryName.create(repo));
-      if (mappedRepo != null) {
-        return create(mappedRepo, PathFragment.create(packageName));
-      }
+    if (repositoryMapping == null) {
+      return create(repo, PathFragment.create(packageName));
     }
-    return create(repo, PathFragment.create(packageName));
+
+    return create(repositoryMapping.get(RepositoryName.create(repo)), PathFragment.create(packageName));
   }
 
   public RepositoryName getRepository() {

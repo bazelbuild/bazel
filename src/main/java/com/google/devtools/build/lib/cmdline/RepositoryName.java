@@ -29,8 +29,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** A human-readable name for the repository. */
 @AutoCodec
@@ -38,8 +40,13 @@ public final class RepositoryName implements Serializable {
 
   static final String DEFAULT_REPOSITORY = "";
 
+  static final String BAZEL_TOOLS_REPO_NAME = "@bazel_tools";
+
   @SerializationConstant
   public static final RepositoryName DEFAULT = new RepositoryName(DEFAULT_REPOSITORY);
+
+  @SerializationConstant
+  public static final RepositoryName BAZEL_TOOLS = new RepositoryName(BAZEL_TOOLS_REPO_NAME);
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("@");
 
@@ -121,6 +128,10 @@ public final class RepositoryName implements Serializable {
     }
   }
 
+  public static RepositoryName createInvisible(RepositoryName repositoryName, String ownerRepo) {
+    return new RepositoryName(repositoryName.getName(), ownerRepo);
+  }
+
   /**
    * Creates a RepositoryName from a known-valid string (not @-prefixed). Generally this is a
    * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
@@ -162,8 +173,18 @@ public final class RepositoryName implements Serializable {
 
   private final String name;
 
-  private RepositoryName(String name) {
+  // If this field is not null, it means the repository this instance represent is actually
+  // invisible after repo mapping, store the owner repo name where this repository is requested.
+  // It will cause RepositoryDelegatorFunction to fail when fetching the repository.
+  private final String ownerRepoIfNotVisible;
+
+  private RepositoryName(String name, String ownerRepoIfNotVisible) {
     this.name = name;
+    this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
+  }
+
+  private RepositoryName(String name) {
+    this(name, null);
   }
 
   /** Performs validity checking. Returns null on success, an error message otherwise. */
@@ -199,6 +220,15 @@ public final class RepositoryName implements Serializable {
       return name;
     }
     return name.substring(1);
+  }
+
+  public boolean isVisible() {
+    return ownerRepoIfNotVisible == null;
+  }
+
+  @Nullable
+  public String getOwnerRepoIfNotVisible() {
+    return ownerRepoIfNotVisible;
   }
 
   /**
@@ -282,11 +312,13 @@ public final class RepositoryName implements Serializable {
     if (!(object instanceof RepositoryName)) {
       return false;
     }
-    return OsPathPolicy.getFilePathOs().equals(name, ((RepositoryName) object).name);
+    RepositoryName other = (RepositoryName) object;
+    return OsPathPolicy.getFilePathOs().equals(name, other.name)
+        && Objects.equals(this.ownerRepoIfNotVisible, other.ownerRepoIfNotVisible);
   }
 
   @Override
   public int hashCode() {
-    return OsPathPolicy.getFilePathOs().hash(name);
+    return Objects.hash(OsPathPolicy.getFilePathOs().hash(name), this.ownerRepoIfNotVisible);
   }
 }

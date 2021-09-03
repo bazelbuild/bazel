@@ -506,6 +506,25 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     loadRepo("C");
   }
 
+  @Test
+  public void loadInvisibleRepository() throws Exception {
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createInvisible(RepositoryName.createFromValidStrippedName("foo"), "fake_owner_repo"));
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setNumThreads(8)
+            .setEventHandler(eventHandler)
+            .build();
+    EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
+
+    assertThat(result.hasError()).isFalse();
+    RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
+    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
+    assertThat(repositoryDirectoryValue.getErrorMsg()).contains("Repository '@foo' is not visible from repository '@fake_owner_repo'");
+  }
+
   private void loadRepo(String strippedRepoName) throws InterruptedException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key =

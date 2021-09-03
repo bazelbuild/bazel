@@ -129,8 +129,16 @@ public abstract class Module {
   }
 
   /** Returns the {@link RepositoryMapping} for the repo corresponding to this module. */
-  public final RepositoryMapping getRepoMapping(WhichRepoMappings whichRepoMappings) {
+  public final RepositoryMapping getRepoMapping(WhichRepoMappings whichRepoMappings, ModuleKey key) {
     ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    // If this is the root module, then the main repository `@` should be visible.
+    if (key == ModuleKey.ROOT) {
+      mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
+    }
+    // Every module should be able to reference itself with @<my module name>
+    mapping.put(
+        RepositoryName.createFromValidStrippedName(getName()),
+        RepositoryName.createFromValidStrippedName(key.getCanonicalRepoName()));
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
@@ -150,9 +158,8 @@ public abstract class Module {
         }
       }
     }
-    // TODO(wyv): disallow fallback. (we can't do that cleanly right now because we need visibility
-    //   into stuff like @bazel_tools implicitly.)
-    return RepositoryMapping.createAllowingFallback(mapping.build());
+
+    return RepositoryMapping.create(mapping.build(), key.getCanonicalRepoName());
   }
 
   /**

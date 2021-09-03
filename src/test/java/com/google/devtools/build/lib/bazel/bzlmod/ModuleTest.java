@@ -86,20 +86,23 @@ public class ModuleTest {
                 .build());
   }
 
-  private static RepositoryMapping createRepositoryMapping(String... names) {
+  private static RepositoryMapping createRepositoryMapping(ModuleKey key, String... names) {
     ImmutableMap.Builder<RepositoryName, RepositoryName> mappingBuilder = ImmutableMap.builder();
     for (int i = 0; i < names.length; i += 2) {
       mappingBuilder.put(
           RepositoryName.createFromValidStrippedName(names[i]),
           RepositoryName.createFromValidStrippedName(names[i + 1]));
     }
-    return RepositoryMapping.createAllowingFallback(mappingBuilder.build());
+    return RepositoryMapping.create(mappingBuilder.build(), key.getCanonicalRepoName());
   }
 
   @Test
   public void getRepoMapping() throws Exception {
+    ModuleKey key = createModuleKey("test_module", "1.0");
     Module module =
         Module.builder()
+            .setName(key.getName())
+            .setVersion(key.getVersion())
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))
             .addDep("my_root", ModuleKey.ROOT)
@@ -111,12 +114,14 @@ public class ModuleTest {
                     .setImports(ImmutableBiMap.of("my_guava", "guava"))
                     .build())
             .build();
-    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY))
+    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, key))
         .isEqualTo(
-            createRepositoryMapping("my_foo", "foo.1.0", "my_bar", "bar.2.0", "my_root", ""));
-    assertThat(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO))
+            createRepositoryMapping(key,"test_module", "test_module.1.0",  "my_foo", "foo.1.0", "my_bar", "bar.2.0", "my_root", ""));
+    assertThat(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO, key))
         .isEqualTo(
-            createRepositoryMapping(
+            createRepositoryMapping(key,
+                "test_module",
+                "test_module.1.0",
                 "my_foo",
                 "foo.1.0",
                 "my_bar",
@@ -125,5 +130,20 @@ public class ModuleTest {
                 "",
                 "my_guava",
                 "maven.guava"));
+  }
+
+  @Test
+  public void getRepoMapping_asMainModule() throws Exception {
+    ModuleKey key = ModuleKey.ROOT;
+    Module module =
+        Module.builder()
+            .setName("test_module")
+            .setVersion(Version.parse("1.0"))
+            .addDep("my_foo", createModuleKey("foo", "1.0"))
+            .addDep("my_bar", createModuleKey("bar", "2.0"))
+            .build();
+    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, key))
+        .isEqualTo(
+            createRepositoryMapping(key,"", "", "test_module", "", "my_foo", "foo.1.0", "my_bar", "bar.2.0"));
   }
 }

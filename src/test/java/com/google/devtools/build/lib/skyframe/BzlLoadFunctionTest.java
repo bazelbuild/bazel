@@ -109,7 +109,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Before
   public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
+    scratch.file("MODULE.bazel", "module(name = 'test_module', version = '1.0')");
   }
 
   @Test

@@ -38,23 +38,35 @@ public abstract class RepositoryMapping {
 
   abstract boolean fallback();
 
-  public static RepositoryMapping create(Map<RepositoryName, RepositoryName> repositoryMapping) {
+  /** The owner repo of this repository mapping.
+   * It is for providing useful debug information when repository mapping fails due to enforcing
+   * strict dependency, therefore it's only recorded when ${@link fallback} is false.
+   */
+  @Nullable
+  abstract String ownerRepoIfNotFallback();
+
+  public static RepositoryMapping create(Map<RepositoryName, RepositoryName> repositoryMapping, String ownerRepoIfNotFallback) {
     return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ false);
+        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ false, ownerRepoIfNotFallback);
   }
 
   public static RepositoryMapping createAllowingFallback(
       Map<RepositoryName, RepositoryName> repositoryMapping) {
     return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ true);
+        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ true, null);
   }
 
-  @Nullable
   public RepositoryName get(RepositoryName repositoryName) {
+    // 1. Every repository should be visible to itself
+    // 2. @bazel_tools is a special repo that should be visible to all repositories.
+    if (repositoryName.equals(RepositoryName.DEFAULT)
+        || repositoryName.equals(RepositoryName.BAZEL_TOOLS)) {
+      return repositoryName;
+    }
     if (fallback()) {
       return repositoryMapping().getOrDefault(repositoryName, repositoryName);
     } else {
-      return repositoryMapping().get(repositoryName);
+      return repositoryMapping().getOrDefault(repositoryName, RepositoryName.createInvisible(repositoryName, ownerRepoIfNotFallback()));
     }
   }
 }

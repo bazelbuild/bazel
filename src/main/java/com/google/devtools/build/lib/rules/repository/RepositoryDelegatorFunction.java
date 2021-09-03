@@ -237,6 +237,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       throws InterruptedException, RepositoryFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
 
+    if (!repositoryName.isVisible()) {
+      return new NoRepositoryDirectoryValue(
+          String.format("Repository '%s' is not visible from repository '@%s'", repositoryName.getCanonicalForm(), repositoryName.getOwnerRepoIfNotVisible()));
+    }
+
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
     boolean doNotFetchUnconditionally =
         DONT_FETCH_UNCONDITIONALLY.equals(DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.get(env));

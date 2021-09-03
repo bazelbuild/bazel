@@ -65,7 +65,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   @Before
   public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
+    scratch.file("MODULE.bazel", "module(name = 'test_module', version = '1.0')");
   }
 
   @Test
@@ -318,7 +318,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   public void testRegisteredToolchains_bzlmod() throws Exception {
     scratch.overwriteFile(
         "MODULE.bazel",
-        "module(toolchains_to_register=['//:tool'])",
+        "module(name = 'test_module', version = '1.0', toolchains_to_register=['//:tool'])",
         "bazel_dep(name='B',version='1.0')",
         "bazel_dep(name='C',version='1.1')",
         "bazel_dep(name='toolchain_def',version='1.0')");

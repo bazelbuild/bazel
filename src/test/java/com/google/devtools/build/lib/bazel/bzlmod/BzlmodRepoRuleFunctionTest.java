@@ -176,7 +176,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         // Dummy selection function that returns a dep graph with just the root
                         // module in it.
                         return SelectionValue.create(
-                            ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
+                            ImmutableMap.of(ModuleKey.ROOT, Module.builder().setName("foo").build()),
                             ImmutableMap.of("", ModuleKey.ROOT),
                             ImmutableMap.of());
                       }
