@@ -230,6 +230,19 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return recordingDiffer;
   }
 
+  @Override
+  protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
+    return new SkyframeProgressReceiver() {
+      @Override
+      public void invalidated(SkyKey skyKey, InvalidationState state) {
+        super.invalidated(skyKey, state);
+        if (state == InvalidationState.DIRTY && skyKey instanceof FileValue.Key) {
+          incrementalBuildMonitor.reportInvalidatedFileValue();
+        }
+      }
+    };
+  }
+
   @Nullable
   @Override
   public WorkspaceInfoFromDiff sync(
@@ -436,7 +449,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Map<Root, ProcessableModifiedFileSet> modifiedFilesByPathEntry,
       boolean managedDirectoriesChanged,
       int fsvcThreads)
-      throws InterruptedException {
+      throws InterruptedException, AbruptExitException {
     for (Root pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
       DiffAwarenessManager.ProcessableModifiedFileSet processableModifiedFileSet =
           modifiedFilesByPathEntry.get(pathEntry);
@@ -444,7 +457,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
       handleChangedFiles(
           ImmutableList.of(pathEntry),
-          getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, fsvcThreads),
+          getDiff(tsgm, modifiedFileSet, pathEntry, fsvcThreads),
           /*numSourceFilesCheckedIfDiffWasMissing=*/ 0,
           managedDirectoriesChanged);
       processableModifiedFileSet.markProcessed();
@@ -689,7 +702,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   protected void invalidateFilesUnderPathForTestingImpl(
       ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
-      throws InterruptedException {
+      throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
@@ -697,8 +710,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           new FilesystemValueChecker(tsgm, /*lastExecutionTimeRange=*/ null, /*numThreads=*/ 200)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
-      diff =
-          getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, /* fsvcThreads= */ 200);
+      diff = getDiff(tsgm, modifiedFileSet, pathEntry, /* fsvcThreads= */ 200);
     }
     syscalls.set(getPerBuildSyscallCache(/*globbingThreads=*/ 42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
@@ -921,7 +933,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void dumpPackages(PrintStream out) {
+  protected void dumpPackages(PrintStream out) {
     Iterable<SkyKey> packageSkyKeys =
         Iterables.filter(
             memoizingEvaluator.getValues().keySet(),

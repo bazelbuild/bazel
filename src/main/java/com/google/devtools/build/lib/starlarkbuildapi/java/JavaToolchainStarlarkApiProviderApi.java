@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -24,7 +23,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -51,6 +49,14 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FileApi getSingleJar();
 
+  @Nullable
+  @StarlarkMethod(
+      name = "one_version_tool",
+      doc = "The artifact that enforces One-Version compliance of java binaries.",
+      structField = true,
+      allowReturnNones = true)
+  FileApi getOneVersionBinary();
+
   @StarlarkMethod(
       name = "one_version_allowlist",
       doc = "The allowlist used by the One-Version compliance checker",
@@ -69,7 +75,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       name = "jvm_opt",
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
-  Sequence<String> getStarlarkJvmOptions();
+  Depset getStarlarkJvmOptions();
 
   @StarlarkMethod(
       name = "jacocorunner",
@@ -89,8 +95,7 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
       name = "android_linter",
       documented = false,
       useStarlarkThread = true,
-      allowReturnNones = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
+      allowReturnNones = true)
   @Nullable
   StarlarkValue stalarkAndroidLinter(StarlarkThread thread) throws EvalException;
 }

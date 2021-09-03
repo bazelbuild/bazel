@@ -249,7 +249,7 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
 
     DataBindingV2Provider provider = aarImportTarget.get(DataBindingV2Provider.PROVIDER);
 
-    Artifact setterStore = Iterables.getOnlyElement(provider.getSetterStores());
+    Artifact setterStore = provider.getSetterStores().toList().get(0);
     assertThat(setterStore.isTreeArtifact()).isTrue();
     assertThat(setterStore.getExecPathString())
         .endsWith("_aar/unzipped/data-binding-setter_store/last");
@@ -309,7 +309,8 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
     DataBindingV2Provider dataBindingV2Provider = target.get(DataBindingV2Provider.PROVIDER);
     Artifact databindingBrTreeArtifact =
         dataBindingV2Provider.getTransitiveBRFiles().toList().get(0);
-    Artifact databindingSetterStoreTreeArtifact = dataBindingV2Provider.getSetterStores().get(0);
+    Artifact databindingSetterStoreTreeArtifact =
+        dataBindingV2Provider.getSetterStores().toList().get(0);
 
     assertThat(getGeneratingSpawnAction(resourceTreeArtifact).getArguments())
         .containsExactly(

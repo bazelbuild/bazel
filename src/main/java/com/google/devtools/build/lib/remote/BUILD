@@ -133,6 +133,8 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/grpc",
+        "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
     ],

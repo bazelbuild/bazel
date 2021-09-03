@@ -56,7 +56,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
   @Before
   public void setup() throws Exception {
     scratch.file(
-        "bazel_tools_workspace/tools/android/android_sdk_repository_template.bzl",
+        "embedded_tools/tools/android/android_sdk_repository_template.bzl",
         ResourceLoader.readFromResources("tools/android/android_sdk_repository_template.bzl"));
     scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform')");
   }
@@ -110,7 +110,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     scratchPlatformsDirectories(25);
     scratchBuildToolsDirectories();
     scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "foo", "1.0.0", "aar");
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -132,7 +132,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     scratchPlatformsDirectories(25);
     scratchBuildToolsDirectories();
     scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "foo", "1.0.0", "aar");
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -154,7 +154,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "a", "1.0.0", "jar");
     scratchExtrasLibrary("extras/android/m2repository", "com.android.support", "b", "1.0.0", "aar");
     scratchExtrasLibrary("extras/m2repository", "com.android.support", "c", "1.0.1", "aar");
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -182,7 +182,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
   public void testSystemImageDirectoriesAreFound() throws Exception {
     scratchPlatformsDirectories(25);
     scratchBuildToolsDirectories();
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -218,7 +218,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     scratchPlatformsDirectories(25, 26);
     scratchBuildToolsDirectories();
     scratchSystemImagesDirectories("android-25/default/armeabi-v7a", "android-O/google_apis/x86");
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -236,7 +236,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     // Use large version numbers here so that we don't have to update this test as
     // AndroidSdkRepositoryFunction.MIN_BUILD_TOOLS_REVISION increases.
     scratchBuildToolsDirectories("400.0.1", "400.0.2", "400.0.3");
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -259,7 +259,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     // Use large version numbers here so that we don't have to update this test as
     // AndroidSdkRepositoryFunction.MIN_BUILD_TOOLS_REVISION increases.
     scratchBuildToolsDirectories("400.0.1", "400.0.2");
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -280,7 +280,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
   public void testApiLevelHighestVersionDetection() throws Exception {
     scratchPlatformsDirectories(24, 25, 23);
     scratchBuildToolsDirectories();
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -301,7 +301,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     int[] apiLevels = {23, 24, 25};
     scratchPlatformsDirectories(apiLevels);
     scratchBuildToolsDirectories();
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -325,7 +325,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
   public void testMissingApiLevel() throws Exception {
     scratchPlatformsDirectories(24);
     scratchBuildToolsDirectories();
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -355,7 +355,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     scratchPlatformsDirectories(24);
     scratchBuildToolsDirectories();
     scratch.file("/sdk/system-images/.DS_Store");
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -371,7 +371,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
   @Test
   public void testMissingPlatformsDirectory() throws Exception {
     scratchBuildToolsDirectories();
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
@@ -395,7 +395,7 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
   @Test
   public void testMissingBuildToolsDirectory() throws Exception {
     scratchPlatformsDirectories(24);
-    String bazelToolsWorkspace = scratch.dir("bazel_tools_workspace").getPathString();
+    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",

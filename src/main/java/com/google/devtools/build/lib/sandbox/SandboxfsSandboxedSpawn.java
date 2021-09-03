@@ -299,7 +299,6 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    *     a map of mapped path to target path. The target path may be null, in which case an empty
    *     read-only file is mapped.
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
-   * @return the collection of mappings to use for reconfiguration
    * @throws IOException if we fail to resolve symbolic links
    */
   private static void createSandbox(

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -39,7 +40,9 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleCommonApi;
 import java.util.Map;
@@ -65,8 +68,8 @@ public class AppleStarlarkCommon
         ApplePlatform> {
 
   @Override
-  public Object getAppleCrosstoolTransition() {
-    return AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION;
+  public StarlarkExposedRuleTransitionFactory getAppleCrosstoolTransition() {
+    return new AppleCrosstoolTransition.AppleCrosstoolTransitionFactory();
   }
 
   @VisibleForTesting
@@ -193,12 +196,34 @@ public class AppleStarlarkCommon
       ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
       if (key != null) {
         resultBuilder.addElementsFromStarlark(key, entry.getValue());
-      } else if (entry.getKey().equals("strict_include")) {
-        resultBuilder.addStrictIncludeFromStarlark(entry.getValue());
-      } else if (entry.getKey().equals("providers")) {
-        resultBuilder.addProvidersFromStarlark(entry.getValue());
       } else {
-        throw Starlark.errorf(BAD_KEY_ERROR, entry.getKey());
+        switch (entry.getKey()) {
+          case "cc_library":
+            CcModule.checkPrivateStarlarkificationAllowlist(thread);
+            resultBuilder.uncheckedAddTransitive(
+                ObjcProvider.CC_LIBRARY,
+                ObjcProviderStarlarkConverters.convertToJava(
+                    ObjcProvider.CC_LIBRARY, entry.getValue()));
+            break;
+          case "linkstamp":
+            CcModule.checkPrivateStarlarkificationAllowlist(thread);
+            resultBuilder.uncheckedAddTransitive(
+                ObjcProvider.LINKSTAMP,
+                ObjcProviderStarlarkConverters.convertToJava(
+                    ObjcProvider.LINKSTAMP, entry.getValue()));
+            break;
+          case "flag":
+            resultBuilder.add(ObjcProvider.FLAG, Flag.USES_CPP);
+            break;
+          case "strict_include":
+            resultBuilder.addStrictIncludeFromStarlark(entry.getValue());
+            break;
+          case "providers":
+            resultBuilder.addProvidersFromStarlark(entry.getValue());
+            break;
+          default:
+            throw Starlark.errorf(BAD_KEY_ERROR, entry.getKey());
+        }
       }
     }
     return resultBuilder.build();

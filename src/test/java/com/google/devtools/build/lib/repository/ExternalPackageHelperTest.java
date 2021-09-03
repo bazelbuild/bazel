@@ -413,7 +413,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<String> registeredToolchains = RegisteredToolchainsFunction.getRegisteredToolchains(env);
+      List<String> registeredToolchains = RegisteredToolchainsFunction.getWorkspaceToolchains(env);
       if (registeredToolchains == null) {
         return null;
       }

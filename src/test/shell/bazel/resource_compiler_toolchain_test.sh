@@ -181,14 +181,14 @@ function _assert_outputs() {
   [[ -e bazel-bin/foo.res ]] || fail "missing output"
   grep -q "src=foo.rc" "bazel-bin/foo.res" || fail "bad output"
   grep -q "out=.*\bfoo.res" "bazel-bin/foo.res" || fail "bad output"
-  grep -q ".*\bres1.dat$" "bazel-bin/foo.res" || fail "bad output"
-  grep -q ".*\bres2.dat$" "bazel-bin/foo.res" || fail "bad output"
+  grep -q ".*\bres1.dat" "bazel-bin/foo.res" || fail "bad output"
+  grep -q ".*\bres2.dat" "bazel-bin/foo.res" || fail "bad output"
 
   [[ -e bazel-bin/bar.res ]] || fail "missing output"
   grep -q "src=bar.rc" "bazel-bin/bar.res" || fail "bad output"
   grep -q "out=.*\bbar.res" "bazel-bin/bar.res" || fail "bad output"
-  grep -q ".*\bres1.dat$" "bazel-bin/bar.res" || fail "bad output"
-  grep -q ".*\bres2.dat$" "bazel-bin/bar.res" || fail "bad output"
+  grep -q ".*\bres1.dat" "bazel-bin/bar.res" || fail "bad output"
+  grep -q ".*\bres2.dat" "bazel-bin/bar.res" || fail "bad output"
 }
 
 function _assert_no_outputs() {

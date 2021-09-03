@@ -18,7 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
-import javax.annotation.Nullable;
 
 /**
  * Various utility methods operating on strings.
@@ -89,59 +88,5 @@ public class StringUtil {
       default:
         return number + "th";
     }
-  }
-
-  /**
-   * Appends a prefix and a suffix to each of the Strings.
-   */
-  public static Iterable<String> append(Iterable<String> values, final String prefix,
-      final String suffix) {
-    return Iterables.transform(values, input -> prefix + input + suffix);
-  }
-
-  /**
-   * Indents the specified string by the given number of characters.
-   *
-   * <p>The beginning of the string before the first newline is not indented.
-   */
-  public static String indent(String input, int depth) {
-    StringBuilder prefix = new StringBuilder();
-    prefix.append("\n");
-    for (int i = 0; i < depth; i++) {
-      prefix.append(" ");
-    }
-
-    return input.replace("\n", prefix);
-  }
-
-  /**
-   * Strips a suffix from a string. If the string does not end with the suffix, returns null.
-   */
-  public static String stripSuffix(String input, String suffix) {
-    return input.endsWith(suffix)
-        ? input.substring(0, input.length() - suffix.length())
-        : null;
-  }
-
-  /**
-   * Capitalizes the first character of a string.
-   */
-  public static String capitalize(String input) {
-    if (input.isEmpty()) {
-      return input;
-    }
-
-    char first = input.charAt(0);
-    char capitalized = Character.toUpperCase(first);
-    return first == capitalized ? input : capitalized + input.substring(1);
-  }
-
-  /** Convert empty string to null. */
-  @Nullable
-  public static String emptyToNull(@Nullable String input) {
-    if (input == null || input.isEmpty()) {
-      return null;
-    }
-    return input;
   }
 }

@@ -305,11 +305,19 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help =
-          "Comma-separated list of aspects to be applied to top-level targets. All aspects "
-              + "are applied to all top-level targets independently. Aspects are specified in "
-              + "the form <bzl-file-label>%<aspect_name>, "
-              + "for example '//tools:my_def.bzl%my_aspect', where 'my_aspect' is a top-level "
-              + "value from from a file tools/my_def.bzl")
+          "Comma-separated list of aspects to be applied to top-level targets. All aspects are"
+              + " applied independently to all top-level targets except if"
+              + " <code>incompatible_top_level_aspects_dependency</code> is used. In this case, if"
+              + " aspect <code>some_aspect</code> specifies required aspect providers via"
+              + " <code>required_aspect_providers</code>, <code>some_aspect</code> will run after"
+              + " every aspect that was mentioned before it in the aspects list whose advertised"
+              + " providers satisfy <code>some_aspect</code> required aspect providers. Moreover,"
+              + " <code>some_aspect</code> will run after all its required aspects specified by"
+              + " <code>requires</code> attribute which otherwise will be ignored."
+              + " <code>some_aspect</code> will then have access to the values of those aspects'"
+              + " providers."
+              + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
+              + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
   public List<String> aspects;
 
   public BuildRequestOptions() throws OptionsParsingException {}
@@ -386,6 +394,17 @@ public class BuildRequestOptions extends OptionsBase {
       },
       help = "Whether to use the action cache")
   public boolean useActionCache;
+
+  @Option(
+      name = "experimental_action_cache_store_output_metadata",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      help = "Whether to store output metadata in the action cache")
+  public boolean actionCacheStoreOutputMetadata;
 
   @Option(
       name = "discard_actions_after_execution",

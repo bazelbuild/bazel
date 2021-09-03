@@ -64,7 +64,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     checkError(
         "a",
         "foo",
-        "does not produce any cc_import static_library files " + "(expected .a, .lib or .pic.a)",
+        "does not produce any cc_import static_library files " + "(expected",
         starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
@@ -73,7 +73,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     checkError(
         "b",
         "foo",
-        "does not produce any cc_import shared_library files (expected .so, .dylib or .dll)",
+        "does not produce any cc_import shared_library files (expected",
         starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
@@ -82,8 +82,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     checkError(
         "c",
         "foo",
-        "does not produce any cc_import interface_library files "
-            + "(expected .ifso, .tbd, .lib, .so or .dylib)",
+        "does not produce any cc_import interface_library files " + "(expected",
         starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",
@@ -222,7 +221,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
     checkError(
         "a",
         "foo",
-        "does not produce any cc_import shared_library files " + "(expected .so, .dylib or .dll)",
+        "does not produce any cc_import shared_library files " + "(expected",
         starlarkImplementationLoadStatement,
         "cc_import(",
         "  name = 'foo',",

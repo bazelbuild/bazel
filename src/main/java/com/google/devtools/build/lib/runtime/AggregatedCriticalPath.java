@@ -61,7 +61,7 @@ public class AggregatedCriticalPath {
     Duration overheadTime =
         aggregatedSpawnMetrics.getTotalDuration(SpawnMetrics::totalTime).minus(executionWallTime);
     return String.format(
-        "Critical path %.2fs (setup %.2fs, action wall time %.2fs)",
+        "Execution critical path %.2fs (setup %.2fs, action wall time %.2fs)",
         totalTime.toMillis() / 1000.0,
         overheadTime.toMillis() / 1000.0,
         executionWallTime.toMillis() / 1000.0);

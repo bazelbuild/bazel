@@ -31,7 +31,8 @@ import javax.annotation.concurrent.ThreadSafe;
 /** Collects results from SpawnResult. */
 @ThreadSafe
 public class SpawnStats {
-  private static final ImmutableList<String> REPORT_FIRST = ImmutableList.of("remote cache hit");
+  private static final ImmutableList<String> REPORT_FIRST =
+      ImmutableList.of("disk cache hit", "remote cache hit");
 
   private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
   private final AtomicLong totalWallTimeMillis = new AtomicLong();

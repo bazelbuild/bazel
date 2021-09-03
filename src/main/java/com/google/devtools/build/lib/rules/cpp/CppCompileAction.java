@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetStore.MissingNestedSetException;
@@ -251,7 +250,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> additionalPrunableHeaders,
       Artifact outputFile,
-      Artifact dotdFile,
+      @Nullable Artifact dotdFile,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
@@ -264,15 +263,17 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       String actionName,
       CppSemantics cppSemantics,
       ImmutableList<PathFragment> builtInIncludeDirectories,
-      @Nullable Artifact grepIncludes) {
+      @Nullable Artifact grepIncludes,
+      ImmutableList<Artifact> additionalOutputs) {
     super(
         owner,
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
             .addTransitive(inputsForInvalidation)
             .build(),
-        CollectionUtils.asSetWithoutNulls(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile),
+        collectOutputs(outputFile, dotdFile, gcnoFile, dwoFile, ltoIndexingFile, additionalOutputs),
         env);
-    this.outputFile = Preconditions.checkNotNull(outputFile);
+    Preconditions.checkNotNull(outputFile);
+    this.outputFile = outputFile;
     this.sourceFile = sourceFile;
     this.shareable = shareable;
     this.cppConfiguration = cppConfiguration;
@@ -308,6 +309,33 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
               .getParentDirectory()
               .getChild(outputFile.getFilename() + ".params");
     }
+  }
+
+  private static ImmutableSet<Artifact> collectOutputs(
+      @Nullable Artifact outputFile,
+      @Nullable Artifact dotdFile,
+      @Nullable Artifact gcnoFile,
+      @Nullable Artifact dwoFile,
+      @Nullable Artifact ltoIndexingFile,
+      ImmutableList<Artifact> additionalOutputs) {
+    ImmutableSet.Builder<Artifact> outputs = ImmutableSet.builder();
+    outputs.addAll(additionalOutputs);
+    if (outputFile != null) {
+      outputs.add(outputFile);
+    }
+    if (dotdFile != null) {
+      outputs.add(dotdFile);
+    }
+    if (gcnoFile != null) {
+      outputs.add(gcnoFile);
+    }
+    if (dwoFile != null) {
+      outputs.add(dwoFile);
+    }
+    if (ltoIndexingFile != null) {
+      outputs.add(ltoIndexingFile);
+    }
+    return outputs.build();
   }
 
   static CompileCommandLine buildCommandLine(
@@ -693,7 +721,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return compileCommandLine.getDotdFile();
   }
 
-  @VisibleForTesting
   public CcCompilationContext getCcCompilationContext() {
     return ccCompilationContext;
   }
@@ -1277,7 +1304,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   protected String getRawProgressMessage() {
-    return "Compiling " + getSourceFile().prettyPrint();
+    return (actionName.equals(CppActionNames.CPP_HEADER_ANALYSIS)
+            ? "Header analysis for "
+            : "Compiling ")
+        + getSourceFile().prettyPrint();
   }
 
   /**
@@ -1724,7 +1754,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         return featureConfiguration.isEnabled(CppRuleClasses.LANG_OBJC)
             ? OBJC_COMPILE_MNEMONIC + suffix
             : CPP_COMPILE_MNEMONIC + suffix;
-
+      case CppActionNames.CPP_HEADER_ANALYSIS:
+        return "CppHeaderAnalysis";
       default:
         return CPP_COMPILE_MNEMONIC;
     }
@@ -1770,23 +1801,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     return message.toString();
-  }
-
-  @Override
-  public boolean hasLooseHeaders() {
-    return hasLooseHeaders(ccCompilationContext, featureConfiguration);
-  }
-
-  // Separated into a helper method so that it can be called from CppCompileActionTemplate.
-  static boolean hasLooseHeaders(
-      CcCompilationContext ccCompilationContext, FeatureConfiguration featureConfiguration) {
-    // Layering check is stricter than hdrs_check = strict, so when it's enabled, there can't be
-    // loose headers.
-    return ccCompilationContext
-            .getHeadersCheckingMode()
-            .equals(CppConfiguration.HeadersCheckingMode.LOOSE)
-        && !(featureConfiguration.isEnabled(CppRuleClasses.LAYERING_CHECK)
-            && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
   }
 
   public CompileCommandLine getCompileCommandLine() {

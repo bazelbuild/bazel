@@ -340,6 +340,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       out.println("(version 1)");
       out.println("(debug deny)");
       out.println("(allow default)");
+      out.println("(allow process-exec (with no-sandbox) (literal \"/bin/ps\"))");
 
       if (!allowNetwork) {
         out.println("(deny network*)");

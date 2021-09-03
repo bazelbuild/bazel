@@ -1105,7 +1105,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Packager packager = new Packager();
     packager
         .spawnAction
-        .addTransitiveInputs(dwpTools)
+        .addTransitiveTools(dwpTools)
         .setExecutable(toolchain.getToolPathFragment(Tool.DWP, ruleContext));
     return packager;
   }

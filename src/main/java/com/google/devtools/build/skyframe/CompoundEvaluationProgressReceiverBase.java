@@ -51,9 +51,9 @@ public class CompoundEvaluationProgressReceiverBase implements EvaluationProgres
   }
 
   @Override
-  public void stateEnding(SkyKey skyKey, NodeState state, long elapsedTimeNanos) {
+  public void stateEnding(SkyKey skyKey, NodeState state) {
     for (EvaluationProgressReceiver receiver : receivers) {
-      receiver.stateEnding(skyKey, state, elapsedTimeNanos);
+      receiver.stateEnding(skyKey, state);
     }
   }
 

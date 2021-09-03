@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import java.util.Optional;
 
 /**
  * A minimal context available during rule definition, for both native and starlark rules.
@@ -33,7 +34,16 @@ public interface RuleDefinitionEnvironment {
    * <p>TODO(brandjon,twigg): Require override to handle repositoryMapping? Note that
    * Label.parseAbsoluteUnchecked itself is deprecated because of repositoryMapping!
    */
-  public default Label getToolsLabel(String labelValue) {
+  default Label getToolsLabel(String labelValue) {
     return Label.parseAbsoluteUnchecked(getToolsRepository() + labelValue);
+  }
+
+  /**
+   * Returns a label for network allowlist for tests if one should be added.
+   *
+   * <p>TODO(b/192694287): Remove once we migrate all tests from the allowlist.
+   */
+  default Optional<Label> getNetworkAllowlistForTests() {
+    return Optional.empty();
   }
 }

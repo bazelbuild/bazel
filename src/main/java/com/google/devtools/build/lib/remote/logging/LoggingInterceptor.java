@@ -58,8 +58,8 @@ public class LoggingInterceptor implements ClientInterceptor {
    * @param method Method to return handler for.
    */
   @SuppressWarnings("rawtypes")
-  protected <ReqT, RespT> @Nullable LoggingHandler selectHandler(
-      MethodDescriptor<ReqT, RespT> method) {
+  @Nullable
+  protected <ReqT, RespT> LoggingHandler selectHandler(MethodDescriptor<ReqT, RespT> method) {
     if (method == ExecutionGrpc.getExecuteMethod()) {
       return new ExecuteHandler(); // <ExecuteRequest, Operation>
     } else if (method == ExecutionGrpc.getWaitExecutionMethod()) {

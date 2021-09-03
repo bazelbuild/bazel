@@ -1101,7 +1101,7 @@ public abstract class Artifact
         PathFragment.create(":archived_tree_artifacts");
     private final SpecialArtifact treeArtifact;
 
-    public ArchivedTreeArtifact(
+    private ArchivedTreeArtifact(
         SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
       super(root, execPath, treeArtifact.getArtifactOwner());
       this.treeArtifact = treeArtifact;
@@ -1112,15 +1112,27 @@ public abstract class Artifact
       return treeArtifact;
     }
 
+    /** Creates an archived tree artifact with a given {@code root} and {@code execPath}. */
+    public static ArchivedTreeArtifact create(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      ArchivedTreeArtifact archivedTreeArtifact =
+          new ArchivedTreeArtifact(treeArtifact, root, execPath);
+      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return archivedTreeArtifact;
+    }
+
     /**
-     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact. Returned artifact is
-     * stored in a permanent location, therefore can be shared across actions and builds.
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact at the path inferred from
+     * the provided tree.
+     *
+     * <p>Returned artifact is stored in a permanent location, therefore can be shared across
+     * actions and builds.
      *
      * <p>Example: for a tree artifact of {@code bazel-out/k8-fastbuild/bin/directory} returns an
      * {@linkplain ArchivedTreeArtifact artifact} of: {@code
      * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
      */
-    public static ArchivedTreeArtifact create(
+    public static ArchivedTreeArtifact createForTree(
         SpecialArtifact treeArtifact, PathFragment derivedPathPrefix) {
       return createWithCustomDerivedTreeRoot(
           treeArtifact,
@@ -1146,12 +1158,8 @@ public abstract class Artifact
       ArtifactRoot artifactRoot =
           createRootForArchivedArtifact(
               treeArtifact.getRoot(), derivedPathPrefix, customDerivedTreeRoot);
-      ArchivedTreeArtifact archivedTreeArtifact =
-          new ArchivedTreeArtifact(
-              treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
-
-      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
-      return archivedTreeArtifact;
+      return create(
+          treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
     }
 
     private static ArtifactRoot createRootForArchivedArtifact(

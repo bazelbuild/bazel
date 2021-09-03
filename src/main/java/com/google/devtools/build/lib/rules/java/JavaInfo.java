@@ -591,17 +591,6 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
-    // TODO(b/111090089): delete once java_common.compile(enable_annotation_processing) is
-    // available
-    public Builder experimentalDisableAnnotationProcessing() {
-      JavaPluginInfo provider =
-          (JavaPluginInfo) providerMap.getProvider(JavaPluginInfo.PROVIDER.getKey());
-      if (provider != null) {
-        providerMap.put(provider.disableAnnotationProcessing());
-      }
-      return this;
-    }
-
     public Builder setLocation(Location location) {
       this.creationLocation = location;
       return this;

@@ -25,12 +25,17 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
+import com.google.devtools.build.lib.bazel.bzlmod.Module;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -73,12 +78,20 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       targetPatternBuilder.addAll(platformConfiguration.getExtraExecutionPlatforms());
     }
 
+    // Get registered execution platforms from bzlmod.
+    List<String> bzlmodExecutionPlatforms = getBzlmodExecutionPlatforms(env);
+    if (bzlmodExecutionPlatforms == null) {
+      return null;
+    }
+    targetPatternBuilder.addAll(bzlmodExecutionPlatforms);
+
     // Get the registered execution platforms from the WORKSPACE.
     List<String> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
     if (workspaceExecutionPlatforms == null) {
       return null;
     }
     targetPatternBuilder.addAll(workspaceExecutionPlatforms);
+
     ImmutableList<String> targetPatterns = targetPatternBuilder.build();
 
     // Expand target patterns.
@@ -111,7 +124,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    */
   @Nullable
   @VisibleForTesting
-  public static List<String> getWorkspaceExecutionPlatforms(Environment env)
+  public static ImmutableList<String> getWorkspaceExecutionPlatforms(Environment env)
       throws InterruptedException {
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
@@ -121,6 +134,28 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     Package externalPackage = externalPackageValue.getPackage();
     return externalPackage.getRegisteredExecutionPlatforms();
+  }
+
+  @Nullable
+  private static ImmutableList<String> getBzlmodExecutionPlatforms(Environment env)
+      throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
+    if (!RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+      return ImmutableList.of();
+    }
+    SelectionValue selectionValue = (SelectionValue) env.getValue(SelectionValue.KEY);
+    if (selectionValue == null) {
+      return null;
+    }
+    ImmutableList.Builder<String> executionPlatforms = ImmutableList.builder();
+    try {
+      for (Map.Entry<ModuleKey, Module> dep : selectionValue.getDepGraph().entrySet()) {
+        executionPlatforms.addAll(
+            dep.getValue().getCanonicalizedExecutionPlatformsToRegister(dep.getKey()));
+      }
+    } catch (ExternalDepsException e) {
+      throw new RegisteredExecutionPlatformsFunctionException(e, Transience.PERSISTENT);
+    }
+    return executionPlatforms.build();
   }
 
   private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
@@ -221,6 +256,11 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     private RegisteredExecutionPlatformsFunctionException(
         InvalidPlatformException cause, Transience transience) {
+      super(cause, transience);
+    }
+
+    private RegisteredExecutionPlatformsFunctionException(
+        ExternalDepsException cause, Transience transience) {
       super(cause, transience);
     }
   }

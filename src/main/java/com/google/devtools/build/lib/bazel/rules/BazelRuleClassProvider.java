@@ -98,6 +98,8 @@ import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryPermissionsRule;
+import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
@@ -108,6 +110,7 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
+import com.google.devtools.build.lib.rules.proto.ProtoToolchainInfo;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
@@ -295,6 +298,7 @@ public class BazelRuleClassProvider {
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
                   ProtoInfo.PROVIDER,
+                  ProtoToolchainInfo.PROVIDER,
                   BazelProtoCommon.INSTANCE,
                   new StarlarkAspectStub(),
                   new ProviderStub());
@@ -467,6 +471,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());
           builder.addRuleDefinition(new LocalConfigPlatformRule());
+          builder.addRuleDefinition(new CcSharedLibraryRule());
+          builder.addRuleDefinition(new CcSharedLibraryPermissionsRule());
 
           try {
             builder.addWorkspaceFileSuffix(

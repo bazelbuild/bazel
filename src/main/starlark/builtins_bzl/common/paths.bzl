@@ -233,6 +233,19 @@ def _split_extension(p):
     dot_distance_from_end = len(b) - last_dot_in_basename
     return (p[:-dot_distance_from_end], p[-dot_distance_from_end:])
 
+def _is_normalized(path):
+    if path == "" or path == ".":
+        return True
+    if paths.normalize(path) != path:
+        return False
+
+    return not path.startswith("..")
+
+def _get_relative(path_a, path_b):
+    if paths.is_absolute(path_b):
+        return path_b
+    return paths.normalize(paths.join(path_a, path_b))
+
 paths = struct(
     basename = _basename,
     dirname = _dirname,
@@ -242,4 +255,7 @@ paths = struct(
     relativize = _relativize,
     replace_extension = _replace_extension,
     split_extension = _split_extension,
+    # The methods below this line are not in the skylib implementation.
+    is_normalized = _is_normalized,
+    get_relative = _get_relative,
 )

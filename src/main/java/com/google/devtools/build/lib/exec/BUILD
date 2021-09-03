@@ -260,6 +260,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java_util",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
@@ -299,6 +300,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -311,6 +313,7 @@ java_library(
         ":spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )

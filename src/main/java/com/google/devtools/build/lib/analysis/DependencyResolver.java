@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
@@ -182,7 +183,7 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       boolean useToolchainTransition,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
@@ -240,7 +241,7 @@ public abstract class DependencyResolver {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       boolean useToolchainTransition,
       NestedSetBuilder<Cause> rootCauses,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
@@ -446,7 +447,7 @@ public abstract class DependencyResolver {
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
       Map<Label, Target> targetMap,
       BuildConfiguration originalConfiguration,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws InconsistentAspectOrderException {
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges = OrderedSetMultimap.create();
 

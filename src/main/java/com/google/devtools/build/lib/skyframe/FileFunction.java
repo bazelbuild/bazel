@@ -131,7 +131,6 @@ public class FileFunction implements SkyFunction {
         symlinkResolutionState.pathToUnboundedAncestorSymlinkExpansionChain,
         symlinkResolutionState.unboundedAncestorSymlinkExpansionChain,
         rootedPath,
-        // TODO(b/123922036): This is a bug. Should be 'fileStateValueFromAncestors'.
         fileStateValueFromAncestors,
         realRootedPath,
         realFileStateValue);

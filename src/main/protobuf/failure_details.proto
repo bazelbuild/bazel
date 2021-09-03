@@ -145,6 +145,8 @@ message FailureDetail {
     PackageLoading package_loading = 175;
     Toolchain toolchain = 177;
     StarlarkLoading starlark_loading = 179;
+    ExternalDeps external_deps = 181;
+    DiffAwareness diff_awareness = 182;
   }
 
   reserved 102; // For internal use
@@ -266,6 +268,8 @@ message BuildProgress {
     BES_STREAM_COMPLETED_WITH_UNACK_EVENTS_ERROR = 15
         [(metadata) = { exit_code: 45 }];
     BES_STREAM_COMPLETED_WITH_UNSENT_EVENTS_ERROR = 16
+        [(metadata) = { exit_code: 45 }];
+    BES_STREAM_COMPLETED_WITH_REMOTE_ERROR = 19
         [(metadata) = { exit_code: 45 }];
     BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE = 17
         [(metadata) = { exit_code: 38 }];
@@ -1240,6 +1244,28 @@ message StarlarkLoading {
     IO_ERROR = 7 [(metadata) = { exit_code: 1 }];
     LABEL_CROSSES_PACKAGE_BOUNDARY = 8 [(metadata) = { exit_code: 1 }];
     BUILTINS_ERROR = 9 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message ExternalDeps {
+  enum Code {
+    EXTERNAL_DEPS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MODULE_NOT_FOUND = 1 [(metadata) = { exit_code: 48 }];
+    BAD_MODULE = 2 [(metadata) = { exit_code: 48 }];
+    VERSION_RESOLUTION_ERROR = 3 [(metadata) = { exit_code: 48 }];
+    INVALID_REGISTRY_URL = 4 [(metadata) = { exit_code: 48 }];
+    ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
+  }
+
+  Code code = 1;
+}
+
+message DiffAwareness {
+  enum Code {
+    DIFF_AWARENESS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    DIFF_STAT_FAILED = 1 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -122,14 +123,15 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     }
   }
 
-  private void invalidate(String file) throws InterruptedException {
+  private void invalidate(String file) throws InterruptedException, AbruptExitException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
         ModifiedFileSet.builder().modify(PathFragment.create(file)).build(),
         Root.fromPath(rootDirectory));
   }
 
-  private void invalidate(ModifiedFileSet modifiedFileSet) throws InterruptedException {
+  private void invalidate(ModifiedFileSet modifiedFileSet)
+      throws InterruptedException, AbruptExitException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, modifiedFileSet, Root.fromPath(rootDirectory));
   }

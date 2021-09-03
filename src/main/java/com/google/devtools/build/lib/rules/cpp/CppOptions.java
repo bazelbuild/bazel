@@ -1091,6 +1091,47 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
   public boolean experimentalCcImplementationDeps;
 
+  @Option(
+      name = "experimental_link_static_libraries_once",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If enabled, cc_shared_library will link all libraries statically linked into it, that"
+              + " should only be linked once.")
+  public boolean experimentalLinkStaticLibrariesOnce;
+
+  @Option(
+      name = "experimental_enable_target_export_check",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If enabled, cc_shared_library will export targets which is allowed by its `permissions`"
+              + " attribute.")
+  public boolean experimentalEnableTargetExportCheck;
+
+  @Option(
+      name = "experimental_cc_shared_library_debug",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, will create debug files associated with cc_shared_library.")
+  public boolean experimentalCcSharedLibraryDebug;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
@@ -1140,6 +1181,10 @@ public class CppOptions extends FragmentOptions {
       coptListBuilder.add("-g0");
       cxxoptListBuilder.add("-g0");
     }
+    host.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
+    host.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
+    host.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
+
     host.coptList = coptListBuilder.addAll(hostCoptList).build();
     host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
     host.conlyoptList = ImmutableList.copyOf(hostConlyoptList);

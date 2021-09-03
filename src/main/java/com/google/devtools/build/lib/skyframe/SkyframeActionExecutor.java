@@ -1381,29 +1381,25 @@ public final class SkyframeActionExecutor {
         e,
         outErrBuffer,
         errorTiming);
-    boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
-
-    ActionExecutionException toThrow = e;
-    if (reported) {
-      // If we already printed the error for the exception we mark it as already reported
-      // so that we do not print it again in upper levels.
-      // Note that we need to report it here since we want immediate feedback of the errors
-      // and in some cases the upper-level printing mechanism only prints one of the errors.
-      toThrow = new AlreadyReportedActionExecutionException(e);
-    }
-
-    // Now, return the exception to rethrow. This can have two effects:
+    // Return the exception to rethrow. This can have two effects:
     // If we're still building, the exception will get retrieved by the completor and rethrown.
     // If we're aborting, the exception will never be retrieved from the completor, since the
     // completor is waiting for all outstanding jobs to finish. After they have finished, it will
-    // only rethrow the exception that initially caused it to abort will and not check the exit
-    // status of any actions that had finished in the meantime.
-    return toThrow;
+    // only rethrow the exception that initially caused it to abort and not check the exit status of
+    // any actions that had finished in the meantime.
+
+    // If we already printed the error for the exception we mark it as already reported
+    // so that we do not print it again in upper levels.
+    // Note that we need to report it here since we want immediate feedback of the errors
+    // and in some cases the upper-level printing mechanism only prints one of the errors.
+    return printError(e.getMessage(), e.getAction(), outErrBuffer)
+        ? new AlreadyReportedActionExecutionException(e)
+        : e;
   }
 
   /**
-   * Enrich the exception so it can be confirmed as the primary action in a shared action set and so
-   * that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
+   * Enriches the exception so it can be confirmed as the primary action in a shared action set and
+   * so that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
    */
   private static void enrichLostInputsException(
       Path primaryOutputPath,
@@ -1599,27 +1595,24 @@ public final class SkyframeActionExecutor {
 
   /**
    * For the action 'action' that failed due to 'message' with the output 'actionOutput', notify the
-   * user about the error. To notify the user, the method first displays the output of the action
-   * and then reports an error via the reporter. The method ensures that the two messages appear
-   * next to each other by locking the outErr object where the output is displayed.
+   * user about the error. To notify the user, the method displays the output of the action and
+   * reports an error via the reporter.
    *
    * @param message The reason why the action failed
    * @param action The action that failed, must not be null.
    * @param actionOutput The output of the failed Action. May be null, if there is no output to
    *     display
+   * @return whether error was printed
    */
-  @SuppressWarnings("SynchronizeOnNonFinalField")
-  private void printError(
+  private boolean printError(
       String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
     message = action.describe() + " failed: " + message;
-    Event event = Event.error(action.getOwner().getLocation(), message);
-    synchronized (reporter) {
-      dumpRecordedOutErr(reporter, event, actionOutput);
-    }
+    return dumpRecordedOutErr(
+        reporter, Event.error(action.getOwner().getLocation(), message), actionOutput);
   }
 
   /**
-   * Dump the output from the action.
+   * Dumps the output from the action.
    *
    * @param action The action whose output is being dumped
    * @param outErrBuffer The OutErr that recorded the actions output
@@ -1635,16 +1628,20 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * Dump the output from the action.
+   * Dumps output from the action along with {@code prefixEvent} if the build is not aborting.
    *
    * @param prefixEvent An event to post before dumping the output
    * @param outErrBuffer The OutErr that recorded the actions output
+   * @return whether output was displayed (false if aborting)
    */
-  private void dumpRecordedOutErr(
+  private boolean dumpRecordedOutErr(
       EventHandler eventHandler, Event prefixEvent, FileOutErr outErrBuffer) {
-    // Only print the output if we're not winding down.
+    // For some actions (e.g., many local actions) the pollInterruptedStatus()
+    // won't notice that we had an interrupted job. It will continue.
+    // For that reason we must take care to NOT report errors if we're
+    // in the 'aborting' mode: Any cancelled action would show up here.
     if (isBuilderAborting()) {
-      return;
+      return false;
     }
     if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
       // Bind the output to the prefix event.
@@ -1652,6 +1649,7 @@ public final class SkyframeActionExecutor {
     } else {
       eventHandler.handle(prefixEvent);
     }
+    return true;
   }
 
   private static void reportActionExecution(
@@ -1691,32 +1689,6 @@ public final class SkyframeActionExecutor {
             logs,
             errorTiming,
             isInMemoryFs));
-  }
-
-  /**
-   * Returns true if the exception was reported. False otherwise. Currently this is a copy of what
-   * we did in pre-Skyframe execution. The main implication is that we are printing the error to the
-   * top level reporter instead of the action reporter. Because of that Skyframe values do not know
-   * about the errors happening in the execution phase. Even if we change in the future to log to
-   * the action reporter (that would be done in ActionExecutionFunction.compute() when we get an
-   * ActionExecutionException), we probably do not want to also store the StdErr output, so
-   * dumpRecordedOutErr() should still be called here.
-   */
-  @SuppressWarnings("SynchronizeOnNonFinalField")
-  private boolean reportErrorIfNotAbortingMode(
-      ActionExecutionException ex, FileOutErr outErrBuffer) {
-    // For some actions (e.g., many local actions) the pollInterruptedStatus()
-    // won't notice that we had an interrupted job. It will continue.
-    // For that reason we must take care to NOT report errors if we're
-    // in the 'aborting' mode: Any cancelled action would show up here.
-    synchronized (this.reporter) {
-      if (!isBuilderAborting()) {
-        // Oops. The action aborted. Report the problem.
-        printError(ex.getMessage(), ex.getAction(), outErrBuffer);
-        return true;
-      }
-    }
-    return false;
   }
 
   /** An object supplying data for action execution progress reporting. */

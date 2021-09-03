@@ -339,7 +339,37 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
                     + " allows rules to run actions on multiple execution platforms within a"
                     + " single target. See <a href='../../exec-groups.html'>execution groups"
-                    + " documentation</a> for more info.")
+                    + " documentation</a> for more info."),
+        @Param(
+            name = "compile_one_filetype",
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            positional = false,
+            doc =
+                "Used by --compile_one_dependency: if multiple rules consume the specified file, "
+                    + "should we choose this rule over others."),
+        @Param(
+            name = "name",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            doc =
+                "The name of this rule, as understood by Bazel and reported in contexts such as"
+                    + " logging, <code>native.existing_rule(...)[kind]</code>, and <code>bazel"
+                    + " query</code>. Usually this is the same as the Starlark identifier that gets"
+                    + " bound to this rule; for instance a rule called <code>foo_library</code>"
+                    + " would typically be declared as <code>foo_library = rule(...)</code> and"
+                    + " instantiated in a BUILD file as <code>foo_library(...)</code>.<p>If this"
+                    + " parameter is omitted, the rule's name is set to the name of the first"
+                    + " Starlark global variable to be bound to this rule within its declaring .bzl"
+                    + " module. Thus, <code>foo_library = rule(...)</code> need not specify this"
+                    + " parameter if the name is <code>foo_library</code>.<p>Specifying an explicit"
+                    + " name for a rule does not change where you are allowed to instantiate the"
+                    + " rule."),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -361,6 +391,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object compileOneFiletype,
+      Object name,
       StarlarkThread thread)
       throws EvalException;
 

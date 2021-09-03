@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -137,7 +138,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           OutputStream outputStream,
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
-          @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
+          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
           PackageManager packageManager)
           throws QueryException, InterruptedException;
 

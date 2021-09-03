@@ -18,11 +18,8 @@ import static java.util.Collections.singletonMap;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,14 +53,12 @@ public class BlazeVersionInfoTest {
   }
 
   @Test
-  public void testFancySummaryFormatting() {
-    Map<String, String> data = new HashMap<>();
-    data.put("Some entry", "foo");
-    data.put("Another entry", "bar");
-    data.put("And a third entry", "baz");
+  public void testGetSummaryReturnsOrderedTablifiedData() {
+    ImmutableMap<String, String> data =
+        ImmutableMap.of("key3", "foo", "key2", "bar", "key1", "baz");
+
     BlazeVersionInfo info = new BlazeVersionInfo(data);
-    Map<String, String> sortedData = new TreeMap<>(data);
-    assertThat(info.getSummary()).isEqualTo(StringUtilities.layoutTable(sortedData));
+    assertThat(info.getSummary()).isEqualTo("key1: baz\nkey2: bar\nkey3: foo");
   }
 
   @Test

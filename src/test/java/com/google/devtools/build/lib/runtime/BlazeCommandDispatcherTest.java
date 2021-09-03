@@ -18,6 +18,7 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -27,6 +28,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -86,8 +88,12 @@ public final class BlazeCommandDispatcherTest {
 
   @Before
   public void initializeRuntime() throws Exception {
-
     initializeRuntimeInternal();
+  }
+
+  @After
+  public void cleanUp() {
+    BugReport.maybePropagateUnprocessedThrowableIfInTest();
   }
 
   private void initializeRuntimeInternal(BlazeModule... additionalModules) throws Exception {
@@ -256,8 +262,8 @@ public final class BlazeCommandDispatcherTest {
 
     BlazeCommandResult directResult =
         dispatch.exec(ImmutableList.of("testcommand"), "clientdesc", outErr);
-    // Clears interrupted status as a side effect.
-    assertThat(Thread.interrupted()).isTrue();
+    // Crashes from main thread don't interrupt main thread.
+    assertThat(Thread.currentThread().isInterrupted()).isFalse();
 
     CommandCompleteEvent commandCompleteEvent =
         crashCommand.commandCompleteEvent.get(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
@@ -271,6 +277,7 @@ public final class BlazeCommandDispatcherTest {
     assertThat(crash.getCauses(0).getStackTrace(0)).contains("BlazeCommandDispatcherTest.java");
     assertThat(directResult.getExitCode()).isEqualTo(ExitCode.OOM_ERROR);
     assertThat(directResult.shutdown()).isTrue();
+    assertThrows(OutOfMemoryError.class, BugReport::maybePropagateUnprocessedThrowableIfInTest);
   }
 
   @Test

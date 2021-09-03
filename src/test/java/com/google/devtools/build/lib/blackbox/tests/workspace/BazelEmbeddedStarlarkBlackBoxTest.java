@@ -34,10 +34,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.junit.Test;
 
-/**
- * Test that the embedded Starlark code is compliant with --all_incompatible_changes. To replace
- * bazel_embedded_starlark_test.sh.
- */
+/** Tests pkg_tar and http_archive. */
 public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
 
   private static final String HELLO_FROM_EXTERNAL_REPOSITORY = "Hello from external repository!";
@@ -126,10 +123,9 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
     if (System.getProperty("os.name").toLowerCase().startsWith("mac os x")) {
       System.out.println(
           "Setting host Python to PY2 to workaround unavailability of Python 3 on Mac CI");
-      return WorkspaceTestUtils.bazel(context())
-          .withFlags("--all_incompatible_changes", "--host_force_python=PY2");
+      return WorkspaceTestUtils.bazel(context()).withFlags("--host_force_python=PY2");
     } else {
-      return WorkspaceTestUtils.bazel(context()).withFlags("--all_incompatible_changes");
+      return WorkspaceTestUtils.bazel(context());
     }
   }
 

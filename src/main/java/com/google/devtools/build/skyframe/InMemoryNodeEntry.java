@@ -23,6 +23,7 @@ import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
 import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -453,26 +454,33 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  public synchronized void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
+    assertKeepRdeps();
+    Preconditions.checkState(isDone(), this);
+    ReverseDepsUtility.removeReverseDepsMatching(this, deletedKeys);
+  }
+
+  @Override
   public synchronized void removeInProgressReverseDep(SkyKey reverseDep) {
     appendToReverseDepOperations(reverseDep, Op.REMOVE);
   }
 
   @Override
-  public synchronized Set<SkyKey> getReverseDepsForDoneEntry() {
+  public synchronized Collection<SkyKey> getReverseDepsForDoneEntry() {
     assertKeepRdeps();
     Preconditions.checkState(isDone(), "Called on not done %s", this);
-    return ReverseDepsUtility.getReverseDeps(this);
+    return ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true);
   }
 
   @Override
-  public synchronized Set<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+  public synchronized Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
     assertKeepRdeps();
     if (!isDone()) {
       // This consolidation loses information about pending reverse deps to signal, but that is
       // unimportant since this node is being deleted.
       ReverseDepsUtility.consolidateDataAndReturnNewElements(this, getOpToStoreBare());
     }
-    return ReverseDepsUtility.getReverseDeps(this);
+    return ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ false);
   }
 
   @Override
@@ -525,7 +533,7 @@ public class InMemoryNodeEntry implements NodeEntry {
       this.directDeps = null;
       return new MarkedDirtyResult(
           KeepEdgesPolicy.ALL.equals(keepEdges())
-              ? ReverseDepsUtility.getReverseDeps(this)
+              ? ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true)
               : ImmutableList.of());
     }
     if (dirtyType.equals(DirtyType.FORCE_REBUILD)) {
@@ -723,7 +731,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     newEntry.value = value;
     newEntry.lastChangedVersion = this.lastChangedVersion;
     newEntry.lastEvaluatedVersion = this.lastEvaluatedVersion;
-    for (SkyKey reverseDep : ReverseDepsUtility.getReverseDeps(this)) {
+    for (SkyKey reverseDep : ReverseDepsUtility.getReverseDeps(this, /*checkConsistency=*/ true)) {
       ReverseDepsUtility.addReverseDep(newEntry, reverseDep);
     }
     newEntry.directDeps = directDeps;

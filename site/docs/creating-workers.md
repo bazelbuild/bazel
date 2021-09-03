@@ -35,8 +35,6 @@ A persistent worker upholds a few requirements:
 
 If your program upholds these requirements, it can be used as a persistent worker!
 
-
-
 ### Work requests
 
 A `WorkRequest` contains a list of arguments to the worker, a list of
@@ -54,6 +52,12 @@ for singleplex workers.
   “request_id” : 12
 }
 ```
+
+The optional `verbosity` field can be used to request extra debugging output
+from the worker. It is entirely up to the worker what and how to output. Higher
+values indicate more verbose output. Passing the `--worker_verbose` flag to
+Bazel sets the `verbosity` field to 10, but smaller or larger values can be
+used manually for different amounts of output.
 
 ### Work responses
 
@@ -73,7 +77,7 @@ to redirect the `stdout` of any tools it uses to `stderr`.
 }
 ```
 
-As per the norm for protobufs, the fields are optional. However, Bazel requires
+As per the norm for protobufs, all fields are optional. However, Bazel requires
 the `WorkRequest` and the corresponding `WorkResponse`, to have the same request
 id, so the request id must be specified if it is nonzero. This is a valid
 `WorkResponse`.
@@ -176,7 +180,6 @@ platform.
 The rule that uses the worker creates actions for the worker to perform. These
 actions have a couple of requirements.
 
-
 * The _“arguments”_ field. This takes a list of strings, all but the last
   of which are arguments passed to the worker upon startup. The last element in
   the “arguments” list is a `flag-file` (@-preceded) argument. Workers read
@@ -199,7 +202,6 @@ actions have a couple of requirements.
 
 * Temporary files generated in the course of the action should be saved to the
   worker's directory. This enables sandboxing.
-
 
 **Note**: To pass an argument starting with a literal `@`, start the argument
 with `@@` instead. If an argument is also an external repository label, it will

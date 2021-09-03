@@ -894,19 +894,22 @@ public final class CcLinkingHelper {
    * not present. TODO(b/30393154): Assert that the given link action has an action_config.
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
-      String maybePicName = label.getName() + linkedArtifactNameSuffix;
-      if (linkTargetType.picness() == Picness.PIC) {
-        maybePicName =
-            CppHelper.getArtifactNameForCategory(
-                ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
-      }
-    String linkedName =
-        maybePicName
-            + (linkTargetType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY ? linkedDLLNameSuffix : "");
+    String maybePicName = label.getName() + linkedArtifactNameSuffix;
+    if (linkTargetType.picness() == Picness.PIC) {
+      maybePicName =
+          CppHelper.getArtifactNameForCategory(
+              ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
+    }
+
+    String linkedName = maybePicName;
+    if (linkTargetType.equals(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)) {
+      linkedName += linkedDLLNameSuffix;
+    }
     linkedName =
         CppHelper.getArtifactNameForCategory(
             ruleErrorConsumer, ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
 
+    PathFragment artifactFragment = PathFragment.create(linkedName);
     ArtifactRoot artifactRoot = configuration.getBinDirectory(label.getRepository());
     if (linkTargetType.equals(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)) {
       // TODO(blaze-team): This unfortunate editing of the name is here bedcause Objective-C rules
@@ -914,15 +917,13 @@ public final class CcLinkingHelper {
       // toolchain says with getArtifactNameForCategory.
       // This can be fixed either when implicit outputs are removed from objc_library by keeping the
       // lib prefix, or by editing the toolchain not to add it.
-      Preconditions.checkState(linkedName.startsWith("lib"));
-      linkedName = linkedName.substring(3);
+      Preconditions.checkState(artifactFragment.getBaseName().startsWith("lib"));
+      artifactFragment = artifactFragment.replaceName(artifactFragment.getBaseName().substring(3));
       artifactRoot =
           ((RuleContext) actionConstructionContext).getRule().outputsToBindir()
               ? configuration.getBinDirectory(label.getRepository())
               : configuration.getGenfilesDirectory(label.getRepository());
     }
-      PathFragment artifactFragment =
-          PathFragment.create(label.getName()).getParentDirectory().getRelative(linkedName);
 
     return CppHelper.getLinkedArtifact(
         label,

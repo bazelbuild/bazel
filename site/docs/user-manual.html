@@ -555,11 +555,11 @@ the compilation of binaries during the build.
 <p>
   Specifies the set of environment variables available during the execution of all actions.
   Variables can be either specified by name, in which case the value will be taken from the
-  invocation environment, or by the `name=value` pair which sets the value independent of the
+  invocation environment, or by the <code>name=value</code> pair which sets the value independent of the
   invocation environment.
 
-  This `--action_env` flag can be specified multiple times. If a value is assigned to the same
-  variable across multiple `--action_env` flags, the latest assignment wins.
+  This <code>--action_env</code> flag can be specified multiple times. If a value is assigned to the same
+  variable across multiple <code>--action_env</code> flags, the latest assignment wins.
 </p>
 
 <h4 id='flag--experimental_action_listener'>
@@ -909,7 +909,9 @@ the compilation of binaries during the build.
     <code>sandboxed</code> causes commands to be executed inside a sandbox on the local machine.
     This requires that all input files, data dependencies and tools are listed as direct
     dependencies in the <code>srcs</code>, <code>data</code> and <code>tools</code> attributes.
-    This is the default on systems that support sandboxed execution.
+
+    
+    Bazel enables local sandboxing by default, on systems that support sandboxed execution.
   </li>
 
   <li>
@@ -1599,23 +1601,24 @@ echo "STABLE_USER_NAME $USER"
 
 <h4 id='flag--stamp'><code class='flag'>--[no]stamp</code></h4>
 <p>
-  This option controls whether stamping is enabled for
-  rule types that support it. For most of the supported rule types stamping is
-  enabled by default (e.g. <code>cc_binary</code>).
-
-  By default, stamping is disabled for all tests. Specifying
-  <code class='flag'>--stamp</code> does not force affected targets to be rebuilt,
-  if their dependencies have not changed.
+  This option, in conjunction with the <code>stamp</code> rule attribute, controls whether to embed
+  build information in binaries.
 </p>
-
 <p>
-  Stamping can be enabled or disabled explicitly in BUILD using
-  the <code>stamp</code> attribute of certain rule types, please refer to
-  the <a href="be/overview.html">build encyclopedia</a> for details. For
-  rules that are neither explicitly or implicitly configured as <code>stamp =
-  0</code> or <code>stamp = 1</code>, the <code class='flag'>--[no]stamp</code> option
-  selects whether stamping is enabled. Bazel never stamps binaries that are
-  built for the host configuration, regardless of the stamp attribute.
+  Stamping can be enabled or disabled explicitly on a per-rule basis using the <code>stamp</code>
+  attribute. Please refer to the <a href="be/overview.html">build encyclopedia</a> for details. When
+  a rule sets <code>stamp = -1</code> (the default for <code>*_binary</code> rules), this option
+  determines whether stamping is enabled.
+</p>
+<p>
+  Bazel never stamps binaries that are built for the host configuration, regardless of this option
+  or the <code>stamp</code> attribute. By default, stamping is disabled for all tests. Specifying
+  <code class='flag'>--stamp</code> does not force targets to be rebuilt if their dependencies have
+  not changed.
+</p>
+<p>
+  Setting <code class='flag'>--nostamp</code> is generally desireable for build performance, as it
+  reduces input volatility and maximizes build caching.
 </p>
 
 <h3 id='platform_build_options'>Platform</h3>
@@ -2264,6 +2267,19 @@ a user-friendly way.
   and cannot run under label.
 </p>
 
+<h4>Filtering logging outputs from Bazel</h4>
+
+<p>
+  When invoking a binary with <code>bazel run</code>, Bazel prints logging output from Bazel itself
+  and the binary under invocation. To make the logs less noisy, you can suppress the outputs from
+  Bazel itself with the <code>--ui_event_filters</code> and <code>--noshow_progress</code> flags.
+  For example:
+
+  <pre>
+  bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress //java/myapp:myapp
+  </pre>
+</p>
+
 <h3>Executing tests</h3>
 
 <p>
@@ -2709,12 +2725,12 @@ adb -s deadbeef install ...
     startup flags to Bazel:
   </p>
   <ul>
-    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar</code></li>
+    <li><code>--host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar</code></li>
     <li><code>--host_jvm_args=-DRULE_MEMORY_TRACKER=1</code></li>
   </ul>
   <p>
     The java-agent is checked into Bazel at
-    third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar, so make
+    third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar, so make
     sure you adjust <code>$BAZEL</code> for where you keep your Bazel repository.
 
     Do not forget to keep passing these options to Bazel for every command or the server will
@@ -2722,17 +2738,17 @@ adb -s deadbeef install ...
   </p>
   <p>Example:</p>
   <pre>
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     build --nobuild &lt;targets&gt;
 
     # Dump rules
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --rules
 
     # Dump Starlark heap and analyze it with pprof
-    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+    % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz

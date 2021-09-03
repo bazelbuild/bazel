@@ -299,7 +299,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   }
 
   public Artifact getLinkDynamicLibraryTool() {
-
     return linkDynamicLibraryTool;
   }
 

@@ -60,14 +60,17 @@ strategy needs to be specified, either at the ruleset level (for example,
 `--strategy=[some_mnemonic]=worker`) or generally at the strategy level (for
 example, `--dynamic_local_strategy=worker,standalone`.) No additional flags are
 necessary, and `supports-multiplex-workers` takes precedence over
-`supports-workers`, if both are set. A ruleset is encouraged to use multiplex
-workers if possible, to improve performance.
+`supports-workers`, if both are set.
+
+A ruleset is encouraged to use multiplex workers if possible, to reduce memory
+pressure and improve performance. However, multiplex workers are not currently
+compatible with [dynamic execution](/dynamic-execution.html).
 
 ### Warning about rare bug
 
-Due to a rare bug, multiplex workers are currently unstable. Occasionally,
-Bazel hangs indefinitely at the execution phase. If you see this behavior,
-stop the Bazel server and rerun. This delay is probably caused by
+Due to a rare bug, multiplex workers are currently not enabled by default.
+Occasionally,  Bazel hangs indefinitely at the execution phase. If you see this
+behavior,  stop the Bazel server and rerun. This delay is probably caused by
 
  * Multiplex workers waiting for responses from the worker process that never
    comes.

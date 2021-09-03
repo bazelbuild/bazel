@@ -122,6 +122,14 @@ public interface NodeEntry extends ThinNodeEntry {
   void removeReverseDep(SkyKey reverseDep) throws InterruptedException;
 
   /**
+   * Removes any reverse dependencies that are in {@code deletedKeys}. Must only be called from an
+   * invalidation that is deleting nodes from the graph. Sacrifices correctness checks (that the
+   * deleted rdeps were actually rdeps of this entry) for better performance.
+   */
+  @ThreadSafe
+  void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys);
+
+  /**
    * Removes a reverse dependency.
    *
    * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@param

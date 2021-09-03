@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -445,10 +445,11 @@ public final class InstrumentedFilesCollector {
   private static Iterable<TransitiveInfoCollection> getPrerequisitesForAttributes(
       RuleContext ruleContext, Collection<String> attributeNames) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
-    for (String attr : attributeNames) {
-      if (ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL_LIST) ||
-          ruleContext.getRule().isAttrDefined(attr, BuildType.LABEL)) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr));
+    for (String attributeName : attributeNames) {
+      Attribute attribute =
+          ruleContext.getRule().getRuleClassObject().getAttributeByNameMaybe(attributeName);
+      if (attribute != null) {
+        prerequisites.addAll(attributeDependencyPrerequisites(attribute, ruleContext));
       }
     }
     return prerequisites;
@@ -457,12 +458,17 @@ public final class InstrumentedFilesCollector {
   private static Iterable<TransitiveInfoCollection> getAllNonToolPrerequisites(
       RuleContext ruleContext) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
-    for (Attribute attr : ruleContext.getRule().getAttributes()) {
-      if ((attr.getType() == BuildType.LABEL_LIST || attr.getType() == BuildType.LABEL)
-          && !attr.isToolDependency()) {
-        prerequisites.addAll(ruleContext.getPrerequisites(attr.getName()));
-      }
+    for (Attribute attribute : ruleContext.getRule().getAttributes()) {
+      prerequisites.addAll(attributeDependencyPrerequisites(attribute, ruleContext));
     }
     return prerequisites;
+  }
+
+  private static List<? extends TransitiveInfoCollection> attributeDependencyPrerequisites(
+      Attribute attribute, RuleContext ruleContext) {
+    if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+      return ruleContext.getPrerequisites(attribute.getName());
+    }
+    return ImmutableList.of();
   }
 }

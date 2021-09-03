@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -157,6 +158,9 @@ public class TestRunnerAction extends AbstractAction
   private final NestedSetBuilder<Artifact> lcovMergerFilesToRun;
   private final RunfilesSupplier lcovMergerRunfilesSupplier;
 
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist.
+  private final PackageSpecificationProvider networkAllowlist;
+
   private static ImmutableSet<Artifact> nonNullAsSet(Artifact... artifacts) {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
     for (Artifact artifact : artifacts) {
@@ -198,7 +202,8 @@ public class TestRunnerAction extends AbstractAction
       Iterable<Artifact> tools,
       boolean splitCoveragePostProcessing,
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
-      RunfilesSupplier lcovMergerRunfilesSupplier) {
+      RunfilesSupplier lcovMergerRunfilesSupplier,
+      PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
@@ -256,6 +261,7 @@ public class TestRunnerAction extends AbstractAction
     this.splitCoveragePostProcessing = splitCoveragePostProcessing;
     this.lcovMergerFilesToRun = lcovMergerFilesToRun;
     this.lcovMergerRunfilesSupplier = lcovMergerRunfilesSupplier;
+    this.networkAllowlist = networkAllowlist;
 
     // Mark all possible test outputs for deletion before test execution.
     // TestRunnerAction potentially can create many more non-declared outputs - xml output, coverage
@@ -822,6 +828,10 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public Artifact getPrimaryOutput() {
     return testLog;
+  }
+
+  public PackageSpecificationProvider getNetworkAllowlist() {
+    return networkAllowlist;
   }
 
   @Override

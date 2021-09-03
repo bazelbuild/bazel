@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -170,12 +169,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     Preconditions.checkArgument(
-        Spawns.mayBeExecutedRemotely(spawn), "Spawn can't be executed remotely. This is a bug.");
+        remoteExecutionService.mayBeExecutedRemotely(spawn),
+        "Spawn can't be executed remotely. This is a bug.");
 
     Stopwatch totalTime = Stopwatch.createStarted();
-    boolean spawnCacheableRemotely = Spawns.mayBeCachedRemotely(spawn);
-    boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
-    boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
+    boolean uploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
+    boolean acceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
     SpawnMetrics.Builder spawnMetrics =
@@ -196,6 +195,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
         cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
       }
+
       if (cachedResult != null) {
         if (cachedResult.getExitCode() != 0) {
           // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
@@ -208,6 +208,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 action,
                 cachedResult,
                 /* cacheHit= */ true,
+                cachedResult.cacheName(),
                 spawn,
                 totalTime,
                 () -> action.getNetworkTime().getDuration(),
@@ -249,7 +250,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-              result = remoteExecutionService.execute(action, useCachedResult.get(), reporter);
+              result =
+                  remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }
             // In case of replies from server contains metadata, but none of them has EXECUTING
             // status.
@@ -273,6 +275,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   action,
                   result,
                   result.cacheHit(),
+                  getName(),
                   spawn,
                   totalTime,
                   () -> action.getNetworkTime().getDuration(),
@@ -340,6 +343,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       RemoteAction action,
       RemoteActionResult result,
       boolean cacheHit,
+      String cacheName,
       Spawn spawn,
       Stopwatch totalTime,
       Supplier<Duration> networkTime,
@@ -361,7 +365,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return createSpawnResult(
         result.getExitCode(),
         cacheHit,
-        getName(),
+        cacheName,
         inMemoryOutput,
         spawnMetrics
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
@@ -494,6 +498,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (verboseFailures) {
       // On --verbose_failures print the whole stack trace
       errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
+    }
+
+    if (exception.getCause() instanceof ExecutionStatusException) {
+      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+      if (e.getResponse() != null) {
+        if (!e.getResponse().getMessage().isEmpty()) {
+          errorMessage += "\n" + e.getResponse().getMessage();
+        }
+      }
     }
 
     return new SpawnResult.Builder()

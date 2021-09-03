@@ -353,7 +353,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
                 repoMapping,
                 /*convertedLabelsInPackage=*/ new HashMap<>(),
                 dummySymbolGenerator,
-                parentLabel);
+                parentLabel,
+                /*networkAllowlistForTests=*/ null);
 
         starlarkContext.storeInThread(thread);
         result =

@@ -55,12 +55,10 @@ public class UrlRewriter {
 
   private final UrlRewriterConfig config;
   private final Function<URL, List<URL>> rewriter;
-  private final Consumer<String> log;
 
   @VisibleForTesting
   UrlRewriter(Consumer<String> log, String filePathForErrorReporting, Reader reader)
       throws UrlRewriterParseException {
-    this.log = Preconditions.checkNotNull(log);
     Preconditions.checkNotNull(reader, "UrlRewriterConfig source must be set");
     this.config = new UrlRewriterConfig(filePathForErrorReporting, reader);
 
@@ -101,10 +99,6 @@ public class UrlRewriter {
 
     ImmutableList<URL> rewritten =
         urls.stream().map(rewriter).flatMap(Collection::stream).collect(toImmutableList());
-
-    if (!urls.equals(rewritten)) {
-      log.accept(String.format("Rewritten %s as %s", urls, rewritten));
-    }
 
     return rewritten;
   }

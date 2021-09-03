@@ -42,9 +42,9 @@ alias(
 # without needing the SDK repo's name (typically @androidsdk but not required).
 java_binary(
     name = "d8_dexbuilder",
-    main_class = "com.android.tools.r8.compatdexbuilder.CompatDexBuilder",
+    main_class = "com.google.devtools.build.android.r8.CompatDexBuilder",
     visibility = ["//visibility:private"],
-    runtime_deps = ["//external:android/d8_jar_import"],
+    runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/r8"],
 )
 
 # NOTE: d8 dex builder doesn't support the persistent worker mode at the moment. To use this config,
@@ -81,9 +81,9 @@ alias(
 # without needing the SDK repo's name (typically @androidsdk but not required).
 java_binary(
     name = "d8_dexmerger",
-    main_class = "com.android.tools.r8.dexfilemerger.DexFileMerger",
+    main_class = "com.google.devtools.build.android.r8.DexFileMerger",
     visibility = ["//visibility:private"],
-    runtime_deps = ["//external:android/d8_jar_import"],
+    runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/r8"],
 )
 
 config_setting(

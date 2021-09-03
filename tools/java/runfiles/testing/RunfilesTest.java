@@ -40,8 +40,7 @@ public final class RunfilesTest {
     return File.separatorChar == '\\';
   }
 
-  private void assertRlocationArg(Runfiles runfiles, String path, @Nullable String error)
-      throws Exception {
+  private void assertRlocationArg(Runfiles runfiles, String path, @Nullable String error) {
     IllegalArgumentException e =
         assertThrows(IllegalArgumentException.class, () -> runfiles.rlocation(path));
     if (error != null) {
@@ -153,7 +152,7 @@ public final class RunfilesTest {
   }
 
   @Test
-  public void testFailsToCreateManifestBasedBecauseManifestDoesNotExist() throws Exception {
+  public void testFailsToCreateManifestBasedBecauseManifestDoesNotExist() {
     IOException e =
         assertThrows(
             IOException.class,
@@ -233,7 +232,7 @@ public final class RunfilesTest {
   }
 
   @Test
-  public void testDirectoryBasedRlocation() throws Exception {
+  public void testDirectoryBasedRlocation() {
     // The DirectoryBased implementation simply joins the runfiles directory and the runfile's path
     // on a "/". DirectoryBased does not perform any normalization, nor does it check that the path
     // exists.
@@ -259,7 +258,7 @@ public final class RunfilesTest {
   }
 
   @Test
-  public void testDirectoryBasedCtorArgumentValidation() throws Exception {
+  public void testDirectoryBasedCtorArgumentValidation() {
     assertThrows(
         IllegalArgumentException.class, () -> Runfiles.createDirectoryBasedForTesting(null));
 

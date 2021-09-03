@@ -92,7 +92,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addNativeDeclaredProvider(ccToolchainProvider)
             .addNativeDeclaredProvider(templateVariableInfo)
-            .setFilesToBuild(ccToolchainProvider.getAllFiles())
+            .setFilesToBuild(ccToolchainProvider.getAllFilesIncludingLibc())
             .addProvider(RunfilesProvider.simple(Runfiles.EMPTY));
 
     if (ccToolchainProvider.getLicensesProvider() != null) {

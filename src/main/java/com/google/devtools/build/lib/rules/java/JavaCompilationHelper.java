@@ -360,6 +360,9 @@ public final class JavaCompilationHelper {
     if (javaToolchain.getJavacSupportsMultiplexWorkers()) {
       workerInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
     }
+    if (javaToolchain.getJavacSupportsWorkerCancellation()) {
+      workerInfo.put(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1");
+    }
     executionInfo.putAll(
         getConfiguration()
             .modifiedExecutionInfo(workerInfo.build(), JavaCompileActionBuilder.MNEMONIC));

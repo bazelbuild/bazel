@@ -162,6 +162,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -439,8 +440,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new QueryTransitivePackagePreloader(this::getDriver),
             syscalls,
             pkgLocator,
-            numPackagesLoaded,
-            this);
+            numPackagesLoaded);
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
@@ -574,7 +574,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new BuildViewProvider(),
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis()));
-    map.put(SkyFunctions.LOAD_STARLARK_ASPECT, new ToplevelStarlarkAspectFunction());
+    map.put(SkyFunctions.LOAD_STARLARK_ASPECT, new LoadStarlarkAspectFunction());
+    map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
+    map.put(
+        SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
@@ -725,7 +728,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     memoizingEvaluator.dump(summarize, out);
   }
 
-  public abstract void dumpPackages(PrintStream out);
+  @ForOverride
+  protected abstract void dumpPackages(PrintStream out);
 
   public void setOutputService(OutputService outputService) {
     this.outputService = outputService;
@@ -962,6 +966,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return tracksStateForIncrementality();
   }
 
+  @ForOverride
+  protected boolean shouldDeleteActionNodesWhenDroppingAnalysis() {
+    return true;
+  }
+
   /**
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
@@ -1115,8 +1124,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final void deleteAnalysisNodes() {
     memoizingEvaluator.delete(
         keepBuildConfigurationNodesWhenDiscardingAnalysis
-            ? SkyframeExecutor::basicAnalysisInvalidatingPredicate
-            : SkyframeExecutor::fullAnalysisInvalidatingPredicate);
+            ? shouldDeleteActionNodesWhenDroppingAnalysis()
+                ? SkyframeExecutor::basicAnalysisInvalidatingPredicateWithActions
+                : SkyframeExecutor::basicAnalysisInvalidatingPredicate
+            : shouldDeleteActionNodesWhenDroppingAnalysis()
+                ? SkyframeExecutor::fullAnalysisInvalidatingPredicateWithActions
+                : SkyframeExecutor::fullAnalysisInvalidatingPredicate);
   }
 
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
@@ -1125,10 +1138,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return key instanceof ArtifactNestedSetKey || key instanceof ActionLookupKey;
   }
 
+  // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
+  // en masse is cheaper than deleting via graph traversal (b/192863968).
+  private static boolean basicAnalysisInvalidatingPredicateWithActions(SkyKey key) {
+    return basicAnalysisInvalidatingPredicate(key) || key instanceof ActionLookupData;
+  }
+
   // We may also want to remove BuildConfigurationValue.Keys to fix a minor memory leak there.
   private static boolean fullAnalysisInvalidatingPredicate(SkyKey key) {
-    return key instanceof ArtifactNestedSetKey
-        || key instanceof ActionLookupKey
+    return basicAnalysisInvalidatingPredicate(key) || key instanceof BuildConfigurationValue.Key;
+  }
+
+  private static boolean fullAnalysisInvalidatingPredicateWithActions(SkyKey key) {
+    return basicAnalysisInvalidatingPredicateWithActions(key)
         || key instanceof BuildConfigurationValue.Key;
   }
 
@@ -1290,22 +1312,31 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected Differencer.Diff getDiff(
       TimestampGranularityMonitor tsgm,
-      Collection<PathFragment> modifiedSourceFiles,
+      ModifiedFileSet modifiedFileSet,
       final Root pathEntry,
       int fsvcThreads)
-      throws InterruptedException {
-    if (modifiedSourceFiles.isEmpty()) {
+      throws InterruptedException, AbruptExitException {
+    if (modifiedFileSet.modifiedSourceFiles().isEmpty()) {
       return new ImmutableDiff(ImmutableList.of(), ImmutableMap.of());
     }
+
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
     Collection<SkyKey> dirtyFileStateSkyKeys =
         Collections2.transform(
-            modifiedSourceFiles,
+            modifiedFileSet.modifiedSourceFiles(),
             pathFragment -> {
               Preconditions.checkState(
                   !pathFragment.isAbsolute(), "found absolute PathFragment: %s", pathFragment);
               return FileStateValue.key(RootedPath.toRootedPath(pathEntry, pathFragment));
             });
+
+    Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
+
+    if (!modifiedFileSet.includesAncestorDirectories()) {
+      return FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
+          tsgm, valuesMap, memoizingEvaluator.getDoneValues(), dirtyFileStateSkyKeys, fsvcThreads);
+    }
+
     // We only need to invalidate directory values when a file has been created or deleted or
     // changes type, not when it has merely been modified. Unfortunately we do not have that
     // information here, so we compute it ourselves.
@@ -1316,7 +1347,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             + "changed");
     FilesystemValueChecker fsvc =
         new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
-    Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
     Differencer.DiffWithDelta diff =
         fsvc.getNewAndOldValues(valuesMap, dirtyFileStateSkyKeys, new FileDirtinessChecker());
 
@@ -1327,21 +1357,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Preconditions.checkState(key.functionName().equals(FileStateValue.FILE_STATE), key);
       RootedPath rootedPath = (RootedPath) key.argument();
       Delta delta = entry.getValue();
-      FileStateValue oldValue = (FileStateValue) delta.getOldValue();
-      FileStateValue newValue = (FileStateValue) delta.getNewValue();
-      if (newValue != null) {
-        valuesToInject.put(key, newValue);
-      } else {
-        valuesToInvalidate.add(key);
-      }
+      @Nullable FileStateValue oldValue = (FileStateValue) delta.oldValue();
+      FileStateValue newValue = (FileStateValue) delta.newValue();
+      valuesToInject.put(key, newValue);
       SkyKey dirListingStateKey = parentDirectoryListingStateKey(rootedPath);
       // Invalidate the directory listing for the path's parent directory if the change was
       // relevant (e.g. path turned from a symlink into a directory) OR if we don't have enough
       // information to determine it was irrelevant.
       boolean changedType;
-      if (newValue == null) {
-        changedType = true;
-      } else if (oldValue != null) {
+      if (oldValue != null) {
         changedType = !oldValue.getType().equals(newValue.getType());
       } else {
         DirectoryListingStateValue oldDirListingStateValue =
@@ -1362,6 +1386,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     for (SkyKey key : diff.changedKeysWithoutNewValues()) {
       Preconditions.checkState(key.functionName().equals(FileStateValue.FILE_STATE), key);
       RootedPath rootedPath = (RootedPath) key.argument();
+      valuesToInvalidate.add(key);
       valuesToInvalidate.add(parentDirectoryListingStateKey(rootedPath));
     }
     return new ImmutableDiff(valuesToInvalidate, valuesToInject);
@@ -2306,7 +2331,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @VisibleForTesting
   public final void invalidateFilesUnderPathForTesting(
       ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
-      throws InterruptedException {
+      throws InterruptedException, AbruptExitException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
@@ -2323,7 +2348,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   protected abstract void invalidateFilesUnderPathForTestingImpl(
       ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Root pathEntry)
-      throws InterruptedException;
+      throws InterruptedException, AbruptExitException;
 
   /** Invalidates SkyFrame values that may have failed for transient reasons. */
   public abstract void invalidateTransientErrors();
@@ -2332,7 +2357,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   EvaluationResult<ActionLookupValue> configureTargets(
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> values,
-      List<AspectValueKey> aspectKeys,
+      ImmutableList<TopLevelAspectsKey> aspectKeys,
       boolean keepGoing,
       int numThreads,
       int cpuHeavySkyKeysThreadPoolSize)
@@ -2614,6 +2639,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Preconditions.checkState(
           !packageName.getRepository().isDefault(), "package must be absolute: %s", packageName);
       return deletedPackages.get().contains(packageName);
+    }
+
+    PackageLookupValue getPackageLookupValue(PackageIdentifier pkgName) {
+      try {
+        return (PackageLookupValue)
+            memoizingEvaluator.getExistingValue(PackageLookupValue.key(pkgName));
+      } catch (InterruptedException e) {
+        throw new IllegalStateException(
+            String.format(
+                "Evaluator %s should not be interruptible (%s)", memoizingEvaluator, pkgName),
+            e);
+      }
+    }
+
+    void dumpPackages(PrintStream out) {
+      SkyframeExecutor.this.dumpPackages(out);
     }
   }
 
@@ -3025,7 +3066,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     @Override
-    public void stateEnding(SkyKey skyKey, NodeState nodeState, long elapsedTimeNanos) {
+    public void stateEnding(SkyKey skyKey, NodeState nodeState) {
       if (NodeState.COMPUTE.equals(nodeState)) {
         skyKeyStateReceiver.computationEnded(skyKey);
       }
@@ -3069,7 +3110,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   final AnalysisTraversalResult getActionLookupValuesInBuild(
-      List<ConfiguredTargetKey> topLevelCtKeys, List<AspectValueKey> aspectKeys)
+      List<ConfiguredTargetKey> topLevelCtKeys, ImmutableList<AspectKey> aspectKeys)
       throws InterruptedException {
     AnalysisTraversalResult result = new AnalysisTraversalResult();
     if (!isAnalysisIncremental()) {
@@ -3089,7 +3130,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     for (ConfiguredTargetKey key : topLevelCtKeys) {
       findActionsRecursively(walkableGraph, key, seen, result);
     }
-    for (AspectValueKey key : aspectKeys) {
+    for (AspectKey key : aspectKeys) {
       findActionsRecursively(walkableGraph, key, seen, result);
     }
     return result;

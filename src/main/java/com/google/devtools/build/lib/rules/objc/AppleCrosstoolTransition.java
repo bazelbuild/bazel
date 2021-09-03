@@ -23,24 +23,34 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Transition that produces a configuration that causes c++ toolchain selection to use the CROSSTOOL
  * given in apple_crosstool_top.
  */
-public final class AppleCrosstoolTransition implements PatchTransition, StarlarkValue {
+public final class AppleCrosstoolTransition implements PatchTransition {
 
   /** A singleton instance of AppleCrosstoolTransition. */
   @SerializationConstant
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
+
+  /** Machinery to expose the transition to Starlark. */
+  public static final class AppleCrosstoolTransitionFactory
+      implements StarlarkExposedRuleTransitionFactory {
+    @Override
+    public PatchTransition create(RuleTransitionData unused) {
+      return APPLE_CROSSTOOL_TRANSITION;
+    }
+  }
 
   public AppleCrosstoolTransition() {}
 

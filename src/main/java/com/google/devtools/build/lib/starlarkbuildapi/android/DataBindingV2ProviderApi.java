@@ -79,20 +79,20 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   String NAME = "DataBindingV2Info";
 
   /**
-   * Returns the setter store files from this rule. This is a list to support multiple
+   * Returns the setter store files from this rule. This is a Depset to support multiple
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
   @StarlarkMethod(name = "setter_stores", structField = true, doc = "", documented = false)
-  ImmutableList<T> getSetterStores();
+  Depset /*<T>*/ getSetterStoresForStarlark();
 
   /**
-   * Returns the class info files from this rule. This is a list to support multiple
+   * Returns the class info files from this rule. This is a Depset to support multiple
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
   @StarlarkMethod(name = "class_infos", structField = true, doc = "", documented = false)
-  ImmutableList<T> getClassInfos();
+  Depset /*<T>*/ getClassInfosForStarlark();
 
   /** Returns the BR files from this rule and its dependencies. */
   @StarlarkMethod(name = "transitive_br_files", structField = true, doc = "", documented = false)

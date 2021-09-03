@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.util.Objects.requireNonNull;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
+import javax.annotation.Nullable;
 
 /**
  * Class used for implementing allowlists using package groups.
@@ -97,6 +99,15 @@ public final class Allowlist {
 
   public static PackageSpecificationProvider fetchPackageSpecificationProvider(
       RuleContext ruleContext, String allowlistName) {
+    return checkNotNull(
+        fetchPackageSpecificationProviderOrNull(ruleContext, allowlistName),
+        "Allowlist argument for %s not found",
+        allowlistName);
+  }
+
+  @Nullable
+  public static PackageSpecificationProvider fetchPackageSpecificationProviderOrNull(
+      RuleContext ruleContext, String allowlistName) {
     for (String attributeName : getAttributeNameFromAllowlistName(allowlistName)) {
       if (!ruleContext.isAttrDefined(attributeName, LABEL)) {
         continue;
@@ -107,7 +118,7 @@ public final class Allowlist {
           packageGroup.getProvider(PackageSpecificationProvider.class);
       return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
     }
-    throw new AssertionError();
+    return null;
   }
 
   /**

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -55,7 +54,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.protobuf.Any;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -139,8 +137,10 @@ public class CommandEnvironment {
     public void exit(AbruptExitException exception) {
       Preconditions.checkNotNull(exception);
       Preconditions.checkNotNull(exception.getExitCode());
-      if (pendingException.compareAndSet(null, Optional.of(exception))) {
-        // There was no exception, so we're the first one to ask for an exit. Interrupt the command.
+      if (pendingException.compareAndSet(null, Optional.of(exception))
+          && !Thread.currentThread().equals(commandThread)) {
+        // There was no exception, so we're the first one to ask for an exit. Interrupt the command
+        // if this exit is coming from a different thread, so that the command terminates promptly.
         commandThread.interrupt();
       }
     }
@@ -228,7 +228,10 @@ public class CommandEnvironment {
 
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
     this.commandId = computeCommandId(commandOptions.invocationId, warnings);
-    this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
+    this.buildRequestId =
+        commandOptions.buildRequestId != null
+            ? commandOptions.buildRequestId
+            : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
     if (command.builds()) {
@@ -335,8 +338,10 @@ public class CommandEnvironment {
 
   void notifyOnCrash(String message) {
     shutdownReasonConsumer.accept(message);
-    // Give shutdown hooks priority in JVM and stop generating more data for modules to consume.
-    commandThread.interrupt();
+    if (!Thread.currentThread().equals(commandThread)) {
+      // Give shutdown hooks priority in JVM and stop generating more data for modules to consume.
+      commandThread.interrupt();
+    }
   }
 
   public OptionsProvider getStartupOptionsProvider() {
@@ -447,22 +452,6 @@ public class CommandEnvironment {
       }
     }
     return commandId;
-  }
-
-  private String computeBuildRequestId(String idFromOptions, List<String> warnings) {
-    String buildRequestId = idFromOptions;
-    if (buildRequestId == null) {
-      String uuidString = clientEnv.getOrDefault("BAZEL_INTERNAL_BUILD_REQUEST_ID", "");
-      if (!uuidString.isEmpty()) {
-        buildRequestId = uuidString;
-        warnings.add(
-            "BAZEL_INTERNAL_BUILD_REQUEST_ID is set. This will soon be deprecated in favor of "
-                + "--build_request_id. Please switch to using the flag.");
-      } else {
-        buildRequestId = UUID.randomUUID().toString();
-      }
-    }
-    return buildRequestId;
   }
 
   public TimestampGranularityMonitor getTimestampGranularityMonitor() {
@@ -609,10 +598,6 @@ public class CommandEnvironment {
   @Nullable
   public WorkspaceInfoFromDiff getWorkspaceInfoFromDiff() {
     return workspaceInfoFromDiff;
-  }
-
-  public ActionCache getPersistentActionCache() throws IOException {
-    return workspace.getPersistentActionCache(reporter);
   }
 
   /** Returns the top-down action cache to use, or null. */

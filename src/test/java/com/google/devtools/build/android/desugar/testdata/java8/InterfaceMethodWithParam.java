@@ -91,7 +91,7 @@ public interface InterfaceMethodWithParam {
   /** A helper class that interface methods with parameters. */
   final class TestHelper {
 
-    /** Returns the runtime-invoked method that encloses {@param enclosedThrowable}. */
+    /** Returns the runtime-invoked method that encloses {@code enclosedThrowable}. */
     static Method getEnclosingRuntimeMethod(Throwable enclosedThrowable)
         throws ClassNotFoundException, NoSuchMethodException {
       StackTraceElement stackTraceElement = enclosedThrowable.getStackTrace()[0];

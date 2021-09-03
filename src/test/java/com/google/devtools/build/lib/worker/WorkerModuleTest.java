@@ -118,7 +118,7 @@ public class WorkerModuleTest {
 
     module.beforeCommand(env);
     module.buildStarting(new BuildStartingEvent(env, request));
-    WorkerKey workerKey = TestUtils.createWorkerKey(JSON, fs);
+    WorkerKey workerKey = TestUtils.createWorkerKey(JSON, fs, true);
     Worker worker = module.workerPool.borrowObject(workerKey);
     assertThat(worker.workerKey).isEqualTo(workerKey);
     assertThat(storedEventHandler.getEvents()).hasSize(1);

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
+import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Either;
@@ -263,7 +264,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             env.getSkyframeExecutor(),
             targetProviderForQueryEnvironment,
             env.getPackageManager(),
-            env.getPackageManager().newTargetPatternPreloader(),
+            new SkyframeTargetPatternEvaluator(env.getSkyframeExecutor()),
             env.getRelativeWorkingDirectory(),
             keepGoing,
             /*strictScope=*/ true,

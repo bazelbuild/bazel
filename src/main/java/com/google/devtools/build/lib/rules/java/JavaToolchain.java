@@ -17,6 +17,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -62,6 +63,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
     boolean javacSupportsMultiplexWorkers =
         ruleContext.attributes().get("javac_supports_multiplex_workers", Type.BOOLEAN);
+    boolean javacSupportsWorkerCancellation =
+        ruleContext.attributes().get("javac_supports_worker_cancellation", Type.BOOLEAN);
     ImmutableSet<String> headerCompilerBuiltinProcessors =
         ImmutableSet.copyOf(
             ruleContext.attributes().get("header_compiler_builtin_processors", Type.STRING_LIST));
@@ -86,8 +89,10 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> tools = PrerequisiteArtifacts.nestedSet(ruleContext, "tools");
 
-    ImmutableList<String> jvmOpts =
-        ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list("jvm_opts");
+    NestedSet<String> jvmOpts =
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            ruleContext.getExpander().withExecLocations(ImmutableMap.of()).list("jvm_opts"));
 
     JavaToolchainTool javabuilder =
         JavaToolchainTool.fromRuleContext(
@@ -105,25 +110,33 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     if (jspecifyProcessorClass.isEmpty()) {
       jspecifyInfo = null;
     } else {
+      ImmutableList<Artifact> jspecifyStubs =
+          ruleContext.getPrerequisiteArtifacts("jspecify_stubs").list();
       JavaPluginData jspecifyProcessor =
           JavaPluginData.create(
               NestedSetBuilder.create(STABLE_ORDER, jspecifyProcessorClass),
               NestedSetBuilder.create(
                   STABLE_ORDER, ruleContext.getPrerequisiteArtifact("jspecify_processor")),
-              PrerequisiteArtifacts.nestedSet(ruleContext, "jspecify_stubs"));
+              NestedSetBuilder.wrap(STABLE_ORDER, jspecifyStubs));
       NestedSet<Artifact> jspecifyImplicitDeps =
           NestedSetBuilder.create(
               STABLE_ORDER, ruleContext.getPrerequisiteArtifact("jspecify_implicit_deps"));
-      ImmutableList<String> jspecifyJavacopts =
-          ImmutableList.copyOf(
-              ruleContext.attributes().get("jspecify_javacopts", Type.STRING_LIST));
+      ImmutableList.Builder<String> jspecifyJavacopts =
+          ImmutableList.<String>builder()
+              .addAll(ruleContext.attributes().get("jspecify_javacopts", Type.STRING_LIST));
+      if (!jspecifyStubs.isEmpty()) {
+        jspecifyJavacopts.add(
+            jspecifyStubs.stream()
+                .map(Artifact::getExecPathString)
+                .collect(joining(":", "-Astubs=", "")));
+      }
       ImmutableList<PackageSpecificationProvider> jspecifyPackages =
           ImmutableList.copyOf(
               ruleContext.getPrerequisites(
                   "jspecify_packages", PackageSpecificationProvider.class));
       jspecifyInfo =
           JspecifyInfo.create(
-              jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts, jspecifyPackages);
+              jspecifyProcessor, jspecifyImplicitDeps, jspecifyJavacopts.build(), jspecifyPackages);
     }
 
     AndroidLintTool androidLint = AndroidLintTool.fromRuleContext(ruleContext);
@@ -145,6 +158,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             jvmOpts,
             javacSupportsWorkers,
             javacSupportsMultiplexWorkers,
+            javacSupportsWorkerCancellation,
             bootclasspath,
             tools,
             javabuilder,

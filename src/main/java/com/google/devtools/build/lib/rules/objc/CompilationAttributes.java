@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
@@ -351,6 +352,11 @@ final class CompilationAttributes implements StarlarkValue {
     return Depset.of(Artifact.TYPE, hdrs());
   }
 
+  @StarlarkMethod(name = "textual_hdrs", documented = false, structField = true)
+  public Depset textualHdrsForStarlark() {
+    return Depset.of(Artifact.TYPE, textualHdrs());
+  }
+
   /**
    * Returns the headers that cannot be compiled individually.
    */
@@ -376,6 +382,17 @@ final class CompilationAttributes implements StarlarkValue {
                 .collect(ImmutableList.toImmutableList())));
   }
 
+  @StarlarkMethod(name = "sdk_includes", documented = false, structField = true)
+  public Depset sdkIncludesForStarlark() {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.wrap(
+            Order.COMPILE_ORDER,
+            sdkIncludes().toList().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
   /**
    * Returns the paths for SDK includes.
    */
@@ -390,11 +407,18 @@ final class CompilationAttributes implements StarlarkValue {
     return this.sdkFrameworks;
   }
 
-  @StarlarkMethod(name = "sdk_framework", documented = false, structField = true)
-  public Depset sdkFramework() {
+  @StarlarkMethod(name = "sdk_frameworks", documented = false, structField = true)
+  public Depset sdkFrameworksForStarlark() {
     return (Depset)
         ObjcProviderStarlarkConverters.convertToStarlark(
             ObjcProvider.SDK_FRAMEWORK, sdkFrameworks());
+  }
+
+  @StarlarkMethod(name = "weak_sdk_frameworks", documented = false, structField = true)
+  public Depset weakSdkFrameworksForStarlark() {
+    return (Depset)
+        ObjcProviderStarlarkConverters.convertToStarlark(
+            ObjcProvider.SDK_FRAMEWORK, weakSdkFrameworks());
   }
 
   /**
@@ -404,11 +428,33 @@ final class CompilationAttributes implements StarlarkValue {
     return this.weakSdkFrameworks;
   }
 
+  @StarlarkMethod(name = "sdk_dylibs", documented = false, structField = true)
+  public Depset sdkDylibsForStarlark() {
+    return Depset.of(ElementType.STRING, sdkDylibs);
+  }
+
   /**
    * Returns the SDK Dylibs to link against.
    */
   public NestedSet<String> sdkDylibs() {
     return this.sdkDylibs;
+  }
+
+  @StarlarkMethod(
+      name = "header_search_paths",
+      documented = false,
+      parameters = {
+        @Param(name = "genfiles_dir", positional = false, named = true),
+      })
+  public Depset headerSearchPathsForStarlark(String genfilesDir) {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.stableOrder()
+            .addAll(
+                headerSearchPaths(PathFragment.create(genfilesDir)).toList().stream()
+                    .map(PathFragment::toString)
+                    .collect(ImmutableList.toImmutableList()))
+            .build());
   }
 
   /**
@@ -452,6 +498,11 @@ final class CompilationAttributes implements StarlarkValue {
   /** Returns the additional link inputs. */
   public ImmutableList<Artifact> linkInputs() {
     return this.linkInputs;
+  }
+
+  @StarlarkMethod(name = "defines", documented = false, structField = true)
+  public Sequence<String> getDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(defines());
   }
 
   /** Returns the defines. */

@@ -31,7 +31,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SOURCE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -53,14 +52,9 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -223,24 +217,6 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
-    /**
-     * Adds providers for runtime frameworks included in the final app bundle but not linked with at
-     * build time.
-     */
-    Builder addRuntimeDeps(List<? extends TransitiveInfoCollection> runtimeDeps) {
-      ImmutableList.Builder<ObjcProvider> objcProviders = ImmutableList.builder();
-      ImmutableList.Builder<CcInfo> ccInfos = ImmutableList.builder();
-
-      for (TransitiveInfoCollection dep : runtimeDeps) {
-        addAnyProviders(objcProviders, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
-        addAnyProviders(ccInfos, dep, CcInfo.PROVIDER);
-      }
-      this.runtimeObjcProviders =
-          Iterables.concat(this.runtimeObjcProviders, objcProviders.build());
-      addCcCompilationContexts(ccInfos.build());
-      return this;
-    }
-
     private <T extends Info> ImmutableList.Builder<T> addAnyProviders(
         ImmutableList.Builder<T> listBuilder,
         TransitiveInfoCollection collection,
@@ -297,11 +273,6 @@ public final class ObjcCommon implements StarlarkValue {
       return this;
     }
 
-    Builder addLinkopts(Iterable<String> linkopts) {
-      this.linkopts = Iterables.concat(this.linkopts, linkopts);
-      return this;
-    }
-
     /**
      * Specifies that this target has a clang module map. This should be called if this target
      * compiles sources or exposes headers for other targets to use. Note that this does not add
@@ -310,14 +281,6 @@ public final class ObjcCommon implements StarlarkValue {
      */
     Builder setHasModuleMap() {
       this.hasModuleMap = true;
-      return this;
-    }
-
-    /**
-     * Adds additional static libraries to be linked into the final ObjC application bundle.
-     */
-    Builder addExtraImportLibraries(Iterable<Artifact> extraImportLibraries) {
-      this.extraImportLibraries = Iterables.concat(this.extraImportLibraries, extraImportLibraries);
       return this;
     }
 
@@ -482,12 +445,10 @@ public final class ObjcCommon implements StarlarkValue {
     return purpose;
   }
 
-  @StarlarkMethod(name = "objc_provider", documented = false, structField = true)
   public ObjcProvider getObjcProvider() {
     return objcProvider;
   }
 
-  @StarlarkMethod(name = "objc_compilation_context", documented = false, structField = true)
   public ObjcCompilationContext getObjcCompilationContext() {
     return objcCompilationContext;
   }
@@ -511,102 +472,4 @@ public final class ObjcCommon implements StarlarkValue {
     }
     return Optional.absent();
   }
-
-  /**
-   * Returns the compiled {@code .a} file, or null if this object contains no {@link
-   * CompilationArtifacts} or the compilation information has no sources.
-   */
-  @StarlarkMethod(
-      name = "compiled_archive",
-      documented = false,
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  public Artifact getCompiledArchiveForStarlark() {
-    if (compilationArtifacts.isPresent() && compilationArtifacts.get().getArchive().isPresent()) {
-      return compilationArtifacts.get().getArchive().get();
-    }
-    return null;
-  }
-
-  /**
-   * Returns effective compilation options that do not arise from the crosstool.
-   */
-  static Iterable<String> getNonCrosstoolCopts(RuleContext ruleContext) {
-    return Iterables.concat(
-        ruleContext.getFragment(ObjcConfiguration.class).getCopts(),
-        ruleContext.getExpander().withDataLocations().tokenized("copts"));
-  }
-
-  /**
-   * Returns the first directory in the sequence of parents of the exec path of the given artifact
-   * that matches {@code type}. For instance, if {@code type} is FileType.of(".foo") and the exec
-   * path of {@code artifact} is {@code a/b/c/bar.foo/d/e}, then the return value is
-   * {@code a/b/c/bar.foo}.
-   */
-  static Optional<PathFragment> nearestContainerMatching(FileType type, Artifact artifact) {
-    PathFragment container = artifact.getExecPath();
-    do {
-      if (type.matches(container)) {
-        return Optional.of(container);
-      }
-      container = container.getParentDirectory();
-    } while (container != null);
-    return Optional.absent();
-  }
-
-  /**
-   * Similar to {@link #nearestContainerMatching(FileType, Artifact)}, but tries matching several
-   * file types in {@code types}, and returns a path for the first match in the sequence.
-   */
-  static Optional<PathFragment> nearestContainerMatching(
-      Iterable<FileType> types, Artifact artifact) {
-    for (FileType type : types) {
-      for (PathFragment container : nearestContainerMatching(type, artifact).asSet()) {
-        return Optional.of(container);
-      }
-    }
-    return Optional.absent();
-  }
-
-  /**
-   * Similar to {@link #nearestContainerMatching(FileType, Artifact)}, but returns the container
-   * closest to the root that matches the given type.
-   */
-  static Optional<PathFragment> farthestContainerMatching(FileType type, Artifact artifact) {
-    PathFragment container = artifact.getExecPath();
-    Optional<PathFragment> lastMatch = Optional.absent();
-    do {
-      if (type.matches(container)) {
-        lastMatch = Optional.of(container);
-      }
-      container = container.getParentDirectory();
-    } while (container != null);
-    return lastMatch;
-  }
-
-  static Iterable<String> notInContainerErrors(
-      Iterable<Artifact> artifacts, FileType containerType) {
-    return notInContainerErrors(artifacts, ImmutableList.of(containerType));
-  }
-
-  static Iterable<String> notInContainerErrors(
-      Iterable<Artifact> artifacts, Iterable<FileType> containerTypes) {
-    Set<String> errors = new HashSet<>();
-    for (Artifact artifact : artifacts) {
-      boolean inContainer = nearestContainerMatching(containerTypes, artifact).isPresent();
-      if (!inContainer) {
-        errors.add(
-            String.format(
-                NOT_IN_CONTAINER_ERROR_FORMAT,
-                artifact.getExecPath(),
-                Iterables.toString(containerTypes)));
-      }
-    }
-    return errors;
-  }
-
-  @VisibleForTesting
-  static final String NOT_IN_CONTAINER_ERROR_FORMAT =
-      "File '%s' is not in a directory of one of these type(s): %s";
 }

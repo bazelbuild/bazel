@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
@@ -448,7 +447,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         "bazel_dep(name='B',version='1.0')");
     FakeRegistry registry =
         registryFactory
-            .newFakeRegistry()
+            .newFakeRegistry(scratch.dir("modules").getPathString())
             .addModule(createModuleKey("B", "1.0"), "module(name='B', version='1.0');");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
     scratch.file(rootPath.getRelative("BUILD").getPathString());
@@ -460,11 +459,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     scratch.file(
         rootPath.getRelative("WORKSPACE").getPathString(),
         "load(':repo_rule.bzl', 'fictive_repo_rule')",
-        "fictive_repo_rule(name = 'B')",
+        "fictive_repo_rule(name = 'B.1.0')",
         "fictive_repo_rule(name = 'C')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("B"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName("B.1.0"));
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
@@ -473,13 +472,13 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .build();
     EvaluationResult<SkyValue> result = driver.evaluate(ImmutableList.of(key), evaluationContext);
 
-    // B should be fetched from MODULE.bazel file instead of WORKSPACE file.
-    // Because FakeRegistry returns a fake_http_archive_rule, the fetch should fail as expected.
+    // B.1.0 should be fetched from MODULE.bazel file instead of WORKSPACE file.
+    // Because FakeRegistry will look for the contents of B.1.0 under $scratch/modules/B.1.0 which
+    // doesn't exist, the fetch should fail as expected.
     assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException()).isInstanceOf(InvalidRuleException.class);
     assertThat(result.getError().getException())
         .hasMessageThat()
-        .isEqualTo("Unrecognized native repository rule: fake_http_archive_rule");
+        .contains("but it does not exist or is not a directory");
 
     // C should still be fetched from WORKSPACE successfully.
     loadRepo("C");

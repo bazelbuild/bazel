@@ -527,6 +527,11 @@ public final class BuildEventServiceUploader implements Runnable {
                           : BuildProgress.Code.BES_STREAM_COMPLETED_WITH_UNSENT_EVENTS_ERROR;
                   throw withFailureDetail(status.asException(), bpCode, status.getDescription());
                 }
+              } else if (lastEventSent && ackQueue.isEmpty()) {
+                throw withFailureDetail(
+                    streamStatus.asException(),
+                    BuildProgress.Code.BES_STREAM_COMPLETED_WITH_REMOTE_ERROR,
+                    streamStatus.getDescription());
               }
 
               if (!shouldRetryStatus(streamStatus)) {
@@ -592,7 +597,8 @@ public final class BuildEventServiceUploader implements Runnable {
       throw e;
     } finally {
       logger.atInfo().log("About to cancel all local file uploads");
-      try (AutoProfiler ignored = GoogleAutoProfilerUtils.logged("local file upload cancelation")) {
+      try (AutoProfiler ignored =
+          GoogleAutoProfilerUtils.logged("local file upload cancellation")) {
         // Cancel all local file uploads that may still be running
         // of events that haven't been uploaded.
         EventLoopCommand event;

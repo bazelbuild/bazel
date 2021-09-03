@@ -53,6 +53,11 @@ public class ExecutionTransitionFactory
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
   }
 
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.ATTRIBUTE;
+  }
+
   /**
    * Returns a new {@link ExecutionTransitionFactory} for the given {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.

@@ -29,6 +29,32 @@ java_library(
 )
 
 java_library(
+    name = "exception",
+    srcs = ["ExternalDepsException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:error_prone_annotations",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "module_extension",
+    srcs = [
+        "ModuleExtensionUsage.java",
+        "Tag.java",
+    ],
+    deps = [
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "registry",
     srcs = [
         "IndexRegistry.java",
@@ -67,22 +93,25 @@ java_library(
     ],
     deps = [
         ":common",
+        ":exception",
+        ":module_extension",
         ":registry",
+        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

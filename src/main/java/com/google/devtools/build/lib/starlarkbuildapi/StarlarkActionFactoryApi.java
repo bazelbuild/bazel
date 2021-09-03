@@ -360,8 +360,12 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "Progress message to show to the user during the build, "
-                    + "for example, \"Compiling foo.cc to create foo.o\"."),
+                "Progress message to show to the user during the build, for example, \"Compiling"
+                    + " foo.cc to create foo.o\". The message may contain <code>%{label}</code>,"
+                    + " <code>%{input}</code>, or <code>%{output}</code> patterns, which are"
+                    + " substituted with label string, first input, or output's path,"
+                    + " respectively. Prefer to use patterns instead of static strings, because"
+                    + " the former are more efficient."),
         @Param(
             name = "use_default_shell_env",
             defaultValue = "False",
@@ -561,8 +565,12 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "Progress message to show to the user during the build, "
-                    + "for example, \"Compiling foo.cc to create foo.o\"."),
+                "Progress message to show to the user during the build, for example, \"Compiling"
+                    + " foo.cc to create foo.o\". The message may contain <code>%{label}</code>,"
+                    + " <code>%{input}</code>, or <code>%{output}</code> patterns, which are"
+                    + " substituted with label string, first input, or output's path,"
+                    + " respectively. Prefer to use patterns instead of static strings, because"
+                    + " the former are more efficient."),
         @Param(
             name = "use_default_shell_env",
             defaultValue = "False",

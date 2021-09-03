@@ -432,6 +432,11 @@ public abstract class BlazeModule {
     return null;
   }
 
+  @Nullable
+  public String getSlowThreadInterruptMessageSuffix() {
+    return null;
+  }
+
   /**
    * Optionally returns a provider for project files that can be used to bundle targets and
    * command-line options.

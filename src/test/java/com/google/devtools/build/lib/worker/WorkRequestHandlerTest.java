@@ -185,8 +185,7 @@ public class WorkRequestHandlerTest {
   }
 
   @Test
-  public void testCancelRequest_sendsResponseWhenNotAlreadySent()
-      throws IOException, InterruptedException {
+  public void testCancelRequest_sendsResponseWhenDone() throws IOException, InterruptedException {
     Semaphore waitForCancel = new Semaphore(0);
     Semaphore handlerCalled = new Semaphore(0);
     Semaphore cancelCalled = new Semaphore(0);
@@ -228,13 +227,14 @@ public class WorkRequestHandlerTest {
     // the cancellation entirely before that.
     handlerCalled.acquire();
     WorkRequest.newBuilder().setRequestId(42).setCancel(true).build().writeDelimitedTo(src);
-    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
+    cancelCalled.acquire();
     waitForCancel.release();
     // Give the other request a chance to process, so we can check that no other response is sent
     done.acquire();
 
+    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
     assertThat(handlerCalled.availablePermits()).isEqualTo(1); // Released 2, one was acquired
-    assertThat(cancelCalled.availablePermits()).isEqualTo(1);
+    assertThat(cancelCalled.availablePermits()).isEqualTo(0);
     assertThat(response.getRequestId()).isEqualTo(42);
     assertThat(response.getOutput()).isEmpty();
     assertThat(response.getWasCancelled()).isTrue();
@@ -286,10 +286,11 @@ public class WorkRequestHandlerTest {
     WorkRequest.newBuilder().setRequestId(42).build().writeDelimitedTo(src);
     WorkRequest.newBuilder().setRequestId(42).setCancel(true).build().writeDelimitedTo(src);
     WorkRequest.newBuilder().setRequestId(42).setCancel(true).build().writeDelimitedTo(src);
-    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
+    cancelCalled.acquire();
     waitForCancel.release();
     done.acquire();
 
+    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
     assertThat(cancelCalled.availablePermits()).isLessThan(2);
     assertThat(response.getRequestId()).isEqualTo(42);
     assertThat(response.getOutput()).isEmpty();

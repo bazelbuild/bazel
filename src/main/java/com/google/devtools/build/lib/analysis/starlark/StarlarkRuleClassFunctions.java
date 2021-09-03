@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
@@ -41,7 +42,9 @@ import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -51,6 +54,8 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
@@ -69,7 +74,6 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainTransitionMode;
@@ -77,6 +81,7 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -88,6 +93,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
@@ -171,87 +177,95 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   /** Parent rule class for test Starlark rules. */
-  public static final RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
+  public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
     String toolsRepository = env.getToolsRepository();
-    return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
-        .requiresConfigurationFragments(TestConfiguration.class)
-        // TestConfiguration only needed to create TestAction and TestProvider
-        // Only necessary at top-level and can be skipped if trimmed.
-        .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
-        .add(
-            attr("size", STRING)
-                .value("medium")
-                .taggable()
-                .nonconfigurable("used in loading phase rule validation logic"))
-        .add(
-            attr("timeout", STRING)
-                .taggable()
-                .nonconfigurable("policy decision: should be consistent across configurations")
-                .value(TIMEOUT_DEFAULT))
-        .add(
-            attr("flaky", BOOLEAN)
-                .value(false)
-                .taggable()
-                .nonconfigurable("taggable - called in Rule.getRuleTags"))
-        .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
-        .add(
-            attr("local", BOOLEAN)
-                .value(false)
-                .taggable()
-                .nonconfigurable(
-                    "policy decision: this should be consistent across configurations"))
-        .add(attr("args", STRING_LIST))
-        // Input files for every test action
-        .add(
-            attr("$test_wrapper", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
-        .add(
-            attr("$xml_writer", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
-        .add(
-            attr("$test_runtime", LABEL_LIST)
-                .cfg(HostTransition.createFactory())
-                // Getting this default value through the getTestRuntimeLabelList helper ensures we
-                // reuse the same ImmutableList<Label> instance for each $test_runtime attr.
-                .value(getTestRuntimeLabelList(env)))
-        .add(
-            attr("$test_setup_script", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
-        .add(
-            attr("$xml_generator_script", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
-        .add(
-            attr("$collect_coverage_script", LABEL)
-                .cfg(HostTransition.createFactory())
-                .singleArtifact()
-                .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
-        // Input files for test actions collecting code coverage
-        .add(
-            attr(":coverage_support", LABEL)
-                .cfg(HostTransition.createFactory())
-                .value(
-                    BaseRuleClasses.coverageSupportAttribute(
-                        labelCache.get(
-                            toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
-        // Used in the one-per-build coverage report generation action.
-        .add(
-            attr(":coverage_report_generator", LABEL)
-                .cfg(HostTransition.createFactory())
-                .value(
-                    BaseRuleClasses.coverageReportGeneratorAttribute(
-                        labelCache.get(
-                            toolsRepository
-                                + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
-        .add(attr(":run_under", LABEL).value(RUN_UNDER))
-        .build();
+    RuleClass.Builder builder =
+        new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+            .requiresConfigurationFragments(TestConfiguration.class)
+            // TestConfiguration only needed to create TestAction and TestProvider
+            // Only necessary at top-level and can be skipped if trimmed.
+            .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
+            .add(
+                attr("size", STRING)
+                    .value("medium")
+                    .taggable()
+                    .nonconfigurable("used in loading phase rule validation logic"))
+            .add(
+                attr("timeout", STRING)
+                    .taggable()
+                    .nonconfigurable("policy decision: should be consistent across configurations")
+                    .value(TIMEOUT_DEFAULT))
+            .add(
+                attr("flaky", BOOLEAN)
+                    .value(false)
+                    .taggable()
+                    .nonconfigurable("taggable - called in Rule.getRuleTags"))
+            .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
+            .add(
+                attr("local", BOOLEAN)
+                    .value(false)
+                    .taggable()
+                    .nonconfigurable(
+                        "policy decision: this should be consistent across configurations"))
+            .add(attr("args", STRING_LIST))
+            // Input files for every test action
+            .add(
+                attr("$test_wrapper", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
+            .add(
+                attr("$xml_writer", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
+            .add(
+                attr("$test_runtime", LABEL_LIST)
+                    .cfg(HostTransition.createFactory())
+                    // Getting this default value through the getTestRuntimeLabelList helper ensures
+                    // we reuse the same ImmutableList<Label> instance for each $test_runtime attr.
+                    .value(getTestRuntimeLabelList(env)))
+            .add(
+                attr("$test_setup_script", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
+            .add(
+                attr("$xml_generator_script", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
+            .add(
+                attr("$collect_coverage_script", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .singleArtifact()
+                    .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
+            // Input files for test actions collecting code coverage
+            .add(
+                attr(":coverage_support", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .value(
+                        BaseRuleClasses.coverageSupportAttribute(
+                            labelCache.get(
+                                toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
+            // Used in the one-per-build coverage report generation action.
+            .add(
+                attr(":coverage_report_generator", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .value(
+                        BaseRuleClasses.coverageReportGeneratorAttribute(
+                            labelCache.get(
+                                toolsRepository
+                                    + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
+            .add(attr(":run_under", LABEL).value(RUN_UNDER));
+
+    env.getNetworkAllowlistForTests()
+        .ifPresent(
+            label ->
+                builder.add(
+                    Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
+
+    return builder.build();
   }
 
   @Override
@@ -286,6 +300,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object compileOneFiletype,
+      Object name,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
@@ -402,13 +418,26 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         builder.setHasStarlarkRuleTransition();
       } else if (cfg instanceof PatchTransition) {
         builder.cfg((PatchTransition) cfg);
+      } else if (cfg instanceof StarlarkExposedRuleTransitionFactory) {
+        StarlarkExposedRuleTransitionFactory transition =
+            (StarlarkExposedRuleTransitionFactory) cfg;
+        builder.cfg(transition);
+        transition.addToStarlarkRule(bazelContext, builder);
       } else if (cfg instanceof TransitionFactory) {
-        @SuppressWarnings("unchecked")
-        TransitionFactory<Rule> transitionFactory = (TransitionFactory<Rule>) cfg;
-        builder.cfg(transitionFactory);
+        // This may be redundant with StarlarkExposedRuleTransitionFactory infra
+        TransitionFactory<? extends TransitionFactory.Data> transitionFactory =
+            (TransitionFactory<? extends TransitionFactory.Data>) cfg;
+        if (transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE)) {
+          @SuppressWarnings("unchecked") // Actually checked due to above isCompatibleWith call.
+          TransitionFactory<RuleTransitionData> ruleTransitionFactory =
+              (TransitionFactory<RuleTransitionData>) transitionFactory;
+          builder.cfg(ruleTransitionFactory);
+        } else {
+          throw Starlark.errorf(
+              "`cfg` must be set to a transition appropriate for a rule, not an attribute-specific"
+                  + " transition.");
+        }
       } else {
-        // This is not technically true: it could also be a native transition, but this is the
-        // most likely error case.
         throw Starlark.errorf(
             "`cfg` must be set to a transition object initialized by the transition() function.");
       }
@@ -431,7 +460,40 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
-    return new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+    if (compileOneFiletype instanceof String) {
+      builder.setPreferredDependencyPredicate(FileType.of((String) compileOneFiletype));
+    }
+
+    StarlarkRuleFunction starlarkRuleFunction =
+        new StarlarkRuleFunction(builder, type, attributes, thread.getCallerLocation());
+    // If a name= parameter is supplied (and we're currently initializing a .bzl module), export the
+    // rule immediately under that name; otherwise the rule will be exported by the postAssignHook
+    // set up in BzlLoadFunction.
+    //
+    // Because exporting can raise multiple errors, we need to accumulate them here into a single
+    // EvalException. This is a code smell because any non-ERROR events will be lost, and any
+    // location
+    // information in the events will be overwritten by the location of this rule's definition.
+    // However, this is currently fine because StarlarkRuleFunction#export only creates events that
+    // are ERRORs and that have the rule definition as their location.
+    // TODO(brandjon): Instead of accumulating events here, consider registering the rule in the
+    // BazelStarlarkContext, and exporting such rules after module evaluation in
+    // BzlLoadFunction#execAndExport.
+    if (name != Starlark.NONE && bzlModule != null) {
+      StoredEventHandler handler = new StoredEventHandler();
+      starlarkRuleFunction.export(handler, bzlModule.label(), (String) name);
+      if (handler.hasErrors()) {
+        StringBuilder errors =
+            handler.getEvents().stream()
+                .filter(e -> e.getKind() == EventKind.ERROR)
+                .reduce(
+                    new StringBuilder(),
+                    (sb, ev) -> sb.append("\n").append(ev.getMessage()),
+                    StringBuilder::append);
+        throw Starlark.errorf("Errors in exporting %s: %s", name, errors.toString());
+      }
+    }
+    return starlarkRuleFunction;
   }
 
   /**
@@ -713,7 +775,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   + "Rules may be instantiated only in a BUILD thread.");
         }
         RuleFactory.createAndAddRule(
-            pkgContext, ruleClass, attributeValues, thread.getSemantics(), thread.getCallStack());
+            pkgContext.getBuilder(),
+            ruleClass,
+            attributeValues,
+            pkgContext.getEventHandler(),
+            thread.getSemantics(),
+            thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(e);
       }
@@ -721,6 +788,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */
+    // To avoid losing event information in the case where the rule was defined with an explicit
+    // name= arg, all events should be created using errorf(). See the comment in rule() above for
+    // details.
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
       Preconditions.checkState(ruleClass == null && builder != null);

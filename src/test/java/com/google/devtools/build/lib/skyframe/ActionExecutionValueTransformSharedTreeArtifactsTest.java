@@ -182,6 +182,8 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
                       .findAny()
                       .get();
               assertThat(artifact.getParent()).isEqualTo(expectedTree);
+              assertThat(artifact.getGeneratingActionKey())
+                  .isEqualTo(expectedTree.getGeneratingActionKey());
               assertOwnerlessEquals(originalArtifact, artifact);
               assertThat(artifact.isChildOfDeclaredDirectory())
                   .isEqualTo(originalArtifact.isChildOfDeclaredDirectory());
@@ -195,6 +197,8 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
       SpecialArtifact expectedTree,
       ArchivedRepresentation actualRepresentation) {
     assertThat(actualRepresentation.archivedTreeFileArtifact().getParent()).isEqualTo(expectedTree);
+    assertThat(actualRepresentation.archivedTreeFileArtifact().getGeneratingActionKey())
+        .isEqualTo(expectedTree.getGeneratingActionKey());
     assertOwnerlessEquals(
         expectedRepresentation.archivedTreeFileArtifact(),
         actualRepresentation.archivedTreeFileArtifact());
@@ -220,7 +224,7 @@ public class ActionExecutionValueTransformSharedTreeArtifactsTest {
 
     if (includeArchivedTreeArtifacts) {
       ArchivedTreeArtifact archivedArtifact =
-          ArchivedTreeArtifact.create(treeArtifact, DERIVED_PATH_PREFIX);
+          ArchivedTreeArtifact.createForTree(treeArtifact, DERIVED_PATH_PREFIX);
       createFile(archivedArtifact.getPath());
       builder.setArchivedRepresentation(
           archivedArtifact, FileArtifactValue.createForTesting(archivedArtifact));

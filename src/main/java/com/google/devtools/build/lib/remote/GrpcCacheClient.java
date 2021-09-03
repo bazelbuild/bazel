@@ -234,9 +234,12 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         callCredentialsProvider);
   }
 
-  private ListenableFuture<ActionResult> handleStatus(ListenableFuture<ActionResult> download) {
+  private ListenableFuture<CachedActionResult> handleStatus(
+      ListenableFuture<ActionResult> download) {
+    ListenableFuture<CachedActionResult> cachedActionResult =
+        Futures.transform(download, CachedActionResult::remote, MoreExecutors.directExecutor());
     return Futures.catchingAsync(
-        download,
+        cachedActionResult,
         StatusRuntimeException.class,
         (sre) ->
             sre.getStatus().getCode() == Code.NOT_FOUND
@@ -247,7 +250,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
@@ -366,6 +369,14 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
               @Override
               public void onError(Throwable t) {
+                if (offset.get() == digest.getSizeBytes()) {
+                  // If the file was fully downloaded, it doesn't matter if there was an error at
+                  // the end of the stream.
+                  logger.atInfo().withCause(t).log(
+                      "ignoring error because file was fully received");
+                  onCompleted();
+                  return;
+                }
                 Status status = Status.fromThrowable(t);
                 if (status.getCode() == Status.Code.NOT_FOUND) {
                   future.setException(new CacheNotFoundException(digest));

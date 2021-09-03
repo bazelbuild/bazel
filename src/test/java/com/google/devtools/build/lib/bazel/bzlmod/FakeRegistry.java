@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -27,18 +28,21 @@ import java.util.Optional;
 
 /**
  * Fake implementation of {@link Registry}, where modules can be freely added and stored in memory.
+ * The contents of the modules are expected to be located under a given file path as subdirectories.
  */
 public class FakeRegistry implements Registry {
-
+  private static final Joiner JOINER = Joiner.on('\n');
   private final String url;
+  private final String rootPath;
   private final Map<ModuleKey, String> modules = new HashMap<>();
 
-  public FakeRegistry(String url) {
+  public FakeRegistry(String url, String rootPath) {
     this.url = url;
+    this.rootPath = rootPath;
   }
 
-  public FakeRegistry addModule(ModuleKey key, String moduleFile) {
-    modules.put(key, moduleFile);
+  public FakeRegistry addModule(ModuleKey key, String... moduleFileLines) {
+    modules.put(key, JOINER.join(moduleFileLines));
     return this;
   }
 
@@ -55,8 +59,8 @@ public class FakeRegistry implements Registry {
   @Override
   public RepoSpec getRepoSpec(ModuleKey key, String repoName, ExtendedEventHandler eventHandler) {
     return RepoSpec.builder()
-        .setRuleClassName("fake_http_archive_rule")
-        .setAttributes(ImmutableMap.of("repo_name", repoName))
+        .setRuleClassName("local_repository")
+        .setAttributes(ImmutableMap.of("name", repoName, "path", rootPath + "/" + repoName))
         .build();
   }
 
@@ -80,8 +84,8 @@ public class FakeRegistry implements Registry {
     private int numFakes = 0;
     private final Map<String, FakeRegistry> registries = new HashMap<>();
 
-    public FakeRegistry newFakeRegistry() {
-      FakeRegistry registry = new FakeRegistry("fake:" + numFakes++);
+    public FakeRegistry newFakeRegistry(String rootPath) {
+      FakeRegistry registry = new FakeRegistry("fake:" + numFakes++, rootPath);
       registries.put(registry.getUrl(), registry);
       return registry;
     }

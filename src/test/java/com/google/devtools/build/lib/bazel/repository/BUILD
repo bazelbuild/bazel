@@ -76,6 +76,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",

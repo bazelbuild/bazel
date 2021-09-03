@@ -256,9 +256,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     private CommandLineSection getExplicitCommandOptions() {
       List<ParsedOptionDescription> explicitOptions =
-          commandOptions
-              .asListOfExplicitOptions()
-              .stream()
+          commandOptions.asListOfExplicitOptions().stream()
               .filter(
                   parsedOptionDescription ->
                       parsedOptionDescription.getPriority().getPriorityCategory()
@@ -350,8 +348,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           .setOptionList(
               OptionList.newBuilder()
                   .addAllOption(
-                      unfilteredOptions
-                          .stream()
+                      unfilteredOptions.stream()
                           .filter(
                               option -> {
                                 String optionName = option.getOptionName();
@@ -386,6 +383,9 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           .build();
     }
 
+    /**
+     * Hash including the explicit command line options as well as the residue, e.g. the targets.
+     */
     public long getExplicitCommandLineHash() {
       long hash = 0;
       for (Entry<String, Object> starlarkOption : commandOptions.getStarlarkOptions().entrySet()) {
@@ -393,11 +393,15 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       }
       for (ParsedOptionDescription canonicalOptionDesc :
           commandOptions.asListOfCanonicalOptions()) {
-        if (canonicalOptionDesc.isHidden()
-            || !canonicalOptionDesc.getSource().equals("command line options")) {
+        if (canonicalOptionDesc == null
+            || canonicalOptionDesc.isHidden()
+            || !"command line options".equals(canonicalOptionDesc.getSource())) {
           continue;
         }
         hash = hash * 31 + canonicalOptionDesc.getCanonicalForm().hashCode();
+      }
+      for (String r : commandOptions.getResidue()) {
+        hash = hash * 31 + r.hashCode();
       }
       return hash;
     }

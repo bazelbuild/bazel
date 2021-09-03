@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -23,12 +25,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -100,7 +108,7 @@ public class SelectionFunction implements SkyFunction {
   private static ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>>
       computeAllowedVersionSets(
           ImmutableMap<String, ModuleOverride> overrides, ImmutableMap<ModuleKey, Module> depGraph)
-          throws SelectionException {
+          throws ExternalDepsException {
     Map<ModuleNameAndCompatibilityLevel, ImmutableSortedSet.Builder<Version>> allowedVersionSets =
         new HashMap<>();
     for (Map.Entry<String, ModuleOverride> overrideEntry : overrides.entrySet()) {
@@ -113,11 +121,12 @@ public class SelectionFunction implements SkyFunction {
       for (Version allowedVersion : allowedVersions) {
         Module allowedVersionModule = depGraph.get(ModuleKey.create(moduleName, allowedVersion));
         if (allowedVersionModule == null) {
-          throw new SelectionException(
-              String.format(
-                  "multiple_version_override for module %s contains version %s, but it doesn't"
-                      + " exist in the dependency graph",
-                  moduleName, allowedVersion));
+          throw ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "multiple_version_override for module %s contains version %s, but it doesn't"
+                  + " exist in the dependency graph",
+              moduleName,
+              allowedVersion);
         }
         ImmutableSortedSet.Builder<Version> allowedVersionSet =
             allowedVersionSets.computeIfAbsent(
@@ -169,7 +178,8 @@ public class SelectionFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<ModuleKey, Module> depGraph = discovery.getDepGraph();
-    ModuleFileValue rootModule = (ModuleFileValue) env.getValue(ModuleFileValue.keyForRootModule());
+    RootModuleFileValue rootModule =
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (rootModule == null) {
       return null;
     }
@@ -180,7 +190,7 @@ public class SelectionFunction implements SkyFunction {
     ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>> allowedVersionSets;
     try {
       allowedVersionSets = computeAllowedVersionSets(overrides, depGraph);
-    } catch (SelectionException e) {
+    } catch (ExternalDepsException e) {
       throw new SelectionFunctionException(e);
     }
 
@@ -230,12 +240,23 @@ public class SelectionFunction implements SkyFunction {
     // multiple_version_override).
     DepGraphWalker walker = new DepGraphWalker(newDepGraph, overrides, selectionGroups);
     try {
-      walker.walk(ModuleKey.create(discovery.getRootModuleName(), Version.EMPTY), null);
-    } catch (SelectionException e) {
+      newDepGraph = walker.walk();
+    } catch (ExternalDepsException e) {
       throw new SelectionFunctionException(e);
     }
 
-    return SelectionValue.create(discovery.getRootModuleName(), walker.getNewDepGraph());
+    // Build reverse lookups. The root module is not meaningfully used by these so we skip it (it's
+    // guaranteed to be the first in iteration order).
+    ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
+        newDepGraph.keySet().stream()
+            .skip(1)
+            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
+    ImmutableMap<String, ModuleKey> moduleNameLookup =
+        newDepGraph.keySet().stream()
+            .skip(1)
+            .filter(key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
+            .collect(toImmutableMap(ModuleKey::getName, key -> key));
+    return SelectionValue.create(newDepGraph, canonicalRepoNameLookup, moduleNameLookup);
   }
 
   /**
@@ -247,7 +268,6 @@ public class SelectionFunction implements SkyFunction {
     private final ImmutableMap<ModuleKey, Module> oldDepGraph;
     private final ImmutableMap<String, ModuleOverride> overrides;
     private final ImmutableMap<ModuleKey, SelectionGroup> selectionGroups;
-    private final HashMap<ModuleKey, Module> newDepGraph;
     private final HashMap<String, ExistingModule> moduleByName;
 
     DepGraphWalker(
@@ -257,21 +277,37 @@ public class SelectionFunction implements SkyFunction {
       this.oldDepGraph = oldDepGraph;
       this.overrides = overrides;
       this.selectionGroups = selectionGroups;
-      this.newDepGraph = new HashMap<>();
       this.moduleByName = new HashMap<>();
     }
 
-    ImmutableMap<ModuleKey, Module> getNewDepGraph() {
-      return ImmutableMap.copyOf(newDepGraph);
+    /**
+     * Walks the old dep graph and builds a new dep graph containing only deps reachable from the
+     * root module. The returned map has a guaranteed breadth-first iteration order.
+     */
+    ImmutableMap<ModuleKey, Module> walk() throws ExternalDepsException {
+      ImmutableMap.Builder<ModuleKey, Module> newDepGraph = ImmutableMap.builder();
+      Set<ModuleKey> known = new HashSet<>();
+      Queue<ModuleKeyAndDependent> toVisit = new ArrayDeque<>();
+      toVisit.add(ModuleKeyAndDependent.create(ModuleKey.ROOT, null));
+      known.add(ModuleKey.ROOT);
+      while (!toVisit.isEmpty()) {
+        ModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
+        ModuleKey key = moduleKeyAndDependent.getModuleKey();
+        Module module = oldDepGraph.get(key);
+        visit(key, module, moduleKeyAndDependent.getDependent());
+
+        for (ModuleKey depKey : module.getDeps().values()) {
+          if (known.add(depKey)) {
+            toVisit.add(ModuleKeyAndDependent.create(depKey, key));
+          }
+        }
+        newDepGraph.put(key, module);
+      }
+      return newDepGraph.build();
     }
 
-    void walk(ModuleKey key, @Nullable ModuleKey from) throws SelectionException {
-      if (newDepGraph.containsKey(key)) {
-        return;
-      }
-      Module module = oldDepGraph.get(key);
-      newDepGraph.put(key, module);
-
+    void visit(ModuleKey key, Module module, @Nullable ModuleKey from)
+        throws ExternalDepsException {
       ModuleOverride override = overrides.get(key.getName());
       if (override instanceof MultipleVersionOverride) {
         if (selectionGroups.get(key).getTargetAllowedVersion().isEmpty()) {
@@ -279,14 +315,14 @@ public class SelectionFunction implements SkyFunction {
           // higher than its version at the same compatibility level.
           Preconditions.checkState(
               from != null, "the root module cannot have a multiple version override");
-          throw new SelectionException(
-              String.format(
-                  "%s depends on %s which is not allowed by the multiple_version_override on %s,"
-                      + " which allows only [%s]",
-                  from,
-                  key,
-                  key.getName(),
-                  JOINER.join(((MultipleVersionOverride) override).getVersions())));
+          throw ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "%s depends on %s which is not allowed by the multiple_version_override on %s,"
+                  + " which allows only [%s]",
+              from,
+              key,
+              key.getName(),
+              JOINER.join(((MultipleVersionOverride) override).getVersions()));
         }
       } else {
         ExistingModule existingModuleWithSameName =
@@ -298,16 +334,16 @@ public class SelectionFunction implements SkyFunction {
           Preconditions.checkState(
               from != null && existingModuleWithSameName.getDependent() != null,
               "the root module cannot possibly exist more than once in the dep graph");
-          throw new SelectionException(
-              String.format(
-                  "%s depends on %s with compatibility level %d, but %s depends on %s with"
-                      + " compatibility level %d which is different",
-                  from,
-                  key,
-                  module.getCompatibilityLevel(),
-                  existingModuleWithSameName.getDependent(),
-                  existingModuleWithSameName.getModuleKey(),
-                  existingModuleWithSameName.getCompatibilityLevel()));
+          throw ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "%s depends on %s with compatibility level %d, but %s depends on %s with"
+                  + " compatibility level %d which is different",
+              from,
+              key,
+              module.getCompatibilityLevel(),
+              existingModuleWithSameName.getDependent(),
+              existingModuleWithSameName.getModuleKey(),
+              existingModuleWithSameName.getCompatibilityLevel());
         }
       }
 
@@ -318,18 +354,30 @@ public class SelectionFunction implements SkyFunction {
         ModuleKey depKey = depEntry.getValue();
         String previousRepoName = depKeyToRepoName.put(depKey, repoName);
         if (previousRepoName != null) {
-          throw new SelectionException(
-              String.format(
-                  "%s depends on %s at least twice (with repo names %s and %s). Consider adding a"
-                      + " multiple_version_override if you want to depend on multiple versions of"
-                      + " %s simultaneously",
-                  key, depKey, repoName, previousRepoName, key.getName()));
+          throw ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "%s depends on %s at least twice (with repo names %s and %s). Consider adding a"
+                  + " multiple_version_override if you want to depend on multiple versions of"
+                  + " %s simultaneously",
+              key,
+              depKey,
+              repoName,
+              previousRepoName,
+              key.getName());
         }
       }
+    }
 
-      // Now visit our dependencies.
-      for (ModuleKey depKey : module.getDeps().values()) {
-        walk(depKey, key);
+    @AutoValue
+    abstract static class ModuleKeyAndDependent {
+      abstract ModuleKey getModuleKey();
+
+      @Nullable
+      abstract ModuleKey getDependent();
+
+      static ModuleKeyAndDependent create(ModuleKey moduleKey, @Nullable ModuleKey dependent) {
+        return new AutoValue_SelectionFunction_DepGraphWalker_ModuleKeyAndDependent(
+            moduleKey, dependent);
       }
     }
 
@@ -358,14 +406,6 @@ public class SelectionFunction implements SkyFunction {
   static final class SelectionFunctionException extends SkyFunctionException {
     SelectionFunctionException(Exception cause) {
       super(cause, Transience.PERSISTENT);
-    }
-  }
-
-  // TODO(wyv): Replace this with a DetailedException (possibly named ModuleException or
-  //   ExternalDepsException) and use it consistently across the space.
-  static final class SelectionException extends Exception {
-    SelectionException(String message) {
-      super(message);
     }
   }
 }

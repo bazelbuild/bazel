@@ -34,6 +34,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -194,8 +195,9 @@ public class RuleClass {
         return param.getRuleClass() + " rules have to be under a "
             + StringUtil.joinEnglishList(values, "or", "'") + " directory";
       } else if (pathSegment == 1) {
-        return param.getRuleClass() + " rules are only allowed in "
-            + StringUtil.joinEnglishList(StringUtil.append(values, "//", ""), "or");
+        return param.getRuleClass()
+            + " rules are only allowed in "
+            + StringUtil.joinEnglishList(Iterables.transform(values, s -> "//" + s), "or");
       } else {
           return param.getRuleClass() + " rules are only allowed in packages which "
               + StringUtil.ordinal(pathSegment) + " is " + StringUtil.joinEnglishList(values, "or");
@@ -759,7 +761,7 @@ public class RuleClass {
     private boolean hasStarlarkRuleTransition = false;
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
-    private TransitionFactory<Rule> transitionFactory;
+    private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
@@ -1036,25 +1038,26 @@ public class RuleClass {
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
+    public Builder requiresConfigurationFragments(
+        Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
     /**
-     * Declares that the implementation of the associated rule class requires the given
-     * fragments to be present in the given configuration that isn't the rule's configuration but
-     * is also readable by the rule.
+     * Declares that the implementation of the associated rule class requires the given fragments to
+     * be present in the given configuration that isn't the rule's configuration but is also
+     * readable by the rule.
      *
      * <p>You probably don't want to use this, because rules generally shouldn't read configurations
-     * other than their own. If you want to declare host config fragments, see
-     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
+     * other than their own. If you want to declare host config fragments, see {@link
+     * com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder}.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragments(ConfigurationTransition transition,
-        Class<?>... configurationFragments) {
+    public Builder requiresConfigurationFragments(
+        ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           transition, ImmutableSet.copyOf(configurationFragments));
       return this;
@@ -1178,7 +1181,7 @@ public class RuleClass {
      */
     public Builder cfg(PatchTransition transition) {
       // Make sure this is cast to Serializable to avoid autocodec serialization errors.
-      return cfg((TransitionFactory<Rule> & Serializable) unused -> transition);
+      return cfg((TransitionFactory<RuleTransitionData> & Serializable) unused -> transition);
     }
 
     /**
@@ -1187,7 +1190,7 @@ public class RuleClass {
      * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
      * transition to use.
      */
-    public Builder cfg(TransitionFactory<Rule> transitionFactory) {
+    public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
       Preconditions.checkState(this.transitionFactory == null,
@@ -1661,7 +1664,7 @@ public class RuleClass {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  private final TransitionFactory<Rule> transitionFactory;
+  private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1772,7 +1775,7 @@ public class RuleClass {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      TransitionFactory<Rule> transitionFactory,
+      TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -1886,7 +1889,7 @@ public class RuleClass {
     return implicitOutputsFunction;
   }
 
-  public TransitionFactory<Rule> getTransitionFactory() {
+  public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }
 
@@ -1971,11 +1974,8 @@ public class RuleClass {
     return attributes.get(attrIndex);
   }
 
-  /**
-   * Returns the attribute whose name is {@code attrName}, or null if not
-   * found.
-   */
-  Attribute getAttributeByNameMaybe(String attrName) {
+  /** Returns the attribute whose name is {@code attrName}, or null if not found. */
+  public Attribute getAttributeByNameMaybe(String attrName) {
     Integer i = getAttributeIndex(attrName);
     return i == null ? null : attributes.get(i);
   }

@@ -522,7 +522,7 @@ abstract class AbstractParallelEvaluator {
             return;
           }
         } finally {
-          evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.CHECK_DIRTY, -1);
+          evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.CHECK_DIRTY);
         }
 
         ImmutableSet<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
@@ -541,7 +541,7 @@ abstract class AbstractParallelEvaluator {
         } finally {
           evaluatorContext
               .getProgressReceiver()
-              .stateEnding(skyKey, NodeState.INITIALIZING_ENVIRONMENT, -1);
+              .stateEnding(skyKey, NodeState.INITIALIZING_ENVIRONMENT);
         }
         SkyFunctionName functionName = skyKey.functionName();
         SkyFunction factory =
@@ -559,10 +559,8 @@ abstract class AbstractParallelEvaluator {
             evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.COMPUTE);
             value = factory.compute(skyKey, env);
           } finally {
+            evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMPUTE);
             long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTimeNanos;
-            evaluatorContext
-                .getProgressReceiver()
-                .stateEnding(skyKey, NodeState.COMPUTE, elapsedTimeNanos);
             if (elapsedTimeNanos > 0) {
               Profiler.instance()
                   .logSimpleTaskDuration(
@@ -682,7 +680,7 @@ abstract class AbstractParallelEvaluator {
             evaluatorContext.signalParentsAndEnqueueIfReady(
                 skyKey, reverseDeps, state.getVersion(), determineRestartPriority());
           } finally {
-            evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMMIT, -1);
+            evaluatorContext.getProgressReceiver().stateEnding(skyKey, NodeState.COMMIT);
           }
           return;
         }

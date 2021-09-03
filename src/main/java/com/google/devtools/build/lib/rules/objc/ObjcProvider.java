@@ -35,8 +35,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.BuiltinProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,11 +47,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * A provider that provides all linking and miscellaneous information in the transitive closure of
@@ -400,11 +405,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @VisibleForTesting
   static final ImmutableList<Key<?>> KEYS_NOT_IN_STARLARK =
       ImmutableList.<Key<?>>of(
-          // LibraryToLink not exposed to Starlark.
-          CC_LIBRARY,
           // Flag enum is not exposed to Starlark.
           FLAG,
-          // Linkstamp is not exposed to Starlark. See commentary at its definition.
+          // cc_library is handled specially.
+          CC_LIBRARY,
+          // linkstamp is handled specially.
           LINKSTAMP,
           // Strict include is handled specially.
           STRICT_INCLUDE);
@@ -510,6 +515,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   /** Returns the list of .a files required for linking that arise from objc libraries. */
+  @StarlarkMethod(name = "jre_ordered_objc_libraries", documented = false, useStarlarkThread = true)
+  public Sequence<Artifact> getObjcLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getObjcLibraries());
+  }
+
   ImmutableList<Artifact> getObjcLibraries() {
     // JRE libraries must be ordered after all regular objc libraries.
     NestedSet<Artifact> jreLibs = get(JRE_LIBRARY);
@@ -520,6 +532,12 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
         .build();
   }
 
+  @StarlarkMethod(name = "flattened_cc_libraries", documented = false, useStarlarkThread = true)
+  public Sequence<Artifact> getCcLibrariesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getCcLibraries());
+  }
+
   /** Returns the list of .a files required for linking that arise from cc libraries. */
   List<Artifact> getCcLibraries() {
     CcLinkingContext ccLinkingContext =
@@ -527,6 +545,34 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
   }
 
+  @StarlarkMethod(
+      name = "subtract_subtrees",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "avoid_objc_providers",
+            defaultValue = "[]",
+            documented = false,
+            named = true,
+            positional = false),
+        @Param(
+            name = "avoid_cc_providers",
+            defaultValue = "[]",
+            documented = false,
+            named = true,
+            positional = false),
+      })
+  public ObjcProvider subtractSubtreesForStarlark(
+      Sequence<?> avoidObjcProviders, Sequence<?> avoidCcProviders, StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return subtractSubtrees(
+        Sequence.cast(avoidObjcProviders, ObjcProvider.class, "avoid_objc_providers"),
+        Sequence.cast(avoidCcProviders, CcInfo.class, "avoid_cc_providers").stream()
+            .map(CcInfo::getCcLinkingContext)
+            .collect(ImmutableList.toImmutableList()));
+  }
   /**
    * Subtracts dependency subtrees from this provider and returns the result (subtraction does not
    * mutate this provider). Note that not all provider keys are subtracted; generally only keys

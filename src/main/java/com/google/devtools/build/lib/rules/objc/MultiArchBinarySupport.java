@@ -152,12 +152,6 @@ public class MultiArchBinarySupport {
             .collect(toImmutableList());
 
     ObjcProvider objcProvider = dependencySpecificConfiguration.objcLinkProvider();
-    CompilationArtifacts compilationArtifacts =
-        new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(
-                ObjcRuleClasses.intermediateArtifacts(
-                    ruleContext, dependencySpecificConfiguration.config()))
-            .build();
 
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder(ruleContext, cppSemantics)
@@ -167,7 +161,6 @@ public class MultiArchBinarySupport {
             .build();
 
     compilationSupport
-        .registerCompileAndArchiveActions(compilationArtifacts, ObjcCompilationContext.EMPTY)
         .registerLinkActions(
             objcProvider,
             ccLinkingContexts,

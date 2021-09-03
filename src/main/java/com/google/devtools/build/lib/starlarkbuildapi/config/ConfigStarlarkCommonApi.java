@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
@@ -30,4 +32,16 @@ public interface ConfigStarlarkCommonApi extends StarlarkValue {
       doc = "The key used to retrieve the provider containing config_feature_flag's value.",
       structField = true)
   ProviderApi getConfigFeatureFlagProviderConstructor();
+
+  @StarlarkMethod(
+      name = "config_feature_flag_transition",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "attribute",
+            positional = true,
+            named = false,
+            doc = "string corresponding to rule attribute to read")
+      })
+  StarlarkExposedRuleTransitionFactory createConfigFeatureFlagTransitionFactory(String attribute);
 }

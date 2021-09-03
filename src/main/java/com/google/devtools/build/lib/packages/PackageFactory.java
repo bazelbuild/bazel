@@ -403,10 +403,12 @@ public final class PackageFactory {
       }
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
+        PackageContext context = getContext(thread);
         RuleFactory.createAndAddRule(
-            getContext(thread),
+            context.pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
+            context.eventHandler,
             thread.getSemantics(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -522,11 +524,19 @@ public final class PackageFactory {
     public Package.Builder getBuilder() {
       return pkgBuilder;
     }
+
+    /**
+     * Returns the event handler that should be used to report events happening while building this
+     * package.
+     */
+    public ExtendedEventHandler getEventHandler() {
+      return eventHandler;
+    }
   }
 
   /**
    * Runs final validation and administrative tasks on newly loaded package. Called by a caller of
-   * {@link #createPackageFromAst} after this caller has fully loaded the package.
+   * {@link #executeBuildFile} after this caller has fully loaded the package.
    *
    * @throws InvalidPackageException if the package is determined to be invalid
    */
@@ -654,7 +664,8 @@ public final class PackageFactory {
               pkgBuilder.getRepositoryMapping(),
               pkgBuilder.getConvertedLabelsInPackage(),
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.

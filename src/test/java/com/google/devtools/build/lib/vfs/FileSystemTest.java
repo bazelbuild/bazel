@@ -108,8 +108,14 @@ public abstract class FileSystemTest {
   }
 
   @After
-  public final void destroyFileSystem() throws Exception  {
+  public final void destroyFileSystem() throws Exception {
     destroyFileSystem(testFS);
+  }
+
+  /** Removes all stuff from the test filesystem. */
+  protected void destroyFileSystem(FileSystem fileSystem) throws IOException {
+    Preconditions.checkArgument(fileSystem.equals(workingDir.getFileSystem()));
+    cleanUpWorkingDirectory(workingDir);
   }
 
   /**
@@ -139,14 +145,6 @@ public abstract class FileSystemTest {
         throw e;
       }
     }
-  }
-
-  /**
-   * Removes all stuff from the test filesystem.
-   */
-  protected void destroyFileSystem(FileSystem fileSystem) throws IOException {
-    Preconditions.checkArgument(fileSystem.equals(workingDir.getFileSystem()));
-    cleanUpWorkingDirectory(workingDir);
   }
 
   /**

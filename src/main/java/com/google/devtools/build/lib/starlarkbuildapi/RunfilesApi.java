@@ -33,8 +33,9 @@ import net.starlark.java.eval.StarlarkValue;
         "A container of information regarding a set of files required at runtime execution. This"
             + " object should be passed via <a href=\"DefaultInfo.html\">DefaultInfo</a> in order"
             + " to tell the build system about the runfiles needed by the outputs produced by the"
-            + " rule. "
-            + "<p>See <a href=\"../rules.html#runfiles\">runfiles guide</a> for details.")
+            + " rule. <p>See <a"
+            + " href=\"https://docs.bazel.build/skylark/rules.html#runfiles\">runfiles"
+            + " guide</a> for details.")
 public interface RunfilesApi extends StarlarkValue {
 
   @StarlarkMethod(name = "files", doc = "Returns the set of runfiles as files.", structField = true)

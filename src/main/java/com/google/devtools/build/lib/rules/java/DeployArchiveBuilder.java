@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -381,7 +381,7 @@ public class DeployArchiveBuilder {
       commandLine = CommandLine.concat(commandLine, ImmutableList.of("--check_desugar_deps"));
     }
 
-    List<String> jvmArgs = ImmutableList.of(SINGLEJAR_MAX_MEMORY);
+    NestedSet<String> jvmArgs = NestedSetBuilder.create(Order.STABLE_ORDER, SINGLEJAR_MAX_MEMORY);
 
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
     executionInfo.putAll(

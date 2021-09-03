@@ -110,7 +110,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -147,7 +146,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -190,7 +188,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -247,7 +244,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -291,7 +287,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ true,
             reporter,
             localEnvProvider,
             /* binTools */ null,
@@ -299,7 +294,7 @@ public class WorkerSpawnRunnerTest {
             /* runfilestTreeUpdater */ null,
             workerOptions);
     // This worker key just so happens to be multiplex and require sandboxing.
-    WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs);
+    WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs, true);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(0))
         .thenReturn(
@@ -330,7 +325,6 @@ public class WorkerSpawnRunnerTest {
             new SandboxHelpers(false),
             fs.getPath("/execRoot"),
             createWorkerPool(),
-            /* multiplex */ false,
             reporter,
             localEnvProvider,
             /* binTools */ null,

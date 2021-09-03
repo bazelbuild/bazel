@@ -34,6 +34,7 @@ public final class CppFileTypes {
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
   public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
+  public static final FileType BC_SOURCE = FileType.of(".bc");
 
   public static final FileTypeSet ALL_C_CLASS_SOURCE =
       FileTypeSet.of(
@@ -171,7 +172,8 @@ public final class CppFileTypes {
   public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll");
   // Unix shared libraries can be passed to linker, but not .dll on Windows
   public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
-  public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso", ".tbd", ".lib");
+  public static final FileType INTERFACE_SHARED_LIBRARY =
+      FileType.of(".ifso", ".tbd", ".lib", ".dll.a");
   public static final FileType LINKER_SCRIPT = FileType.of(".ld", ".lds", ".ldscript");
 
   // Windows DEF file: https://msdn.microsoft.com/en-us/library/28d6s79h.aspx

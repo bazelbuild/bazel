@@ -50,6 +50,7 @@ class AndroidLintActionBuilder {
       JavaTargetAttributes attributes,
       BootClassPathInfo bootClassPathInfo,
       JavaCommon common,
+      JavaSemantics semantics,
       JavaCompileOutputs<Artifact> outputs) {
     if (!config.runAndroidLint()
         || !attributes.hasSources()
@@ -116,6 +117,7 @@ class AndroidLintActionBuilder {
 
     NestedSetBuilder<Artifact> toolInputs = NestedSetBuilder.stableOrder();
     androidLint.tool().buildCommandLine(spawnAction.executableArguments(), toolchain, toolInputs);
+    semantics.setLintProgressMessage(spawnAction);
     ruleContext.registerAction(
         spawnAction
             .addCommandLine(cmd.build(), PARAM_FILE_INFO)
@@ -128,7 +130,6 @@ class AndroidLintActionBuilder {
             .addTransitiveTools(toolInputs.build())
             .addOutput(result)
             .setMnemonic(MNEMONIC)
-            .setProgressMessage("Running Android Lint for: %s", ruleContext.getLabel())
             .setExecutionInfo(getExecutionInfo(ruleContext))
             .build(ruleContext));
     return result;

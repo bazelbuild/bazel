@@ -311,6 +311,26 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void createSpawnAction_progressMessageWithSubstitutions() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs[1:],",
+        "  executable = ruleContext.files.tools[0],",
+        "  mnemonic = 'DummyMnemonic',",
+        "  progress_message = 'message %{label} %{input} %{output}')");
+
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+
+    assertThat(action.getProgressMessage()).isEqualTo("message //foo:foo foo/a.txt foo/b.img");
+  }
+
+  @Test
   public void testCreateActionWithDepsetInput() throws Exception {
     // Same test as above, with depset as inputs.
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");

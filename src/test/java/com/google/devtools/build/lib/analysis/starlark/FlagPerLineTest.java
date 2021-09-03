@@ -76,6 +76,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* uniquify= */ false,
         /* expandDirectories= */ false,
         /* terminateWith= */ Starlark.NONE,
+        /* allowClosure= */ false,
         thread);
     // Absl would reject this line, but it's what we generate.
     expectLines("--foo bar baz");
@@ -93,6 +94,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* uniquify= */ false,
         /* expandDirectories= */ false,
         /* terminateWith= */ Starlark.NONE,
+        /* allowClosure= */ false,
         thread);
     // Absl interprets this as a single value "bar baz" for the flag "--foo",
     // which is probably not what was intended.
@@ -111,6 +113,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* omitIfEmpty= */ true, // the default
         /* uniquify= */ false,
         /* expandDirectories= */ false,
+        /* allowClosure= */ false,
         thread);
     // Absl would reject this line, but it's what we generate.
     expectLines("--foo,bar,baz");
@@ -128,8 +131,30 @@ public class FlagPerLineTest extends BuildViewTestCase {
         /* omitIfEmpty= */ true,
         /* uniquify= */ false,
         /* expandDirectories= */ false,
+        /* allowClosure= */ false,
         thread);
     expectLines("--foo=bar,baz,woof");
+  }
+
+  /** Tests that an add_all (empty and omitted) following two adds works. */
+  @Test
+  public void args_combinedOmittedAddAllAndAdd() throws Exception {
+    args.addAll(
+        /* argNameOrValue= */ "", // ignored
+        /* values= */ StarlarkList.of(null),
+        /* mapEach= */ Starlark.NONE,
+        /* formatEach= */ Starlark.NONE,
+        /* beforeEach= */ Starlark.NONE,
+        /* omitIfEmpty= */ true, // the default
+        /* uniquify= */ false,
+        /* expandDirectories= */ false,
+        /* terminateWith= */ Starlark.NONE,
+        /* allowClosure= */ false,
+        thread);
+    args.addArgument("--foo1", "bar", /* format= */ Starlark.NONE, thread);
+    args.addArgument("--foo2", "bar", /* format= */ Starlark.NONE, thread);
+
+    expectLines("--foo1=bar", "--foo2=bar");
   }
 
   private void expectLines(String... lines) throws Exception {

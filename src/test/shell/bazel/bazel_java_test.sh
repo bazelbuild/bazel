@@ -78,6 +78,11 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
   else
     JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
   fi
+  # Remove the repo overrides that are set up for some Bazel CI workers.
+  inplace-sed "/override_repository=remote_java_tools=/d" "$TEST_TMPDIR/bazelrc"
+  inplace-sed "/override_repository=remote_java_tools_linux=/d" "$TEST_TMPDIR/bazelrc"
+  inplace-sed "/override_repository=remote_java_tools_windows=/d" "$TEST_TMPDIR/bazelrc"
+  inplace-sed "/override_repository=remote_java_tools_darwin=/d" "$TEST_TMPDIR/bazelrc"
 fi
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 

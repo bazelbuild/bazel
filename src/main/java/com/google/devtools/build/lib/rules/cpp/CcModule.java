@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.VariableWithV
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -122,7 +123,7 @@ public abstract class CcModule
         CppModuleMap> {
 
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
-      ImmutableList.of("executable", "dynamic_library");
+      ImmutableList.of("executable", "dynamic_library", "archive");
 
   private static final ImmutableList<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
       ImmutableList.of("bazel_internal/test_rules/cc");
@@ -268,8 +269,13 @@ public abstract class CcModule
       Object thinLtoInputBitcodeFile,
       Object thinLtoOutputObjectFile,
       boolean usePic,
-      boolean addLegacyCxxOptions)
+      boolean addLegacyCxxOptions,
+      Object variablesExtension)
       throws EvalException {
+    ImmutableList<VariablesExtension> variablesExtensions =
+        asDict(variablesExtension).isEmpty()
+            ? ImmutableList.of()
+            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
     return CompileBuildVariables.setupVariablesOrThrowEvalException(
         featureConfiguration.getFeatureConfiguration(),
         ccToolchainProvider,
@@ -292,7 +298,7 @@ public abstract class CcModule
         usePic,
         /* fdoStamp= */ null,
         /* dotdFileExecPath= */ null,
-        /* variablesExtensions= */ ImmutableList.of(),
+        variablesExtensions,
         /* additionalBuildVariables= */ ImmutableMap.of(),
         /* directModuleMaps= */ ImmutableList.of(),
         Depset.noneableCast(includeDirs, String.class, "framework_include_directories"),
@@ -578,7 +584,8 @@ public abstract class CcModule
     }
     if (interfaceLibrary != null) {
       String filename = interfaceLibrary.getFilename();
-      if (!Link.ONLY_INTERFACE_LIBRARY_FILETYPES.matches(filename)) {
+      if (!FileTypeSet.of(CppFileTypes.INTERFACE_SHARED_LIBRARY, CppFileTypes.UNIX_SHARED_LIBRARY)
+          .matches(filename)) {
         extensionErrorsBuilder.append(
             String.format(
                 "'%s' %s %s",
@@ -869,21 +876,36 @@ public abstract class CcModule
 
     ImmutableList.Builder<LinkOptions> optionsBuilder = ImmutableList.builder();
     if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
+      // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
+      // make sense here since LinkerInput takes a list of flags. For storing user_link_flags
+      // without flattening they would have to be wrapped around a LinkerInput for which we keep
+      // a depset that isn't flattened till the end.
       LinkOptions options =
           LinkOptions.of(
               Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList(),
               BazelStarlarkContext.from(thread).getSymbolGenerator());
       optionsBuilder.add(options);
     } else if (userLinkFlagsObject instanceof Sequence) {
-      checkPrivateStarlarkificationAllowlist(thread);
-
       ImmutableList<Object> options =
           Sequence.cast(userLinkFlagsObject, Object.class, "user_link_flags[]").getImmutableList();
-      for (Object optionObject : options) {
-        ImmutableList<String> option =
-            Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-        optionsBuilder.add(
-            LinkOptions.of(option, BazelStarlarkContext.from(thread).getSymbolGenerator()));
+      if (!options.isEmpty()) {
+        if (options.get(0) instanceof String) {
+          optionsBuilder.add(
+              LinkOptions.of(
+                  Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
+                      .getImmutableList(),
+                  BazelStarlarkContext.from(thread).getSymbolGenerator()));
+        } else if (options.get(0) instanceof Sequence) {
+          for (Object optionObject : options) {
+            ImmutableList<String> option =
+                Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
+            optionsBuilder.add(
+                LinkOptions.of(option, BazelStarlarkContext.from(thread).getSymbolGenerator()));
+          }
+        } else {
+          throw Starlark.errorf(
+              "Elements of list in user_link_flags must be either Strings or lists.");
+        }
       }
     }
 
@@ -2169,6 +2191,9 @@ public abstract class CcModule
     }
     Language language = parseLanguage(languageString);
     validateOutputType(outputType);
+    if (outputType.equals("archive")) {
+      checkPrivateStarlarkificationAllowlist(thread);
+    }
     boolean isStampingEnabled =
         isStampingEnabled(stamp.toInt("stamp"), actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider =
@@ -2178,16 +2203,26 @@ public abstract class CcModule
     Label label = getCallerLabel(actions, name);
     FdoContext fdoContext = ccToolchainProvider.getFdoContext();
     LinkTargetType dynamicLinkTargetType = null;
+    LinkTargetType staticLinkTargetType = null;
     if (language == Language.CPP) {
-      if (outputType.equals("executable")) {
-        dynamicLinkTargetType = LinkTargetType.EXECUTABLE;
-      } else if (outputType.equals("dynamic_library")) {
-        dynamicLinkTargetType = LinkTargetType.DYNAMIC_LIBRARY;
+      switch (outputType) {
+        case "executable":
+          dynamicLinkTargetType = LinkTargetType.EXECUTABLE;
+          break;
+        case "dynamic_library":
+          dynamicLinkTargetType = LinkTargetType.DYNAMIC_LIBRARY;
+          break;
+        case "archive":
+          throw Starlark.errorf("Language 'c++' does not support 'archive'");
+        default:
+          // fall through
       }
     } else if (language == Language.OBJC && outputType.equals("executable")) {
       dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
     } else if (language == Language.OBJCPP && outputType.equals("executable")) {
       dynamicLinkTargetType = LinkTargetType.OBJCPP_EXECUTABLE;
+    } else if (language == Language.OBJC && outputType.equals("archive")) {
+      staticLinkTargetType = LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE;
     } else {
       throw Starlark.errorf("Language '%s' does not support %s", language, outputType);
     }
@@ -2225,10 +2260,8 @@ public abstract class CcModule
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .setIsStampingEnabled(isStampingEnabled)
             .addTransitiveAdditionalLinkerInputs(additionalInputsSet)
-            .setDynamicLinkType(dynamicLinkTargetType)
             .addCcLinkingContexts(
                 Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
-            .setShouldCreateStaticLibraries(false)
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"))
             .setLinkedArtifactNameSuffix(convertFromNoneable(linkedArtifactNameSuffixObject, ""))
             .setNeverLink(convertFromNoneable(neverLinkObject, false))
@@ -2247,6 +2280,11 @@ public abstract class CcModule
                     && CppHelper.useInterfaceSharedLibraries(
                         cppConfiguration, ccToolchainProvider, actualFeatureConfiguration))
             .addLinkerOutputs(linkerOutputs);
+    if (staticLinkTargetType != null) {
+      helper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
+    } else {
+      helper.setShouldCreateStaticLibraries(false).setDynamicLinkType(dynamicLinkTargetType);
+    }
     if (!asDict(variablesExtension).isEmpty()) {
       helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
