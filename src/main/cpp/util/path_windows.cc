@@ -473,7 +473,7 @@ Path::Path(const std::string& path) : Path(path, nullptr) {
 
 Path::Path(const std::string& path, std::string *errorText) {
   if (path.empty()) {
-      return;
+    return;
   } else if (IsDevNull(path.c_str())) {
       path_ = L"NUL";
   } else {

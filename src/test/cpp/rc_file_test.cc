@@ -863,7 +863,6 @@ TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFailForInvalidPosixPathOnWindow
   std::string workspace_rc;
   ASSERT_TRUE(
           SetUpWorkspaceRcFile("try-import /mnt/shared/defaults.bazelrc", &workspace_rc));
-
   const std::vector<std::string> args = {"bazel", "build"};
   ParseOptionsAndCheckOutput(args, blaze_exit_code::SUCCESS, "", "");
 }

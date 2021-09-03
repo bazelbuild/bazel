@@ -368,7 +368,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         String message = Strings.nullToEmpty(ex.getMessage());
         outErr.printErrLn(message);
         return createDetailedCommandResult(
-            message, FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
+           message, FailureDetails.Command.Code.STARLARK_CPU_PROFILING_INITIALIZATION_FAILURE);
       }
     }
 
