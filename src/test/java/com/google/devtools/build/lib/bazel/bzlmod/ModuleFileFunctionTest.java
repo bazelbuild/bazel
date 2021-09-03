@@ -422,8 +422,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
-                                .setAttributes(
-                                    Dict.<String, String>builder()
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
                                         .put("key", "val")
                                         .buildImmutable())
                                 .setLocation(
@@ -439,8 +439,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag1")
-                                .setAttributes(
-                                    Dict.<String, String>builder()
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
                                         .put("key1", "val1")
                                         .buildImmutable())
                                 .setLocation(
@@ -449,8 +449,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag2")
-                                .setAttributes(
-                                    Dict.<String, String>builder()
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
                                         .put("key2", "val2")
                                         .buildImmutable())
                                 .setLocation(
@@ -467,8 +467,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
-                                .setAttributes(
-                                    Dict.<String, String>builder()
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
                                         .put("coord", "junit")
                                         .buildImmutable())
                                 .setLocation(
@@ -477,8 +477,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
-                                .setAttributes(
-                                    Dict.<String, String>builder()
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
                                         .put("coord", "guava")
                                         .buildImmutable())
                                 .setLocation(

@@ -43,14 +43,21 @@ java_library(
 java_library(
     name = "module_extension",
     srcs = [
+        "ModuleExtension.java",
         "ModuleExtensionUsage.java",
         "Tag.java",
+        "TagClass.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

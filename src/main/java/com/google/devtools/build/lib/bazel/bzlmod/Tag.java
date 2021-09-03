@@ -22,8 +22,8 @@ import net.starlark.java.syntax.Location;
 /**
  * Represents a module extension tag, which is a piece of data following a specified attribute
  * schema that can be consumed by a module extension implementation function. The attribute schema
- * is defined by the tag class, and checked at module extension resolution time (i.e. <em>not</em>
- * when the tag is created, which is during module discovery).
+ * is defined by the {@link TagClass}, and checked at module extension resolution time (i.e.
+ * <em>not</em> when the tag is created, which is during module discovery).
  */
 @AutoValue
 public abstract class Tag {
@@ -31,7 +31,7 @@ public abstract class Tag {
   public abstract String getTagName();
 
   /** All keyword arguments supplied to the tag instance. */
-  public abstract Dict<String, ?> getAttributes();
+  public abstract Dict<String, Object> getAttributeValues();
 
   /** The source location in the module file where this tag was created. */
   public abstract Location getLocation();
@@ -46,7 +46,7 @@ public abstract class Tag {
 
     public abstract Builder setTagName(String value);
 
-    public abstract Builder setAttributes(Dict<String, ?> value);
+    public abstract Builder setAttributeValues(Dict<String, Object> value);
 
     public abstract Builder setLocation(Location value);
 

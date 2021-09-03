@@ -297,7 +297,7 @@ public class ModuleFileGlobals {
           tags.add(
               Tag.builder()
                   .setTagName(tagName)
-                  .setAttributes(kwargs)
+                  .setAttributeValues(kwargs)
                   .setLocation(thread.getCallerLocation())
                   .build());
         }
