@@ -424,11 +424,14 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
         # cc is outside the repository, set -B
-        bin_search_flag = ["-B" + escape_string(str(cc_path.dirname))]
+        bin_search_flags = ["-B" + escape_string(str(cc_path.dirname))]
     else:
         # cc is inside the repository, don't set -B.
-        bin_search_flag = []
-
+        bin_search_flags = []
+    if not gold_or_lld_linker_path:
+        ld_path = repository_ctx.path(tool_paths["ld"])
+        if ld_path.dirname != cc_path.dirname:
+            bin_search_flags.append("-B" + str(ld_path.dirname))
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
     builtin_include_directories = _uniq(
         _get_cxx_include_directories(repository_ctx, cc, "-xc") +
@@ -566,7 +569,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
                     "-undefined",
                     "dynamic_lookup",
                     "-headerpad_max_install_names",
-                ] if darwin else bin_search_flag + [
+                ] if darwin else bin_search_flags + [
                     # Gold linker only? Can we enable this by default?
                     # "-Wl,--warn-execstack",
                     # "-Wl,--detect-odr-violations"
