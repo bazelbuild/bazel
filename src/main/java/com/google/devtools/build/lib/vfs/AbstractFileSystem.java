@@ -14,13 +14,8 @@
 //
 package com.google.devtools.build.lib.vfs;
 
-import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
-import static java.nio.file.StandardOpenOption.WRITE;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -32,11 +27,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.util.EnumSet;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
@@ -91,42 +83,21 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  private static final ImmutableSet<StandardOpenOption> READABLE_BYTE_CHANNEL_OPEN_OPTIONS =
-      Sets.immutableEnumSet(READ);
-  private static final ImmutableSet<ProfilerTask> READABLE_BYTE_CHANNEL_PROFILER_TASKS =
-      Sets.immutableEnumSet(ProfilerTask.VFS_OPEN, ProfilerTask.VFS_READ);
-  private static final ImmutableSet<StandardOpenOption> READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS =
-      Sets.immutableEnumSet(READ, WRITE, CREATE, TRUNCATE_EXISTING);
-  private static final ImmutableSet<ProfilerTask> READ_WRITE_BYTE_CHANNEL_PROFILER_TASKS =
-      Sets.immutableEnumSet(ProfilerTask.VFS_OPEN, ProfilerTask.VFS_READ, ProfilerTask.VFS_WRITE);
-
   @Override
   protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    return createSeekableByteChannelInternal(
-        path, READABLE_BYTE_CHANNEL_OPEN_OPTIONS, READABLE_BYTE_CHANNEL_PROFILER_TASKS);
-  }
-
-  @Override
-  protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    return createSeekableByteChannelInternal(
-        path, READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS, READ_WRITE_BYTE_CHANNEL_PROFILER_TASKS);
-  }
-
-  private static SeekableByteChannel createSeekableByteChannelInternal(
-      PathFragment path,
-      ImmutableSet<? extends OpenOption> options,
-      ImmutableSet<ProfilerTask> profilerTasks)
-      throws IOException {
-    String name = path.getPathString();
-    if (!profiler.isActive() || profilerTasks.stream().noneMatch(profiler::isProfiling)) {
-      return Files.newByteChannel(Paths.get(name), options);
-    }
-    long startTime = Profiler.nanoTimeMaybe();
-    try {
-      // Currently, we do not proxy SeekableByteChannel for profiling.
-      return Files.newByteChannel(Paths.get(name), options);
-    } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+    final String name = path.toString();
+    if (profiler.isActive()
+        && (profiler.isProfiling(ProfilerTask.VFS_READ)
+            || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        // Currently, we do not proxy ReadableByteChannel for profiling.
+        return Files.newByteChannel(java.nio.file.Paths.get(name), EnumSet.of(READ));
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+      }
+    } else {
+      return Files.newByteChannel(java.nio.file.Paths.get(name));
     }
   }
 
