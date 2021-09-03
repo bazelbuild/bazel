@@ -400,7 +400,7 @@ public class FunctionTransitionUtil {
   /**
    * Compute the output directory name fragment corresponding to the new BuildOptions based on (1)
    * the names and values of all native options previously transitioned anywhere in the build by
-   * starlark options, (2) names and values of all entries in the starlark options map.
+   * starlark transitions, (2) names and values of all entries in the starlark options map.
    *
    * @param changedOptions the names of all options changed by this transition in label form e.g.
    *     "//command_line_option:cpu" for native options and "//myapp:foo" for starlark options.
