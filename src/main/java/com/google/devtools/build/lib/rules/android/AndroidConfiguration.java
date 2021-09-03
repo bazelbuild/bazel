@@ -980,6 +980,18 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + " transition` with changed options to avoid potential action conflicts.")
     public boolean androidPlatformsTransitionsUpdateAffected;
 
+    @Option(
+        name = "output_library_linked_resources",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If disabled, does not provide library.ap_ outputs for library targets. These files grow exponentially"
+                + " in size as their contents are merged into depending libraries, but are in a format"
+                + " consumable by devices only. Since android_binary generated the final resources.ap_ file these"
+                + " intermediates are not needed so can result in large output download savings.")
+    public boolean outputLibraryLinkedResources;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -1065,6 +1077,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
   private final boolean includeProguardLocationReferences;
+  private final boolean outputLibraryLinkedResources;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1126,6 +1139,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
     this.includeProguardLocationReferences = options.includeProguardLocationReferences;
+    this.outputLibraryLinkedResources = options.outputLibraryLinkedResources;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1409,6 +1423,10 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean includeProguardLocationReferences() {
     return includeProguardLocationReferences;
+  }
+
+  public boolean outputLibraryLinkedResources() {
+    return outputLibraryLinkedResources;
   }
 
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */

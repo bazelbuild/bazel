@@ -33,7 +33,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
 
   private final Artifact rTxt;
   private final Artifact sourceJar;
-  private final Artifact apk;
+  @Nullable private final Artifact apk;
 
   // aapt2 outputs. Will be null if and only if aapt2 is not used for validation.
   @Nullable private final Artifact aapt2SourceJar;
@@ -67,7 +67,10 @@ public class ValidatedAndroidResources extends MergedAndroidResources
     Artifact rTxtOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT);
     Artifact sourceJarOut =
         dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR);
-    Artifact apkOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK);
+    Artifact apkOut =
+        dataContext.getAndroidConfig().outputLibraryLinkedResources()
+            ? dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_APK)
+            : null;
 
     BusyBoxActionBuilder.create(dataContext, "LINK_STATIC_LIBRARY")
         .addAapt()
@@ -81,7 +84,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
             "--compiledDep", merged.getResourceDependencies().getTransitiveCompiledSymbols())
         .addOutput("--sourceJarOut", sourceJarOut)
         .addOutput("--rTxtOut", rTxtOut)
-        .addOutput("--staticLibraryOut", apkOut)
+        .maybeAddOutput("--staticLibraryOut", apkOut)
         .buildAndRegister("Linking static android resource library", "AndroidResourceLink");
 
     return of(
@@ -100,7 +103,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       MergedAndroidResources merged,
       Artifact rTxt,
       Artifact sourceJar,
-      Artifact apk,
+      @Nullable Artifact apk,
       @Nullable Artifact aapt2ValidationArtifact,
       @Nullable Artifact aapt2SourceJar,
       @Nullable Artifact staticLibrary,
@@ -120,7 +123,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
       MergedAndroidResources merged,
       Artifact rTxt,
       Artifact sourceJar,
-      Artifact apk,
+      @Nullable Artifact apk,
       @Nullable Artifact aapt2ValidationArtifact,
       @Nullable Artifact aapt2SourceJar,
       @Nullable Artifact staticLibrary,
@@ -158,6 +161,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
   // TODO(b/30307842,b/119560471): remove this; it was added for no reason, but persists because
   // the Starlark API is not noneable.
   @Override
+  @Nullable
   public Artifact getApk() {
     return apk;
   }
