@@ -19,9 +19,7 @@ import static com.google.devtools.build.lib.remote.common.ProgressStatusListener
 import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDisplayString;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
-import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +29,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -42,13 +39,11 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,7 +52,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -134,35 +128,6 @@ public class RemoteCache implements AutoCloseable {
     }
 
     return cacheProtocol.uploadBlob(context, digest, data);
-  }
-
-  /**
-   * Upload the result of a locally executed action to the remote cache.
-   *
-   * @throws IOException if there was an error uploading to the remote cache
-   * @throws ExecException if uploading any of the action outputs is not supported
-   */
-  public ActionResult upload(
-      RemoteActionExecutionContext context,
-      RemotePathResolver remotePathResolver,
-      ActionKey actionKey,
-      Action action,
-      Command command,
-      Collection<Path> outputs,
-      FileOutErr outErr)
-      throws ExecException, IOException, InterruptedException {
-    UploadManifest manifest =
-        UploadManifest.create(
-            options,
-            digestUtil,
-            remotePathResolver,
-            actionKey,
-            action,
-            command,
-            outputs,
-            outErr,
-            /* exitCode= */ 0);
-    return manifest.upload(context, this);
   }
 
   public static void waitForBulkTransfer(

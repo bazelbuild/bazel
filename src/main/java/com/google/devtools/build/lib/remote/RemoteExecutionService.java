@@ -52,6 +52,7 @@ import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -999,23 +1001,37 @@ public class RemoteExecutionService {
     return null;
   }
 
-  /** Upload outputs of a remote action which was executed locally to remote cache. */
-  public void uploadOutputs(RemoteAction action)
-      throws InterruptedException, IOException, ExecException {
-    checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
-
+  @VisibleForTesting
+  UploadManifest buildUploadManifest(RemoteAction action, SpawnResult spawnResult)
+      throws ExecException, IOException {
     Collection<Path> outputFiles =
         action.spawn.getOutputFiles().stream()
             .map((inp) -> execRoot.getRelative(inp.getExecPath()))
             .collect(ImmutableList.toImmutableList());
-    remoteCache.upload(
-        action.remoteActionExecutionContext,
+
+    return UploadManifest.create(
+        remoteOptions,
+        digestUtil,
         remotePathResolver,
         action.actionKey,
         action.action,
         action.command,
         outputFiles,
-        action.spawnExecutionContext.getFileOutErr());
+        action.spawnExecutionContext.getFileOutErr(),
+        /* exitCode= */ 0);
+  }
+
+  /** Upload outputs of a remote action which was executed locally to remote cache. */
+  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult)
+      throws InterruptedException, IOException, ExecException {
+    checkState(shouldUploadLocalResults(action.spawn), "spawn shouldn't upload local result");
+    checkState(
+        SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
+        "shouldn't upload outputs of failed local action");
+
+    UploadManifest manifest = buildUploadManifest(action, spawnResult);
+
+    manifest.upload(action.getRemoteActionExecutionContext(), remoteCache);
   }
 
   /**

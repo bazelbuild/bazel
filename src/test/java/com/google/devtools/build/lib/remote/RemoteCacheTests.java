@@ -16,16 +16,9 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
-import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
-import build.bazel.remote.execution.v2.Directory;
-import build.bazel.remote.execution.v2.DirectoryNode;
-import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.RequestMetadata;
-import build.bazel.remote.execution.v2.Tree;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -34,8 +27,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -66,7 +57,6 @@ import org.mockito.MockitoAnnotations;
 public class RemoteCacheTests {
 
   private RemoteActionExecutionContext context;
-  private RemotePathResolver remotePathResolver;
   private FileSystem fs;
   private Path execRoot;
   ArtifactRoot artifactRoot;
@@ -84,7 +74,6 @@ public class RemoteCacheTests {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");
     execRoot.createDirectoryAndParents();
-    remotePathResolver = RemotePathResolver.createDefault(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
@@ -167,60 +156,6 @@ public class RemoteCacheTests {
   }
 
   @Test
-  public void testUploadDirectory() throws Exception {
-    // Test that uploading a directory works.
-
-    // arrange
-    Digest fooDigest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
-    Digest quxDigest =
-        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/qux"), "abc");
-    Digest barDigest =
-        fakeFileCache.createScratchInputDirectory(
-            ActionInputHelper.fromPath("bar"),
-            Tree.newBuilder()
-                .setRoot(
-                    Directory.newBuilder()
-                        .addFiles(
-                            FileNode.newBuilder()
-                                .setIsExecutable(true)
-                                .setName("qux")
-                                .setDigest(quxDigest)
-                                .build())
-                        .build())
-                .build());
-    Path fooFile = execRoot.getRelative("a/foo");
-    Path quxFile = execRoot.getRelative("bar/qux");
-    quxFile.setExecutable(true);
-    Path barDir = execRoot.getRelative("bar");
-    Command cmd = Command.newBuilder().addOutputFiles("bla").build();
-    Digest cmdDigest = digestUtil.compute(cmd);
-    Action action = Action.newBuilder().setCommandDigest(cmdDigest).build();
-    Digest actionDigest = digestUtil.compute(action);
-
-    // act
-    InMemoryRemoteCache remoteCache = newRemoteCache();
-    ActionResult result =
-        remoteCache.upload(
-            context,
-            remotePathResolver,
-            digestUtil.asActionKey(actionDigest),
-            action,
-            cmd,
-            ImmutableList.of(fooFile, barDir),
-            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
-
-    // assert
-    ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
-    assertThat(result).isEqualTo(expectedResult.build());
-
-    ImmutableList<Digest> toQuery =
-        ImmutableList.of(fooDigest, quxDigest, barDigest, cmdDigest, actionDigest);
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, toQuery))).isEmpty();
-  }
-
-  @Test
   public void upload_emptyBlobAndFile_doNotPerformUpload() throws Exception {
     // Test that uploading an empty BLOB/file does not try to perform an upload.
     InMemoryRemoteCache remoteCache = newRemoteCache();
@@ -234,127 +169,6 @@ public class RemoteCacheTests {
     getFromFuture(remoteCache.uploadFile(context, emptyDigest, file));
     assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
-  }
-
-  @Test
-  public void upload_emptyOutputs_doNotPerformUpload() throws Exception {
-    // Test that uploading an empty output does not try to perform an upload.
-
-    // arrange
-    Digest emptyDigest =
-        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "");
-    Path file = execRoot.getRelative("bar/test/wobble");
-    InMemoryRemoteCache remoteCache = newRemoteCache();
-    Action action = Action.getDefaultInstance();
-    ActionKey actionDigest = digestUtil.computeActionKey(action);
-    Command cmd = Command.getDefaultInstance();
-
-    // act
-    remoteCache.upload(
-        context,
-        remotePathResolver,
-        actionDigest,
-        action,
-        cmd,
-        ImmutableList.of(file),
-        new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
-
-    // assert
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableSet.of(emptyDigest))))
-        .containsExactly(emptyDigest);
-  }
-
-  @Test
-  public void testUploadEmptyDirectory() throws Exception {
-    // Test that uploading an empty directory works.
-
-    // arrange
-    final Digest barDigest =
-        fakeFileCache.createScratchInputDirectory(
-            ActionInputHelper.fromPath("bar"),
-            Tree.newBuilder().setRoot(Directory.newBuilder().build()).build());
-    final Path barDir = execRoot.getRelative("bar");
-    Action action = Action.getDefaultInstance();
-    ActionKey actionDigest = digestUtil.computeActionKey(action);
-    Command cmd = Command.getDefaultInstance();
-
-    // act
-    InMemoryRemoteCache remoteCache = newRemoteCache();
-    ActionResult result =
-        remoteCache.upload(
-            context,
-            remotePathResolver,
-            actionDigest,
-            action,
-            cmd,
-            ImmutableList.of(barDir),
-            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
-
-    // assert
-    ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
-    assertThat(result).isEqualTo(expectedResult.build());
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, ImmutableList.of(barDigest))))
-        .isEmpty();
-  }
-
-  @Test
-  public void testUploadNestedDirectory() throws Exception {
-    // Test that uploading a nested directory works.
-
-    // arrange
-    final Digest wobbleDigest =
-        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
-    final Digest quxDigest =
-        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/qux"), "abc");
-    final Directory testDirMessage =
-        Directory.newBuilder()
-            .addFiles(FileNode.newBuilder().setName("wobble").setDigest(wobbleDigest).build())
-            .build();
-    final Digest testDigest = digestUtil.compute(testDirMessage);
-    final Tree barTree =
-        Tree.newBuilder()
-            .setRoot(
-                Directory.newBuilder()
-                    .addFiles(
-                        FileNode.newBuilder()
-                            .setIsExecutable(true)
-                            .setName("qux")
-                            .setDigest(quxDigest))
-                    .addDirectories(
-                        DirectoryNode.newBuilder().setName("test").setDigest(testDigest)))
-            .addChildren(testDirMessage)
-            .build();
-    final Digest barDigest =
-        fakeFileCache.createScratchInputDirectory(ActionInputHelper.fromPath("bar"), barTree);
-
-    final Path quxFile = execRoot.getRelative("bar/qux");
-    quxFile.setExecutable(true);
-    final Path barDir = execRoot.getRelative("bar");
-
-    Action action = Action.getDefaultInstance();
-    ActionKey actionDigest = digestUtil.computeActionKey(action);
-    Command cmd = Command.getDefaultInstance();
-
-    // act
-    InMemoryRemoteCache remoteCache = newRemoteCache();
-    ActionResult result =
-        remoteCache.upload(
-            context,
-            remotePathResolver,
-            actionDigest,
-            action,
-            cmd,
-            ImmutableList.of(barDir),
-            new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr")));
-
-    // assert
-    ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
-    assertThat(result).isEqualTo(expectedResult.build());
-
-    ImmutableList<Digest> toQuery = ImmutableList.of(wobbleDigest, quxDigest, barDigest);
-    assertThat(getFromFuture(remoteCache.findMissingDigests(context, toQuery))).isEmpty();
   }
 
   private InMemoryRemoteCache newRemoteCache() {

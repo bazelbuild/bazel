@@ -337,6 +337,11 @@ public class UploadManifest {
     throw new UserExecException(failureDetail);
   }
 
+  @VisibleForTesting
+  ActionResult getActionResult() {
+    return result.build();
+  }
+
   /** Uploads outputs and action result (if exit code is 0) to remote cache. */
   public ActionResult upload(RemoteActionExecutionContext context, RemoteCache remoteCache)
       throws IOException, InterruptedException {

@@ -556,12 +556,33 @@ public class GrpcCacheClientTest {
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
+  private ActionResult upload(
+      RemoteCache remoteCache,
+      ActionKey actionKey,
+      Action action,
+      Command command,
+      List<Path> outputs)
+      throws Exception {
+    UploadManifest uploadManifest =
+        UploadManifest.create(
+            remoteCache.options,
+            remoteCache.digestUtil,
+            remotePathResolver,
+            actionKey,
+            action,
+            command,
+            outputs,
+            outErr,
+            0);
+    return uploadManifest.upload(context, remoteCache);
+  }
+
   private ActionResult uploadDirectory(RemoteCache remoteCache, List<Path> outputs)
       throws Exception {
     Action action = Action.getDefaultInstance();
     ActionKey actionKey = DIGEST_UTIL.computeActionKey(action);
     Command cmd = Command.getDefaultInstance();
-    return remoteCache.upload(context, remotePathResolver, actionKey, action, cmd, outputs, outErr);
+    return upload(remoteCache, actionKey, action, cmd, outputs);
   }
 
   @Test
@@ -686,14 +707,12 @@ public class GrpcCacheClientTest {
         });
 
     ActionResult result =
-        remoteCache.upload(
-            context,
-            remotePathResolver,
+        upload(
+            remoteCache,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
-            ImmutableList.of(fooFile, barFile),
-            outErr);
+            ImmutableList.of(fooFile, barFile));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.setStdoutDigest(stdoutDigest);
     expectedResult.setStderrDigest(stderrDigest);
@@ -749,14 +768,12 @@ public class GrpcCacheClientTest {
         });
 
     ActionResult result =
-        remoteCache.upload(
-            context,
-            remotePathResolver,
+        upload(
+            remoteCache,
             DIGEST_UTIL.asActionKey(actionDigest),
             action,
             command,
-            ImmutableList.of(fooFile, barFile),
-            outErr);
+            ImmutableList.of(fooFile, barFile));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult
@@ -898,14 +915,12 @@ public class GrpcCacheClientTest {
                 }))
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
-    remoteCache.upload(
-        context,
-        remotePathResolver,
+    upload(
+        remoteCache,
         actionKey,
         Action.getDefaultInstance(),
         Command.getDefaultInstance(),
-        ImmutableList.<Path>of(fooFile, barFile, bazFile),
-        outErr);
+        ImmutableList.<Path>of(fooFile, barFile, bazFile));
     // 4 times for the errors, 3 times for the successful uploads.
     Mockito.verify(mockByteStreamImpl, Mockito.times(7))
         .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
