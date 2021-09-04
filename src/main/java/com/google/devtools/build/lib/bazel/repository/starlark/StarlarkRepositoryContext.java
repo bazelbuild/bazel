@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
+import com.google.devtools.build.lib.bazel.repository.downloader.SuperChecksum;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -637,10 +638,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     Checksum checksum;
     
     if(!sha256.isEmpty() && !integrity.isEmpty()) {
+      /* Terminates the program if both sha256 and integrity are present */
       throw Starlark.errorf("Expected either 'sha256' or 'integrity', but not both");
     }
-
-    if(!sha256.isEmpty()) {
+    else if(!sha256.isEmpty()) {
       checksum = SuperChecksum.fromString(KeyType.SHA256, sha256).getChecksum();
     }
     else if(!integrity.isEmpty()) {
@@ -900,10 +901,10 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     Checksum checksum;
     
     if(!sha256.isEmpty() && !integrity.isEmpty()) {
+      /* Terminates the program if both sha256 and integrity are present */
       throw Starlark.errorf("Expected either 'sha256' or 'integrity', but not both");
     }
-
-    if(!sha256.isEmpty()) {
+    else if(!sha256.isEmpty()) {
       checksum = SuperChecksum.fromString(KeyType.SHA256, sha256).getChecksum();
     }
     else if(!integrity.isEmpty()) {
