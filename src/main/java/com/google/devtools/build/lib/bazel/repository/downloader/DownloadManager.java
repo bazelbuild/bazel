@@ -236,15 +236,15 @@ public class DownloadManager {
     } else if (repositoryCache.isEnabled()) {
       String newSha256 = repositoryCache.put(destination, KeyType.SHA256, canonicalId);
       eventHandler.handle(Event.info("SHA256 (" + rewrittenUrls.get(0) + ") = " + newSha256));
-      if(!newSha256.equals(sha256)) {
-        if(sha256 != null && !sha256.isEmpty()) {
-          eventHandler.handle(Event.error("Invalid SHA256 checksum '" + sha256 + "'. The correct checksum is '" + newSha256 + "'."));
+      
+      if(!sha256.isEmpty()) {
+        try {
+          Checksum.stringComparison(sha256, newSha256);
         }
-        else {
-          eventHandler.handle(Event.info("User provided a null or empty SHA256 checksum."));
+        catch (Checksum.ICExceptionExtended e) {
+          throw new IOException(e.getMessage());
         }
       }
-
     }
 
     return destination;

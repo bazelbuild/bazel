@@ -634,13 +634,28 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             /* ensureNonEmpty= */ !allowFail,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
-    Optional<Checksum> checksum;
-    RepositoryFunctionException checksumValidation = null;
-    try {
-      checksum = validateChecksum(sha256, integrity, urls);
-    } catch (RepositoryFunctionException e) {
-      checksum = Optional.<Checksum>absent();
-      checksumValidation = e;
+    Checksum checksum;
+    
+    if(!sha256.isEmpty() && !integrity.isEmpty()) {
+      throw Starlark.errorf("Expected either 'sha256' or 'integrity', but not both");
+    }
+
+    if(!sha256.isEmpty()) {
+      checksum = SuperChecksum.fromString(KeyType.SHA256, sha256).getChecksum();
+    }
+    else if(!integrity.isEmpty()) {
+      try {
+        checksum = Checksum.fromSubresourceIntegrity(integrity);
+      }
+      catch(Checksum.InvalidChecksumException e) {
+        throw new RepositoryFunctionException(Starlark.errorf(
+          "Definition of repository %s: %s at %s",
+          rule.getName(), e.getMessage(), rule.getLocation()),
+          Transience.PERSISTENT);
+      }
+    }
+    else {
+      checksum = null;
     }
 
     StarlarkPath outputPath = getPath("download()", output);
@@ -663,13 +678,14 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           downloadManager.download(
               urls,
               authHeaders,
-              checksum,
+              Optional.fromNullable(checksum),
               canonicalId,
               Optional.<String>absent(),
               outputPath.getPath(),
               env.getListener(),
               envVariables,
-              getName());
+              getName(),
+              sha256);
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
@@ -688,11 +704,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           Starlark.errorf("Could not create output path %s: %s", outputPath, e.getMessage()),
           Transience.PERSISTENT);
     }
-    if (checksumValidation != null) {
-      throw checksumValidation;
-    }
 
-    return calculateDownloadResult(checksum, downloadedPath);
+    return calculateDownloadResult(Optional.fromNullable(checksum), downloadedPath);
   }
 
   @StarlarkMethod(
@@ -884,13 +897,28 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             /* ensureNonEmpty= */ !allowFail,
             /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
                 || !Strings.isNullOrEmpty(integrity));
-    Optional<Checksum> checksum;
-    RepositoryFunctionException checksumValidation = null;
-    try {
-      checksum = validateChecksum(sha256, integrity, urls);
-    } catch (RepositoryFunctionException e) {
-      checksum = Optional.<Checksum>absent();
-      checksumValidation = e;
+    Checksum checksum;
+    
+    if(!sha256.isEmpty() && !integrity.isEmpty()) {
+      throw Starlark.errorf("Expected either 'sha256' or 'integrity', but not both");
+    }
+
+    if(!sha256.isEmpty()) {
+      checksum = SuperChecksum.fromString(KeyType.SHA256, sha256).getChecksum();
+    }
+    else if(!integrity.isEmpty()) {
+      try {
+        checksum = Checksum.fromSubresourceIntegrity(integrity);
+      }
+      catch(Checksum.InvalidChecksumException e) {
+        throw new RepositoryFunctionException(Starlark.errorf(
+          "Definition of repository %s: %s at %s",
+          rule.getName(), e.getMessage(), rule.getLocation()),
+          Transience.PERSISTENT);
+      }
+    }
+    else {
+      checksum = null;
     }
 
     WorkspaceRuleEvent w =
@@ -923,13 +951,14 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           downloadManager.download(
               urls,
               authHeaders,
-              checksum,
+              Optional.fromNullable(checksum),
               canonicalId,
               Optional.of(type),
               downloadDirectory,
               env.getListener(),
               envVariables,
-              getName());
+              getName(),
+              sha256);
     } catch (InterruptedException e) {
       env.getListener().post(w);
       throw new RepositoryFunctionException(
@@ -942,9 +971,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       } else {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
-    }
-    if (checksumValidation != null) {
-      throw checksumValidation;
     }
     env.getListener().post(w);
     try (SilentCloseable c =
@@ -963,7 +989,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
     }
 
-    StructImpl downloadResult = calculateDownloadResult(checksum, downloadedPath);
+    StructImpl downloadResult = calculateDownloadResult(Optional.fromNullable(checksum), downloadedPath);
     try {
       if (downloadDirectory.exists()) {
         downloadDirectory.deleteTree();
@@ -1026,40 +1052,6 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           "Unexpected invalid checksum from internal computation of SHA-256 checksum on "
               + path.getPathString(),
           e);
-    }
-  }
-
-  private Optional<Checksum> validateChecksum(String sha256, String integrity, List<URL> urls)
-      throws RepositoryFunctionException, EvalException {
-    if (!sha256.isEmpty()) {
-      if (!integrity.isEmpty()) {
-        throw Starlark.errorf("Expected either 'sha256' or 'integrity', but not both");
-      }
-      try {
-        return Optional.of(Checksum.fromString(KeyType.SHA256, sha256));
-      } catch (Checksum.InvalidChecksumException e) {
-        warnAboutChecksumError(urls, e.getMessage());
-        throw new RepositoryFunctionException(
-            Starlark.errorf(
-                "Definition of repository %s: %s at %s",
-                rule.getName(), e.getMessage(), rule.getLocation()),
-            Transience.PERSISTENT);
-      }
-    }
-
-    if (integrity.isEmpty()) {
-      return Optional.absent();
-    }
-
-    try {
-      return Optional.of(Checksum.fromSubresourceIntegrity(integrity));
-    } catch (Checksum.InvalidChecksumException e) {
-      warnAboutChecksumError(urls, e.getMessage());
-      throw new RepositoryFunctionException(
-          Starlark.errorf(
-              "Definition of repository %s: %s at %s",
-              rule.getName(), e.getMessage(), rule.getLocation()),
-          Transience.PERSISTENT);
     }
   }
 

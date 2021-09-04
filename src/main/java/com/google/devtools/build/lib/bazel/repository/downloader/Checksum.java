@@ -31,6 +31,12 @@ public class Checksum {
     }
   }
 
+  public static final class ICExceptionExtended extends Exception {
+    private ICExceptionExtended(KeyType keyType, String hash, String correctHash) {
+      super("Invalid " + keyType + " checksum '" + hash + "'. The correct checksum is '" + correctHash + "'.");
+    }
+  }
+
   private final KeyType keyType;
   private final HashCode hashCode;
 
@@ -45,6 +51,12 @@ public class Checksum {
       throw new InvalidChecksumException(keyType, hash);
     }
     return new Checksum(keyType, HashCode.fromString(hash));
+  }
+
+  public static void stringComparison(String hash, String correctHash) throws ICExceptionExtended {
+    if(hash != correctHash) {
+      throw new ICExceptionExtended(KeyType.SHA256, hash, correctHash);
+    }
   }
 
   /** Constructs a new Checksum from a hash in Subresource Integrity format. */
@@ -88,7 +100,7 @@ public class Checksum {
           "Invalid " + keyType + " SRI checksum '" + integrity + "'");
     }
 
-    return Checksum.fromString(keyType, HashCode.fromBytes(hash).toString());
+    return SuperChecksum.fromString(keyType, HashCode.fromBytes(hash).toString()).getChecksum();
   }
 
   public String toSubresourceIntegrity() {
