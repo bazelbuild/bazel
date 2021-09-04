@@ -45,7 +45,7 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
-  static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python";
+  static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
 
   @StarlarkMethod(
       name = "interpreter_path",

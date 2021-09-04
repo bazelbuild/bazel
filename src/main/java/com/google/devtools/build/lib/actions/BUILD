@@ -27,6 +27,7 @@ java_library(
         ],
         exclude = [
             "ActionInput.java",
+            "ActionInputHelper.java",
             "ActionLookupData.java",
             "ActionLookupKey.java",
             "AnalysisGraphStatsEvent.java",
@@ -53,8 +54,10 @@ java_library(
             "LocalHostResourceFallback.java",
             "MiddlemanType.java",
             "ResourceSet.java",
+            "ResourceSetOrBuilder.java",
             "PackageRootResolver.java",
             "PackageRoots.java",
+            "ThreadStateReceiver.java",
             "cache/MetadataDigestUtils.java",
         ],
     ),
@@ -70,6 +73,7 @@ java_library(
         ":localhost_capacity",
         ":middleman_type",
         ":package_roots",
+        ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -137,6 +141,18 @@ java_library(
 )
 
 java_library(
+    name = "action_input_helper",
+    srcs = ["ActionInputHelper.java"],
+    deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "total_and_configured_target_only_metric",
     srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
     deps = [
@@ -197,6 +213,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -274,8 +291,11 @@ java_library(
         "LocalHostResourceManagerDarwin.java",
         "LocalHostResourceManagerLinux.java",
         "ResourceSet.java",
+        "ResourceSetOrBuilder.java",
     ],
     deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -308,6 +328,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "thread_state_receiver",
+    srcs = ["ThreadStateReceiver.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//third_party:jsr305",
     ],
 )

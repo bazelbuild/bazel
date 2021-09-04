@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
+import javax.annotation.Nullable;
 
 /**
  * Super-interface for {@link ConfiguredTargetValue} and {@link RuleConfiguredObjectValue}
@@ -24,6 +26,13 @@ import com.google.devtools.build.skyframe.NotComparableSkyValue;
 public interface ConfiguredObjectValue extends NotComparableSkyValue {
   /** Returns the configured target/aspect for this value. */
   ProviderCollection getConfiguredObject();
+
+  /**
+   * Returns a key representing the configuration in which this value was analyzed, or {@code null}
+   * if no configuration was considered.
+   */
+  @Nullable
+  BuildConfigurationValue.Key getConfigurationKey();
 
   /**
    * Returns the set of packages transitively loaded by this value. Must only be used for

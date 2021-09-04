@@ -64,6 +64,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    // All directories are writable on Windows.
+    return createDirectory(path);
+  }
+
+  @Override
   public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
     // Make sure the target path doesn't exist to avoid permission denied error on Windows.
     delete(targetPath);

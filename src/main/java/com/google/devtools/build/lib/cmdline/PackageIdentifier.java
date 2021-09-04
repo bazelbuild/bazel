@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -44,12 +43,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
-    // Note: We rely on these being interned to fast-path Label#equals.
+    // Note: We rely on these being (weakly) interned to fast-path Label#equals.
     return INTERNER.intern(new PackageIdentifier(repository, pkgName));
   }
 
-  public static final PackageIdentifier EMPTY_PACKAGE_ID = createInMainRepo(
-      PathFragment.EMPTY_FRAGMENT);
+  public static final PackageIdentifier EMPTY_PACKAGE_ID =
+      createInMainRepo(PathFragment.EMPTY_FRAGMENT);
 
   public static PackageIdentifier createInMainRepo(String name) {
     return createInMainRepo(PathFragment.create(name));
@@ -72,17 +71,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    *
    * In this case, this method returns a package identifier for foo/bar, even though that is not a
    * package. Callers need to look up the actual package if needed.
-   *
-   * @throws LabelSyntaxException if the exec path seems to be for an external repository that does
-   *     not have a valid repository name (see {@link RepositoryName#create})
    */
   public static PackageIdentifier discoverFromExecPath(
       PathFragment execPath, boolean forFiles, boolean siblingRepositoryLayout) {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
-    PathFragment tofind = forFiles
-        ? Preconditions.checkNotNull(
-            execPath.getParentDirectory(), "Must pass in files, not root directory")
-        : execPath;
+    PathFragment tofind =
+        forFiles
+            ? Preconditions.checkNotNull(
+                execPath.getParentDirectory(), "Must pass in files, not root directory")
+            : execPath;
     PathFragment prefix =
         siblingRepositoryLayout
             ? LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX
@@ -98,8 +95,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   /**
-   * The identifier for this repository. This is either "" or prefixed with an "@",
-   * e.g., "@myrepo".
+   * The identifier for this repository. This is either "" or prefixed with an "@", e.g., "@myrepo".
    */
   private final RepositoryName repository;
 
@@ -107,9 +103,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   private final PathFragment pkgName;
 
   /**
-   * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
-   * interning, x.equals(y) <=> x==y.
-   **/
+   * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to weak
+   * interning, x.equals(y) usually implies x==y.
+   */
   private final int hashCode;
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
@@ -123,8 +119,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   }
 
   public static PackageIdentifier parse(
-      String input, String repo, ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
-      throws LabelSyntaxException {
+      String input, String repo, RepositoryMapping repositoryMapping) throws LabelSyntaxException {
     String packageName;
     int packageStartPos = input.indexOf("//");
     if (repo != null) {
@@ -153,12 +148,12 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     }
 
     if (repositoryMapping != null) {
-      RepositoryName repositoryName = RepositoryName.create(repo);
-      repositoryName = repositoryMapping.getOrDefault(repositoryName, repositoryName);
-      return create(repositoryName, PathFragment.create(packageName));
-    } else {
-      return create(repo, PathFragment.create(packageName));
+      RepositoryName mappedRepo = repositoryMapping.get(RepositoryName.create(repo));
+      if (mappedRepo != null) {
+        return create(mappedRepo, PathFragment.create(packageName));
+      }
     }
+    return create(repo, PathFragment.create(packageName));
   }
 
   public RepositoryName getRepository() {
@@ -237,7 +232,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       return false;
     }
     PackageIdentifier that = (PackageIdentifier) object;
-    return this.hashCode == that.hashCode && pkgName.equals(that.pkgName)
+    return this.hashCode == that.hashCode
+        && pkgName.equals(that.pkgName)
         && repository.equals(that.repository);
   }
 

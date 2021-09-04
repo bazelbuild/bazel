@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -24,7 +22,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /** Abstract test class for tests that want to be aware of filesystem operations. */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 public abstract class IoHookTestCase extends GoogleBuildIntegrationTestCase {
 
   /** Type of path operation. */

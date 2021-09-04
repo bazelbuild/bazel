@@ -195,7 +195,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
   @Test
   public void transitionTypeParsing() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -241,7 +241,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
   @Test
   public void transitionsDontAllowRelativeLabels() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",

@@ -18,8 +18,6 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import org.junit.Before;
@@ -31,7 +29,6 @@ import org.junit.runners.JUnit4;
  * Tests correctness of the build summary output produced by
  * BuildTool.showBuildResult() method.
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase {
   private RecordingOutErr recOutErr = new RecordingOutErr();
 

@@ -16,35 +16,34 @@
 
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
+load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
+load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 
 objc_internal = _builtins.internal.objc_internal
 CcInfo = _builtins.toplevel.CcInfo
 
 def _objc_import_impl(ctx):
-    compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
-    intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
-    common = objc_internal.create_common(
-        purpose = "COMPILE_AND_LINK",
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    common_variables = compilation_support.build_common_variables(
         ctx = ctx,
-        compilation_attributes = compilation_attributes,
+        toolchain = cc_toolchain,
+        use_pch = True,
         deps = ctx.attr.deps,
-        intermediate_artifacts = intermediate_artifacts,
         alwayslink = ctx.attr.alwayslink,
-        has_module_map = True,
         extra_import_libraries = ctx.files.archives,
+        empty_compilation_artifacts = True,
+        has_module_map = True,
     )
 
-    compilation_support = objc_internal.create_compilation_support(
-        ctx = ctx,
-        semantics = semantics.get_semantics(),
+    (cc_compilation_context, _, _) = compilation_support.register_compile_and_archive_actions(
+        common_variables,
     )
 
-    compilation_support.register_compile_and_archive_actions(common = common)
-    compilation_support.validate_attributes()
+    compilation_support.validate_attributes(common_variables)
 
     return [
-        CcInfo(compilation_context = compilation_support.compilation_context),
-        common.objc_provider,
+        CcInfo(compilation_context = cc_compilation_context),
+        common_variables.objc_provider,
     ]
 
 objc_import = rule(
@@ -56,6 +55,7 @@ objc_import = rule(
                 default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
             ),
         },
+        common_attrs.LICENSES,
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.INCLUDE_SCANNING_RULE,

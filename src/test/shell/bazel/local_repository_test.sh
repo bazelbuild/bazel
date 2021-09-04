@@ -1153,7 +1153,7 @@ local_repository(
 )
 EOF
   bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
-  expect_log "(absolute: \"$TEST_TMPDIR/r\") but this directory does not exist"
+  expect_log "(absolute: \"$TEST_TMPDIR/r\") but it does not exist"
 }
 
 # Regression test for #2841.

@@ -35,7 +35,6 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -148,15 +147,14 @@ final class TestExpansionFunction implements SkyFunction {
       Environment env, Rule rule, String attrName, List<Target> targets)
       throws InterruptedException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    List<Label> labels =
-        mapper.visitLabels(mapper.getAttributeDefinition(attrName)).stream()
-            .map(e -> e.getLabel())
-            .collect(Collectors.toList());
-
-    Set<PackageIdentifier> pkgIdentifiers = new LinkedHashSet<>();
-    for (Label label : labels) {
-      pkgIdentifiers.add(label.getPackageIdentifier());
-    }
+    List<Label> labels = new ArrayList<>();
+    Set<PackageIdentifier> pkgIdentifiers = new HashSet<>();
+    mapper.visitLabels(
+        mapper.getAttributeDefinition(attrName),
+        label -> {
+          labels.add(label);
+          pkgIdentifiers.add(label.getPackageIdentifier());
+        });
 
     Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
         env.getValuesOrThrow(PackageValue.keys(pkgIdentifiers), NoSuchPackageException.class);

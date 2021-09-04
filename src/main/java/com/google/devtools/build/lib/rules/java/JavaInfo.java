@@ -591,24 +591,6 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
-    public Builder experimentalDisableAnnotationProcessing() {
-      JavaPluginInfo provider =
-          (JavaPluginInfo) providerMap.getProvider(JavaPluginInfo.PROVIDER.getKey());
-      if (provider != null) {
-        JavaPluginData plugins = provider.plugins();
-        providerMap.put(
-            JavaPluginInfo.create(
-                JavaPluginData.create(
-                    /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-                    // Preserve the processor path, since it may contain Error Prone plugins which
-                    // will be service-loaded by JavaBuilder.
-                    plugins.processorClasspath(),
-                    /* data= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)),
-                /* generatesApi= */ false));
-      }
-      return this;
-    }
-
     public Builder setLocation(Location location) {
       this.creationLocation = location;
       return this;

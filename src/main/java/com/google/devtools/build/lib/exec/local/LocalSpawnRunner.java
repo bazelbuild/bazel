@@ -26,8 +26,8 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -118,7 +121,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException, ExecException {
+      throws IOException, InterruptedException, ExecException, ForbiddenActionInputException {
 
     runfilesTreeUpdater.updateRunfilesDirectory(
         execRoot,
@@ -131,10 +134,10 @@ public class LocalSpawnRunner implements SpawnRunner {
         Profiler.instance()
             .profile(ProfilerTask.LOCAL_EXECUTION, spawn.getResourceOwner().getMnemonic())) {
       ActionExecutionMetadata owner = spawn.getResourceOwner();
-      context.report(ProgressStatus.SCHEDULING, getName());
+      context.report(SpawnSchedulingEvent.create(getName()));
       try (ResourceHandle handle =
           resourceManager.acquireResources(owner, spawn.getLocalResources())) {
-        context.report(ProgressStatus.EXECUTING, getName());
+        context.report(SpawnExecutingEvent.create(getName()));
         if (!localExecutionOptions.localLockfreeOutput) {
           context.lockOutputFiles();
         }
@@ -186,7 +189,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       setState(State.PARSING);
     }
 
-    public SpawnResult run() throws InterruptedException, IOException {
+    public SpawnResult run()
+        throws InterruptedException, IOException, ForbiddenActionInputException {
       if (localExecutionOptions.localRetriesOnCrash == 0) {
         return runOnce();
       } else {
@@ -212,7 +216,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
     }
 
-    private SpawnResult runOnce() throws InterruptedException, IOException {
+    private SpawnResult runOnce()
+        throws InterruptedException, IOException, ForbiddenActionInputException {
       try {
         return start();
       } catch (InterruptedException | InterruptedIOException e) {
@@ -223,6 +228,9 @@ public class LocalSpawnRunner implements SpawnRunner {
         throw e;
       } catch (Error e) {
         stepLog(SEVERE, e, UNHANDLED_EXCEPTION_MSG);
+        throw e;
+      } catch (ForbiddenActionInputException e) {
+        stepLog(WARNING, e, "Bad input file");
         throw e;
       } catch (IOException e) {
         stepLog(SEVERE, e, "Local I/O error");
@@ -275,7 +283,8 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     /** Parse the request and run it locally. */
-    private SpawnResult start() throws InterruptedException, IOException {
+    private SpawnResult start()
+        throws InterruptedException, IOException, ForbiddenActionInputException {
       logger.atInfo().log("starting local subprocess #%d, argv: %s", id, debugCmdString());
 
       FileOutErr outErr = context.getFileOutErr();
@@ -313,7 +322,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
 
       for (ActionInput input : spawn.getInputFiles().toList()) {
-        if (input instanceof ParamFileActionInput) {
+        if (input instanceof VirtualActionInput) {
           VirtualActionInput virtualActionInput = (VirtualActionInput) input;
           Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
           if (outputPath.exists()) {
@@ -323,6 +332,9 @@ public class LocalSpawnRunner implements SpawnRunner {
           try (OutputStream outputStream = outputPath.getOutputStream()) {
             virtualActionInput.writeTo(outputStream);
           }
+          // Some of the virtual inputs are tools run as part of the execution, hence we need to set
+          // executable flag.
+          outputPath.setExecutable(true);
         }
       }
 
@@ -443,8 +455,14 @@ public class LocalSpawnRunner implements SpawnRunner {
                         resourceUsage.getBlockInputOperations());
                     spawnResultBuilder.setNumInvoluntaryContextSwitches(
                         resourceUsage.getInvoluntaryContextSwitches());
-                    // The memory usage of the largest child process
-                    spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                    // The memory usage of the largest child process. For Darwin maxrss returns size
+                    // in bytes.
+                    if (OS.getCurrent() == OS.DARWIN) {
+                      spawnResultBuilder.setMemoryInKb(
+                          resourceUsage.getMaximumResidentSetSize() / 1000);
+                    } else {
+                      spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                    }
                   });
         }
         return spawnResultBuilder.build();

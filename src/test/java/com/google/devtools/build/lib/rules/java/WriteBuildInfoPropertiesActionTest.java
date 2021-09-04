@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Properties;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,5 +57,18 @@ public class WriteBuildInfoPropertiesActionTest extends FoundationTestCase {
         LINEFEED_JOINER.join("toto", "titi"), "# timestamp comment\n", "toto\n", "titi");
     assertStripFirstLine(
         LINE_JOINER.join("toto", "titi"), "# timestamp comment\r\n", "toto\r\n", "titi");
+  }
+
+  @Test
+  public void deterministicProperties() throws IOException {
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    Properties underTest = new WriteBuildInfoPropertiesAction.DeterministicProperties();
+    underTest.put("second", "keyb");
+    underTest.put("first", "keya");
+    try (WriteBuildInfoPropertiesAction.StripFirstLineWriter writer =
+        new WriteBuildInfoPropertiesAction.StripFirstLineWriter(bytes)) {
+      underTest.store(writer, null);
+    }
+    assertThat(new String(bytes.toByteArray(), UTF_8)).isEqualTo("first=keya\nsecond=keyb\n");
   }
 }

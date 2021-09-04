@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.Path;
@@ -67,10 +67,10 @@ public class PyRuleClasses {
    * PyCommon#validatePythonVersionAttr}) to report an attribute error to the user. This case should
    * be prevented by attribute validation if the rule class is defined correctly.
    */
-  public static TransitionFactory<Rule> makeVersionTransition(
+  public static TransitionFactory<RuleTransitionData> makeVersionTransition(
       PythonVersionTransition defaultTransition) {
-    return (rule) -> {
-      AttributeMap attrs = RawAttributeMapper.of(rule);
+    return (ruleData) -> {
+      AttributeMap attrs = RawAttributeMapper.of(ruleData.rule());
       // Fail fast if we're used on an ill-defined rule class.
       Preconditions.checkArgument(
           attrs.has(PyCommon.PYTHON_VERSION_ATTRIBUTE, Type.STRING),
@@ -100,7 +100,7 @@ public class PyRuleClasses {
    * A Python version transition that sets the version as specified by the target's attributes, with
    * a default determined by {@link PythonOptions#getDefaultPythonVersion}.
    */
-  public static final TransitionFactory<Rule> VERSION_TRANSITION =
+  public static final TransitionFactory<RuleTransitionData> VERSION_TRANSITION =
       makeVersionTransition(PythonVersionTransition.toDefault());
 
   /** The py2 and py3 symlinks. */

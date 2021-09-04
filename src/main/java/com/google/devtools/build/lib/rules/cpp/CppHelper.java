@@ -19,19 +19,16 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AliasProvider;
@@ -604,85 +601,6 @@ public class CppHelper {
                     + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions())),
             configuration.getGenfilesDirectory(label.getRepository()));
     return new CppModuleMap(mapFile, label.toString());
-  }
-
-  /**
-   * Returns a middleman for all files to build for the given configured target, substituting shared
-   * library artifacts with corresponding solib symlinks. If multiple calls are made, then it
-   * returns the same artifact for configurations with the same internal directory.
-   *
-   * <p>The resulting middleman only aggregates the inputs and must be expanded before populating
-   * the set of files necessary to execute an action.
-   */
-  static List<Artifact> getAggregatingMiddlemanForCppRuntimes(
-      RuleContext ruleContext,
-      String purpose,
-      NestedSet<Artifact> artifacts,
-      String solibDir,
-      String solibDirOverride,
-      BuildConfiguration configuration) {
-    return getMiddlemanInternal(
-        ruleContext,
-        ruleContext.getActionOwner(),
-        purpose,
-        artifacts,
-        true,
-        true,
-        solibDir,
-        solibDirOverride);
-  }
-
-  @VisibleForTesting
-  public static List<Artifact> getAggregatingMiddlemanForTesting(
-      RuleContext ruleContext,
-      ActionOwner owner,
-      String purpose,
-      NestedSet<Artifact> artifacts,
-      boolean useSolibSymlinks,
-      String solibDir,
-      BuildConfiguration configuration) {
-    return getMiddlemanInternal(
-        ruleContext, owner, purpose, artifacts, useSolibSymlinks, false, solibDir, null);
-  }
-
-  /** Internal implementation for getAggregatingMiddlemanForCppRuntimes. */
-  private static List<Artifact> getMiddlemanInternal(
-      RuleContext ruleContext,
-      ActionOwner actionOwner,
-      String purpose,
-      NestedSet<Artifact> artifacts,
-      boolean useSolibSymlinks,
-      boolean isCppRuntime,
-      String solibDir,
-      String solibDirOverride) {
-    MiddlemanFactory factory = ruleContext.getAnalysisEnvironment().getMiddlemanFactory();
-    if (useSolibSymlinks) {
-      NestedSetBuilder<Artifact> symlinkedArtifacts = NestedSetBuilder.stableOrder();
-      for (Artifact artifact : artifacts.toList()) {
-        Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(artifact.getFilename()));
-        symlinkedArtifacts.add(
-            isCppRuntime
-                ? SolibSymlinkAction.getCppRuntimeSymlink(
-                    ruleContext, artifact, solibDir, solibDirOverride)
-                : SolibSymlinkAction.getDynamicLibrarySymlink(
-                    /* actionRegistry= */ ruleContext,
-                    /* actionConstructionContext= */ ruleContext,
-                    solibDir,
-                    artifact,
-                    /* preserveName= */ false,
-                    /* prefixConsumer= */ true));
-      }
-      artifacts = symlinkedArtifacts.build();
-      purpose += "_with_solib";
-    }
-    return ImmutableList.of(
-        factory.createMiddlemanAllowMultiple(
-            ruleContext.getAnalysisEnvironment(),
-            actionOwner,
-            ruleContext.getPackageDirectory(),
-            purpose,
-            artifacts,
-            ruleContext.getMiddlemanDirectory()));
   }
 
   /** Returns the FDO build subtype. */

@@ -32,11 +32,11 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -44,7 +44,10 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -80,6 +83,15 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class RemoteSpawnRunner implements SpawnRunner {
 
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("remote");
+
+  private static final SpawnSchedulingEvent SPAWN_SCHEDULING_EVENT =
+      SpawnSchedulingEvent.create("remote");
+
+  private static final SpawnExecutingEvent SPAWN_EXECUTING_EVENT =
+      SpawnExecutingEvent.create("remote");
+
   private final Path execRoot;
   private final RemoteOptions remoteOptions;
   private final ExecutionOptions executionOptions;
@@ -109,6 +121,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.retrier = createExecuteRetrier(remoteOptions, retryService);
     this.logDir = logDir;
     this.remoteExecutionService = remoteExecutionService;
+  }
+
+  @VisibleForTesting
+  RemoteExecutionService getRemoteExecutionService() {
+    return remoteExecutionService;
   }
 
   @Override
@@ -142,7 +159,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     public void reportExecuting() {
-      context.report(ProgressStatus.EXECUTING, getName());
+      context.report(SPAWN_EXECUTING_EVENT);
       reportedExecuting = true;
     }
 
@@ -155,16 +172,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException, IOException {
+      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     Preconditions.checkArgument(
-        Spawns.mayBeExecutedRemotely(spawn), "Spawn can't be executed remotely. This is a bug.");
+        remoteExecutionService.mayBeExecutedRemotely(spawn),
+        "Spawn can't be executed remotely. This is a bug.");
 
     Stopwatch totalTime = Stopwatch.createStarted();
-    boolean spawnCacheableRemotely = Spawns.mayBeCachedRemotely(spawn);
-    boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
-    boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
-
-    context.report(ProgressStatus.SCHEDULING, getName());
+    boolean uploadLocalResults = remoteExecutionService.shouldUploadLocalResults(spawn);
+    boolean acceptCachedResult = remoteExecutionService.shouldAcceptCachedResult(spawn);
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
     SpawnMetrics.Builder spawnMetrics =
@@ -178,11 +193,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     Profiler prof = Profiler.instance();
     try {
+      context.report(SPAWN_CHECKING_CACHE_EVENT);
+
       // Try to lookup the action in the action cache.
       RemoteActionResult cachedResult;
       try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
         cachedResult = acceptCachedResult ? remoteExecutionService.lookupCache(action) : null;
       }
+
       if (cachedResult != null) {
         if (cachedResult.getExitCode() != 0) {
           // Failed actions are treated as a cache miss mostly in order to avoid caching flaky
@@ -195,6 +213,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 action,
                 cachedResult,
                 /* cacheHit= */ true,
+                cachedResult.cacheName(),
                 spawn,
                 totalTime,
                 () -> action.getNetworkTime().getDuration(),
@@ -231,10 +250,13 @@ public class RemoteSpawnRunner implements SpawnRunner {
                       .minus(action.getNetworkTime().getDuration().minus(networkTimeStart)));
             }
 
+            context.report(SPAWN_SCHEDULING_EVENT);
+
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-              result = remoteExecutionService.execute(action, useCachedResult.get(), reporter);
+              result =
+                  remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }
             // In case of replies from server contains metadata, but none of them has EXECUTING
             // status.
@@ -258,6 +280,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   action,
                   result,
                   result.cacheHit(),
+                  getName(),
                   spawn,
                   totalTime,
                   () -> action.getNetworkTime().getDuration(),
@@ -325,6 +348,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       RemoteAction action,
       RemoteActionResult result,
       boolean cacheHit,
+      String cacheName,
       Spawn spawn,
       Stopwatch totalTime,
       Supplier<Duration> networkTime,
@@ -346,7 +370,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return createSpawnResult(
         result.getExitCode(),
         cacheHit,
-        getName(),
+        cacheName,
         inMemoryOutput,
         spawnMetrics
             .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
@@ -358,7 +382,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean canExec(Spawn spawn) {
-    return Spawns.mayBeExecutedRemotely(spawn);
+    return remoteExecutionService.mayBeExecutedRemotely(spawn);
   }
 
   @Override
@@ -395,7 +419,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException, IOException {
+      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     RemoteLocalFallbackRegistry localFallbackRegistry =
         context.getContext(RemoteLocalFallbackRegistry.class);
     checkNotNull(localFallbackRegistry, "Expected a RemoteLocalFallbackRegistry to be registered");
@@ -413,7 +437,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       SpawnExecutionContext context,
       boolean uploadLocalResults,
       IOException cause)
-      throws ExecException, InterruptedException, IOException {
+      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
     // failure/stack trace.
     if (Thread.currentThread().isInterrupted()) {
@@ -481,6 +505,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
       errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
     }
 
+    if (exception.getCause() instanceof ExecutionStatusException) {
+      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+      if (e.getResponse() != null) {
+        if (!e.getResponse().getMessage().isEmpty()) {
+          errorMessage += "\n" + e.getResponse().getMessage();
+        }
+      }
+    }
+
     return new SpawnResult.Builder()
         .setRunnerName(getName())
         .setStatus(status)
@@ -520,7 +553,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   @VisibleForTesting
   SpawnResult execLocallyAndUpload(
       RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
-      throws ExecException, IOException, InterruptedException {
+      throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
     Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap());
     SpawnResult result = execLocally(spawn, context);
     Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap());
@@ -538,7 +571,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     try (SilentCloseable c = Profiler.instance().profile(UPLOAD_TIME, "upload outputs")) {
-      remoteExecutionService.uploadOutputs(action);
+      remoteExecutionService.uploadOutputs(action, result);
     } catch (IOException e) {
       if (verboseFailures) {
         report(Event.debug("Upload to remote cache failed: " + e.getMessage()));

@@ -518,7 +518,7 @@ public class AndroidCommon {
       ImmutableList.Builder<Artifact> outputs = ImmutableList.<Artifact>builder();
       DataBindingV2Provider p =
           ruleContext.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
-      outputs.addAll(p.getSetterStores());
+      outputs.addAll(p.getSetterStores().toList());
       outputs.addAll(p.getTransitiveBRFiles().toList());
       additionalJavaInputsFromDatabinding = outputs.build();
     }
@@ -562,12 +562,7 @@ public class AndroidCommon {
       ImmutableList<Artifact> additionalArtifacts) {
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
-            ruleContext,
-            semantics,
-            javaCommon.getJavacOpts(),
-            attributes,
-            additionalArtifacts,
-            /*disableStrictDeps=*/ false);
+            ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setTargetLabel(ruleContext.getLabel());

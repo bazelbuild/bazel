@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -482,7 +483,7 @@ public final class SandboxModule extends BlazeModule {
 
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-        throws InterruptedException, IOException, ExecException {
+        throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
       Instant spawnExecutionStartInstant = Instant.now();
       SpawnResult spawnResult;
       if (sandboxSpawnRunner.canExec(spawn)) {
@@ -606,14 +607,17 @@ public final class SandboxModule extends BlazeModule {
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;
-    if (treeDeleter != null && asyncTreeDeleteThreads > 0) {
-      // If asynchronous deletions were requested, they may still be ongoing so let them be: trying
-      // to delete the base tree synchronously could fail as we can race with those other deletions,
-      // and scheduling an asynchronous deletion could race with future builds.
-      AsynchronousTreeDeleter treeDeleter =
-          (AsynchronousTreeDeleter) checkNotNull(this.treeDeleter);
+
+    // If asynchronous deletions were requested, they may still be ongoing so let them be: trying
+    // to delete the base tree synchronously could fail as we can race with those other deletions,
+    // and scheduling an asynchronous deletion could race with future builds.
+    if (asyncTreeDeleteThreads > 0 && treeDeleter instanceof AsynchronousTreeDeleter) {
+      AsynchronousTreeDeleter treeDeleter = (AsynchronousTreeDeleter) this.treeDeleter;
       treeDeleter.setThreads(asyncTreeDeleteThreads);
     }
+    // `treeDeleter` might not be an AsynchronousTreeDeleter if the user changed the option but
+    // then interrupted the build before the start of the execution phase. But that's OK, there
+    // will be nothing new to delete. See #13240.
 
     if (shouldCleanupSandboxBase) {
       try {

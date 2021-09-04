@@ -172,14 +172,14 @@ is more error-prone and less obvious than an empty list.
 Do not use recursive globs to match source files (for example,
 `glob(["**/*.java"])`).
 
-Recursive globs make BUILD files difficult to reason about because they skip
-subdirectories containing BUILD files.
+Recursive globs make `BUILD` files difficult to reason about because they skip
+subdirectories containing `BUILD` files.
 
-Recursive globs are generally less efficient than having a BUILD file per
+Recursive globs are generally less efficient than having a `BUILD` file per
 directory with a dependency graph defined between them as this enables better
 remote caching and parallelism.
 
-It is good practice to author a BUILD file in each directory and define a
+It is good practice to author a `BUILD` file in each directory and define a
 dependency graph between them.
 
 ### Non-recursive
@@ -214,8 +214,8 @@ are a few differences:
  * No strict line length limit. Long comments and long strings are often split
    to 79 columns, but it is not required. It should not be enforced in code
    reviews or presubmit scripts. *Rationale*: Labels can be long and exceed this
-   limit. It is common for `BUILD` files to be generated or edited by tools, which
-   does not go well with a line length limit.
+   limit. It is common for `BUILD` files to be generated or edited by tools,
+   which does not go well with a line length limit.
 
  * Implicit string concatenation is not supported. Use the `+` operator.
    *Rationale*: `BUILD` files contain many string lists. It is easy to forget a

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -93,8 +92,7 @@ public class CcToolchainAliasRule implements RuleDefinition {
           .addNativeDeclaredProvider(ccToolchainProvider)
           .addNativeDeclaredProvider(toolchain)
           .addNativeDeclaredProvider(templateVariableInfo)
-          .setFilesToBuild(ccToolchainProvider.getAllFiles())
-          .addProvider(new MiddlemanProvider(ccToolchainProvider.getAllFilesMiddleman()))
+          .setFilesToBuild(ccToolchainProvider.getAllFilesIncludingLibc())
           .build();
     }
   }

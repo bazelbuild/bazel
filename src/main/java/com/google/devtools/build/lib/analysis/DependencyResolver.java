@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -52,10 +53,11 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -181,7 +183,7 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       boolean useToolchainTransition,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
@@ -239,7 +241,7 @@ public abstract class DependencyResolver {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       boolean useToolchainTransition,
       NestedSetBuilder<Cause> rootCauses,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
@@ -445,7 +447,7 @@ public abstract class DependencyResolver {
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
       Map<Label, Target> targetMap,
       BuildConfiguration originalConfiguration,
-      @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
       throws InconsistentAspectOrderException {
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges = OrderedSetMultimap.create();
 
@@ -565,7 +567,6 @@ public abstract class DependencyResolver {
             entry.getValue().resolvedToolchainLabels());
       }
     }
-
   }
 
   private void resolveAttributes(
@@ -575,7 +576,6 @@ public abstract class DependencyResolver {
       Iterable<Aspect> aspects,
       BuildConfiguration ruleConfig,
       BuildConfiguration hostConfig) {
-    Label ruleLabel = rule.getLabel();
     for (AttributeDependencyKind dependencyKind : getAttributes(rule, aspects)) {
       Attribute attribute = dependencyKind.getAttribute();
       if (!attribute.getCondition().apply(attributeMap)
@@ -589,57 +589,74 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      if (attribute.getType() == BuildType.OUTPUT
-          || attribute.getType() == BuildType.OUTPUT_LIST
-          || attribute.getType() == BuildType.NODEP_LABEL
-          || attribute.getType() == BuildType.NODEP_LABEL_LIST) {
+      Type<?> type = attribute.getType();
+      if (type == BuildType.OUTPUT
+          || type == BuildType.OUTPUT_LIST
+          || type == BuildType.NODEP_LABEL
+          || type == BuildType.NODEP_LABEL_LIST) {
         // These types invoke visitLabels() so that they are reported in "bazel query" but do not
         // create a dependency. Maybe it's better to remove that, but then the labels() query
         // function would need to be rethought.
         continue;
       }
 
-      Object attributeValue;
-      if (attribute.isImplicit()) {
-        // Since the attributes that come from aspects do not appear in attributeMap, we have to
-        // get their values from somewhere else. This incidentally means that aspects attributes
-        // are not configurable. It would be nice if that wasn't the case, but we'd have to revamp
-        // how attribute mapping works, which is a large chunk of work.
-        attributeValue =
-            dependencyKind.getOwningAspect() == null
-                ? attributeMap.get(attribute.getName(), attribute.getType())
-                : attribute.getDefaultValue(rule);
-        if (attributeValue instanceof ComputedDefault) {
-          attributeValue = ((ComputedDefault) attributeValue).getDefault(attributeMap);
-        }
-      } else if (attribute.isLateBound()) {
-        attributeValue =
-            resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig, hostConfig);
-      } else if (attributeMap.has(attribute.getName())) {
-        // This condition is false for aspect attributes that do not give rise to dependencies
-        // because attributes that come from aspects do not appear in attributeMap (see the
-        // comment in the case that handles implicit attributes)
-        attributeValue = attributeMap.get(attribute.getName(), attribute.getType());
-      } else {
-        continue;
-      }
-
-      if (attributeValue == null) {
-        continue;
-      }
-
-      List<Label> labels = new ArrayList<>();
-      attribute
-          .getType()
-          .visitLabels(
-              (depLabel, ctx) -> {
-                labels.add(ruleLabel.resolveRepositoryRelative(depLabel));
-              },
-              attributeValue,
-              null);
-
-      outgoingLabels.putAll(dependencyKind, labels);
+      resolveAttribute(
+          attribute,
+          type,
+          dependencyKind,
+          outgoingLabels,
+          rule,
+          attributeMap,
+          ruleConfig,
+          hostConfig);
     }
+  }
+
+  private <T> void resolveAttribute(
+      Attribute attribute,
+      Type<T> type,
+      AttributeDependencyKind dependencyKind,
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
+      Rule rule,
+      ConfiguredAttributeMapper attributeMap,
+      BuildConfiguration ruleConfig,
+      BuildConfiguration hostConfig) {
+    T attributeValue = null;
+    if (attribute.isImplicit()) {
+      // Since the attributes that come from aspects do not appear in attributeMap, we have to get
+      // their values from somewhere else. This incidentally means that aspects attributes are not
+      // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
+      // attribute mapping works, which is a large chunk of work.
+      if (dependencyKind.getOwningAspect() == null) {
+        attributeValue = attributeMap.get(attribute.getName(), type);
+      } else {
+        Object defaultValue = attribute.getDefaultValue(rule);
+        attributeValue =
+            type.cast(
+                defaultValue instanceof ComputedDefault
+                    ? ((ComputedDefault) defaultValue).getDefault(attributeMap)
+                    : defaultValue);
+      }
+    } else if (attribute.isLateBound()) {
+      attributeValue =
+          type.cast(resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig, hostConfig));
+    } else if (attributeMap.has(attribute.getName())) {
+      // This condition is false for aspect attributes that do not give rise to dependencies because
+      // attributes that come from aspects do not appear in attributeMap (see the comment in the
+      // case that handles implicit attributes).
+      attributeValue = attributeMap.get(attribute.getName(), type);
+    }
+
+    if (attributeValue == null) {
+      return;
+    }
+
+    Label ruleLabel = rule.getLabel();
+    type.visitLabels(
+        (depLabel, ctx) ->
+            outgoingLabels.put(dependencyKind, ruleLabel.resolveRepositoryRelative(depLabel)),
+        attributeValue,
+        /*context=*/ null);
   }
 
   @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
@@ -719,7 +736,8 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      if (aspect.getDefinition().propagateAlong(attributeName)) {
+      if (aspect.getDefinition().propagateAlong(attributeName)
+          || aspect.getDescriptor().inheritedPropagateAlong(attributeName)) {
         filteredAspectPath.add(aspect);
       }
     }
@@ -773,12 +791,11 @@ public abstract class DependencyResolver {
 
     Rule toRule = (Rule) toTarget;
     ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
-
+    AdvertisedProviderSet advertisedProviders =
+        toRule.getRuleClassObject().getAdvertisedProviders();
     for (Aspect aspect : aspects) {
-      if (aspect
-          .getDefinition()
-          .getRequiredProviders()
-          .isSatisfiedBy(toRule.getRuleClassObject().getAdvertisedProviders())) {
+      if (aspect.getDefinition().getRequiredProviders().isSatisfiedBy(advertisedProviders)
+          || aspect.getDescriptor().satisfiesInheritedRequiredProviders(advertisedProviders)) {
         filteredAspectPath.add(aspect);
       }
     }

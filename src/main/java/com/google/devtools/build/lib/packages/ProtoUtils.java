@@ -40,11 +40,8 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Disc
 
 /** Shared code used in proto buffer output for rules and rule classes. */
 public class ProtoUtils {
-  /**
-   * This map contains all attribute types that are recognized by the protocol
-   * output formatter.
-   */
-  static final ImmutableMap<Type<?>, Discriminator> TYPE_MAP =
+  /** This map contains all attribute types that are recognized by the protocol output formatter. */
+  private static final ImmutableMap<Type<?>, Discriminator> TYPE_MAP =
       new ImmutableMap.Builder<Type<?>, Discriminator>()
           .put(INTEGER, Discriminator.INTEGER)
           .put(DISTRIBUTIONS, Discriminator.DISTRIBUTION_SET)

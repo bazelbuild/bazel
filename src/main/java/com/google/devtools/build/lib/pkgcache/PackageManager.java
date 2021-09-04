@@ -48,9 +48,6 @@ public interface PackageManager extends PackageProvider, CachingPackageLocator {
     int getPackagesLoaded();
   }
 
-  /** Retrieves a target pattern parser that works with this package manager. */
-  TargetPatternPreloader newTargetPatternPreloader();
-
   /** Retrieves a {@link QueryTransitivePackagePreloader} for preloading packages in query. */
   QueryTransitivePackagePreloader transitiveLoader();
 }

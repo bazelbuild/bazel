@@ -36,20 +36,3 @@ java_library(
     srcs = [":java-srcs"],
     visibility = ["//tools/java/runfiles/testing:__pkg__"],
 )
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//tools/java/runfiles/testing:all_windows_tests",
-    ],
-    visibility = ["//tools/java:__pkg__"],
-)

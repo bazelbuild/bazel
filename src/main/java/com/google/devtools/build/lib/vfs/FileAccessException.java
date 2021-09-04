@@ -42,7 +42,7 @@ public class FileAccessException extends IOException {
   /**
    * Codec for {@link FileAccessException}.
    *
-   * <p>{@link com.google.devtools.build.lib.skyframe.serialization.AutoRegistry} blacklists the
+   * <p>{@link com.google.devtools.build.lib.skyframe.serialization.AutoRegistry} excludes the
    * entire com.google.devtools.build.lib.vfs java package from having DynamicCodec support.
    * Therefore, we need to provide our own codec for @link FileAccessException}.
    */

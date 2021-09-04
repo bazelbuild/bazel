@@ -17,9 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.Date;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Determines the version information of the current process.
@@ -94,7 +94,9 @@ public class BlazeVersionInfo {
     if (buildData.isEmpty()) {
       return null;
     }
-    return StringUtilities.layoutTable(buildData);
+    return buildData.entrySet().stream()
+        .map(e -> e.getKey() + ": " + e.getValue())
+        .collect(Collectors.joining("\n"));
   }
 
   /**

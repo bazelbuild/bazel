@@ -806,27 +806,20 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "watchfs_test",
+    srcs = ["watchfs_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
 ########################################################################
 # Test suites.
 
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/test/shell:__pkg__"],
 )

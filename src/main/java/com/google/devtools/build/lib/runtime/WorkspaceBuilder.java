@@ -53,6 +53,7 @@ public final class WorkspaceBuilder {
       ImmutableList.builder();
   private AllocationTracker allocationTracker;
   private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
+  private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -79,6 +80,9 @@ public final class WorkspaceBuilder {
             skyFunctions.build(),
             customDirtinessCheckers.build(),
             managedDirectoriesKnowledge,
+            skyKeyStateReceiver == null
+                ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
+                : skyKeyStateReceiver,
             runtime.getBugReporter());
     return new BlazeWorkspace(
         runtime,
@@ -157,6 +161,17 @@ public final class WorkspaceBuilder {
   public WorkspaceBuilder setManagedDirectoriesKnowledge(
       ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+    return this;
+  }
+
+  public WorkspaceBuilder setSkyKeyStateReceiver(
+      SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver) {
+    Preconditions.checkState(
+        this.skyKeyStateReceiver == null,
+        "Multiple evaluatedSkyKeyReceiver: %s %s",
+        this.skyKeyStateReceiver,
+        skyKeyStateReceiver);
+    this.skyKeyStateReceiver = skyKeyStateReceiver;
     return this;
   }
 }

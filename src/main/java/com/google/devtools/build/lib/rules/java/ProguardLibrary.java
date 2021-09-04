@@ -127,7 +127,7 @@ public final class ProguardLibrary {
               JavaCommon.getHostJavaExecutable(ruleContext),
               proguardAllowlister.getExecutable(),
               JavaToolchainProvider.from(ruleContext).getJvmOptions())
-          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman());
+          .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputs());
     } else {
       // TODO(b/170769708): remove this branch and require java_toolchain.proguard_allowlister to
       // always be a _deploy.jar

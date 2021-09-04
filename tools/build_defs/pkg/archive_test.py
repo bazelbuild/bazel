@@ -77,19 +77,6 @@ class TarFileWriterTest(unittest.TestCase):
       pass
     self.assertTarFileContent(self.tempfile, [])
 
-  def assertSimpleFileContent(self, names):
-    with archive.TarFileWriter(self.tempfile) as f:
-      for n in names:
-        f.add_file(n, content=n.encode("utf-8"))
-    content = ([{
-        "name": "."
-    }] + [{
-        "name": n,
-        "size": len(n.encode("utf-8")),
-        "data": n.encode("utf-8")
-    } for n in names])
-    self.assertTarFileContent(self.tempfile, content)
-
   def testDefaultMtimeNotProvided(self):
     with archive.TarFileWriter(self.tempfile) as f:
       self.assertEqual(f.default_mtime, 0)
@@ -117,14 +104,6 @@ class TarFileWriterTest(unittest.TestCase):
       f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"))
       for output_file in f.tar:
         self.assertEqual(output_file.mtime, 0)
-
-  def testAddFile(self):
-    self.assertSimpleFileContent(["./a"])
-    self.assertSimpleFileContent(["./b"])
-    self.assertSimpleFileContent(["./ab"])
-    self.assertSimpleFileContent(["./a", "./b"])
-    self.assertSimpleFileContent(["./a", "./ab"])
-    self.assertSimpleFileContent(["./a", "./b", "./ab"])
 
   def testDottedFiles(self):
     with archive.TarFileWriter(self.tempfile) as f:

@@ -95,6 +95,29 @@ public class CallStackTest {
   }
 
   @Test
+  public void callStackFactory_tailOptimisation() {
+    CallStack.Factory factory = new CallStack.Factory();
+    ImmutableList<StarlarkThread.CallStackEntry> stack1 =
+        ImmutableList.of(
+            entryFromNameAndLocation("target1", "a/BUILD", 1, 2),
+            entryFromNameAndLocation("java_library_macro", "java_library_macro.bzl", 2, 3),
+            entryFromNameAndLocation("java_library", "java_library.bzl", 4, 5));
+    ImmutableList<StarlarkThread.CallStackEntry> stack2 =
+        ImmutableList.of(
+            entryFromNameAndLocation("target2", "b/BUILD", 6, 7),
+            entryFromNameAndLocation("java_library_macro", "java_library_macro.bzl", 2, 3),
+            entryFromNameAndLocation("java_library", "java_library.bzl", 4, 5));
+
+    CallStack optimisedStack1 = factory.createFrom(stack1);
+    CallStack optimisedStack2 = factory.createFrom(stack2);
+
+    assertCallStackContents(optimisedStack1, stack1);
+    assertCallStackContents(optimisedStack2, stack2);
+    assertThat(optimisedStack1.head.child).isSameInstanceAs(optimisedStack2.head.child);
+    assertThat(optimisedStack1.head.child.child).isSameInstanceAs(optimisedStack2.head.child.child);
+  }
+
+  @Test
   public void testSerialization() throws Exception {
     CallStack.Factory factory = new CallStack.Factory();
 
@@ -114,6 +137,8 @@ public class CallStackTest {
     CallStack.Serializer serializer = new CallStack.Serializer();
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
+    serializer.prepareCallStack(callStack1);
+    serializer.prepareCallStack(callStack2);
     serializer.serializeCallStack(callStack1, codedOut);
     serializer.serializeCallStack(callStack2, codedOut);
     serializer.serializeCallStack(callStack1, codedOut);

@@ -53,6 +53,11 @@ message WorkRequest {
   // previously sent WorkRequest with the same request_id should be cancelled.
   // The arguments and inputs fields must be empty and should be ignored.
   bool cancel = 4;
+
+  // Values greater than 0 indicate that the worker should output extra debug
+  // information to stderr (which will go into the worker log). Setting the
+  // --worker_verbose flag for Bazel makes this flag default to 10.
+  int32 verbosity = 5;
 }
 
 // The worker sends this message to Blaze when it finished its work on the

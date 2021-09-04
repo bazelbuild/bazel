@@ -5,6 +5,15 @@ load("@rules_java//java:defs.bzl", "java_library")
 #   Open-sourced as part of Bazel.
 package(default_visibility = ["//src:__subpackages__"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/common/options/testing:srcs",
+        "//src/main/java/com/google/devtools/common/options/processor:srcs",
+    ],
+    visibility = ["//src:__subpackages__"],
+)
+
 java_library(
     name = "invocation_policy",
     srcs = [
@@ -12,7 +21,7 @@ java_library(
         "InvocationPolicyParser.java",
     ],
     deps = [
-        ":options",
+        ":options_internal",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
@@ -38,16 +47,8 @@ java_library(
     ),
     deps = [
         "//third_party:auto_value",
-        "//third_party:flogger",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]) + [
-        "//src/main/java/com/google/devtools/common/options/testing:srcs",
-        "//src/main/java/com/google/devtools/common/options/processor:srcs",
     ],
 )

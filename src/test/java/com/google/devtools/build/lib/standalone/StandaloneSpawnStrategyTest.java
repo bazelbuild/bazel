@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -216,7 +217,8 @@ public class StandaloneSpawnStrategyTest {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         NestedSetExpander.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS);
+        UnixGlob.DEFAULT_SYSCALLS,
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @Test

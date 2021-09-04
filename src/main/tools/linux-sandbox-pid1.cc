@@ -49,6 +49,19 @@
 #include <linux/fs.h>
 #endif
 
+#ifndef TEMP_FAILURE_RETRY
+// Some C standard libraries like musl do not define this macro, so we'll
+// include our own version for compatibility.
+#define TEMP_FAILURE_RETRY(exp)            \
+  ({                                       \
+    decltype(exp) _rc;                     \
+    do {                                   \
+      _rc = (exp);                         \
+    } while (_rc == -1 && errno == EINTR); \
+    _rc;                                   \
+  })
+#endif  // TEMP_FAILURE_RETRY
+
 #include "src/main/tools/linux-sandbox-options.h"
 #include "src/main/tools/linux-sandbox.h"
 #include "src/main/tools/logging.h"
@@ -355,7 +368,6 @@ static void EnterSandbox() {
 }
 
 static void ForwardSignal(int signum) {
-  PRINT_DEBUG("ForwardSignal(%d)", signum);
   kill(-global_child_pid, signum);
 }
 

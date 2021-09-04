@@ -32,16 +32,13 @@ import org.junit.runner.RunWith;
 
 /** Tests for Starlark "unused inputs list" functionality on failures caused by unused inputs. */
 @RunWith(TestParameterInjector.class)
-public class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase {
-  @TestParameter boolean keepGoing;
+public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase {
 
-  @TestParameter({"0", "1"})
-  int nestedSetOnSkyframe;
+  @TestParameter private boolean keepGoing;
 
   @Before
   public void setOptions() {
     addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
   }
 
   @Test
@@ -87,22 +84,6 @@ public class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase
     write("foo/gen_run.sh", "false");
     if (keepGoing) {
       buildTarget("//foo:foo");
-      bugReporter.assertNoExceptions();
-    } else if (nestedSetOnSkyframe == 0) {
-      RecordingOutErr outErr = new RecordingOutErr();
-      this.outErr = outErr;
-      // Not great, but what to do.
-      BuildFailedException e =
-          assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
-      assertThat(e.getDetailedExitCode().getFailureDetail())
-          .comparingExpectedFieldsOnly()
-          .isEqualTo(
-              FailureDetails.FailureDetail.newBuilder()
-                  .setSpawn(
-                      FailureDetails.Spawn.newBuilder()
-                          .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT))
-                  .build());
-      assertThat(outErr.errAsLatin1()).contains("Executing genrule //foo:gen failed");
       bugReporter.assertNoExceptions();
     } else {
       RecordingOutErr outErr = new RecordingOutErr();

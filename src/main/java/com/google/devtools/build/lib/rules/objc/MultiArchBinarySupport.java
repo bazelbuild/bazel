@@ -152,22 +152,14 @@ public class MultiArchBinarySupport {
             .collect(toImmutableList());
 
     ObjcProvider objcProvider = dependencySpecificConfiguration.objcLinkProvider();
-    CompilationArtifacts compilationArtifacts =
-        new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(
-                ObjcRuleClasses.intermediateArtifacts(
-                    ruleContext, dependencySpecificConfiguration.config()))
-            .build();
 
     CompilationSupport compilationSupport =
         new CompilationSupport.Builder(ruleContext, cppSemantics)
             .setConfig(dependencySpecificConfiguration.config())
             .setToolchainProvider(dependencySpecificConfiguration.toolchain())
-            .setOutputGroupCollector(outputMapCollector)
             .build();
 
     compilationSupport
-        .registerCompileAndArchiveActions(compilationArtifacts, ObjcCompilationContext.EMPTY)
         .registerLinkActions(
             objcProvider,
             ccLinkingContexts,
@@ -268,8 +260,7 @@ public class MultiArchBinarySupport {
             .addDeps(propagatedDeps)
             .addObjcProviders(additionalDepProviders)
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setAlwayslink(false)
-            .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
+            .setAlwayslink(false);
 
     return commonBuilder.build();
   }

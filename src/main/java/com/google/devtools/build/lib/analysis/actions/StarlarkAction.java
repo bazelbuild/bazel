@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -78,7 +78,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
    *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param primaryOutput the primary output of this action
-   * @param resourceSet the resources consumed by executing this Action
+   * @param resourceSetOrBuilder the resources consumed by executing this Action
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
    * @param commandLineLimits the command line limits, from the build configuration
@@ -98,7 +98,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       Artifact primaryOutput,
-      ResourceSet resourceSet,
+      ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
       boolean isShellCommand,
@@ -117,7 +117,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
             : inputs,
         outputs,
         primaryOutput,
-        resourceSet,
+        resourceSetOrBuilder,
         commandLines,
         commandLineLimits,
         isShellCommand,
@@ -367,7 +367,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         NestedSet<Artifact> inputsAndTools,
         ImmutableList<Artifact> outputs,
         Artifact primaryOutput,
-        ResourceSet resourceSet,
+        ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
         boolean isShellCommand,
@@ -393,7 +393,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           inputsAndTools,
           outputs,
           primaryOutput,
-          resourceSet,
+          resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
           isShellCommand,

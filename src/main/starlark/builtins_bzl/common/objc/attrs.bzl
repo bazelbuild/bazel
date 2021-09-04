@@ -49,7 +49,7 @@ _COMPILING_RULE = {
     "non_arc_srcs": attr.label_list(
         allow_files = [".m", ".mm"],
     ),
-    "pch": attr.label(allow_files = [".pch"]),
+    "pch": attr.label(allow_single_file = [".pch"]),
     "deps": attr.label_list(
         providers = [ObjcInfo],
         allow_rules = [
@@ -64,8 +64,11 @@ _COMPILING_RULE = {
     ),
     "defines": attr.string_list(),
     "enable_modules": attr.bool(),
+    "linkopts": attr.string_list(),
     "module_map": attr.label(allow_files = [".modulemap"]),
     "module_name": attr.string(),
+    # How many rules use this in the depot?
+    "stamp": attr.bool(),
 }
 
 _COMPILE_DEPENDENCY_RULE = {
@@ -113,6 +116,11 @@ _X_C_RUNE_RULE = {
     ),
 }
 
+_PLATFORM_RULE = {
+    "platform_type": attr.string(mandatory = True),
+    "minimum_os_version": attr.string(),
+}
+
 def _union(*dictionaries):
     result = {}
     for dictionary in dictionaries:
@@ -127,4 +135,6 @@ common_attrs = struct(
     SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
     COPTS_RULE = _COPTS_RULE,
     X_C_RUNE_RULE = _X_C_RUNE_RULE,
+    LICENSES = semantics.get_licenses_attr(),
+    PLATFORM_RULE = _PLATFORM_RULE,
 )

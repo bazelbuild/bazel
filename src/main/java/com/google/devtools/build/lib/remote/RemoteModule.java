@@ -269,12 +269,14 @@ public final class RemoteModule extends BlazeModule {
 
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
       // Quit if no remote caching or execution was enabled.
+      actionContextProvider =
+          RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
       return;
     }
 
-    if ((enableHttpCache || enableDiskCache) && enableRemoteExecution) {
+    if (enableHttpCache && enableRemoteExecution) {
       throw createOptionsExitException(
-          "Cannot combine gRPC based remote execution with disk caching or HTTP-based caching",
+          "Cannot combine gRPC based remote execution with HTTP-based caching",
           FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
     }
 
@@ -459,6 +461,8 @@ public final class RemoteModule extends BlazeModule {
           errorMessage += System.lineSeparator() + Throwables.getStackTraceAsString(e);
         }
         env.getReporter().handle(Event.warn(errorMessage));
+        actionContextProvider =
+            RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
         return;
       } else {
         if (verboseFailures) {
@@ -500,6 +504,22 @@ public final class RemoteModule extends BlazeModule {
             uploader, cacheClient, remoteBytestreamUriPrefix, buildRequestId, invocationId));
 
     if (enableRemoteExecution) {
+      if (enableDiskCache) {
+        try {
+          cacheClient =
+              RemoteCacheClientFactory.createDiskAndRemoteClient(
+                  env.getWorkingDirectory(),
+                  remoteOptions.diskCache,
+                  remoteOptions.remoteVerifyDownloads,
+                  digestUtil,
+                  cacheClient,
+                  remoteOptions);
+        } catch (IOException e) {
+          handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
+          return;
+        }
+      }
+
       RemoteExecutionClient remoteExecutor;
       if (remoteOptions.remoteExecutionKeepalive) {
         RemoteRetrier execRetrier =
@@ -779,7 +799,7 @@ public final class RemoteModule extends BlazeModule {
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     registryBuilder.setRemoteLocalFallbackStrategyIdentifier(
         remoteOptions.remoteLocalFallbackStrategy);
-    actionContextProvider.registerRemoteSpawnStrategyIfApplicable(registryBuilder);
+    actionContextProvider.registerRemoteSpawnStrategy(registryBuilder);
   }
 
   @Override
@@ -806,7 +826,7 @@ public final class RemoteModule extends BlazeModule {
         Preconditions.checkNotNull(
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    if (!remoteOutputsMode.downloadAllOutputs()) {
+    if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getBuildRequestId(),

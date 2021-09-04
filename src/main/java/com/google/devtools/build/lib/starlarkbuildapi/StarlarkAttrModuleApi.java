@@ -92,7 +92,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
-      "<a href=\"https://docs.bazel.build/versions/master/skylark/rules.html#configurations\">"
+      "<a href=\"https://docs.bazel.build/versions/main/skylark/rules.html#configurations\">"
           + "Configuration</a> of the attribute. It can be either <code>\"host\"</code>, "
           + "<code>\"exec\"</code>, or <code>\"target\"</code>.";
 
@@ -220,7 +220,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label",
       doc =
-          "Creates a schema for a label attribute. This is a dependency attribute."
+          "<p>Creates a schema for a label attribute. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT
               + "<p>In addition to ordinary source files, this kind of attribute is often used to "
               + "refer to a tool -- for example, a compiler. Such tools are considered to be "
@@ -327,6 +327,14 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             named = true,
             positional = false,
             doc = ASPECTS_ARG_DOC),
+        @Param(
+            name = FLAGS_ARG,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            documented = false,
+            doc = FLAGS_DOC)
       },
       useStarlarkThread = true)
   Descriptor labelAttribute(
@@ -340,6 +348,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
+      Object flags, // Sequence<String> expected
       StarlarkThread thread)
       throws EvalException;
 
@@ -396,7 +405,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_list",
       doc =
-          "Creates a schema for a list-of-labels attribute. This is a dependency attribute."
+          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -492,8 +501,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "label_keyed_string_dict",
       doc =
-          "Creates a schema for an attribute holding a dictionary, where the keys are labels and "
-              + "the values are strings. This is a dependency attribute."
+          "<p>Creates a schema for an attribute holding a dictionary, where the keys are labels "
+              + "and the values are strings. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -617,7 +626,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "output",
-      doc = "Creates a schema for an output (label) attribute." + OUTPUT_ATTR_TEXT,
+      doc = "<p>Creates a schema for an output (label) attribute.</p>" + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
             name = DOC_ARG,

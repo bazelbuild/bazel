@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -99,9 +100,8 @@ import net.starlark.java.eval.Starlark;
  *   <li>A directory of unknown contents, but not a TreeArtifact. This is a legacy facility and
  *       should not be used by any new rule implementations. In particular, the file system cache
  *       integrity checks fail for directories.
- *   <li>An 'aggregating middleman' special Artifact, which may be expanded using a {@link
- *       ArtifactExpander} at Action execution time. This is used by a handful of rules to save
- *       memory.
+ *   <li>A middleman special Artifact, which may be expanded using a {@link ArtifactExpander} at
+ *       Action execution time. This is used by a handful of rules to save memory.
  *   <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
  *       ignored by the build system. They are useful for files which change frequently but do not
  *       affect the result of a build, such as timestamp files.
@@ -130,6 +130,7 @@ public abstract class Artifact
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
 
   /** Compares artifact according to their exec paths. Sorts null values first. */
+  @SerializationConstant
   @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
   public static final Comparator<Artifact> EXEC_PATH_COMPARATOR =
       (a, b) -> {
@@ -182,9 +183,8 @@ public abstract class Artifact
 
   /**
    * Returns a {@link SkyKey} that, when built, will produce this artifact. For source artifacts and
-   * generated artifacts that may aggregate other artifacts (middleman, since they may be
-   * aggregating middlemen, and tree), returns the artifact itself. For normal generated artifacts,
-   * returns the key of the generating action.
+   * generated artifacts that may aggregate other artifacts, returns the artifact itself. For normal
+   * generated artifacts, returns the key of the generating action.
    *
    * <p>Callers should use this method (or the related ones below) in preference to directly
    * requesting an {@link Artifact} to be built by Skyframe, since ordinary derived artifacts should
@@ -223,8 +223,8 @@ public abstract class Artifact
     /**
      * Expands the given artifact, and populates "output" with the result.
      *
-     * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true.
-     * Only aggregating middlemen and tree artifacts are expanded.
+     * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true. Only
+     * middlemen and tree artifacts are expanded.
      */
     void expand(Artifact artifact, Collection<? super Artifact> output);
 
@@ -449,6 +449,14 @@ public abstract class Artifact
     @Override
     public final Label getOwnerLabel() {
       return getArtifactOwner().getLabel();
+    }
+
+    @Override
+    public final String toDebugString() {
+      if (hasGeneratingActionKey()) {
+        return super.toDetailString() + " (" + getGeneratingActionKey() + ")";
+      }
+      return super.toDebugString();
     }
 
     @Override
@@ -886,6 +894,13 @@ public abstract class Artifact
     }
   }
 
+  public String toDebugString() {
+    if (getOwner() == null || getOwner().toPathFragment().equals(getExecPath())) {
+      return toDetailString();
+    }
+    return toDetailString() + " (" + getArtifactOwner() + ")";
+  }
+
   @Override
   public final SkyFunctionName functionName() {
     return ARTIFACT;
@@ -1086,7 +1101,7 @@ public abstract class Artifact
         PathFragment.create(":archived_tree_artifacts");
     private final SpecialArtifact treeArtifact;
 
-    public ArchivedTreeArtifact(
+    private ArchivedTreeArtifact(
         SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
       super(root, execPath, treeArtifact.getArtifactOwner());
       this.treeArtifact = treeArtifact;
@@ -1097,15 +1112,27 @@ public abstract class Artifact
       return treeArtifact;
     }
 
+    /** Creates an archived tree artifact with a given {@code root} and {@code execPath}. */
+    public static ArchivedTreeArtifact create(
+        SpecialArtifact treeArtifact, ArtifactRoot root, PathFragment execPath) {
+      ArchivedTreeArtifact archivedTreeArtifact =
+          new ArchivedTreeArtifact(treeArtifact, root, execPath);
+      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
+      return archivedTreeArtifact;
+    }
+
     /**
-     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact. Returned artifact is
-     * stored in a permanent location, therefore can be shared across actions and builds.
+     * Creates an {@link ArchivedTreeArtifact} for a given tree artifact at the path inferred from
+     * the provided tree.
+     *
+     * <p>Returned artifact is stored in a permanent location, therefore can be shared across
+     * actions and builds.
      *
      * <p>Example: for a tree artifact of {@code bazel-out/k8-fastbuild/bin/directory} returns an
      * {@linkplain ArchivedTreeArtifact artifact} of: {@code
      * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
      */
-    public static ArchivedTreeArtifact create(
+    public static ArchivedTreeArtifact createForTree(
         SpecialArtifact treeArtifact, PathFragment derivedPathPrefix) {
       return createWithCustomDerivedTreeRoot(
           treeArtifact,
@@ -1131,12 +1158,8 @@ public abstract class Artifact
       ArtifactRoot artifactRoot =
           createRootForArchivedArtifact(
               treeArtifact.getRoot(), derivedPathPrefix, customDerivedTreeRoot);
-      ArchivedTreeArtifact archivedTreeArtifact =
-          new ArchivedTreeArtifact(
-              treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
-
-      archivedTreeArtifact.setGeneratingActionKey(treeArtifact.getGeneratingActionKey());
-      return archivedTreeArtifact;
+      return create(
+          treeArtifact, artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
     }
 
     private static ArtifactRoot createRootForArchivedArtifact(
@@ -1398,12 +1421,13 @@ public abstract class Artifact
   }
 
   /**
-   * Converts a collection of artifacts into the outputs computed by
-   * outputFormatter and adds them to a given collection. Middleman artifacts
-   * are ignored.
+   * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
+   * to a given collection. Middleman artifacts are ignored.
    */
-  static <E> void addNonMiddlemanArtifacts(Iterable<Artifact> artifacts,
-      Collection<? super E> output, Function<? super Artifact, E> outputFormatter) {
+  public static <E> void addNonMiddlemanArtifacts(
+      Iterable<Artifact> artifacts,
+      Collection<? super E> output,
+      Function<? super Artifact, E> outputFormatter) {
     for (Artifact artifact : artifacts) {
       if (MIDDLEMAN_FILTER.apply(artifact)) {
         output.add(outputFormatter.apply(artifact));
@@ -1473,10 +1497,7 @@ public abstract class Artifact
     return Joiner.on(delimiter).join(toRootRelativePaths(artifacts));
   }
 
-  /**
-   * Adds a collection of artifacts to a given collection, with {@link
-   * MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions expanded once.
-   */
+  /** Adds a collection of artifacts to a given collection, with middleman actions expanded once. */
   static void addExpandedArtifacts(
       Iterable<Artifact> artifacts,
       Collection<? super Artifact> output,

@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
@@ -41,7 +43,16 @@ public final class AppleCrosstoolTransition implements PatchTransition {
   @SerializationConstant
   public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
 
-  private AppleCrosstoolTransition() {}
+  /** Machinery to expose the transition to Starlark. */
+  public static final class AppleCrosstoolTransitionFactory
+      implements StarlarkExposedRuleTransitionFactory {
+    @Override
+    public PatchTransition create(RuleTransitionData unused) {
+      return APPLE_CROSSTOOL_TRANSITION;
+    }
+  }
+
+  public AppleCrosstoolTransition() {}
 
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {

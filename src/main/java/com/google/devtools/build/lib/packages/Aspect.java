@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -48,15 +48,10 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   private static final LoadingCache<
           NativeAspectClass, LoadingCache<AspectParameters, AspectDefinition>>
       definitionCache =
-          CacheBuilder.newBuilder()
+          Caffeine.newBuilder()
               .build(
-                  CacheLoader.from(
-                      nativeAspectClass ->
-                          CacheBuilder.newBuilder()
-                              .build(
-                                  CacheLoader.from(
-                                      aspectParameters ->
-                                          nativeAspectClass.getDefinition(aspectParameters)))));
+                  nativeAspectClass ->
+                      Caffeine.newBuilder().build(nativeAspectClass::getDefinition));
 
   private final AspectDescriptor aspectDescriptor;
   private final AspectDefinition aspectDefinition;
@@ -71,10 +66,38 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
   }
 
+  private Aspect(
+      AspectClass aspectClass,
+      AspectDefinition aspectDefinition,
+      AspectParameters parameters,
+      RequiredProviders inheritedRequiredProviders,
+      ImmutableSet<String> inheritedAttributeAspects) {
+    this.aspectDescriptor =
+        new AspectDescriptor(
+            Preconditions.checkNotNull(aspectClass),
+            Preconditions.checkNotNull(parameters),
+            inheritedRequiredProviders,
+            inheritedAttributeAspects);
+    this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
+  }
+
+  public static Aspect forNative(
+      NativeAspectClass nativeAspectClass,
+      AspectParameters parameters,
+      RequiredProviders inheritedRequiredProviders,
+      ImmutableSet<String> inheritedAttributeAspects) {
+    AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
+    return new Aspect(
+        nativeAspectClass,
+        definition,
+        parameters,
+        inheritedRequiredProviders,
+        inheritedAttributeAspects);
+  }
+
   public static Aspect forNative(
       NativeAspectClass nativeAspectClass, AspectParameters parameters) {
-    AspectDefinition definition =
-        definitionCache.getUnchecked(nativeAspectClass).getUnchecked(parameters);
+    AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
     return new Aspect(nativeAspectClass, definition, parameters);
   }
 
@@ -85,8 +108,15 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   public static Aspect forStarlark(
       StarlarkAspectClass starlarkAspectClass,
       AspectDefinition aspectDefinition,
-      AspectParameters parameters) {
-    return new Aspect(starlarkAspectClass, aspectDefinition, parameters);
+      AspectParameters parameters,
+      RequiredProviders inheritedRequiredProviders,
+      ImmutableSet<String> inheritedAttributeAspects) {
+    return new Aspect(
+        starlarkAspectClass,
+        aspectDefinition,
+        parameters,
+        inheritedRequiredProviders,
+        inheritedAttributeAspects);
   }
 
   /**
@@ -123,7 +153,8 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   }
 
   /** {@link ObjectCodec} for {@link Aspect}. */
-  static class AspectCodec implements ObjectCodec<Aspect> {
+  @SuppressWarnings("unused") // Used reflectively.
+  private static final class AspectCodec implements ObjectCodec<Aspect> {
     @Override
     public Class<Aspect> getEncodedClass() {
       return Aspect.class;
@@ -153,7 +184,9 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
         return forStarlark(
             (StarlarkAspectClass) aspectDescriptor.getAspectClass(),
             aspectDefinition,
-            aspectDescriptor.getParameters());
+            aspectDescriptor.getParameters(),
+            aspectDescriptor.getInheritedRequiredProviders(),
+            aspectDescriptor.getInheritedAttributeAspects());
       }
     }
   }

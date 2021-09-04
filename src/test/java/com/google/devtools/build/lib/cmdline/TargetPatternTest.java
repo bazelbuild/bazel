@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory.ContainsResult;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -167,10 +166,11 @@ public class TargetPatternTest {
 
   @Test
   public void testRenameRepository() throws Exception {
-    Map<RepositoryName, RepositoryName> renaming =
-        ImmutableMap.of(
-            RepositoryName.create("@foo"), RepositoryName.create("@bar"),
-            RepositoryName.create("@myworkspace"), RepositoryName.create("@"));
+    RepositoryMapping renaming =
+        RepositoryMapping.createAllowingFallback(
+            ImmutableMap.of(
+                RepositoryName.create("@foo"), RepositoryName.create("@bar"),
+                RepositoryName.create("@myworkspace"), RepositoryName.create("@")));
 
     // Expecting renaming
     assertThat(TargetPattern.renameRepository("@foo//package:target", renaming))

@@ -23,7 +23,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -973,10 +972,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return;
     }
 
-    // Get the tool inputs necessary to run the dwp command.
-    NestedSet<Artifact> dwpFiles = toolchain.getDwpFiles();
-    Preconditions.checkState(!dwpFiles.isEmpty());
-
     // We apply a hierarchical action structure to limit the maximum number of inputs to any
     // single action.
     //
@@ -993,7 +988,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // action's input size.
     Packager packager =
         createIntermediateDwpPackagers(
-            context, dwpOutput, toolchain, dwpFiles, dwoFiles.toList(), 1);
+            context, dwpOutput, toolchain, toolchain.getDwpFiles(), dwoFiles.toList(), 1);
     packager.spawnAction.setMnemonic("CcGenerateDwp").addOutput(dwpOutput);
     packager.commandLine.addExecPath("-o", dwpOutput);
     context.registerAction(packager.build(context));
@@ -1105,7 +1100,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Packager packager = new Packager();
     packager
         .spawnAction
-        .addTransitiveInputs(dwpTools)
+        .addTransitiveTools(dwpTools)
         .setExecutable(toolchain.getToolPathFragment(Tool.DWP, ruleContext));
     return packager;
   }
@@ -1179,10 +1174,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ccCompilationContext.getVirtualToOriginalHeaders(),
             /* additionalMetadata= */ additionalMetadata);
 
-    NestedSet<Artifact> headerTokens =
-        CcCompilationHelper.collectHeaderTokens(
-            ruleContext, cppConfiguration, ccCompilationOutputs, /* addSelfTokens= */ true);
-
     Map<String, NestedSet<Artifact>> outputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
             ccCompilationOutputs,
@@ -1191,8 +1182,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             toolchain,
             featureConfiguration,
             ruleContext,
-            /* generateHeaderTokensGroup= */ false,
-            /* addSelfHeaderTokens= */ false,
             /* generateHiddenTopLevelGroup= */ false);
 
     builder
@@ -1205,7 +1194,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                         collectTransitiveCcNativeLibraries(ruleContext, libraries)))
                 .build())
         .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .addOutputGroup(OutputGroupInfo.VALIDATION, headerTokens)
+        .addOutputGroup(OutputGroupInfo.VALIDATION, ccCompilationContext.getHeaderTokens())
         .addOutputGroups(outputGroups);
 
     CppHelper.maybeAddStaticLinkMarkerProvider(builder, ruleContext);

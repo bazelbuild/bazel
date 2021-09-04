@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.RUNTIME_ONLY;
@@ -73,7 +74,7 @@ final class JavaInfoBuildHelper {
    * @param compileTimeDeps compile time dependencies that were used to create the output jar
    * @param runtimeDeps runtime dependencies that are needed for this library
    * @param exports libraries to make available for users of this library. <a
-   *     href="https://docs.bazel.build/versions/master/be/java.html#java_library"
+   *     href="https://docs.bazel.build/versions/main/be/java.html#java_library"
    *     target="_top">java_library.exports</a>
    * @param exportedPlugins A list of exported plugins.
    * @param nativeLibraries CC library dependencies that are needed for this library
@@ -252,7 +253,6 @@ final class JavaInfoBuildHelper {
       List<String> javacOpts,
       List<JavaInfo> deps,
       List<JavaInfo> runtimeDeps,
-      List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
       List<JavaPluginInfo> plugins,
       List<JavaPluginInfo> exportedPlugins,
@@ -264,6 +264,7 @@ final class JavaInfoBuildHelper {
       ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       Boolean neverlink,
+      Boolean enableAnnotationProcessing,
       JavaSemantics javaSemantics,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -294,14 +295,16 @@ final class JavaInfoBuildHelper {
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-    helper.setPlugins(mergeExportedJavaPluginInfo(plugins, deps));
+    JavaPluginInfo pluginInfo = mergeExportedJavaPluginInfo(plugins, deps);
+    // Optimization: skip this if there are no annotation processors, to avoid unnecessarily
+    // disabling the direct classpath optimization if `enable_annotation_processor = False`
+    // but there aren't any annotation processors.
+    if (!enableAnnotationProcessing && !pluginInfo.plugins().processorClasses().isEmpty()) {
+      pluginInfo = pluginInfo.disableAnnotationProcessing();
+      helper.enableDirectClasspath(false);
+    }
+    helper.setPlugins(pluginInfo);
     helper.setNeverlink(neverlink);
-
-    NestedSet<Artifact> localCompileTimeDeps =
-        JavaCompilationArgsProvider.merge(
-                streamProviders(experimentalLocalCompileTimeDeps, JavaCompilationArgsProvider.class)
-                    .collect(toImmutableList()))
-            .getTransitiveCompileTimeJars();
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
@@ -321,8 +324,7 @@ final class JavaInfoBuildHelper {
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
             JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
-            ImmutableList.copyOf(annotationProcessorAdditionalInputs),
-            localCompileTimeDeps);
+            ImmutableList.copyOf(annotationProcessorAdditionalInputs));
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);
@@ -331,7 +333,7 @@ final class JavaInfoBuildHelper {
 
     // When sources are not provided, the subsequent output Jar will be empty. As such, the output
     // Jar is omitted from the set of Runtime Jars.
-    if (!sourceJars.isEmpty() || !sourceFiles.isEmpty()) {
+    if (!sourceJars.isEmpty() || !sourceFiles.isEmpty() || !resources.isEmpty()) {
       javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
     }
 
@@ -342,7 +344,9 @@ final class JavaInfoBuildHelper {
                 streamProviders(deps, JavaCcInfoProvider.class),
                 Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
             .collect(toImmutableList());
-
+    if (thread.getSemantics().getBool(INCOMPATIBLE_ENABLE_EXPORTS_PROVIDER)) {
+      javaInfoBuilder.addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports));
+    }
     return javaInfoBuilder
         .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
         .addProvider(
@@ -350,7 +354,6 @@ final class JavaInfoBuildHelper {
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
         .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
-        .addProvider(JavaExportsProvider.class, createJavaExportsProvider(exports))
         .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
         .addTransitiveOnlyRuntimeJarsToJavaInfo(deps)
         .addTransitiveOnlyRuntimeJarsToJavaInfo(exports)

@@ -57,7 +57,7 @@ import net.starlark.java.eval.StarlarkInt;
 public class AttributeFormatter {
 
   private static final ImmutableSet<Type<?>> depTypes =
-      ImmutableSet.<Type<?>>of(
+      ImmutableSet.of(
           STRING,
           LABEL,
           OUTPUT,
@@ -69,7 +69,7 @@ public class AttributeFormatter {
           DISTRIBUTIONS);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
-      ImmutableSet.<Type<?>>of(NODEP_LABEL_LIST, NODEP_LABEL);
+      ImmutableSet.of(NODEP_LABEL_LIST, NODEP_LABEL);
 
   private AttributeFormatter() {}
 

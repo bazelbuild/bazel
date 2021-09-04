@@ -956,6 +956,36 @@ function test_query_failure_exit_code_behavior() {
   assert_equals 7 "$exit_code"
 }
 
+function test_query_environment_keep_going_does_not_fail() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "a", deps = [":b", "//other:doesnotexist"])
+sh_library(name = "b")
+EOF
+
+  # Ensure that --keep_going works for both graphless and non-graphless blaze
+  # query environments for each function.
+  for incompatible in "--incompatible" "--noincompatible"
+  do
+    for command in \
+        "somepath(//foo:a, //foo:b)" \
+        "deps(//foo:a)" \
+        "rdeps(//foo:a, //foo:b)" \
+        "allpaths(//foo:a, //foo:b)"
+    do
+      bazel query "$incompatible"_lexicographical_output --keep_going \
+        --output=label_kind "$command" \
+        >& "$TEST_log" && fail "Expected failure"
+      exit_code="$?"
+      assert_equals 3 $exit_code
+      expect_log "sh_library rule //foo:a"
+      expect_log "sh_library rule //foo:b"
+      expect_log "errors were encountered while computing transitive closure"
+    done
+  done
+}
+
 function test_unnecessary_external_workspaces_not_loaded() {
   cat > WORKSPACE <<'EOF'
 local_repository(
@@ -970,6 +1000,44 @@ filegroup(
 )
 EOF
   bazel query '//:*' || fail "Expected success"
+}
+
+function test_query_sees_aspect_hints_deps_on_starlark_rule() {
+  local package="aspect_hints"
+  mkdir -p "${package}"
+
+  cat > "${package}/custom_rule.bzl" <<EOF
+
+def _rule_impl(ctx):
+    return []
+
+custom_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "deps": attr.label_list(),
+    }
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:custom_rule.bzl", "custom_rule")
+
+custom_rule(name = "hint")
+
+custom_rule(
+    name = "foo",
+    deps = [":bar"],
+)
+custom_rule(
+    name = "bar",
+    aspect_hints = [":hint"],
+)
+EOF
+
+  bazel query "somepath(//${package}:foo, //${package}:hint)" >& $TEST_log \
+     || fail "Expected success"
+
+  expect_log "//${package}:hint"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

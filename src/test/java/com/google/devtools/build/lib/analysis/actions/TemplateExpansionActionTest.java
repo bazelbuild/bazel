@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -208,7 +209,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         NestedSetExpander.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS);
+        UnixGlob.DEFAULT_SYSCALLS,
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {

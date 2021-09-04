@@ -117,9 +117,8 @@ final class Eval {
 
   private static TokenKind execFor(StarlarkThread.Frame fr, ForStatement node)
       throws EvalException, InterruptedException {
-    Object o = eval(fr, node.getCollection());
-    Iterable<?> seq = Starlark.toIterable(o);
-    EvalUtils.addIterator(o);
+    Iterable<?> seq = evalAsIterable(fr, node.getCollection());
+    EvalUtils.addIterator(seq);
     try {
       for (Object it : seq) {
         assign(fr, node.getVars(), it);
@@ -144,7 +143,7 @@ final class Eval {
       fr.setErrorLocation(node.getStartLocation());
       throw ex;
     } finally {
-      EvalUtils.removeIterator(o);
+      EvalUtils.removeIterator(seq);
     }
     return TokenKind.PASS;
   }
@@ -777,9 +776,8 @@ final class Eval {
           if (clause instanceof Comprehension.For) {
             Comprehension.For forClause = (Comprehension.For) clause;
 
-            Object iterable = eval(fr, forClause.getIterable());
-            Iterable<?> seq = Starlark.toIterable(iterable);
-            EvalUtils.addIterator(iterable);
+            Iterable<?> seq = evalAsIterable(fr, forClause.getIterable());
+            EvalUtils.addIterator(seq);
             try {
               for (Object elem : seq) {
                 assign(fr, forClause.getVars(), elem);
@@ -789,7 +787,7 @@ final class Eval {
               fr.setErrorLocation(forClause.getStartLocation());
               throw ex;
             } finally {
-              EvalUtils.removeIterator(iterable);
+              EvalUtils.removeIterator(seq);
             }
 
           } else {
@@ -821,6 +819,22 @@ final class Eval {
     new Lambda().execClauses(0);
 
     return comp.isDict() ? dict : list;
+  }
+
+  /**
+   * Evaluates an expression to an iterable Starlark value and returns an {@code Iterable} view of
+   * it. If evaluation fails or the value is not iterable, throws {@code EvalException} and sets the
+   * error location to the expression's start.
+   */
+  private static Iterable<?> evalAsIterable(StarlarkThread.Frame fr, Expression expr)
+      throws EvalException, InterruptedException {
+    Object o = eval(fr, expr);
+    try {
+      return Starlark.toIterable(o);
+    } catch (EvalException ex) {
+      fr.setErrorLocation(expr.getStartLocation());
+      throw ex;
+    }
   }
 
   private static final Object[] EMPTY = {};

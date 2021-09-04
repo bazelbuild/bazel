@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -170,6 +173,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final ImmutableList<OutputFormatter> queryOutputFormatters;
 
   private final AtomicReference<DetailedExitCode> storedExitCode = new AtomicReference<>();
+
+  // TODO(b/1030062): If multiple commands can ever run simultaneously, this should be a set of
+  //  command environments, with environments removed in some after-command hook.
+  // Null if a command is not in progress.
+  @Nullable private volatile CommandEnvironment env = null;
 
   // We pass this through here to make it available to the MasterLogWriter.
   private final OptionsParsingResult startupOptionsProvider;
@@ -333,7 +341,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         }
         if (options.profilePath != null) {
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-          out = profilePath.getOutputStream();
+          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
         } else {
           profileName = "command.profile";
           if (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT) {
@@ -396,7 +404,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.slimProfile,
             options.includePrimaryOutput,
             options.profileIncludeTargetLabel,
-            options.alwaysProfileSlowOperations);
+            options.alwaysProfileSlowOperations,
+            bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
@@ -530,6 +539,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * @param options The CommonCommandOptions used by every command.
    */
   void beforeCommand(CommandEnvironment env, CommonCommandOptions options) {
+    this.env = env;
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       MemoryProfiler.instance()
@@ -547,6 +557,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   public void cleanUpForCrash(DetailedExitCode exitCode) {
     logger.atInfo().log("Cleaning up in crash: %s", exitCode);
     if (declareExitCode(exitCode)) {
+      CommandEnvironment localEnv = env;
+      if (localEnv != null) {
+        localEnv.notifyOnCrash(
+            productName + " is crashing: " + exitCode.getFailureDetail().getMessage());
+      }
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
@@ -571,6 +586,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // they can be trusted.  Instead, we call runtime#shutdownOnCrash() which attempts to cleanly
     // shut down those modules that might have something pending to do as a best-effort operation.
     shutDownModulesOnCrash(exitCode);
+  }
+
+  @Nullable
+  public DetailedExitCode getCrashExitCode() {
+    return storedExitCode.get();
   }
 
   private boolean declareExitCode(DetailedExitCode detailedExitCode) {
@@ -602,18 +622,19 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    */
   @VisibleForTesting
   public BlazeCommandResult afterCommand(CommandEnvironment env, BlazeCommandResult commandResult) {
+    this.env = null;
+
     // Remove any filters that the command might have added to the reporter.
     env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
-    BlazeCommandResult afterCommandResult = null;
+    DetailedExitCode moduleExitCode = null;
     for (BlazeModule module : blazeModules) {
       try (SilentCloseable c = Profiler.instance().profile(module + ".afterCommand")) {
         module.afterCommand();
       } catch (AbruptExitException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
-        // It's not ideal but we can only return one exit code, so we just pick the code of the
-        // last exception.
-        afterCommandResult = BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+        logger.atWarning().withCause(e).log("While running afterCommand() on %s", module);
+        moduleExitCode = chooseMoreImportantWithFirstIfTie(moduleExitCode, e.getDetailedExitCode());
       }
     }
 
@@ -622,8 +643,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // Wipe the dependency graph if requested. Note that this method always runs at the end of
     // a commands unless the server crashes, in which case no inmemory state will linger for the
     // next build anyway.
-    CommonCommandOptions commonOptions =
-        Preconditions.checkNotNull(env.getOptions().getOptions(CommonCommandOptions.class));
+    CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
     if (!commonOptions.keepStateAfterBuild) {
       workspace.getSkyframeExecutor().resetEvaluator();
     }
@@ -635,15 +655,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
       logger.atInfo().withCause(e).log("Interrupted in afterCommand");
-      afterCommandResult =
-          BlazeCommandResult.detailedExitCode(
+      moduleExitCode =
+          chooseMoreImportantWithFirstIfTie(
+              moduleExitCode,
               InterruptedFailureDetails.detailedExitCode("executor completion interrupted"));
       Thread.currentThread().interrupt();
     }
 
     BlazeCommandResult finalCommandResult;
-    if (!commandResult.getExitCode().isInfrastructureFailure() && afterCommandResult != null) {
-      finalCommandResult = afterCommandResult;
+    if (!commandResult.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
+      finalCommandResult = BlazeCommandResult.detailedExitCode(moduleExitCode);
     } else {
       finalCommandResult = commandResult;
     }
@@ -661,7 +682,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     env.getReporter().clearEventBus();
-    retainedHeapLimiter.resetEventHandler();
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
@@ -840,7 +860,25 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         ImmutableList.copyOf(startupArgs), ImmutableList.copyOf(otherArgs));
   }
 
-  private static InterruptSignalHandler captureSigint() {
+  @Nullable
+  private static String getSlowInterruptMessageSuffix(Iterable<BlazeModule> modules) {
+    String slowInterruptMessageSuffix = null;
+    for (BlazeModule module : modules) {
+      String message = module.getSlowThreadInterruptMessageSuffix();
+      if (message != null) {
+        checkState(
+            slowInterruptMessageSuffix == null,
+            "Two messages: %s %s (%s)",
+            slowInterruptMessageSuffix,
+            message,
+            module);
+        slowInterruptMessageSuffix = message;
+      }
+    }
+    return slowInterruptMessageSuffix;
+  }
+
+  private static InterruptSignalHandler captureSigint(@Nullable String slowInterruptMessage) {
     Thread mainThread = Thread.currentThread();
     AtomicInteger numInterrupts = new AtomicInteger();
 
@@ -852,7 +890,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             count++;
             Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
             logger.atWarning().log("Slow interrupt number %d in batch mode", count);
-            ThreadUtils.warnAboutSlowInterrupt();
+            ThreadUtils.warnAboutSlowInterrupt(slowInterruptMessage);
           }
         };
 
@@ -881,7 +919,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * exit status of the program.
    */
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
-    InterruptSignalHandler signalHandler = captureSigint();
+    InterruptSignalHandler signalHandler = captureSigint(getSlowInterruptMessageSuffix(modules));
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
     logger.atInfo().log(
         "Running Bazel in batch mode with %s, startup args %s",
@@ -1015,7 +1053,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverPid,
               startupOptions.maxIdleSeconds,
               startupOptions.shutdownOnLowSysMem,
-              startupOptions.idleServerTasks);
+              startupOptions.idleServerTasks,
+              getSlowInterruptMessageSuffix(modules));
       rpcServerRef.set(rpcServer);
 
       // Register the signal handler.
@@ -1147,19 +1186,32 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           "Bad --output_base option specified: '" + outputBase + "'");
     }
 
-    FileSystem fs = null;
+    FileSystem nativeFs = null;
     Path execRootBasePath = null;
     for (BlazeModule module : blazeModules) {
       BlazeModule.ModuleFileSystem moduleFs =
           module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
       if (moduleFs != null) {
         execRootBasePath = moduleFs.virtualExecRootBase();
-        Preconditions.checkState(fs == null, "more than one module returns a file system");
-        fs = moduleFs.fileSystem();
+        Preconditions.checkState(nativeFs == null, "more than one module returns a file system");
+        nativeFs = moduleFs.fileSystem();
       }
     }
 
-    Preconditions.checkNotNull(fs, "No module set the file system");
+    Preconditions.checkNotNull(nativeFs, "No module set the file system");
+
+    FileSystem maybeFsForBuildArtifacts = null;
+    for (BlazeModule module : blazeModules) {
+      FileSystem maybeFs = module.getFileSystemForBuildArtifacts(nativeFs);
+      if (maybeFs != null) {
+        checkState(
+            maybeFsForBuildArtifacts == null,
+            "more than one module returns a file system for build artifacts");
+        maybeFsForBuildArtifacts = maybeFs;
+      }
+    }
+
+    FileSystem fs = MoreObjects.firstNonNull(maybeFsForBuildArtifacts, nativeFs);
 
     SubscriberExceptionHandler currentHandlerValue = null;
     for (BlazeModule module : blazeModules) {
@@ -1191,13 +1243,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path.setFileSystemForSerialization(fs);
 
     // Set the hook used to display Starlark source lines in a stack trace.
-    final FileSystem finalFS = fs;
     EvalException.setSourceReaderSupplier(
         () ->
             loc -> {
               try {
                 // TODO(adonovan): opt: cache seen files, as the stack often repeats the same files.
-                Path path = finalFS.getPath(PathFragment.create(loc.file()));
+                Path path = fs.getPath(PathFragment.create(loc.file()));
                 List<String> lines = FileSystemUtils.readLines(path, UTF_8);
                 return lines.size() >= loc.line() ? lines.get(loc.line() - 1) : null;
               } catch (Throwable unused) {
@@ -1216,7 +1267,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
-      workspaceDirectoryPath = fs.getPath(workspaceDirectory);
+      workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
     }
     Path defaultSystemJavabasePath = null;
     if (!defaultSystemJavabase.equals(PathFragment.EMPTY_FRAGMENT)) {
@@ -1362,6 +1413,23 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   @Override
   public String getProductName() {
     return productName;
+  }
+
+  @Override
+  public void fillInCrashContext(CrashContext ctx) {
+    CommandEnvironment localEnv = env;
+    if (localEnv == null) {
+      return;
+    }
+    CommonCommandOptions options = localEnv.getOptions().getOptions(CommonCommandOptions.class);
+    if (options.heapDumpOnOom) {
+      ctx.setHeapDumpPath(
+          workspace
+              .getOutputBase()
+              .getRelative(env.getCommandId() + ".heapdump.hprof") // Must end in .hprof.
+              .getPathString());
+    }
+    ctx.withExtraOomInfo(options.oomMessage).reportingTo(localEnv.getReporter());
   }
 
   public BuildEventArtifactUploaderFactoryMap getBuildEventArtifactUploaderFactoryMap() {

@@ -26,13 +26,10 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
@@ -61,7 +58,6 @@ public class ArtifactTest {
   private Scratch scratch;
   private Path execDir;
   private ArtifactRoot rootDir;
-  private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
   public final void setRootDir() throws Exception  {
@@ -175,77 +171,24 @@ public class ArtifactTest {
     assertThat(Actions.escapedPath(path)).isEqualTo("dir_Ssub_Udir_Sname_Cend");
   }
 
-  private List<Artifact> getFooBarArtifacts(MutableActionGraph actionGraph, boolean collapsedList)
-      throws Exception {
+  private List<Artifact> getFooBarArtifacts(boolean collapsedList) throws Exception {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
     Artifact aHeader1 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar1.h"));
     Artifact aHeader2 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar2.h"));
-    Artifact aHeader3 = ActionsTestUtil.createArtifact(root, scratch.file("/foo/bar3.h"));
-    ArtifactRoot middleRoot =
-        ArtifactRoot.asDerivedRoot(
-            scratch.dir("/foo"), RootType.Middleman, PathFragment.create("out"));
-    Artifact middleman = ActionsTestUtil.createArtifact(middleRoot, "middleman");
-    MiddlemanAction.create(
-        new ActionRegistry() {
-          @Override
-          public void registerAction(ActionAnalysisMetadata action) {
-            try {
-              actionGraph.registerAction(action);
-            } catch (ActionConflictException e) {
-              throw new IllegalStateException(e);
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              throw new IllegalStateException("Didn't expect interrupt in test", e);
-            }
-          }
-
-          @Override
-          public ActionLookupKey getOwner() {
-            throw new UnsupportedOperationException();
-          }
-        },
-        ActionsTestUtil.NULL_ACTION_OWNER,
-        NestedSetBuilder.create(Order.STABLE_ORDER, aHeader1, aHeader2, aHeader3),
-        middleman,
-        "desc",
-        MiddlemanType.AGGREGATING_MIDDLEMAN);
-    return collapsedList ? Lists.newArrayList(aHeader1, middleman) :
-        Lists.newArrayList(aHeader1, aHeader2, middleman);
+    return collapsedList ? Lists.newArrayList(aHeader1) : Lists.newArrayList(aHeader1, aHeader2);
   }
 
   @Test
   public void testAddExecPaths() throws Exception {
     List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExecPaths(getFooBarArtifacts(actionGraph, false), paths);
+    Artifact.addExecPaths(getFooBarArtifacts(false), paths);
     assertThat(paths).containsExactly("bar1.h", "bar2.h");
-  }
-
-  @Test
-  public void testAddExpandedArtifacts() throws Exception {
-    List<Artifact> expanded = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    List<Artifact> original = getFooBarArtifacts(actionGraph, true);
-    Artifact.addExpandedArtifacts(original, expanded,
-        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
-
-    List<Artifact> manuallyExpanded = new ArrayList<>();
-    for (Artifact artifact : original) {
-      ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
-      if (artifact.isMiddlemanArtifact()) {
-        manuallyExpanded.addAll(action.getInputs().toList());
-      } else {
-        manuallyExpanded.add(artifact);
-      }
-    }
-    assertThat(expanded).containsExactlyElementsIn(manuallyExpanded);
   }
 
   @Test
   public void testAddExecPathsNewActionGraph() throws Exception {
     List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
-    Artifact.addExecPaths(getFooBarArtifacts(actionGraph, false), paths);
+    Artifact.addExecPaths(getFooBarArtifacts(false), paths);
     assertThat(paths).containsExactly("bar1.h", "bar2.h");
   }
 
@@ -515,7 +458,7 @@ public class ArtifactTest {
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("blaze-out"));
+        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("blaze-out"));
 
     assertThat(archivedTreeArtifact.getParent()).isSameInstanceAs(tree);
     assertThat(archivedTreeArtifact.getArtifactOwner())
@@ -533,7 +476,7 @@ public class ArtifactTest {
     SpecialArtifact tree = createTreeArtifact(rootDir, "tree", actionLookupData);
 
     ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("root"));
+        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("root"));
 
     assertThat(archivedTreeArtifact.getExecPathString())
         .isEqualTo("root/:archived_tree_artifacts/tree.zip");
@@ -548,7 +491,7 @@ public class ArtifactTest {
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
-        ArchivedTreeArtifact.create(tree, PathFragment.create("dir1/dir2"));
+        ArchivedTreeArtifact.createForTree(tree, PathFragment.create("dir1/dir2"));
 
     assertThat(archivedTreeArtifact.getExecPathString())
         .isEqualTo("dir1/dir2/:archived_tree_artifacts/dir3/tree.zip");
@@ -564,7 +507,8 @@ public class ArtifactTest {
     PathFragment wrongPrefix = PathFragment.create("notAPrefix");
 
     assertThrows(
-        IllegalArgumentException.class, () -> ArchivedTreeArtifact.create(tree, wrongPrefix));
+        IllegalArgumentException.class,
+        () -> ArchivedTreeArtifact.createForTree(tree, wrongPrefix));
   }
 
   @Test
@@ -575,7 +519,7 @@ public class ArtifactTest {
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> ArchivedTreeArtifact.create(tree, prefixOutsideOfRoot));
+        () -> ArchivedTreeArtifact.createForTree(tree, prefixOutsideOfRoot));
   }
 
   @Test
@@ -656,7 +600,7 @@ public class ArtifactTest {
 
   private static ArchivedTreeArtifact createArchivedTreeArtifact(
       ArtifactRoot root, String treeRelativePath) {
-    return ArchivedTreeArtifact.create(
+    return ArchivedTreeArtifact.createForTree(
         createTreeArtifact(root, treeRelativePath), root.getExecPath().subFragment(0, 1));
   }
 }

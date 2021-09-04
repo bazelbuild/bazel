@@ -10,6 +10,7 @@ filegroup(
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
         "//third_party/aws-sdk-auth-lite:srcs",
+        "//third_party/bazel-toolchains:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
@@ -348,7 +349,7 @@ distrib_java_import(
 
 java_import(
     name = "caffeine",
-    jars = ["caffeine/caffeine-2.8.0.jar"],
+    jars = ["caffeine/caffeine-2.9.2.jar"],
 )
 
 java_import(
@@ -368,15 +369,15 @@ distrib_java_import(
     name = "error_prone_annotations",
     enable_distributions = ["debian"],
     jars = [
-        "error_prone/error_prone_annotations-2.6.0.jar",
-        "error_prone/error_prone_type_annotations-2.6.0.jar",
+        "error_prone/error_prone_annotations-2.9.0.jar",
+        "error_prone/error_prone_type_annotations-2.9.0.jar",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.6.0.jar",
+        "error_prone/error_prone_annotations-2.9.0.jar",
         "error_prone/threeten-extra-1.5.0.jar",
     ],
     enable_distributions = ["debian"],
@@ -385,9 +386,9 @@ distrib_jar_filegroup(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.6.0.jar",
-        "error_prone/error_prone_check_api-2.6.0.jar",
-        "error_prone/error_prone_core-2.6.0.jar",
+        "error_prone/error_prone_annotation-2.9.0.jar",
+        "error_prone/error_prone_check_api-2.9.0.jar",
+        "error_prone/error_prone_core-2.9.0.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -454,7 +455,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "guava/failureaccess-1.0.1.jar",
-        "guava/guava-29.0-jre.jar",
+        "guava/guava-30.1.1-jre.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -503,7 +504,7 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-29.0-jre.jar"],
+    srcs = ["guava/guava-30.1.1-jre.jar"],
     enable_distributions = ["debian"],
 )
 
@@ -523,13 +524,15 @@ distrib_java_import(
     srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
 )
 
-java_import(
+distrib_java_import(
     name = "reactive_streams",
+    enable_distributions = ["debian"],
     jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "rxjava3",
+    enable_distributions = ["debian"],
     jars = ["rxjava3/rxjava-3.0.9.jar"],
     exports = [":reactive_streams"],
     deps = [":reactive_streams"],
@@ -631,7 +634,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-29.0-jre.jar"],
+    jars = ["guava/guava-testlib-30.1.1-jre.jar"],
 )
 
 distrib_java_import(

@@ -264,6 +264,18 @@ public final class NestedSetCodecTest {
   }
 
   @Test
+  public void serializationWeaklyCachesNestedSet() throws Exception {
+    // Avoid NestedSetBuilder.wrap/create - they use their own cache which interferes with what
+    // we're testing.
+    NestedSet<?> nestedSet = NestedSetBuilder.stableOrder().add("a").add("b").build();
+    ObjectCodecs codecs = createCodecs(new NestedSetStore(new InMemoryNestedSetStorageEndpoint()));
+    codecs.serializeMemoizedAndBlocking(nestedSet);
+    WeakReference<?> ref = new WeakReference<>(nestedSet);
+    nestedSet = null;
+    GcFinalization.awaitClear(ref);
+  }
+
+  @Test
   public void testDeserializationInParallel() throws Exception {
     NestedSetStorageEndpoint nestedSetStorageEndpoint =
         Mockito.spy(new InMemoryNestedSetStorageEndpoint());

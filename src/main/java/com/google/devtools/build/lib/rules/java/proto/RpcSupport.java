@@ -31,7 +31,7 @@ public interface RpcSupport {
 
   boolean allowServices(RuleContext ruleContext);
 
-  NestedSet<Artifact> getBlacklist(RuleContext ruleContext);
+  NestedSet<Artifact> getForbiddenProtos(RuleContext ruleContext);
 
   ImmutableList<TransitiveInfoCollection> getRuntimes(RuleContext ruleContext);
 

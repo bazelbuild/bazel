@@ -13,6 +13,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/actions:srcs",
+        "//src/test/java/com/google/devtools/build/lib/actionsketch:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/test/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel:srcs",
@@ -22,6 +23,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/bugreport:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
         "//src/test/java/com/google/devtools/build/lib/cmdline:srcs",
+        "//src/test/java/com/google/devtools/build/lib/collect:srcs",
         "//src/test/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/test/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/test/java/com/google/devtools/build/lib/events:srcs",
@@ -96,61 +98,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:junit4",
         "//third_party:mockito",
-    ],
-)
-
-java_test(
-    name = "collect_test",
-    size = "small",
-    srcs = glob(["collect/*.java"]),
-    tags = [
-        "foundations",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":AllTests",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "collect_nestedset_test",
-    size = "small",
-    srcs = glob(["collect/nestedset/*.java"]),
-    tags = [
-        "foundations",
-    ],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":AllTests",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:testutils",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/test/java/com/google/devtools/build/lib/starlark/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -290,9 +237,8 @@ test_suite(
 test_suite(
     name = "foundations",
     tests = [
-        ":collect_nestedset_test",
-        ":collect_test",
         "//src/test/java/com/google/devtools/build/lib/cmdline:CmdLineTests",
+        "//src/test/java/com/google/devtools/build/lib/collect:CollectTests",
         "//src/test/java/com/google/devtools/build/lib/concurrent:ConcurrentTests",
         "//src/test/java/com/google/devtools/build/lib/events:EventsTests",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtilTests",
@@ -309,42 +255,4 @@ test_suite(
 test_suite(
     name = "others",
     tags = ["-" + n for n in TEST_SUITES],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/analysis/platform:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/bazel:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/blackbox/tests:blackbox_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/buildeventservice:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/buildeventstream:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/buildtool:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/dynamic:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/metrics:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/profiler/callcounts:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/profiler/memory:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/rules:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/shell:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/skyframe:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/starlark:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/unsafe:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/util:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/vfs:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/windows:all_windows_tests",
-        "//src/test/java/net/starlark/java/annot/processor:all_windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
 )

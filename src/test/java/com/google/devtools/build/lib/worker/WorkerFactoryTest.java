@@ -41,7 +41,8 @@ public class WorkerFactoryTest {
   @Test
   public void sandboxedWorkerPathEndsWithWorkspaceName() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
+    final WorkerOptions workerOptions = new WorkerOptions();
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
     WorkerKey workerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
@@ -66,7 +67,8 @@ public class WorkerFactoryTest {
   @Test
   public void workerCreationTypeCheck() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
+    final WorkerOptions workerOptions = new WorkerOptions();
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
     WorkerKey sandboxedWorkerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
     Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
     assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
@@ -88,7 +90,8 @@ public class WorkerFactoryTest {
   @Test
   public void testMultiplexWorkersShareLogfiles() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    WorkerFactory workerFactory = new WorkerFactory(new WorkerOptions(), workerBaseDir);
+    final WorkerOptions workerOptions = new WorkerOptions();
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
 
     WorkerKey workerKey1 = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true, "arg1");
     Worker proxiedWorker1a = workerFactory.create(workerKey1);

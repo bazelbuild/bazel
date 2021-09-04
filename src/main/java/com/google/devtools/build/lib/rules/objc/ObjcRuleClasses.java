@@ -253,9 +253,7 @@ public class ObjcRuleClasses {
     }
   }
 
-  /**
-   * Iff a file matches this type, it is considered to use C++.
-   */
+  /** Iff a file matches this type, it is considered to use C++. */
   static final FileType CPP_SOURCES = FileType.of(".cc", ".cpp", ".mm", ".cxx", ".C");
 
   static final FileType NON_CPP_SOURCES = FileType.of(".m", ".c");
@@ -492,6 +490,10 @@ public class ObjcRuleClasses {
           all special symbols replaced by _, e.g. //foo/baz:bar can be imported as foo_baz_bar.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("module_name", STRING))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(linkopts) -->
+          Extra flags to pass to the linker.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("linkopts", STRING_LIST))
           .build();
     }
     @Override
@@ -543,37 +545,6 @@ public class ObjcRuleClasses {
    * architectures).
    */
   public static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
-
-  /**
-   * Common attributes for {@code objc_*} rules that link sources and dependencies.
-   */
-  public static class LinkingRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$j2objc_dead_code_pruner", LABEL)
-                  .allowedFileTypes(FileType.of(".py"))
-                  .cfg(HostTransition.createFactory())
-                  .exec()
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
-          .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
-          /* <!-- #BLAZE_RULE($objc_linking_rule).ATTRIBUTE(linkopts) -->
-          Extra flags to pass to the linker.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("linkopts", STRING_LIST))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_linking_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(CompilingRule.class)
-          .build();
-    }
-  }
 
   /**
    * Common attributes for apple rules that produce outputs for a given platform type (such as ios

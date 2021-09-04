@@ -18,9 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -164,7 +164,7 @@ public class PackageTest {
             PackageIdentifier.createInMainRepo(name),
             "workspace",
             /*noImplicitFileExport=*/ true,
-            ImmutableMap.of());
+            RepositoryMapping.ALWAYS_FALLBACK);
     result.setFilename(
         RootedPath.toRootedPath(
             Root.fromPath(fileSystem.getPath("/irrelevantRoot")), PathFragment.create(name)));

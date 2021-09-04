@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
+import javax.annotation.Nullable;
 
 /**
  * CachingPackageLocator implementations locate a package by its name.
@@ -28,19 +29,26 @@ import com.google.devtools.build.lib.vfs.Path;
  * pieces of legacy code while still updating the Skyframe node graph.
  */
 public interface CachingPackageLocator {
-
   /**
    * Returns path of BUILD file for specified package iff the specified package exists, null
    * otherwise (e.g. invalid package name, no build file, or package has been deleted via
    * --deleted_packages)..
    *
-   * <p> The package's root directory may be computed by calling getParentFile().
+   * <p>The package's root directory may be computed by calling getParentFile().
    *
-   * <p> Instances of this interface are required to cache the results.
+   * <p>Instances of this interface are required to cache the results.
    *
-   * <p> This method must be thread-safe.
+   * <p>This method must be thread-safe.
    */
   @ThreadSafe
+  @Nullable
   Path getBuildFileForPackage(PackageIdentifier packageName);
 
+  /**
+   * Returns base name of BUILD file for specified package (typically 'BUILD' or 'BUILD.bazel').
+   * {@code packageName} must be an already loaded package. Implementations that do not have full
+   * access to the set of loaded packages may return null here.
+   */
+  @Nullable
+  String getBaseNameForLoadedPackage(PackageIdentifier packageName);
 }

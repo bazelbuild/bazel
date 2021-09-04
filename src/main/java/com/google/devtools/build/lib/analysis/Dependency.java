@@ -73,8 +73,8 @@ public abstract class Dependency {
      * Sets the {@link ToolchainContextKey} that this dependency should use for toolchain
      * resolution.
      */
-    @Nullable
-    public abstract Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
+    public abstract Builder setToolchainContextKey(
+        @Nullable ToolchainContextKey toolchainContextKey);
 
     // Not public.
     abstract Dependency autoBuild();

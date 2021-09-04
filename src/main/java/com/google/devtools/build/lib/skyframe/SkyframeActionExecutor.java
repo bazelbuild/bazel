@@ -14,17 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
@@ -70,6 +66,7 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -97,17 +94,16 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
+import com.google.devtools.build.lib.skyframe.ActionOutputDirectoryHelper.CreateOutputDirectoryException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -115,15 +111,13 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -134,10 +128,6 @@ import javax.annotation.Nullable;
 public final class SkyframeActionExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  // Used to prevent check-then-act races in #createOutputDirectories. See the comment there for
-  // more detail.
-  private static final Striped<Lock> outputDirectoryDeletionLock = Striped.lock(64);
 
   private static final MetadataInjector THROWING_METADATA_INJECTOR_FOR_ACTIONFS =
       new MetadataInjector() {
@@ -160,6 +150,7 @@ public final class SkyframeActionExecutor {
   private final MetadataConsumerForMetrics outputArtifactsSeen;
   private final MetadataConsumerForMetrics outputArtifactsFromActionCache;
   private final AtomicReference<FilesystemCalls> syscalls;
+  private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory;
   private Reporter reporter;
   private Map<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
@@ -204,14 +195,7 @@ public final class SkyframeActionExecutor {
   // at the start of its next attempt,
   private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<SkyKey>> lostDiscoveredInputsMap;
 
-  // Directories which are known to be created as regular directories within this invocation. This
-  // implies parent directories are also regular directories.
-  private Map<PathFragment, DirectoryState> knownDirectories;
-
-  private enum DirectoryState {
-    FOUND,
-    CREATED
-  }
+  private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
   private boolean useAsyncExecution;
@@ -239,7 +223,8 @@ public final class SkyframeActionExecutor {
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef,
       Supplier<ImmutableList<Root>> sourceRootSupplier,
       PathFragment relativeOutputPath,
-      AtomicReference<FilesystemCalls> syscalls) {
+      AtomicReference<FilesystemCalls> syscalls,
+      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactory) {
     this.actionKeyContext = actionKeyContext;
     this.outputArtifactsSeen = outputArtifactsSeen;
     this.outputArtifactsFromActionCache = outputArtifactsFromActionCache;
@@ -247,6 +232,7 @@ public final class SkyframeActionExecutor {
     this.sourceRootSupplier = sourceRootSupplier;
     this.relativeOutputPath = relativeOutputPath;
     this.syscalls = syscalls;
+    this.threadStateReceiverFactory = threadStateReceiverFactory;
   }
 
   SharedActionCallback getSharedActionCallback(
@@ -296,11 +282,9 @@ public final class SkyframeActionExecutor {
     this.replayActionOutErr = options.getOptions(BuildRequestOptions.class).replayActionOutErr;
     this.outputService = outputService;
 
-    Cache<PathFragment, DirectoryState> cache =
-        CacheBuilder.from(options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec)
-            .concurrencyLevel(Runtime.getRuntime().availableProcessors())
-            .build();
-    this.knownDirectories = cache.asMap();
+    this.outputDirectoryHelper =
+        new ActionOutputDirectoryHelper(
+            options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec);
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
@@ -356,21 +340,11 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
-      Action action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector metadataInjector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
-      throws ActionExecutionException {
-    try {
-      outputService.updateActionFileSystemContext(
-          actionFileSystem, env, metadataInjector, filesets);
-    } catch (IOException e) {
-      String message = "Failed to update filesystem context: " + e.getMessage();
-      DetailedExitCode code =
-          createDetailedExitCode(message, Code.FILESYSTEM_CONTEXT_UPDATE_FAILURE);
-      throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
-    }
+      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+    outputService.updateActionFileSystemContext(actionFileSystem, env, metadataInjector, filesets);
   }
 
   void executionOver() {
@@ -386,7 +360,7 @@ public final class SkyframeActionExecutor {
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
     this.topDownActionCache = null;
-    this.knownDirectories = null;
+    this.outputDirectoryHelper = null;
   }
 
   /**
@@ -466,8 +440,7 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(
-          action, actionFileSystem, env, metadataHandler, expandedFilesets);
+      updateActionFileSystemContext(actionFileSystem, env, metadataHandler, expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -479,7 +452,7 @@ public final class SkyframeActionExecutor {
             topLevelFilesets,
             actionFileSystem,
             skyframeDepsResult,
-            syscalls);
+            actionLookupData);
 
     if (actionCacheChecker.isActionExecutionProhibited(action)) {
       // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail the
@@ -546,7 +519,7 @@ public final class SkyframeActionExecutor {
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult,
-      AtomicReference<FilesystemCalls> syscalls)
+      ActionLookupData actionLookupData)
       throws InterruptedException {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
@@ -582,7 +555,8 @@ public final class SkyframeActionExecutor {
         actionFileSystem,
         skyframeDepsResult,
         nestedSetExpander,
-        syscalls.get());
+        syscalls.get(),
+        threadStateReceiverFactory.apply(actionLookupData));
   }
 
   private static void closeContext(
@@ -784,10 +758,10 @@ public final class SkyframeActionExecutor {
             env,
             actionFileSystem,
             nestedSetExpander,
-            syscalls.get());
+            syscalls.get(),
+            threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action,
           actionFileSystem,
           env,
           THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
@@ -1026,9 +1000,9 @@ public final class SkyframeActionExecutor {
             setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
           }
           if (actionFileSystemType().inMemoryFileSystem()) {
-            createActionFsOutputDirectories(action, actionExecutionContext);
+            createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
           } else {
-            createOutputDirectories(action, actionExecutionContext);
+            createOutputDirectories(action);
           }
         } catch (ActionExecutionException e) {
           // This try-catch block cannot trigger rewinding, so it is safe to notify the status
@@ -1334,25 +1308,14 @@ public final class SkyframeActionExecutor {
    * expect the output directory creation to always succeed. There can be no interference from state
    * left behind by prior builds or other actions intra-build.
    */
-  private void createActionFsOutputDirectories(Action action, ActionExecutionContext context)
-      throws ActionExecutionException {
+  private void createActionFsOutputDirectories(
+      Action action, ArtifactPathResolver artifactPathResolver) throws ActionExecutionException {
     try {
-      Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
-      for (Artifact outputFile : action.getOutputs()) {
-        Path outputDir;
-        if (outputFile.isTreeArtifact()) {
-          outputDir = context.getPathResolver().toPath(outputFile);
-        } else {
-          outputDir = context.getPathResolver().toPath(outputFile).getParentDirectory();
-        }
-
-        if (done.add(outputDir)) {
-          outputDir.createDirectoryAndParents();
-        }
-      }
-    } catch (IOException e) {
+      outputDirectoryHelper.createActionFsOutputDirectories(
+          action.getOutputs(), artifactPathResolver);
+    } catch (CreateOutputDirectoryException e) {
       throw toActionExecutionException(
-          "failed to create output directory",
+          String.format("failed to create output directory '%s'", e.directoryPath),
           e,
           action,
           null,
@@ -1360,152 +1323,17 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  /**
-   * Create an output directory and ensure that no symlinks exists between the output root and the
-   * output file. These are all expected to be regular directories. Violations of this expectations
-   * can only come from state left behind by previous invocations or external filesystem mutation.
-   */
-  private void createAndCheckForSymlinks(
-      final Path dir, final Artifact outputFile, ActionExecutionContext context)
-      throws IOException {
-    Path rootPath = outputFile.getRoot().getRoot().asPath();
-    PathFragment root = rootPath.asFragment();
-    Path curDir = context.getPathResolver().convertPath(dir);
-
-    // If the output root has not been created yet, do so now.
-    if (!knownDirectories.containsKey(root)) {
-      FileStatus stat = rootPath.statNullable(Symlinks.NOFOLLOW);
-      if (stat == null) {
-        outputFile.getRoot().getRoot().asPath().createDirectoryAndParents();
-        knownDirectories.put(root, DirectoryState.CREATED);
-      } else {
-        knownDirectories.put(root, DirectoryState.FOUND);
-      }
-    }
-
-    // Walk up until the first known directory is found (must be root or below).
-    List<Path> checkDirs = new ArrayList<>();
-    while (!knownDirectories.containsKey(curDir.asFragment())) {
-      checkDirs.add(curDir);
-      curDir = curDir.getParentDirectory();
-    }
-
-    // Check in reverse order (parent directory first):
-    // - If symlink -> Exception.
-    // - If non-existent -> Create directory and all children.
-    boolean parentCreated = knownDirectories.get(curDir.asFragment()) == DirectoryState.CREATED;
-    for (Path path : Lists.reverse(checkDirs)) {
-      if (parentCreated) {
-        // If we have created this directory's parent, we know that it doesn't exist or else we
-        // would know about it already. Even if a parallel thread has created it in the meantime,
-        // createDirectory() will return normally and we can assume that a regular directory exists
-        // afterwards.
-        path.createDirectory();
-        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
-        continue;
-      }
-      FileStatus stat = path.statNullable(Symlinks.NOFOLLOW);
-      if (stat != null && !stat.isDirectory()) {
-        throw new IOException(curDir + " is not a regular directory");
-      }
-      if (stat == null) {
-        parentCreated = true;
-        path.createDirectory();
-        knownDirectories.put(path.asFragment(), DirectoryState.CREATED);
-      } else {
-        knownDirectories.put(path.asFragment(), DirectoryState.FOUND);
-      }
-    }
-  }
-
-  private void createOutputDirectories(Action action, ActionExecutionContext context)
-      throws ActionExecutionException {
+  private void createOutputDirectories(Action action) throws ActionExecutionException {
     try {
-      Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
-      for (Artifact outputFile : action.getOutputs()) {
-        Path outputDir;
-        if (outputFile.isTreeArtifact()) {
-          outputDir = context.getPathResolver().toPath(outputFile);
-        } else {
-          outputDir = context.getPathResolver().toPath(outputFile).getParentDirectory();
-        }
-
-        if (done.add(outputDir)) {
-          try {
-            createAndCheckForSymlinks(outputDir, outputFile, context);
-            continue;
-          } catch (IOException e) {
-            /* Fall through to plan B. */
-          }
-
-          // Possibly some direct ancestors are not directories.  In that case, we traverse the
-          // ancestors downward, deleting any non-directories. This handles the case where a file
-          // becomes a directory. The traversal is done downward because otherwise we may delete
-          // files through a symlink in a parent directory. Since Blaze never creates such
-          // directories within a build, we have no idea where on disk we're actually deleting.
-          //
-          // Symlinks should not be followed so in order to clean up symlinks pointing to Fileset
-          // outputs from previous builds. See bug [incremental build of Fileset fails if
-          // Fileset.out was changed to be a subdirectory of the old value].
-          try {
-            Path p =
-                context.getPathResolver().transformRoot(outputFile.getRoot().getRoot()).asPath();
-            for (String segment : outputDir.relativeTo(p).segments()) {
-              p = p.getRelative(segment);
-
-              // This lock ensures that the only thread that observes a filesystem transition in
-              // which the path p first exists and then does not is the thread that calls
-              // p.delete() and causes the transition.
-              //
-              // If it were otherwise, then some thread A could test p.exists(), see that it does,
-              // then test p.isDirectory(), see that p isn't a directory (because, say, thread
-              // B deleted it), and then call p.delete(). That could result in two different kinds
-              // of failures:
-              //
-              // 1) In the time between when thread A sees that p is not a directory and when thread
-              // A calls p.delete(), thread B may reach the call to createDirectoryAndParents
-              // and create a directory at p, which thread A then deletes. Thread B would then try
-              // adding outputs to the directory it thought was there, and fail.
-              //
-              // 2) In the time between when thread A sees that p is not a directory and when thread
-              // A calls p.delete(), thread B may create a directory at p, and then either create a
-              // subdirectory beneath it or add outputs to it. Then when thread A tries to delete p,
-              // it would fail.
-              Lock lock = outputDirectoryDeletionLock.get(p);
-              lock.lock();
-              try {
-                FileStatus stat = p.statIfFound(Symlinks.NOFOLLOW);
-                if (stat == null) {
-                  // Missing entry: Break out and create expected directories.
-                  break;
-                }
-                if (stat.isDirectory()) {
-                  // If this directory used to be a tree artifact it won't be writable.
-                  p.setWritable(true);
-                  knownDirectories.put(p.asFragment(), DirectoryState.FOUND);
-                } else {
-                  // p may be a file or symlink (possibly from a Fileset in a previous build).
-                  p.delete(); // throws IOException
-                  break;
-                }
-              } finally {
-                lock.unlock();
-              }
-            }
-            outputDir.createDirectoryAndParents();
-          } catch (IOException e) {
-            String message =
-                String.format(
-                    "failed to create output directory '%s': %s", outputDir, e.getMessage());
-            DetailedExitCode code =
-                createDetailedExitCode(message, Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE);
-            throw new ActionExecutionException(message, e, action, false, code);
-          }
-        }
-      }
-    } catch (ActionExecutionException ex) {
-      printError(ex.getMessage(), action, null);
-      throw ex;
+      outputDirectoryHelper.createOutputDirectories(action.getOutputs());
+    } catch (CreateOutputDirectoryException e) {
+      throw toActionExecutionException(
+          String.format(
+              "failed to create output directory '%s': %s", e.directoryPath, e.getMessage()),
+          e,
+          action,
+          /*actionOutput=*/ null,
+          Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE);
     }
   }
 
@@ -1553,29 +1381,25 @@ public final class SkyframeActionExecutor {
         e,
         outErrBuffer,
         errorTiming);
-    boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
-
-    ActionExecutionException toThrow = e;
-    if (reported) {
-      // If we already printed the error for the exception we mark it as already reported
-      // so that we do not print it again in upper levels.
-      // Note that we need to report it here since we want immediate feedback of the errors
-      // and in some cases the upper-level printing mechanism only prints one of the errors.
-      toThrow = new AlreadyReportedActionExecutionException(e);
-    }
-
-    // Now, return the exception to rethrow. This can have two effects:
+    // Return the exception to rethrow. This can have two effects:
     // If we're still building, the exception will get retrieved by the completor and rethrown.
     // If we're aborting, the exception will never be retrieved from the completor, since the
     // completor is waiting for all outstanding jobs to finish. After they have finished, it will
-    // only rethrow the exception that initially caused it to abort will and not check the exit
-    // status of any actions that had finished in the meantime.
-    return toThrow;
+    // only rethrow the exception that initially caused it to abort and not check the exit status of
+    // any actions that had finished in the meantime.
+
+    // If we already printed the error for the exception we mark it as already reported
+    // so that we do not print it again in upper levels.
+    // Note that we need to report it here since we want immediate feedback of the errors
+    // and in some cases the upper-level printing mechanism only prints one of the errors.
+    return printError(e.getMessage(), e.getAction(), outErrBuffer)
+        ? new AlreadyReportedActionExecutionException(e)
+        : e;
   }
 
   /**
-   * Enrich the exception so it can be confirmed as the primary action in a shared action set and so
-   * that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
+   * Enriches the exception so it can be confirmed as the primary action in a shared action set and
+   * so that, if rewinding fails, an ActionExecutedEvent can be published, and the error reported.
    */
   private static void enrichLostInputsException(
       Path primaryOutputPath,
@@ -1771,27 +1595,24 @@ public final class SkyframeActionExecutor {
 
   /**
    * For the action 'action' that failed due to 'message' with the output 'actionOutput', notify the
-   * user about the error. To notify the user, the method first displays the output of the action
-   * and then reports an error via the reporter. The method ensures that the two messages appear
-   * next to each other by locking the outErr object where the output is displayed.
+   * user about the error. To notify the user, the method displays the output of the action and
+   * reports an error via the reporter.
    *
    * @param message The reason why the action failed
    * @param action The action that failed, must not be null.
    * @param actionOutput The output of the failed Action. May be null, if there is no output to
    *     display
+   * @return whether error was printed
    */
-  @SuppressWarnings("SynchronizeOnNonFinalField")
-  private void printError(
+  private boolean printError(
       String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
     message = action.describe() + " failed: " + message;
-    Event event = Event.error(action.getOwner().getLocation(), message);
-    synchronized (reporter) {
-      dumpRecordedOutErr(reporter, event, actionOutput);
-    }
+    return dumpRecordedOutErr(
+        reporter, Event.error(action.getOwner().getLocation(), message), actionOutput);
   }
 
   /**
-   * Dump the output from the action.
+   * Dumps the output from the action.
    *
    * @param action The action whose output is being dumped
    * @param outErrBuffer The OutErr that recorded the actions output
@@ -1807,23 +1628,28 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * Dump the output from the action.
+   * Dumps output from the action along with {@code prefixEvent} if the build is not aborting.
    *
    * @param prefixEvent An event to post before dumping the output
    * @param outErrBuffer The OutErr that recorded the actions output
+   * @return whether output was displayed (false if aborting)
    */
-  private void dumpRecordedOutErr(
+  private boolean dumpRecordedOutErr(
       EventHandler eventHandler, Event prefixEvent, FileOutErr outErrBuffer) {
-    // Only print the output if we're not winding down.
+    // For some actions (e.g., many local actions) the pollInterruptedStatus()
+    // won't notice that we had an interrupted job. It will continue.
+    // For that reason we must take care to NOT report errors if we're
+    // in the 'aborting' mode: Any cancelled action would show up here.
     if (isBuilderAborting()) {
-      return;
+      return false;
     }
     if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
       // Bind the output to the prefix event.
-      eventHandler.handle(prefixEvent.withStdoutStderr(outErrBuffer));
+      eventHandler.handle(prefixEvent.withProcessOutput(new ActionOutputEventData(outErrBuffer)));
     } else {
       eventHandler.handle(prefixEvent);
     }
+    return true;
   }
 
   private static void reportActionExecution(
@@ -1863,32 +1689,6 @@ public final class SkyframeActionExecutor {
             logs,
             errorTiming,
             isInMemoryFs));
-  }
-
-  /**
-   * Returns true if the exception was reported. False otherwise. Currently this is a copy of what
-   * we did in pre-Skyframe execution. The main implication is that we are printing the error to the
-   * top level reporter instead of the action reporter. Because of that Skyframe values do not know
-   * about the errors happening in the execution phase. Even if we change in the future to log to
-   * the action reporter (that would be done in ActionExecutionFunction.compute() when we get an
-   * ActionExecutionException), we probably do not want to also store the StdErr output, so
-   * dumpRecordedOutErr() should still be called here.
-   */
-  @SuppressWarnings("SynchronizeOnNonFinalField")
-  private boolean reportErrorIfNotAbortingMode(
-      ActionExecutionException ex, FileOutErr outErrBuffer) {
-    // For some actions (e.g., many local actions) the pollInterruptedStatus()
-    // won't notice that we had an interrupted job. It will continue.
-    // For that reason we must take care to NOT report errors if we're
-    // in the 'aborting' mode: Any cancelled action would show up here.
-    synchronized (this.reporter) {
-      if (!isBuilderAborting()) {
-        // Oops. The action aborted. Report the problem.
-        printError(ex.getMessage(), ex.getAction(), outErrBuffer);
-        return true;
-      }
-    }
-    return false;
   }
 
   /** An object supplying data for action execution progress reporting. */
@@ -1934,6 +1734,45 @@ public final class SkyframeActionExecutor {
     public ActionInput getInput(String execPath) {
       ActionInput input = perActionCache.getInput(execPath);
       return input != null ? input : perBuildFileCache.getInput(execPath);
+    }
+  }
+
+  /** Adapts a {@link FileOutErr} to an {@link Event.ProcessOutput}. */
+  private static class ActionOutputEventData implements Event.ProcessOutput {
+    private final FileOutErr fileOutErr;
+
+    private ActionOutputEventData(FileOutErr fileOutErr) {
+      this.fileOutErr = fileOutErr;
+    }
+
+    @Override
+    public String getStdOutPath() {
+      return fileOutErr.getOutputPathFragment().getPathString();
+    }
+
+    @Override
+    public long getStdOutSize() throws IOException {
+      return fileOutErr.outSize();
+    }
+
+    @Override
+    public byte[] getStdOut() {
+      return fileOutErr.outAsBytes();
+    }
+
+    @Override
+    public String getStdErrPath() {
+      return fileOutErr.getErrorPathFragment().getPathString();
+    }
+
+    @Override
+    public long getStdErrSize() throws IOException {
+      return fileOutErr.errSize();
+    }
+
+    @Override
+    public byte[] getStdErr() {
+      return fileOutErr.errAsBytes();
     }
   }
 }

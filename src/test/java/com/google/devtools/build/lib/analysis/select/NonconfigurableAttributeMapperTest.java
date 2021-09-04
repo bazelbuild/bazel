@@ -59,4 +59,14 @@ public class NonconfigurableAttributeMapperTest extends AbstractAttributeMapperT
         .hasMessageThat()
         .isEqualTo("Attribute 'linkstatic' is potentially configurable - not allowed here");
   }
+
+  @Test
+  public void testGet_nonexistentAttribute() throws Exception {
+    IllegalArgumentException e =
+        assertThrows(
+            "Expected NonconfigurableAttributeMapper to fail on nonexistent attribute name",
+            IllegalArgumentException.class,
+            () -> NonconfigurableAttributeMapper.of(rule).get("nonexistent-attr", Type.STRING));
+    assertThat(e).hasMessageThat().contains("No such attribute nonexistent-attr in cc_binary");
+  }
 }

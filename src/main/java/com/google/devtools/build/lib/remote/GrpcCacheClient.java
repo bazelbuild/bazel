@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc;
-import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheBlockingStub;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheFutureStub;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc;
@@ -139,15 +138,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
-  private ActionCacheBlockingStub acBlockingStub(RemoteActionExecutionContext context) {
-    return ActionCacheGrpc.newBlockingStub(channel)
-        .withInterceptors(
-            TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()),
-            new NetworkTimeInterceptor(context::getNetworkTime))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
-  }
-
   private ActionCacheFutureStub acFutureStub(RemoteActionExecutionContext context) {
     return ActionCacheGrpc.newFutureStub(channel)
         .withInterceptors(
@@ -234,9 +224,12 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         callCredentialsProvider);
   }
 
-  private ListenableFuture<ActionResult> handleStatus(ListenableFuture<ActionResult> download) {
+  private ListenableFuture<CachedActionResult> handleStatus(
+      ListenableFuture<ActionResult> download) {
+    ListenableFuture<CachedActionResult> cachedActionResult =
+        Futures.transform(download, CachedActionResult::remote, MoreExecutors.directExecutor());
     return Futures.catchingAsync(
-        download,
+        cachedActionResult,
         StatusRuntimeException.class,
         (sre) ->
             sre.getStatus().getCode() == Code.NOT_FOUND
@@ -247,7 +240,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
@@ -264,25 +257,27 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException {
-    try {
-      Utils.refreshIfUnauthenticated(
-          () ->
-              retrier.execute(
-                  () ->
-                      acBlockingStub(context)
-                          .updateActionResult(
-                              UpdateActionResultRequest.newBuilder()
-                                  .setInstanceName(options.remoteInstanceName)
-                                  .setActionDigest(actionKey.getDigest())
-                                  .setActionResult(actionResult)
-                                  .build())),
-          callCredentialsProvider);
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    }
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
+    ListenableFuture<ActionResult> upload =
+        Utils.refreshIfUnauthenticatedAsync(
+            () ->
+                retrier.executeAsync(
+                    () ->
+                        Futures.catchingAsync(
+                            acFutureStub(context)
+                                .updateActionResult(
+                                    UpdateActionResultRequest.newBuilder()
+                                        .setInstanceName(options.remoteInstanceName)
+                                        .setActionDigest(actionKey.getDigest())
+                                        .setActionResult(actionResult)
+                                        .build()),
+                            StatusRuntimeException.class,
+                            (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
+                            MoreExecutors.directExecutor())),
+            callCredentialsProvider);
+
+    return Futures.transform(upload, ac -> null, MoreExecutors.directExecutor());
   }
 
   @Override
@@ -366,6 +361,14 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
               @Override
               public void onError(Throwable t) {
+                if (offset.get() == digest.getSizeBytes()) {
+                  // If the file was fully downloaded, it doesn't matter if there was an error at
+                  // the end of the stream.
+                  logger.atInfo().withCause(t).log(
+                      "ignoring error because file was fully received");
+                  onCompleted();
+                  return;
+                }
                 Status status = Status.fromThrowable(t);
                 if (status.getCode() == Status.Code.NOT_FOUND) {
                   future.setException(new CacheNotFoundException(digest));

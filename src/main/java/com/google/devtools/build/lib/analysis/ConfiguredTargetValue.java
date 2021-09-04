@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import javax.annotation.Nullable;
+
 /** A {@link com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}. */
 public interface ConfiguredTargetValue extends ConfiguredObjectValue {
 
@@ -23,5 +26,11 @@ public interface ConfiguredTargetValue extends ConfiguredObjectValue {
   @Override
   default ConfiguredTarget getConfiguredObject() {
     return getConfiguredTarget();
+  }
+
+  @Override
+  @Nullable
+  default BuildConfigurationValue.Key getConfigurationKey() {
+    return getConfiguredTarget().getConfigurationKey();
   }
 }

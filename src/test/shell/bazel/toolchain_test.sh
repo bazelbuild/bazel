@@ -540,6 +540,29 @@ EOF
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
+function test_toolchain_debug_messages_target {
+  write_test_toolchain
+  write_test_rule
+  write_register_toolchain
+
+  mkdir -p demo
+  cat >> demo/BUILD <<EOF
+load('//toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel build \
+    --toolchain_resolution_debug=demo:use \
+    --incompatible_auto_configure_host_platform \
+    //demo:use &> $TEST_log || fail "Build failed"
+  expect_log 'ToolchainResolution:   Type //toolchain:test_toolchain: target platform @local_config_platform//.*: execution @local_config_platform//:host: Selected toolchain //:test_toolchain_impl_1'
+  expect_log 'ToolchainResolution: Target platform @local_config_platform//.*: Selected execution platform @local_config_platform//:host, type //toolchain:test_toolchain -> toolchain //:test_toolchain_impl_1'
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
+}
+
 function test_toolchain_use_in_aspect {
   write_test_toolchain
   write_test_aspect
@@ -1931,8 +1954,7 @@ load("//toolchain:rule_use_toolchain.bzl", "use_toolchain")
 use_toolchain(name = "use")
 EOF
 
-  bazel cquery "deps(//demo:use, 1)" --experimental_exec_groups \
-    &> $TEST_log || fail "Build failed"
+  bazel cquery "deps(//demo:use, 1)" &> $TEST_log || fail "Build failed"
   expect_log "<toolchain_context.resolved_labels: //toolchain:test_toolchain"
   expect_log "<ctx.exec_groups: group>"
   expect_log "//:test_toolchain_impl_1"

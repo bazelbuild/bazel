@@ -90,7 +90,6 @@ sh_test(
     args = ["$(JAVABASE)"],
     data = [
         ":test-deps",
-        "//src/test/shell/bazel/apple:objc-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
@@ -1175,23 +1174,6 @@ sh_test(
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        ":windows_tests",
-    ],
-    visibility = ["//src/test/shell:__pkg__"],
 )
 
 sh_test(

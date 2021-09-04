@@ -107,7 +107,7 @@ public class CppRuleClasses {
               FileTypeSet.of(
                   CPP_SOURCE, C_SOURCE, CPP_HEADER, ASSEMBLER_WITH_C_PREPROCESSOR, ASSEMBLER))
           .withSourceAttributes("srcs", "hdrs")
-          .withDependencyAttributes("deps", "data");
+          .withDependencyAttributes("implementation_deps", "deps", "data");
 
   /** Implicit outputs for cc_binary rules. */
   public static final SafeImplicitOutputsFunction CC_BINARY_STRIPPED =

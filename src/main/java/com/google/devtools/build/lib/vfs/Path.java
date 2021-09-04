@@ -408,7 +408,7 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws FileNotFoundException If the file cannot be found or created.
    * @throws IOException If a different error occurs.
    */
-  public OutputStream getOutputStream() throws IOException, FileNotFoundException {
+  public OutputStream getOutputStream() throws IOException {
     return getOutputStream(false);
   }
 
@@ -420,8 +420,21 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    * @throws FileNotFoundException If the file cannot be found or created.
    * @throws IOException If a different error occurs.
    */
-  public OutputStream getOutputStream(boolean append) throws IOException, FileNotFoundException {
+  public OutputStream getOutputStream(boolean append) throws IOException {
     return fileSystem.getOutputStream(asFragment(), append);
+  }
+
+  /**
+   * Returns an output stream to the file denoted by the current path, creating it and truncating it
+   * if necessary. The stream is opened for writing.
+   *
+   * @param append whether to open the file in append mode.
+   * @param internal whether the file is a Bazel internal file.
+   * @throws FileNotFoundException If the file cannot be found or created.
+   * @throws IOException If a different error occurs.
+   */
+  public OutputStream getOutputStream(boolean append, boolean internal) throws IOException {
+    return fileSystem.getOutputStream(asFragment(), append, internal);
   }
 
   /**
@@ -434,6 +447,20 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
    */
   public boolean createDirectory() throws IOException {
     return fileSystem.createDirectory(asFragment());
+  }
+
+  /**
+   * Creates a writable directory or ensures an existing one at current path is writable. Does not
+   * follow symlinks. Returns whether a new directory has been created (including false if it only
+   * adjusts permissions for an existing directory).
+   *
+   * <p>Returns normally iff directory at current path exists and is writable.
+   *
+   * <p>This operation is not atomic -- concurrent modifications of the path will result in
+   * undefined behavior.
+   */
+  public boolean createWritableDirectory() throws IOException {
+    return fileSystem.createWritableDirectory(asFragment());
   }
 
   /**

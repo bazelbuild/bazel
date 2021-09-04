@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -196,6 +195,44 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .isEqualTo(toolchain.getStaticRuntimeLibForTesting());
     assertThat(dynamicRuntimeLib.getSet(Artifact.class))
         .isEqualTo(toolchain.getDynamicRuntimeLibForTesting());
+  }
+
+  @Test
+  public void testGetValuesFromCcToolchain() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  return [MyInfo(",
+        "    dynamic_runtime_solib_dir = toolchain.dynamic_runtime_solib_dir,",
+        "    toolchain_id = toolchain.toolchain_id,",
+        "  )]",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp'],",
+        ");");
+
+    ConfiguredTarget r = getConfiguredTarget("//a:r");
+    StructImpl info = getMyInfoFromTarget(r);
+    String dynamicRuntimeSolibDir = (String) info.getValue("dynamic_runtime_solib_dir");
+    String toolchainId = (String) info.getValue("toolchain_id");
+
+    RuleContext ruleContext = getRuleContext(r);
+    CcToolchainProvider toolchain =
+        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+
+    assertThat(dynamicRuntimeSolibDir).isEqualTo(toolchain.getDynamicRuntimeSolibDirForStarlark());
+    assertThat(toolchainId).isEqualTo(toolchain.getToolchainIdentifier());
   }
 
   @Test
@@ -788,6 +825,28 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCompileBuildVariablesWithVariablesExtension() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures("check_additional_variables_feature"));
+    useConfiguration("--features=check_additional_variables_feature");
+    assertThat(
+            commandLineForVariables(
+                CppActionNames.CPP_COMPILE,
+                "cc_common.create_compile_variables(",
+                "    feature_configuration = feature_configuration,",
+                "    cc_toolchain = toolchain,",
+                "    variables_extension = {",
+                "        'string_variable': 'foo',",
+                "        'list_variable': ['bar', 'baz']",
+                "    }",
+                ")"))
+        .containsAtLeast("--my_string=foo", "--my_list_element=bar", "--my_list_element=baz");
+  }
+
+  @Test
   public void testEmptyLinkVariables() throws Exception {
     assertThat(
             commandLineForVariables(
@@ -1301,8 +1360,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.TARGETS_WINDOWS,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     doTestCcLinkingContext(
-        ImmutableList.of("a.a", "libdep2.a", "b.a", "c.a", "d.a", "libdep1.a"),
-        ImmutableList.of("a.pic.a", "b.pic.a", "c.pic.a", "e.pic.a"),
+        ImmutableList.of("a.a", "libdep2.a", "b.rlib", "c.a", "d.a", "libdep1.a"),
+        ImmutableList.of("a.pic.a", "b.rlib", "c.pic.a", "e.pic.a"),
         // The suffix of dynamic library is caculated based on repository name and package path
         // to avoid conflicts with dynamic library from other packages.
         ImmutableList.of("a.so", "libdep2_c092dd9ce2.so", "b.so", "e.so", "libdep1_c092dd9ce2.so"));
@@ -1320,8 +1379,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     doTestCcLinkingContext(
-        ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
-        ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
+        ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
+        ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a"),
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
@@ -1337,8 +1396,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     doTestCcLinkingContext(
-        ImmutableList.of("a.a", "b.a", "c.a", "d.a"),
-        ImmutableList.of("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a"),
+        ImmutableList.of("a.a", "b.rlib", "c.a", "d.a"),
+        ImmutableList.of("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a"),
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
@@ -1365,13 +1424,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                 .filter(x -> x.getStaticLibrary() != null)
                 .map(x -> x.getStaticLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("a.a", "b.a", "c.a", "d.a");
+        .containsExactly("a.a", "b.rlib", "c.a", "d.a");
     assertThat(
             librariesToLink.toList(LibraryToLink.class).stream()
                 .filter(x -> x.getPicStaticLibrary() != null)
                 .map(x -> x.getPicStaticLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("a.pic.a", "libdep2.a", "b.pic.a", "c.pic.a", "e.pic.a", "libdep1.a");
+        .containsExactly("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
     assertThat(
             librariesToLink.toList(LibraryToLink.class).stream()
                 .filter(x -> x.getDynamicLibrary() != null)
@@ -1542,8 +1601,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "   deps = [':c', ':dep2', ':b'],",
         ")",
         "crule(name='b',",
-        "   static_library = 'b.a',",
-        "   pic_static_library = 'b.pic.a',",
+        "   static_library = 'b.rlib',",
+        "   pic_static_library = 'b.rlib',",
         "   dynamic_library = 'b.so',",
         "   deps = [':c', ':d'],",
         "   additional_inputs = ['b.lds'],",
@@ -1585,7 +1644,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "linker_input = cc_common.create_linker_input(",
         "                 owner=Label('//toplevel'),",
-        "                 user_link_flags=depset(['-first_flag', '-second_flag']))",
+        "                 user_link_flags=[['-first_flag'], ['-second_flag']])",
         "top_linking_context_smoke = cc_common.create_linking_context(",
         "   linker_inputs=depset([linker_input]))",
         "def _create(ctx, feature_configuration, static_library, pic_static_library,",
@@ -4546,20 +4605,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromStarlarkRequiredAbiVersion() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("abi_version");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_version");
-  }
-
-  @Test
-  public void testCcToolchainInfoFromStarlarkRequiredAbiLibcVersion() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("abi_libc_version");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_libc_version");
-  }
-
-  @Test
   public void testCcToolchainInfoFromStarlarkAllRequiredStringsPresent() throws Exception {
     setupStarlarkRuleForStringFieldsTesting("");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
@@ -4985,8 +5030,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "                target_cpu = 'cpu',",
         "                target_libc = 'libc',",
         "                compiler = 'compiler',",
-        "                abi_libc_version = 'abi_libc',",
-        "                abi_version = 'abi',",
         "        )",
         "cc_toolchain_config_rule = rule(",
         "    implementation = _impl,",
@@ -5189,22 +5232,21 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.o' does not have any of the allowed extensions .a, .lib or .pic.a");
+        .contains("'a.o' does not have any of the allowed extensions .a, .lib, .pic.a or .rlib");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.pic.o' does not have any of the allowed extensions .a, .lib or .pic.a");
+        .contains(
+            "'a.pic.o' does not have any of the allowed extensions .a, .lib, .pic.a or .rlib");
     assertThat(e)
         .hasMessageThat()
         .contains("'a.ifso' does not have any of the allowed extensions .so, .dylib or .dll");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.so' does not have any of the allowed extensions .ifso, .tbd or .lib");
-    assertThat(e)
-        .hasMessageThat()
         .contains("'a.lib' does not have any of the allowed extensions .so, .dylib or .dll");
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.dll' does not have any of the allowed extensions .ifso, .tbd or .lib");
+        .contains(
+            "'a.dll' does not have any of the allowed extensions .ifso, .tbd, .lib or .dll.a");
   }
 
   @Test
@@ -5637,16 +5679,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testWrongSrcsExtensionGivesError() throws Exception {
     doTestWrongExtensionOfSrcsAndHdrs("srcs");
-  }
-
-  @Test
-  public void testWrongPrivateHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("private_hdrs");
-  }
-
-  @Test
-  public void testWrongPublicHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("public_hdrs");
   }
 
   @Test
@@ -6470,7 +6502,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "foo/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  linker_input = cc_common.create_linker_input(owner=ctx.label)",
+        "  linker_input = cc_common.create_linker_input(owner=ctx.label, user_link_flags=['-l'])",
         "  linking_context = cc_common.create_linking_context(",
         "     linker_inputs=depset([linker_input]))",
         "  linking_context = cc_common.create_linking_context(",
@@ -6908,7 +6940,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "toolchain.objcopy_files()",
             "toolchain.tool_path(tool='ld')",
             "toolchain.solib_dir()",
-            "toolchain.dynamic_runtime_solib_dir()",
             "toolchain.linker_files()",
             "toolchain.coverage_files()",
             "toolchain.strip_files()");
@@ -7351,124 +7382,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
       assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
     }
-  }
-
-  @Test
-  public void ccInfoLibraryInfo_cannotBeRetrievedIfNotAllowListed() throws Exception {
-    scratch.file(
-        "b/BUILD",
-        "load('//b:rule.bzl', 'test_rule')",
-        "test_rule(",
-        "  name = 'test',",
-        "  cc_dep = ':foo',",
-        ")",
-        "cc_library(",
-        "  name = 'foo',",
-        "  srcs = ['foo.cc'],",
-        ")");
-    scratch.file(
-        "b/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.attr.cc_dep[CcInfo].library_info()",
-        "  return DefaultInfo()",
-        "test_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'cc_dep': attr.label(),",
-        "    },",
-        ")");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:test"));
-    assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
-  }
-
-  @Test
-  public void ccInfoLibraryInfo_canBeRetrievedWhenInAllowList() throws Exception {
-    scratch.file(
-        "b/BUILD",
-        "load('//bazel_internal/test_rules/cc:rule.bzl', 'test_rule')",
-        "test_rule(",
-        "  name = 'test',",
-        "  cc_dep = ':foo',",
-        ")",
-        "cc_library(",
-        "  name = 'foo',",
-        "  srcs = ['foo.cc'],",
-        ")");
-    scratch.file("bazel_internal/test_rules/cc/BUILD");
-    scratch.file(
-        "bazel_internal/test_rules/cc/rule.bzl",
-        "def _impl(ctx):",
-        "  libs = ctx.attr.cc_dep[CcInfo].library_info().libs",
-        "  files = []",
-        "  for l in libs.to_list():",
-        "    files.append(l.dynamic_library)",
-        "    files.append(l.interface_library)",
-        "    files.append(l.static_library)",
-        "    files.append(l.pic_static_library)",
-        "  files = [f for f in files if f != None]",
-        "  runfiles = ctx.runfiles(files=files)",
-        "  return [DefaultInfo(runfiles=runfiles)]",
-        "test_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'cc_dep': attr.label(),",
-        "    },",
-        ")");
-
-    ConfiguredTarget test = getConfiguredTarget("//b:test");
-
-    assertThat(
-            test.get(DefaultInfo.PROVIDER).getDefaultRunfiles().getAllArtifacts().toList().stream()
-                .map(Artifact::getFilename))
-        .containsExactly("libfoo.a");
-  }
-
-  @Test
-  public void ccInfoLibraryInfo_severalLibrariesAreMerged() throws Exception {
-    scratch.file(
-        "b/BUILD",
-        "load('//bazel_internal/test_rules/cc:rule.bzl', 'test_rule')",
-        "test_rule(",
-        "  name = 'test',",
-        "  cc_dep = ':foo',",
-        ")",
-        "cc_library(",
-        "  name = 'foo',",
-        "  srcs = ['foo.cc'],",
-        "  deps = [':bar'],",
-        ")",
-        "cc_library(",
-        "  name = 'bar',",
-        "  srcs = ['bar.cc'],",
-        ")");
-    scratch.file("bazel_internal/test_rules/cc/BUILD");
-    scratch.file(
-        "bazel_internal/test_rules/cc/rule.bzl",
-        "def _impl(ctx):",
-        "  libs = ctx.attr.cc_dep[CcInfo].library_info().libs",
-        "  files = []",
-        "  for l in libs.to_list():",
-        "    files.append(l.dynamic_library)",
-        "    files.append(l.interface_library)",
-        "    files.append(l.static_library)",
-        "    files.append(l.pic_static_library)",
-        "  files = [f for f in files if f != None]",
-        "  runfiles = ctx.runfiles(files=files)",
-        "  return [DefaultInfo(runfiles=runfiles)]",
-        "test_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'cc_dep': attr.label(),",
-        "    },",
-        ")");
-
-    ConfiguredTarget test = getConfiguredTarget("//b:test");
-
-    assertThat(
-            test.get(DefaultInfo.PROVIDER).getDefaultRunfiles().getAllArtifacts().toList().stream()
-                .map(Artifact::getFilename))
-        .containsExactly("libfoo.a", "libbar.a");
   }
 
   @Test

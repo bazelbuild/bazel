@@ -53,6 +53,8 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -68,7 +70,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -84,6 +85,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -175,7 +177,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     Rule rule = ruleContext.getRule();
 
     if (aspectDescriptor == null) {
-      Collection<Attribute> attributes = rule.getAttributes();
+      Collection<Attribute> attributes =
+          rule.getAttributes().stream()
+              .filter(attribute -> !attribute.getName().equals("aspect_hints"))
+              .collect(Collectors.toList());
 
       // Populate ctx.outputs.
       Outputs outputs = new Outputs(this);
@@ -290,7 +295,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     private final StarlarkRuleContext context;
     private boolean executableCreated = false;
 
-    public Outputs(StarlarkRuleContext context) {
+    Outputs(StarlarkRuleContext context) {
       this.outputs = new LinkedHashMap<>();
       this.context = context;
     }
@@ -818,10 +823,10 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   private String expandMakeVariables(
-      String attributeName, String command, final Map<String, String> additionalSubstitutionsMap) {
+      String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
-            this.getRuleContext(),
+            ruleContext,
             ruleContext.getRule().getPackage(),
             ruleContext.getConfiguration(),
             ImmutableList.of()) {
@@ -866,7 +871,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     checkMutable("expand_location");
     try {
       return LocationExpander.withExecPaths(
-              getRuleContext(),
+              ruleContext,
               makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets")))
           .expand(input);
     } catch (IllegalStateException ise) {
@@ -882,24 +887,32 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Boolean collectDefault,
       Dict<?, ?> symlinks,
       Dict<?, ?> rootSymlinks)
-      throws EvalException, ConversionException {
+      throws EvalException {
     checkMutable("runfiles");
     Runfiles.Builder builder =
         new Runfiles.Builder(
-            getRuleContext().getWorkspaceName(), getConfiguration().legacyExternalRunfiles());
+            ruleContext.getWorkspaceName(), getConfiguration().legacyExternalRunfiles());
     boolean checkConflicts = false;
     if (Starlark.truth(collectData)) {
-      builder.addRunfiles(getRuleContext(), RunfilesProvider.DATA_RUNFILES);
+      builder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
     }
     if (Starlark.truth(collectDefault)) {
-      builder.addRunfiles(getRuleContext(), RunfilesProvider.DEFAULT_RUNFILES);
+      builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     }
     if (!files.isEmpty()) {
       builder.addArtifacts(Sequence.cast(files, Artifact.class, "files"));
     }
     if (transitiveFiles != Starlark.NONE) {
-      builder.addTransitiveArtifacts(
-          Depset.cast(transitiveFiles, Artifact.class, "transitive_files"));
+      NestedSet<Artifact> transitiveArtifacts =
+          Depset.cast(transitiveFiles, Artifact.class, "transitive_files");
+
+      // Runfiles uses compile order. Check that the given transitive_files depset is compatible.
+      if (!Order.COMPILE_ORDER.isCompatible(transitiveArtifacts.getOrder())) {
+        throw Starlark.errorf(
+            "order '%s' is invalid for transitive_files",
+            transitiveArtifacts.getOrder().getStarlarkName());
+      }
+      builder.addTransitiveArtifacts(transitiveArtifacts);
     }
     if (!symlinks.isEmpty()) {
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
@@ -933,13 +946,13 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws ConversionException, EvalException {
+      throws EvalException {
     checkMutable("resolve_command");
     Label ruleLabel = getLabel();
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked);
     // The best way to fix this probably is to convert CommandHelper to Starlark.
     CommandHelper helper =
-        CommandHelper.builder(getRuleContext())
+        CommandHelper.builder(ruleContext)
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .addLabelMap(labelDict)
             .build();
@@ -953,11 +966,9 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables", ruleLabel);
       command = expandMakeVariables(attribute, command, makeVariables);
     }
-    List<Artifact> inputs = new ArrayList<>();
     // TODO(lberki): This flattens a NestedSet.
-    // However, we can't turn this into a Depset because it's an incompatible change to
-    // Starlark.
-    inputs.addAll(helper.getResolvedTools().toList());
+    // However, we can't turn this into a Depset because it's an incompatible change to Starlark.
+    List<Artifact> inputs = new ArrayList<>(helper.getResolvedTools().toList());
 
     ImmutableMap<String, String> executionRequirements =
         ImmutableMap.copyOf(
@@ -986,7 +997,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public Tuple resolveTools(Sequence<?> tools) throws EvalException {
     checkMutable("resolve_tools");
     CommandHelper helper =
-        CommandHelper.builder(getRuleContext())
+        CommandHelper.builder(ruleContext)
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.pair(

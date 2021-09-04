@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOpti
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -65,7 +64,6 @@ public class JavaStarlarkCommon
       Sequence<?> javacOpts, // <String> expected
       Sequence<?> deps, // <JavaInfo> expected
       Sequence<?> runtimeDeps, // <JavaInfo> expected
-      Sequence<?> experimentalLocalCompileTimeDeps, // <JavaInfo> expected
       Sequence<?> exports, // <JavaInfo> expected
       Sequence<?> plugins, // <JavaPluginInfo> expected
       Sequence<?> exportedPlugins, // <JavaPluginInfo> expected
@@ -78,6 +76,7 @@ public class JavaStarlarkCommon
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
       Boolean neverlink,
+      Boolean enableAnnotationProcessing,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -125,10 +124,6 @@ public class JavaStarlarkCommon
             Sequence.cast(javacOpts, String.class, "javac_opts"),
             Sequence.cast(deps, JavaInfo.class, "deps"),
             Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-            Sequence.cast(
-                experimentalLocalCompileTimeDeps,
-                JavaInfo.class,
-                "experimental_local_compile_time_deps"),
             Sequence.cast(exports, JavaInfo.class, "exports"),
             pluginsParam,
             exportedPluginsParam,
@@ -146,6 +141,7 @@ public class JavaStarlarkCommon
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
             neverlink,
+            enableAnnotationProcessing,
             javaSemantics,
             thread);
   }
@@ -223,6 +219,11 @@ public class JavaStarlarkCommon
   }
 
   @Override
+  public ProviderApi getJavaPluginProvider() {
+    return JavaPluginInfo.PROVIDER;
+  }
+
+  @Override
   public Provider getJavaToolchainProvider() {
     return JavaToolchainProvider.PROVIDER;
   }
@@ -230,16 +231,6 @@ public class JavaStarlarkCommon
   @Override
   public Provider getJavaRuntimeProvider() {
     return JavaRuntimeInfo.PROVIDER;
-  }
-
-  @Override
-  public boolean isJavaToolchainResolutionEnabled(StarlarkRuleContext ruleContext)
-      throws EvalException {
-    return ruleContext
-        .getConfiguration()
-        .getOptions()
-        .get(PlatformOptions.class)
-        .useToolchainResolutionForJavaRules;
   }
 
   @Override
@@ -261,13 +252,6 @@ public class JavaStarlarkCommon
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
     return StarlarkList.empty();
-  }
-
-  @Override
-  public JavaInfo removeAnnotationProcessors(JavaInfo javaInfo) {
-    // No implementation in Bazel. This method not callable in Starlark except through
-    // (discouraged) use of --experimental_google_legacy_api.
-    return null;
   }
 
   @Override

@@ -11,7 +11,7 @@ buffer definition. However, it might be helpful to build up some intuition
 before looking at the specification.
 
 Consider a simple Bazel workspace that consists of two empty shell scripts
-`foo.sh` and `foo_test.sh` and the following BUILD file:
+`foo.sh` and `foo_test.sh` and the following `BUILD` file:
 
 ```bash
 sh_library(

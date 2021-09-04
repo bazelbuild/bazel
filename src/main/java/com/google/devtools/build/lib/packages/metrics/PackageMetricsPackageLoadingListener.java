@@ -24,7 +24,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class PackageMetricsPackageLoadingListener implements PackageLoadingListener {
 
   @GuardedBy("this")
-  private PackageMetricsRecorder recorder = null;
+  private PackageMetricsRecorder recorder;
 
   @GuardedBy("PackageMetricsPackageLoadingListener.class")
   private static PackageMetricsPackageLoadingListener instance = null;

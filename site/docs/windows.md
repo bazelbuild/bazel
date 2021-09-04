@@ -32,8 +32,11 @@ fsutil 8dot3name set 0
 
 ### Enable symlink support
 
-Some features require Bazel to create file symlink on Windows, you can allow Bazel to do that by enabling [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development) on Windows (Only works for Windows 10, version 1703 or newer).
-After enabling the Developer Mode, you should be able to use the following features:
+Some features require Bazel to be able to create file symlinks on Windows,
+either by enabling
+[Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development)
+(on Windows 10 version 1703 or newer), or by running Bazel as an administrator.
+This enables the following features:
 
 * [\-\-windows_enable_symlinks](command-line-reference.html#flag--windows_enable_symlinks)
 * [\-\-enable_runfiles](command-line-reference.html#flag--enable_runfiles)
@@ -69,7 +72,8 @@ details.
 ### Using Bazel without Bash (MSYS2)
 
 <a name="bazel-build-without-bash"></a>
-#### `bazel build` without Bash
+
+#### Using bazel build without Bash
 
 Bazel versions before 1.0 used to require Bash to build some rules.
 
@@ -88,7 +92,7 @@ in the
 When built on Windows, **these rules do not require Bash**.
 
 <a name="bazel-test-without-bash"></a>
-#### `bazel test` without Bash
+#### Using bazel test without Bash
 
 Bazel versions before 1.0 used to require Bash to `bazel test` anything.
 
@@ -98,7 +102,7 @@ Starting with Bazel 1.0, you can test any rule without Bash, except when:
 - the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="bazel-run-without-bash"></a>
-#### `bazel run` without Bash
+#### Using bazel run without Bash
 
 Bazel versions before 1.0 used to require Bash to `bazel run` anything.
 
@@ -108,7 +112,7 @@ Starting with Bazel 1.0, you can run any rule without Bash, except when:
 - the test rule itself requires Bash (because its executable is a shell script)
 
 <a name="sh-rules-without-bash"></a>
-#### `sh_binary` and `sh_*` rules, and `ctx.actions.run_shell()` without Bash
+#### Using sh_binary and sh_* rules, and ctx.actions.run_shell() without Bash
 
 You need Bash to build and test `sh_*` rules, and to build and test Starlark
 rules that use `ctx.actions.run_shell()` and `ctx.resolve_command()`. This
@@ -210,6 +214,10 @@ C:\projects\bazel> bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll).
 
+**Command Line Length Limit**: To prevent the
+[Windows command line length limit issue](https://github.com/bazelbuild/bazel/issues/5163),
+enable compiler parameter file feature via `--features=compiler_param_file`.
+
 ### Build C++ with Clang
 
 From 0.29.0, Bazel supports building with LLVM's MSVC-compatible compiler driver (`clang-cl.exe`).
@@ -236,7 +244,7 @@ To enable the Clang toolchain for building C++, there are several situations.
   You can enable the Clang toolchain by a build flag `--compiler=clang-cl`.
 
 * With `--incompatible_enable_cc_toolchain_resolution`:
-  You have to add a platform target to your BUILD file (eg. the top level BUILD file):
+  You have to add a platform target to your `BUILD file` (eg. the top level `BUILD` file):
     ```
     platform(
         name = "x64_windows-clang-cl",
@@ -254,7 +262,7 @@ To enable the Clang toolchain for building C++, there are several situations.
     --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
     ```
 
-    * Register the platform and toolchain in your WORKSPACE file:
+    * Register the platform and toolchain in your `WORKSPACE` file:
 
     ```
     register_execution_platforms(

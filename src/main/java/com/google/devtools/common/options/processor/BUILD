@@ -4,20 +4,21 @@ load("@rules_java//java:defs.bzl", "java_plugin")
 #   A preprocessor for the annotations used in the options parser.
 package(default_visibility = ["//src:__subpackages__"])
 
-licenses(["notice"])  # Apache 2.0
-
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-    ),
-    visibility = ["//src/main/java/com/google/devtools/common/options:__pkg__"],
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_plugin(
     name = "options_preprocessor",
-    srcs = glob(["*.java"]),
     processor_class = "com.google.devtools.common.options.processor.OptionProcessor",
+    deps = [":options_preprocessor_lib"],
+)
+
+java_library(
+    name = "options_preprocessor_lib",
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options:options_internal",
         "//third_party:guava",

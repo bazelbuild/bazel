@@ -18,14 +18,6 @@ filegroup(
     visibility = ["//tools:__pkg__"],
 )
 
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//tools/python/runfiles:all_windows_tests",
-    ],
-    visibility = ["//tools:__pkg__"],
-)
-
 expand_pyversion_template(
     name = "_generate_wrappers",
     out2 = ":py2wrapper.sh",

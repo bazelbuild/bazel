@@ -72,9 +72,9 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     ArrayList<File> fileProtos = new ArrayList<>();
     ReportedArtifacts reportedArtifacts = event.reportedArtifacts();
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
-      artifactSet.forEachElement(
-          o -> true,
-          a -> fileProtos.add(newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT).build()));
+      for (Artifact a : artifactSet.toListInterruptibly()) {
+        fileProtos.add(newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT).build());
+      }
     }
     // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
     String utf8FileName = new String(filenameBytes, UTF_8);

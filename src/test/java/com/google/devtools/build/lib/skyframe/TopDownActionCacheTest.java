@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -173,8 +173,7 @@ public final class TopDownActionCacheTest extends TimestampBuilderTestCase {
   }
 
   private static class InMemoryTopDownActionCache implements TopDownActionCache {
-    private final Cache<ActionSketch, ActionExecutionValue> cache =
-        CacheBuilder.newBuilder().build();
+    private final Cache<ActionSketch, ActionExecutionValue> cache = Caffeine.newBuilder().build();
 
     @Nullable
     @Override

@@ -17,11 +17,11 @@ package com.google.devtools.build.lib.remote.common;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import java.io.IOException;
 import java.io.OutputStream;
 
 /**
@@ -64,6 +64,32 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   }
 
   /**
+   * Class to keep track of which cache (disk or remote) a given [cached] ActionResult comes from.
+   */
+  @AutoValue
+  abstract class CachedActionResult {
+    public static CachedActionResult remote(ActionResult actionResult) {
+      if (actionResult == null) {
+        return null;
+      }
+      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "remote");
+    }
+
+    public static CachedActionResult disk(ActionResult actionResult) {
+      if (actionResult == null) {
+        return null;
+      }
+      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "disk");
+    }
+
+    /** A actionResult can have a cache name ascribed to it. */
+    public abstract ActionResult actionResult();
+
+    /** Indicates which cache the {@link #actionResult} came from (disk/remote) */
+    public abstract String cacheName();
+  }
+
+  /**
    * Downloads an action result for the {@code actionKey}.
    *
    * @param context the context for the action.
@@ -73,7 +99,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @return A Future representing pending download of an action result. If an action result for
    *     {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
-  ListenableFuture<ActionResult> downloadActionResult(
+  ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr);
 
   /**
@@ -82,12 +108,10 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    * @param context the context for the action.
    * @param actionKey The digest of the {@link Action} that generated the action result.
    * @param actionResult The action result to associate with the {@code actionKey}.
-   * @throws IOException If there is an error uploading the action result.
-   * @throws InterruptedException In case the thread
+   * @return A Future representing pending completion of the upload.
    */
-  void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException;
+  ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult);
 
   /**
    * Downloads a BLOB for the given {@code digest} and writes it to {@code out}.

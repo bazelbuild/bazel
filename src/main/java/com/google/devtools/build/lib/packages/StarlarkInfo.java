@@ -264,7 +264,7 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
   @Override
   public boolean isImmutable() {
     // If the provider is not yet exported, the hash code of the object is subject to change.
-    if (!getProvider().isExported()) {
+    if (!provider.isExported()) {
       return false;
     }
     for (int i = table.length / 2; i < table.length; i++) {
@@ -350,8 +350,8 @@ public final class StarlarkInfo extends StructImpl implements HasBinary {
   }
 
   private static StarlarkInfo plus(StarlarkInfo x, StarlarkInfo y) throws EvalException {
-    Provider xprov = x.getProvider();
-    Provider yprov = y.getProvider();
+    Provider xprov = x.provider;
+    Provider yprov = y.provider;
     if (!xprov.equals(yprov)) {
       throw Starlark.errorf(
           "Cannot use '+' operator on instances of different providers (%s and %s)",

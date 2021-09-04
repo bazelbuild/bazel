@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -106,6 +109,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             Iterables.transform(
                 ccCompilationContext.getIncludeDirs(), PathFragment::getSafePathString))
         .containsExactly(execPath + "java/com/google/dummy/test/_j2objc/test");
+  }
+
+  @Test
+  public void testJ2ObjCAspectDisablesParseHeaders() throws Exception {
+    MockObjcSupport.setupCcToolchainConfig(
+        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
+
+    ConfiguredTarget j2objcAspectTarget =
+        getJ2ObjCAspectConfiguredTarget("//java/com/google/dummy/test:test");
+    CcCompilationContext ccCompilationContext =
+        j2objcAspectTarget.getProvider(J2ObjcCcInfo.class).getCcInfo().getCcCompilationContext();
+
+    assertThat(baseArtifactNames(ccCompilationContext.getHeaderTokens().toList()))
+        .doesNotContain("test.h.processed");
   }
 
   @Test
@@ -790,7 +808,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             NestedSetExpander.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS);
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
     moduleMapAction.newDeterministicWriter(dummyActionExecutionContext)
@@ -849,7 +868,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             NestedSetExpander.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS);
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
 
     ByteArrayOutputStream moduleMapStream = new ByteArrayOutputStream();
     ByteArrayOutputStream umbrellaHeaderStream = new ByteArrayOutputStream();
@@ -1013,7 +1033,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     scratch.file("tools/j2objc/proto_plugin_binary");
     scratch.file("tools/j2objc/alt_proto_runtime.h");
     scratch.file("tools/j2objc/alt_proto_runtime.m");
-    scratch.file("tools/j2objc/some_blacklisted_proto.proto");
+    scratch.file("tools/j2objc/proto_to_exclude.proto");
 
     scratch.overwriteFile(
         "tools/j2objc/BUILD",
@@ -1026,8 +1046,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    srcs = ['j2objc_wrapper.py'],",
         ")",
         "proto_library(",
-        "    name = 'blacklisted_protos',",
-        "    srcs = ['some_blacklisted_proto.proto'],",
+        "    name = 'excluded_protos',",
+        "    srcs = ['proto_to_exclude.proto'],",
         ")",
         "filegroup(",
         "    name = 'j2objc_header_map',",
@@ -1038,11 +1058,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    command_line = '--PLUGIN_j2objc_out=file_dir_mapping,generate_class_mappings:$(OUT)',",
         "    plugin = ':alt_proto_plugin',",
         "    runtime = ':alt_proto_runtime',",
-        "    blacklisted_protos = [':blacklisted_protos'],",
+        "    blacklisted_protos = [':excluded_protos'],",
         ")",
         "proto_library(",
-        "   name = 'blacklisted_proto_library',",
-        "   srcs = ['some_blacklisted_proto.proto'],",
+        "   name = 'excluded_proto_library',",
+        "   srcs = ['proto_to_exclude.proto'],",
         ")",
         "objc_library(",
         "    name = 'alt_proto_runtime',",
@@ -1063,7 +1083,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "proto_library(",
         "    name = 'test_proto',",
         "    srcs = ['test.proto'],",
-        "    deps = ['//tools/j2objc:blacklisted_proto_library'],",
+        "    deps = ['//tools/j2objc:excluded_proto_library'],",
         ")",
         "java_proto_library(",
         "    name = 'test_java_proto',",

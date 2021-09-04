@@ -145,7 +145,7 @@ public class ObjcProviderTest {
 
     for (ObjcProvider.Key<?> key : getAllKeys()) {
       assertWithMessage(
-              "Key %s must either be exposed to Starlark or explicitly blacklisted",
+              "Key %s must either be exposed to Starlark or explicitly disallowed",
               key.getStarlarkKeyName())
           .that(allRegisteredKeys)
           .contains(key);

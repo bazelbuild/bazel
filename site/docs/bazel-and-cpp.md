@@ -29,7 +29,7 @@ best practices specific to C++ projects.
 
 Follow the guidelines below when creating your BUILD files:
 
-*  Each BUILD file should contain one [`cc_library`](be/c-cpp.html#cc_library)
+*  Each `BUILD` file should contain one [`cc_library`](be/c-cpp.html#cc_library)
    rule target per compilation unit in the directory.
 
 *  You should granularize your C++ libraries as much as

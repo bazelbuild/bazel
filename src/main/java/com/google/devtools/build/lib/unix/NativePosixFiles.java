@@ -27,29 +27,28 @@ import java.util.logging.LogManager;
  * by the java.io package where appropriate--see package javadoc for details.
  */
 public final class NativePosixFiles {
-
   private NativePosixFiles() {}
 
   static {
     if (!java.nio.charset.Charset.defaultCharset().name().equals("ISO-8859-1")) {
       // Defer the Logger call, so we don't deadlock if this is called from Logger
       // initialization code.
-      new Thread() {
-        @Override
-        public void run() {
-          // wait (if necessary) until the logging system is initialized
-          synchronized (LogManager.getLogManager()) {
-          }
-          GoogleLogger.forEnclosingClass()
-              .atFine()
-              .log(
-                  "WARNING: Default character set is not latin1; java.io.File and "
-                      + "com.google.devtools.build.lib.unix.FilesystemUtils will represent some "
-                      + "filenames differently.");
-        }
-      }.start();
+      new Thread(
+              () -> {
+                // wait (if necessary) until the logging system is initialized
+                synchronized (LogManager.getLogManager()) {
+                }
+                @SuppressWarnings("FloggerRequiredModifiers")
+                GoogleLogger logger = GoogleLogger.forEnclosingClass();
+                logger.atFine().log(
+                    "WARNING: Default character set is not latin1; java.io.File and"
+                        + " com.google.devtools.build.lib.unix.FilesystemUtils will represent"
+                        + " some filenames differently.");
+              })
+          .start();
     }
     JniLoader.loadJni();
+    initJNIClasses();
   }
 
   /**
@@ -156,6 +155,15 @@ public final class NativePosixFiles {
    */
   public static native boolean mkdir(String path, int mode)
       throws IOException;
+
+  /**
+   * Makes sure a writable directory exists at a given path. Returns whether a new directory was
+   * created.
+   *
+   * <p>Unlike {@link #mkdir}, it fails if a file/symlink at a given path already exists. If a
+   * directory is already present, it will make sure it is writable and return false.
+   */
+  public static native boolean mkdirWritable(String path);
 
   /**
    * Implements (effectively) mkdir -p.
@@ -375,4 +383,6 @@ public final class NativePosixFiles {
    * reference alive.
    */
   public static native int close(int fd, Object ignored) throws IOException;
+
+  private static native void initJNIClasses();
 }

@@ -19,13 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.Test;
@@ -119,30 +117,31 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     Label binSrc = Label.parseAbsolute("//a:bin.sh", ImmutableMap.of());
 
     useConfiguration("--define", "mode=a");
-    addRelevantLabels(getMapper("//a:bin").visitLabels(), visitedLabels);
+    addRelevantLabels(getMapper("//a:bin"), visitedLabels);
     assertThat(visitedLabels)
         .containsExactly(binSrc, Label.parseAbsolute("//a:adep", ImmutableMap.of()));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=b");
-    addRelevantLabels(getMapper("//a:bin").visitLabels(), visitedLabels);
+    addRelevantLabels(getMapper("//a:bin"), visitedLabels);
     assertThat(visitedLabels)
         .containsExactly(binSrc, Label.parseAbsolute("//a:bdep", ImmutableMap.of()));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=c");
-    addRelevantLabels(getMapper("//a:bin").visitLabels(), visitedLabels);
+    addRelevantLabels(getMapper("//a:bin"), visitedLabels);
     assertThat(visitedLabels)
         .containsExactly(binSrc, Label.parseAbsolute("//a:defaultdep", ImmutableMap.of()));
   }
 
   private static void addRelevantLabels(
-      Collection<AttributeMap.DepEdge> depEdges, Collection<Label> visitedLabels) {
-    depEdges
-        .stream()
-        .map(AttributeMap.DepEdge::getLabel)
-        .filter((label) -> label.getPackageIdentifier().getPackageFragment().toString().equals("a"))
-        .forEach(visitedLabels::add);
+      ConfiguredAttributeMapper mapper, List<Label> visitedLabels) {
+    mapper.visitAllLabels(
+        (attribute, label) -> {
+          if (label.getPackageIdentifier().getPackageFragment().toString().equals("a")) {
+            visitedLabels.add(label);
+          }
+        });
   }
 
   /**

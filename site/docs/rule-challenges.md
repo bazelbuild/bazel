@@ -211,7 +211,7 @@ Bazel is heavily affected by both of these scenarios, so we introduced a set of
 custom collection classes that effectively compress the information in memory by
 avoiding the copy at each step. Almost all of these data structures have set
 semantics, so we called it
-[depset](https://docs.bazel.build/versions/master/skylark/lib/depset.html)
+[depset](https://docs.bazel.build/versions/main/skylark/lib/depset.html)
 (also known as `NestedSet` in the internal implementation). The majority of
 changes to reduce Bazel's memory consumption over the past several years were
 changes to use depsets instead of whatever was previously used.

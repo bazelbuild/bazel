@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,12 +35,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class StarlarkExecGroupTest extends BuildViewTestCase {
-
-  @Before
-  public final void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_exec_groups");
-  }
-
   /**
    * Sets up two toolchains types, each with a single toolchain implementation and a single
    * exec_compatible_with platform.

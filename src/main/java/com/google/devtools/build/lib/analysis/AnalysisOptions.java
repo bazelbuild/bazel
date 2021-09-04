@@ -64,6 +64,18 @@ public class AnalysisOptions extends OptionsBase {
   public int maxConfigChangesToShow;
 
   @Option(
+      name = "experimental_keep_config_nodes_on_analysis_discard",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "When discarding the analysis cache due to a change in the build options, whether to"
+              + " keep the 'BuildConfigurationValue' nodes in the Skyframe graph. Keeping them"
+              + " uses additional memory but allows the `config` command to operate on configs"
+              + " from previous builds.")
+  public boolean keepConfigNodes;
+
+  @Option(
       name = "experimental_extra_action_filter",
       defaultValue = "",
       converter = RegexFilter.RegexFilterConverter.class,
@@ -124,7 +136,7 @@ public class AnalysisOptions extends OptionsBase {
 
   @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
-      defaultValue = "0",
+      defaultValue = "HOST_CPUS",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {

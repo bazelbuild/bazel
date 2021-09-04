@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 /**
  * A container class for groups of {@link ExecGroup} instances. This correctly handles exec group
  * inheritance between rules and targets. See
- * https://docs.bazel.build/versions/master/exec-groups.html for further details.
+ * https://docs.bazel.build/versions/main/exec-groups.html for further details.
  */
 @AutoValue
 public abstract class ExecGroupCollection {

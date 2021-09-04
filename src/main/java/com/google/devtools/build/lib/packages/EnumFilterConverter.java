@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
@@ -44,7 +43,7 @@ class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
    * @param typeClass this should be E.class (Java generics can't infer that directly)
    * @param userFriendlyName a user-friendly description of this enum type
    */
-  public EnumFilterConverter(Class<E> typeClass, String userFriendlyName) {
+  EnumFilterConverter(Class<E> typeClass, String userFriendlyName) {
     this.typeClass = typeClass;
     this.prettyEnumName = userFriendlyName;
     for (E value : EnumSet.allOf(typeClass)) {

@@ -34,10 +34,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -53,7 +51,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Analysis caching tests. */
-@TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
@@ -118,6 +115,41 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "java/b/BUILD", "java_library(name = 'b',", "             srcs = ['C.java'])");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
+    assertThat(current).isNotSameInstanceAs(old);
+  }
+
+  @Test
+  public void testAspectHintsChanged() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _rule_impl(ctx):",
+        "    return []",
+        "my_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(),",
+        "        'srcs': attr.label_list(allow_files = True)",
+        "    },",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//foo:rule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', deps = [':bar'])",
+        "my_rule(name = 'bar', aspect_hints = ['//aspect_hint:hint'])");
+    scratch.file(
+        "aspect_hint/BUILD",
+        "load('//foo:rule.bzl', 'my_rule')",
+        "my_rule(name = 'hint', srcs = ['baz.h'])");
+
+    update("//foo:foo");
+    ConfiguredTarget old = getConfiguredTarget("//foo:foo");
+    scratch.overwriteFile(
+        "aspect_hint/BUILD",
+        "load('//foo:rule.bzl', 'my_rule')",
+        "my_rule(name = 'hint', srcs = ['qux.h'])");
+    update("//foo:foo");
+    ConfiguredTarget current = getConfiguredTarget("//foo:foo");
+
     assertThat(current).isNotSameInstanceAs(old);
   }
 
@@ -650,8 +682,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
           return !optionsThatCanChange.contains(changedOption);
         });
     builder.overrideTrimmingTransitionFactoryForTesting(
-        (rule) -> {
-          if (rule.getRuleClassObject().getName().equals("uses_irrelevant")) {
+        (ruleData) -> {
+          if (ruleData.rule().getRuleClassObject().getName().equals("uses_irrelevant")) {
             return NoTransition.INSTANCE;
           }
           return DiffResetOptions.CLEAR_IRRELEVANT;

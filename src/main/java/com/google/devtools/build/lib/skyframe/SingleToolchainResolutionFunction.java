@@ -79,11 +79,14 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       throw new ToolchainResolutionFunctionException(e);
     }
 
-    // Find the right one.
+    // Check if we are debugging the target or the toolchain type.
     boolean debug =
-        configuration
-            .getFragment(PlatformConfiguration.class)
-            .debugToolchainResolution(key.toolchainTypeLabel());
+        key.debugTarget()
+            || configuration
+                .getFragment(PlatformConfiguration.class)
+                .debugToolchainResolution(key.toolchainTypeLabel());
+
+    // Find the right one.
     return resolveConstraints(
         key.toolchainTypeLabel(),
         key.availableExecutionPlatformKeys(),

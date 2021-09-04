@@ -45,6 +45,11 @@ public class AppleDynamicLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testObjcLibraryLinkoptsArePropagatedToLinkAction() throws Exception {
+    checkObjcLibraryLinkoptsArePropagatedToLinkAction(RULE_TYPE);
+  }
+
+  @Test
   public void testUnknownPlatformType() throws Exception {
     checkError(
         "package",

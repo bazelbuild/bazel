@@ -110,7 +110,7 @@ public enum TestTimeout {
 
   private final int timeout;
 
-  private TestTimeout(int timeout) {
+  TestTimeout(int timeout) {
     this.timeout = timeout;
   }
 
@@ -202,7 +202,7 @@ public enum TestTimeout {
         // so we can't fully emulate String.split(String, 0).
         if (!token.isEmpty() || values.size() > 1) {
           try {
-            values.add(Duration.ofSeconds(Integer.valueOf(token)));
+            values.add(Duration.ofSeconds(Integer.parseInt(token)));
           } catch (NumberFormatException e) {
             throw new OptionsParsingException("'" + input + "' is not an int");
           }

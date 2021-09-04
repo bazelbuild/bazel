@@ -43,14 +43,12 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   public static JavaRuntimeInfo create(
       NestedSet<Artifact> javaBaseInputs,
-      NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
       PathFragment javaBinaryRunfilesPath) {
     return new JavaRuntimeInfo(
         javaBaseInputs,
-        javaBaseInputsMiddleman,
         javaHome,
         javaBinaryExecPath,
         javaHomeRunfilesPath,
@@ -99,7 +97,6 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   }
 
   private final NestedSet<Artifact> javaBaseInputs;
-  private final NestedSet<Artifact> javaBaseInputsMiddleman;
   private final PathFragment javaHome;
   private final PathFragment javaBinaryExecPath;
   private final PathFragment javaHomeRunfilesPath;
@@ -109,13 +106,11 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   @VisibleForSerialization
   JavaRuntimeInfo(
       NestedSet<Artifact> javaBaseInputs,
-      NestedSet<Artifact> javaBaseInputsMiddleman,
       PathFragment javaHome,
       PathFragment javaBinaryExecPath,
       PathFragment javaHomeRunfilesPath,
       PathFragment javaBinaryRunfilesPath) {
     this.javaBaseInputs = javaBaseInputs;
-    this.javaBaseInputsMiddleman = javaBaseInputsMiddleman;
     this.javaHome = javaHome;
     this.javaBinaryExecPath = javaBinaryExecPath;
     this.javaHomeRunfilesPath = javaHomeRunfilesPath;
@@ -125,11 +120,6 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   /** All input artifacts in the javabase. */
   public NestedSet<Artifact> javaBaseInputs() {
     return javaBaseInputs;
-  }
-
-  /** A middleman representing the javabase. */
-  public NestedSet<Artifact> javaBaseInputsMiddleman() {
-    return javaBaseInputsMiddleman;
   }
 
   /** The root directory of the Java installation. */

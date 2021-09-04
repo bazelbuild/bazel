@@ -101,14 +101,30 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
+  @Override
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    FileStatus stat = statNullable(path, /*followSymlinks=*/ false);
+    if (stat == null) {
+      return createDirectory(path);
+    }
+
+    if (!stat.isDirectory()) {
+      throw new IOException(path + " (Not a directory)");
+    }
+
+    chmod(path, 0777);
+    return false;
+  }
+
   /**
    * Returns either normal or profiled FileOutputStream. Should be used by subclasses to create
    * default OutputStream instance.
    */
-  protected OutputStream createFileOutputStream(PathFragment path, boolean append)
+  protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
     final String name = path.toString();
-    if (profiler.isActive()
+    if (!internal
+        && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
@@ -123,9 +139,10 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
+  protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
+      throws IOException {
     try {
-      return createFileOutputStream(path, append);
+      return createFileOutputStream(path, append, internal);
     } catch (FileNotFoundException e) {
       // Why does it throw a *FileNotFoundException* if it can't write?
       // That does not make any sense! And its in a completely different
@@ -135,6 +152,11 @@ public abstract class AbstractFileSystem extends FileSystem {
       }
       throw e;
     }
+  }
+
+  @Override
+  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
+    return getOutputStream(path, append, /* internal= */ false);
   }
 
   private static final class ProfiledInputStream extends FilterInputStream {

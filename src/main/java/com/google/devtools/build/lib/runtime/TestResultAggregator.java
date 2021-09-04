@@ -65,8 +65,7 @@ final class TestResultAggregator {
       boolean skippedThisTest) {
     this.policy = policy;
     this.summary =
-        TestSummary.newBuilder()
-            .setTarget(target)
+        TestSummary.newBuilder(target)
             .setConfiguration(configuration)
             .setStatus(BlazeTestStatus.NO_STATUS)
             .setSkipped(skippedThisTest);
@@ -135,7 +134,7 @@ final class TestResultAggregator {
     postSummary();
   }
 
-  private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
+  static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
     return status.getNumber() > other.getNumber() ? status : other;
   }
 
@@ -191,10 +190,12 @@ final class TestResultAggregator {
     Preconditions.checkNotNull(target, "The existing TestSummary must be associated with a target");
     TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
 
+    int shardNumber = result.getShardNum();
+    summary.addShardAttempts(shardNumber, result.getData().getTestTimesCount());
+
     if (!testParams.runsDetectsFlakes()) {
       status = aggregateStatus(status, result.getData().getStatus());
     } else {
-      int shardNumber = result.getShardNum();
       int runsPerTestForLabel = testParams.getRuns();
       List<BlazeTestStatus> singleShardStatuses =
           summary.addShardStatus(shardNumber, result.getData().getStatus());

@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -81,7 +81,7 @@ public class CustomCommandLineTest {
     assertThat(
             builder()
                 .addLazyString(
-                    new LazyString() {
+                    new OnDemandString() {
                       @Override
                       public String toString() {
                         return "foo";
@@ -112,7 +112,7 @@ public class CustomCommandLineTest {
             builder()
                 .addLazyString(
                     "--arg",
-                    new LazyString() {
+                    new OnDemandString() {
                       @Override
                       public String toString() {
                         return "foo";

@@ -196,6 +196,161 @@ EOF
   expect_log 'Helpful message'
 }
 
+test_remote_patch_on_top_of_local_patch() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+  # Generate the remote patch file
+  cat > remote.patch <<'EOF'
+--- a/foo.sh	2018-01-15 10:39:20.183909147 +0100
++++ b/foo.sh	2018-01-15 10:43:35.331566052 +0100
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo There are dragons...
+EOF
+  integrity="sha256-$(cat remote.patch | openssl dgst -sha256 -binary | openssl base64 -A)"
+
+  mkdir main
+  cd main
+
+  # Generate the local patch file
+  cat > local.patch <<'EOF'
+--- foo.sh.orig	2021-07-05 15:16:49.000000000 +0200
++++ foo.sh	2021-07-05 15:17:15.000000000 +0200
+@@ -1,3 +1,3 @@
+-#!/usr/bin/env sh
++#!/bin/sh
+
+ echo There are dragons...
+EOF
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["${EXTREPOURL}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  remote_patches = {"${EXTREPOURL}/remote.patch": "${integrity}"},
+  remote_patch_strip = 1,
+  patches = ["//:local.patch"],
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.sh"],
+  srcs = ["@ext//:foo.sh"],
+  cmd = "cp $< $@; chmod u+x $@",
+  executable = True,
+)
+EOF
+
+  bazel build :foo.sh
+  foopath=`bazel info bazel-bin`/foo.sh
+  grep -q 'There are' $foopath || fail "expected remote patch to be applied"
+  grep -q '/bin/sh' $foopath || fail "expected local patch to be applied"
+}
+
+test_remote_patch_integrity_incorrect() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+  # Generate the remote patch file
+  cat > remote.patch <<'EOF'
+--- a/foo.sh	2018-01-15 10:39:20.183909147 +0100
++++ b/foo.sh	2018-01-15 10:43:35.331566052 +0100
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo There are dragons...
+EOF
+
+  mkdir main
+  cd main
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["${EXTREPOURL}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  remote_patches = {"${EXTREPOURL}/remote.patch": "sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538LA="},
+  remote_patch_strip = 1,
+  patches = ["//:local.patch"],
+)
+EOF
+
+  bazel build @ext//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Error downloading \\[.*/remote.patch\\] to"
+  expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
+}
+
+test_remote_patches_with_same_base_name() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  mkdir a
+  # Generate a remote patch file
+  cat > a/remote.patch <<'EOF'
+--- a/foo.sh	2018-01-15 10:39:20.183909147 +0100
++++ b/foo.sh	2018-01-15 10:43:35.331566052 +0100
+@@ -1,3 +1,3 @@
+ #!/usr/bin/env sh
+
+-echo Here be dragons...
++echo There are dragons...
+EOF
+  integrity_a="sha256-$(cat a/remote.patch | openssl dgst -sha256 -binary | openssl base64 -A)"
+
+  mkdir b
+  # Generate another remote patch file with the same base name
+  cat > b/remote.patch <<'EOF'
+--- a/foo.sh	2021-07-05 15:16:49.000000000 +0200
++++ b/foo.sh	2021-07-05 15:17:15.000000000 +0200
+@@ -1,3 +1,3 @@
+-#!/usr/bin/env sh
++#!/bin/sh
+
+ echo There are dragons...
+EOF
+  integrity_b="sha256-$(cat b/remote.patch | openssl dgst -sha256 -binary | openssl base64 -A)"
+
+  mkdir main
+  cd main
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext-0.1.2",
+  urls=["${EXTREPOURL}/ext.zip"],
+  build_file_content="exports_files([\"foo.sh\"])",
+  remote_patches = {
+    "${EXTREPOURL}/a/remote.patch": "$integrity_a",
+    "${EXTREPOURL}/b/remote.patch": "$integrity_b",
+  },
+  remote_patch_strip = 1,
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  outs = ["foo.sh"],
+  srcs = ["@ext//:foo.sh"],
+  cmd = "cp $< $@; chmod u+x $@",
+  executable = True,
+)
+EOF
+
+  bazel build :foo.sh
+  foopath=`bazel info bazel-bin`/foo.sh
+  grep -q 'There are' $foopath || fail "expected a/remote.patch to be applied"
+  grep -q '/bin/sh' $foopath || fail "expected b/remote.patch to be applied"
+}
+
 test_patch_git() {
   EXTREPODIR=`pwd`
   if $is_windows; then

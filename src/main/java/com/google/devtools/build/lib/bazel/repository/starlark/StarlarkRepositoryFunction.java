@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
@@ -159,7 +160,8 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               rule.getPackage().getRepositoryMapping(),
               /*convertedLabelsInPackage=*/ new HashMap<>(),
               new SymbolGenerator<>(key),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =
@@ -169,11 +171,10 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               outputDirectory,
               ignoredPatterns,
               env,
-              clientEnvironment,
+              ImmutableMap.copyOf(clientEnvironment),
               downloadManager,
               timeoutScaling,
               processWrapper,
-              markerData,
               starlarkSemantics,
               repositoryRemoteExecutor);
 
@@ -221,6 +222,13 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
         env.getListener().handle(Event.debug(defInfo));
+      }
+
+      // Modify marker data to include the files used by the rule's implementation function.
+      for (Map.Entry<Label, String> entry :
+          starlarkRepositoryContext.getAccumulatedFileDigests().entrySet()) {
+        // A label does not contain spaces so it's safe to use as a key.
+        markerData.put("FILE:" + entry.getKey(), entry.getValue());
       }
 
       String ruleClass =

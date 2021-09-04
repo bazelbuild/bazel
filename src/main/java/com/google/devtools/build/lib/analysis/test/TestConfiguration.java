@@ -284,10 +284,7 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-            OptionMetadataTag.INCOMPATIBLE_CHANGE,
-            OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If true, exclusive tests will run with sandboxed strategy. Add 'local' tag to force "
                 + "an exclusive test run locally")

@@ -66,6 +66,11 @@ public class BaseRuleClasses {
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageDefaultTestOnly();
         }
+
+        @Override
+        public boolean resolvableWithRawAttributes() {
+          return true;
+        }
       };
 
   @AutoCodec @AutoCodec.VisibleForSerialization
@@ -74,6 +79,32 @@ public class BaseRuleClasses {
         @Override
         public Object getDefault(AttributeMap rule) {
           return rule.getPackageDefaultDeprecation();
+        }
+
+        @Override
+        public boolean resolvableWithRawAttributes() {
+          return true;
+        }
+      };
+
+  @AutoCodec
+  public static final Attribute.ComputedDefault TIMEOUT_DEFAULT =
+      new Attribute.ComputedDefault() {
+        @Override
+        public Object getDefault(AttributeMap rule) {
+          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+          if (size != null) {
+            String timeout = size.getDefaultTimeout().toString();
+            if (timeout != null) {
+              return timeout;
+            }
+          }
+          return "illegal";
+        }
+
+        @Override
+        public boolean resolvableWithRawAttributes() {
+          return true;
         }
       };
 
@@ -155,7 +186,7 @@ public class BaseRuleClasses {
   public static final class TestBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
+      builder
           .addExecGroup(TEST_RUNNER_EXEC_GROUP)
           .requiresConfigurationFragments(TestConfiguration.class)
           // TestConfiguration only needed to create TestAction and TestProvider
@@ -170,20 +201,7 @@ public class BaseRuleClasses {
               attr("timeout", STRING)
                   .taggable()
                   .nonconfigurable("policy decision: should be consistent across configurations")
-                  .value(
-                      new Attribute.ComputedDefault() {
-                        @Override
-                        public Object getDefault(AttributeMap rule) {
-                          TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                          if (size != null) {
-                            String timeout = size.getDefaultTimeout().toString();
-                            if (timeout != null) {
-                              return timeout;
-                            }
-                          }
-                          return "illegal";
-                        }
-                      }))
+                  .value(TIMEOUT_DEFAULT))
           .add(
               attr("flaky", BOOLEAN)
                   .value(false)
@@ -241,8 +259,15 @@ public class BaseRuleClasses {
                       coverageReportGeneratorAttribute(
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
           // The target itself and run_under both run on the same machine.
-          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck())
-          .build();
+          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck());
+
+      env.getNetworkAllowlistForTests()
+          .ifPresent(
+              label ->
+                  builder.add(
+                      Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
+
+      return builder.build();
     }
 
     @Override
@@ -351,13 +376,17 @@ public class BaseRuleClasses {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 // TODO(b/148601291): Require provider to be "LicenseInfo".
                 .dontCheckConstraints()
-                .nonconfigurable("applicable_licenses is not configurable"));
+                .nonconfigurable("applicable_licenses is not configurable"))
+        .add(
+            attr("aspect_hints", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .undocumented("experimental attribute"));
   }
 
   public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
       throws ConversionException {
     return builder.add(
-        attr(RuleClass.EXEC_PROPERTIES, STRING_DICT).defaultValue(ImmutableMap.of()));
+        attr(RuleClass.EXEC_PROPERTIES_ATTR, STRING_DICT).defaultValue(ImmutableMap.of()));
   }
 
   /**
@@ -384,9 +413,12 @@ public class BaseRuleClasses {
           // Any rule that has provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `RuleContextConstraintSemantics.incompatibleConfiguredTarget()`.
           .add(
-              attr(RuleClass.TARGET_RESTRICTED_TO_ATTR, LABEL_LIST)
+              attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                   // This should be configurable to allow for complex types of restrictions.
+                  .tool(
+                      "target_compatible_with exists for constraint checking, not to create an"
+                          + " actual dependency")
                   .allowedFileTypes(FileTypeSet.NO_FILE))
           .build();
     }
@@ -442,11 +474,14 @@ public class BaseRuleClasses {
               attr("data", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
                   .dontCheckConstraints())
-          .add(attr(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT).value(ImmutableMap.of()))
+          .add(attr(RuleClass.EXEC_PROPERTIES_ATTR, Type.STRING_DICT).value(ImmutableMap.of()))
           .add(
               attr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                   .allowedFileTypes()
                   .nonconfigurable("Used in toolchain resolution")
+                  .tool(
+                      "exec_compatible_with exists for constraint checking, not to create an"
+                          + " actual dependency")
                   .value(ImmutableList.of()))
           .build();
     }
@@ -483,6 +518,19 @@ public class BaseRuleClasses {
           .type(RuleClassType.ABSTRACT)
           .ancestors(MakeVariableExpandingRule.class)
           .build();
+    }
+  }
+
+  /**
+   * Factory used by rules' definitions that exist for the sole purpose of providing documentation.
+   * For most of these rules, the actual rule is implemented in Starlark but the documentation
+   * generation mechanism does not work yet for Starlark rules. TODO(bazel-team): Delete once
+   * documentation tools work for Starlark.
+   */
+  public static class EmptyRuleConfiguredTargetFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) {
+      return null;
     }
   }
 }

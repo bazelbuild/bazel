@@ -49,8 +49,8 @@ final class WorkerKey {
   private final HashCode workerFilesCombinedHash;
   /** Worker files with the corresponding hash code. */
   private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
-  /** Set it to true if this job is running speculatively and thus likely to be interrupted. */
-  private final boolean isSpeculative;
+  /** If true, the workers runs as a sandboxed worker. */
+  private final boolean sandboxed;
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean proxied;
   /** If true, the workers for this key are able to cancel work requests. */
@@ -70,7 +70,7 @@ final class WorkerKey {
       String mnemonic,
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, HashCode> workerFilesWithHashes,
-      boolean isSpeculative,
+      boolean sandboxed,
       boolean proxied,
       boolean cancellable,
       WorkerProtocolFormat protocolFormat) {
@@ -80,7 +80,7 @@ final class WorkerKey {
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
     this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
-    this.isSpeculative = isSpeculative;
+    this.sandboxed = sandboxed;
     this.proxied = proxied;
     this.cancellable = cancellable;
     this.protocolFormat = protocolFormat;
@@ -117,9 +117,9 @@ final class WorkerKey {
     return workerFilesWithHashes;
   }
 
-  /** Returns true if workers are run speculatively. */
-  public boolean isSpeculative() {
-    return isSpeculative;
+  /** Returns true if workers are sandboxed. */
+  public boolean isSandboxed() {
+    return sandboxed;
   }
 
   /** Getter function for variable proxied. */
@@ -128,7 +128,7 @@ final class WorkerKey {
   }
 
   public boolean isMultiplex() {
-    return getProxied() && !isSpeculative;
+    return getProxied();
   }
 
   public boolean isCancellable() {
@@ -151,7 +151,9 @@ final class WorkerKey {
 
   /** Returns a user-friendly name for this worker type. */
   public String getWorkerTypeName() {
-    return makeWorkerTypeName(proxied, isSpeculative);
+    // Current implementation does not support sandboxing with multiplex workers, so keys
+    // will only be proxied if they are not forced to be sandboxed due to dynamic execution.
+    return makeWorkerTypeName(proxied, false);
   }
 
   @Override
@@ -171,6 +173,12 @@ final class WorkerKey {
       return false;
     }
     if (!proxied == workerKey.proxied) {
+      return false;
+    }
+    if (!cancellable == workerKey.cancellable) {
+      return false;
+    }
+    if (!sandboxed == workerKey.sandboxed) {
       return false;
     }
     if (!env.equals(workerKey.env)) {
@@ -195,7 +203,8 @@ final class WorkerKey {
   private int calculateHashCode() {
     // Use the string representation of the protocolFormat because the hash of the same enum value
     // can vary across instances.
-    return Objects.hash(args, env, execRoot, mnemonic, proxied, protocolFormat.toString());
+    return Objects.hash(
+        args, env, execRoot, mnemonic, proxied, cancellable, sandboxed, protocolFormat.toString());
   }
 
   @Override

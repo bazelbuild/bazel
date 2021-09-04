@@ -149,7 +149,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         new DummyAction(
             NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
             output,
-            MiddlemanType.AGGREGATING_MIDDLEMAN);
+            MiddlemanType.RUNFILES_MIDDLEMAN);
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
@@ -158,8 +158,8 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             Artifact.keys(ImmutableSet.of(input2, input1, input2, tree)), SkyKey.class));
     SkyValue value = evaluateArtifactValue(output);
     ArrayList<Pair<Artifact, ?>> inputs = new ArrayList<>();
-    inputs.addAll(((AggregatingArtifactValue) value).getFileArtifacts());
-    inputs.addAll(((AggregatingArtifactValue) value).getTreeArtifacts());
+    inputs.addAll(((RunfilesArtifactValue) value).getFileArtifacts());
+    inputs.addAll(((RunfilesArtifactValue) value).getTreeArtifacts());
     assertThat(inputs)
         .containsExactly(
             Pair.of(input1, createForTesting(input1)),

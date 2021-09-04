@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import net.starlark.java.eval.EvalException;
@@ -22,12 +24,34 @@ import net.starlark.java.eval.EvalException;
 public interface StarlarkAspect extends StarlarkAspectApi {
 
   /**
-   * Attaches this aspect to an attribute.
+   * Attaches this aspect and its required aspects to the given aspects list.
    *
-   * @param attrBuilder the builder of the attribute to add this aspect to
-   * @throws EvalException if this aspect cannot be successfully applied to the given attribute
+   * <p>Also pass the list of required_providers of the base aspect to its required aspects to
+   * ensure that they will be propgataed to the same targets. But whether the required aspects will
+   * run on these targets or not depends on their required providers.
+   *
+   * <p>The list of attr_aspects of the base aspects is also passed to its required aspects to
+   * ensure that they will be propagated with it along the same attributes.
+   *
+   * @param baseAspectName is the name of the base aspect requiring this aspect, can be {@code null}
+   *     if the aspect is directly listed in the aspects list
+   * @param aspectsListBuilder is the list to add this aspect to
+   * @param inheritedRequiredProviders is the list of required providers inherited from the aspect
+   *     parent aspects
+   * @param inheritedAttributeAspects is the list of attribute aspects inherited from the aspect
+   *     parent aspects
+   * @param allowAspectsParameters if false an error will be reported if any aspect in the chain of
+   *     required aspects has parameters. This is needed for top-level aspects that do not allow
+   *     parameters at the moment.
+   * @throws EvalException if this aspect cannot be successfully added to the aspects list.
    */
-  void attachToAttribute(Attribute.Builder<?> attrBuilder) throws EvalException;
+  void attachToAspectsList(
+      String baseAspectName,
+      AspectsListBuilder aspectsListBuilder,
+      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
+      ImmutableList<String> inheritedAttributeAspects,
+      boolean allowAspectsParameters)
+      throws EvalException;
 
   /** Returns the aspect class for this aspect. */
   AspectClass getAspectClass();
@@ -37,4 +61,7 @@ public interface StarlarkAspect extends StarlarkAspectApi {
 
   /** Returns the name of this aspect. */
   String getName();
+
+  /** Returns a function to extract the aspect parameters values from its base rule. */
+  Function<Rule, AspectParameters> getDefaultParametersExtractor();
 }

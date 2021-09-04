@@ -92,7 +92,7 @@ final class JsonWorkerProtocol implements WorkerProtocolImpl {
             requestId = reader.nextInt();
             break;
           default:
-            // As per https://docs.bazel.build/versions/master/creating-workers.html#work-responses,
+            // As per https://docs.bazel.build/versions/main/creating-workers.html#work-responses,
             // unknown fields are ignored.
             reader.skipValue();
         }

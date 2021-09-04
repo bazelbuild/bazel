@@ -184,12 +184,17 @@ class HttpConnector {
                     || code == 505) {  // Server refuses to support version quoth RFC7231 § 6.6.6
           // This is a permanent error so we're not going to retry.
           readAllBytesAndClose(connection.getErrorStream());
+          if (code == 404 || code == 410) {
+            // For Not Found, we throw a separate unrecoverable exception so that callers can
+            // distinguish between the resource being not found and the server being unavailable.
+            throw new FileNotFoundException(describeHttpResponse(connection));
+          }
           throw new UnrecoverableHttpException(describeHttpResponse(connection));
         } else {
           // However we will retry on some 5xx errors, particularly 500 and 503.
           throw new IOException(describeHttpResponse(connection));
         }
-      } catch (UnrecoverableHttpException e) {
+      } catch (UnrecoverableHttpException | FileNotFoundException e) {
         throw e;
       } catch (IllegalArgumentException e) {
         throw new UnrecoverableHttpException(e.getMessage());

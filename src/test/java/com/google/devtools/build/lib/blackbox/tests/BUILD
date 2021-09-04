@@ -55,7 +55,10 @@ java_test(
     name = "NinjaBlackBoxTest",
     timeout = "moderate",
     srcs = ["NinjaBlackBoxTest.java"],
-    tags = ["black_box_test"],
+    tags = [
+        "black_box_test",
+        "no_windows",
+    ],
     deps = [
         ":common_deps",
     ],
@@ -71,12 +74,4 @@ test_suite(
         "//src/test/java/com/google/devtools/build/lib/blackbox/junit:TimeoutTestWatcherTest",
         "//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:ws_black_box_tests",
     ],
-)
-
-test_suite(
-    name = "blackbox_windows_tests",
-    tests = [
-        ":black_box_tests",
-    ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

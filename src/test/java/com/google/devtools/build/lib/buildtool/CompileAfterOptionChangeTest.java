@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import org.junit.Test;
@@ -28,7 +26,6 @@ import org.junit.runners.JUnit4;
  * Test of compilation of involving change command line arguments.
  *
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class CompileAfterOptionChangeTest extends GoogleBuildIntegrationTestCase {
 

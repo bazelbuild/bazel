@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.file;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -41,11 +42,16 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
+import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
@@ -53,6 +59,7 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
+import com.google.devtools.build.lib.testing.common.DirectoryListingHelper;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -264,8 +271,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public void report(ProgressStatus state, String name) {
-      reportedStatus.add(state);
+    public void report(ProgressStatus progress) {
+      reportedStatus.add(progress);
     }
 
     @Override
@@ -382,7 +389,8 @@ public class LocalSpawnRunnerTest {
 
     assertThat(policy.lockOutputFilesCalled).isTrue();
     assertThat(policy.reportedStatus)
-        .containsExactly(ProgressStatus.SCHEDULING, ProgressStatus.EXECUTING).inOrder();
+        .containsExactly(SpawnSchedulingEvent.create("local"), SpawnExecutingEvent.create("local"))
+        .inOrder();
   }
 
   @Test
@@ -435,6 +443,36 @@ public class LocalSpawnRunnerTest {
           .asList()
           .containsExactly("--foo", "--bar");
     }
+  }
+
+  @Test
+  public void exec_materializesVirtualInputAsExecutable() throws Exception {
+    FileSystem fs = setupEnvironmentForFakeExecution();
+    SubprocessFactory factory = mock(SubprocessFactory.class);
+    when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
+    SubprocessBuilder.setDefaultSubprocessFactory(factory);
+    Path execRoot = fs.getPath("/execroot");
+    LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    LocalSpawnRunner runner =
+        new TestedLocalSpawnRunner(
+            execRoot,
+            options,
+            resourceManager,
+            makeProcessWrapper(fs, options),
+            LocalSpawnRunnerTest::keepLocalEnvUnchanged);
+    VirtualActionInput virtualInput = ActionsTestUtil.createVirtualActionInput("input1", "hello");
+    Spawn spawn = new SpawnBuilder("/bin/true").withInput(virtualInput).build();
+    FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    SpawnExecutionContext spawnExecutionContext = new SpawnExecutionContextForTesting(fileOutErr);
+
+    SpawnResult result = runner.exec(spawn, spawnExecutionContext);
+
+    assertThat(result.status()).isEqualTo(Status.SUCCESS);
+    assertThat(DirectoryListingHelper.leafDirectoryEntries(execRoot))
+        .containsExactly(file("input1"));
+    Path inputPath = execRoot.getRelative(virtualInput.getExecPath());
+    assertThat(inputPath.isExecutable()).isTrue();
+    assertThat(FileSystemUtils.readLinesAsLatin1(inputPath)).containsExactly("hello");
   }
 
   @Test

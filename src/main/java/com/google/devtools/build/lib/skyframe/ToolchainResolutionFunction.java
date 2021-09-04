@@ -81,9 +81,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
       // Check if debug output should be generated.
       boolean debug =
-          configuration
-              .getFragment(PlatformConfiguration.class)
-              .debugToolchainResolution(key.requiredToolchainTypeLabels());
+          key.debugTarget()
+              || configuration
+                  .getFragment(PlatformConfiguration.class)
+                  .debugToolchainResolution(key.requiredToolchainTypeLabels());
 
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
@@ -115,7 +116,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
           resolvedToolchainTypeLabels,
           key.forceExecutionPlatform().map(platformKeys::find),
           builder,
-          platformKeys);
+          platformKeys,
+          key.debugTarget());
 
       UnloadedToolchainContext unloadedToolchainContext = builder.build();
       if (debug) {
@@ -354,7 +356,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
       ImmutableSet<Label> requiredToolchainTypeLabels,
       Optional<ConfiguredTargetKey> forcedExecutionPlatform,
       UnloadedToolchainContextImpl.Builder builder,
-      PlatformKeys platformKeys)
+      PlatformKeys platformKeys,
+      boolean debugTarget)
       throws InterruptedException, ValueMissingException, InvalidPlatformException,
           NoMatchingPlatformException, UnresolvedToolchainsException,
           InvalidToolchainLabelException {
@@ -367,7 +370,8 @@ public class ToolchainResolutionFunction implements SkyFunction {
               configurationKey,
               toolchainTypeLabel,
               platformKeys.targetPlatformKey(),
-              platformKeys.executionPlatformKeys()));
+              platformKeys.executionPlatformKeys(),
+              debugTarget));
     }
 
     Map<SkyKey, ValueOrException2<NoToolchainFoundException, InvalidToolchainLabelException>>

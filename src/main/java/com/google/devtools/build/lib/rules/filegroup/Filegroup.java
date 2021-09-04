@@ -17,12 +17,9 @@ package com.google.devtools.build.lib.rules.filegroup;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.CompilationHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -48,7 +45,7 @@ import java.util.List;
  */
 public class Filegroup implements RuleConfiguredTargetFactory {
 
-  /** Error message for output groups that are explicitly blacklisted for filegroup reference. */
+  /** Error message for output groups that are explicitly forbidden from filegroup reference. */
   public static final String ILLEGAL_OUTPUT_GROUP_ERROR =
       "Output group %s is not permitted for " + "reference in filegroups.";
 
@@ -110,13 +107,6 @@ public class Filegroup implements RuleConfiguredTargetFactory {
                 FilegroupPathProvider.class,
                 new FilegroupPathProvider(getFilegroupPath(ruleContext)));
 
-    if (configuration.enableAggregatingMiddleman()) {
-      builder.addProvider(
-          MiddlemanProvider.class,
-          new MiddlemanProvider(
-              CompilationHelper.getAggregatingMiddleman(
-                  ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild)));
-    }
     return builder.build();
   }
 

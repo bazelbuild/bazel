@@ -290,9 +290,8 @@ public final class TargetUtils {
                     String.class,
                     "execution_requirements"));
 
-    Map<String, String> executionInfoBuilder = new HashMap<>();
     // adding filtered execution requirements to the execution info map
-    executionInfoBuilder.putAll(checkedExecutionRequirements);
+    Map<String, String> executionInfoBuilder = new HashMap<>(checkedExecutionRequirements);
 
     if (allowTagsPropagation) {
       Map<String, String> checkedTags = getExecutionInfo(rule);
@@ -307,7 +306,7 @@ public final class TargetUtils {
    * Returns the execution info. These include execution requirement tags ('block-*', 'requires-*',
    * 'no-*', 'supports-*', 'disable-*', 'local', and 'cpu:*') as keys with empty values.
    */
-  public static Map<String, String> filter(Map<String, String> executionInfo) {
+  private static Map<String, String> filter(Map<String, String> executionInfo) {
     return Maps.filterKeys(executionInfo, TargetUtils::legalExecInfoKeys);
   }
 
@@ -338,13 +337,23 @@ public final class TargetUtils {
       return true;
     }
 
-    for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-      if (rule.isAttributeValueExplicitlySpecified(depEdge.getAttribute())
-          && label.equals(depEdge.getLabel())) {
-        return true;
-      }
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    try {
+      mapper.visitLabels(
+          DependencyFilter.NO_IMPLICIT_DEPS,
+          (attribute, depLabel) -> {
+            if (label.equals(depLabel)) {
+              throw StopIteration.INSTANCE;
+            }
+          });
+    } catch (StopIteration e) {
+      return true;
     }
     return false;
+  }
+
+  private static final class StopIteration extends RuntimeException {
+    private static final StopIteration INSTANCE = new StopIteration();
   }
 
   /**

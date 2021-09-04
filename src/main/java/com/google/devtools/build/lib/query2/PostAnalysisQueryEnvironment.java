@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -65,6 +66,7 @@ import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtractor;
+import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCallback;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -136,7 +138,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           OutputStream outputStream,
           SkyframeExecutor skyframeExecutor,
           BuildConfiguration hostConfiguration,
-          @Nullable TransitionFactory<Rule> trimmingTransitionFactory,
+          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
           PackageManager packageManager)
           throws QueryException, InterruptedException;
 
@@ -165,7 +167,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
             graphBackedRecursivePackageProvider,
             eventHandler,
             FilteringPolicies.NO_FILTER,
-            MultisetSemaphore.unbounded());
+            MultisetSemaphore.unbounded(),
+            SimplePackageIdentifierBatchingCallback::new);
     checkSettings(settings);
   }
 

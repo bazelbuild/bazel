@@ -50,7 +50,7 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
 
   private final boolean result;
 
-  public ConstantRuleVisibility(boolean result) {
+  private ConstantRuleVisibility(boolean result) {
     this.result = result;
   }
 
@@ -91,7 +91,7 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
     return null;
   }
 
-  public static ConstantRuleVisibility tryParse(Label label) {
+  private static ConstantRuleVisibility tryParse(Label label) {
     if (PUBLIC_LABEL.equals(label)) {
       return PUBLIC;
     } else if (PRIVATE_LABEL.equals(label)) {

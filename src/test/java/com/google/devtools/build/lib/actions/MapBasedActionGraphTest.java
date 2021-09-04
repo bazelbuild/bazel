@@ -36,11 +36,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link MapBasedActionGraph}.
- */
+/** Tests for {@link MapBasedActionGraph}. */
 @RunWith(JUnit4.class)
-public class MapBasedActionGraphTest {
+public final class MapBasedActionGraphTest {
+
   private final FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
@@ -60,7 +59,6 @@ public class MapBasedActionGraphTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.of(output));
     actionGraph.registerAction(action);
-    actionGraph.unregisterAction(action);
     path = root.getRelative("bar");
     output =
         ActionsTestUtil.createArtifact(
@@ -72,7 +70,6 @@ public class MapBasedActionGraphTest {
             ImmutableSet.of(output));
     actionGraph.registerAction(action);
     actionGraph.registerAction(action2);
-    actionGraph.unregisterAction(action);
   }
 
   @Test
@@ -98,7 +95,6 @@ public class MapBasedActionGraphTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.of(output));
     actionGraph.registerAction(otherAction);
-    actionGraph.unregisterAction(action);
   }
 
   private class ActionRegisterer extends AbstractQueueVisitor {
@@ -130,37 +126,18 @@ public class MapBasedActionGraphTest {
               ImmutableSet.of(output)));
     }
 
-    private void registerAction(final Action action) {
+    private void registerAction(Action action) {
       execute(
-          new Runnable() {
-            @Override
-            public void run() {
-              try {
-                graph.registerAction(action);
-              } catch (ActionConflictException e) {
-                throw new UncheckedActionConflictException(e);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupts not expected in this test");
-              }
-              doRandom();
+          () -> {
+            try {
+              graph.registerAction(action);
+            } catch (ActionConflictException e) {
+              throw new UncheckedActionConflictException(e);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              throw new IllegalStateException("Interrupts not expected in this test");
             }
-          });
-    }
-
-    private void unregisterAction(final Action action) {
-      execute(
-          new Runnable() {
-            @Override
-            public void run() {
-              try {
-                graph.unregisterAction(action);
-              } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupts not expected in this test");
-              }
-              doRandom();
-            }
+            doRandom();
           });
     }
 
@@ -168,7 +145,7 @@ public class MapBasedActionGraphTest {
       if (actionCount.incrementAndGet() > 10000) {
         return;
       }
-      Action action = null;
+      Action action;
       if (Math.random() < 0.5) {
         action = Iterables.getFirst(allActions, null);
       } else {
@@ -179,11 +156,7 @@ public class MapBasedActionGraphTest {
                 ImmutableSet.of(output));
         allActions.add(action);
       }
-      if (Math.random() < 0.5) {
-        registerAction(action);
-      } else {
-        unregisterAction(action);
-      }
+      registerAction(action);
     }
 
     private void work() throws InterruptedException {

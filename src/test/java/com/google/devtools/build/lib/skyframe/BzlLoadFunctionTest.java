@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -21,6 +22,8 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
@@ -29,6 +32,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -56,6 +60,9 @@ import org.junit.runners.JUnit4;
 /** Tests for BzlLoadFunction. */
 @RunWith(JUnit4.class)
 public class BzlLoadFunctionTest extends BuildViewTestCase {
+  private Path moduleRoot;
+  private FakeRegistry registry;
+
   @Override
   protected FileSystem createFileSystem() {
     return new CustomInMemoryFs();
@@ -80,6 +87,29 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
+  }
+
+  @Override
+  protected boolean enableBzlmod() {
+    return true;
+  }
+
+  @Override
+  protected ImmutableList<Injected> extraPrecomputedValues() {
+    try {
+      moduleRoot = scratch.dir("modules");
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
+    return ImmutableList.of(
+        PrecomputedValue.injected(
+            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())));
+  }
+
+  @Before
+  public void setUpForBzlmod() throws Exception {
+    scratch.file("MODULE.bazel");
   }
 
   @Test
@@ -366,7 +396,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             "Unable to find package for @repository//dir:file.bzl: The repository '@repository' "
-                + "could not be resolved.");
+                + "could not be resolved: Repository '@repository' is not defined.");
   }
 
   @Test
@@ -405,6 +435,40 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     assertThat(result.get(skyKey).getModule().getGlobals())
         .containsEntry("a_symbol", StarlarkInt.of(5));
+  }
+
+  @Test
+  public void testLoadBzlFileFromBzlmod() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
+    registry
+        .addModule(
+            createModuleKey("foo", "1.0"),
+            "module(name='foo',version='1.0')",
+            "bazel_dep(name='bar',version='2.0',repo_name='bar_alias')")
+        .addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
+    Path fooDir = moduleRoot.getRelative("foo.1.0");
+    scratch.file(fooDir.getRelative("WORKSPACE").getPathString());
+    scratch.file(fooDir.getRelative("BUILD").getPathString());
+    scratch.file(
+        fooDir.getRelative("test.bzl").getPathString(),
+        "load('@bar_alias//:test.bzl', 'haha')",
+        "hoho = haha");
+    Path barDir = moduleRoot.getRelative("bar.2.0");
+    scratch.file(barDir.getRelative("WORKSPACE").getPathString());
+    scratch.file(barDir.getRelative("BUILD").getPathString());
+    scratch.file(barDir.getRelative("test.bzl").getPathString(), "haha = 5");
+
+    SkyKey skyKey = BzlLoadValue.keyForBzlmod(Label.parseAbsoluteUnchecked("@foo.1.0//:test.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(skyKey).getModule().getGlobals())
+        .containsEntry("hoho", StarlarkInt.of(5));
+    // Note that we're not testing the case of a non-registry override using @bazel_tools here, but
+    // that is incredibly hard to set up in a unit test. So we should just rely on integration tests
+    // for that.
   }
 
   @Test

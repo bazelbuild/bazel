@@ -158,26 +158,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "test-tar-empty_files",
-    build_tar = ":build_tar",
-    empty_files = [
-        "/a",
-        "/b",
-    ],
-    mode = "0o777",
-)
-
-pkg_tar(
-    name = "test-tar-empty_dirs",
-    build_tar = ":build_tar",
-    empty_dirs = [
-        "/tmp",
-        "/pmt",
-    ],
-    mode = "0o777",
-)
-
-pkg_tar(
     name = "test-tar-mtime",
     srcs = [
         ":etc/nsswitch.conf",
@@ -197,8 +177,6 @@ sh_test(
         "testenv.sh",
         ":test-tar-.tar",
         ":test-tar-bz2.tar.bz2",
-        ":test-tar-empty_dirs.tar",
-        ":test-tar-empty_files.tar",
         ":test-tar-files_dict.tar",
         ":test-tar-gz.tar.gz",
         ":test-tar-inclusion-.tar",
@@ -217,21 +195,6 @@ sh_test(
     deps = [
         "//src/test/shell:bashunit",
     ],
-)
-
-test_suite(
-    name = "windows_tests",
-    tags = [
-        "-no_windows",
-        "-slow",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [":windows_tests"],
-    visibility = ["//tools/build_defs:__pkg__"],
 )
 
 filegroup(

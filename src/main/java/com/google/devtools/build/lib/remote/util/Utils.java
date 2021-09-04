@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.Platform;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
@@ -33,10 +34,13 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -60,9 +64,9 @@ import com.google.rpc.Status;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -178,11 +182,18 @@ public final class Utils {
 
   /** Returns {@code true} if outputs contains one or more top level outputs. */
   public static boolean hasFilesToDownload(
-      Collection<? extends ActionInput> outputs, ImmutableSet<ActionInput> filesToDownload) {
+      Collection<? extends ActionInput> outputs, ImmutableSet<PathFragment> filesToDownload) {
     if (filesToDownload.isEmpty()) {
       return false;
     }
-    return !Collections.disjoint(outputs, filesToDownload);
+
+    for (ActionInput output : outputs) {
+      if (filesToDownload.contains(output.getExecPath())) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private static String statusName(int code) {
@@ -390,12 +401,7 @@ public final class Utils {
 
   public static void verifyBlobContents(Digest expected, Digest actual) throws IOException {
     if (!expected.equals(actual)) {
-      String msg =
-          String.format(
-              "Output download failed: Expected digest '%s/%d' does not match "
-                  + "received digest '%s/%d'.",
-              expected.getHash(), expected.getSizeBytes(), actual.getHash(), actual.getSizeBytes());
-      throw new IOException(msg);
+      throw new OutputDigestMismatchException(expected, actual);
     }
   }
 
@@ -505,6 +511,88 @@ public final class Utils {
       Throwables.throwIfInstanceOf(e, InterruptedException.class);
       Throwables.throwIfUnchecked(e);
       throw new AssertionError(e);
+    }
+  }
+
+  private static final ImmutableList<String> UNITS = ImmutableList.of("KiB", "MiB", "GiB", "TiB");
+
+  /**
+   * Converts the number of bytes to a human readable string, e.g. 1024 -> 1 KiB.
+   *
+   * <p>Negative numbers are not allowed.
+   */
+  public static String bytesCountToDisplayString(long bytes) {
+    Preconditions.checkArgument(bytes >= 0);
+
+    if (bytes < 1024) {
+      return bytes + " B";
+    }
+
+    int unitIndex = 0;
+    long value = bytes;
+    while ((unitIndex + 1) < UNITS.size() && value >= (1 << 20)) {
+      value >>= 10;
+      unitIndex++;
+    }
+
+    // Format as single digit decimal number, but skipping the trailing .0.
+    DecimalFormat fmt = new DecimalFormat("0.#");
+    return String.format("%s %s", fmt.format(value / 1024.0), UNITS.get(unitIndex));
+  }
+
+  public static boolean shouldAcceptCachedResultFromRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+  }
+
+  public static boolean shouldAcceptCachedResultFromDiskCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      return remoteOptions.remoteAcceptCached && (spawn == null || Spawns.mayBeCached(spawn));
+    }
+  }
+
+  public static boolean shouldAcceptCachedResultFromCombinedCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      // --incompatible_remote_results_ignore_disk is set. Disk cache is treated as local cache.
+      // Actions which are tagged with `no-remote-cache` can still hit the disk cache.
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      // Disk cache is treated as a remote cache and disabled for `no-remote-cache`.
+      return remoteOptions.remoteAcceptCached
+          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+    }
+  }
+
+  public static boolean shouldUploadLocalResultsToRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    return remoteOptions.remoteUploadLocalResults
+        && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
+  }
+
+  public static boolean shouldUploadLocalResultsToDiskCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      return remoteOptions.remoteUploadLocalResults && (spawn == null || Spawns.mayBeCached(spawn));
+    }
+  }
+
+  public static boolean shouldUploadLocalResultsToCombinedDisk(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {
+      // If --incompatible_remote_results_ignore_disk is set, we treat the disk cache part as local
+      // cache. Actions
+      // which are tagged with `no-remote-cache` can still hit the disk cache.
+      return spawn == null || Spawns.mayBeCached(spawn);
+    } else {
+      // Otherwise, it's treated as a remote cache and disabled for `no-remote-cache`.
+      return remoteOptions.remoteUploadLocalResults
+          && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
     }
   }
 }

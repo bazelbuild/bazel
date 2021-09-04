@@ -12,7 +12,7 @@ push packages to a repository, publish documentation for end-users, or deploy
 an application with Kubernetes. But Bazel doesn't have a `publish` or
 `deploy` command – where do these actions fit in?
 
-## The versatility of `bazel run`
+## The bazel run command
 
 Bazel's focus on hermeticity, reproducibility, and incrementality means the
 `build` and `test` commands aren't helpful for the above tasks. These actions
@@ -24,7 +24,7 @@ side effects. Bazel users are accustomed to rules that create executables, and
 rule authors can follow a common set of patterns to extend this to
 "custom verbs".
 
-### In the wild: `rules_k8s`
+### In the wild: rules_k8s
 For example, consider [`rules_k8s`](https://github.com/bazelbuild/rules_k8s),
 the Kubernetes rules for Bazel. Suppose you have the following target:
 
@@ -46,7 +46,7 @@ scripts to perform those actions, and when executed with `bazel run
 staging.apply`, these behave like our own `bazel k8s-apply` or `bazel
 k8s-delete` commands.
 
-### Another example: `ts_api_guardian_test`
+### Another example: ts_api_guardian_test
 
 This pattern can also be seen in the Angular project. The
 [`ts_api_guardian_test` macro](https://github.com/angular/angular/blob/16ac611a8410e6bcef8ffc779f488ca4fa102155/tools/ts-api-guardian/index.bzl#L22)

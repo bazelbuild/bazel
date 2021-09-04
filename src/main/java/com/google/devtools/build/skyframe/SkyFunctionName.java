@@ -13,18 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import java.io.Serializable;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 /** An identifier for a {@code SkyFunction}. */
 public final class SkyFunctionName implements Serializable {
   private static final Cache<NameOnlyWrapper, SkyFunctionName> interner =
-      CacheBuilder.newBuilder().build();
+      Caffeine.newBuilder().build();
 
   /**
    * A well-known key type intended for testing only. The associated SkyKey should have a String
@@ -62,12 +61,7 @@ public final class SkyFunctionName implements Serializable {
   public static SkyFunctionName create(
       String name, ShareabilityOfValue shareabilityOfValue, FunctionHermeticity hermeticity) {
     SkyFunctionName result = new SkyFunctionName(name, shareabilityOfValue, hermeticity);
-    SkyFunctionName cached;
-    try {
-      cached = interner.get(new NameOnlyWrapper(result), () -> result);
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
+    SkyFunctionName cached = interner.get(new NameOnlyWrapper(result), unused -> result);
     Preconditions.checkState(
         result.equals(cached),
         "Tried to create SkyFunctionName objects with same name but different properties: %s %s",

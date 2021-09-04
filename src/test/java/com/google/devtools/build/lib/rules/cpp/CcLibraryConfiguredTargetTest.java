@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -1456,8 +1456,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTargetAndData target =
         scratchConfiguredTargetAndData("a", "b", "cc_library(name = 'b', srcs = ['libb.so'])");
 
-    if (target.getTarget().getAssociatedRule().getImplicitOutputsFunction()
-        != ImplicitOutputsFunction.NONE) {
+    if (!analysisMock.isThisBazel()) {
       assertThat(artifactsToStrings(getFilesToBuild(target.getConfiguredTarget())))
           .containsExactly("bin a/libb.a");
     } else {
@@ -1711,33 +1710,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImplicitOutputsWhitelistNotOnWhitelist() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.overwriteFile(
-        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
-        "package_group(",
-        "    name = 'allowed_cc_lib_implicit_outputs',",
-        "    packages = [])");
-
-    scratch.file(
-        "foo/BUILD",
-        "filegroup(",
-        "    name = 'denied',",
-        "    srcs = [':libdenied_cc_lib.a'],",
-        ")",
-        "cc_library(",
-        "    name = 'denied_cc_lib',",
-        "    srcs = ['denied_cc_lib.cc'],",
-        ")");
-    checkError(
-        "//foo:denied",
-        "Using implicit outputs from cc_library (//foo:denied_cc_lib) is "
-            + "forbidden. Use the rule cc_implicit_output as an alternative.");
-  }
-
-  @Test
   public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
     if (analysisMock.isThisBazel()) {
       return;
@@ -1933,5 +1905,120 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     getConfiguredTarget("//transition:main");
     assertNoEvents();
+  }
+
+  @Test
+  public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
+    useConfiguration("--experimental_cc_implementation_deps");
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['public_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'public_dep',",
+        "    srcs = ['public_dep.cc'],",
+        "    includes = ['public_dep'],",
+        "    hdrs = ['public_dep.h'],",
+        "    implementation_deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    includes = ['implementation_dep'],",
+        "    hdrs = ['implementation_dep.h'],",
+        ")");
+
+    CcCompilationContext libCompilationContext =
+        getCppCompileAction("//foo:lib").getCcCompilationContext();
+    assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
+        .contains("src foo/public_dep.h");
+    assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
+        .doesNotContain("src foo/implementation_dep.h");
+
+    assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
+        .contains("foo/public_dep");
+    assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
+        .doesNotContain("implementation_dep");
+
+    CcCompilationContext publicDepCompilationContext =
+        getCppCompileAction("//foo:public_dep").getCcCompilationContext();
+    assertThat(artifactsToStrings(publicDepCompilationContext.getDeclaredIncludeSrcs()))
+        .contains("src foo/implementation_dep.h");
+
+    assertThat(pathfragmentsToStrings(publicDepCompilationContext.getSystemIncludeDirs()))
+        .contains("foo/implementation_dep");
+  }
+
+  @Test
+  public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
+    useConfiguration("--experimental_cc_implementation_deps");
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['public_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'public_dep',",
+        "    srcs = ['public_dep.cc'],",
+        "    hdrs = ['public_dep.h'],",
+        "    implementation_deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:lib");
+    assertThat(
+            artifactsToStrings(
+                lib.get(CcInfo.PROVIDER)
+                    .getCcLinkingContext()
+                    .getStaticModeParamsForExecutableLibraries()))
+        .contains("bin foo/libpublic_dep.a");
+    assertThat(
+            artifactsToStrings(
+                lib.get(CcInfo.PROVIDER)
+                    .getCcLinkingContext()
+                    .getStaticModeParamsForExecutableLibraries()))
+        .contains("bin foo/libimplementation_dep.a");
+  }
+
+  @Test
+  public void testImplementationDepsFailsWithoutFlag() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    implementation_deps = ['implementation_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    srcs = ['implementation_dep.cc'],",
+        "    hdrs = ['implementation_dep.h'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//foo:lib");
+    assertContainsEvent("requires --experimental_cc_implementation_deps");
+  }
+
+  @Test
+  public void testCcLibraryProducesEmptyArchive() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+    scratch.file("foo/BUILD", "cc_library(name = 'foo')");
+    assertThat(
+            getConfiguredTarget("//foo:foo")
+                .getProvider(FileProvider.class)
+                .getFilesToBuild()
+                .toList())
+        .isNotEmpty();
   }
 }

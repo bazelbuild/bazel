@@ -15,14 +15,12 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -39,7 +37,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -676,37 +673,6 @@ public class CcToolchainTest extends BuildViewTestCase {
     useConfiguration("--incompatible_use_specific_tool_files");
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-    // Check that the mock toolchain tool file sets are an antichain, so that our subset assertions
-    // below are meaningful.
-    ImmutableList<Set<Artifact>> fileGroups =
-        ImmutableList.of(
-            toolchainProvider.getArFiles().toSet(),
-            toolchainProvider.getLinkerFiles().toSet(),
-            toolchainProvider.getCompilerFiles().toSet(),
-            toolchainProvider.getAsFiles().toSet(),
-            toolchainProvider.getAllFiles().toSet());
-    for (int i = 0; i < fileGroups.size(); i++) {
-      assertThat(fileGroups.get(i)).isNotEmpty();
-      for (int j = 0; j < fileGroups.size(); j++) {
-        if (i == j) {
-          continue;
-        }
-        Set<Artifact> one = fileGroups.get(i);
-        Set<Artifact> two = fileGroups.get(j);
-        assertWithMessage(String.format("%s should not contain %s", one, two))
-            .that(one.containsAll(two))
-            .isFalse();
-      }
-    }
-    assertThat(
-            Sets.difference(
-                toolchainProvider.getArFiles().toSet(), toolchainProvider.getLinkerFiles().toSet()))
-        .isNotEmpty();
-    assertThat(
-            Sets.difference(
-                toolchainProvider.getLinkerFiles().toSet(), toolchainProvider.getArFiles().toSet()))
-        .isNotEmpty();
-
     RuleConfiguredTarget libTarget = (RuleConfiguredTarget) getConfiguredTarget("//a:l");
     Artifact staticLib =
         getOutputGroup(libTarget, "archive").toList().stream()

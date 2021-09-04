@@ -1,15 +1,15 @@
-load("@rules_java//java:defs.bzl", "java_library")
-
 package(
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib/remote:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -29,6 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:rxjava3",
         "//third_party:truth",

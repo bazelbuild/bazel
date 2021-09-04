@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -1424,8 +1425,8 @@ public final class LoadingPhaseRunnerTest {
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.empty())));
+                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+              PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
@@ -1509,7 +1510,7 @@ public final class LoadingPhaseRunnerTest {
       FileSystemUtils.writeContentAsLatin1(buildFile, Joiner.on('\n').join(content));
     }
 
-    private void sync() throws InterruptedException {
+    private void sync() throws InterruptedException, AbruptExitException {
       clock.advanceMillis(1);
       ModifiedFileSet.Builder builder = ModifiedFileSet.builder();
       for (Path path : changes) {

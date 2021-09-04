@@ -32,8 +32,6 @@ import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCa
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -51,7 +49,6 @@ import org.junit.runners.JUnit4;
  * Tests the the action_listener/extra_action feature.
  * (--experimental_action_listener blaze option)
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();

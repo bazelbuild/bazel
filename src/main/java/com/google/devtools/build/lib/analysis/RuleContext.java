@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -36,7 +37,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
@@ -50,8 +50,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
@@ -179,9 +177,7 @@ public final class RuleContext extends TargetContext
       return src;
     }
 
-    /**
-     * Targets from FilesetEntry.files, or null if the user omitted it.
-     */
+    /** Targets from FilesetEntry.files, or null if the user omitted it. */
     @Nullable
     public ImmutableList<TransitiveInfoCollection> getFiles() {
       return files;
@@ -214,7 +210,7 @@ public final class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
   private final ConstraintSemantics<RuleContext> constraintSemantics;
-  private final ImmutableSet<String> requiredConfigFragments;
+  @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   /** Map of exec group names to ActionOwners. */
@@ -261,11 +257,10 @@ public final class RuleContext extends TargetContext
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection execGroupCollection,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ImmutableSet<String> requiredConfigFragments,
+      @Nullable RequiredConfigFragmentsProvider requiredConfigFragments,
       String toolsRepository,
       StarlarkSemantics starlarkSemantics,
-      Mutability mutability)
-      throws InvalidExecGroupException {
+      Mutability mutability) {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -275,11 +270,7 @@ public final class RuleContext extends TargetContext
     this.rule = builder.target.getAssociatedRule();
     this.aspects = builder.aspects;
     this.aspectDescriptors =
-        builder
-            .aspects
-            .stream()
-            .map(a -> a.getDescriptor())
-            .collect(ImmutableList.toImmutableList());
+        builder.aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.universalFragments = universalFragments;
     this.targetMap = targetMap;
@@ -309,7 +300,7 @@ public final class RuleContext extends TargetContext
     parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
     Set<String> packageEnabled = new HashSet<>();
     Set<String> packageDisabled = new HashSet<>();
-    parseFeatures(getRule().getPackage().getFeatures(), packageEnabled, packageDisabled);
+    parseFeatures(rule.getPackage().getFeatures(), packageEnabled, packageDisabled);
     Set<String> ruleEnabled = new HashSet<>();
     Set<String> ruleDisabled = new HashSet<>();
     if (attributes().has("features", Type.STRING_LIST)) {
@@ -327,14 +318,15 @@ public final class RuleContext extends TargetContext
     allEnabledFeatures.addAll(Sets.difference(ruleFeatures, globallyDisabled));
   }
 
-  private void parseFeatures(Iterable<String> features, Set<String> enabled, Set<String> disabled) {
+  private static void parseFeatures(
+      Iterable<String> features, Set<String> enabled, Set<String> disabled) {
     for (String feature : features) {
       if (feature.startsWith("-")) {
         disabled.add(feature.substring(1));
       } else if (feature.equals("no_layering_check")) {
         // TODO(bazel-team): Remove once we do not have BUILD files left that contain
         // 'no_layering_check'.
-        disabled.add(feature.substring(3));
+        disabled.add("layering_check");
       } else {
         enabled.add(feature);
       }
@@ -388,26 +380,27 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * If this target's configuration suppresses analysis failures, this returns a list
-   * of strings, where each string corresponds to a description of an error that occurred during
-   * processing this target.
+   * If this target's configuration suppresses analysis failures, this returns a list of strings,
+   * where each string corresponds to a description of an error that occurred during processing this
+   * target.
    *
    * @throws IllegalStateException if this target's configuration does not suppress analysis
    *     failures (if {@code getConfiguration().allowAnalysisFailures()} is false)
    */
   public List<String> getSuppressedErrorMessages() {
-    Preconditions.checkState(getConfiguration().allowAnalysisFailures(),
+    Preconditions.checkState(
+        getConfiguration().allowAnalysisFailures(),
         "Error messages can only be retrieved via RuleContext if allow_analysis_failures is true");
-    Preconditions.checkState(reporter instanceof SuppressingErrorReporter,
-        "Unexpected error reporter");
+    Preconditions.checkState(
+        reporter instanceof SuppressingErrorReporter, "Unexpected error reporter");
     return ((SuppressingErrorReporter) reporter).getErrorMessages();
   }
 
   /**
-   * If this <code>RuleContext</code> is for an aspect implementation, returns that aspect.
-   * (it is the last aspect in the list of aspects applied to a target; all other aspects
-   * are the ones main aspect sees as specified by its "required_aspect_providers")
-   * Otherwise returns <code>null</code>.
+   * If this <code>RuleContext</code> is for an aspect implementation, returns that aspect. (it is
+   * the last aspect in the list of aspects applied to a target; all other aspects are the ones main
+   * aspect sees as specified by its "required_aspect_providers") Otherwise returns <code>null
+   * </code>.
    */
   @Nullable
   public Aspect getMainAspect() {
@@ -421,30 +414,22 @@ public final class RuleContext extends TargetContext
     return ruleClassNameForLogging;
   }
 
-  /**
-   * Returns the workspace name for the rule.
-   */
+  /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
     return rule.getPackage().getWorkspaceName();
   }
 
-  /**
-   * The configuration conditions that trigger this rule's configurable attributes.
-   */
+  /** The configuration conditions that trigger this rule's configurable attributes. */
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }
 
-  /**
-   * Returns the host configuration for this rule.
-   */
+  /** Returns the host configuration for this rule. */
   public BuildConfiguration getHostConfiguration() {
     return hostConfiguration;
   }
 
-  /**
-   * All aspects applied to the rule.
-   */
+  /** All aspects applied to the rule. */
   public ImmutableList<AspectDescriptor> getAspectDescriptors() {
     return aspectDescriptors;
   }
@@ -487,9 +472,7 @@ public final class RuleContext extends TargetContext
     return targetMap.get(attributeName);
   }
 
-  /**
-   * Returns an immutable map from attribute name to list of fileset entries.
-   */
+  /** Returns an immutable map from attribute name to list of fileset entries. */
   public ListMultimap<String, ConfiguredFilesetEntry> getFilesetEntryMap() {
     return filesetEntryMap;
   }
@@ -513,20 +496,10 @@ public final class RuleContext extends TargetContext
             rule,
             aspectDescriptors,
             getConfiguration(),
-            getExecGroups().getExecProperties(execGroup),
+            execGroupCollection.getExecProperties(execGroup),
             getExecutionPlatform(execGroup));
     actionOwners.put(execGroup, actionOwner);
     return actionOwner;
-  }
-
-  /**
-   * We have to re-implement this method here because it is declared in the interface {@link
-   * ActionConstructionContext}. This class inherits from {@link TargetContext} which doesn't
-   * implement the {@link ActionConstructionContext} interface.
-   */
-  @Override
-  public ActionKeyContext getActionKeyContext() {
-    return super.getActionKeyContext();
   }
 
   /**
@@ -539,26 +512,27 @@ public final class RuleContext extends TargetContext
     return actionOwnerSymbolGenerator;
   }
 
-  /**
-   * Returns a configuration fragment for this this target.
-   */
+  /** Returns a configuration fragment for this this target. */
   @Nullable
   public <T extends Fragment> T getFragment(Class<T> fragment, ConfigurationTransition transition) {
     return getFragment(fragment, fragment.getSimpleName(), "", transition);
   }
 
   @Nullable
-  <T extends Fragment> T getFragment(
+  private <T extends Fragment> T getFragment(
       Class<T> fragment,
       String name,
       String additionalErrorMessage,
       ConfigurationTransition transition) {
     // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
     // Can we lock that down somehow?
-    Preconditions.checkArgument(isLegalFragment(fragment, transition),
-        "%s has to declare '%s' as a required fragment "
-        + "in %s configuration in order to access it.%s",
-        getRuleClassNameForLogging(), name, FragmentCollection.getConfigurationName(transition),
+    Preconditions.checkArgument(
+        isLegalFragment(fragment, transition),
+        "%s has to declare '%s' as a required fragment in %s configuration in order to access"
+            + " it.%s",
+        ruleClassNameForLogging,
+        name,
+        FragmentCollection.getConfigurationName(transition),
         additionalErrorMessage);
     return getConfiguration(transition).getFragment(fragment);
   }
@@ -647,8 +621,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Convenience function for subclasses to report non-attribute-specific
-   * errors in the current rule.
+   * Convenience function for subclasses to report non-attribute-specific errors in the current
+   * rule.
    */
   @Override
   public void ruleError(String message) {
@@ -656,8 +630,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Convenience function for subclasses to report non-attribute-specific
-   * warnings in the current rule.
+   * Convenience function for subclasses to report non-attribute-specific warnings in the current
+   * rule.
    */
   @Override
   public void ruleWarning(String message) {
@@ -665,11 +639,10 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Convenience function for subclasses to report attribute-specific errors in
-   * the current rule.
+   * Convenience function for subclasses to report attribute-specific errors in the current rule.
    *
-   * <p>If the name of the attribute starts with <code>$</code>
-   * it is replaced with a string <code>(an implicit dependency)</code>.
+   * <p>If the name of the attribute starts with <code>$</code> it is replaced with a string <code>
+   * (an implicit dependency)</code>.
    */
   @Override
   public void attributeError(String attrName, String message) {
@@ -679,8 +652,8 @@ public final class RuleContext extends TargetContext
   /**
    * Like attributeError, but does not mark the configured target as errored.
    *
-   * <p>If the name of the attribute starts with <code>$</code>
-   * it is replaced with a string <code>(an implicit dependency)</code>.
+   * <p>If the name of the attribute starts with <code>$</code> it is replaced with a string <code>
+   * (an implicit dependency)</code>.
    */
   @Override
   public void attributeWarning(String attrName, String message) {
@@ -688,25 +661,25 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns an artifact beneath the root of either the "bin" or "genfiles"
-   * tree, whose path is based on the name of this target and the current
-   * configuration.  The choice of which tree to use is based on the rule with
-   * which this target (which must be an OutputFile or a Rule) is associated.
+   * Returns an artifact beneath the root of either the "bin" or "genfiles" tree, whose path is
+   * based on the name of this target and the current configuration. The choice of which tree to use
+   * is based on the rule with which this target (which must be an OutputFile or a Rule) is
+   * associated.
    */
   public Artifact createOutputArtifact() {
     Target target = getTarget();
-    PathFragment rootRelativePath = getPackageDirectory()
-        .getRelative(PathFragment.create(target.getName()));
+    PathFragment rootRelativePath =
+        getPackageDirectory().getRelative(PathFragment.create(target.getName()));
 
     return internalCreateOutputArtifact(rootRelativePath, target, OutputFile.Kind.FILE);
   }
 
   /**
-   * Returns an artifact beneath the root of either the "bin" or "genfiles"
-   * tree, whose path is based on the name of this target and the current
-   * configuration, with a script suffix appropriate for the current host platform. ({@code .cmd}
-   * for Windows, otherwise {@code .sh}). The choice of which tree to use is based on the rule with
-   * which this target (which must be an OutputFile or a Rule) is associated.
+   * Returns an artifact beneath the root of either the "bin" or "genfiles" tree, whose path is
+   * based on the name of this target and the current configuration, with a script suffix
+   * appropriate for the current host platform. ({@code .cmd} for Windows, otherwise {@code .sh}).
+   * The choice of which tree to use is based on the rule with which this target (which must be an
+   * OutputFile or a Rule) is associated.
    */
   public Artifact createOutputArtifactScript() {
     Target target = getTarget();
@@ -715,8 +688,8 @@ public final class RuleContext extends TargetContext
 
     String fileExtension = isExecutedOnWindows ? ".cmd" : ".sh";
 
-    PathFragment rootRelativePath = getPackageDirectory()
-        .getRelative(PathFragment.create(target.getName() + fileExtension));
+    PathFragment rootRelativePath =
+        getPackageDirectory().getRelative(PathFragment.create(target.getName() + fileExtension));
 
     return internalCreateOutputArtifact(rootRelativePath, target, OutputFile.Kind.FILE);
   }
@@ -727,23 +700,24 @@ public final class RuleContext extends TargetContext
    * @see #createOutputArtifact()
    */
   public Artifact createOutputArtifact(OutputFile out) {
-    PathFragment packageRelativePath = getPackageDirectory()
-        .getRelative(PathFragment.create(out.getName()));
+    PathFragment packageRelativePath =
+        getPackageDirectory().getRelative(PathFragment.create(out.getName()));
     return internalCreateOutputArtifact(packageRelativePath, out, out.getKind());
   }
 
   /**
-   * Implementation for {@link #createOutputArtifact()} and
-   * {@link #createOutputArtifact(OutputFile)}. This is private so that
-   * {@link #createOutputArtifact(OutputFile)} can have a more specific
-   * signature.
+   * Implementation for {@link #createOutputArtifact()} and {@link
+   * #createOutputArtifact(OutputFile)}. This is private so that {@link
+   * #createOutputArtifact(OutputFile)} can have a more specific signature.
    */
-  private Artifact internalCreateOutputArtifact(PathFragment rootRelativePath,
-      Target target, OutputFile.Kind outputFileKind) {
+  private Artifact internalCreateOutputArtifact(
+      PathFragment rootRelativePath, Target target, OutputFile.Kind outputFileKind) {
     Preconditions.checkState(
         target.getLabel().getPackageIdentifier().equals(getLabel().getPackageIdentifier()),
         "Creating output artifact for target '%s' in different package than the rule '%s' "
-            + "being analyzed", target.getLabel(), getLabel());
+            + "being analyzed",
+        target.getLabel(),
+        getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
     switch (outputFileKind) {
@@ -763,7 +737,7 @@ public final class RuleContext extends TargetContext
    */
   @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
-    return rule.hasBinaryOutput()
+    return rule.outputsToBindir()
         ? getConfiguration().getBinDirectory(getLabel().getRepository())
         : getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
@@ -860,17 +834,23 @@ public final class RuleContext extends TargetContext
    */
   public Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPath) {
-    Preconditions.checkState(rootRelativePath.startsWith(getPackageDirectory()),
+    Preconditions.checkState(
+        rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
-        rootRelativePath, getPackageDirectory(), getLabel());
+        rootRelativePath,
+        getPackageDirectory(),
+        getLabel());
     return getAnalysisEnvironment().getDerivedArtifact(rootRelativePath, root, contentBasedPath);
   }
 
   @Override
   public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
-    Preconditions.checkState(rootRelativePath.startsWith(getPackageDirectory()),
+    Preconditions.checkState(
+        rootRelativePath.startsWith(getPackageDirectory()),
         "Output artifact '%s' not under package directory '%s' for target '%s'",
-        rootRelativePath, getPackageDirectory(), getLabel());
+        rootRelativePath,
+        getPackageDirectory(),
+        getLabel());
     return getAnalysisEnvironment().getTreeArtifact(rootRelativePath, root);
   }
 
@@ -916,8 +896,8 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the dependencies through a {@code LABEL_DICT_UNARY} attribute as a map from
-   * a string to a {@link TransitiveInfoCollection}.
+   * Returns the dependencies through a {@code LABEL_DICT_UNARY} attribute as a map from a string to
+   * a {@link TransitiveInfoCollection}.
    */
   public Map<String, TransitiveInfoCollection> getPrerequisiteMap(String attributeName) {
     Preconditions.checkState(attributes().has(attributeName, BuildType.LABEL_DICT_UNARY));
@@ -1001,10 +981,11 @@ public final class RuleContext extends TargetContext
   public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(String attributeName) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> elements = getPrerequisiteConfiguredTargets(attributeName);
-    if (elements.size() > 1) {
-      throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
-          + " produces more than one prerequisite");
-    }
+    Preconditions.checkState(
+        elements.size() <= 1,
+        "%s attribute %s produces more than one prerequisite",
+        ruleClassNameForLogging,
+        attributeName);
     return elements.isEmpty() ? null : elements.get(0);
   }
 
@@ -1018,8 +999,7 @@ public final class RuleContext extends TargetContext
           String attributeName, BuiltinProvider<C> provider) {
     checkAttributeIsDependency(attributeName);
     List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
-        ImmutableListMultimap.builder();
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result = ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite : ctatCollection) {
       C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
       if (prerequisiteProvider != null) {
@@ -1058,9 +1038,9 @@ public final class RuleContext extends TargetContext
     List<ConfiguredTargetAndData> prerequisiteConfiguredTargets;
     // android_binary, android_test, and android_binary_internal override deps to use a split
     // transition.
-    if ((getRule().getRuleClass().equals("android_binary")
-            || getRule().getRuleClass().equals("android_test")
-            || getRule().getRuleClass().equals("android_binary_internal"))
+    if ((rule.getRuleClass().equals("android_binary")
+            || rule.getRuleClass().equals("android_test")
+            || rule.getRuleClass().equals("android_binary_internal"))
         && attributeName.equals("deps")
         && attributes().getAttributeDefinition(attributeName).getTransitionFactory().isSplit()) {
       // TODO(b/168038145): Restore legacy behavior of returning the prerequisites from the first
@@ -1138,14 +1118,13 @@ public final class RuleContext extends TargetContext
   public FilesToRunProvider getExecutablePrerequisite(String attributeName) {
     Attribute ruleDefinition = attributes().getAttributeDefinition(attributeName);
 
-    if (ruleDefinition == null) {
-      throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
-          + " is not defined");
-    }
-    if (!ruleDefinition.isExecutable()) {
-      throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
-          + " is not configured to be executable");
-    }
+    Preconditions.checkNotNull(
+        ruleDefinition, "%s attribute %s is not defined", ruleClassNameForLogging, attributeName);
+    Preconditions.checkState(
+        ruleDefinition.isExecutable(),
+        "%s attribute %s is not configured to be executable",
+        ruleClassNameForLogging,
+        attributeName);
 
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
     if (prerequisite == null) {
@@ -1168,7 +1147,7 @@ public final class RuleContext extends TargetContext
             + " initConfigurationMakeVariableContext() after accessing ctx.var?)");
     configurationMakeVariableContext =
         new ConfigurationMakeVariableContext(
-            this, getRule().getPackage(), getConfiguration(), makeVariableSuppliers);
+            this, rule.getPackage(), getConfiguration(), makeVariableSuppliers);
   }
 
   public void initConfigurationMakeVariableContext(MakeVariableSupplier... makeVariableSuppliers) {
@@ -1203,7 +1182,7 @@ public final class RuleContext extends TargetContext
    */
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
     if (configurationMakeVariableContext == null) {
-      initConfigurationMakeVariableContext(ImmutableList.<MakeVariableSupplier>of());
+      initConfigurationMakeVariableContext(ImmutableList.of());
     }
     return configurationMakeVariableContext;
   }
@@ -1223,7 +1202,8 @@ public final class RuleContext extends TargetContext
             getTarget().getPackage().getRepositoryMapping(),
             /*convertedLabelsInPackage=*/ new HashMap<>(),
             getSymbolGenerator(),
-            getLabel())
+            getLabel(),
+            /*networkAllowlistForTests=*/ null)
         .storeInThread(thread);
     return thread;
   }
@@ -1282,9 +1262,7 @@ public final class RuleContext extends TargetContext
     try {
       return Starlark.call(starlarkThread, func, args, kwargs);
     } catch (EvalException e) {
-      throwWithRuleError(e.getMessageWithStack());
-      // Pacify compiler.
-      return null;
+      throw throwWithRuleError(e.getMessageWithStack());
     }
   }
 
@@ -1335,38 +1313,39 @@ public final class RuleContext extends TargetContext
     return constraintSemantics;
   }
 
-  /**
-   * Returns the configuration fragments this rule uses.
-   *
-   * <p>Returned results are alphabetically ordered.
-   */
-  public ImmutableSortedSet<String> getRequiredConfigFragments() {
-    ImmutableSortedSet.Builder<String> ans = ImmutableSortedSet.naturalOrder();
-    ans.addAll(requiredConfigFragments);
+  /** Returns the configuration fragments this rule uses. */
+  public RequiredConfigFragmentsProvider getRequiredConfigFragments() {
+    RequiredConfigFragmentsProvider.Builder merged = null;
     for (Expander makeVariableExpander : makeVariableExpanders) {
       for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
         // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
         // rule's package. Both are equivalent for these purposes, since in both cases setting
         // "--define foo=bar" impacts the rule's output.
-        if (getRule().getPackage().getMakeEnvironment().containsKey(makeVariable)
+        if (rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
             || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable)) {
-          ans.add("--define:" + makeVariable);
+          if (merged == null) {
+            merged = RequiredConfigFragmentsProvider.builder().merge(requiredConfigFragments);
+          }
+          merged.addDefine(makeVariable);
         }
       }
     }
-    return ans.build();
+    return merged == null ? requiredConfigFragments : merged.build();
   }
 
   private void checkAttributeIsDependency(String attributeName) {
     Attribute attributeDefinition = attributes.getAttributeDefinition(attributeName);
-    if (attributeDefinition == null) {
-      throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
-        + " attribute " + attributeName + " is not defined");
-    }
-    if (attributeDefinition.getType().getLabelClass() != LabelClass.DEPENDENCY) {
-      throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
-        + " is not a label type attribute");
-    }
+    Preconditions.checkNotNull(
+        attributeDefinition,
+        "%s: %s attribute %s is not defined",
+        rule.getLocation(),
+        ruleClassNameForLogging,
+        attributeName);
+    Preconditions.checkState(
+        attributeDefinition.getType().getLabelClass() == LabelClass.DEPENDENCY,
+        "%s attribute %s is not a label type attribute",
+        ruleClassNameForLogging,
+        attributeName);
   }
 
   @Override
@@ -1381,7 +1360,7 @@ public final class RuleContext extends TargetContext
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform(String execGroup) {
-    if (getToolchainContexts() == null) {
+    if (toolchainContexts == null) {
       return null;
     }
     ResolvedToolchainContext toolchainContext = getToolchainContext(execGroup);
@@ -1435,35 +1414,33 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the sole file in the "srcs" attribute. Reports an error and
-   * (possibly) returns null if "srcs" does not identify a single file of the
-   * expected type.
+   * Returns the sole file in the "srcs" attribute. Reports an error and (possibly) returns null if
+   * "srcs" does not identify a single file of the expected type.
    */
   public Artifact getSingleSource(String fileTypeName) {
     List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs").list();
     switch (srcs.size()) {
-      case 0 : // error already issued by getSrc()
+      case 0: // error already issued by getSrc()
         return null;
-      case 1 : // ok
+      case 1: // ok
         return Iterables.getOnlyElement(srcs);
-      default :
+      default:
         attributeError("srcs", "only a single " + fileTypeName + " is allowed here");
         return srcs.get(0);
     }
   }
 
   public Artifact getSingleSource() {
-    return getSingleSource(getRuleClassNameForLogging() + " source file");
+    return getSingleSource(ruleClassNameForLogging + " source file");
   }
 
   /**
-   * Returns a path fragment qualified by the rule name and unique fragment to
-   * disambiguate artifacts produced from the source file appearing in
-   * multiple rules.
+   * Returns a path fragment qualified by the rule name and unique fragment to disambiguate
+   * artifacts produced from the source file appearing in multiple rules.
    *
    * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
    */
-  public final PathFragment getUniqueDirectory(String fragment) {
+  public PathFragment getUniqueDirectory(String fragment) {
     return getUniqueDirectory(PathFragment.create(fragment));
   }
 
@@ -1474,15 +1451,14 @@ public final class RuleContext extends TargetContext
    * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
    */
   @Override
-  public final PathFragment getUniqueDirectory(PathFragment fragment) {
+  public PathFragment getUniqueDirectory(PathFragment fragment) {
     return AnalysisUtils.getUniqueDirectory(
         getLabel(), fragment, getConfiguration().isSiblingRepositoryLayout());
   }
 
   /**
-   * Check that all targets that were specified as sources are from the same
-   * package as this rule. Output a warning or an error for every target that is
-   * imported from a different package.
+   * Check that all targets that were specified as sources are from the same package as this rule.
+   * Output a warning or an error for every target that is imported from a different package.
    */
   public void checkSrcsSamePackage(boolean onlyWarn) {
     PathFragment packageName = getLabel().getPackageFragment();
@@ -1496,9 +1472,12 @@ public final class RuleContext extends TargetContext
       Label associatedLabel = srcItem.getOwner();
       PathFragment itemPackageName = associatedLabel.getPackageFragment();
       if (!itemPackageName.equals(packageName)) {
-        String message = "please do not import '" + associatedLabel + "' directly. "
-            + "You should either move the file to this package or depend on "
-            + "an appropriate rule there";
+        String message =
+            "please do not import '"
+                + associatedLabel
+                + "' directly. "
+                + "You should either move the file to this package or depend on "
+                + "an appropriate rule there";
         if (onlyWarn) {
           attributeWarning("srcs", message);
         } else {
@@ -1508,11 +1487,10 @@ public final class RuleContext extends TargetContext
     }
   }
 
-
   /**
-   * Returns the label to which the {@code NODEP_LABEL} attribute
-   * {@code attrName} refers, checking that it is a valid label, and that it is
-   * referring to a local target. Reports a warning otherwise.
+   * Returns the label to which the {@code NODEP_LABEL} attribute {@code attrName} refers, checking
+   * that it is a valid label, and that it is referring to a local target. Reports a warning
+   * otherwise.
    */
   public Label getLocalNodepLabelAttribute(String attrName) {
     Label label = attributes().get(attrName, BuildType.NODEP_LABEL);
@@ -1577,36 +1555,34 @@ public final class RuleContext extends TargetContext
    *     set to something other than the default
    * @return a ConfiguredTarget for the "compiler" attribute
    */
-  public final FilesToRunProvider getCompiler(boolean warnIfNotDefault) {
+  public FilesToRunProvider getCompiler(boolean warnIfNotDefault) {
     Label label = attributes().get("compiler", BuildType.LABEL);
-    if (warnIfNotDefault && !label.equals(getRule().getAttrDefaultValue("compiler"))) {
+    if (warnIfNotDefault && !label.equals(rule.getAttrDefaultValue("compiler"))) {
       attributeWarning("compiler", "setting the compiler is strongly discouraged");
     }
     return getExecutablePrerequisite("compiler");
   }
 
   /**
-   * Returns the (unmodifiable, ordered) list of artifacts which are the outputs
-   * of this target.
+   * Returns the (unmodifiable, ordered) list of artifacts which are the outputs of this target.
    *
-   * <p>Each element in this list is associated with a single output, either
-   * declared implicitly (via setImplicitOutputsFunction()) or explicitly
-   * (listed in the 'outs' attribute of our rule).
+   * <p>Each element in this list is associated with a single output, either declared implicitly
+   * (via setImplicitOutputsFunction()) or explicitly (listed in the 'outs' attribute of our rule).
    */
-  public final ImmutableList<Artifact> getOutputArtifacts() {
+  public ImmutableList<Artifact> getOutputArtifacts() {
     ImmutableList.Builder<Artifact> artifacts = ImmutableList.builder();
-    for (OutputFile out : getRule().getOutputFiles()) {
+    for (OutputFile out : rule.getOutputFiles()) {
       artifacts.add(createOutputArtifact(out));
     }
     return artifacts.build();
   }
 
   /**
-   * Like {@link #getOutputArtifacts()} but for a singular output item.
-   * Reports an error if the "out" attribute is not a singleton.
+   * Like {@link #getOutputArtifacts()} but for a singular output item. Reports an error if the
+   * "out" attribute is not a singleton.
    *
-   * @return null if the output list is empty, the artifact for the first item
-   *         of the output list otherwise
+   * @return null if the output list is empty, the artifact for the first item of the output list
+   *     otherwise
    */
   public Artifact getOutputArtifact() {
     List<Artifact> outs = getOutputArtifacts();
@@ -1620,15 +1596,12 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public final Artifact.DerivedArtifact getRelatedArtifact(
-      PathFragment pathFragment, String extension) {
+  public Artifact.DerivedArtifact getRelatedArtifact(PathFragment pathFragment, String extension) {
     PathFragment file = FileSystemUtils.replaceExtension(pathFragment, extension);
     return getDerivedArtifact(file, getConfiguration().getBinDirectory(getLabel().getRepository()));
   }
 
-  /**
-   * Returns true if the target for this context is a test target.
-   */
+  /** Returns true if the target for this context is a test target. */
   public boolean isTestTarget() {
     return TargetUtils.isTestRule(getTarget());
   }
@@ -1686,21 +1659,7 @@ public final class RuleContext extends TargetContext
    * rule.
    */
   public boolean shouldIncludeRequiredConfigFragmentsProvider() {
-    IncludeConfigFragmentsEnum setting =
-        getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .includeRequiredConfigFragmentsProvider;
-    switch (setting) {
-      case OFF:
-        return false;
-      case DIRECT_HOST_ONLY:
-        return getConfiguration().isHostConfiguration();
-      case DIRECT:
-      case TRANSITIVE:
-        return true;
-    }
-    throw new IllegalStateException("Unknown setting: " + setting);
+    return requiredConfigFragments != null;
   }
 
   @Override
@@ -1728,12 +1687,12 @@ public final class RuleContext extends TargetContext
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
-    private ImmutableList<Aspect> aspects;
+    private final ImmutableList<Aspect> aspects;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
     private ConstraintSemantics<RuleContext> constraintSemantics;
-    private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
+    @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
 
     @VisibleForTesting
     public Builder(
@@ -1812,11 +1771,11 @@ public final class RuleContext extends TargetContext
         ExecGroupCollection.Builder execGroupCollectionBuilder, AttributeMap attributes)
         throws InvalidExecGroupException {
       if (rawExecProperties == null) {
-        if (!attributes.has(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+        if (!attributes.has(RuleClass.EXEC_PROPERTIES_ATTR, Type.STRING_DICT)) {
           rawExecProperties = ImmutableMap.of();
         } else {
           rawExecProperties =
-              ImmutableMap.copyOf(attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT));
+              ImmutableMap.copyOf(attributes.get(RuleClass.EXEC_PROPERTIES_ATTR, Type.STRING_DICT));
         }
       }
 
@@ -1833,10 +1792,10 @@ public final class RuleContext extends TargetContext
 
         // TODO(adonovan): define in terms of Starlark.len?
         boolean isEmpty = false;
-        if (attributeValue instanceof List<?>) {
-          isEmpty = ((List) attributeValue).isEmpty();
-        } else if (attributeValue instanceof Map<?, ?>) {
-          isEmpty = ((Map) attributeValue).isEmpty();
+        if (attributeValue instanceof List) {
+          isEmpty = ((List<?>) attributeValue).isEmpty();
+        } else if (attributeValue instanceof Map) {
+          isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
         }
         if (isEmpty) {
           reporter.attributeError(attr.getName(), "attribute must be non empty");
@@ -1876,9 +1835,7 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /**
-     * Adds attributes which are defined by an Aspect (and not by RuleClass).
-     */
+    /** Adds attributes which are defined by an Aspect (and not by RuleClass). */
     public Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
       this.aspectAttributes = ImmutableMap.copyOf(aspectAttributes);
       return this;
@@ -1946,7 +1903,8 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    public Builder setRequiredConfigFragments(ImmutableSet<String> requiredConfigFragments) {
+    public Builder setRequiredConfigFragments(
+        @Nullable RequiredConfigFragmentsProvider requiredConfigFragments) {
       this.requiredConfigFragments = requiredConfigFragments;
       return this;
     }
@@ -1964,16 +1922,21 @@ public final class RuleContext extends TargetContext
 
       Target srcTarget = src.getTarget();
       if (!(srcTarget instanceof FileTarget)) {
-        attributeError("entries", String.format(
-            "Invalid 'srcdir' target '%s'. Must be another Fileset or package",
-            srcTarget.getLabel()));
+        attributeError(
+            "entries",
+            String.format(
+                "Invalid 'srcdir' target '%s'. Must be another Fileset or package",
+                srcTarget.getLabel()));
         return false;
       }
 
       if (srcTarget instanceof OutputFile) {
-        attributeWarning("entries", String.format("'srcdir' target '%s' is not an input file. "
-            + "This forces the Fileset to be executed unconditionally",
-            srcTarget.getLabel()));
+        attributeWarning(
+            "entries",
+            String.format(
+                "'srcdir' target '%s' is not an input file. "
+                    + "This forces the Fileset to be executed unconditionally",
+                srcTarget.getLabel()));
       }
 
       return true;
@@ -2064,9 +2027,9 @@ public final class RuleContext extends TargetContext
     }
 
     /**
-     * Post a raw event to the analysis environment's event handler. This circumvents normal
-     * error and warning reporting functionality to post events, and should only be used
-     * in rare cases where a custom event needs to be handled.
+     * Post a raw event to the analysis environment's event handler. This circumvents normal error
+     * and warning reporting functionality to post events, and should only be used in rare cases
+     * where a custom event needs to be handled.
      */
     public void post(Postable event) {
       env.getEventHandler().post(event);
@@ -2097,16 +2060,16 @@ public final class RuleContext extends TargetContext
       return reporter.hasErrors();
     }
 
-    private String badPrerequisiteMessage(
+    private static String badPrerequisiteMessage(
         ConfiguredTargetAndData prerequisite, String reason, boolean isWarning) {
       String msgReason = reason != null ? " (" + reason + ")" : "";
       if (isWarning) {
         return String.format(
             "%s is unexpected here%s; continuing anyway",
-            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND),
-            msgReason);
+            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND), msgReason);
       }
-      return String.format("%s is misplaced here%s",
+      return String.format(
+          "%s is misplaced here%s",
           AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITH_KIND), msgReason);
     }
 
@@ -2144,7 +2107,8 @@ public final class RuleContext extends TargetContext
         validateRuleDependency(prerequisite, attribute);
       } else if (prerequisiteTarget instanceof FileTarget) {
         if (attribute.isStrictLabelCheckingEnabled()) {
-          if (!attribute.getAllowedFileTypesPredicate()
+          if (!attribute
+              .getAllowedFileTypesPredicate()
               .apply(((FileTarget) prerequisiteTarget).getFilename())) {
             if (prerequisiteTarget instanceof InputFile
                 && !((InputFile) prerequisiteTarget).getPath().exists()) {
@@ -2153,16 +2117,19 @@ public final class RuleContext extends TargetContext
                   && !((InputFile) prerequisiteTarget).getFilename().contains(".")) {
                 // There are no allowed files in the attribute but it's not a valid rule,
                 // and the filename doesn't contain a dot --> probably a misspelled rule
-                attributeError(attribute.getName(),
-                    "rule '" + prerequisiteLabel + "' does not exist");
+                attributeError(
+                    attribute.getName(), "rule '" + prerequisiteLabel + "' does not exist");
               } else {
-                attributeError(attribute.getName(),
-                    "target '" + prerequisiteLabel + "' does not exist");
+                attributeError(
+                    attribute.getName(), "target '" + prerequisiteLabel + "' does not exist");
               }
             } else {
               // The file exists but has a bad extension
-              reportBadPrerequisite(attribute, prerequisite,
-                  "expected " + attribute.getAllowedFileTypesPredicate(), false);
+              reportBadPrerequisite(
+                  attribute,
+                  prerequisite,
+                  "expected " + attribute.getAllowedFileTypesPredicate(),
+                  false);
             }
           }
         }
@@ -2195,7 +2162,7 @@ public final class RuleContext extends TargetContext
       }
 
       return Joiner.on(",")
-              .join(aspects.stream().map(a -> a.getDescriptor()).collect(Collectors.toList()))
+              .join(aspects.stream().map(Aspect::getDescriptor).collect(Collectors.toList()))
           + " aspect on "
           + target.getAssociatedRule().getRuleClass();
     }
@@ -2225,7 +2192,8 @@ public final class RuleContext extends TargetContext
         // It's not a label or label_list attribute.
         return;
       }
-      if (allowedFileTypes == FileTypeSet.ANY_FILE && !attribute.isNonEmpty()
+      if (allowedFileTypes == FileTypeSet.ANY_FILE
+          && !attribute.isNonEmpty()
           && !attribute.isSingleArtifact()) {
         return;
       }
@@ -2294,7 +2262,7 @@ public final class RuleContext extends TargetContext
     }
 
     /** Check if prerequisite should be allowed based on its rule class. */
-    private boolean checkRuleDependencyClass(
+    private static boolean checkRuleDependencyClass(
         ConfiguredTargetAndData prerequisite,
         Attribute attribute,
         Set<String> unfulfilledRequirements) {
@@ -2309,9 +2277,7 @@ public final class RuleContext extends TargetContext
         // but maybe prerequisite provides required providers? do not reject yet.
         unfulfilledRequirements.add(
             badPrerequisiteMessage(
-                prerequisite,
-                "expected " + attribute.getAllowedRuleClassesPredicate(),
-                false));
+                prerequisite, "expected " + attribute.getAllowedRuleClassesPredicate(), false));
       }
       return false;
     }
@@ -2341,7 +2307,7 @@ public final class RuleContext extends TargetContext
     }
 
     /** Check if prerequisite should be allowed based on required providers on the attribute. */
-    private boolean checkRuleDependencyMandatoryProviders(
+    private static boolean checkRuleDependencyMandatoryProviders(
         ConfiguredTargetAndData prerequisite,
         Attribute attribute,
         Set<String> unfulfilledRequirements) {
@@ -2465,9 +2431,7 @@ public final class RuleContext extends TargetContext
       return !errorMessages.isEmpty();
     }
 
-    /**
-     * Returns the error message strings reported to this error consumer.
-     */
+    /** Returns the error message strings reported to this error consumer. */
     public List<String> getErrorMessages() {
       return errorMessages;
     }

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
@@ -105,7 +106,8 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             NestedSetExpander.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS);
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @Test

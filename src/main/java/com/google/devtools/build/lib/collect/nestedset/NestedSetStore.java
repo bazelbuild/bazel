@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.Hashing;
@@ -135,14 +135,6 @@ public class NestedSetStore {
   static class NestedSetCache {
     private final BugReporter bugReporter;
 
-    NestedSetCache() {
-      this(BugReporter.defaultInstance());
-    }
-
-    private NestedSetCache(BugReporter bugReporter) {
-      this.bugReporter = bugReporter;
-    }
-
     /**
      * Fingerprint to array cache.
      *
@@ -151,22 +143,31 @@ public class NestedSetStore {
      * because our cache eviction policy is based on value GC, and wrapper objects would defeat
      * that.
      *
-     * <p>While a fetch for the contents is outstanding, the key in the cache will be a {@link
+     * <p>While a fetch for the contents is outstanding, the value in the cache will be a {@link
      * ListenableFuture}. When it is resolved, it is replaced with the unwrapped {@code Object[]}.
-     * This is done because if the array is a transitive member, its future may be GC'd.
+     * This is done because if the array is a transitive member, its future may be GC'd, and we want
+     * entries to stay in this cache while the contents are still live.
      */
     private final Cache<ByteString, Object> fingerprintToContents =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
+        Caffeine.newBuilder()
+            .initialCapacity(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakValues()
             .build();
 
-    /** Object/Object[] contents to fingerprint. Maintained for fast fingerprinting. */
+    /** {@code Object[]} contents to fingerprint. Maintained for fast fingerprinting. */
     private final Cache<Object[], FingerprintComputationResult> contentsToFingerprint =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(SerializationConstants.DESERIALIZATION_POOL_SIZE)
+        Caffeine.newBuilder()
+            .initialCapacity(SerializationConstants.DESERIALIZATION_POOL_SIZE)
             .weakKeys()
             .build();
+
+    NestedSetCache() {
+      this(BugReporter.defaultInstance());
+    }
+
+    private NestedSetCache(BugReporter bugReporter) {
+      this.bugReporter = bugReporter;
+    }
 
     /**
      * Returns children (an {@code Object[]} or a {@code ListenableFuture<Object[]>}) for NestedSet
@@ -180,13 +181,7 @@ public class NestedSetStore {
     @VisibleForTesting
     @Nullable
     Object putIfAbsent(ByteString fingerprint, ListenableFuture<Object[]> future) {
-      Object result;
-      // Guava's Cache doesn't have a #putIfAbsent method, so we emulate it here.
-      try {
-        result = fingerprintToContents.get(fingerprint, () -> future);
-      } catch (ExecutionException e) {
-        throw new IllegalStateException(e);
-      }
+      Object result = fingerprintToContents.get(fingerprint, unused -> future);
       if (result.equals(future)) {
         // This is the first request of this fingerprint. We should put it.
         putAsync(fingerprint, future);

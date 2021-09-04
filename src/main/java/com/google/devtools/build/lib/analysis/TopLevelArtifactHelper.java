@@ -81,9 +81,12 @@ public final class TopLevelArtifactHelper {
   @Immutable
   public static final class ArtifactsToBuild {
     private final ImmutableMap<String, ArtifactsInOutputGroup> artifacts;
+    private final boolean allOutputGroupsImportant;
 
-    private ArtifactsToBuild(ImmutableMap<String, ArtifactsInOutputGroup> artifacts) {
+    private ArtifactsToBuild(
+        ImmutableMap<String, ArtifactsInOutputGroup> artifacts, boolean allOutputGroupsImportant) {
       this.artifacts = checkNotNull(artifacts);
+      this.allOutputGroupsImportant = allOutputGroupsImportant;
     }
 
     /** Returns the artifacts that the user should know about. */
@@ -114,6 +117,14 @@ public final class TopLevelArtifactHelper {
      */
     public ImmutableMap<String, ArtifactsInOutputGroup> getAllArtifactsByOutputGroup() {
       return artifacts;
+    }
+
+    /**
+     * Returns if all of the output groups returned by {@link #getAllArtifactsByOutputGroup()} are
+     * "important" - implying that all artifacts will be reported in BEP events.
+     */
+    public boolean areAllOutputGroupsImportant() {
+      return allOutputGroupsImportant;
     }
   }
 
@@ -193,7 +204,7 @@ public final class TopLevelArtifactHelper {
       TopLevelArtifactContext context) {
     ImmutableMap.Builder<String, ArtifactsInOutputGroup> allOutputGroups =
         ImmutableMap.builderWithExpectedSize(context.outputGroups().size());
-
+    boolean allOutputGroupsImportant = true;
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
 
@@ -213,13 +224,16 @@ public final class TopLevelArtifactHelper {
       boolean isImportantGroup =
           !outputGroup.startsWith(OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX);
 
+      allOutputGroupsImportant &= isImportantGroup;
+
       ArtifactsInOutputGroup artifacts =
           new ArtifactsInOutputGroup(isImportantGroup, /*incomplete=*/ false, results.build());
 
       allOutputGroups.put(outputGroup, artifacts);
     }
 
-    return new ArtifactsToBuild(allOutputGroups.build());
+    return new ArtifactsToBuild(
+        allOutputGroups.build(), /*allOutputGroupsImportant=*/ allOutputGroupsImportant);
   }
 
   /**

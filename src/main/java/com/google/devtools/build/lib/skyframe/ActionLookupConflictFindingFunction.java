@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTI
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -42,14 +43,15 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
         ACTION_CONFLICTS.get(env);
-    ActionLookupValue alValue =
-        (ActionLookupValue)
-            env.getValue(((ActionLookupConflictFindingValue.Key) skyKey).argument());
+    ActionLookupKey lookupKey = ((ActionLookupConflictFindingValue.Key) skyKey).argument();
+    ActionLookupValue alValue = (ActionLookupValue) env.getValue(lookupKey);
     if (env.valuesMissing()) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "b/147589880: unexpected missing action lookup value during action conflict finding: "
-                  + skyKey));
+      if (!CoverageReportValue.COVERAGE_REPORT_KEY.equals(lookupKey)) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "Unexpected missing action lookup value during action conflict finding: "
+                    + skyKey));
+      }
       return null;
     }
 

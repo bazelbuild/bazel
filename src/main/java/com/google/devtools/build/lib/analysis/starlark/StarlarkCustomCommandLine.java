@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
+import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IllegalFormatException;
@@ -354,15 +353,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
                 fileset),
             e);
       }
-      try {
-        FilesetManifest filesetManifest =
-            FilesetManifest.constructFilesetManifest(
-                expandedFileSet, fileset.getExecPath(), RelativeSymlinkBehavior.IGNORE);
-        for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
-          expandedValues.add(new FilesetSymlinkFile(fileset, relativePath));
-        }
-      } catch (IOException e) {
-        throw new CommandLineExpansionException("Could not expand fileset: " + e.getMessage());
+      FilesetManifest filesetManifest =
+          FilesetManifest.constructFilesetManifestWithoutError(
+              expandedFileSet, fileset.getExecPath(), RelativeSymlinkBehaviorWithoutError.IGNORE);
+      for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
+        expandedValues.add(new FilesetSymlinkFile(fileset, relativePath));
       }
     }
 

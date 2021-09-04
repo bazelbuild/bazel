@@ -44,10 +44,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help =
             "If set, generated .proto files are put into a virtual import directory. For more "
                 + "information, see https://github.com/bazelbuild/bazel/issues/9215")

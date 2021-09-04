@@ -32,12 +32,12 @@ DIST_DEPS = {
         ],
     },
     "bazel_toolchains": {
-        "archive": "b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0.tar.gz",
-        "sha256": "0fe656c3503ee318ba21e3147186b0959ddb8514e4826174e5c178cd1968bdb9",
-        "strip_prefix": "bazel-toolchains-b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0",
+        "archive": "bazel-toolchains-4.1.0.tar.gz",
+        "sha256": "179ec02f809e86abf56356d8898c8bd74069f1bd7c56044050c2cd3d79d0e024",
+        "strip_prefix": "bazel-toolchains-4.1.0",
         "urls": [
-            #TODO(ilist): mirror and update to 4.0.0 version once it is released
-            "https://github.com/bazelbuild/bazel-toolchains/archive/b9bc541aae7bd8e09c6954e2e9da3f7ffe4f77f0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/4.1.0/bazel-toolchains-4.1.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/releases/download/4.1.0/bazel-toolchains-4.1.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
@@ -402,17 +402,17 @@ http_archive(
 
 gen_workspace_stanza = rule(
     attrs = {
-        "repos": attr.string_list(doc = "Set of repos to inlcude"),
+        "repos": attr.string_list(doc = "Set of repos to include."),
         "out": attr.output(mandatory = True),
         "preamble": attr.string(doc = "Preamble."),
-        "postamble": attr.string(doc = "setup rules to follow repos."),
+        "postamble": attr.string(doc = "Set of rules to follow repos."),
         "template": attr.label(
-            doc = "Template WORKSPACE file. May not be used with preable or postamble." +
-                  "Repo stanzas can be include with the syntax '{repo name}'.",
+            doc = "Template WORKSPACE file. May not be used with preamble or postamble." +
+                  "Repo stanzas can be included using the syntax '{repo name}'.",
             allow_single_file = True,
             mandatory = False,
         ),
-        "use_maybe": attr.bool(doc = "Use maybe() invocation instead of http_archive"),
+        "use_maybe": attr.bool(doc = "Use maybe() invocation instead of http_archive."),
     },
     doc = "Use specifications from DIST_DEPS to generate WORKSPACE http_archive stanzas or to" +
           "drop them into a template.",

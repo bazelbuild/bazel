@@ -827,15 +827,43 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "",
         "def custom_rule_impl(ctx):",
-        "  return [coverage_common.instrumented_files_info(ctx,",
-        "      extensions = ['txt'],",
-        "      source_attributes = ['attr1'],",
-        "      dependency_attributes = ['attr2'])]",
+        "    return [",
+        "        coverage_common.instrumented_files_info(",
+        "            ctx,",
+        "            extensions = ['txt'],",
+        "            source_attributes = [",
+        "                'label_src',",
+        "                'label_list_srcs',",
+        "                'dict_srcs',",
+        // Missing attrs are ignored (this allows common configuration for sets of rules where
+        // only some define the specified attributes, e.g. *_library/binary).
+        "                'missing_src_attr',",
+        "            ],",
+        "            dependency_attributes = [",
+        "                'label_dep',",
+        "                'label_list_deps',",
+        "                'dict_deps',",
+        // Missing attrs are ignored
+        "                'missing_dep_attr',",
+        "            ],",
+        "        ),",
+        "    ]",
         "",
-        "custom_rule = rule(implementation = custom_rule_impl,",
-        "  attrs = {",
-        "      'attr1': attr.label_list(mandatory = True, allow_files=True),",
-        "      'attr2': attr.label_list(mandatory = True)})",
+        "custom_rule = rule(",
+        "    implementation = custom_rule_impl,",
+        "    attrs = {",
+        "        'label_src': attr.label(allow_files=True),",
+        "        'label_list_srcs': attr.label_list(allow_files=True),",
+        "        'dict_srcs': attr.label_keyed_string_dict(allow_files=True),",
+        // Generally deps don't set allow_files=True, but want to assert that source files in
+        // dependency_attributes are ignored, since source files don't provide
+        // InstrumentedFilesInfo. (For example, files put directly into data are assumed to not be
+        // source code that gets coverage instrumented.)
+        "        'label_dep': attr.label(allow_files=True),",
+        "        'label_list_deps': attr.label_list(allow_files=True),",
+        "        'dict_deps': attr.label_keyed_string_dict(allow_files=True),",
+        "    },",
+        ")",
         "",
         "def test_rule_impl(ctx):",
         "  return [MyInfo(",
@@ -851,8 +879,20 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test/starlark/BUILD",
         "load('//test/starlark:extension.bzl', 'custom_rule', 'test_rule')",
         "",
-        "cc_library(name='cl', srcs = [':A.cc'])",
-        "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':cl'])",
+        "cc_library(name='label_dep', srcs = [':label_dep.cc'])",
+        "cc_library(name='label_list_dep', srcs = [':label_list_dep.cc'])",
+        "cc_library(name='dict_dep', srcs = [':dict_dep.cc'])",
+        "custom_rule(",
+        "    name = 'cr',",
+        "    label_src = ':label_src.txt',",
+        //   Check that srcs with the wrong extension are ignored.
+        "    label_list_srcs = [':label_list_src.txt', ':label_list_src.ignored'],",
+        "    dict_srcs = {':dict_src.txt': ''},",
+        "    label_dep = ':label_dep',",
+        //   Check that files in dependency attributes are ignored.
+        "    label_list_deps = [':label_list_dep', ':file_in_deps_is_ignored.txt'],",
+        "    dict_deps= {':dict_dep': ''},",
+        ")",
         "test_rule(name = 'test', target = ':cr')");
 
     useConfiguration("--collect_code_coverage");
@@ -862,18 +902,30 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(
             ActionsTestUtil.baseArtifactNames(
                 ((Depset) myInfo.getValue("instrumented_files")).getSet(Artifact.class)))
-        .containsExactly("a.txt", "A.cc");
+        .containsExactly(
+            "label_src.txt",
+            "label_list_src.txt",
+            "dict_src.txt",
+            "label_dep.cc",
+            "label_list_dep.cc",
+            "dict_dep.cc");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
                 ((Depset) myInfo.getValue("metadata_files")).getSet(Artifact.class)))
-        .containsExactly("A.gcno");
+        .containsExactly("label_dep.gcno", "label_list_dep.gcno", "dict_dep.gcno");
     ConfiguredTarget customRule = getConfiguredTarget("//test/starlark:cr");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
                 customRule
                     .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
                     .getBaselineCoverageInstrumentedFiles()))
-        .containsExactly("a.txt", "A.cc");
+        .containsExactly(
+            "label_src.txt",
+            "label_list_src.txt",
+            "dict_src.txt",
+            "label_dep.cc",
+            "label_list_dep.cc",
+            "dict_dep.cc");
   }
 
   @Test
@@ -905,7 +957,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInstrumentedFilesForwardedFromDepsByDefaultExperimentFlag() throws Exception {
+  public void testInstrumentedFilesForwardedFromDepsByDefault() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
         "def wrapper_impl(ctx):",
@@ -938,24 +990,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         ")",
         "cc_binary(name = 'outer', data = [':wrapper'])");
 
-    // Current behavior is that nothing gets forwarded if IntstrumentedFilesInfo is not configured.
-    // That means that source files are not collected for the coverage manifest unless the entire
-    // dependency chain between the test and the source file explicitly configures coverage.
-    // New behavior is protected by --experimental_forward_instrumented_files_info_by_default.
+    // By default, InstrumentedFilesInfo is forwarded from all dependencies. Coverage still needs to
+    // be configured for rules that handle source files for languages which support coverage
+    // instrumentation, but not every wrapper rule in the dependency chain needs to configure that
+    // for coverage to work at all.
     useConfiguration("--collect_code_coverage");
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:outer");
     InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
-    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles())).isEmpty();
-
-    // Instead, the default behavior could be to forward InstrumentedFilesInfo from all
-    // dependencies. Coverage still needs to be configured for rules that handle source files for
-    // languages which support coverage instrumentation, but not every wrapper rule in the
-    // dependency chain needs to configure that for instrumentation to be correct.
-    useConfiguration(
-        "--collect_code_coverage", "--experimental_forward_instrumented_files_info_by_default");
-    target = getConfiguredTarget("//test/starlark:outer");
-    provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
         .containsExactly("wrapped.cc", "wrapped_list.cc");
@@ -2789,7 +2830,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadAllowlistTransition_noAllowlist() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -2830,7 +2871,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testPrintFromTransitionImpl() throws Exception {
-    scratch.file(
+    // This test not only asserts expected behavior, it also checks that Starlark transition caching
+    // doesn't suppress non-error transition events like print(). Also see
+    // transitionErrorAlwaysReported for the equivalent cache test for error events.
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -2879,8 +2923,55 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitionEquality() throws Exception {
+  public void transitionErrorAlwaysReported() throws Exception {
+    // For performance reasons, Starlark transition calls are cached (see
+    // ConfigurationResolver#starlarkTransitionCache). We have to be careful to preserve
+    // determinism, which includes consistent error reporting.
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
     scratch.file(
+        "test/rules.bzl",
+        "def _transition_impl(settings, attr):",
+        "    fail('bad transition')",
+        "my_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:bar'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  }",
+        ")");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'mytarget')");
+
+    reporter.removeHandler(failFastHandler);
+
+    // Try #1: this invokes the transition for the first time, which fails.
+    getConfiguredTarget("//test:mytarget");
+    assertContainsEvent("bad transition");
+
+    // Try #2: make sure the cache doesn't suppress the error message.
+    eventCollector.clear();
+    getConfiguredTarget("//test:mytarget");
+    assertContainsEvent("bad transition");
+  }
+
+  @Test
+  public void testTransitionEquality() throws Exception {
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -2939,7 +3030,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBadAllowlistTransition_allowlistNoCfg() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",

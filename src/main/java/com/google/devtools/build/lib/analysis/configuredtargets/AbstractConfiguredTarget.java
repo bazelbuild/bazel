@@ -20,10 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,7 +33,6 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -54,9 +51,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   private final NestedSet<PackageGroupContents> visibility;
 
-  // Cached on-demand default provider
-  private final AtomicReference<DefaultInfo> defaultProvider = new AtomicReference<>();
-
   // Accessors for Starlark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
@@ -74,6 +68,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   private static final ImmutableSet<String> SPECIAL_FIELD_NAMES =
       ImmutableSet.of(
           LABEL_FIELD,
+          KIND_FIELD,
           FILES_FIELD,
           DEFAULT_RUNFILES_FIELD,
           DATA_RUNFILES_FIELD,
@@ -147,6 +142,8 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     switch (name) {
       case LABEL_FIELD:
         return getLabel();
+      case KIND_FIELD:
+        return getRuleClassString();
       case ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
@@ -199,6 +196,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
             DATA_RUNFILES_FIELD,
             DEFAULT_RUNFILES_FIELD,
             LABEL_FIELD,
+            KIND_FIELD,
             FILES_FIELD,
             FilesToRunProvider.STARLARK_NAME));
     if (get(OutputGroupInfo.STARLARK_CONSTRUCTOR) != null) {
@@ -211,15 +209,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   protected void addExtraStarlarkKeys(Consumer<String> result) {}
 
   private DefaultInfo getDefaultProvider() {
-    if (defaultProvider.get() == null) {
-      defaultProvider.compareAndSet(
-          null,
-          DefaultInfo.build(
-              getProvider(RunfilesProvider.class),
-              getProvider(FileProvider.class),
-              getProvider(FilesToRunProvider.class)));
-    }
-    return defaultProvider.get();
+    return DefaultInfo.build(this);
   }
 
   /** Returns a declared provider provided by this target. Only meant to use from Starlark. */

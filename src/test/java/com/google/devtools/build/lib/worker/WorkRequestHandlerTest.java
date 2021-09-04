@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.worker.WorkRequestHandler.RequestInfo;
+import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestCallback;
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkRequestHandlerBuilder;
 import com.google.devtools.build.lib.worker.WorkRequestHandler.WorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -184,8 +185,7 @@ public class WorkRequestHandlerTest {
   }
 
   @Test
-  public void testCancelRequest_sendsResponseWhenNotAlreadySent()
-      throws IOException, InterruptedException {
+  public void testCancelRequest_sendsResponseWhenDone() throws IOException, InterruptedException {
     Semaphore waitForCancel = new Semaphore(0);
     Semaphore handlerCalled = new Semaphore(0);
     Semaphore cancelCalled = new Semaphore(0);
@@ -227,13 +227,14 @@ public class WorkRequestHandlerTest {
     // the cancellation entirely before that.
     handlerCalled.acquire();
     WorkRequest.newBuilder().setRequestId(42).setCancel(true).build().writeDelimitedTo(src);
-    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
+    cancelCalled.acquire();
     waitForCancel.release();
     // Give the other request a chance to process, so we can check that no other response is sent
     done.acquire();
 
+    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
     assertThat(handlerCalled.availablePermits()).isEqualTo(1); // Released 2, one was acquired
-    assertThat(cancelCalled.availablePermits()).isEqualTo(1);
+    assertThat(cancelCalled.availablePermits()).isEqualTo(0);
     assertThat(response.getRequestId()).isEqualTo(42);
     assertThat(response.getOutput()).isEmpty();
     assertThat(response.getWasCancelled()).isTrue();
@@ -285,10 +286,11 @@ public class WorkRequestHandlerTest {
     WorkRequest.newBuilder().setRequestId(42).build().writeDelimitedTo(src);
     WorkRequest.newBuilder().setRequestId(42).setCancel(true).build().writeDelimitedTo(src);
     WorkRequest.newBuilder().setRequestId(42).setCancel(true).build().writeDelimitedTo(src);
-    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
+    cancelCalled.acquire();
     waitForCancel.release();
     done.acquire();
 
+    WorkResponse response = WorkResponse.parseDelimitedFrom(dest);
     assertThat(cancelCalled.availablePermits()).isLessThan(2);
     assertThat(response.getRequestId()).isEqualTo(42);
     assertThat(response.getOutput()).isEmpty();
@@ -406,5 +408,28 @@ public class WorkRequestHandlerTest {
     public void close() throws IOException {
       delegate.close();
     }
+  }
+
+  @Test
+  public void testWorkRequestHandler_withWorkRequestCallback() throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    WorkRequestCallback callback =
+        new WorkRequestCallback((request, err) -> request.getArgumentsCount());
+    WorkRequestHandler handler =
+        new WorkRequestHandlerBuilder(
+                callback,
+                new PrintStream(new ByteArrayOutputStream()),
+                new ProtoWorkerMessageProcessor(new ByteArrayInputStream(new byte[0]), out))
+            .build();
+
+    List<String> args = Arrays.asList("--sources", "B.java");
+    WorkRequest request = WorkRequest.newBuilder().addAllArguments(args).build();
+    handler.respondToRequest(request, new RequestInfo(null));
+
+    WorkResponse response =
+        WorkResponse.parseDelimitedFrom(new ByteArrayInputStream(out.toByteArray()));
+    assertThat(response.getRequestId()).isEqualTo(0);
+    assertThat(response.getExitCode()).isEqualTo(2);
+    assertThat(response.getOutput()).isEmpty();
   }
 }

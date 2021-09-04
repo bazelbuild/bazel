@@ -15,20 +15,15 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.io.IOException;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -51,10 +46,10 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
     String userDefinedPath = RepositoryFunction.getPathAttr(rule);
-    PathFragment pathFragment =
-        RepositoryFunction.getTargetPath(userDefinedPath, directories.getWorkspace());
+    Path targetPath = directories.getWorkspace().getRelative(userDefinedPath);
     RepositoryDirectoryValue.Builder result =
-        RepositoryDelegatorFunction.symlink(outputDirectory, pathFragment, userDefinedPath, env);
+        RepositoryDelegatorFunction.symlinkRepoRoot(
+            outputDirectory, targetPath, userDefinedPath, env);
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }
@@ -64,34 +59,6 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return LocalRepositoryRule.class;
-  }
-
-  @Nullable
-  protected static FileValue getWorkspaceFile(RootedPath directory, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    RootedPath workspaceRootedFile;
-    try {
-      workspaceRootedFile = WorkspaceFileHelper.getWorkspaceRootedFile(directory, env);
-      if (workspaceRootedFile == null) {
-        return null;
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
-                  + e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    SkyKey workspaceFileKey = FileValue.key(workspaceRootedFile);
-    FileValue value;
-    try {
-      value = (FileValue) env.getValueOrThrow(workspaceFileKey, IOException.class);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException("Could not access " + workspaceRootedFile + ": " + e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    return value;
   }
 
   private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {

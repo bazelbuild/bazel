@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.github.benmanes.caffeine.cache.CacheLoader;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -1649,7 +1649,7 @@ public class CcToolchainFeatures {
 
   /** @return an empty {@code FeatureConfiguration} cache. */
   private LoadingCache<ImmutableSet<String>, FeatureConfiguration> buildConfigurationCache() {
-    return CacheBuilder.newBuilder()
+    return Caffeine.newBuilder()
         // TODO(klimek): Benchmark and tweak once we support a larger configuration.
         .maximumSize(10000)
         .build(
@@ -1682,10 +1682,9 @@ public class CcToolchainFeatures {
         configurationCache = buildConfigurationCache();
       }
       return configurationCache.get(requestedSelectables);
-    } catch (ExecutionException e) {
+    } catch (CompletionException e) {
       Throwables.throwIfInstanceOf(e.getCause(), CollidingProvidesException.class);
-      Throwables.throwIfUnchecked(e.getCause());
-      throw new IllegalStateException("Unexpected checked exception encountered", e);
+      throw e;
     }
   }
 

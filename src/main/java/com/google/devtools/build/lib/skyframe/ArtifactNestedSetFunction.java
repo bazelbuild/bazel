@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.MapMaker;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -30,7 +31,9 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException3;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 /**
  * A builder of values for {@link ArtifactNestedSetKey}.
@@ -50,7 +53,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>[1] Heuristic: If the size of the NestedSet exceeds a certain threshold, we evaluate it as an
  * ArtifactNestedSetKey.
  */
-class ArtifactNestedSetFunction implements SkyFunction {
+final class ArtifactNestedSetFunction implements SkyFunction {
 
   /**
    * A concurrent map from Artifacts' SkyKeys to their SkyValue, for Artifacts that are part of
@@ -76,25 +79,25 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * artifactSkyKeyToSkyValue between build 0 and 1, X2's member artifacts' SkyValues would not be
    * available in the map. TODO(leba): Make this weak-keyed.
    */
-  private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue;
+  private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue = new ConcurrentHashMap<>();
 
   /**
    * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
    * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
    *
    * <p>The map weakly references its values: when the ArtifactNestedSetKey becomes otherwise
-   * unreachable, the map entry is collected.
+   * unreachable, the entry is collected.
    */
-  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey>
-      nestedSetToSkyKey; // note: weak values!
+  // Note: Not using a caffeine cache here because it used more memory (b/193294367).
+  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey> nestedSetToSkyKey =
+      new MapMaker().concurrencyLevel(BlazeInterners.concurrencyLevel()).weakValues().makeMap();
+
+  private final Supplier<ArtifactNestedSetValue> valueSupplier;
 
   private static ArtifactNestedSetFunction singleton = null;
 
-  private static Integer sizeThreshold = null;
-
-  private ArtifactNestedSetFunction() {
-    artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
-    nestedSetToSkyKey = new MapMaker().weakValues().makeMap();
+  private ArtifactNestedSetFunction(Supplier<ArtifactNestedSetValue> valueSupplier) {
+    this.valueSupplier = valueSupplier;
   }
 
   @Override
@@ -160,41 +163,49 @@ class ArtifactNestedSetFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    return new ArtifactNestedSetValue();
+    return valueSupplier.get();
   }
 
   private List<SkyKey> getDepSkyKeys(ArtifactNestedSetKey skyKey) {
-    NestedSet<Artifact> set = skyKey.getSet();
-    List<SkyKey> keys = new ArrayList<>();
-    for (Artifact file : set.getLeaves()) {
+    List<Artifact> leaves = skyKey.getSet().getLeaves();
+    List<NestedSet<Artifact>> nonLeaves = skyKey.getSet().getNonLeaves();
+
+    List<SkyKey> keys = new ArrayList<>(leaves.size() + nonLeaves.size());
+    for (Artifact file : leaves) {
       keys.add(Artifact.key(file));
     }
-    for (NestedSet<Artifact> nonLeaf : set.getNonLeaves()) {
+    for (NestedSet<Artifact> nonLeaf : nonLeaves) {
       keys.add(
           nestedSetToSkyKey.computeIfAbsent(
-              nonLeaf.toNode(), (node) -> new ArtifactNestedSetKey(nonLeaf, node)));
+              nonLeaf.toNode(), node -> new ArtifactNestedSetKey(nonLeaf, node)));
     }
     return keys;
   }
 
   static ArtifactNestedSetFunction getInstance() {
-    checkNotNull(singleton);
-    return singleton;
+    return checkNotNull(singleton);
   }
 
   /**
    * Creates a new instance. Should only be used in {@code SkyframeExecutor#skyFunctions}. Keeping
    * this method separated from {@code #getInstance} since sometimes we need to overwrite the
    * existing instance.
+   *
+   * <p>If value-based change pruning is disabled, the function makes an optimization of using a
+   * singleton {@link ArtifactNestedSetValue}, since (in)equality of the value doesn't matter.
    */
-  static ArtifactNestedSetFunction createInstance() {
-    singleton = new ArtifactNestedSetFunction();
+  static ArtifactNestedSetFunction createInstance(boolean valueBasedChangePruningEnabled) {
+    singleton =
+        new ArtifactNestedSetFunction(
+            valueBasedChangePruningEnabled
+                ? ArtifactNestedSetValue::new
+                : Suppliers.ofInstance(new ArtifactNestedSetValue()));
     return singleton;
   }
 
   /** Reset the various state-keeping maps of ArtifactNestedSetFunction. */
   void resetArtifactNestedSetFunctionMaps() {
-    artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
+    artifactSkyKeyToSkyValue = new ConcurrentHashMap<>();
   }
 
   SkyValue getValueForKey(SkyKey skyKey) {
@@ -208,34 +219,6 @@ class ArtifactNestedSetFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
-  }
-
-  /**
-   * Get the threshold to which we evaluate a NestedSet as a Skykey. If sizeThreshold is unset,
-   * return the default value of 0.
-   */
-  static int getSizeThreshold() {
-    return sizeThreshold == null ? 0 : sizeThreshold;
-  }
-
-  /**
-   * Updates the sizeThreshold value if the existing value differs from newValue.
-   *
-   * @param newValue The new value from --experimental_nested_set_as_skykey_threshold.
-   * @return whether an update was made.
-   */
-  static boolean sizeThresholdUpdated(int newValue) {
-    // If this is the first time the value is set, it's not considered "updated".
-    if (sizeThreshold == null) {
-      sizeThreshold = newValue;
-      return false;
-    }
-
-    if (sizeThreshold == newValue || (sizeThreshold <= 0 && newValue <= 0)) {
-      return false;
-    }
-    sizeThreshold = newValue;
-    return true;
   }
 
   /** Mainly used for error bubbling when evaluating direct/transitive children. */

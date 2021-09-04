@@ -72,4 +72,6 @@ public interface CppSemantics extends StarlarkValue {
       AspectDescriptor aspectDescriptor,
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures);
+
+  boolean createEmptyArchive();
 }

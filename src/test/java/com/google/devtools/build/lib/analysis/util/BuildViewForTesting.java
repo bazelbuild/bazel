@@ -162,7 +162,9 @@ public class BuildViewForTesting {
     Preconditions.checkState(
         actionLookupKeys.size() == skyframeBuildView.getEvaluatedCounts().total(),
         "Number of newly evaluated action lookup values %s does not agree with number that changed"
-            + " in graph: %s",
+            + " in graph: %s. Keys: %s",
+        actionLookupKeys.size(),
+        skyframeBuildView.getEvaluatedCounts().total(),
         actionLookupKeys);
     return actionLookupKeys;
   }
@@ -674,9 +676,7 @@ public class BuildViewForTesting {
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,
                 PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
-        .setPrerequisites(
-            ConfiguredTargetFactory.transformPrerequisiteMap(
-                prerequisiteMap, target.getAssociatedRule()))
+        .setPrerequisites(ConfiguredTargetFactory.transformPrerequisiteMap(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
         .setUniversalFragments(ruleClassProvider.getUniversalFragments())
         .setToolchainContexts(resolvedToolchainContext.build())

@@ -405,8 +405,8 @@ public class ThrowableExtensionTest {
   public void testStrategySelection() throws ClassNotFoundException, IOException {
     String expectedStrategyClassName = getTwrStrategyClassNameSpecifiedInSystemProperty();
     assertThat(expectedStrategyClassName).isNotEmpty();
-    assertThat(expectedStrategyClassName)
-        .isEqualTo(ThrowableExtension.STRATEGY.getClass().getName());
+    assertThat(ThrowableExtension.STRATEGY.getClass().getName())
+        .isEqualTo(expectedStrategyClassName);
 
     Class<?> expectedStrategyClass = Class.forName(expectedStrategyClassName);
     if (expectedStrategyClass.equals(ReuseDesugaringStrategy.class)) {

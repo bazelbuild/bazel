@@ -179,6 +179,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   @Test
   public void resolve_unavailableToolchainType_single() throws Exception {
+    reporter.removeHandler(failFastHandler);
     scratch.file("fake/toolchain/BUILD", "");
     useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
     ToolchainContextKey key =
@@ -194,15 +195,12 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .isInstanceOf(InvalidToolchainTypeException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains("//fake/toolchain:type_1");
+    assertContainsEvent("no such target '//fake/toolchain:type_1'");
   }
 
   @Test
   public void resolve_unavailableToolchainType_multiple() throws Exception {
+    reporter.removeHandler(failFastHandler);
     scratch.file("fake/toolchain/BUILD", "");
     useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
     ToolchainContextKey key =

@@ -64,10 +64,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, the genfiles directory is folded into the bin directory.")
   public boolean mergeGenfilesDirectory;
 
@@ -76,10 +73,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, constraint settings from @bazel_tools are removed.")
   public boolean usePlatformsRepoForConstraints;
 
@@ -379,21 +373,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean collectCodeCoverage;
 
   @Option(
-      name = "experimental_forward_instrumented_files_info_by_default",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If specified, rules that don't configure InstrumentedFilesInfo will still forward the "
-              + "contents of InstrumentedFilesInfo from transitive dependencies.")
-  public boolean experimentalForwardInstrumentedFilesInfoByDefault;
-
-  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If true, write runfiles manifests for all targets.  " + "If false, omit them.")
+      help =
+          "If true, write runfiles manifests for all targets. If false, omit them. Local tests will"
+              + " fail to run when false.")
   public boolean buildRunfilesManifests;
 
   @Option(
@@ -563,7 +549,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "600",
+      defaultValue = "800",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -711,10 +697,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "Use graphless query and disable output ordering for genquery.")
   public Void incompatibleUseGraphlessQuery;
 
@@ -805,15 +788,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean remotableSourceManifestActions;
 
   @Option(
-      name = "experimental_enable_aggregating_middleman",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Whether to enable the use of AggregatingMiddleman in rules.")
-  public boolean enableAggregatingMiddleman;
-
-  @Option(
       name = "flag_alias",
       converter = Converters.FlagAliasConverter.class,
       defaultValue = "null",
@@ -881,7 +855,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
-    host.enableAggregatingMiddleman = enableAggregatingMiddleman;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;

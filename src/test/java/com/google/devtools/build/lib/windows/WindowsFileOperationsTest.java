@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link WindowsFileOperations}. */
 @RunWith(JUnit4.class)
-@TestSpec(localOnly = true, supportedOs = OS.WINDOWS)
+@TestSpec(supportedOs = OS.WINDOWS)
 public class WindowsFileOperationsTest {
 
   private String scratchRoot;

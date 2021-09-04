@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -82,7 +82,7 @@ public final class BuildType {
   @AutoCodec public static final Type<License> LICENSE = new LicenseType();
   /** The type of a single distribution. Only used internally, as a type symbol, not a converter. */
   @AutoCodec
-  public static final Type<DistributionType> DISTRIBUTION =
+  static final Type<DistributionType> DISTRIBUTION =
       new Type<DistributionType>() {
         @Override
         public DistributionType cast(Object value) {
@@ -100,7 +100,8 @@ public final class BuildType {
         }
 
         @Override
-        public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {}
+        public void visitLabels(
+            LabelVisitor visitor, DistributionType value, @Nullable Attribute context) {}
 
         @Override
         public String toString() {
@@ -147,7 +148,7 @@ public final class BuildType {
       Type<T> type, Object x, Object what, LabelConversionContext context)
       throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
-      return new SelectorList<T>(
+      return new SelectorList<>(
           ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
           what,
           context,
@@ -157,8 +158,7 @@ public final class BuildType {
     }
   }
 
-  private static class FilesetEntryType extends
-      Type<FilesetEntry> {
+  private static final class FilesetEntryType extends Type<FilesetEntry> {
     @Override
     public FilesetEntry cast(Object value) {
       return (FilesetEntry) value;
@@ -189,8 +189,8 @@ public final class BuildType {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-      for (Label label : cast(value).getLabels()) {
+    public void visitLabels(LabelVisitor visitor, FilesetEntry value, @Nullable Attribute context) {
+      for (Label label : value.getLabels()) {
         visitor.visit(label, context);
       }
     }
@@ -199,19 +199,19 @@ public final class BuildType {
   /** Context in which to evaluate a label with repository remappings */
   public static class LabelConversionContext {
     private final Label label;
-    private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+    private final RepositoryMapping repositoryMapping;
     private final HashMap<String, Label> convertedLabelsInPackage;
 
     public LabelConversionContext(
         Label label,
-        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
+        RepositoryMapping repositoryMapping,
         HashMap<String, Label> convertedLabelsInPackage) {
       this.label = label;
       this.repositoryMapping = repositoryMapping;
       this.convertedLabelsInPackage = convertedLabelsInPackage;
     }
 
-    public Label getLabel() {
+    Label getLabel() {
       return label;
     }
 
@@ -221,16 +221,15 @@ public final class BuildType {
       // construction, and global Interner lookup. This approach tends to be very profitable
       // overall, since it's common for the targets in a single package to have duplicate
       // label-strings across all their attribute values.
-      Label label = convertedLabelsInPackage.get(input);
-      if (label == null) {
-        label = getLabel().getRelativeWithRemapping(input, getRepositoryMapping());
-        convertedLabelsInPackage.put(input, label);
+      Label converted = convertedLabelsInPackage.get(input);
+      if (converted == null) {
+        converted = label.getRelativeWithRemapping(input, repositoryMapping);
+        convertedLabelsInPackage.put(input, converted);
       }
-
-      return label;
+      return converted;
     }
 
-    public ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping() {
+    RepositoryMapping getRepositoryMapping() {
       return repositoryMapping;
     }
 
@@ -262,8 +261,8 @@ public final class BuildType {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-      visitor.visit(cast(value), context);
+    public void visitLabels(LabelVisitor visitor, Label value, @Nullable Attribute context) {
+      visitor.visit(value, context);
     }
 
     @Override
@@ -319,7 +318,7 @@ public final class BuildType {
       super(LABEL, valueType, LabelClass.DEPENDENCY);
     }
 
-    public static <ValueT> LabelKeyedDictType<ValueT> create(Type<ValueT> valueType) {
+    static <ValueT> LabelKeyedDictType<ValueT> create(Type<ValueT> valueType) {
       Preconditions.checkArgument(
           valueType.getLabelClass() == LabelClass.NONE
               || valueType.getLabelClass() == LabelClass.DEPENDENCY,
@@ -343,8 +342,7 @@ public final class BuildType {
       Map<Label, List<Object>> convertedFrom = new LinkedHashMap<>();
       for (Object original : input.keySet()) {
         Label label = LABEL.convert(original, what, context);
-        convertedFrom.computeIfAbsent(label, k -> new ArrayList<Object>());
-        convertedFrom.get(label).add(original);
+        convertedFrom.computeIfAbsent(label, k -> new ArrayList<>()).add(original);
       }
       Printer errorMessage = new Printer();
       errorMessage.append("duplicate labels");
@@ -373,11 +371,10 @@ public final class BuildType {
   }
 
   /**
-   * Like Label, LicenseType is a derived type, which is declared specially
-   * in order to allow syntax validation. It represents the licenses, as
-   * described in {@ref License}.
+   * Like Label, LicenseType is a derived type, which is declared specially in order to allow syntax
+   * validation. It represents the licenses, as described in {@link License}.
    */
-  public static class LicenseType extends Type<License> {
+  public static final class LicenseType extends Type<License> {
     @Override
     public License cast(Object value) {
       return (License) value;
@@ -399,8 +396,7 @@ public final class BuildType {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, License value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -409,12 +405,11 @@ public final class BuildType {
   }
 
   /**
-   * Like Label, Distributions is a derived type, which is declared specially
-   * in order to allow syntax validation. It represents the declared distributions
-   * of a target, as described in {@ref License}.
+   * Like Label, Distributions is a derived type, which is declared specially in order to allow
+   * syntax validation. It represents the declared distributions of a target, as described in {@link
+   * License}.
    */
-  private static class Distributions extends
-      Type<Set<DistributionType>> {
+  private static final class Distributions extends Type<Set<DistributionType>> {
     @SuppressWarnings("unchecked")
     @Override
     public Set<DistributionType> cast(Object value) {
@@ -438,8 +433,8 @@ public final class BuildType {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(
+        LabelVisitor visitor, Set<DistributionType> value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {
@@ -452,7 +447,7 @@ public final class BuildType {
     }
   }
 
-  private static class OutputType extends Type<Label> {
+  private static final class OutputType extends Type<Label> {
     @Override
     public Label cast(Object value) {
       return (Label) value;
@@ -464,8 +459,8 @@ public final class BuildType {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-      visitor.visit(cast(value), context);
+    public void visitLabels(LabelVisitor visitor, Label value, @Nullable Attribute context) {
+      visitor.visit(value, context);
     }
 
     @Override
@@ -491,7 +486,7 @@ public final class BuildType {
       try {
         // Enforce value is relative to the context.
         Label currentRule;
-        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+        RepositoryMapping repositoryMapping;
         if (context instanceof LabelConversionContext) {
           currentRule = ((LabelConversionContext) context).getLabel();
           repositoryMapping = ((LabelConversionContext) context).getRepositoryMapping();
@@ -525,7 +520,7 @@ public final class BuildType {
     SelectorList(
         List<Object> x, Object what, @Nullable LabelConversionContext context, Type<T> originalType)
         throws ConversionException {
-      if (x.size() > 1 && originalType.concat(ImmutableList.<T>of()) == null) {
+      if (x.size() > 1 && originalType.concat(ImmutableList.of()) == null) {
         throw new ConversionException(
             String.format("type '%s' doesn't support select concatenation", originalType));
       }
@@ -570,7 +565,7 @@ public final class BuildType {
      */
     public Set<Label> getKeyLabels() {
       ImmutableSet.Builder<Label> keys = ImmutableSet.builder();
-      for (Selector<T> selector : getSelectors()) {
+      for (Selector<T> selector : elements) {
         for (Label label : selector.getEntries().keySet()) {
           if (!Selector.isReservedLabel(label)) {
             keys.add(label);
@@ -601,6 +596,22 @@ public final class BuildType {
     }
   }
 
+  /** Lazy string message to pass as the {@code what} when converting a select branch value. */
+  private static final class SelectBranchMessage {
+    private final Object what;
+    private final Label key;
+
+    SelectBranchMessage(Object what, Label key) {
+      this.what = what;
+      this.key = key;
+    }
+
+    @Override
+    public String toString() {
+      return String.format("each branch in select expression of %s (including '%s')", what, key);
+    }
+  }
+
   /**
    * Special Type that represents a selector expression for configurable attributes. Holds a
    * mapping of {@code <Label, T>} entries, where keys are configurability patterns and values are
@@ -611,7 +622,7 @@ public final class BuildType {
     @VisibleForTesting
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
-    public static final Label DEFAULT_CONDITION_LABEL =
+    static final Label DEFAULT_CONDITION_LABEL =
         Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;
@@ -653,10 +664,7 @@ public final class BuildType {
           result.put(key, originalType.getDefaultValue());
           defaultValuesBuilder.add(key);
         } else {
-          String selectBranch = what == null
-              ? null
-              : String.format("each branch in select expression of %s (including '%s')",
-                  what.toString(), key.toString());
+          Object selectBranch = what == null ? null : new SelectBranchMessage(what, key);
           result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
         }
       }
@@ -754,7 +762,7 @@ public final class BuildType {
    * values 0 (NO), 1 (YES), or None (AUTO). TriState is deprecated; use attr.int(values=[-1, 0, 1])
    * instead.
    */
-  private static class TriStateType extends Type<TriState> {
+  private static final class TriStateType extends Type<TriState> {
     @Override
     public TriState cast(Object value) {
       return (TriState) value;
@@ -766,8 +774,7 @@ public final class BuildType {
     }
 
     @Override
-    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-    }
+    public void visitLabels(LabelVisitor visitor, TriState value, @Nullable Attribute context) {}
 
     @Override
     public String toString() {

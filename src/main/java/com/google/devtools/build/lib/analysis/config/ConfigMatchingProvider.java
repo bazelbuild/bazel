@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -51,7 +52,7 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       Label label,
       ImmutableMultimap<String, String> settingsMap,
       ImmutableMap<Label, String> flagSettingsMap,
-      ImmutableSet<String> requiredFragmentOptions,
+      RequiredConfigFragmentsProvider requiredFragmentOptions,
       boolean matches) {
     return new AutoValue_ConfigMatchingProvider(
         label, settingsMap, flagSettingsMap, requiredFragmentOptions, matches);
@@ -64,7 +65,7 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
 
   abstract ImmutableMap<Label, String> flagSettingsMap();
 
-  public abstract ImmutableSet<String> requiredFragmentOptions();
+  public abstract RequiredConfigFragmentsProvider requiredFragmentOptions();
 
   /**
    * Whether or not the configuration criteria defined by this target match its actual
@@ -83,23 +84,11 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
     ImmutableSet<Map.Entry<Label, String>> flagSettings = flagSettingsMap().entrySet();
     ImmutableSet<Map.Entry<Label, String>> otherFlagSettings = other.flagSettingsMap().entrySet();
 
-    if (!settings.containsAll(otherSettings)) {
-      // not a superset
-      return false;
+    if (!settings.containsAll(otherSettings) || !flagSettings.containsAll(otherFlagSettings)) {
+      return false; // Not a superset.
     }
 
-    if (!flagSettings.containsAll(otherFlagSettings)) {
-      // not a superset
-      return false;
-    }
-
-    if (!(settings.size() > otherSettings.size()
-        || flagSettings.size() > otherFlagSettings.size())) {
-      // not a proper superset
-      return false;
-    }
-
-    return true;
+    return settings.size() > otherSettings.size() || flagSettings.size() > otherFlagSettings.size();
   }
 
   /** Format this provider as its label. */

@@ -171,15 +171,13 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testProguardExtractor() throws Exception {
+    ConfiguredTarget target = getConfiguredTarget("//a:bar");
     Artifact proguardSpecsAritfact =
-        getConfiguredTarget("//a:bar")
-            .get(ProguardSpecProvider.PROVIDER)
-            .getTransitiveProguardSpecs()
-            .toList()
-            .get(0);
+        target.get(ProguardSpecProvider.PROVIDER).getTransitiveProguardSpecs().toList().get(0);
 
     Artifact aarProguardExtractor =
-        getHostConfiguredTarget(
+        getDirectPrerequisite(
+                target,
                 ruleClassProvider.getToolsRepository()
                     + "//tools/android:aar_embedded_proguard_extractor")
             .getProvider(FilesToRunProvider.class)
@@ -251,7 +249,7 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
 
     DataBindingV2Provider provider = aarImportTarget.get(DataBindingV2Provider.PROVIDER);
 
-    Artifact setterStore = Iterables.getOnlyElement(provider.getSetterStores());
+    Artifact setterStore = provider.getSetterStores().toList().get(0);
     assertThat(setterStore.isTreeArtifact()).isTrue();
     assertThat(setterStore.getExecPathString())
         .endsWith("_aar/unzipped/data-binding-setter_store/last");
@@ -292,33 +290,27 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testResourcesExtractor() throws Exception {
+    ConfiguredTarget target = getConfiguredTarget("//a:foo");
     ValidatedAndroidResources resourceContainer =
-        getConfiguredTarget("//a:foo")
-            .get(AndroidResourcesInfo.PROVIDER)
-            .getDirectAndroidResources()
-            .toList()
-            .get(0);
+        target.get(AndroidResourcesInfo.PROVIDER).getDirectAndroidResources().toList().get(0);
 
     Artifact resourceTreeArtifact = resourceContainer.getResources().get(0);
     Artifact aarResourcesExtractor =
-        getHostConfiguredTarget(
+        getDirectPrerequisite(
+                target,
                 ruleClassProvider.getToolsRepository() + "//tools/android:aar_resources_extractor")
             .getProvider(FilesToRunProvider.class)
             .getExecutable();
 
     ParsedAndroidAssets assets =
-        getConfiguredTarget("//a:foo")
-            .get(AndroidAssetsInfo.PROVIDER)
-            .getDirectParsedAssets()
-            .toList()
-            .get(0);
+        target.get(AndroidAssetsInfo.PROVIDER).getDirectParsedAssets().toList().get(0);
     Artifact assetsTreeArtifact = assets.getAssets().get(0);
 
-    DataBindingV2Provider dataBindingV2Provider =
-        getConfiguredTarget("//a:foo").get(DataBindingV2Provider.PROVIDER);
+    DataBindingV2Provider dataBindingV2Provider = target.get(DataBindingV2Provider.PROVIDER);
     Artifact databindingBrTreeArtifact =
         dataBindingV2Provider.getTransitiveBRFiles().toList().get(0);
-    Artifact databindingSetterStoreTreeArtifact = dataBindingV2Provider.getSetterStores().get(0);
+    Artifact databindingSetterStoreTreeArtifact =
+        dataBindingV2Provider.getSetterStores().toList().get(0);
 
     assertThat(getGeneratingSpawnAction(resourceTreeArtifact).getArguments())
         .containsExactly(

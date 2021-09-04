@@ -29,6 +29,7 @@ import net.starlark.java.eval.Structure;
             + "<code>ctx.fragments.java</code> "
             + "<p>Only configuration fragments which are declared in the rule definition "
             + "may be accessed in this collection.</p>"
-            + "<p>See <a href=\"../rules.DOC_EXT#configuration-fragments\">rules documentation</a> "
+            + "<p>"
+            + "See <a href=\"../rules.$DOC_EXT#configuration-fragments\">rules documentation</a> "
             + "for details.")
 public interface FragmentCollectionApi extends Structure, StarlarkValue {}

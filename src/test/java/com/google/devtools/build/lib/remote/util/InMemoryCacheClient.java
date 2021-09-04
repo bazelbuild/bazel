@@ -91,19 +91,20 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     ActionResult actionResult = ac.get(actionKey);
     if (actionResult == null) {
       return Futures.immediateFailedFuture(new CacheNotFoundException(actionKey.getDigest()));
     }
-    return Futures.immediateFuture(actionResult);
+    return Futures.immediateFuture(CachedActionResult.remote(actionResult));
   }
 
   @Override
-  public void uploadActionResult(
+  public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ac.put(actionKey, actionResult);
+    return Futures.immediateFuture(null);
   }
 
   @Override

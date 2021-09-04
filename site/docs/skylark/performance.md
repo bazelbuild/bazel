@@ -110,7 +110,7 @@ transitive = []
 for i in inputs:
     transitive.append(i.deps)
 
-x = depset(transitive = transitive])
+x = depset(transitive = transitive)
 ```
 
 This can sometimes be reduced using a list comprehension:
@@ -119,7 +119,7 @@ This can sometimes be reduced using a list comprehension:
 x = depset(transitive = [i.deps for i in inputs])
 ```
 
-## Use `ctx.actions.args()` for command lines
+## Use ctx.actions.args() for command lines
 
 When building command lines you should use [ctx.actions.args()](lib/Args.html).
 This defers expansion of any depsets to the execution phase.
@@ -368,7 +368,7 @@ You must pass these two startup flags to *every* Bazel invocation:
 
   ```
   STARTUP_FLAGS=\
-  --host_jvm_args=-javaagent:$(BAZEL)/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
+  --host_jvm_args=-javaagent:$(BAZEL)/third_party/allocation_instrumenter/java-allocation-instrumenter-3.3.0.jar \
   --host_jvm_args=-DRULE_MEMORY_TRACKER=1
   ```
   **NOTE**: The bazel repository comes with an allocation instrumenter.

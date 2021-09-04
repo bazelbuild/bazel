@@ -33,16 +33,13 @@ public class DualExecutorQueueVisitor extends AbstractQueueVisitor
   private DualExecutorQueueVisitor(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
-      boolean shutdownOnCompletion,
       boolean failFastOnException,
-      ErrorClassifier errorClassifier,
-      boolean usingPriorityQueue) {
+      ErrorClassifier errorClassifier) {
     super(
         regularPoolExecutorService,
-        shutdownOnCompletion,
+        /*shutdownOnCompletion=*/ true,
         failFastOnException,
-        errorClassifier,
-        usingPriorityQueue);
+        errorClassifier);
     this.regularPoolExecutorService = super.getExecutorService();
     this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
   }
@@ -53,12 +50,7 @@ public class DualExecutorQueueVisitor extends AbstractQueueVisitor
       boolean failFastOnException,
       ErrorClassifier errorClassifier) {
     return new DualExecutorQueueVisitor(
-        executorService,
-        cpuExecutorService,
-        /*shutdownOnCompletion=*/ true,
-        failFastOnException,
-        errorClassifier,
-        /*usingPriorityQueue=*/ false);
+        executorService, cpuExecutorService, failFastOnException, errorClassifier);
   }
 
   @Override

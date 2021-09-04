@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
@@ -49,6 +51,11 @@ public class ObjcProviderStarlarkConverters {
   /** Returns a value for a java ObjcProvider given a key and a corresponding Starlark value. */
   public static NestedSet<?> convertToJava(Key<?> javaKey, Object starlarkValue)
       throws EvalException {
+    if (javaKey.getType().equals(LibraryToLink.class)) {
+      return Depset.noneableCast(starlarkValue, LibraryToLink.class, "cc_library");
+    } else if (javaKey.getType().equals(Linkstamp.class)) {
+      return Depset.noneableCast(starlarkValue, Linkstamp.class, "linkstamp");
+    }
     return CONVERTERS.get(javaKey.getType()).valueForJava(javaKey, starlarkValue);
   }
 

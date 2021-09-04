@@ -7,6 +7,7 @@ java_library(
     srcs = ["BlazeJavacStatistics.java"],
     deps = [
         "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
     ],

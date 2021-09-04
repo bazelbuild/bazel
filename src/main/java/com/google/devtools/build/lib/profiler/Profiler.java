@@ -21,6 +21,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.Extrema;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -300,8 +301,8 @@ public final class Profiler {
   // TODO(ulfjack): This returns incomplete data by design. Maybe we should return the histograms on
   // stop instead? However, this is currently only called from one location in a module, and that
   // can't call stop itself. What to do?
-  public ImmutableList<StatRecorder> getTasksHistograms() {
-    return ImmutableList.copyOf(tasksHistograms);
+  public synchronized ImmutableList<StatRecorder> getTasksHistograms() {
+    return isActive() ? ImmutableList.copyOf(tasksHistograms) : ImmutableList.of();
   }
 
   public static Profiler instance() {
@@ -369,7 +370,8 @@ public final class Profiler {
       boolean slimProfile,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
-      boolean collectTaskHistograms)
+      boolean collectTaskHistograms,
+      BugReporter bugReporter)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -424,7 +426,7 @@ public final class Profiler {
     profileCpuStartTime = getProcessCpuTime();
 
     if (enabledCpuUsageProfiling) {
-      cpuUsageThread = new CollectLocalResourceUsage();
+      cpuUsageThread = new CollectLocalResourceUsage(bugReporter);
       cpuUsageThread.setDaemon(true);
       cpuUsageThread.start();
     }

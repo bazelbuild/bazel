@@ -120,7 +120,7 @@ public class OptionsParser implements OptionsParsingResult {
 
   /** Returns the {@link OptionsData} associated with the given list of options classes. */
   static synchronized OptionsData getOptionsDataInternal(
-      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+      List<Class<? extends OptionsBase>> optionsClasses) {
     ImmutableList<Class<? extends OptionsBase>> immutableOptionsClasses =
         ImmutableList.copyOf(optionsClasses);
     OptionsData result = optionsData.get(immutableOptionsClasses);
@@ -137,8 +137,7 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /** Returns the {@link OptionsData} associated with the given options class. */
-  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
-      throws ConstructionException {
+  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass) {
     return getOptionsDataInternal(ImmutableList.of(optionsClass));
   }
 
@@ -693,11 +692,12 @@ public class OptionsParser implements OptionsParsingResult {
       ParsedOptionDescription optionToExpand, String source, List<String> args)
       throws OptionsParsingException {
     Preconditions.checkNotNull(
-        optionToExpand, "Option for expansion not specified for arglist " + args);
+        optionToExpand, "Option for expansion not specified for arglist %s", args);
     Preconditions.checkArgument(
         optionToExpand.getPriority().getPriorityCategory()
             != OptionPriority.PriorityCategory.DEFAULT,
-        "Priority cannot be default, which was specified for arglist " + args);
+        "Priority cannot be default, which was specified for arglist %s",
+        args);
     OptionsParserImplResult optionsParserImplResult =
         impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
     residue.addAll(optionsParserImplResult.getResidue());
@@ -709,6 +709,9 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
+   * Sets provided value for a flag with a particular priority. This only sets the value of the flag
+   * itself and does not affect any of its implicit requirements or expansions.
+   *
    * @param origin the origin of this option instance, it includes the priority of the value. If
    *     other values have already been or will be parsed at a higher priority, they might override
    *     the provided value. If this option already has a value at this priority, this value will
@@ -716,10 +719,10 @@ public class OptionsParser implements OptionsParsingResult {
    * @param option the option to add the value for.
    * @param value the value to add at the given priority.
    */
-  void addOptionValueAtSpecificPriority(
+  void setOptionValueAtSpecificPriorityWithoutExpansion(
       OptionInstanceOrigin origin, OptionDefinition option, String value)
       throws OptionsParsingException {
-    impl.addOptionValueAtSpecificPriority(origin, option, value);
+    impl.setOptionValueAtSpecificPriorityWithoutExpansion(origin, option, value);
   }
 
   /**

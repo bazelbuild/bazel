@@ -56,15 +56,15 @@ abstract class RealSandboxfsProcess implements SandboxfsProcess {
   private final Path mountPoint;
 
   /**
-   * Process handle to the sandboxfs instance.  Null only after {@link #destroy()} has been invoked.
+   * Process handle to the sandboxfs instance. Null only after {@link #destroy()} has been invoked.
    */
-  private @Nullable Subprocess process;
+  @Nullable private Subprocess process;
 
   /**
-   * Shutdown hook to stop the sandboxfs instance on abrupt termination.  Null only after
-   * {@link #destroy()} has been invoked.
+   * Shutdown hook to stop the sandboxfs instance on abrupt termination. Null only after {@link
+   * #destroy()} has been invoked.
    */
-  private @Nullable Thread shutdownHook;
+  @Nullable private Thread shutdownHook;
 
   /**
    * Initializes a new sandboxfs process instance.

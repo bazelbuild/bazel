@@ -94,7 +94,7 @@ Here is a typical target dependency graph of an `android_instrumentation_test`:
 
 ![The target dependency graph on an Android instrumentation test](/assets/android_instrumentation_test.png)
 
-### `BUILD` file
+### BUILD file
 
 The graph translates into a `BUILD` file like this:
 
@@ -187,7 +187,7 @@ Here is an example `AndroidTestManifest.xml` for the test app:
 </manifest>
 ```
 
-### `WORKSPACE` dependencies
+### WORKSPACE dependencies
 
 In order to use this rule, your project needs to depend on these external
 repositories:

@@ -236,7 +236,7 @@ public class ResourcesZip {
           new ProtoResourceUsageAnalyzer(packages, rTxt, proguardMapping, resourcesConfig, logFile);
 
       ProtoApk shrink = analyzer.shrink(apk, classJar, shrunkApkProto, parseToolAttributes());
-      return new ShrunkProtoApk(shrink, resourcesConfig, logFile, ids);
+      return new ShrunkProtoApk(shrink, resourcesConfig, logFile);
     }
   }
 
@@ -266,19 +266,17 @@ public class ResourcesZip {
     private final ProtoApk apk;
     private final Path resourcesConfig;
     private final Path report;
-    private final Path ids;
 
-    ShrunkProtoApk(ProtoApk apk, Path resourcesConfig, Path report, Path ids) {
+    ShrunkProtoApk(ProtoApk apk, Path resourcesConfig, Path report) {
       this.apk = apk;
       this.resourcesConfig = resourcesConfig;
       this.report = report;
-      this.ids = ids;
     }
 
     ShrunkProtoApk writeBinaryTo(ResourceLinker linker, Path binaryOut, boolean writeAsProto)
         throws IOException {
       Files.copy(
-          writeAsProto ? apk.asApkPath() : linker.link(apk, ids),
+          writeAsProto ? apk.asApkPath() : linker.convertProtoApkToBinary(apk),
           binaryOut,
           StandardCopyOption.REPLACE_EXISTING);
       return this;

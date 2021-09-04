@@ -70,6 +70,7 @@ import java.security.SecureRandom;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * gRPC server class.
@@ -114,7 +115,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       int serverPid,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
-      boolean idleServerTasks) {
+      boolean idleServerTasks,
+      @Nullable String slowInterruptMessageSuffix) {
     SecureRandom random = new SecureRandom();
     return new GrpcServerImpl(
         dispatcher,
@@ -128,7 +130,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         serverPid,
         maxIdleSeconds,
         shutdownOnLowSysMem,
-        idleServerTasks);
+        idleServerTasks,
+        slowInterruptMessageSuffix);
   }
 
 
@@ -303,7 +306,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       int serverPid,
       int maxIdleSeconds,
       boolean shutdownOnLowSysMem,
-      boolean doIdleServerTasks) {
+      boolean doIdleServerTasks,
+      @Nullable String slowInterruptMessageSuffix) {
     this.dispatcher = dispatcher;
     this.shutdownHooks = shutdownHooks;
     this.pidFileWatcher = pidFileWatcher;
@@ -328,8 +332,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                     .setDaemon(true)
                     .build()));
 
-
-    commandManager = new CommandManager(doIdleServerTasks);
+    commandManager = new CommandManager(doIdleServerTasks, slowInterruptMessageSuffix);
   }
 
   private static String generateCookie(SecureRandom random, int byteCount) {

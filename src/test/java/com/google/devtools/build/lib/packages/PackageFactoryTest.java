@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -1250,10 +1251,16 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
               public Path getBuildFileForPackage(PackageIdentifier packageName) {
                 return null;
               }
+
+              @Override
+              public String getBaseNameForLoadedPackage(PackageIdentifier packageName) {
+                return null;
+              }
             },
             null,
             TestUtils.getPool(),
-            -1);
+            -1,
+            ThreadStateReceiver.NULL_INSTANCE);
     assertThat(globCache.globUnsorted(include, exclude, false, true))
         .containsExactlyElementsIn(expected);
   }

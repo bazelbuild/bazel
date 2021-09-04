@@ -75,12 +75,6 @@ import javax.annotation.Nullable;
  * these require explicit calls to the corresponding setter methods.
  */
 public final class CcCompilationHelper {
-  /** Similar to {@code OutputGroupInfo.HIDDEN_TOP_LEVEL}, but specific to header token files. */
-  public static final String HIDDEN_HEADER_TOKENS =
-      OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX
-          + "hidden_header_tokens"
-          + OutputGroupInfo.INTERNAL_SUFFIX;
-
   /**
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
@@ -257,7 +251,8 @@ public final class CcCompilationHelper {
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
   private final Set<String> localDefines = new LinkedHashSet<>();
-  private final List<CcCompilationContext> ccCompilationContexts = new ArrayList<>();
+  private final List<CcCompilationContext> deps = new ArrayList<>();
+  private final List<CcCompilationContext> implementationDeps = new ArrayList<>();
   private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> quoteIncludeDirs = new ArrayList<>();
@@ -284,6 +279,7 @@ public final class CcCompilationHelper {
   private String stripIncludePrefix = null;
   private String includePrefix = null;
 
+  // This context is built out of deps and implementation_deps.
   private CcCompilationContext ccCompilationContext;
 
   private final RuleErrorConsumer ruleErrorConsumer;
@@ -619,10 +615,21 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /** For adding CC compilation infos that affect compilation, e.g: from dependencies. */
+  /** For adding CC compilation infos that affect compilation, for example from dependencies. */
   public CcCompilationHelper addCcCompilationContexts(
       Iterable<CcCompilationContext> ccCompilationContexts) {
-    Iterables.addAll(this.ccCompilationContexts, Preconditions.checkNotNull(ccCompilationContexts));
+    Iterables.addAll(this.deps, Preconditions.checkNotNull(ccCompilationContexts));
+    return this;
+  }
+
+  /**
+   * For adding CC compilation infos that affect compilation non-transitively, for example from
+   * dependencies.
+   */
+  public CcCompilationHelper addImplementationDepsCcCompilationContexts(
+      Iterable<CcCompilationContext> ccCompileActionCompilationContexts) {
+    Iterables.addAll(
+        this.implementationDeps, Preconditions.checkNotNull(ccCompileActionCompilationContexts));
     return this;
   }
 
@@ -780,17 +787,33 @@ public final class CcCompilationHelper {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
     }
 
-    ccCompilationContext = initializeCcCompilationContext(ruleContext);
+    CcCompilationContext.Builder contextBuilder = initializeCcCompilationContext(ruleContext);
+    CcCompilationContext publicCompilationContext = contextBuilder.build();
+    ccCompilationContext = publicCompilationContext;
+    if (!implementationDeps.isEmpty()) {
+      // We set a different purpose so that the middleman doesn't clash with the one from propagated
+      // ccCompilationContext.
+      contextBuilder.addDependentCcCompilationContexts(implementationDeps);
+      contextBuilder.setPurpose(purpose + "_impl");
+      ccCompilationContext = contextBuilder.build();
+    }
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(
-        !compileHeaderModules || ccCompilationContext.getCppModuleMap() != null,
+        !compileHeaderModules || publicCompilationContext.getCppModuleMap() != null,
         "All cc rules must support module maps.");
 
     // Create compile actions (both PIC and no-PIC).
     CcCompilationOutputs ccOutputs = createCcCompileActions();
 
-    return new CompilationInfo(ccCompilationContext, ccOutputs);
+    if (cppConfiguration.processHeadersInDependencies()) {
+      return new CompilationInfo(
+          CcCompilationContext.createWithExtraHeaderTokens(
+              publicCompilationContext, ccOutputs.getHeaderTokenFiles()),
+          ccOutputs);
+    } else {
+      return new CompilationInfo(publicCompilationContext, ccOutputs);
+    }
   }
 
   public static Map<String, NestedSet<Artifact>> buildOutputGroups(
@@ -807,33 +830,21 @@ public final class CcCompilationHelper {
       CcToolchainProvider ccToolchain,
       FeatureConfiguration featureConfiguration,
       RuleContext ruleContext,
-      boolean generateHeaderTokensGroup,
-      boolean addSelfHeaderTokens,
       boolean generateHiddenTopLevelGroup) {
     ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroupsBuilder = ImmutableMap.builder();
     outputGroupsBuilder.put(OutputGroupInfo.TEMP_FILES, ccCompilationOutputs.getTemps());
     boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
     boolean usePic = ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
-    outputGroupsBuilder.put(
-        OutputGroupInfo.FILES_TO_COMPILE,
-        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
+    NestedSet<Artifact> filesToCompile =
+        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic);
+    outputGroupsBuilder.put(OutputGroupInfo.FILES_TO_COMPILE, filesToCompile);
     outputGroupsBuilder.put(
         OutputGroupInfo.COMPILATION_PREREQUISITES,
         CcCommon.collectCompilationPrerequisites(ruleContext, ccCompilationContext));
-    if (generateHeaderTokensGroup) {
-      outputGroupsBuilder.put(
-          CcCompilationHelper.HIDDEN_HEADER_TOKENS,
-          CcCompilationHelper.collectHeaderTokens(
-              ruleContext,
-              ruleContext.getFragment(CppConfiguration.class),
-              ccCompilationOutputs,
-              addSelfHeaderTokens));
-    }
     if (generateHiddenTopLevelGroup) {
       outputGroupsBuilder.put(
           OutputGroupInfo.HIDDEN_TOP_LEVEL,
-          collectLibraryHiddenTopLevelArtifacts(
-              ruleContext, ccToolchain, ccCompilationOutputs, featureConfiguration));
+          collectLibraryHiddenTopLevelArtifacts(ruleContext, filesToCompile));
     }
     outputGroupsBuilder.putAll(
         CcCommon.createSaveFeatureStateArtifacts(
@@ -842,17 +853,10 @@ public final class CcCompilationHelper {
   }
 
   private static NestedSet<Artifact> collectLibraryHiddenTopLevelArtifacts(
-      RuleContext ruleContext,
-      CcToolchainProvider toolchain,
-      CcCompilationOutputs ccCompilationOutputs,
-      FeatureConfiguration featureConfiguration) {
+      RuleContext ruleContext, NestedSet<Artifact> filesToCompile) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
-    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    boolean processHeadersInDependencies = cppConfiguration.processHeadersInDependencies();
-    boolean usePic = toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
-    artifactsToForceBuilder.addTransitive(
-        ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
+    artifactsToForceBuilder.addTransitive(filesToCompile);
     for (OutputGroupInfo dep :
         ruleContext.getPrerequisites("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       artifactsToForceBuilder.addTransitive(dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
@@ -997,7 +1001,7 @@ public final class CcCompilationHelper {
   }
 
   /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
-  private CcCompilationContext initializeCcCompilationContext(RuleContext ruleContext)
+  private CcCompilationContext.Builder initializeCcCompilationContext(RuleContext ruleContext)
       throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
@@ -1061,10 +1065,8 @@ public final class CcCompilationHelper {
           publicHeaders.virtualToOriginalHeaders);
     }
 
-    ccCompilationContextBuilder.mergeDependentCcCompilationContexts(ccCompilationContexts);
     mergeToolchainDependentCcCompilationContext(ccToolchain, ccCompilationContextBuilder);
 
-    // But defines come after those inherited from deps.
     ccCompilationContextBuilder.addDefines(defines);
 
     ccCompilationContextBuilder.addNonTransitiveDefines(localDefines);
@@ -1150,26 +1152,8 @@ public final class CcCompilationHelper {
       }
     }
     ccCompilationContextBuilder.setPurpose(purpose);
-    return ccCompilationContextBuilder.build();
-  }
-
-  /**
-   * Collects all preprocessed header files (*.h.processed) from dependencies and the current rule.
-   */
-  public static NestedSet<Artifact> collectHeaderTokens(
-      RuleContext ruleContext,
-      CppConfiguration cppConfiguration,
-      CcCompilationOutputs ccCompilationOutputs,
-      boolean addSelfTokens) {
-    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (OutputGroupInfo dep :
-        ruleContext.getPrerequisites("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
-      headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
-    }
-    if (addSelfTokens && cppConfiguration.processHeadersInDependencies()) {
-      headerTokens.addAll(ccCompilationOutputs.getHeaderTokenFiles());
-    }
-    return headerTokens.build();
+    ccCompilationContextBuilder.addDependentCcCompilationContexts(deps);
+    return ccCompilationContextBuilder;
   }
 
   public void registerAdditionalModuleMap(CppModuleMap cppModuleMap) {
@@ -1244,7 +1228,15 @@ public final class CcCompilationHelper {
 
   private List<CppModuleMap> collectModuleMaps() {
     ImmutableList.Builder<CppModuleMap> builder = ImmutableList.<CppModuleMap>builder();
-    for (CcCompilationContext ccCompilationContext : ccCompilationContexts) {
+    // TODO(bazel-team): Here we use the implementationDeps to build the dependents of this rule's
+    // module map. This is technically incorrect for the following reasons:
+    //  - Clang will not issue a layering_check warning if headers from implementation_deps are
+    //    included from headers of this library.
+    //  - If we were to ever build with modules, Clang might store this dependency inside the .pcm
+    // It should be evaluated whether this is ok.  If this turned into a problem at some
+    // point, we could probably just declare two different modules with different use-declarations
+    // in the module map file.
+    for (CcCompilationContext ccCompilationContext : Iterables.concat(deps, implementationDeps)) {
       CppModuleMap moduleMap = ccCompilationContext.getCppModuleMap();
       // Cpp module maps may be null for some rules.
       if (moduleMap != null) {
@@ -2190,7 +2182,7 @@ public final class CcCompilationHelper {
   private static void mergeToolchainDependentCcCompilationContext(
       CcToolchainProvider toolchain, CcCompilationContext.Builder ccCompilationContextBuilder) {
     if (toolchain != null) {
-      ccCompilationContextBuilder.mergeDependentCcCompilationContext(
+      ccCompilationContextBuilder.addDependentCcCompilationContext(
           toolchain.getCcCompilationContext());
     }
   }

@@ -441,10 +441,10 @@ contact
 [Platforms]: platforms.md
 [Toolchains]: toolchains.md
 [Inspiration]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
-[C++ Rules]: /versions/master/bazel-and-cpp.html
-[Android Rules]: /versions/master/bazel-and-android.html
+[C++ Rules]: /versions/main/bazel-and-cpp.html
+[Android Rules]: /versions/main/bazel-and-android.html
 [Common Platform Declarations]: https://github.com/bazelbuild/platforms#motivation
-[select()]: https://docs.bazel.build/versions/master/configurable-attributes.html
+[select()]: https://docs.bazel.build/versions/main/configurable-attributes.html
 [select() Platforms]: configurable-attributes.md#platforms
 [platform Rule]: be/platform.html#platform
 [constraint_value Rule]: be/platform.html#constraint_value

@@ -44,7 +44,7 @@ public interface GoPackageInfoApi extends StructApi {
         name = PROVIDER_NAME,
         documented = false,
         parameters = {
-          @Param(name = "non_proto_library_label", positional = false, named = true),
+          @Param(name = "label", positional = false, named = true),
           @Param(name = "srcs", positional = false, named = true),
           @Param(
               name = "export_data",
@@ -52,7 +52,21 @@ public interface GoPackageInfoApi extends StructApi {
               named = true,
               allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
           @Param(name = "imports", positional = false, named = true),
+          @Param(
+              name = "library",
+              positional = false,
+              named = true,
+              allowedTypes = {
+                @ParamType(type = GoPackageInfoApi.class),
+                @ParamType(type = NoneType.class)
+              },
+              defaultValue = "None"),
           @Param(name = "test", positional = false, named = true),
+          @Param(
+              name = "is_proto_library",
+              positional = false,
+              named = true,
+              defaultValue = "False"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -61,7 +75,9 @@ public interface GoPackageInfoApi extends StructApi {
         Sequence<?> srcs,
         Object exportDataObject,
         Sequence<?> imports,
-        boolean test)
+        Object library,
+        boolean test,
+        boolean isProtolibrary)
         throws EvalException;
   }
 }

@@ -160,8 +160,7 @@ See the documentation on that site for setup steps and to configure targets.
 
 ## Building TypeScript
 
-See the https://www.npmjs.com/package/@bazel/typescript package.
-
+See the [@bazel/typescript](https://www.npmjs.com/package/@bazel/typescript) NPM package.
 
 ### Compiling TypeScript inputs (`ts_library`)
 

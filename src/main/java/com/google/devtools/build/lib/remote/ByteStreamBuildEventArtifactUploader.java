@@ -18,7 +18,6 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -27,7 +26,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -42,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -128,20 +127,20 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     return new PathMetadata(file, digest, /* directory= */ false, isRemoteFile(file));
   }
 
-  private static List<PathMetadata> processQueryResult(
-      ImmutableSet<Digest> missingDigests, List<PathMetadata> filesToQuery) {
-    List<PathMetadata> allPaths = new ArrayList<>(filesToQuery.size());
+  private static void processQueryResult(
+      ImmutableSet<Digest> missingDigests,
+      List<PathMetadata> filesToQuery,
+      List<PathMetadata> knownRemotePaths) {
     for (PathMetadata file : filesToQuery) {
       if (missingDigests.contains(file.getDigest())) {
-        allPaths.add(file);
+        knownRemotePaths.add(file);
       } else {
         PathMetadata remotePathMetadata =
             new PathMetadata(
                 file.getPath(), file.getDigest(), file.isDirectory(), /* remote= */ true);
-        allPaths.add(remotePathMetadata);
+        knownRemotePaths.add(remotePathMetadata);
       }
     }
-    return allPaths;
   }
 
   /**
@@ -149,8 +148,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    * remote cache already contains the file. If so {@link PathMetadata#isRemote()} is set to {@code
    * true}.
    */
-  private ListenableFuture<ImmutableIterable<PathMetadata>> queryRemoteCache(
-      ImmutableList<ListenableFuture<PathMetadata>> allPaths) throws Exception {
+  private ListenableFuture<Iterable<PathMetadata>> queryRemoteCache(
+      ImmutableList<ListenableFuture<PathMetadata>> allPaths)
+      throws ExecutionException, InterruptedException {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
@@ -170,13 +170,13 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       }
     }
     if (digestsToQuery.isEmpty()) {
-      return Futures.immediateFuture(ImmutableIterable.from(knownRemotePaths));
+      return Futures.immediateFuture(knownRemotePaths);
     }
     return Futures.transform(
         missingDigestsFinder.findMissingDigests(context, digestsToQuery),
         (missingDigests) -> {
-          List<PathMetadata> filesToQueryUpdated = processQueryResult(missingDigests, filesToQuery);
-          return ImmutableIterable.from(Iterables.concat(knownRemotePaths, filesToQueryUpdated));
+          processQueryResult(missingDigests, filesToQuery, knownRemotePaths);
+          return knownRemotePaths;
         },
         MoreExecutors.directExecutor());
   }
@@ -185,8 +185,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    * Uploads any files from {@code allPaths} where {@link PathMetadata#isRemote()} returns {@code
    * false}.
    */
-  private ListenableFuture<List<PathMetadata>> uploadLocalFiles(
-      ImmutableIterable<PathMetadata> allPaths) {
+  private ListenableFuture<List<PathMetadata>> uploadLocalFiles(Iterable<PathMetadata> allPaths) {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "bes-upload", null);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(metadata);
@@ -223,7 +222,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     // Query the remote cache to check which files need to be uploaded
     ImmutableList<ListenableFuture<PathMetadata>> allPaths = allPathMetadata.build();
-    ListenableFuture<ImmutableIterable<PathMetadata>> allPathsUpdatedMetadata =
+    ListenableFuture<Iterable<PathMetadata>> allPathsUpdatedMetadata =
         Futures.whenAllSucceed(allPaths)
             .callAsync(() -> queryRemoteCache(allPaths), MoreExecutors.directExecutor());
 

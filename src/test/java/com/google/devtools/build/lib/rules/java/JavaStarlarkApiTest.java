@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
+import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -1944,7 +1947,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testJavaInfoGetTransitiveExports() throws Exception {
-    setBuildLanguageOptions("--incompatible_enable_exports_provider");
+    setBuildLanguageOptions(
+        "--incompatible_enable_exports_provider",
+        "--experimental_builtins_injection_override=-java_library");
     scratch.file(
         "foo/extension.bzl",
         "result = provider()",
@@ -2009,8 +2014,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(
             nativeLibs.getSet(LibraryToLink.class).toList().stream()
                 .map(LibraryToLink::getLibraryIdentifier))
-        .containsExactly("foo/libmy_cc_lib_a.so", "foo/libmy_cc_lib_b.so", "foo/libmy_cc_lib_c.so")
-        .inOrder();
+        .containsExactly("foo/libmy_cc_lib_a.so", "foo/libmy_cc_lib_b.so", "foo/libmy_cc_lib_c.so");
   }
 
   /**
@@ -2032,7 +2036,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
         "cc_library(name = 'native', srcs = ['cc/x.cc'])",
-        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
+        "java_library(name = 'jl', srcs = ['java/A.java'], deps = [':native'])",
         "cc_library(name = 'ccl', srcs = ['cc/x.cc'])",
         "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
         "java_library(name = 'jl_top', srcs = ['java/C.java'], deps = [':r'])");
@@ -2121,7 +2125,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
         "cc_binary(name = 'native.so', srcs = ['cc/x.cc'], linkshared = True)",
-        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native.so'])",
+        "java_library(name = 'jl', srcs = ['java/A.java'], deps = [':native.so'])",
         "my_rule(name = 'r', dep = ':jl')");
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
@@ -2952,43 +2956,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(String.join(" ", javacopts)).contains("-source 6 -target 6");
   }
 
-  private boolean toolchainResolutionEnabled() throws Exception {
-    scratch.file(
-        "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  toolchain_resolution_enabled ="
-            + " java_common.is_java_toolchain_resolution_enabled_do_not_use(",
-        "      ctx = ctx)",
-        "  return MyInfo(",
-        "    toolchain_resolution_enabled = toolchain_resolution_enabled)",
-        "toolchain_resolution_enabled = rule(",
-        "  _impl,",
-        ");");
-
-    scratch.file(
-        "a/BUILD",
-        "load(':rule.bzl', 'toolchain_resolution_enabled')",
-        "toolchain_resolution_enabled(name='r')");
-
-    ConfiguredTarget r = getConfiguredTarget("//a:r");
-    return (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
-  }
-
-  @Test
-  public void testIsToolchainResolutionEnabled_disabled() throws Exception {
-    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules=false");
-
-    assertThat(toolchainResolutionEnabled()).isFalse();
-  }
-
-  @Test
-  public void testIsToolchainResolutionEnabled_enabled() throws Exception {
-    useConfiguration("--incompatible_use_toolchain_resolution_for_java_rules");
-
-    assertThat(toolchainResolutionEnabled()).isTrue();
-  }
-
   @Test
   public void testJavaRuntimeProviderFiles() throws Exception {
     scratch.file("a/a.txt", "hello");
@@ -3057,6 +3024,90 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(target.getInstrumentedFiles())).containsExactly("java/jni.cc");
     assertThat(prettyArtifactNames(target.getInstrumentationMetadataFiles()))
         .containsExactly("java/_objs/libjni.so/jni.gcno");
+  }
+
+  @Test
+  public void testSkipAnnotationProcessing() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
+        "    deps = [p[JavaInfo] for p in ctx.attr.deps],",
+        "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
+        "    enable_annotation_processing = False,",
+        "  )",
+        "  return struct(",
+        "    files = depset([output_jar]),",
+        "    providers = [compilation_provider]",
+        "  )",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'deps': attr.label_list(providers=[JavaInfo]),",
+        "    'plugins': attr.label_list(providers=[JavaPluginInfo]),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_plugin(",
+        "  name = 'processor',",
+        "  srcs = ['processor.java'],",
+        "  processor_class = 'Foo',",
+        "  generates_api = 1,", // so Turbine would normally run it
+        "  data = ['processor_data.txt'],",
+        ")",
+        "java_library(",
+        "  name = 'exports_processor',",
+        "  exported_plugins = [':processor'],",
+        ")",
+        "java_custom_library(",
+        "  srcs = ['custom.java'],",
+        "  name = 'custom',",
+        "  deps = [':exports_processor'],",
+        "  plugins = [':processor'],",
+        ")",
+        "java_custom_library(",
+        "  srcs = ['custom.java'],",
+        "  name = 'custom_noproc',",
+        ")");
+
+    ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
+    ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");
+    assertNoEvents();
+
+    JavaCompileAction javacAction =
+        (JavaCompileAction) getGeneratingActionForLabel("//foo:libcustom.jar");
+    assertThat(javacAction.getMnemonic()).isEqualTo("Javac");
+    assertThat(getProcessorNames(javacAction)).isEmpty();
+    assertThat(getProcessorPath(javacAction)).isNotEmpty();
+    assertThat(artifactFilesNames(javacAction.getInputs())).contains("processor_data.txt");
+
+    JavaCompileAction turbineAction =
+        (JavaCompileAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", custom));
+    assertThat(turbineAction.getMnemonic()).isEqualTo("JavacTurbine");
+    List<String> args = turbineAction.getArguments();
+    assertThat(args).doesNotContain("--processors");
+
+    // enable_annotation_processing=False shouldn't disable direct classpaths if there are no
+    // annotation processors that need to be disabled
+    SpawnAction turbineActionNoProc =
+        (SpawnAction)
+            getGeneratingAction(getBinArtifact("libcustom_noproc-hjar.jar", customNoproc));
+    assertThat(turbineActionNoProc.getMnemonic()).isEqualTo("Turbine");
+    assertThat(turbineActionNoProc.getArguments()).doesNotContain("--processors");
   }
 
   private InstrumentedFilesInfo getInstrumentedFilesProvider(String label) throws Exception {

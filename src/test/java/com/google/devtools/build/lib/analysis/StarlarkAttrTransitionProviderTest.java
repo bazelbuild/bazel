@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -73,7 +74,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     scratch.file("myinfo/BUILD");
   }
 
-  private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
+  private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
+      throws Exception {
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
@@ -81,7 +83,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   private void writeAllowlistFile() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
@@ -1868,8 +1870,10 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             .getAttributeDefinition("dep")
             .getTransitionFactory()
             .create(AttributeTransitionData.builder().attributes(attributes).build());
-    assertThat(attrTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
-        .containsExactly("CppOptions");
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
+    attrTransition.addRequiredFragments(requiredFragments, ct.getConfiguration().getOptions());
+    assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
   }
 
   /**
@@ -2002,7 +2006,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testOptionConversionDynamicMode() throws Exception {
+  public void testOptionConversionDynamicMode() {
     // TODO(waltl): check that dynamic_mode is parsed properly.
   }
 

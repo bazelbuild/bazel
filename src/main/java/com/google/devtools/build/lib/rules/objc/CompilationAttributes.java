@@ -22,14 +22,21 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Provides a way to access attributes that are common to all compilation rules. */
@@ -190,7 +197,7 @@ final class CompilationAttributes implements StarlarkValue {
           this.enableModules);
     }
 
-    private static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addHeadersFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("hdrs", BuildType.LABEL_LIST)) {
         NestedSetBuilder<Artifact> headers = NestedSetBuilder.stableOrder();
         for (Pair<Artifact, Label> header : CcCommon.getHeaders(ruleContext)) {
@@ -204,7 +211,7 @@ final class CompilationAttributes implements StarlarkValue {
       }
     }
 
-    private static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addIncludesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("includes", Type.STRING_LIST)) {
         NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
         includes.addAll(
@@ -223,7 +230,7 @@ final class CompilationAttributes implements StarlarkValue {
       }
     }
 
-    private static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
+    static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
         NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
@@ -249,8 +256,17 @@ final class CompilationAttributes implements StarlarkValue {
     }
 
     private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
+      addCompileOptionsFromRuleContext(builder, ruleContext, /* copts= */ null);
+    }
+
+    static void addCompileOptionsFromRuleContext(
+        Builder builder, RuleContext ruleContext, Iterable<String> copts) {
       if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
-        builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
+        if (copts == null) {
+          builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
+        } else {
+          builder.addCopts(copts);
+        }
       }
 
       if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
@@ -267,7 +283,8 @@ final class CompilationAttributes implements StarlarkValue {
       }
     }
 
-    private static void addModuleOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
+    protected static void addModuleOptionsFromRuleContext(
+        Builder builder, RuleContext ruleContext) {
       PathFragment packageFragment = ruleContext.getPackageDirectory();
       if (packageFragment != null) {
         builder.setPackageFragment(packageFragment);
@@ -330,6 +347,16 @@ final class CompilationAttributes implements StarlarkValue {
     return this.hdrs;
   }
 
+  @StarlarkMethod(name = "hdrs", documented = false, structField = true)
+  public Depset hdrsForStarlark() {
+    return Depset.of(Artifact.TYPE, hdrs());
+  }
+
+  @StarlarkMethod(name = "textual_hdrs", documented = false, structField = true)
+  public Depset textualHdrsForStarlark() {
+    return Depset.of(Artifact.TYPE, textualHdrs());
+  }
+
   /**
    * Returns the headers that cannot be compiled individually.
    */
@@ -342,6 +369,28 @@ final class CompilationAttributes implements StarlarkValue {
    */
   public NestedSet<PathFragment> includes() {
     return this.includes;
+  }
+
+  @StarlarkMethod(name = "includes", documented = false, structField = true)
+  public Depset includesForStarlark() {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.wrap(
+            Order.COMPILE_ORDER,
+            includes().toList().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @StarlarkMethod(name = "sdk_includes", documented = false, structField = true)
+  public Depset sdkIncludesForStarlark() {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.wrap(
+            Order.COMPILE_ORDER,
+            sdkIncludes().toList().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
   }
 
   /**
@@ -358,6 +407,20 @@ final class CompilationAttributes implements StarlarkValue {
     return this.sdkFrameworks;
   }
 
+  @StarlarkMethod(name = "sdk_frameworks", documented = false, structField = true)
+  public Depset sdkFrameworksForStarlark() {
+    return (Depset)
+        ObjcProviderStarlarkConverters.convertToStarlark(
+            ObjcProvider.SDK_FRAMEWORK, sdkFrameworks());
+  }
+
+  @StarlarkMethod(name = "weak_sdk_frameworks", documented = false, structField = true)
+  public Depset weakSdkFrameworksForStarlark() {
+    return (Depset)
+        ObjcProviderStarlarkConverters.convertToStarlark(
+            ObjcProvider.SDK_FRAMEWORK, weakSdkFrameworks());
+  }
+
   /**
    * Returns the SDK frameworks to be linked weakly.
    */
@@ -365,11 +428,33 @@ final class CompilationAttributes implements StarlarkValue {
     return this.weakSdkFrameworks;
   }
 
+  @StarlarkMethod(name = "sdk_dylibs", documented = false, structField = true)
+  public Depset sdkDylibsForStarlark() {
+    return Depset.of(ElementType.STRING, sdkDylibs);
+  }
+
   /**
    * Returns the SDK Dylibs to link against.
    */
   public NestedSet<String> sdkDylibs() {
     return this.sdkDylibs;
+  }
+
+  @StarlarkMethod(
+      name = "header_search_paths",
+      documented = false,
+      parameters = {
+        @Param(name = "genfiles_dir", positional = false, named = true),
+      })
+  public Depset headerSearchPathsForStarlark(String genfilesDir) {
+    return Depset.of(
+        ElementType.STRING,
+        NestedSetBuilder.stableOrder()
+            .addAll(
+                headerSearchPaths(PathFragment.create(genfilesDir)).toList().stream()
+                    .map(PathFragment::toString)
+                    .collect(ImmutableList.toImmutableList()))
+            .build());
   }
 
   /**
@@ -398,6 +483,11 @@ final class CompilationAttributes implements StarlarkValue {
     return this.copts;
   }
 
+  @StarlarkMethod(name = "copts", documented = false, structField = true)
+  public Sequence<String> getCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(copts());
+  }
+
   /**
    * Returns the link-time options.
    */
@@ -410,6 +500,11 @@ final class CompilationAttributes implements StarlarkValue {
     return this.linkInputs;
   }
 
+  @StarlarkMethod(name = "defines", documented = false, structField = true)
+  public Sequence<String> getDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(defines());
+  }
+
   /** Returns the defines. */
   public ImmutableList<String> defines() {
     return this.defines;
@@ -419,6 +514,7 @@ final class CompilationAttributes implements StarlarkValue {
    * Returns whether this target uses language features that require clang modules, such as
    * {@literal @}import.
    */
+  @StarlarkMethod(name = "enable_modules", documented = false, structField = true)
   public boolean enableModules() {
     return this.enableModules;
   }

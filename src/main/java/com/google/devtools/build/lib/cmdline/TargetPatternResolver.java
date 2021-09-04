@@ -65,8 +65,8 @@ public abstract class TargetPatternResolver<T> {
    * Computes the set containing the targets found below the given {@code directory}, passing it in
    * batches to {@code callback}. Conceptually, this method should look for all packages that start
    * with the {@code directory} (as a proper prefix directory, i.e., "foo/ba" is not a proper prefix
-   * of "foo/bar/"), and then collect all targets in each such package (subject to
-   * {@code rulesOnly}) as if calling {@link #getTargetsInPackage}. The specified directory is not
+   * of "foo/bar/"), and then collect all targets in each such package (subject to {@code
+   * rulesOnly}) as if calling {@link #getTargetsInPackage}. The specified directory is not
    * necessarily a valid package name.
    *
    * <p>Note that the {@code directory} can be empty, which corresponds to the "//..." pattern.
@@ -80,10 +80,10 @@ public abstract class TargetPatternResolver<T> {
    * @param originalPattern the original target pattern for error reporting purposes
    * @param directory the directory in which to look for packages
    * @param rulesOnly whether to return rules only
-   * @param blacklistedSubdirectories a set of transitive subdirectories beneath {@code directory}
-   *    to ignore
-   * @param excludedSubdirectories another set of transitive subdirectories beneath
-   *    {@code directory} to ignore
+   * @param forbiddenSubdirectories a set of transitive subdirectories beneath {@code directory} to
+   *     ignore
+   * @param excludedSubdirectories another set of transitive subdirectories beneath {@code
+   *     directory} to ignore
    * @param callback the callback to receive the result, possibly in multiple batches.
    * @param exceptionClass The class type of the parameterized exception.
    * @throws TargetParsingException under implementation-specific failure conditions
@@ -93,7 +93,7 @@ public abstract class TargetPatternResolver<T> {
       String originalPattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass)
@@ -109,21 +109,21 @@ public abstract class TargetPatternResolver<T> {
       String originalPattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback,
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
       try {
-        findTargetsBeneathDirectory(
-            repository,
-            originalPattern,
-            directory,
-            rulesOnly,
-            blacklistedSubdirectories,
-            excludedSubdirectories,
-            callback,
-            exceptionClass);
+      findTargetsBeneathDirectory(
+          repository,
+          originalPattern,
+          directory,
+          rulesOnly,
+          forbiddenSubdirectories,
+          excludedSubdirectories,
+          callback,
+          exceptionClass);
         return Futures.immediateFuture(null);
       } catch (TargetParsingException e) {
         return Futures.immediateFailedFuture(e);

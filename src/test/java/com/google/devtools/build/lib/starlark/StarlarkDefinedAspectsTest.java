@@ -29,17 +29,21 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.RequiredProviders;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -48,10 +52,12 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -399,6 +405,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             "default_runfiles",
             "files",
             "files_to_run",
+            "kind",
             "label",
             "output_groups");
   }
@@ -2298,6 +2305,82 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             + "(when propagating to //test:r1)");
   }
 
+  @Test
+  public void aspectRequiresAspectInconsistentVisibility() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target,ctx):",
+        "   return struct()",
+        "a1 = aspect(_aspect_impl, attr_aspects = ['dep'])",
+        "a2 = aspect(_aspect_impl, attr_aspects = ['dep'], requires = [a1])",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "r1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1', 'r2')",
+        "r1(name = 'r0')",
+        "r1(name = 'r1', dep = ':r0')",
+        "r2(name = 'r2', dep = ':r1')",
+        "r1(name = 'r1_1', dep = ':r2')",
+        "r2(name = 'r2_1', dep = ':r1_1')");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--experimental_required_aspects");
+
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result = update("//test:r2_1");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(ViewCreationFailedException.class, () -> update("//test:r2_1"));
+    }
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:3:3: Aspect //test:aspect.bzl%a2 is"
+            + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
+            + "(when propagating to //test:r1)");
+  }
+
+  @Test
+  public void aspectRequiresAspectInconsistentVisibilityIndirect() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target,ctx):",
+        "   return struct()",
+        "a1 = aspect(_aspect_impl, attr_aspects = ['dep'])",
+        "a2 = aspect(_aspect_impl, attr_aspects = ['dep'], requires = [a1])",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "r1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2])})",
+        "r0 = rule(_rule_impl, attrs = { 'dep' : attr.label()})");
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
+        "r0(name = 'r0')",
+        "r1(name = 'r1', dep = ':r0')",
+        "r2(name = 'r2', dep = ':r1')",
+        "r1(name = 'r1_1', dep = ':r2')",
+        "r2(name = 'r2_1', dep = ':r1_1')",
+        "r0(name = 'r0_1', dep = ':r2_1')");
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--experimental_required_aspects");
+
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result = update("//test:r0_1");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(ViewCreationFailedException.class, () -> update("//test:r0_1"));
+    }
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:3:3: Aspect //test:aspect.bzl%a2 is"
+            + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
+            + "(when propagating to //test:r1)");
+  }
+
   /**
    * Aspect a3 sees aspect a2, aspect a2 sees aspect a1, but a3 does not see a1. All three aspects
    * should still propagate together.
@@ -3418,6 +3501,3388 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
     assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
+  }
+
+  @Test
+  public void testAspectRequiresAspect_aspectsParameters() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "RequiredAspectProv = provider()",
+        "BaseAspectProv = provider()",
+        "",
+        "def _required_aspect_impl(target, ctx):",
+        "  p1_val = 'In required_aspect, p1 = {} on target {}'.format(ctx.attr.p1, target.label)",
+        "  p2_val = 'invalid value'",
+        "  if not hasattr(ctx.attr, 'p2'):",
+        "    p2_val = 'In required_aspect, p2 not found on target {}'.format(target.label)",
+        "  return [RequiredAspectProv(p1_val = p1_val, p2_val = p2_val)]",
+        "required_aspect = aspect(",
+        "  implementation = _required_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = {'p1' : attr.string(values = ['p1_v1', 'p1_v2'])}",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  p2_val = 'In base_aspect, p2 = {} on target {}'.format(ctx.attr.p2, target.label)",
+        "  p1_val = 'invalid value'",
+        "  if not hasattr(ctx.attr, 'p1'):",
+        "    p1_val = 'In base_aspect, p1 not found on target {}'.format(target.label)",
+        "  return [BaseAspectProv(p1_val = p1_val, p2_val = p2_val)]",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = {'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},",
+        "  requires = [required_aspect],",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return [ctx.attr.dep[RequiredAspectProv], ctx.attr.dep[BaseAspectProv]]",
+        "def _dep_rule_impl(ctx):",
+        "  pass",
+        "",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects=[base_aspect]),",
+        "    'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
+        "    'p2' : attr.string(values = ['p2_v1', 'p2_v2'])",
+        "  },",
+        ")",
+        "",
+        "dep_rule = rule(",
+        "  implementation = _dep_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        "  p1 = 'p1_v1',",
+        "  p2 = 'p2_v1'",
+        ")",
+        "dep_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    // Both base_aspect and required_aspect can get their parameters values from the base rule
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkProvider.Key requiredAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "RequiredAspectProv");
+    StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
+    assertThat(requiredAspectProvider.getValue("p1_val"))
+        .isEqualTo("In required_aspect, p1 = p1_v1 on target //test:dep_target");
+    assertThat(requiredAspectProvider.getValue("p2_val"))
+        .isEqualTo("In required_aspect, p2 not found on target //test:dep_target");
+
+    StarlarkProvider.Key baseAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "BaseAspectProv");
+    StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
+    assertThat(baseAspectProvider.getValue("p1_val"))
+        .isEqualTo("In base_aspect, p1 not found on target //test:dep_target");
+    assertThat(baseAspectProvider.getValue("p2_val"))
+        .isEqualTo("In base_aspect, p2 = p2_v1 on target //test:dep_target");
+  }
+
+  @Test
+  public void testAspectRequiresAspect_ruleAttributes() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "RequiredAspectProv = provider()",
+        "BaseAspectProv = provider()",
+        "",
+        "def _required_aspect_impl(target, ctx):",
+        "  p_val = 'In required_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)",
+        "  return [RequiredAspectProv(p_val = p_val)]",
+        "required_aspect = aspect(",
+        "  implementation = _required_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  p_val = 'In base_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)",
+        "  return [BaseAspectProv(p_val = p_val)]",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  requires = [required_aspect],",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return [ctx.attr.dep[RequiredAspectProv], ctx.attr.dep[BaseAspectProv]]",
+        "def _dep_rule_impl(ctx):",
+        "  pass",
+        "",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects=[base_aspect]),",
+        "  },",
+        ")",
+        "",
+        "dep_rule = rule(",
+        "  implementation = _dep_rule_impl,",
+        "  attrs = {",
+        "    'p' : attr.string(values = ['p_v1', 'p_v2']),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'dep_target',",
+        "  p = 'p_v2',",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    // Both base_aspect and required_aspect can see the attributes of the rule they run on
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkProvider.Key requiredAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "RequiredAspectProv");
+    StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
+    assertThat(requiredAspectProvider.getValue("p_val"))
+        .isEqualTo("In required_aspect, p = p_v2 on target //test:dep_target");
+
+    StarlarkProvider.Key baseAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "BaseAspectProv");
+    StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
+    assertThat(baseAspectProvider.getValue("p_val"))
+        .isEqualTo("In base_aspect, p = p_v2 on target //test:dep_target");
+  }
+
+  @Test
+  public void testAspectRequiresAspect_inheritPropagationAttributes() throws Exception {
+    // base_aspect propagates over base_dep attribute and requires first_required_aspect which
+    // propagates
+    // over first_dep attribute and requires second_required aspect which propagates over second_dep
+    // attribute
+    scratch.file(
+        "test/defs.bzl",
+        "BaseAspectProv = provider()",
+        "FirstRequiredAspectProv = provider()",
+        "SecondRequiredAspectProv = provider()",
+        "",
+        "def _second_required_aspect_impl(target, ctx):",
+        "  result = []",
+        "  if getattr(ctx.rule.attr, 'second_dep'):",
+        "    result += getattr(ctx.rule.attr, 'second_dep')[SecondRequiredAspectProv].result",
+        "  result += ['second_required_aspect run on target {}'.format(target.label)]",
+        "  return [SecondRequiredAspectProv(result = result)]",
+        "second_required_aspect = aspect(",
+        "  implementation = _second_required_aspect_impl,",
+        "  attr_aspects = ['second_dep'],",
+        ")",
+        "",
+        "def _first_required_aspect_impl(target, ctx):",
+        "  result = []",
+        "  result += target[SecondRequiredAspectProv].result",
+        "  if getattr(ctx.rule.attr, 'first_dep'):",
+        "    result += getattr(ctx.rule.attr, 'first_dep')[FirstRequiredAspectProv].result",
+        "  result += ['first_required_aspect run on target {}'.format(target.label)]",
+        "  return [FirstRequiredAspectProv(result = result)]",
+        "first_required_aspect = aspect(",
+        "  implementation = _first_required_aspect_impl,",
+        "  attr_aspects = ['first_dep'],",
+        "  requires = [second_required_aspect],",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  result = []",
+        "  result += target[FirstRequiredAspectProv].result",
+        "  if getattr(ctx.rule.attr, 'base_dep'):",
+        "    result += getattr(ctx.rule.attr, 'base_dep')[BaseAspectProv].result",
+        "  result += ['base_aspect run on target {}'.format(target.label)]",
+        "  return [BaseAspectProv(result = result)]",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['base_dep'],",
+        "  requires = [first_required_aspect],",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return [ctx.attr.dep[BaseAspectProv]]",
+        "def _dep_rule_impl(ctx):",
+        "  pass",
+        "",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects=[base_aspect]),",
+        "  },",
+        ")",
+        "",
+        "dep_rule = rule(",
+        "  implementation = _dep_rule_impl,",
+        "  attrs = {",
+        "    'base_dep': attr.label(),",
+        "    'first_dep': attr.label(),",
+        "    'second_dep': attr.label()",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'dep_target',",
+        "  base_dep = ':base_dep_target',",
+        "  first_dep = ':first_dep_target',",
+        "  second_dep = ':second_dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'base_dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'first_dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'second_dep_target',",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    // base_aspect should propagate only along its attr_aspects: 'base_dep'
+    // first_required_aspect should propagate along 'base_dep' and 'first_dep'
+    // second_required_aspect should propagate along 'base_dep', 'first_dep' and `second_dep`
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkProvider.Key baseAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "BaseAspectProv");
+    StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
+    assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
+        .containsExactly(
+            "second_required_aspect run on target //test:second_dep_target",
+            "second_required_aspect run on target //test:dep_target",
+            "second_required_aspect run on target //test:first_dep_target",
+            "first_required_aspect run on target //test:first_dep_target",
+            "first_required_aspect run on target //test:dep_target",
+            "second_required_aspect run on target //test:base_dep_target",
+            "first_required_aspect run on target //test:base_dep_target",
+            "base_aspect run on target //test:base_dep_target",
+            "base_aspect run on target //test:dep_target");
+  }
+
+  @Test
+  public void testAspectRequiresAspect_inheritRequiredProviders() throws Exception {
+    // aspect_a requires provider Prov_A and requires aspect_b which requires
+    // provider Prov_B and requires aspect_c which requires provider Prov_C
+    scratch.file(
+        "test/defs.bzl",
+        "Prov_A = provider()",
+        "Prov_B = provider()",
+        "Prov_C = provider()",
+        "",
+        "CollectorProv = provider()",
+        "",
+        "def _aspect_c_impl(target, ctx):",
+        "  collector_result = ['aspect_c run on target {} and value of Prov_C ="
+            + " {}'.format(target.label, target[Prov_C].val)]",
+        "  return [CollectorProv(result = collector_result)]",
+        "aspect_c = aspect(",
+        "  implementation = _aspect_c_impl,",
+        "  required_providers = [Prov_C],",
+        ")",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  collector_result = []",
+        "  collector_result += ctx.rule.attr.dep[CollectorProv].result",
+        "  collector_result += ['aspect_b run on target {} and value of Prov_B ="
+            + " {}'.format(target.label, target[Prov_B].val)]",
+        "  return [ CollectorProv(result = collector_result)]",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  required_providers = [Prov_B],",
+        "  requires = [aspect_c],",
+        ")",
+        "",
+        "def _aspect_a_impl(target, ctx):",
+        "  collector_result = []",
+        "  collector_result += ctx.rule.attr.dep[CollectorProv].result",
+        "  collector_result += ['aspect_a run on target {} and value of Prov_A ="
+            + " {}'.format(target.label, target[Prov_A].val)]",
+        "  return [CollectorProv(result = collector_result)]",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_providers = [Prov_A],",
+        "  requires = [aspect_b],",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return [ctx.attr.dep[CollectorProv]]",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [aspect_a]),",
+        "  },",
+        ")",
+        "",
+        "def _rule_with_prov_a_impl(ctx):",
+        "  return [Prov_A(val='val_a')]",
+        "rule_with_prov_a = rule(",
+        "  implementation = _rule_with_prov_a_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        "  provides = [Prov_A]",
+        ")",
+        "",
+        "def _rule_with_prov_b_impl(ctx):",
+        "  return [Prov_B(val = 'val_b')]",
+        "rule_with_prov_b = rule(",
+        "  implementation = _rule_with_prov_b_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        "  provides = [Prov_B]",
+        ")",
+        "",
+        "def _rule_with_prov_c_impl(ctx):",
+        "  return [Prov_C(val = 'val_c')]",
+        "rule_with_prov_c = rule(",
+        "  implementation = _rule_with_prov_c_impl,",
+        "  provides = [Prov_C]",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'rule_with_prov_a', 'rule_with_prov_b',"
+            + " 'rule_with_prov_c')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':target_with_prov_a',",
+        ")",
+        "rule_with_prov_a(",
+        "  name = 'target_with_prov_a',",
+        "  dep = ':target_with_prov_b'",
+        ")",
+        "rule_with_prov_b(",
+        "  name = 'target_with_prov_b',",
+        "  dep = ':target_with_prov_c'",
+        ")",
+        "rule_with_prov_c(",
+        "  name = 'target_with_prov_c'",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    // aspect_a should only run on target_with_prov_a, aspect_b should only run on
+    // target_with_prov_b and aspect_c should only run on target_with_prov_c.
+    // aspect_c will reach target target_with_prov_c because it inherits the required_providers of
+    // aspect_b otherwise it would have stopped propagating after target_with_prov_b.
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkProvider.Key collectorProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "CollectorProv");
+    StructImpl collectorProvider = (StructImpl) configuredTarget.get(collectorProv);
+    assertThat((Sequence<?>) collectorProvider.getValue("result"))
+        .containsExactly(
+            "aspect_c run on target //test:target_with_prov_c and value of Prov_C = val_c",
+            "aspect_b run on target //test:target_with_prov_b and value of Prov_B = val_b",
+            "aspect_a run on target //test:target_with_prov_a and value of Prov_A = val_a")
+        .inOrder();
+  }
+
+  @Test
+  public void testAspectRequiresAspect_inspectRequiredAspectActions() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _required_aspect_impl(target, ctx):",
+        "  f = ctx.actions.declare_file('dummy.txt')",
+        "  ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',",
+        "                        mnemonic='RequiredAspectAction')",
+        "  return struct()",
+        "required_aspect = aspect(",
+        "  implementation = _required_aspect_impl,",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  required_aspect_action = None",
+        "  for action in target.actions:",
+        "    if action.mnemonic == 'RequiredAspectAction':",
+        "      required_aspect_action = action",
+        "  if required_aspect_action:",
+        "    return struct(result = 'base_aspect can see required_aspect action')",
+        "  else:",
+        "    return struct(result = 'base_aspect cannot see required_aspect action')",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  requires = [required_aspect]",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return struct(result = ctx.attr.dep.result)",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [base_aspect]),",
+        "  },",
+        ")",
+        "",
+        "def _dep_rule_impl(ctx):",
+        "  pass",
+        "dep_rule = rule(",
+        "  implementation = _dep_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String result = (String) configuredTarget.get("result");
+    assertThat(result).isEqualTo("base_aspect can see required_aspect action");
+  }
+
+  @Test
+  public void testAspectRequiresAspect_inspectRequiredAspectGeneratedFiles() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _required_aspect_impl(target, ctx):",
+        "  file = ctx.actions.declare_file('required_aspect_file')",
+        "  ctx.actions.write(file, 'data')",
+        "  return [OutputGroupInfo(out = [file])]",
+        "required_aspect = aspect(",
+        "  implementation = _required_aspect_impl,",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  files = ['base_aspect can see file ' + f.path.split('/')[-1] for f in"
+            + " target[OutputGroupInfo].out.to_list()]",
+        "  return struct(my_files = files)",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  requires = [required_aspect]",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return struct(my_files = ctx.attr.dep.my_files)",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [base_aspect]),",
+        "  },",
+        ")",
+        "",
+        "def _dep_rule_impl(ctx):",
+        "  pass",
+        "dep_rule = rule(",
+        "  implementation = _dep_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    StarlarkList<?> files = (StarlarkList) configuredTarget.get("my_files");
+    assertThat(Starlark.toIterable(files))
+        .containsExactly("base_aspect can see file required_aspect_file");
+  }
+
+  @Test
+  public void testAspectRequiresAspect_withRequiredAspectProvidersSatisfied() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "prov_b_forwarded = provider()",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = 'aspect_b on target {} '.format(target.label)",
+        "  if prov_b in target:",
+        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
+        "    return struct(aspect_b_result = result,",
+        "                  providers = [prov_b_forwarded(val = target[prov_b].val)])",
+        "  else:",
+        "    result += 'cannot find prov_b'",
+        "    return struct(aspect_b_result = result)",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  required_aspect_providers = [prov_b]",
+        ")",
+        "",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {} '.format(target.label)",
+        "  if prov_a in target:",
+        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
+        "  else:",
+        "    result += 'cannot find prov_a'",
+        "  if prov_b_forwarded in target:",
+        "    result += ' and found prov_b = {}'.format(target[prov_b_forwarded].val)",
+        "  else:",
+        "    result += ' but cannot find prov_b'",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  required_aspect_providers = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        "  requires = [aspect_b]",
+        ")",
+        "",
+        "def _aspect_with_prov_a_impl(target, ctx):",
+        "  return [prov_a(val = 'a1')]",
+        "aspect_with_prov_a = aspect(",
+        "  implementation = _aspect_with_prov_a_impl,",
+        "  provides = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _aspect_with_prov_b_impl(target, ctx):",
+        "  return [prov_b(val = 'b1')]",
+        "aspect_with_prov_b = aspect(",
+        "  implementation = _aspect_with_prov_b_impl,",
+        "  provides = [prov_b],",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return struct(aspect_a_result = ctx.attr.dep.aspect_a_result,",
+        "                aspect_b_result = ctx.attr.dep.aspect_b_result)",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [aspect_with_prov_a, aspect_with_prov_b, aspect_a]),",
+        "  },",
+        ")",
+        "",
+        "def _dep_rule_impl(ctx):",
+        "  pass",
+        "dep_rule = rule(",
+        "  implementation = _dep_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    assertThat(aspectAResult)
+        .isEqualTo("aspect_a on target //test:dep_target found prov_a = a1 and found prov_b = b1");
+
+    String aspectBResult = (String) configuredTarget.get("aspect_b_result");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:dep_target found prov_b = b1");
+  }
+
+  @Test
+  public void testAspectRequiresAspect_withRequiredAspectProvidersNotFound() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = 'aspect_b on target {} '.format(target.label)",
+        "  if prov_b in target:",
+        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
+        "  else:",
+        "    result += 'cannot find prov_b'",
+        "  return struct(aspect_b_result = result)",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  required_aspect_providers = [prov_b]",
+        ")",
+        "",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {} '.format(target.label)",
+        "  if prov_a in target:",
+        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
+        "  else:",
+        "    result += 'cannot find prov_a'",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  required_aspect_providers = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        "  requires = [aspect_b]",
+        ")",
+        "",
+        "def _aspect_with_prov_a_impl(target, ctx):",
+        "  return [prov_a(val = 'a1')]",
+        "aspect_with_prov_a = aspect(",
+        "  implementation = _aspect_with_prov_a_impl,",
+        "  provides = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return struct(aspect_a_result = ctx.attr.dep.aspect_a_result,",
+        "                aspect_b_result = ctx.attr.dep.aspect_b_result)",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [aspect_with_prov_a, aspect_a]),",
+        "  },",
+        ")",
+        "",
+        "def _dep_rule_impl(ctx):",
+        "  pass",
+        "dep_rule = rule(",
+        "  implementation = _dep_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
+        "main_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "dep_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    useConfiguration("--experimental_required_aspects");
+    AnalysisResult analysisResult = update("//test:main");
+
+    ConfiguredTarget configuredTarget =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:dep_target found prov_a = a1");
+
+    String aspectBResult = (String) configuredTarget.get("aspect_b_result");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:dep_target cannot find prov_b");
+  }
+
+  /**
+   * --aspects = a3, a2, a1: aspect a1 requires provider a1p, aspect a2 requires provider a2p and
+   * provides a1p and aspect a3 provides a2p. The three aspects will propagate together but aspect
+   * a1 will only see a1p and aspect a2 will only see a2p.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_stackOfAspects() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a2p = provider()",
+        "a1_result = provider()",
+        "a2_result = provider()",
+        "a3_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  if a2p in target:",
+        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' and cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  result = 'aspect a2 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  if a2p in target:",
+        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' and cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a2_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a2_result(value = complete_result), a1p(value = 'a1p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a1p],",
+        "  required_aspect_providers = [a2p],",
+        ")",
+        "",
+        "def _a3_impl(target, ctx):",
+        "  result = 'aspect a3 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  if a2p in target:",
+        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' and cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a3_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a3_result(value = complete_result), a2p(value = 'a2p_val')]",
+        "a3 = aspect(",
+        "  implementation = _a3_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a2p],",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+            "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
+    assertThat(a3).isNotNull();
+    StarlarkProvider.Key a3Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a3_result");
+    StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
+    assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a3 on target //test:dep_target cannot see a1p and cannot see a2p",
+            "aspect a3 on target //test:main cannot see a1p and cannot see a2p");
+
+    ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
+    assertThat(a2).isNotNull();
+    StarlarkProvider.Key a2Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a2_result");
+    StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
+    assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a2 on target //test:dep_target cannot see a1p and sees a2p = a2p_val",
+            "aspect a2 on target //test:main cannot see a1p and sees a2p = a2p_val");
+
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target sees a1p = a1p_val and cannot see a2p",
+            "aspect a1 on target //test:main sees a1p = a1p_val and cannot see a2p");
+  }
+
+  /**
+   * --aspects = a3, a2, a1: aspect a1 requires provider a1p, aspect a2 and aspect a3 provides a1p.
+   * This should fail because provider a1p is provided twice.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_requiredProviderProvidedTwiceFailed() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_a2_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _a3_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_a3_val')]",
+        "a3 = aspect(",
+        "  implementation = _a3_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+    reporter.removeHandler(failFastHandler);
+
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result =
+          update(
+              ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+              "//test:main");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+                  "//test:main"));
+    }
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:12: Provider a1p provided twice");
+  }
+
+  /**
+   * --aspects = a3, a1, a2: aspect a1 requires provider a1p, aspect a2 and aspect a3 provide a1p.
+   * a1 should see the value provided by a3 because a3 is listed before a1.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_requiredProviderProvidedTwicePassed() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_a2_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _a3_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_a3_val')]",
+        "a3 = aspect(",
+        "  implementation = _a3_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a1", "test/defs.bzl%a2"),
+            "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target sees a1p = a1p_a3_val",
+            "aspect a1 on target //test:main sees a1p = a1p_a3_val");
+  }
+
+  @Test
+  public void testTopLevelAspectOnAspect_requiredProviderNotProvided() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a2p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a2p],",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target cannot see a1p",
+            "aspect a1 on target //test:main cannot see a1p");
+  }
+
+  /**
+   * --aspects = a1, a2: aspect a1 requires provider a1p, aspect a2 provides a1p but it was listed
+   * after a1 so aspect a1 cannot see a1p value.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_requiredProviderProvidedAfterTheAspect() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target cannot see a1p",
+            "aspect a1 on target //test:main cannot see a1p");
+  }
+
+  /**
+   * --aspects = a2, a1: aspect a1 requires provider a1p, aspect a2 provides a1p. But aspect a2
+   * propagates along different attr_aspects from a1 so a1 cannot get a1p on all dependency targets.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_differentAttrAspects() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result += ctx.rule.attr.dep[a1_result].value",
+        "  if ctx.rule.attr.extra_dep:",
+        "    complete_result += ctx.rule.attr.extra_dep[a1_result].value",
+        "  complete_result += [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['dep', 'extra_dep'],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "    'extra_dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        "  extra_dep = ':extra_dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'extra_dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target sees a1p = a1p_val",
+            "aspect a1 on target //test:extra_dep_target cannot see a1p",
+            "aspect a1 on target //test:main sees a1p = a1p_val");
+  }
+
+  /**
+   * --aspects = a2, a1: aspect a1 requires provider a1p, aspect a2 provides a1p. But aspect a2
+   * propagates along different required_providers from a1 so a1 cannot get a1p on all dependency
+   * targets.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_differentRequiredRuleProviders() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a1_result = provider()",
+        "rule_prov_a = provider()",
+        "rule_prov_b = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  complete_result = []",
+        "  if hasattr(ctx.rule.attr, 'deps'):",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result += dep[a1_result].value",
+        "  complete_result += [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [a1p],",
+        "  required_providers = [[rule_prov_a], [rule_prov_b]],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a1p],",
+        "  required_providers = [rule_prov_a],",
+        ")",
+        "",
+        "def _main_rule_impl(ctx):",
+        "  return [rule_prov_a(), rule_prov_b()]",
+        "main_rule = rule(",
+        "  implementation = _main_rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")",
+        "",
+        "def _rule_with_prov_a_impl(ctx):",
+        "  return [rule_prov_a()]",
+        "rule_with_prov_a = rule(",
+        "  implementation = _rule_with_prov_a_impl,",
+        "  provides = [rule_prov_a]",
+        ")",
+        "",
+        "def _rule_with_prov_b_impl(ctx):",
+        "  return [rule_prov_b()]",
+        "rule_with_prov_b = rule(",
+        "  implementation = _rule_with_prov_b_impl,",
+        "  provides = [rule_prov_b]",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'main_rule', 'rule_with_prov_a', 'rule_with_prov_b')",
+        "main_rule(",
+        "  name = 'main',",
+        "  deps = [':target_with_prov_a', ':target_with_prov_b'],",
+        ")",
+        "rule_with_prov_a(",
+        "  name = 'target_with_prov_a',",
+        ")",
+        "rule_with_prov_b(",
+        "  name = 'target_with_prov_b',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:target_with_prov_a sees a1p = a1p_val",
+            "aspect a1 on target //test:target_with_prov_b cannot see a1p",
+            "aspect a1 on target //test:main sees a1p = a1p_val");
+  }
+
+  /**
+   * --aspects = a3, a2, a1: both aspects a1 and a2 require provider a3p, aspect a3 provides a3p. a1
+   * and a2 should be able to read a3p.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_providerRequiredByMultipleAspects() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a3p = provider()",
+        "a1_result = provider()",
+        "a2_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a3p in target:",
+        "    result += ' sees a3p = {}'.format(target[a3p].value)",
+        "  else:",
+        "    result += ' cannot see a3p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_aspect_providers = [a3p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  result = 'aspect a2 on target {}'.format(target.label)",
+        "  if a3p in target:",
+        "    result += ' sees a3p = {}'.format(target[a3p].value)",
+        "  else:",
+        "    result += ' cannot see a3p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.dep:",
+        "    complete_result = ctx.rule.attr.dep[a2_result].value + [result]",
+        "  else:",
+        "    complete_result = [result]",
+        "  return [a2_result(value = complete_result)]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_aspect_providers = [a3p]",
+        ")",
+        "",
+        "def _a3_impl(target, ctx):",
+        "  return [a3p(value = 'a3p_val')]",
+        "a3 = aspect(",
+        "  implementation = _a3_impl,",
+        "  attr_aspects = ['dep'],",
+        "  provides = [a3p],",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  dep = ':dep_target',",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+            "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
+    assertThat(a2).isNotNull();
+    StarlarkProvider.Key a2Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a2_result");
+    StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
+    assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a2 on target //test:dep_target sees a3p = a3p_val",
+            "aspect a2 on target //test:main sees a3p = a3p_val");
+
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target sees a3p = a3p_val",
+            "aspect a1 on target //test:main sees a3p = a3p_val");
+  }
+
+  /**
+   * --aspects = a1, a2, a3: aspect a3 requires a1p and a2p, a1 provides a1p and a2 provides a2p.
+   *
+   * <p>top level target (main) has two dependencies t1 and t2. Aspects a1 and a3 can propagate to
+   * t1 and aspects a2 and a3 can propagate to t2. Both t1 and t2 have t0 as dependency, aspect a3
+   * will run twice on t0 once with aspects path (a1, a3) and the other with (a2, a3).
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_diamondCase() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a2p = provider()",
+        "a3_result = provider()",
+        "",
+        "r1p = provider()",
+        "r2p = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  return [a1p(value = 'a1p_val')]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_providers = [r1p],",
+        "  provides = [a1p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_providers = [r2p],",
+        "  provides = [a2p]",
+        ")",
+        "",
+        "def _a3_impl(target, ctx):",
+        "  result = 'aspect a3 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  if a2p in target:",
+        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' and cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a3_result].value)",
+        "  complete_result.append(result)",
+        "  return [a3_result(value = complete_result)]",
+        "a3 = aspect(",
+        "  implementation = _a3_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [[a1p], [a2p]],",
+        ")",
+        "",
+        "def _r0_impl(ctx):",
+        "  return [r1p(), r2p()]",
+        "r0 = rule(",
+        "  implementation = _r0_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        "  provides = [r1p, r2p]",
+        ")",
+        "def _r1_impl(ctx):",
+        "  return [r1p()]",
+        "r1 = rule(",
+        "  implementation = _r1_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        "  provides = [r1p]",
+        ")",
+        "def _r2_impl(ctx):",
+        "  return [r2p()]",
+        "r2 = rule(",
+        "  implementation = _r2_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        "  provides = [r2p]",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'r0', 'r1', 'r2')",
+        "r0(",
+        "  name = 'main',",
+        "  deps = [':t1', ':t2'],",
+        ")",
+        "r1(",
+        "  name = 't1',",
+        "  deps = [':t0'],",
+        ")",
+        "r2(",
+        "  name = 't2',",
+        "  deps = [':t0'],",
+        ")",
+        "r0(",
+        "  name = 't0',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2", "test/defs.bzl%a3"),
+            "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
+    assertThat(a3).isNotNull();
+    StarlarkProvider.Key a3Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a3_result");
+    StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
+    assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a3 on target //test:t0 sees a1p = a1p_val and cannot see a2p",
+            "aspect a3 on target //test:t0 cannot see a1p and sees a2p = a2p_val",
+            "aspect a3 on target //test:t1 sees a1p = a1p_val and cannot see a2p",
+            "aspect a3 on target //test:t2 cannot see a1p and sees a2p = a2p_val",
+            "aspect a3 on target //test:main sees a1p = a1p_val and sees a2p = a2p_val");
+  }
+
+  /**
+   * --aspects = a1, a2, a1: aspect a1 requires a2p, a2 provides a2p.
+   *
+   * <p>top level aspects list is deduplicated by default and only the first occurrence of a1 will
+   * be there so a1 won't get the value of a2p.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_duplicateAspectsIgnored() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a2p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a2p in target:",
+        "    result += ' sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a1_result].value)",
+        "  complete_result.append(result)",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [a2p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a2p]",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  deps = [':dep_target'],",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+            "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:main cannot see a2p",
+            "aspect a1 on target //test:dep_target cannot see a2p");
+  }
+
+  @Test
+  public void testTopLevelAspectOnAspect_duplicateAspectsNotAllowed() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a2p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a2p in target:",
+        "    result += ' sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a1_result].value)",
+        "  complete_result.append(result)",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [a2p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a2p]",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  deps = [':dep_target'],",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+    reporter.removeHandler(failFastHandler);
+
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result =
+          update(
+              ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+              "//test:main");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+                  "//test:main"));
+    }
+    assertContainsEvent("aspect //test:defs.bzl%a1 added more than once");
+  }
+
+  /**
+   * --aspects = a1 requires provider a2p provided by aspect a2. a1 is applied on top level target
+   * `main` whose rule propagates aspect a2 to its `deps`. So a1 on `main` cannot see a2p but it can
+   * see a2p on `main` deps.
+   */
+  @Test
+  public void testTopLevelAspectOnAspect_requiredAspectProviderOnlyAvailableOnDep()
+      throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a2p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a2p in target:",
+        "    result += ' sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a1_result].value)",
+        "  complete_result.append(result)",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [a2p]",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a2p]",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects=[a2]),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  deps = [':dep_target'],",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult = update(ImmutableList.of("test/defs.bzl%a1"), "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target sees a2p = a2p_val",
+            "aspect a1 on target //test:main cannot see a2p");
+  }
+
+  @Test
+  public void testTopLevelAspectOnAspect_multipleTopLevelTargets() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a2p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a2p in target:",
+        "    result += ' sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' cannot see a2p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a1_result].value)",
+        "  complete_result.append(result)",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [a2p],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a2p]",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 't1',",
+        ")",
+        "simple_rule(",
+        "  name = 't2',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:t2", "//test:t1");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1Ont1 = getConfiguredAspect(configuredAspects, "a1", "t1");
+    assertThat(a1Ont1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1Ont1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly("aspect a1 on target //test:t1 sees a2p = a2p_val");
+
+    ConfiguredAspect a1Ont2 = getConfiguredAspect(configuredAspects, "a1", "t2");
+    assertThat(a1Ont2).isNotNull();
+    a1ResultProvider = (StructImpl) a1Ont2.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly("aspect a1 on target //test:t2 sees a2p = a2p_val");
+  }
+
+  @Test
+  public void testTopLevelAspectOnAspect_multipleRequiredProviders() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a2p = provider()",
+        "a3p = provider()",
+        "a1_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a2p in target:",
+        "    result += ' sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' cannot see a2p'",
+        "  if a3p in target:",
+        "    result += ' and sees a3p = {}'.format(target[a3p].value)",
+        "  else:",
+        "    result += ' and cannot see a3p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a1_result].value)",
+        "  complete_result.append(result)",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [[a2p], [a3p]],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  return [a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a2p]",
+        ")",
+        "",
+        "def _a3_impl(target, ctx):",
+        "  return [a3p(value = 'a3p_val')]",
+        "a3 = aspect(",
+        "  implementation = _a3_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a3p]",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  deps = [':dep_target'],",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+            "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
+            "aspect a1 on target //test:main sees a2p = a2p_val and sees a3p = a3p_val");
+  }
+
+  @Test
+  public void testTopLevelAspectOnAspect_multipleRequiredProviders2() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a2p = provider()",
+        "a3p = provider()",
+        "a1_result = provider()",
+        "a2_result = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  result = 'aspect a1 on target {}'.format(target.label)",
+        "  if a2p in target:",
+        "    result += ' sees a2p = {}'.format(target[a2p].value)",
+        "  else:",
+        "    result += ' cannot see a2p'",
+        "  if a3p in target:",
+        "    result += ' and sees a3p = {}'.format(target[a3p].value)",
+        "  else:",
+        "    result += ' and cannot see a3p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a1_result].value)",
+        "  complete_result.append(result)",
+        "  return [a1_result(value = complete_result)]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  attr_aspects = ['deps'],",
+        "  required_aspect_providers = [[a2p], [a3p]],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  result = 'aspect a2 on target {}'.format(target.label)",
+        "  if a3p in target:",
+        "    result += ' sees a3p = {}'.format(target[a3p].value)",
+        "  else:",
+        "    result += ' cannot see a3p'",
+        "  complete_result = []",
+        "  if ctx.rule.attr.deps:",
+        "    for dep in ctx.rule.attr.deps:",
+        "      complete_result.extend(dep[a2_result].value)",
+        "  complete_result.append(result)",
+        "  return [a2_result(value = complete_result), a2p(value = 'a2p_val')]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a2p],",
+        "  required_aspect_providers = [a3p]",
+        ")",
+        "",
+        "def _a3_impl(target, ctx):",
+        "  return [a3p(value = 'a3p_val')]",
+        "a3 = aspect(",
+        "  implementation = _a3_impl,",
+        "  attr_aspects = ['deps'],",
+        "  provides = [a3p]",
+        ")",
+        "",
+        "def _simple_rule_impl(ctx):",
+        "  pass",
+        "simple_rule = rule(",
+        "  implementation = _simple_rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'simple_rule')",
+        "simple_rule(",
+        "  name = 'main',",
+        "  deps = [':dep_target'],",
+        ")",
+        "simple_rule(",
+        "  name = 'dep_target',",
+        ")");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%a3", "test/defs.bzl%a2", "test/defs.bzl%a1"),
+            "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
+    assertThat(a1).isNotNull();
+    StarlarkProvider.Key a1Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a1_result");
+    StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
+    assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a1 on target //test:dep_target sees a2p = a2p_val and sees a3p = a3p_val",
+            "aspect a1 on target //test:main sees a2p = a2p_val and sees a3p = a3p_val");
+
+    ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
+    assertThat(a2).isNotNull();
+    StarlarkProvider.Key a2Result =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a2_result");
+    StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
+    assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
+        .containsExactly(
+            "aspect a2 on target //test:dep_target sees a3p = a3p_val",
+            "aspect a2 on target //test:main sees a3p = a3p_val");
+  }
+
+  /**
+   * aspects = a1, a2; aspect a1 provides a1p provider and aspect a2 requires a1p provider. These
+   * top-level aspects are applied on top-level target `main` whose rule also provides a1p.
+   *
+   * <p>If the incompatible_top_level_aspects_dependency flag is used to establish the dependency
+   * between a1 and a2, the build will fail since a2 will receive provider a1p twice (from a1
+   * applied on `main` and from `main` target itself)
+   */
+  @Test
+  public void testTopLevelAspects_duplicateRuleProviderError() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a2p = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  return [a1p(value = 'aspect_a1p_val')]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  result = 'aspect a2 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  return [a2p(value = result)]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  provides = [a2p],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  return [a1p(value = 'rule_a1p_val')]",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'main')");
+    useConfiguration("--incompatible_top_level_aspects_dependency");
+    reporter.removeHandler(failFastHandler);
+
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result =
+          update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () -> update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main"));
+    }
+    assertContainsEvent("Provider a1p provided twice");
+  }
+
+  /**
+   * aspects = a1, a2; aspect a1 provides a1p provider and aspect a2 requires a1p provider. These
+   * top-level aspects are applied on top-level target `main` whose rule also provides a1p.
+   *
+   * <p>If the incompatible_top_level_aspects_dependency flag is not used, aspects a1 and a2 will
+   * run independently and the build will succeed. a2 will only see the value of a1p provided by
+   * my_rule.
+   */
+  @Test
+  public void testTopLevelAspects_duplicateRuleProviderPassed() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "a1p = provider()",
+        "a2p = provider()",
+        "",
+        "def _a1_impl(target, ctx):",
+        "  return [a1p(value = 'aspect_a1p_val')]",
+        "a1 = aspect(",
+        "  implementation = _a1_impl,",
+        "  provides = [a1p],",
+        ")",
+        "",
+        "def _a2_impl(target, ctx):",
+        "  result = 'aspect a2 on target {}'.format(target.label)",
+        "  if a1p in target:",
+        "    result += ' sees a1p = {}'.format(target[a1p].value)",
+        "  else:",
+        "    result += ' cannot see a1p'",
+        "  return [a2p(value = result)]",
+        "a2 = aspect(",
+        "  implementation = _a2_impl,",
+        "  provides = [a2p],",
+        "  required_aspect_providers = [a1p]",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  return [a1p(value = 'rule_a1p_val')]",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'main')");
+    reporter.removeHandler(failFastHandler);
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
+    assertThat(a2).isNotNull();
+    StarlarkProvider.Key a2Result =
+        new StarlarkProvider.Key(Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "a2p");
+    StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
+    assertThat((String) a2ResultProvider.getValue("value"))
+        .isEqualTo("aspect a2 on target //test:main sees a1p = rule_a1p_val");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_stackOfRequiredAspects() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    assertThat(configuredAspects).hasSize(3);
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_c")).isNotNull();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_aspectRequiredByMultipleAspects() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_c])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    assertThat(configuredAspects).hasSize(3);
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_c")).isNotNull();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_aspectRequiredByMultipleAspects2() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_d = aspect(implementation = _impl)",
+        "aspect_c = aspect(implementation = _impl, requires = [aspect_d])",
+        "aspect_b = aspect(implementation = _impl, requires = [aspect_d])",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b, aspect_c])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    assertThat(configuredAspects).hasSize(4);
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_c")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_d")).isNotNull();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_requireExistingAspect_passed() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_b", "test/defs.bzl%aspect_a"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    assertThat(configuredAspects).hasSize(2);
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_a")).isNotNull();
+    assertThat(getConfiguredAspect(configuredAspects, "aspect_b")).isNotNull();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_requireExistingAspect_failed() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AssertionError expected =
+        assertThrows(
+            AssertionError.class,
+            () ->
+                update(
+                    ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+                    "//test:main_target"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "aspect //test:defs.bzl%aspect_b was added before as a required"
+                + " aspect of aspect //test:defs.bzl%aspect_a");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritDefaultValues() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    assertThat(configuredAspects).hasSize(2);
+
+    // aspect_b inherits the required providers and propagation attributes from aspect_a
+    AspectKey aspectB = getAspectKey(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    assertThat(aspectB.getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptAnyBuilder().build());
+    assertThat(aspectB.getInheritedAttributeAspects()).isEmpty();
+
+    AspectKey aspectA = getAspectKey(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    assertThat(aspectA.getInheritedRequiredProviders()).isNull();
+    assertThat(aspectA.getInheritedAttributeAspects()).isEmpty();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritAttrAspectsFromSingleAspect()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  attr_aspects = ['deps'],",
+        "                  requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectB = getAspectKey(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    assertThat(aspectB.getInheritedAttributeAspects()).containsExactly("deps");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritRequiredProvidersFromSingleAspect()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  required_providers=[['java', cc], ['python']],",
+        "                  requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectB = getAspectKey(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    assertThat(aspectB.getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python'");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresExistingAspect_inheritAttrAspectsFromSingleAspect()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  attr_aspects = ['deps'],",
+        "                  requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_b", "test/defs.bzl%aspect_a"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectB = getAspectKey(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    assertThat(aspectB.getInheritedAttributeAspects()).containsExactly("deps");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresExistingAspect_inheritRequiredProvidersFromSingleAspect()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl)",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  required_providers=[['java', cc], ['python']],",
+        "                  requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_b", "test/defs.bzl%aspect_a"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectB = getAspectKey(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    assertThat(aspectB.getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python'");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritAttrAspectsFromMultipleAspects()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['deps'])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    assertThat(aspectC.getInheritedAttributeAspects()).containsExactly("deps", "extra_deps");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritRequiredProvidersFromMultipleAspects()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=['go'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[['java', cc], ['python']])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    assertThat(aspectC.getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python' or 'go'");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritAllAttrAspects() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['*'])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    // propagate along all attributes '*'
+    assertThat(aspectC.getInheritedAttributeAspects()).isNull();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritAllRequiredProviders() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers = [])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[['java', cc], ['python']])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    assertThat(aspectC.getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptAnyBuilder().build());
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritAttrAspectsFromAspectsStack()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['extra_deps'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  attr_aspects = ['deps'])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    assertThat(aspectC.getInheritedAttributeAspects()).containsExactly("deps", "extra_deps");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritRequiredProvidersFromAspectsStack()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=['go'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  required_providers=[['java', cc], ['python']])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    assertThat(aspectC.getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'cc'] or 'python' or 'go'");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiringAspect_inheritAllAttrAspectsFromAspectsStack()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  attr_aspects = ['*'])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  attr_aspects = ['deps'])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    // propagate along all attributes '*'
+    assertThat(aspectC.getInheritedAttributeAspects()).isNull();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritAllRequiredProvidersFromAspectsStack()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "cc = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_c = aspect(implementation = _impl)",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  requires = [aspect_c],",
+        "                  required_providers=[cc])",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b],",
+        "                  required_providers=[])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey aspectC = getAspectKey(configuredAspects, "aspect_c");
+    assertThat(aspectC).isNotNull();
+    assertThat(aspectC.getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptAnyBuilder().build());
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_requiredNativeAspect_inheritsAttrAspects()
+      throws Exception {
+    exposeNativeAspectToStarlark();
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [starlark_native_aspect],",
+        "                  attr_aspects = ['deps'])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey nativeAspect = getAspectKey(configuredAspects, "StarlarkNativeAspectWithProvider");
+    assertThat(nativeAspect).isNotNull();
+    assertThat(nativeAspect.getInheritedAttributeAspects()).containsExactly("deps");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_requiredNativeAspect_inheritsRequiredProviders()
+      throws Exception {
+    exposeNativeAspectToStarlark();
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "rule_prov = provider()",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [starlark_native_aspect],",
+        "                  required_providers = [['java', rule_prov], ['python']])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    AspectKey nativeAspect = getAspectKey(configuredAspects, "StarlarkNativeAspectWithProvider");
+    assertThat(nativeAspect).isNotNull();
+    assertThat(nativeAspect.getInheritedRequiredProviders().getDescription())
+        .isEqualTo("['java', 'rule_prov'] or 'python'");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_requiredNativeAspect_parametersNotAllowed()
+      throws Exception {
+    exposeNativeAspectToStarlark();
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [parametrized_native_aspect])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AssertionError expected =
+        assertThrows(
+            AssertionError.class,
+            () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "Cannot use parameterized aspect ParametrizedAspectWithProvider at the top level.");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_requiredStarlarkAspect_parametersNotAllowed()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "def _impl(target, ctx):",
+        "   return []",
+        "aspect_b = aspect(implementation = _impl,",
+        "                  attrs = {'attr': attr.string(values=['val'])})",
+        "aspect_a = aspect(implementation = _impl,",
+        "                  requires = [aspect_b])");
+    scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+
+    AssertionError expected =
+        assertThrows(
+            AssertionError.class,
+            () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("Cannot use parameterized aspect //test:defs.bzl%aspect_b at the top level.");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_ruleAttributes() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "RequiredAspectProv = provider()",
+        "BaseAspectProv = provider()",
+        "",
+        "def _required_aspect_impl(target, ctx):",
+        "  p_val = ['In required_aspect, p = {} on target {}'",
+        "              .format(ctx.rule.attr.p, target.label)]",
+        "  if ctx.rule.attr.dep:",
+        "    p_val += ctx.rule.attr.dep[RequiredAspectProv].p_val",
+        "  return [RequiredAspectProv(p_val = p_val)]",
+        "required_aspect = aspect(",
+        "  implementation = _required_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  p_val = ['In base_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)]",
+        "  if ctx.rule.attr.dep:",
+        "    p_val += ctx.rule.attr.dep[BaseAspectProv].p_val",
+        "  return [BaseAspectProv(p_val = p_val)]",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  requires = [required_aspect],",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "    'p' : attr.string(values = ['main_val', 'dep_val']),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':dep_target',",
+        "  p = 'main_val',",
+        ")",
+        "my_rule(",
+        "  name = 'dep_target',",
+        "  p = 'dep_val',",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
+
+    // Both base_aspect and required_aspect can see the attributes of the target they run on
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect requiredAspect = getConfiguredAspect(configuredAspects, "required_aspect");
+    assertThat(requiredAspect).isNotNull();
+    StarlarkProvider.Key requiredAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "RequiredAspectProv");
+    StructImpl requiredAspectProvider = (StructImpl) requiredAspect.get(requiredAspectProv);
+    assertThat((Sequence<?>) requiredAspectProvider.getValue("p_val"))
+        .containsExactly(
+            "In required_aspect, p = dep_val on target //test:dep_target",
+            "In required_aspect, p = main_val on target //test:main_target");
+
+    ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
+    assertThat(baseAspect).isNotNull();
+    StarlarkProvider.Key baseAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "BaseAspectProv");
+    StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
+    assertThat((Sequence<?>) baseAspectProvider.getValue("p_val"))
+        .containsExactly(
+            "In base_aspect, p = dep_val on target //test:dep_target",
+            "In base_aspect, p = main_val on target //test:main_target");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritPropagationAttributes() throws Exception {
+    // base_aspect propagates over base_dep attribute and requires first_required_aspect which
+    // propagates over first_dep attribute and requires second_required_aspect which propagates over
+    // second_dep attribute
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "BaseAspectProv = provider()",
+        "FirstRequiredAspectProv = provider()",
+        "SecondRequiredAspectProv = provider()",
+        "",
+        "def _second_required_aspect_impl(target, ctx):",
+        "  result = []",
+        "  if getattr(ctx.rule.attr, 'second_dep'):",
+        "    result += getattr(ctx.rule.attr, 'second_dep')[SecondRequiredAspectProv].result",
+        "  result += ['second_required_aspect run on target {}'.format(target.label)]",
+        "  return [SecondRequiredAspectProv(result = result)]",
+        "second_required_aspect = aspect(",
+        "  implementation = _second_required_aspect_impl,",
+        "  attr_aspects = ['second_dep'],",
+        ")",
+        "",
+        "def _first_required_aspect_impl(target, ctx):",
+        "  result = []",
+        "  result += target[SecondRequiredAspectProv].result",
+        "  if getattr(ctx.rule.attr, 'first_dep'):",
+        "    result += getattr(ctx.rule.attr, 'first_dep')[FirstRequiredAspectProv].result",
+        "  result += ['first_required_aspect run on target {}'.format(target.label)]",
+        "  return [FirstRequiredAspectProv(result = result)]",
+        "first_required_aspect = aspect(",
+        "  implementation = _first_required_aspect_impl,",
+        "  attr_aspects = ['first_dep'],",
+        "  requires = [second_required_aspect],",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  result = []",
+        "  result += target[FirstRequiredAspectProv].result",
+        "  if getattr(ctx.rule.attr, 'base_dep'):",
+        "    result += getattr(ctx.rule.attr, 'base_dep')[BaseAspectProv].result",
+        "  result += ['base_aspect run on target {}'.format(target.label)]",
+        "  return [BaseAspectProv(result = result)]",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['base_dep'],",
+        "  requires = [first_required_aspect],",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {",
+        "    'base_dep': attr.label(),",
+        "    'first_dep': attr.label(),",
+        "    'second_dep': attr.label()",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  base_dep = ':base_dep_target',",
+        "  first_dep = ':first_dep_target',",
+        "  second_dep = ':second_dep_target',",
+        ")",
+        "my_rule(",
+        "  name = 'base_dep_target',",
+        ")",
+        "my_rule(",
+        "  name = 'first_dep_target',",
+        ")",
+        "my_rule(",
+        "  name = 'second_dep_target',",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
+
+    // base_aspect should propagate only along its attr_aspects: 'base_dep'
+    // first_required_aspect should propagate along 'base_dep' and 'first_dep'
+    // second_required_aspect should propagate along 'base_dep', 'first_dep' and 'second_dep'
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
+    assertThat(baseAspect).isNotNull();
+    StarlarkProvider.Key baseAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "BaseAspectProv");
+    StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
+    assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
+        .containsExactly(
+            "second_required_aspect run on target //test:second_dep_target",
+            "second_required_aspect run on target //test:main_target",
+            "second_required_aspect run on target //test:first_dep_target",
+            "second_required_aspect run on target //test:base_dep_target",
+            "first_required_aspect run on target //test:first_dep_target",
+            "first_required_aspect run on target //test:main_target",
+            "first_required_aspect run on target //test:base_dep_target",
+            "base_aspect run on target //test:base_dep_target",
+            "base_aspect run on target //test:main_target");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inheritRequiredProviders() throws Exception {
+    // aspect_a requires provider Prov_A and requires aspect_b which requires
+    // provider Prov_B and requires aspect_c which requires provider Prov_C
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "Prov_A = provider()",
+        "Prov_B = provider()",
+        "Prov_C = provider()",
+        "",
+        "CollectorProv = provider()",
+        "",
+        "def _aspect_c_impl(target, ctx):",
+        "  collector_result = ['aspect_c run on target {} and value of Prov_C = {}'",
+        "                                .format(target.label, target[Prov_C].val)]",
+        "  return [CollectorProv(result = collector_result)]",
+        "aspect_c = aspect(",
+        "  implementation = _aspect_c_impl,",
+        "  required_providers = [Prov_C],",
+        ")",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  collector_result = []",
+        "  collector_result += ctx.rule.attr.dep[CollectorProv].result",
+        "  collector_result += ['aspect_b run on target {} and value of Prov_B = {}'",
+        "                                 .format(target.label, target[Prov_B].val)]",
+        "  return [CollectorProv(result = collector_result)]",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  required_providers = [Prov_B],",
+        "  requires = [aspect_c],",
+        ")",
+        "",
+        "def _aspect_a_impl(target, ctx):",
+        "  collector_result = []",
+        "  collector_result += ctx.rule.attr.dep[CollectorProv].result",
+        "  collector_result += ['aspect_a run on target {} and value of Prov_A = {}'",
+        "                                 .format(target.label, target[Prov_A].val)]",
+        "  return [CollectorProv(result = collector_result)]",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  required_providers = [Prov_A],",
+        "  requires = [aspect_b],",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  return [Prov_A(val='main_val_a')]",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        "  provides = [Prov_A]",
+        ")",
+        "",
+        "def _rule_with_prov_a_impl(ctx):",
+        "  return [Prov_A(val='val_a')]",
+        "rule_with_prov_a = rule(",
+        "  implementation = _rule_with_prov_a_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        "  provides = [Prov_A]",
+        ")",
+        "",
+        "def _rule_with_prov_b_impl(ctx):",
+        "  return [Prov_B(val = 'val_b')]",
+        "rule_with_prov_b = rule(",
+        "  implementation = _rule_with_prov_b_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        "  provides = [Prov_B]",
+        ")",
+        "",
+        "def _rule_with_prov_c_impl(ctx):",
+        "  return [Prov_C(val = 'val_c')]",
+        "rule_with_prov_c = rule(",
+        "  implementation = _rule_with_prov_c_impl,",
+        "  provides = [Prov_C]",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule', 'rule_with_prov_a', 'rule_with_prov_b',"
+            + " 'rule_with_prov_c')",
+        "my_rule(",
+        "  name = 'main_target',",
+        "  dep = ':target_with_prov_a',",
+        ")",
+        "rule_with_prov_a(",
+        "  name = 'target_with_prov_a',",
+        "  dep = ':target_with_prov_b'",
+        ")",
+        "rule_with_prov_b(",
+        "  name = 'target_with_prov_b',",
+        "  dep = ':target_with_prov_c'",
+        ")",
+        "rule_with_prov_c(",
+        "  name = 'target_with_prov_c'",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+
+    // aspect_a should run on main_target and target_with_prov_a
+    // aspect_b can reach target_with_prov_b because it inherits the required_providers of aspect_a
+    // aspect_c can reach target_with_prov_c because it inherits the required_providers of aspect_a
+    // and aspect_b
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    StarlarkProvider.Key collectorProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "CollectorProv");
+    StructImpl collectorProvider = (StructImpl) aspectA.get(collectorProv);
+    assertThat((Sequence<?>) collectorProvider.getValue("result"))
+        .containsExactly(
+            "aspect_c run on target //test:target_with_prov_c and value of Prov_C = val_c",
+            "aspect_b run on target //test:target_with_prov_b and value of Prov_B = val_b",
+            "aspect_a run on target //test:target_with_prov_a and value of Prov_A = val_a",
+            "aspect_a run on target //test:main_target and value of Prov_A = main_val_a")
+        .inOrder();
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inspectRequiredAspectActions() throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "BaseAspectProvider = provider()",
+        "def _required_aspect_impl(target, ctx):",
+        "  f = ctx.actions.declare_file('dummy.txt')",
+        "  ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',",
+        "                        mnemonic='RequiredAspectAction')",
+        "  return struct()",
+        "required_aspect = aspect(",
+        "  implementation = _required_aspect_impl,",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  required_aspect_action = None",
+        "  for action in target.actions:",
+        "    if action.mnemonic == 'RequiredAspectAction':",
+        "      required_aspect_action = action",
+        "  if required_aspect_action:",
+        "    return [BaseAspectProvider(result = 'base_aspect can see required_aspect action')]",
+        "  else:",
+        "    return [BaseAspectProvider(result = 'base_aspect cannot see required_aspect action')]",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  requires = [required_aspect]",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
+    assertThat(baseAspect).isNotNull();
+    StarlarkProvider.Key baseAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "BaseAspectProvider");
+    StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
+    assertThat(baseAspectProvider.getValue("result"))
+        .isEqualTo("base_aspect can see required_aspect action");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_inspectRequiredAspectGeneratedFiles()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "BaseAspectProvider = provider()",
+        "def _required_aspect_impl(target, ctx):",
+        "  file = ctx.actions.declare_file('required_aspect_file')",
+        "  ctx.actions.write(file, 'data')",
+        "  return [OutputGroupInfo(out = [file])]",
+        "required_aspect = aspect(",
+        "  implementation = _required_aspect_impl,",
+        ")",
+        "",
+        "def _base_aspect_impl(target, ctx):",
+        "  files = ['base_aspect can see file ' + f.path.split('/')[-1] ",
+        "               for f in target[OutputGroupInfo].out.to_list()]",
+        "  return [BaseAspectProvider(my_files = files)]",
+        "base_aspect = aspect(",
+        "  implementation = _base_aspect_impl,",
+        "  attr_aspects = ['dep'],",
+        "  requires = [required_aspect]",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
+    assertThat(baseAspect).isNotNull();
+    StarlarkProvider.Key baseAspectProv =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//test:defs.bzl", ImmutableMap.of()), "BaseAspectProvider");
+    StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
+    assertThat((Sequence<?>) baseAspectProvider.getValue("my_files"))
+        .containsExactly("base_aspect can see file required_aspect_file");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_withRequiredAspectProvidersSatisfied()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "prov_b_forwarded = provider()",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = 'aspect_b on target {} '.format(target.label)",
+        "  if prov_b in target:",
+        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
+        "    return struct(aspect_b_result = result,",
+        "                  providers = [prov_b_forwarded(val = target[prov_b].val)])",
+        "  else:",
+        "    result += 'cannot find prov_b'",
+        "    return struct(aspect_b_result = result)",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  required_aspect_providers = [prov_b]",
+        ")",
+        "",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {} '.format(target.label)",
+        "  if prov_a in target:",
+        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
+        "  else:",
+        "    result += 'cannot find prov_a'",
+        "  if prov_b_forwarded in target:",
+        "    result += ' and found prov_b = {}'.format(target[prov_b_forwarded].val)",
+        "  else:",
+        "    result += ' but cannot find prov_b'",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  required_aspect_providers = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        "  requires = [aspect_b]",
+        ")",
+        "",
+        "def _aspect_with_prov_a_impl(target, ctx):",
+        "  return [prov_a(val = 'a1')]",
+        "aspect_with_prov_a = aspect(",
+        "  implementation = _aspect_with_prov_a_impl,",
+        "  provides = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _aspect_with_prov_b_impl(target, ctx):",
+        "  return [prov_b(val = 'b1')]",
+        "aspect_with_prov_b = aspect(",
+        "  implementation = _aspect_with_prov_b_impl,",
+        "  provides = [prov_b],",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of(
+                "test/defs.bzl%aspect_with_prov_a",
+                "test/defs.bzl%aspect_with_prov_b", "test/defs.bzl%aspect_a"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    String aspectAResult = (String) aspectA.get("aspect_a_result");
+    assertThat(aspectAResult)
+        .isEqualTo("aspect_a on target //test:main_target found prov_a = a1 and found prov_b = b1");
+
+    ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    String aspectBResult = (String) aspectB.get("aspect_b_result");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:main_target found prov_b = b1");
+  }
+
+  @Test
+  public void testTopLevelAspectRequiresAspect_withRequiredAspectProvidersNotFound()
+      throws Exception {
+    useConfiguration(
+        "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    scratch.file(
+        "test/defs.bzl",
+        "prov_a = provider()",
+        "prov_b = provider()",
+        "",
+        "def _aspect_b_impl(target, ctx):",
+        "  result = 'aspect_b on target {} '.format(target.label)",
+        "  if prov_b in target:",
+        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
+        "  else:",
+        "    result += 'cannot find prov_b'",
+        "  return struct(aspect_b_result = result)",
+        "aspect_b = aspect(",
+        "  implementation = _aspect_b_impl,",
+        "  required_aspect_providers = [prov_b]",
+        ")",
+        "",
+        "def _aspect_a_impl(target, ctx):",
+        "  result = 'aspect_a on target {} '.format(target.label)",
+        "  if prov_a in target:",
+        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
+        "  else:",
+        "    result += 'cannot find prov_a'",
+        "  return struct(aspect_a_result = result)",
+        "",
+        "aspect_a = aspect(",
+        "  implementation = _aspect_a_impl,",
+        "  required_aspect_providers = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        "  requires = [aspect_b]",
+        ")",
+        "",
+        "def _aspect_with_prov_a_impl(target, ctx):",
+        "  return [prov_a(val = 'a1')]",
+        "aspect_with_prov_a = aspect(",
+        "  implementation = _aspect_with_prov_a_impl,",
+        "  provides = [prov_a],",
+        "  attr_aspects = ['dep'],",
+        ")",
+        "",
+        "def _my_rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'main_target',",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("test/defs.bzl%aspect_with_prov_a", "test/defs.bzl%aspect_a"),
+            "//test:main_target");
+
+    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
+    assertThat(aspectA).isNotNull();
+    String aspectAResult = (String) aspectA.get("aspect_a_result");
+    assertThat(aspectAResult).isEqualTo("aspect_a on target //test:main_target found prov_a = a1");
+
+    ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
+    assertThat(aspectB).isNotNull();
+    String aspectBResult = (String) aspectB.get("aspect_b_result");
+    assertThat(aspectBResult).isEqualTo("aspect_b on target //test:main_target cannot find prov_b");
+  }
+
+  private ConfiguredAspect getConfiguredAspect(
+      Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName) {
+    for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
+      String aspectExportedName =
+          ((StarlarkAspectClass) entry.getKey().getAspectClass()).getExportedName();
+      if (aspectExportedName.equals(aspectName)) {
+        return entry.getValue();
+      }
+    }
+    return null;
+  }
+
+  private ConfiguredAspect getConfiguredAspect(
+      Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName, String targetName) {
+    for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
+      String aspectExportedName =
+          ((StarlarkAspectClass) entry.getKey().getAspectClass()).getExportedName();
+      String target = entry.getKey().getLabel().getName();
+      if (aspectExportedName.equals(aspectName) && target.equals(targetName)) {
+        return entry.getValue();
+      }
+    }
+    return null;
+  }
+
+  private AspectKey getAspectKey(Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName) {
+    for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
+      String aspectExportedName = entry.getKey().getAspectClass().getName();
+      if (aspectExportedName.contains(aspectName)) {
+        return entry.getKey();
+      }
+    }
+    return null;
+  }
+
+  private void exposeNativeAspectToStarlark() throws Exception {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addStarlarkAccessibleTopLevels(
+        "starlark_native_aspect", TestAspects.STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+    builder.addStarlarkAccessibleTopLevels(
+        "parametrized_native_aspect",
+        TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+    builder.addNativeAspectClass(TestAspects.STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+    builder.addNativeAspectClass(TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+    useRuleClassProvider(builder.build());
   }
 
   /** StarlarkAspectTest with "keep going" flag */

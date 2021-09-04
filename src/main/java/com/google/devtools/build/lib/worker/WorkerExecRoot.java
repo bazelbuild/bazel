@@ -13,24 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
-import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
-
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.Optional;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /** Creates and manages the contents of a working directory of a persistent worker. */
 final class WorkerExecRoot {
@@ -49,14 +42,16 @@ final class WorkerExecRoot {
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
-    populateInputsAndDirsToCreate(inputs, workerFiles, outputs, inputsToCreate, dirsToCreate);
+    SandboxHelpers.populateInputsAndDirsToCreate(
+        inputs, workerFiles, outputs, ImmutableSet.of(), inputsToCreate, dirsToCreate);
 
     // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
     // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
     // can be left without changes (e.g., a symlink that already points to the right destination).
     // We're traversing from workDir's parent directory because external repositories can now be
     // symlinked as siblings of workDir when --experimental_sibling_repository_layout is in effect.
-    cleanExisting(workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate);
+    SandboxHelpers.cleanExisting(
+        workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate, workDir);
 
     // Finally, create anything that is still missing.
     createDirectories(dirsToCreate);
@@ -65,103 +60,16 @@ final class WorkerExecRoot {
     inputs.materializeVirtualInputs(workDir);
   }
 
-  /** Populates the provided sets with the inputs and directories than need to be created. */
-  private void populateInputsAndDirsToCreate(
-      SandboxInputs inputs,
-      Set<PathFragment> workerFiles,
-      SandboxOutputs outputs,
-      Set<PathFragment> inputsToCreate,
-      LinkedHashSet<PathFragment> dirsToCreate) {
-    // Add all worker files, input files, and the ancestor directories.
-    for (PathFragment input :
-        Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet())) {
-      inputsToCreate.add(input);
-      addDirectoryAndParents(input.getParentDirectory(), dirsToCreate);
-    }
-
-    // And all ancestor directories of output files. Note that we don't add the files themselves --
-    // any pre-existing files that have the same path as an output should get deleted.
-    for (PathFragment file : outputs.files()) {
-      addDirectoryAndParents(file.getParentDirectory(), dirsToCreate);
-    }
-
-    // Add all ouput directories and ancestors.
-    for (PathFragment dir : outputs.dirs()) {
-      addDirectoryAndParents(dir, dirsToCreate);
-    }
-  }
-
-  private static void addDirectoryAndParents(
-      @Nullable PathFragment dir, LinkedHashSet<PathFragment> dirsToCreate) {
-    if (dir == null || dirsToCreate.contains(dir)) {
-      return;
-    }
-    // Add parents first so that directories are created in the proper order. We collect all parent
-    // directories as opposed to just calling createDirectoryAndParents to support the optimization
-    // in #cleanExisting where an existing directory is kept if we still need it.
-    addDirectoryAndParents(dir.getParentDirectory(), dirsToCreate);
-    dirsToCreate.add(dir);
-  }
-
-  /**
-   * Deletes unnecessary files/directories and updates the sets if something on disk is already
-   * correct and doesn't need any changes.
-   */
-  private void cleanExisting(
-      Path root,
-      SandboxInputs inputs,
-      Set<PathFragment> inputsToCreate,
-      Set<PathFragment> dirsToCreate)
-      throws IOException {
-    Path execroot = workDir.getParentDirectory();
-    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
-      Path absPath = root.getChild(dirent.getName());
-      PathFragment pathRelativeToWorkDir;
-      if (absPath.startsWith(workDir)) {
-        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-        pathRelativeToWorkDir = absPath.relativeTo(workDir);
-      } else {
-        // path is not under workDir, which means it belongs to one of external repositories
-        // symlinked directly under execroot. Get the relative path based on there and prepend it
-        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-        pathRelativeToWorkDir =
-            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                absPath.relativeTo(execroot));
-      }
-      Optional<PathFragment> destination =
-          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
-      if (destination.isPresent()) {
-        if (SYMLINK.equals(dirent.getType())
-            && absPath.readSymbolicLink().equals(destination.get())) {
-          inputsToCreate.remove(pathRelativeToWorkDir);
-        } else {
-          absPath.delete();
-        }
-      } else if (DIRECTORY.equals(dirent.getType())) {
-        if (dirsToCreate.contains(pathRelativeToWorkDir)) {
-          cleanExisting(absPath, inputs, inputsToCreate, dirsToCreate);
-          dirsToCreate.remove(pathRelativeToWorkDir);
-        } else {
-          absPath.deleteTree();
-        }
-      } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
-        absPath.delete();
-      }
-    }
-  }
-
-  private Optional<PathFragment> getExpectedSymlinkDestination(
-      PathFragment fragment, SandboxInputs inputs) {
-    Path file = inputs.getFiles().get(fragment);
-    if (file != null) {
-      return Optional.of(file.asFragment());
-    }
-    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
-  }
-
   private void createDirectories(Iterable<PathFragment> dirsToCreate) throws IOException {
+    Set<Path> knownDirectories = new HashSet<>();
+    // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
+    // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
+    // createDirectoryAndParentsInSandboxRoot.
+    knownDirectories.add(workDir);
+    knownDirectories.add(workDir.getParentDirectory());
     for (PathFragment fragment : dirsToCreate) {
-      workDir.getRelative(fragment).createDirectory();
+      SandboxHelpers.createDirectoryAndParentsInSandboxRoot(
+          workDir.getRelative(fragment), knownDirectories, workDir);
     }
   }
 

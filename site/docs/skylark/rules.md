@@ -143,7 +143,7 @@ example_library = rule(
 )
 ```
 
-These are examples of *dependency attributes*. Any attribute definied with
+These are examples of *dependency attributes*. Any attribute defined with
 [`attr.label_list`](lib/attr.html#label_list) (or
 [`attr.label`](lib/attr.html#label)) specifies dependencies of a certain type
 between a target and the targets whose labels (or the corresponding
@@ -629,9 +629,9 @@ used otherwise. This output mechanism is deprecated because it does not support
 customizing the executable file's name at analysis time.
 
 See examples of an
-[executable rule](https://github.com/bazelbuild/examples/blob/master/rules/executable/fortune.bzl)
+[executable rule](https://github.com/bazelbuild/examples/blob/main/rules/executable/fortune.bzl)
 and a
-[test rule](https://github.com/bazelbuild/examples/blob/master/rules/test_rule/line_length.bzl).
+[test rule](https://github.com/bazelbuild/examples/blob/main/rules/test_rule/line_length.bzl).
 
 [Executable rules](be/common-definitions.html#common-attributes-binaries) and
 [test rules](be/common-definitions.html#common-attributes-tests) have additional
@@ -757,7 +757,7 @@ should build in the same configuration or transition to an exec configuration.
 If a dependency attribute has the flag `executable=True`, `cfg` must be set
 explicitly. This is to guard against accidentally building a tool for the wrong
 configuration.
-[See example](https://github.com/bazelbuild/examples/blob/master/rules/actions_run/execute.bzl)
+[See example](https://github.com/bazelbuild/examples/blob/main/rules/actions_run/execute.bzl)
 
 In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.

@@ -94,12 +94,12 @@ under `src/test/java`).
 
 ### BUILD files
 
-Follow these guidelines when creating your BUILD files:
+Follow these guidelines when creating your `BUILD` files:
 
-*   Use one BUILD file per directory containing Java sources, because this
+*   Use one `BUILD` file per directory containing Java sources, because this
     improves build performance.
 
-*   Every BUILD file should contain one `java_library` rule that looks like
+*   Every `BUILD` file should contain one `java_library` rule that looks like
     this:
 
     ```python
@@ -111,7 +111,7 @@ Follow these guidelines when creating your BUILD files:
     ```
 
 *   The name of the library should be the name of the directory containing the
-    BUILD file. This makes the label of the library shorter, that is use
+    `BUILD` file. This makes the label of the library shorter, that is use
     `"//package"` instead of `"//package:package"`.
 
 *   The sources should be a non-recursive [`glob`](be/functions.html#glob) of

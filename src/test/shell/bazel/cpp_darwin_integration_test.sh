@@ -124,41 +124,59 @@ EOF
 }
 
 function test_cc_test_with_explicit_install_name() {
-  mkdir -p cpp
-  cat > cpp/BUILD <<EOF
+  mkdir -p cpp/install_name
+  cat > cpp/install_name/BUILD <<EOF
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],
-  hdrs = ["foo.h"],
+)
+cc_binary(
+  name = "libbar.so",
+  srcs = ["bar.cc"],
+  linkshared = 1,
+)
+cc_binary(
+  name = "libbaz.dylib",
+  srcs = ["baz.cc"],
+  linkshared = 1,
 )
 cc_test(
   name = "test",
-  srcs = ["test.cc"],
+  srcs = ["test.cc", ":libbar.so", ":libbaz.dylib"],
   deps = [":foo"],
 )
 EOF
-  cat > cpp/foo.h <<EOF
+  cat > cpp/install_name/foo.cc <<EOF
+  int foo() { return 2; }
+EOF
+  cat > cpp/install_name/bar.cc <<EOF
+  int bar() { return 12; }
+EOF
+  cat > cpp/install_name/baz.cc <<EOF
+  int baz() { return 42; }
+EOF
+  cat > cpp/install_name/test.cc <<EOF
   int foo();
-EOF
-  cat > cpp/foo.cc <<EOF
-  int foo() { return 0; }
-EOF
-  cat > cpp/test.cc <<EOF
-  #include "cpp/foo.h"
+  int bar();
+  int baz();
   int main() {
-    return foo();
+    int result = foo() + bar() + baz();
+    if (result == 56) {
+      return 0;
+    } else {
+      return result;
+    }
   }
 EOF
 
-  bazel test --incompatible_macos_set_install_name //cpp:test || \
-      fail "bazel test //cpp:test failed"
+  bazel test --incompatible_macos_set_install_name //cpp/install_name:test || \
+      fail "bazel test //cpp/install_name:test failed"
   # Ensure @rpath is correctly set in the binary.
-  ./bazel-bin/cpp/test || \
+  ./bazel-bin/cpp/install_name/test || \
       fail "//cpp:test workspace execution failed, expected return 0, got $?"
   cd bazel-bin
-  ./cpp/test || \
+  ./cpp/install_name/test || \
       fail "//cpp:test execution failed, expected 0, but $?"
 }
 
 run_suite "Tests for Bazel's C++ rules on Darwin"
-

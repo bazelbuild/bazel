@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -26,11 +28,13 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,6 +45,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -57,6 +62,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -85,17 +91,83 @@ public final class ConfigurationResolver {
           .thenComparing(
               Functions.compose(BuildConfiguration::checksum, Dependency::getConfiguration));
 
-  // Signals that a Skyframe restart is needed.
-  private static class ValueMissingException extends Exception {
-    private ValueMissingException() {
-      super();
-    }
-  }
-
   private final SkyFunction.Environment env;
   private final TargetAndConfiguration ctgValue;
   private final BuildConfiguration hostConfiguration;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
+
+  /** The key for {@link #starlarkTransitionCache}. */
+  private static class StarlarkTransitionCacheKey {
+    private final ConfigurationTransition transition;
+    private final BuildOptions fromOptions;
+    private final int hashCode;
+
+    StarlarkTransitionCacheKey(ConfigurationTransition transition, BuildOptions fromOptions) {
+      // For rule self-transitions, the transition instance encapsulates both the transition logic
+      // and attributes of the target it's attached to. This is important: the same transition in
+      // the same configuration applied to distinct targets may produce different outputs. See
+      // StarlarkRuleTransitionProvider.FunctionPatchTransition for details.
+      // TODO(bazel-team): the transition code (i.e. StarlarkTransitionFunction) hashes on identity.
+      // Check that unnecessary copies of the transition function don't dilute this cache. Quick
+      // experimentation shows the # of such instances is very small. But it's unclear how strong
+      // of an interning contract there is.
+      this.transition = transition;
+      this.fromOptions = fromOptions;
+      this.hashCode = Objects.hash(transition, fromOptions);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other == this) {
+        return true;
+      }
+      if (!(other instanceof StarlarkTransitionCacheKey)) {
+        return false;
+      }
+      return (this.transition.equals(((StarlarkTransitionCacheKey) other).transition)
+          && this.fromOptions.equals(((StarlarkTransitionCacheKey) other).fromOptions));
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+  }
+
+  /** The result of a {@link #starlarkTransitionCache} lookup. */
+  private static class StarlarkTransitionCacheValue {
+    final Map<String, BuildOptions> result;
+    /**
+     * Stores events for successful transitions. Transitions that fail aren't added to the cache.
+     * This is meant for non-error events like Starlark {@code print()} output. See {@link
+     * StarlarkIntegrationTest#testPrintFromTransitionImpl} for a test that covers this.
+     *
+     * <p>This is null if the transition lacks non-error events.
+     */
+    @Nullable final StoredEventHandler nonErrorEvents;
+
+    StarlarkTransitionCacheValue(
+        Map<String, BuildOptions> result, @Nullable StoredEventHandler nonErrorEvents) {
+      this.result = result;
+      this.nonErrorEvents = nonErrorEvents;
+    }
+  }
+
+  /**
+   * Caches the application of transitions that use Starlark.
+   *
+   * <p>This trivially includes {@link StarlarkTransition}s. But it also includes transitions that
+   * delegate to {@link StarlarkTransition}s, like some {@link ComposingTransition}s.
+   *
+   * <p>This cache was added to keep builds that heavily rely on Starlark transitions performant.
+   * The inspiring build is a large Apple binary that heavily relies on {@code objc_library.bzl},
+   * which applies a self-transition. The build applies this transition ~600,000 times. Each
+   * application has a cost, mostly from setup in translating Java objects to Starlark objects in
+   * {@link FunctionTransitionUtil#applyAndValidate}. This cache saves most of that work, reducing
+   * analysis phase CPU time by 17%.
+   */
+  private static final Cache<StarlarkTransitionCacheKey, StarlarkTransitionCacheValue>
+      starlarkTransitionCache = Caffeine.newBuilder().softValues().build();
 
   public ConfigurationResolver(
       SkyFunction.Environment env,
@@ -143,23 +215,36 @@ public final class ConfigurationResolver {
   @Nullable
   public OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
       OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys)
-      throws DependencyEvaluationException, InterruptedException {
-    try {
-      OrderedSetMultimap<DependencyKind, Dependency> resolvedDeps = OrderedSetMultimap.create();
-      for (Map.Entry<DependencyKind, DependencyKey> entry : dependencyKeys.entries()) {
-        DependencyKind dependencyKind = entry.getKey();
-        DependencyKey dependencyKey = entry.getValue();
-        resolvedDeps.putAll(dependencyKind, resolveConfiguration(dependencyKind, dependencyKey));
+      throws ConfiguredValueCreationException, InterruptedException {
+    OrderedSetMultimap<DependencyKind, Dependency> resolvedDeps = OrderedSetMultimap.create();
+    boolean needConfigsFromSkyframe = false;
+    for (Map.Entry<DependencyKind, DependencyKey> entry : dependencyKeys.entries()) {
+      DependencyKind dependencyKind = entry.getKey();
+      DependencyKey dependencyKey = entry.getValue();
+      ImmutableList<Dependency> depConfig = resolveConfiguration(dependencyKind, dependencyKey);
+      if (depConfig == null) {
+        // Instead of returning immediately, give the loop a chance to queue up every missing
+        // dependency, then return all at once. That prevents re-executing this code an unnecessary
+        // number of times. i.e. this is equivalent to calling env.getValues() once over all deps.
+        needConfigsFromSkyframe = true;
+      } else {
+        resolvedDeps.putAll(dependencyKind, depConfig);
       }
-      return resolvedDeps;
-    } catch (ValueMissingException e) {
-      return null;
     }
+    return needConfigsFromSkyframe ? null : resolvedDeps;
   }
 
-  private ImmutableList<Dependency> resolveConfiguration(
+  /**
+   * Translates a {@link DependencyKey} with configuration transition to the same objects with
+   * resolved configurations.
+   *
+   * <p>This is the single-argument version of {@link #resolveConfigurations}, whose documentation
+   * has more details.
+   */
+  @Nullable
+  public ImmutableList<Dependency> resolveConfiguration(
       DependencyKind dependencyKind, DependencyKey dependencyKey)
-      throws DependencyEvaluationException, ValueMissingException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
 
     Dependency.Builder dependencyBuilder = dependencyKey.getDependencyBuilder();
 
@@ -174,15 +259,20 @@ public final class ConfigurationResolver {
         getCurrentConfiguration().fragmentClasses(), dependencyBuilder, dependencyKey);
   }
 
+  @Nullable
   private Dependency resolveNullTransition(
       Dependency.Builder dependencyBuilder, DependencyKind dependencyKind)
-      throws DependencyEvaluationException, ValueMissingException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
     // The null configuration can be trivially computed (it's, well, null), so special-case that
     // transition here and skip the rest of the logic. A *lot* of targets have null deps, so
     // this produces real savings. Profiling tests over a simple cc_binary show this saves ~1% of
     // total analysis phase time.
     if (dependencyKind.getAttribute() != null) {
-      dependencyBuilder.setTransitionKeys(collectTransitionKeys(dependencyKind.getAttribute()));
+      ImmutableList<String> transitionKeys = collectTransitionKeys(dependencyKind.getAttribute());
+      if (transitionKeys == null) {
+        return null; // Need Skyframe deps.
+      }
+      dependencyBuilder.setTransitionKeys(transitionKeys);
     }
 
     return dependencyBuilder.withNullConfiguration().build();
@@ -196,26 +286,25 @@ public final class ConfigurationResolver {
         .build();
   }
 
+  @Nullable
   private ImmutableList<Dependency> resolveGenericTransition(
       FragmentClassSet depFragments,
       Dependency.Builder dependencyBuilder,
       DependencyKey dependencyKey)
-      throws DependencyEvaluationException, InterruptedException, ValueMissingException {
+      throws ConfiguredValueCreationException, InterruptedException {
     Map<String, BuildOptions> toOptions;
     try {
-      HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
-          StarlarkTransition.getBuildSettingPackages(env, dependencyKey.getTransition());
-      if (buildSettingPackages == null) {
-        throw new ValueMissingException();
-      }
       toOptions =
-          applyTransition(
+          applyTransitionWithSkyframe(
               getCurrentConfiguration().getOptions(),
               dependencyKey.getTransition(),
-              buildSettingPackages,
+              env,
               env.getListener());
+      if (toOptions == null) {
+        return null; // Need more Skyframe deps for a Starlark transition.
+      }
     } catch (TransitionException e) {
-      throw new DependencyEvaluationException(e);
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
     if (depFragments.equals(getCurrentConfiguration().fragmentClasses())
@@ -237,7 +326,7 @@ public final class ConfigurationResolver {
     PlatformMappingValue platformMappingValue =
         (PlatformMappingValue) env.getValue(PlatformMappingValue.Key.create(platformMappingPath));
     if (platformMappingValue == null) {
-      throw new ValueMissingException();
+      return null; // Need platform mappings from Skyframe.
     }
 
     Map<String, BuildConfigurationValue.Key> configurationKeys = new HashMap<>();
@@ -250,7 +339,7 @@ public final class ConfigurationResolver {
         configurationKeys.put(transitionKey, buildConfigurationValueKey);
       }
     } catch (OptionsParsingException e) {
-      throw new DependencyEvaluationException(new InvalidConfigurationException(e));
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
     Map<SkyKey, ValueOrException<InvalidConfigurationException>> depConfigValues =
@@ -279,17 +368,18 @@ public final class ConfigurationResolver {
         }
       }
       if (env.valuesMissing()) {
-        throw new ValueMissingException();
+        return null; // Need dependency configurations.
       }
     } catch (InvalidConfigurationException e) {
-      throw new DependencyEvaluationException(e);
+      throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     }
 
     return ImmutableList.sortedCopyOf(SPLIT_DEP_ORDERING, dependencies);
   }
 
+  @Nullable
   private ImmutableList<String> collectTransitionKeys(Attribute attribute)
-      throws DependencyEvaluationException, ValueMissingException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException {
     TransitionFactory<AttributeTransitionData> transitionFactory = attribute.getTransitionFactory();
     if (transitionFactory.isSplit()) {
       AttributeTransitionData transitionData =
@@ -303,21 +393,14 @@ public final class ConfigurationResolver {
       ConfigurationTransition baseTransition = transitionFactory.create(transitionData);
       Map<String, BuildOptions> toOptions;
       try {
-        // TODO(jungjw): See if we can dedup getBuildSettingPackages implementations and put
-        //  this in applyTransition.
-        HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
-            StarlarkTransition.getBuildSettingPackages(env, baseTransition);
-        if (buildSettingPackages == null) {
-          throw new ValueMissingException();
-        }
         toOptions =
-            applyTransition(
-                getCurrentConfiguration().getOptions(),
-                baseTransition,
-                buildSettingPackages,
-                env.getListener());
+            applyTransitionWithSkyframe(
+                getCurrentConfiguration().getOptions(), baseTransition, env, env.getListener());
+        if (toOptions == null) {
+          return null; // Need more Skyframe deps for a Starlark transition.
+        }
       } catch (TransitionException e) {
-        throw new DependencyEvaluationException(e);
+        throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
       }
       if (!SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
         return ImmutableList.copyOf(toOptions.keySet());
@@ -330,63 +413,112 @@ public final class ConfigurationResolver {
   /**
    * Applies a configuration transition over a set of build options.
    *
-   * <p>prework - load all default values for read build settings in Starlark transitions (by
+   * <p>This is only for callers that can't use {@link #applyTransitionWithSkyframe}. The difference
+   * is {@link #applyTransitionWithSkyframe} internally computes {@code buildSettingPackages} with
+   * Skyframe, while this version requires it as a precomputed input.
+   *
+   * <p>prework - load all default values for reading build settings in Starlark transitions (by
    * design, {@link BuildOptions} never holds default values of build settings)
    *
    * <p>postwork - replay events/throw errors from transition implementation function and validate
-   * the outputs of the transition
+   * the outputs of the transition. This only applies to Starlark transitions.
    *
    * @return the build options for the transitioned configuration.
    */
-  @VisibleForTesting
-  public static Map<String, BuildOptions> applyTransition(
+  public static Map<String, BuildOptions> applyTransitionWithoutSkyframe(
       BuildOptions fromOptions,
       ConfigurationTransition transition,
       Map<PackageValue.Key, PackageValue> buildSettingPackages,
       ExtendedEventHandler eventHandler)
       throws TransitionException, InterruptedException {
-    boolean doesStarlarkTransition = StarlarkTransition.doesStarlarkTransition(transition);
-    if (doesStarlarkTransition) {
-      fromOptions =
-          addDefaultStarlarkOptions(
-              fromOptions, StarlarkTransition.getDefaultValues(buildSettingPackages, transition));
+    if (StarlarkTransition.doesStarlarkTransition(transition)) {
+      return applyStarlarkTransition(fromOptions, transition, buildSettingPackages, eventHandler);
     }
+    return transition.apply(TransitionUtil.restrict(transition, fromOptions), eventHandler);
+  }
 
+  /**
+   * Applies a configuration transition over a set of build options.
+   *
+   * <p>Callers should use this over {@link #applyTransitionWithoutSkyframe}. Unlike that variation,
+   * this would may return null if it needs more Skyframe deps.
+   *
+   * <p>postwork - replay events/throw errors from transition implementation function and validate
+   * the outputs of the transition. This only applies to Starlark transitions.
+   *
+   * @return the build options for the transitioned configuration, or null if Skyframe dependencies
+   *     for build_setting default values for Starlark transitions. These can be read from their
+   *     respective packages.
+   */
+  @Nullable
+  public static Map<String, BuildOptions> applyTransitionWithSkyframe(
+      BuildOptions fromOptions,
+      ConfigurationTransition transition,
+      SkyFunction.Environment env,
+      ExtendedEventHandler eventHandler)
+      throws TransitionException, InterruptedException {
+    if (StarlarkTransition.doesStarlarkTransition(transition)) {
+      // TODO(blaze-team): find a way to dedupe this with SkyframeExecutor.getBuildSettingPackages.
+      Map<PackageValue.Key, PackageValue> buildSettingPackages =
+          StarlarkTransition.getBuildSettingPackages(env, transition);
+      return buildSettingPackages == null
+          ? null
+          : applyStarlarkTransition(fromOptions, transition, buildSettingPackages, eventHandler);
+    }
+    return transition.apply(TransitionUtil.restrict(transition, fromOptions), eventHandler);
+  }
+
+  /**
+   * Applies a Starlark transition.
+   *
+   * @param fromOptions source options before the transition
+   * @param transition the transition itself
+   * @param buildSettingPackages packages for build_settings read by the transition. This is used to
+   *     read default values for build_settings that aren't explicitly set on the build.
+   * @param eventHandler handler for errors evaluating the transition.
+   * @return transition output
+   */
+  private static Map<String, BuildOptions> applyStarlarkTransition(
+      BuildOptions fromOptions,
+      ConfigurationTransition transition,
+      Map<PackageValue.Key, PackageValue> buildSettingPackages,
+      ExtendedEventHandler eventHandler)
+      throws TransitionException, InterruptedException {
+    StarlarkTransitionCacheKey cacheKey = new StarlarkTransitionCacheKey(transition, fromOptions);
+    StarlarkTransitionCacheValue cachedResult = starlarkTransitionCache.getIfPresent(cacheKey);
+    if (cachedResult != null) {
+      if (cachedResult.nonErrorEvents != null) {
+        cachedResult.nonErrorEvents.replayOn(eventHandler);
+      }
+      return cachedResult.result;
+    }
+    BuildOptions adjustedOptions =
+        StarlarkTransition.addDefaultStarlarkOptions(fromOptions, transition, buildSettingPackages);
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
     Map<String, BuildOptions> result =
-        transition.apply(TransitionUtil.restrict(transition, fromOptions), handlerWithErrorStatus);
+        transition.apply(
+            TransitionUtil.restrict(transition, adjustedOptions), handlerWithErrorStatus);
 
-    if (doesStarlarkTransition) {
-      // We use a temporary StoredEventHandler instead of the caller's event handler because
-      // StarlarkTransition.validate assumes no errors occurred. We need a StoredEventHandler to be
-      // able to check that, and fail out early if there are errors.
-      //
-      // TODO(bazel-team): harden StarlarkTransition.validate so we can eliminate this step.
-      // StarlarkRuleTransitionProviderTest#testAliasedBuildSetting_outputReturnMismatch shows the
-      // effect.
-      handlerWithErrorStatus.replayOn(eventHandler);
-      if (handlerWithErrorStatus.hasErrors()) {
-        throw new TransitionException("Errors encountered while applying Starlark transition");
-      }
-      result = StarlarkTransition.validate(transition, buildSettingPackages, result);
+    // We use a temporary StoredEventHandler instead of the caller's event handler because
+    // StarlarkTransition.validate assumes no errors occurred. We need a StoredEventHandler to be
+    // able to check that, and fail out early if there are errors.
+    //
+    // TODO(bazel-team): harden StarlarkTransition.validate so we can eliminate this step.
+    // StarlarkRuleTransitionProviderTest#testAliasedBuildSetting_outputReturnMismatch shows the
+    // effect.
+    handlerWithErrorStatus.replayOn(eventHandler);
+    if (handlerWithErrorStatus.hasErrors()) {
+      throw new TransitionException("Errors encountered while applying Starlark transition");
     }
+    result = StarlarkTransition.validate(transition, buildSettingPackages, result);
+    // If the transition errored (like bad Starlark code), this method already exited with an
+    // exception so the results won't go into the cache. We still want to collect non-error events
+    // like print() output.
+    StoredEventHandler nonErrorEvents =
+        !handlerWithErrorStatus.isEmpty() ? handlerWithErrorStatus : null;
+    starlarkTransitionCache.put(cacheKey, new StarlarkTransitionCacheValue(result, nonErrorEvents));
     return result;
-  }
-
-  private static BuildOptions addDefaultStarlarkOptions(
-      BuildOptions fromOptions, ImmutableMap<Label, Object> buildSettingDefaults) {
-    BuildOptions.Builder optionsWithDefaults = null;
-    for (Map.Entry<Label, Object> buildSettingDefault : buildSettingDefaults.entrySet()) {
-      Label buildSetting = buildSettingDefault.getKey();
-      if (!fromOptions.getStarlarkOptions().containsKey(buildSetting)) {
-        if (optionsWithDefaults == null) {
-          optionsWithDefaults = fromOptions.toBuilder();
-        }
-        optionsWithDefaults.addStarlarkOption(buildSetting, buildSettingDefault.getValue());
-      }
-    }
-    return optionsWithDefaults == null ? fromOptions : optionsWithDefaults.build();
   }
 
   /**

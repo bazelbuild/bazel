@@ -36,7 +36,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   static final String PCH_FILE_VARIABLE_NAME = "pch_file";
   static final String FRAMEWORKS_PATH_NAME = "framework_paths";
-  static final String MODULES_MAPS_DIR_NAME = "module_maps_dir";
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
   static final String OBJC_MODULE_CACHE_KEY = "modules_cache_path";
   static final String OBJ_LIST_PATH_VARIABLE_NAME = "obj_list_path";
@@ -121,13 +120,16 @@ class ObjcVariablesExtension implements VariablesExtension {
     EXECUTABLE_LINKING_VARIABLES,
     DSYM_VARIABLES,
     LINKMAP_VARIABLES,
-    BITCODE_VARIABLES
+    BITCODE_VARIABLES,
+    MODULE_MAP_VARIABLES
   }
 
   @Override
   public void addVariables(CcToolchainVariables.Builder builder) {
     addPchVariables(builder);
-    addModuleMapVariables(builder);
+    if (activeVariableCategories.contains(VariableCategory.MODULE_MAP_VARIABLES)) {
+      addModuleMapVariables(builder);
+    }
     if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
       addArchiveVariables(builder);
     }
@@ -162,14 +164,6 @@ class ObjcVariablesExtension implements VariablesExtension {
   }
 
   private void addModuleMapVariables(CcToolchainVariables.Builder builder) {
-    builder.addStringVariable(
-        MODULES_MAPS_DIR_NAME,
-        intermediateArtifacts
-            .swiftModuleMap()
-            .getArtifact()
-            .getExecPath()
-            .getParentDirectory()
-            .toString());
     builder.addStringVariable(
         OBJC_MODULE_CACHE_KEY,
         buildConfiguration.getGenfilesFragment(ruleContext.getRepository())

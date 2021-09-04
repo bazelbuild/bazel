@@ -388,6 +388,11 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testObjcLibraryLinkoptsArePropagatedToLinkAction() throws Exception {
+    checkObjcLibraryLinkoptsArePropagatedToLinkAction(getRuleType());
+  }
+
+  @Test
   public void testUnknownPlatformType() throws Exception {
     checkError(
         "package",

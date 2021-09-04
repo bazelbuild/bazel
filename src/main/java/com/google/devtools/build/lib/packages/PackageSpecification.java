@@ -161,7 +161,7 @@ public abstract class PackageSpecification {
   @AutoCodec
   @VisibleForSerialization
   static final class SinglePackage extends PackageSpecification {
-    private PackageIdentifier singlePackageName;
+    private final PackageIdentifier singlePackageName;
 
     @VisibleForSerialization
     SinglePackage(PackageIdentifier singlePackageName) {
@@ -204,7 +204,7 @@ public abstract class PackageSpecification {
   @AutoCodec
   @VisibleForSerialization
   static final class AllPackagesBeneath extends PackageSpecification {
-    private PackageIdentifier prefix;
+    private final PackageIdentifier prefix;
 
     @VisibleForSerialization
     AllPackagesBeneath(PackageIdentifier prefix) {
@@ -346,10 +346,6 @@ public abstract class PackageSpecification {
       this.singlePackages = singlePackages;
       this.negativePackageSpecifications = negativePackageSpecifications;
       this.allSpecifications = allSpecifications;
-    }
-
-    public ImmutableList<PackageSpecification> getPackageSpecifications() {
-      throw new UnsupportedOperationException();
     }
 
     /**

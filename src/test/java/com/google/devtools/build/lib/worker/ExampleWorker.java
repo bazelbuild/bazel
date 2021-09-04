@@ -86,6 +86,7 @@ public final class ExampleWorker {
         if (request == null) {
           break;
         }
+
         currentRequest = request;
         inputs.clear();
         for (Input input : request.getInputsList()) {
@@ -97,7 +98,15 @@ public final class ExampleWorker {
         if (request.getCancel()) {
           respondToCancelRequest(request);
         } else {
-          startResponseThread(request);
+          try {
+            startResponseThread(request);
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            // We don't expect interrupts at this level, only inside the individual request
+            // handling threads, so here we just abort on interrupt.
+            e.printStackTrace();
+            return;
+          }
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);
@@ -183,6 +192,9 @@ public final class ExampleWorker {
         }
       } else {
         try {
+          if (currentRequest.getVerbosity() > 0) {
+            originalStdErr.println("VERBOSE: Pretending to do work.");
+          }
           parseOptionsAndLog(args);
         } catch (Exception e) {
           e.printStackTrace();

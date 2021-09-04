@@ -25,7 +25,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.OutputFilter;
 import java.util.List;
@@ -33,11 +32,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for the {@link AutoOutputFilter} class.
- */
+/** Tests for the {@link AutoOutputFilter} class. */
 @RunWith(JUnit4.class)
-public class AutoOutputFilterTest extends BuildViewTestCase {
+public class AutoOutputFilterTest {
   @Test
   public void testNoneAOF() throws Exception {
     assertThat(NONE.getFilter(targets())).isEqualTo(OutputFilter.OUTPUT_EVERYTHING);
@@ -108,17 +105,6 @@ public class AutoOutputFilterTest extends BuildViewTestCase {
       Label label = Label.parseAbsolute(targetName, ImmutableMap.of());
       targetsPerPackage.put(label.getPackageName(), label.getName());
     }
-
-    // Create BUILD file for each package
-    for (String pkg : targetsPerPackage.keySet()) {
-      StringBuilder contents = new StringBuilder();
-      for (String target : targetsPerPackage.get(pkg)) {
-        contents.append("sh_library(name='" + target + "');");
-      }
-      scratch.overwriteFile(pkg + "/BUILD", contents.toString());
-    }
-
-    invalidatePackages();
 
     // Collect targets
     ImmutableList.Builder<Label> targets = ImmutableList.builder();

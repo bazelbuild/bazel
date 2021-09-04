@@ -57,7 +57,7 @@ public final class SingleJarActionBuilder {
     // the native singlejar is used on windows) remove support for the Java implementation
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
-          .addTransitiveInputs(provider.getJavaRuntime().javaBaseInputsMiddleman())
+          .addTransitiveInputs(provider.getJavaRuntime().javaBaseInputs())
           .setJarExecutable(
               provider.getJavaRuntime().javaBinaryExecPathFragment(),
               singleJar,

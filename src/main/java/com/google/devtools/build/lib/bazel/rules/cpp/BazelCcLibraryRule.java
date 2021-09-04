@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -22,7 +23,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcLibraryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for the cc_library rule. */
 public final class BazelCcLibraryRule implements RuleDefinition {
@@ -47,6 +50,19 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
         .override(attr("linkstatic", BOOLEAN).value(false))
+        /*<!-- #BLAZE_RULE(cc_library).ATTRIBUTE(implementation_deps) -->
+        The list of other libraries that the library target depends on. Unlike with
+        <code>deps</code>, the headers and include paths of these libraries (and all their
+        transitive deps) are only used for compilation of this library, and not libraries that
+        depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
+        binary targets that depend on this library.
+        <p>For now usage is limited to cc_libraries and guarded by the flag
+        <code>--experimental_cc_implementation_deps</code>.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
+            attr("implementation_deps", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProviders(CcInfo.PROVIDER.id()))
         .build();
   }
 

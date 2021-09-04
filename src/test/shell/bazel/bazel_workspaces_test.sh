@@ -509,8 +509,6 @@ function test_os() {
 
   build_and_process_log --exclude_rule "//external:local_config_cc"
 
-  # This assertion matches the location of the rule's implementation function.
-  ensure_contains_exactly 'location: .*repos.bzl:1:5' 1
   ensure_contains_atleast 'rule: "//external:repo"' 1
   ensure_contains_exactly 'os_event' 1
 }

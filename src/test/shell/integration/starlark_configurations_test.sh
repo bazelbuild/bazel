@@ -56,7 +56,10 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-add_to_bazelrc "build --package_path=%workspace%"
+function set_up() {
+  write_default_bazelrc
+  add_to_bazelrc "build --package_path=%workspace%"
+}
 
 #### HELPER FXNS #######################################################
 
@@ -633,6 +636,96 @@ function test_rc_flag_alias_canonicalizes() {
     >& "$TEST_log" || fail "Expected success"
 
   expect_log "--//$pkg:type=coffee"
+}
+
+function test_rc_flag_alias_unsupported_under_test_command() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  add_to_bazelrc "test --flag_alias=drink=//$pkg:type"
+  write_build_setting_bzl
+
+  bazel canonicalize-flags -- --drink=coffee \
+    >& "$TEST_log" && fail "Expected failure"
+  expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
+"supports the \"build\" command."
+
+  bazel build //$pkg:my_drink >& "$TEST_log" && fail "Expected failure"
+  expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
+"supports the \"build\" command."
+
+  # Post-test cleanup_workspace() calls "bazel clean", which would also fail
+  # unless we reset the bazelrc.
+  write_default_bazelrc
+}
+
+function test_rc_flag_alias_unsupported_under_conditional_build_command() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  add_to_bazelrc "build:foo --flag_alias=drink=//$pkg:type"
+  write_build_setting_bzl
+
+  bazel canonicalize-flags -- --drink=coffee \
+>& "$TEST_log" && fail "Expected failure"
+  expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
+"supports the \"build\" command."
+
+  bazel build //$pkg:my_drink >& "$TEST_log" && fail "Expected failure"
+  expect_log "--flag_alias=drink=//$pkg:type\" disallowed. --flag_alias only "\
+"supports the \"build\" command."
+
+  # Post-test cleanup_workspace() calls "bazel clean", which would also fail
+  # unless we reset the bazelrc.
+  write_default_bazelrc
+}
+
+function test_rc_flag_alias_unsupported_with_space_assignment_syntax() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  add_to_bazelrc "test --flag_alias drink=//$pkg:type"
+  write_build_setting_bzl
+
+  bazel canonicalize-flags -- --drink=coffee \
+    >& "$TEST_log" && fail "Expected failure"
+  expect_log "--flag_alias\" disallowed. --flag_alias only "\
+"supports the \"build\" command."
+
+  bazel build //$pkg:my_drink >& "$TEST_log" && fail "Expected failure"
+  expect_log "--flag_alias\" disallowed. --flag_alias only "\
+"supports the \"build\" command."
+
+  # Post-test cleanup_workspace() calls "bazel clean", which would also fail
+  # unless we reset the bazelrc.
+  write_default_bazelrc
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/13751.
+function test_rule_exec_transition_warning() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > "${pkg}/rules.bzl" <<EOF
+def _impl(ctx):
+    pass
+
+demo = rule(
+    implementation = _impl,
+    cfg = config.exec(),
+)
+EOF
+
+  cat > "${pkg}/BUILD" <<EOF
+load(":rules.bzl", "demo")
+
+demo(name = "demo")
+EOF
+
+
+  bazel build //$pkg:demo >& "$TEST_log" && fail "Expected failure"
+  expect_not_log "crashed due to an internal error"
+  expect_log "`cfg` must be set to a transition appropriate for a rule"
 }
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

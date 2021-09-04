@@ -456,7 +456,7 @@ public final class CcToolchainRule implements RuleDefinition {
 <p>
   Use <code>toolchain_config</code> attribute to configure the C++ toolchain.
   See also this
-  <a href="https://docs.bazel.build/versions/master/cc-toolchain-config-reference.html">
+  <a href="https://docs.bazel.build/versions/main/cc-toolchain-config-reference.html">
     page
   </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>

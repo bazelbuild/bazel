@@ -92,25 +92,23 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   @Override
   public abstract void close();
 
-  private static DependencyFilter constructDependencyFilter(
-      Set<Setting> settings) {
+  private static DependencyFilter constructDependencyFilter(Set<Setting> settings) {
     DependencyFilter specifiedFilter =
         settings.contains(Setting.ONLY_TARGET_DEPS)
             ? DependencyFilter.ONLY_TARGET_DEPS
             : DependencyFilter.ALL_DEPS;
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-      specifiedFilter = DependencyFilter.and(specifiedFilter, DependencyFilter.NO_IMPLICIT_DEPS);
+      specifiedFilter = specifiedFilter.and(DependencyFilter.NO_IMPLICIT_DEPS);
     }
     if (settings.contains(Setting.NO_NODEP_DEPS)) {
-      specifiedFilter = DependencyFilter.and(specifiedFilter, DependencyFilter.NO_NODEP_ATTRIBUTES);
+      specifiedFilter = specifiedFilter.and(DependencyFilter.NO_NODEP_ATTRIBUTES);
     }
     return specifiedFilter;
   }
 
   /**
-   * Used by {@link #evaluateQuery} to evaluate the given {@code expr}. The caller,
-   * {@link #evaluateQuery}, not {@link #evalTopLevelInternal}, is responsible for managing
-   * {@code callback}.
+   * Used by {@link #evaluateQuery} to evaluate the given {@code expr}. The caller, ({@link
+   * #evaluateQuery}), is responsible for managing {@code callback}.
    */
   protected void evalTopLevelInternal(QueryExpression expr, OutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException {
@@ -158,8 +156,6 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       failFast = false;
     } catch (QueryException e) {
       throw new QueryException(e, expr);
-    } catch (InterruptedException e) {
-      throw e;
     } finally {
       try {
         callback.close(failFast);

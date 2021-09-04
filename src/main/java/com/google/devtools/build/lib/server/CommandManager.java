@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Helper class for commands that are currently running on the server. */
@@ -37,9 +38,11 @@ class CommandManager {
   private final boolean doIdleServerTasks;
 
   private IdleServerTasks idleServerTasks;
+  @Nullable private final String slowInterruptMessageSuffix;
 
-  CommandManager(boolean doIdleServerTasks) {
+  CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
+    this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
     idle();
   }
 
@@ -160,7 +163,7 @@ class CommandManager {
             }
             if (!ok) {
               // At least one command was not interrupted. Interrupt took too long.
-              ThreadUtils.warnAboutSlowInterrupt();
+              ThreadUtils.warnAboutSlowInterrupt(slowInterruptMessageSuffix);
             }
           } catch (InterruptedException e) {
             // Ignore.

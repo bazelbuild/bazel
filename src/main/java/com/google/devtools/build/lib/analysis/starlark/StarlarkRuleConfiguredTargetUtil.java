@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
-import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -89,19 +87,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
               + " repository, properly specified as @reponame//path/to/package:target,"
               + " should have been specified by the requesting rule.");
       return null;
-    }
-    if (!ruleClass
-        .getRuleDefinitionEnvironmentLabel()
-        .getRepository()
-        .getName()
-        .equals("@_builtins")) {
-      if (ruleClass.hasFunctionTransitionAllowlist()
-          && !Allowlist.isAvailableBasedOnRuleLocation(
-              ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
-        if (!Allowlist.isAvailable(ruleContext, FunctionSplitTransitionAllowlist.NAME)) {
-          ruleContext.ruleError("Non-allowlisted use of Starlark transition");
-        }
-      }
     }
 
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);

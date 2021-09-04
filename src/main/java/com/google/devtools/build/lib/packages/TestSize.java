@@ -48,7 +48,7 @@ public enum TestSize {
   private final TestTimeout timeout;
   private final int defaultShards;
 
-  private TestSize(TestTimeout defaultTimeout, int defaultShards) {
+  TestSize(TestTimeout defaultTimeout, int defaultShards) {
     this.timeout = defaultTimeout;
     this.defaultShards = defaultShards;
   }

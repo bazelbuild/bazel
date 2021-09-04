@@ -45,10 +45,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** Skyframe-based target pattern parsing. */
-final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
+public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
   private final SkyframeExecutor skyframeExecutor;
 
-  SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
+  public SkyframeTargetPatternEvaluator(SkyframeExecutor skyframeExecutor) {
     this.skyframeExecutor = skyframeExecutor;
   }
 
@@ -250,7 +250,8 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
                   ImmutableMap.of(pkg.getPackageIdentifier(), pkg)),
               eventHandler,
               FilteringPolicies.NO_FILTER,
-              /* packageSemaphore= */ null);
+              /* packageSemaphore= */ null,
+              SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       targetPattern.eval(
           resolver,

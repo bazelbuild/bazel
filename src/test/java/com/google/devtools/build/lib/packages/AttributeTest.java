@@ -23,7 +23,9 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -301,6 +303,11 @@ public class AttributeTest {
     }
 
     @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+
+    @Override
     public boolean isSplit() {
       return true;
     }
@@ -318,5 +325,237 @@ public class AttributeTest {
                     .allowedFileTypes()
                     .build());
     assertThat(e).hasMessageThat().contains("may not contain the same rule classes");
+  }
+
+  private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
+
+  private static final StarlarkProviderIdentifier STARLARK_P1 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P1"));
+
+  private static final StarlarkProviderIdentifier STARLARK_P2 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P2"));
+
+  private static final StarlarkProviderIdentifier STARLARK_P3 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P3"));
+
+  private static final StarlarkProviderIdentifier STARLARK_P4 =
+      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P4"));
+
+  @Test
+  public void testAttrRequiredAspects_inheritAttrAspects() throws Exception {
+    ImmutableList<String> inheritedAttributeAspects1 = ImmutableList.of("attr1", "attr2");
+    ImmutableList<String> inheritedAttributeAspects2 = ImmutableList.of("attr3", "attr2");
+
+    Attribute.Builder<Label> attrBuilder = attr("x", LABEL).allowedFileTypes();
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_1",
+            /** inheritedRequiredProviders= */
+            ImmutableList.of(),
+            inheritedAttributeAspects1);
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_2",
+            /** inheritedRequiredProviders= */
+            ImmutableList.of(),
+            inheritedAttributeAspects2);
+    Attribute attr = attrBuilder.build();
+
+    ImmutableList<Aspect> aspects = attr.getAspects(null);
+    assertThat(aspects).hasSize(1);
+    AspectDescriptor aspectDescriptor = aspects.get(0).getDescriptor();
+    assertThat(aspectDescriptor.getInheritedAttributeAspects())
+        .containsExactly("attr1", "attr2", "attr3");
+  }
+
+  @Test
+  public void testAttrRequiredAspects_inheritRequiredProviders() throws Exception {
+    ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders1 =
+        ImmutableList.of(ImmutableSet.of(STARLARK_P1), ImmutableSet.of(STARLARK_P2, STARLARK_P3));
+    ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders2 =
+        ImmutableList.of(ImmutableSet.of(STARLARK_P4), ImmutableSet.of(STARLARK_P2, STARLARK_P3));
+
+    Attribute.Builder<Label> attrBuilder = attr("x", LABEL).allowedFileTypes();
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_1",
+            inheritedRequiredProviders1,
+            /** inheritedAttributeAspects= */
+            ImmutableList.of());
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_2",
+            inheritedRequiredProviders2,
+            /** inheritedAttributeAspects= */
+            ImmutableList.of());
+    Attribute attr = attrBuilder.build();
+
+    ImmutableList<Aspect> aspects = attr.getAspects(null);
+    assertThat(aspects).hasSize(1);
+
+    RequiredProviders actualInheritedRequiredProviders =
+        aspects.get(0).getDescriptor().getInheritedRequiredProviders();
+    AdvertisedProviderSet expectedOkSet1 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P1).build();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(expectedOkSet1)).isTrue();
+
+    AdvertisedProviderSet expectedOkSet2 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P4).build();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(expectedOkSet2)).isTrue();
+
+    AdvertisedProviderSet expectedOkSet3 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P2).addStarlark(STARLARK_P3).build();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(expectedOkSet3)).isTrue();
+
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+        .isFalse();
+  }
+
+  @Test
+  public void testAttrRequiredAspects_aspectAlreadyExists_inheritAttrAspects() throws Exception {
+    ImmutableList<String> inheritedAttributeAspects = ImmutableList.of("attr1", "attr2");
+
+    Attribute.Builder<Label> attrBuilder =
+        attr("x", LABEL).aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT).allowedFileTypes();
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect",
+            /** inheritedRequiredProviders = */
+            ImmutableList.of(),
+            inheritedAttributeAspects);
+    Attribute attr = attrBuilder.build();
+
+    ImmutableList<Aspect> aspects = attr.getAspects(null);
+    assertThat(aspects).hasSize(1);
+    AspectDescriptor aspectDescriptor = aspects.get(0).getDescriptor();
+    assertThat(aspectDescriptor.getInheritedAttributeAspects()).containsExactly("attr1", "attr2");
+  }
+
+  @Test
+  public void testAttrRequiredAspects_aspectAlreadyExists_inheritRequiredProviders()
+      throws Exception {
+    ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders =
+        ImmutableList.of(ImmutableSet.of(STARLARK_P1), ImmutableSet.of(STARLARK_P2, STARLARK_P3));
+
+    Attribute.Builder<Label> attrBuilder =
+        attr("x", LABEL).aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT).allowedFileTypes();
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect",
+            inheritedRequiredProviders,
+            /** inheritedAttributeAspects= */
+            ImmutableList.of());
+    Attribute attr = attrBuilder.build();
+
+    ImmutableList<Aspect> aspects = attr.getAspects(null);
+    assertThat(aspects).hasSize(1);
+
+    RequiredProviders actualInheritedRequiredProviders =
+        aspects.get(0).getDescriptor().getInheritedRequiredProviders();
+    AdvertisedProviderSet expectedOkSet1 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P1).build();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(expectedOkSet1)).isTrue();
+
+    AdvertisedProviderSet expectedOkSet2 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P4).build();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(expectedOkSet2)).isFalse();
+
+    AdvertisedProviderSet expectedOkSet3 =
+        AdvertisedProviderSet.builder().addStarlark(STARLARK_P2).addStarlark(STARLARK_P3).build();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(expectedOkSet3)).isTrue();
+
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(actualInheritedRequiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+        .isFalse();
+  }
+
+  @Test
+  public void testAttrRequiredAspects_inheritAllAttrAspects() throws Exception {
+    ImmutableList<String> inheritedAttributeAspects1 = ImmutableList.of("attr1", "attr2");
+    ImmutableList<String> inheritedAttributeAspects2 = ImmutableList.of("*");
+
+    Attribute.Builder<Label> attrBuilder =
+        attr("x", LABEL).aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT).allowedFileTypes();
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_1",
+            /** inheritedRequiredProviders = */
+            ImmutableList.of(),
+            inheritedAttributeAspects1);
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_2",
+            /** inheritedRequiredProviders = */
+            ImmutableList.of(),
+            inheritedAttributeAspects2);
+    Attribute attr = attrBuilder.build();
+
+    ImmutableList<Aspect> aspects = attr.getAspects(null);
+    assertThat(aspects).hasSize(1);
+    AspectDescriptor aspectDescriptor = aspects.get(0).getDescriptor();
+    assertThat(aspectDescriptor.getInheritedAttributeAspects()).isNull();
+  }
+
+  @Test
+  public void testAttrRequiredAspects_inheritAllRequiredProviders() throws Exception {
+    ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders1 =
+        ImmutableList.of();
+    ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders2 =
+        ImmutableList.of(ImmutableSet.of(STARLARK_P4), ImmutableSet.of(STARLARK_P2, STARLARK_P3));
+
+    Attribute.Builder<Label> attrBuilder =
+        attr("x", LABEL).aspect(TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT).allowedFileTypes();
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_1",
+            inheritedRequiredProviders1,
+            /** inheritedAttributeAspects= */
+            ImmutableList.of());
+    attrBuilder
+        .getAspectsListBuilder()
+        .addAspect(
+            TestAspects.SIMPLE_STARLARK_NATIVE_ASPECT,
+            "base_aspect_2",
+            inheritedRequiredProviders2,
+            /** inheritedAttributeAspects= */
+            ImmutableList.of());
+    Attribute attr = attrBuilder.build();
+
+    ImmutableList<Aspect> aspects = attr.getAspects(null);
+    assertThat(aspects).hasSize(1);
+    AspectDescriptor aspectDescriptor = aspects.get(0).getDescriptor();
+    assertThat(aspectDescriptor.getInheritedRequiredProviders())
+        .isEqualTo(RequiredProviders.acceptAnyBuilder().build());
+  }
+
+  @Test
+  public void testAttrRequiredAspects_defaultInheritedRequiredProvidersAndAttrAspects()
+      throws Exception {
+    Attribute attr = attr("x", LABEL).aspect(TestAspects.SIMPLE_ASPECT).allowedFileTypes().build();
+
+    ImmutableList<Aspect> aspects = attr.getAspects(null);
+    assertThat(aspects).hasSize(1);
+    AspectDescriptor aspectDescriptor = aspects.get(0).getDescriptor();
+    assertThat(aspectDescriptor.getInheritedAttributeAspects()).isEmpty();
+    assertThat(aspectDescriptor.getInheritedRequiredProviders()).isNull();
   }
 }

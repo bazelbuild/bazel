@@ -17,17 +17,15 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -45,7 +43,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 
 /**
@@ -162,27 +160,10 @@ public final class PlatformMappingValue implements SkyValue {
     this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
     this.optionsClasses = checkNotNull(optionsClasses);
     this.parserCache =
-        CacheBuilder.newBuilder()
+        Caffeine.newBuilder()
             .initialCapacity(platformsToFlags.size() + flagsToPlatforms.size())
-            .build(
-                new CacheLoader<ImmutableSet<String>, OptionsParsingResult>() {
-                  @Override
-                  public OptionsParsingResult load(ImmutableSet<String> args)
-                      throws OptionsParsingException {
-                    return parse(args);
-                  }
-                });
-    this.mappingCache =
-        CacheBuilder.newBuilder()
-            .weakKeys()
-            .build(
-                new CacheLoader<BuildConfigurationValue.Key, BuildConfigurationValue.Key>() {
-                  @Override
-                  public BuildConfigurationValue.Key load(BuildConfigurationValue.Key original)
-                      throws OptionsParsingException {
-                    return computeMapping(original);
-                  }
-                });
+            .build(this::parse);
+    this.mappingCache = Caffeine.newBuilder().weakKeys().build(this::computeMapping);
   }
 
   /**
@@ -209,9 +190,9 @@ public final class PlatformMappingValue implements SkyValue {
       throws OptionsParsingException {
     try {
       return mappingCache.get(original);
-    } catch (ExecutionException | UncheckedExecutionException e) {
+    } catch (CompletionException e) {
       Throwables.propagateIfPossible(e.getCause(), OptionsParsingException.class);
-      throw new IllegalStateException(e);
+      throw e;
     }
   }
 
@@ -265,9 +246,9 @@ public final class PlatformMappingValue implements SkyValue {
       throws OptionsParsingException {
     try {
       return parserCache.get(args);
-    } catch (ExecutionException e) {
+    } catch (CompletionException e) {
       Throwables.propagateIfPossible(e.getCause(), OptionsParsingException.class);
-      throw new IllegalStateException(e);
+      throw e;
     }
   }
 

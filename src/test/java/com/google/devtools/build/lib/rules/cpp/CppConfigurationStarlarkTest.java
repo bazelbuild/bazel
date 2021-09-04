@@ -106,11 +106,9 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fdo"));
     assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'fdo_instrument'");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:hdr_deps"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Rule in 'foo' cannot use 'process_headers_in_dependencies'");
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:save"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'save_feature_state'");
+    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fission"));
     assertThat(e)
         .hasMessageThat()

@@ -14,9 +14,7 @@
 //
 package com.google.devtools.build.lib.bazel.execlog;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -25,7 +23,6 @@ import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.PriorityQueue;
 
@@ -63,13 +60,12 @@ public final class StableSort {
   private static void stableSort(List<SpawnExec> inputs, MessageOutputStream out)
       throws IOException {
     // A map from each output to a SpawnExec that produced it
-    HashMap<String, SpawnExec> outputProducer = Maps.newHashMapWithExpectedSize(inputs.size());
+    Multimap<String, SpawnExec> outputProducer =
+        MultimapBuilder.hashKeys(inputs.size()).arrayListValues().build();
 
     for (SpawnExec ex : inputs) {
       for (File output : ex.getActualOutputsList()) {
         String name = output.getPath();
-        // Within a single build, each output can only be produced by a single spawn
-        Preconditions.checkArgument(!outputProducer.containsKey(name));
         outputProducer.put(name, ex);
       }
     }
@@ -81,9 +77,10 @@ public final class StableSort {
     for (SpawnExec ex : inputs) {
       for (File s : ex.getInputsList()) {
         if (outputProducer.containsKey(s.getPath())) {
-          SpawnExec blocker = outputProducer.get(s.getPath());
-          blockedBy.put(ex, blocker);
-          blocking.put(blocker, ex);
+          for (SpawnExec blocker : outputProducer.get(s.getPath())) {
+            blockedBy.put(ex, blocker);
+            blocking.put(blocker, ex);
+          }
         }
       }
     }

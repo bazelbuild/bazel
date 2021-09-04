@@ -8,7 +8,7 @@ title: Build Event Protocol
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
-(BEP) allows third party programs to gain insight into a Bazel invocation. For
+(BEP) allows third-party programs to gain insight into a Bazel invocation. For
 example, you could use the BEP to gather information for an IDE
 plugin or a dashboard that displays build results.
 
@@ -105,10 +105,6 @@ publishes Build Event Protocol events. One can specify the endpoint to send the
 events to using the `--bes_backend=HOST:PORT` flag. If your backend uses gRPC,
 you must prefix the address with the appropriate scheme: `grpc://` for plaintext
 gRPC and `grpcs://` for gRPC with TLS enabled.
-
-There is currently an experimental open source implementation of the [Build
-Event Service](https://github.com/buildbarn/bb-event-service/) in Go as part of
-the Buildbarn suite of Remote Execution tools and services.
 
 ### Build Event Service flags
 

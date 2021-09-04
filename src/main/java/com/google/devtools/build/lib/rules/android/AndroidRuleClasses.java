@@ -27,19 +27,12 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -47,7 +40,6 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -57,7 +49,6 @@ import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
@@ -470,52 +461,6 @@ public final class AndroidRuleClasses {
     }
   }
 
-  public static TransitionFactory<Rule> androidBinarySelfTransition() {
-    return TransitionFactories.of(new AndroidBinarySelfTransition());
-  }
-
-  /**
-   * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag
-   * to match the first value from "--android_platforms". This will enable the application to select
-   * a valid Android SDK via toolchain resolution. android_binary itself should only need the SDK,
-   * not an NDK, so in theory every platform passed to "--android_platforms" should be equivalent.
-   */
-  private static final class AndroidBinarySelfTransition implements PatchTransition {
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(
-          AndroidConfiguration.Options.class, PlatformOptions.class, CppOptions.class);
-    }
-
-    @Override
-    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
-      if (androidOptions.androidPlatforms.isEmpty()) {
-        // No change.
-        return options.underlying();
-      }
-
-      BuildOptionsView newOptions = options.clone();
-      PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
-      newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
-
-      // If we are using toolchain resolution for Android, also use it for CPP.
-      // This needs to be before the AndroidBinary is analyzed so that all native dependencies
-      // use the same configuration.
-      if (androidOptions.incompatibleUseToolchainResolution) {
-        newOptions.get(CppOptions.class).enableCcToolchainResolution = true;
-      }
-
-      return newOptions.underlying();
-    }
-
-    @Override
-    public String reasonForOverride() {
-      return "properly set the target platform for Android binaries";
-    }
-  }
-
   /** Base class for Android rule definitions that produce binaries. */
   public static final class AndroidBinaryBaseRule implements RuleDefinition {
 
@@ -616,7 +561,8 @@ public final class AndroidRuleClasses {
           .add(attr("crunch_png", BOOLEAN).value(true))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(resource_configuration_filters) -->
           A list of resource configuration filters, such 'en' that will limit the resources in the
-          apk to only the ones in the 'en' configuration.
+          apk to only the ones in the 'en' configuration. To enable pseudolocalization, include the
+          <code>en_XA</code> and/or <code>ar_XB</code> pseudo-locales.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(ResourceFilterFactory.RESOURCE_CONFIGURATION_FILTERS_NAME, STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(shrink_resources) -->
@@ -863,6 +809,7 @@ public final class AndroidRuleClasses {
                   .nonconfigurable("defines an aspect of configuration")
                   .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
           .add(AndroidFeatureFlagSetProvider.getAllowlistAttribute(env))
+          .addAllowlistChecker(AndroidFeatureFlagSetProvider.CHECK_ALLOWLIST_IF_TRIGGERED)
           // The resource extractor is used at the binary level to extract java resources from the
           // deploy jar so that they can be added to the APK.
           .add(
@@ -899,6 +846,14 @@ public final class AndroidRuleClasses {
                   .cfg(ExecutionTransitionFactory.create())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:zip_filter")))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(package_id) -->
+          Package ID to be assigned to resources in this binary.
+          <p>See AAPT2's <code>--package-id</code> argument for more information. This can (and
+          should) typically be left unset, resulting in the default value of 127
+          (<code>0x7F</code>).
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          // This is only implemented in Starlark, but is present here for doc generation.
+          .add(attr("package_id", INTEGER))
           .add(
               attr("application_resources", LABEL)
                   .mandatoryProviders(AndroidApplicationResourceInfo.PROVIDER.id())

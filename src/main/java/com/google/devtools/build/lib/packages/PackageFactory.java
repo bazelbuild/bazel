@@ -21,9 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -111,7 +112,6 @@ public final class PackageFactory {
   }
 
   private final RuleFactory ruleFactory;
-  private final ImmutableMap<String, BuiltinRuleFunction> ruleFunctions;
   private final RuleClassProvider ruleClassProvider;
 
   private AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls;
@@ -133,7 +133,7 @@ public final class PackageFactory {
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
   public abstract static class BuilderForTesting {
-    protected final String version = "test";
+    protected static final String VERSION = "test";
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
     protected PackageOverheadEstimator packageOverheadEstimator =
@@ -193,7 +193,6 @@ public final class PackageFactory {
       PackageOverheadEstimator packageOverheadEstimator,
       PackageLoadingListener packageLoadingListener) {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
-    this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
@@ -205,7 +204,7 @@ public final class PackageFactory {
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             ruleClassProvider,
-            ruleFunctions,
+            buildRuleFunctions(ruleFactory),
             this.environmentExtensions,
             newPackageFunction(packageArguments),
             version);
@@ -404,10 +403,12 @@ public final class PackageFactory {
       }
       BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
       try {
+        PackageContext context = getContext(thread);
         RuleFactory.createAndAddRule(
-            getContext(thread),
+            context.pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
+            context.eventHandler,
             thread.getSemantics(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
@@ -442,7 +443,7 @@ public final class PackageFactory {
     }
   }
 
-  @VisibleForTesting // exposed to WorkspaceFileFunction
+  @VisibleForTesting // exposed to WorkspaceFileFunction and BzlmodRepoRuleFunction
   public Package.Builder newExternalPackageBuilder(
       RootedPath workspacePath, String workspaceName, StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
@@ -457,7 +458,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       String workspaceName,
       StarlarkSemantics starlarkSemantics,
-      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      RepositoryMapping repositoryMapping) {
     return new Package.Builder(
         packageSettings,
         packageId,
@@ -466,14 +467,15 @@ public final class PackageFactory {
         repositoryMapping);
   }
 
-  /** Returns a new {@link LegacyGlobber}. */
+  /** Returns a new {@link NonSkyframeGlobber}. */
   // Exposed to skyframe.PackageFunction.
-  public LegacyGlobber createLegacyGlobber(
+  public NonSkyframeGlobber createNonSkyframeGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
       ImmutableSet<PathFragment> ignoredGlobPrefixes,
-      CachingPackageLocator locator) {
-    return new LegacyGlobber(
+      CachingPackageLocator locator,
+      ThreadStateReceiver threadStateReceiverForMetrics) {
+    return new NonSkyframeGlobber(
         new GlobCache(
             packageDirectory,
             packageId,
@@ -481,7 +483,8 @@ public final class PackageFactory {
             locator,
             syscalls,
             executor,
-            maxDirectoriesToEagerlyVisitInGlobbing));
+            maxDirectoriesToEagerlyVisitInGlobbing,
+            threadStateReceiverForMetrics));
   }
 
   /**
@@ -521,11 +524,19 @@ public final class PackageFactory {
     public Package.Builder getBuilder() {
       return pkgBuilder;
     }
+
+    /**
+     * Returns the event handler that should be used to report events happening while building this
+     * package.
+     */
+    public ExtendedEventHandler getEventHandler() {
+      return eventHandler;
+    }
   }
 
   /**
    * Runs final validation and administrative tasks on newly loaded package. Called by a caller of
-   * {@link #createPackageFromAst} after this caller has fully loaded the package.
+   * {@link #executeBuildFile} after this caller has fully loaded the package.
    *
    * @throws InvalidPackageException if the package is determined to be invalid
    */
@@ -602,8 +613,9 @@ public final class PackageFactory {
         globber.runAsync(globs, ImmutableList.of(), /*excludeDirs=*/ true, allowEmpty);
         globber.runAsync(globsWithDirs, ImmutableList.of(), /*excludeDirs=*/ false, allowEmpty);
       } catch (BadGlobException ex) {
-        // Ignore exceptions.
-        // Errors will be properly reported when the actual globbing is done.
+        logger.atWarning().withCause(ex).log(
+            "Suppressing exception for globs=%s, globsWithDirs=%s", globs, globsWithDirs);
+        // Ignore exceptions. Errors will be properly reported when the actual globbing is done.
       }
     }
 
@@ -652,7 +664,8 @@ public final class PackageFactory {
               pkgBuilder.getRepositoryMapping(),
               pkgBuilder.getConvertedLabelsInPackage(),
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /*analysisRuleLabel=*/ null)
+              /*analysisRuleLabel=*/ null,
+              /*networkAllowlistForTests=*/ null)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.

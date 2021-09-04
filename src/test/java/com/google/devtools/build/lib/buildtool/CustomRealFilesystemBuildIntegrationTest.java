@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -36,7 +34,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -58,7 +55,6 @@ import org.junit.runner.RunWith;
  * Integration tests with a custom filesystem layer, for faking things like IOExceptions, on top of
  * the real unix filesystem (so we can execute actions).
  */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(TestParameterInjector.class)
 public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegrationTestCase {
 
@@ -100,15 +96,18 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
   }
 
   @Test
-  public void globDanglingSymlink() throws Exception {
-    Path packageDirPath = write("foo/BUILD", "exports_files(glob(['*.txt']))").getParentDirectory();
-    write("foo/existing.txt");
-    Path badSymlink = packageDirPath.getChild("bad.txt");
-    FileSystemUtils.ensureSymbolicLink(badSymlink, "nope");
-    customFileSystem.alwaysError(badSymlink);
+  public void globIOException() throws Exception {
+    Path fooBuild = write("foo/BUILD", "exports_files(glob(['**/*.txt']))").getParentDirectory();
+    Path badDir = fooBuild.getChild("bad");
+    assertThat(badDir.createDirectory()).isTrue();
+    customFileSystem.alwaysError(badDir);
     TargetParsingException e =
         assertThrows(TargetParsingException.class, () -> buildTarget("//foo:all"));
-    assertThat(e).hasMessageThat().contains("no such package 'foo': error globbing [*.txt]: nope");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("no such package 'foo': error globbing [**/*.txt]: nope");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.GLOB_IO_EXCEPTION);
   }
 
   /**
@@ -149,13 +148,11 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
   }
 
   @Test
-  public void incrementalNonMandatoryInputIOException(
-      @TestParameter boolean keepGoing, @TestParameter({"0", "1"}) int nestedSetOnSkyframe)
+  public void incrementalNonMandatoryInputIOException(@TestParameter boolean keepGoing)
       throws Exception {
     RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();
     addOptions("--features=cc_include_scanning");
     addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_nested_set_as_skykey_threshold=" + nestedSetOnSkyframe);
     write("foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], hdrs_check = 'loose')");
     write("foo/foo.cc", "#include \"foo/foo.h\"");
     Path fooHFile = write("foo/foo.h", "//thisisacomment");
@@ -449,8 +446,6 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
         "cc_library(name = 'lib', srcs = [':tree'])",
         "genrule(name = 'top', srcs = [':lib'], outs = ['out'], cmd = 'touch $@')");
     customFileSystem.errorOnDirectory("mytree");
-    // Make sure we take default codepath in ActionExecutionFunction.
-    addOptions("--experimental_nested_set_as_skykey_threshold=1");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
     assertThat(e.getDetailedExitCode().getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);

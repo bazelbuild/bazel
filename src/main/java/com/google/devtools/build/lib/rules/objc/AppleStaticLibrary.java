@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_ARCHIVES;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -33,7 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
@@ -106,7 +103,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       CcToolchainProvider childToolchain = entry.getValue();
 
       IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext, childToolchainConfig);
+          ObjcRuleClasses.intermediateArtifacts(ruleContext, ruleContext.getConfiguration());
 
       ObjcCommon common =
           common(
@@ -123,33 +120,26 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
                       .map(CcInfo::getCcLinkingContext)
                       .collect(ImmutableList.toImmutableList()));
 
-      librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
+      Artifact archive = intermediateArtifacts.strippedSingleArchitectureLibrary(childCpu);
+      librariesToLipo.add(archive);
 
       CompilationSupport compilationSupport =
           new CompilationSupport.Builder(ruleContext, cppSemantics)
-              .setConfig(childToolchainConfig)
               .setToolchainProvider(childToolchain)
-              .setOutputGroupCollector(outputGroupCollector)
               .build();
 
-      compilationSupport
-          .registerCompileAndArchiveActions(
-              common.getCompilationArtifacts().get(), ObjcCompilationContext.EMPTY)
-          .registerFullyLinkAction(
-              objcProvider, intermediateArtifacts.strippedSingleArchitectureLibrary())
-          .validateAttributes();
+      compilationSupport.registerFullyLinkAction(objcProvider, archive).validateAttributes();
       ruleContext.assertNoErrors();
 
       addTransitivePropagatedKeys(objcProviderBuilder, objcProvider);
     }
 
-    ImmutableListMultimap<BuildConfiguration, OutputGroupInfo> buildConfigToOutputGroupInfoMap =
-        ruleContext.getPrerequisitesByConfiguration("deps", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    ImmutableListMultimap<BuildConfiguration, CcInfo> buildConfigToCcInfoMap =
+        ruleContext.getPrerequisitesByConfiguration("deps", CcInfo.PROVIDER);
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (Map.Entry<BuildConfiguration, OutputGroupInfo> entry :
-        buildConfigToOutputGroupInfoMap.entries()) {
-      OutputGroupInfo dep = entry.getValue();
-      headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
+    for (Map.Entry<BuildConfiguration, CcInfo> entry : buildConfigToCcInfoMap.entries()) {
+      CcInfo dep = entry.getValue();
+      headerTokens.addTransitive(dep.getCcCompilationContext().getHeaderTokens());
     }
     outputGroupCollector.put(OutputGroupInfo.VALIDATION, headerTokens.build());
 
@@ -168,9 +158,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
-
-    objcProviderBuilder.add(
-        MULTI_ARCH_LINKED_ARCHIVES, ruleIntermediateArtifacts.combinedArchitectureArchive());
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
 

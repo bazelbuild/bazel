@@ -83,7 +83,8 @@ public class ExecutableSymlinkActionTest {
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         NestedSetExpander.DEFAULT,
-        UnixGlob.DEFAULT_SYSCALLS);
+        UnixGlob.DEFAULT_SYSCALLS,
+        ThreadStateReceiver.NULL_INSTANCE);
   }
 
   @Test

@@ -466,10 +466,6 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
         "  cmd = 'cp :fg $@',",
         ")");
 
-    useConfiguration("--experimental_enable_aggregating_middleman");
-    assertThat(getGenruleCommand("//foo:gen")).contains("foo/fg1.txt");
-
-    useConfiguration("--noexperimental_enable_aggregating_middleman");
     assertThat(getGenruleCommand("//foo:gen")).contains("foo/fg1.txt");
   }
 
@@ -486,10 +482,6 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
         "  cmd = 'cp :fg $@',",
         ")");
 
-    useConfiguration("--experimental_enable_aggregating_middleman");
-    assertExpansionFails("expands to 0 files", "//foo:gen");
-
-    useConfiguration("--noexperimental_enable_aggregating_middleman");
     assertExpansionFails("expands to 0 files", "//foo:gen");
   }
 
@@ -506,10 +498,6 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
         "  cmd = 'cp :fg $@',",
         ")");
 
-    useConfiguration("--experimental_enable_aggregating_middleman");
-    assertExpansionFails("expands to 2 files", "//foo:gen");
-
-    useConfiguration("--noexperimental_enable_aggregating_middleman");
     assertExpansionFails("expands to 2 files", "//foo:gen");
   }
 

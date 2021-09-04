@@ -25,9 +25,11 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CachingActionEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -57,14 +59,17 @@ import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 /** Tracks state for the UI. */
@@ -194,6 +199,13 @@ final class UiStateTracker {
     boolean scanning;
 
     /**
+     * Bitmap of strategies that are checking the cache of this action.
+     *
+     * <p>If non-zero, implies that {@link #scanning} is false.
+     */
+    int cachingStrategiesBitmap = 0;
+
+    /**
      * Bitmap of strategies that are scheduling this action.
      *
      * <p>If non-zero, implies that {@link #scanning} is false.
@@ -206,6 +218,20 @@ final class UiStateTracker {
      * <p>If non-zero, implies that {@link #scanning} is false.
      */
     int runningStrategiesBitmap = 0;
+
+    private static class ProgressState {
+      final String id;
+      final long nanoStartTime;
+      ActionProgressEvent latestEvent;
+
+      private ProgressState(String id, long nanoStartTime) {
+        this.id = id;
+        this.nanoStartTime = nanoStartTime;
+      }
+    }
+
+    @GuardedBy("this")
+    private final LinkedHashMap<String, ProgressState> runningProgresses = new LinkedHashMap<>();
 
     /** Starts tracking the state of an action. */
     ActionState(ActionExecutionMetadata action, long nanoStartTime) {
@@ -227,7 +253,9 @@ final class UiStateTracker {
      * scheduled or running.
      */
     synchronized void setScanning(long nanoChangeTime) {
-      if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
+      if (cachingStrategiesBitmap == 0
+          && schedulingStrategiesBitmap == 0
+          && runningStrategiesBitmap == 0) {
         scanning = true;
         nanoStartTime = nanoChangeTime;
       }
@@ -240,8 +268,25 @@ final class UiStateTracker {
      * scheduled or running.
      */
     synchronized void setStopScanning(long nanoChangeTime) {
-      if (schedulingStrategiesBitmap == 0 && runningStrategiesBitmap == 0) {
+      if (cachingStrategiesBitmap == 0
+          && schedulingStrategiesBitmap == 0
+          && runningStrategiesBitmap == 0) {
         scanning = false;
+        nanoStartTime = nanoChangeTime;
+      }
+    }
+
+    /**
+     * Marks the action as caching with the given strategy.
+     *
+     * <p>Because we may receive events out of order, this does nothing if the action is already
+     * scheduled or running with this strategy.
+     */
+    synchronized void setCaching(String strategy, long nanoChangeTime) {
+      int id = strategyIds.getId(strategy);
+      if ((schedulingStrategiesBitmap & id) == 0 && (runningStrategiesBitmap & id) == 0) {
+        scanning = false;
+        cachingStrategiesBitmap |= id;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -256,6 +301,7 @@ final class UiStateTracker {
       int id = strategyIds.getId(strategy);
       if ((runningStrategiesBitmap & id) == 0) {
         scanning = false;
+        cachingStrategiesBitmap &= ~id;
         schedulingStrategiesBitmap |= id;
         nanoStartTime = nanoChangeTime;
       }
@@ -270,9 +316,31 @@ final class UiStateTracker {
     synchronized void setRunning(String strategy, long nanoChangeTime) {
       scanning = false;
       int id = strategyIds.getId(strategy);
+      cachingStrategiesBitmap &= ~id;
       schedulingStrategiesBitmap &= ~id;
       runningStrategiesBitmap |= id;
       nanoStartTime = nanoChangeTime;
+    }
+
+    /** Handles the progress event for the action. */
+    synchronized void onProgressEvent(ActionProgressEvent event, long nanoChangeTime) {
+      String id = event.progressId();
+      if (event.finished()) {
+        // a progress is finished, clean it up
+        runningProgresses.remove(id);
+        return;
+      }
+
+      ProgressState state =
+          runningProgresses.computeIfAbsent(id, key -> new ProgressState(key, nanoChangeTime));
+      state.latestEvent = event;
+    }
+
+    synchronized Optional<ProgressState> firstProgress() {
+      if (runningProgresses.isEmpty()) {
+        return Optional.empty();
+      }
+      return Optional.of(runningProgresses.entrySet().iterator().next().getValue());
     }
 
     /** Generates a human-readable description of this action's state. */
@@ -281,6 +349,8 @@ final class UiStateTracker {
         return "Running";
       } else if (schedulingStrategiesBitmap != 0) {
         return "Scheduling";
+      } else if (cachingStrategiesBitmap != 0) {
+        return "Caching";
       } else if (scanning) {
         return "Scanning";
       } else {
@@ -487,6 +557,13 @@ final class UiStateTracker {
     getActionState(action, actionId, now).setStopScanning(now);
   }
 
+  void cachingAction(CachingActionEvent event) {
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = action.getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).setCaching(event.strategy(), now);
+  }
+
   void schedulingAction(SchedulingActionEvent event) {
     ActionExecutionMetadata action = event.getActionMetadata();
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
@@ -499,6 +576,13 @@ final class UiStateTracker {
     Artifact actionId = event.getActionMetadata().getPrimaryOutput();
     long now = clock.nanoTime();
     getActionState(action, actionId, now).setRunning(event.getStrategy(), now);
+  }
+
+  void actionProgress(ActionProgressEvent event) {
+    ActionExecutionMetadata action = event.action();
+    Artifact actionId = event.action().getPrimaryOutput();
+    long now = clock.nanoTime();
+    getActionState(action, actionId, now).onProgressEvent(event, now);
   }
 
   void actionCompletion(ActionScanningCompletedEvent event) {
@@ -630,6 +714,29 @@ final class UiStateTracker {
     return message.append(allReported ? "]" : postfix).toString();
   }
 
+  private String describeActionProgress(ActionState action, int desiredWidth) {
+    Optional<ActionState.ProgressState> stateOpt = action.firstProgress();
+    if (!stateOpt.isPresent()) {
+      return "";
+    }
+
+    ActionState.ProgressState state = stateOpt.get();
+    ActionProgressEvent event = state.latestEvent;
+    String message = event.progress();
+    if (message.isEmpty()) {
+      message = state.id;
+    }
+
+    message = "; " + message;
+
+    if (desiredWidth <= 0 || message.length() <= desiredWidth) {
+      return message;
+    }
+
+    message = message.substring(0, desiredWidth - ELLIPSIS.length()) + ELLIPSIS;
+    return message;
+  }
+
   // Describe an action by a string of the desired length; if describing that action includes
   // describing other actions, add those to the to set of actions to skip in further samples of
   // actions.
@@ -656,6 +763,8 @@ final class UiStateTracker {
     String strategy = null;
     if (actionState.runningStrategiesBitmap != 0) {
       strategy = strategyIds.formatNames(actionState.runningStrategiesBitmap);
+    } else if (actionState.cachingStrategiesBitmap != 0) {
+      strategy = strategyIds.formatNames(actionState.cachingStrategiesBitmap);
     } else {
       String status = actionState.describe();
       if (status == null) {
@@ -681,9 +790,24 @@ final class UiStateTracker {
       message = action.prettyPrint();
     }
 
-    if (desiredWidth <= 0) {
-      return prefix + message + postfix;
+    String progress = describeActionProgress(actionState, 0);
+
+    if (desiredWidth <= 0
+        || (prefix.length() + message.length() + progress.length() + postfix.length())
+            <= desiredWidth) {
+      return prefix + message + progress + postfix;
     }
+
+    // We have to shorten the progress to fit into the line.
+    int remainingWidthForProgress =
+        desiredWidth - prefix.length() - message.length() - postfix.length();
+    int minWidthForProgress = 7; // "; " + at least two character + "..."
+    if (remainingWidthForProgress >= minWidthForProgress) {
+      progress = describeActionProgress(actionState, remainingWidthForProgress);
+      return prefix + message + progress + postfix;
+    }
+
+    // We have to skip the progress to fit into the line.
     if (prefix.length() + message.length() + postfix.length() <= desiredWidth) {
       return prefix + message + postfix;
     }

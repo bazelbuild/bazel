@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote.http;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
@@ -81,7 +80,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -573,10 +571,13 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<ActionResult> downloadActionResult(
+  public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return Utils.downloadAsActionResult(
-        actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false));
+    return Futures.transform(
+        Utils.downloadAsActionResult(
+            actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false)),
+        CachedActionResult::remote,
+        MoreExecutors.directExecutor());
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -709,24 +710,14 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult)
-      throws IOException, InterruptedException {
+  public ListenableFuture<Void> uploadActionResult(
+      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ByteString serialized = actionResult.toByteString();
-    ListenableFuture<Void> uploadFuture =
-        uploadAsync(
-            actionKey.getDigest().getHash(),
-            serialized.size(),
-            serialized.newInput(),
-            /* casUpload= */ false);
-    try {
-      uploadFuture.get();
-    } catch (ExecutionException e) {
-      Throwables.throwIfUnchecked(e.getCause());
-      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
-      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-      throw new IOException(e.getCause());
-    }
+    return uploadAsync(
+        actionKey.getDigest().getHash(),
+        serialized.size(),
+        serialized.newInput(),
+        /* casUpload= */ false);
   }
 
   /**

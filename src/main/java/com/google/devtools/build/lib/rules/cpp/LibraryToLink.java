@@ -14,13 +14,12 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -263,7 +262,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
    * fields.
    */
   public static LibraryToLink staticOnly(Artifact staticLibrary) {
-    return StaticOnlyLibraryToLink.cache.getUnchecked(staticLibrary);
+    return StaticOnlyLibraryToLink.cache.get(staticLibrary);
   }
 
   /** Builder for {@link LibraryToLink}. */
@@ -440,14 +439,18 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     // Essentially an interner, but keyed on Artifact to defer creating the string identifier.
     private static final LoadingCache<Artifact, StaticOnlyLibraryToLink> cache =
-        CacheBuilder.newBuilder()
-            .concurrencyLevel(BlazeInterners.concurrencyLevel())
+        Caffeine.newBuilder()
+            .initialCapacity(BlazeInterners.concurrencyLevel())
+            // Needs to use weak keys for identity equality of the artifact. The artifact may not
+            // yet have its generating action key set, but Artifact#equals treats unset and set as
+            // equal. Reusing an artifact from a previous build is not safe - the generating
+            // action key's index may be stale (b/184948206).
+            .weakKeys()
             .weakValues()
             .build(
-                CacheLoader.from(
-                    artifact ->
-                        new AutoValue_LibraryToLink_StaticOnlyLibraryToLink(
-                            CcLinkingOutputs.libraryIdentifierOf(artifact), artifact)));
+                artifact ->
+                    new AutoValue_LibraryToLink_StaticOnlyLibraryToLink(
+                        CcLinkingOutputs.libraryIdentifierOf(artifact), artifact));
 
     @Override // Remove @Nullable.
     public abstract Artifact getStaticLibrary();

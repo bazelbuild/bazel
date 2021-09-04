@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.OutputStream;
@@ -107,7 +108,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Override
-  protected void invalidatePackages() throws InterruptedException {
+  protected void invalidatePackages() throws InterruptedException, AbruptExitException {
     // Repository shuffling breaks access to config-needed paths like //tools/jdk:toolchain and
     // these tests don't do anything interesting with configurations anyway. So exempt them.
     invalidatePackages(/*alsoConfigs=*/ false);

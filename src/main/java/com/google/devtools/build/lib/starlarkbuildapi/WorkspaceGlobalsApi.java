@@ -51,9 +51,9 @@ public interface WorkspaceGlobalsApi {
               + "<p><a href=\"../../external.html\">Remote repository</a> rule names must be"
               + "  valid workspace names. For example, you could have"
               + "  <code>maven_jar(name = 'foo')</code>, but not"
-              + "  <code>maven_jar(name = 'foo.bar')</code>, as Bazel would attempt to write a"
+              + "  <code>maven_jar(name = 'foo%bar')</code>, as Bazel would attempt to write a"
               + "  WORKSPACE file for the <code>maven_jar</code> containing"
-              + "  <code>workspace(name = 'foo.bar')</code>."
+              + "  <code>workspace(name = 'foo%bar')</code>."
               + "</p>",
       parameters = {
         @Param(

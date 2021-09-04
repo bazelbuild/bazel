@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -154,7 +155,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException {
+      throws IOException, ForbiddenActionInputException, ExecException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -189,7 +190,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         LinuxSandboxUtil.commandLineBuilder(linuxSandbox, spawn.getArguments())
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
-            .setTmpfsDirectories(getTmpfsPaths())
+            .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
             .setBindMounts(getReadOnlyBindMounts(blazeDirs, sandboxExecRoot))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setCreateNetworkNamespace(
@@ -238,7 +239,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
-          statisticsPath);
+          statisticsPath,
+          getSandboxOptions().reuseSandboxDirectories,
+          sandboxBase,
+          spawn.getMnemonic());
     }
   }
 
@@ -258,14 +262,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     writableDirs.add(fs.getPath("/tmp"));
 
     return writableDirs.build();
-  }
-
-  private ImmutableSet<Path> getTmpfsPaths() {
-    ImmutableSet.Builder<Path> tmpfsPaths = ImmutableSet.builder();
-    for (String tmpfsPath : getSandboxOptions().sandboxTmpfsPath) {
-      tmpfsPaths.add(fileSystem.getPath(tmpfsPath));
-    }
-    return tmpfsPaths.build();
   }
 
   private SortedMap<Path, Path> getReadOnlyBindMounts(

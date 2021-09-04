@@ -115,22 +115,25 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
     return constraints.build();
   }
 
-  /** Returns true if toolchain resolution debug info should be printed for this toolchain type. */
-  public boolean debugToolchainResolution(Label toolchainType) {
-    return debugToolchainResolution(ImmutableList.of(toolchainType));
+  /**
+   * Returns true if toolchain resolution debug info should be printed for this label, which could
+   * be a toolchain type or a specific target.
+   */
+  public boolean debugToolchainResolution(Label label) {
+    return debugToolchainResolution(ImmutableList.of(label));
   }
 
   /**
-   * Returns true if toolchain resolution debug info should be printed for any of these toolchain
-   * types.
+   * Returns true if toolchain resolution debug info should be printed for any of these labels,
+   * which could be either toolchain types or specific targets.
    */
-  public boolean debugToolchainResolution(Collection<Label> toolchainTypes) {
-    if (toolchainTypes.isEmpty()) {
+  public boolean debugToolchainResolution(Collection<Label> labels) {
+    if (labels.isEmpty()) {
       // Check an empty string, in case the filter is .*
       return this.toolchainResolutionDebugRegexFilter.test("");
     }
-    return toolchainTypes.stream()
+    return labels.stream()
         .map(Label::getCanonicalForm)
-        .anyMatch(toolchainType -> this.toolchainResolutionDebugRegexFilter.test(toolchainType));
+        .anyMatch(this.toolchainResolutionDebugRegexFilter);
   }
 }

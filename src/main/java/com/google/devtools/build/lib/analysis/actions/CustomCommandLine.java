@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.FormatMethod;
@@ -841,12 +841,12 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /** Adds a lazily expanded string. */
-    public Builder addLazyString(@Nullable LazyString value) {
+    public Builder addLazyString(@Nullable OnDemandString value) {
       return addObjectInternal(value);
     }
 
     /** Adds a lazily expanded string. */
-    public Builder addLazyString(@CompileTimeConstant String arg, @Nullable LazyString value) {
+    public Builder addLazyString(@CompileTimeConstant String arg, @Nullable OnDemandString value) {
       return addObjectInternal(arg, value);
     }
 

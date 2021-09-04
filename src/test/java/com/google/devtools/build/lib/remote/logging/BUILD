@@ -5,11 +5,13 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+licenses(["notice"])
+
 filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib/remote:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -20,7 +22,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/remote/logging",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:remote_execution_log_java_proto",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -33,8 +34,6 @@ java_test(
         "@googleapis//:google_bytestream_bytestream_java_grpc",
         "@googleapis//:google_bytestream_bytestream_java_proto",
         "@googleapis//:google_longrunning_operations_java_proto",
-        "@googleapis//:google_rpc_code_java_proto",
-        "@googleapis//:google_rpc_error_details_java_proto",
         "@googleapis//:google_rpc_status_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",

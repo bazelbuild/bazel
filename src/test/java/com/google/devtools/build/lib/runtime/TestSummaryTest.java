@@ -84,8 +84,7 @@ public class TestSummaryTest {
   private TestSummary.Builder getTemplateBuilder() {
     BuildConfiguration configuration = Mockito.mock(BuildConfiguration.class);
     when(configuration.checksum()).thenReturn("abcdef");
-    return TestSummary.newBuilder()
-        .setTarget(stubTarget)
+    return TestSummary.newBuilder(stubTarget)
         .setConfiguration(configuration)
         .setStatus(BlazeTestStatus.PASSED)
         .setNumCached(NOT_CACHED)
@@ -596,6 +595,9 @@ public class TestSummaryTest {
     ConfiguredTarget target = Mockito.mock(ConfiguredTarget.class);
     when(target.getLabel()).thenReturn(Label.create(path, targetName));
     when(target.getConfigurationChecksum()).thenReturn("abcdef");
+    TestParams mockParams = Mockito.mock(TestParams.class);
+    when(mockParams.getShards()).thenReturn(1);
+    when(target.getProvider(TestProvider.class)).thenReturn(new TestProvider(mockParams));
     return target;
   }
 
@@ -625,8 +627,7 @@ public class TestSummaryTest {
   private static TestSummary createTestSummary(ConfiguredTarget target, BlazeTestStatus status,
                                                int numCached) {
     ImmutableList<TestCase> emptyList = ImmutableList.of();
-    TestSummary summary = TestSummary.newBuilder()
-        .setTarget(target)
+    return TestSummary.newBuilder(target)
         .setStatus(status)
         .setNumCached(numCached)
         .setActionRan(true)
@@ -635,7 +636,6 @@ public class TestSummaryTest {
         .addFailedTestCases(emptyList, FailedTestCasesStatus.FULL)
         .addTestTimes(SMALL_TIMING)
         .build();
-    return summary;
   }
 
   private TestSummary createTestSummary(BlazeTestStatus status, int numCached) {

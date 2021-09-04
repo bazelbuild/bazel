@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -524,28 +522,6 @@ public abstract class RepositoryFunction {
     }
   }
 
-  /**
-   * Adds the repository's directory to the graph and, if it's a symlink, resolves it to an actual
-   * directory.
-   */
-  @Nullable
-  protected static FileValue getRepositoryDirectory(Path repositoryDirectory, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    SkyKey outputDirectoryKey =
-        FileValue.key(
-            RootedPath.toRootedPath(
-                Root.fromPath(repositoryDirectory), PathFragment.EMPTY_FRAGMENT));
-    FileValue value;
-    try {
-      value = (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException("Could not access " + repositoryDirectory + ": " + e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    return value;
-  }
-
   protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
     return directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
   }
@@ -562,11 +538,7 @@ public abstract class RepositoryFunction {
    * encourage nor optimize for since it is not common. So the set of external files is small.
    */
   public static void addExternalFilesDependencies(
-      RootedPath rootedPath,
-      boolean isDirectory,
-      BlazeDirectories directories,
-      Environment env,
-      ExternalPackageHelper externalPackageHelper)
+      RootedPath rootedPath, BlazeDirectories directories, Environment env)
       throws InterruptedException {
     Path externalRepoDir = getExternalRepositoryDirectory(directories);
     PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
@@ -576,53 +548,8 @@ public abstract class RepositoryFunction {
       return;
     }
     String repositoryName = repositoryPath.getSegment(0);
-
-    try {
-      // Add a dependency to the repository rule. RepositoryDirectoryValue does add this
-      // dependency already but we want to catch RepositoryNotFoundException, so invoke
-      // #getRuleByName
-      // first.
-      Rule rule = externalPackageHelper.getRuleByName(repositoryName, env);
-      if (rule == null) {
-        // Still an override might change the content of the repository.
-        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
-        return;
-      }
-
-      if (isDirectory || repositoryPath.isMultiSegment()) {
-        if (!isDirectory
-            && rule.getRuleClass().equals(LocalRepositoryRule.NAME)
-            && WorkspaceFileHelper.endsWithWorkspaceFileName(repositoryPath)) {
-          // Ignore this, there is a dependency from LocalRepositoryFunction->WORKSPACE file already
-          return;
-        }
-
-        // For all files under the repository directory, depend on the actual RepositoryDirectory
-        // function so we get invalidation when the repository is fetched.
-        // For the repository directory itself, we cannot depends on the RepositoryDirectoryValue
-        // (cycle).
-        env.getValue(
-            RepositoryDirectoryValue.key(
-                RepositoryName.createFromValidStrippedName(repositoryName)));
-      } else {
-        // Invalidate external/<repo> if the repository overrides change.
-        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
-      }
-    } catch (ExternalRuleNotFoundException ex) {
-      // The repository we are looking for does not exist so we should depend on the whole
-      // WORKSPACE file. In that case, the call to RepositoryFunction#getRuleByName(String,
-      // Environment)
-      // already requested all repository functions from the WORKSPACE file from Skyframe as part
-      // of the resolution.
-      //
-      // Alternatively, the repository might still be provided by an override. Therefore, in
-      // any case, register the dependency on the repository overrides.
-      RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
-    } catch (ExternalPackageException ex) {
-      // This should never happen.
-      throw new IllegalStateException(
-          "Repository " + repositoryName + " cannot be resolved for path " + rootedPath, ex);
-    }
+    env.getValue(
+        RepositoryDirectoryValue.key(RepositoryName.createFromValidStrippedName(repositoryName)));
   }
 
   /**

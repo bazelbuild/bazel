@@ -16,15 +16,15 @@ package com.google.devtools.build.lib.collect.nestedset;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.InterruptStrategy;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * A builder for nested sets.
@@ -190,8 +190,11 @@ public final class NestedSetBuilder<E> {
     return new NestedSet<>(order, direct, transitive, interruptStrategy);
   }
 
-  private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =
-      new MapMaker().concurrencyLevel(16).weakKeys().makeMap();
+  private static final LoadingCache<ImmutableList<?>, NestedSet<?>> stableOrderImmutableListCache =
+      Caffeine.newBuilder()
+          .initialCapacity(16)
+          .weakKeys()
+          .build(list -> new NestedSetBuilder<>(Order.STABLE_ORDER).addAll(list).build());
 
   /** Creates a nested set from a given list of items. */
   @SuppressWarnings("unchecked")
@@ -199,15 +202,9 @@ public final class NestedSetBuilder<E> {
     if (Iterables.isEmpty(wrappedItems)) {
       return order.emptySet();
     } else if (order == Order.STABLE_ORDER && wrappedItems instanceof ImmutableList) {
-      ImmutableList<E> wrappedList = (ImmutableList) wrappedItems;
+      ImmutableList<E> wrappedList = (ImmutableList<E>) wrappedItems;
       if (wrappedList.size() > 1) {
-        NestedSet<?> cached = immutableListCache.get(wrappedList);
-        if (cached != null) {
-          return (NestedSet<E>) cached;
-        }
-        NestedSet<E> built = new NestedSetBuilder<E>(order).addAll(wrappedList).build();
-        immutableListCache.putIfAbsent(wrappedList, built);
-        return built;
+        return (NestedSet<E>) stableOrderImmutableListCache.get(wrappedList);
       }
     }
     return new NestedSetBuilder<E>(order).addAll(wrappedItems).build();

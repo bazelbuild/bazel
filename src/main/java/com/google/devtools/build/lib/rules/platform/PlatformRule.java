@@ -139,7 +139,7 @@ public class PlatformRule implements RuleDefinition {
 which part of the build may run.
 
 For more details, see the
-<a href="https://docs.bazel.build/versions/master/platforms.html">Platforms</a> page.
+<a href="https://docs.bazel.build/versions/main/platforms.html">Platforms</a> page.
 
 <h4 id="platform_examples">Example</h4>
 <p>

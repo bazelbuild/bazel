@@ -136,6 +136,8 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Object buildSetting,
       Object cfg,
       Object execGroups,
+      Object compileOneFiletype,
+      Object name,
       StarlarkThread thread)
       throws EvalException {
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
@@ -153,9 +155,11 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
     RuleDefinitionIdentifier functionIdentifier = new RuleDefinitionIdentifier();
 
-    // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
+    // Only the Builder is passed to RuleInfoWrapper as the rule name may not be available yet.
     RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
-
+    if (name != Starlark.NONE) {
+      ruleInfo.setRuleName((String) name);
+    }
     Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
 
@@ -183,6 +187,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
+      Sequence<?> requiredAspects,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,

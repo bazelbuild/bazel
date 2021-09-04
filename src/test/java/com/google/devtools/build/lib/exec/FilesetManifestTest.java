@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.exec.FilesetManifestTest.ManifestCommonTest
 import com.google.devtools.build.lib.exec.FilesetManifestTest.OneOffManifestTests;
 import com.google.devtools.build.lib.exec.FilesetManifestTest.ResolvingManifestTests;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -170,18 +169,13 @@ public final class FilesetManifestTest {
       List<FilesetOutputSymlink> symlinks =
           ImmutableList.of(filesetSymlink("bar", "foo"), filesetSymlink("foo", "/foo/bar"));
 
-      // Because BugReport throws in tests, we catch the wrapped exception.
-      IllegalStateException e =
+      FilesetManifest.ForbiddenRelativeSymlinkException e =
           assertThrows(
-              IllegalStateException.class,
+              FilesetManifest.ForbiddenRelativeSymlinkException.class,
               () ->
                   FilesetManifest.constructFilesetManifest(
                       symlinks, PathFragment.create("out/foo"), ERROR));
-      assertThat(e).hasCauseThat().isInstanceOf(IOException.class);
-      assertThat(e)
-          .hasCauseThat()
-          .hasMessageThat()
-          .contains("runfiles target is not absolute: foo");
+      assertThat(e).hasMessageThat().contains("Fileset symlink foo is not absolute");
     }
 
     @Test

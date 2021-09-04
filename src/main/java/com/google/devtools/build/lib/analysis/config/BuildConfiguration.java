@@ -664,10 +664,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.collectCodeCoverage;
   }
 
-  public boolean experimentalForwardInstrumentedFilesInfoByDefault() {
-    return options.experimentalForwardInstrumentedFilesInfoByDefault;
-  }
-
   public RunUnder getRunUnder() {
     return options.runUnder;
   }
@@ -790,10 +786,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean inprocessSymlinkCreation() {
     return options.inprocessSymlinkCreation;
-  }
-
-  public boolean enableAggregatingMiddleman() {
-    return options.enableAggregatingMiddleman;
   }
 
   public boolean skipRunfilesManifests() {

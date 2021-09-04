@@ -4,6 +4,7 @@ filegroup(
     name = "srcs",
     srcs = [
         "BUILD",
+        "BUILD.tools",
         "//tools/java/runfiles:srcs",
     ],
     visibility = ["//tools:__pkg__"],
@@ -21,14 +22,10 @@ genrule(
 
 filegroup(
     name = "embedded_tools",
-    srcs = ["//tools/java/runfiles:embedded_tools"],
-    visibility = ["//tools:__pkg__"],
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//tools/java/runfiles:all_windows_tests",
+    srcs = [
+        "BUILD.tools",
+        ":java_stub_template.txt",
+        "//tools/java/runfiles:embedded_tools",
     ],
     visibility = ["//tools:__pkg__"],
 )

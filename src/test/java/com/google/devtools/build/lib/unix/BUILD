@@ -44,6 +44,7 @@ java_library(
 java_test(
     name = "UnixTests",
     size = "medium",
+    tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":UnixTests_lib",

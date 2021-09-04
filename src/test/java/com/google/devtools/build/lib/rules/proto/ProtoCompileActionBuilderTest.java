@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -37,7 +38,7 @@ import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Deps;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
-import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -80,7 +81,6 @@ public class ProtoCompileActionBuilderTest {
         /* directProtoSourceRoot */ PathFragment.EMPTY_FRAGMENT,
         /* transitiveSources */ NestedSetBuilder.wrap(Order.STABLE_ORDER, transitiveProtoSources),
         /* transitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* originalTransitiveProtoSources */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* transitiveProtoSourceRoots */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /* strictImportableProtoSourcesForDependents */ NestedSetBuilder.emptySet(
             Order.STABLE_ORDER),
@@ -106,14 +106,14 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     ProtoLangToolchainProvider toolchainWithPlugin =
         ProtoLangToolchainProvider.create(
             "--$(PLUGIN_OUT)=param3,param4:$(OUT)",
             plugin,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -176,7 +176,7 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -214,7 +214,7 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -271,7 +271,7 @@ public class ProtoCompileActionBuilderTest {
     hasBeenCalled[0] = false;
 
     CharSequence outReplacement =
-        new LazyString() {
+        new OnDemandString() {
           @Override
           public String toString() {
             hasBeenCalled[0] = true;
@@ -284,7 +284,7 @@ public class ProtoCompileActionBuilderTest {
             "--java_out=param1,param2:$(OUT)",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     CustomCommandLine cmdLine =
         createCommandLineFromToolchains(
@@ -318,14 +318,14 @@ public class ProtoCompileActionBuilderTest {
             "dontcare",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     ProtoLangToolchainProvider toolchain2 =
         ProtoLangToolchainProvider.create(
             "dontcare",
             /* pluginExecutable= */ null,
             /* runtime= */ mock(TransitiveInfoCollection.class),
-            /* blacklistedProtos= */ NestedSetBuilder.emptySet(STABLE_ORDER));
+            /* providedProtoSources= */ ImmutableList.of());
 
     IllegalStateException e =
         assertThrows(
@@ -452,5 +452,24 @@ public class ProtoCompileActionBuilderTest {
         importableProtoSourceSet,
         NestedSetBuilder.wrap(STABLE_ORDER, transitiveSources));
     return commandLine.build().arguments();
+  }
+
+  @Test
+  public void testEstimateResourceConsumptionLocal() throws Exception {
+
+    assertThat(
+            new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
+                .buildResourceSet(NestedSetBuilder.emptySet(STABLE_ORDER)))
+        .isEqualTo(ResourceSet.createWithRamCpu(25, 1));
+
+    assertThat(
+            new ProtoCompileActionBuilder.ProtoCompileResourceSetBuilder()
+                .buildResourceSet(
+                    NestedSetBuilder.wrap(
+                        STABLE_ORDER,
+                        ImmutableList.of(
+                            artifact("//:dont-care", "protoc-gen-javalite.exe"),
+                            artifact("//:dont-care-2", "protoc-gen-javalite-2.exe")))))
+        .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
   }
 }

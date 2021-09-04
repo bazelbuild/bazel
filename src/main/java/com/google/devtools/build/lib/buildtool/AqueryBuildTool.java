@@ -85,6 +85,7 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
                 aqueryOptions.includeArtifacts,
                 actionFilters,
                 aqueryOptions.includeParamFiles,
+                aqueryOptions.deduplicateDepsets,
                 aqueryOutputHandler);
         ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
       } catch (InvalidAqueryOutputFormatException e) {

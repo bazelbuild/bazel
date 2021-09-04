@@ -34,6 +34,12 @@ public class CppFileTypesTest {
   }
 
   @Test
+  public void testRlib() {
+    assertThat(CppFileTypes.RUST_RLIB.matches("foo.a")).isFalse();
+    assertThat(CppFileTypes.RUST_RLIB.matches("foo.rlib")).isTrue();
+  }
+
+  @Test
   public void testVersionedSharedLibraries() {
     assertThat(CppFileTypes.SHARED_LIBRARY.matches("somelibrary.so")).isTrue();
     assertThat(CppFileTypes.VERSIONED_SHARED_LIBRARY.matches("somelibrary.so.2")).isTrue();

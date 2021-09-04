@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.JavaSleeper;
 import com.google.devtools.build.lib.util.Sleeper;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
@@ -33,7 +34,6 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -47,7 +47,10 @@ import java.util.concurrent.Semaphore;
  */
 public class HttpDownloader implements Downloader {
   private static final int MAX_PARALLEL_DOWNLOADS = 8;
-  private static final Semaphore semaphore = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
+  private static final Semaphore SEMAPHORE = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
+  private static final Clock CLOCK = new JavaClock();
+  private static final Sleeper SLEEPER = new JavaSleeper();
+  private static final Locale LOCALE = Locale.getDefault();
 
   private float timeoutScaling = 1.0f;
 
@@ -68,17 +71,7 @@ public class HttpDownloader implements Downloader {
       Map<String, String> clientEnv,
       Optional<String> type)
       throws IOException, InterruptedException {
-    Clock clock = new JavaClock();
-    Sleeper sleeper = new JavaSleeper();
-    Locale locale = Locale.getDefault();
-    ProxyHelper proxyHelper = new ProxyHelper(clientEnv);
-    HttpConnector connector =
-        new HttpConnector(locale, eventHandler, proxyHelper, sleeper, timeoutScaling);
-    ProgressInputStream.Factory progressInputStreamFactory =
-        new ProgressInputStream.Factory(locale, clock, eventHandler);
-    HttpStream.Factory httpStreamFactory = new HttpStream.Factory(progressInputStreamFactory);
-    HttpConnectorMultiplexer multiplexer =
-        new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory, clock, sleeper);
+    HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
 
     // Iterate over urls and download the file falling back to the next url if previous failed,
     // while reporting progress to the CLI.
@@ -87,10 +80,9 @@ public class HttpDownloader implements Downloader {
     List<IOException> ioExceptions = ImmutableList.of();
 
     for (URL url : urls) {
-      semaphore.acquire();
+      SEMAPHORE.acquire();
 
-      try (HttpStream payload =
-              multiplexer.connect(Collections.singletonList(url), checksum, authHeaders, type);
+      try (HttpStream payload = multiplexer.connect(url, checksum, authHeaders, type);
           OutputStream out = destination.getOutputStream()) {
         try {
           ByteStreams.copy(payload, out);
@@ -113,7 +105,7 @@ public class HttpDownloader implements Downloader {
             Event.warn("Download from " + url + " failed: " + e.getClass() + " " + e.getMessage()));
         continue;
       } finally {
-        semaphore.release();
+        SEMAPHORE.release();
         eventHandler.post(new FetchEvent(url.toString(), success));
       }
     }
@@ -135,5 +127,40 @@ public class HttpDownloader implements Downloader {
 
       throw exception;
     }
+  }
+
+  /** Downloads the contents of one URL and reads it into a byte array. */
+  public byte[] downloadAndReadOneUrl(
+      URL url, ExtendedEventHandler eventHandler, Map<String, String> clientEnv)
+      throws IOException, InterruptedException {
+    HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
+
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    SEMAPHORE.acquire();
+    try (HttpStream payload = multiplexer.connect(url, Optional.absent())) {
+      ByteStreams.copy(payload, out);
+    } catch (SocketTimeoutException e) {
+      // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
+      // an external interruption, but simply a failed download due to some server timing
+      // out. So rethrow them as ordinary IOExceptions.
+      throw new IOException(e);
+    } catch (InterruptedIOException e) {
+      throw new InterruptedException(e.getMessage());
+    } finally {
+      SEMAPHORE.release();
+      // TODO(wyv): Do we need to report any event here?
+    }
+    return out.toByteArray();
+  }
+
+  private HttpConnectorMultiplexer setUpConnectorMultiplexer(
+      ExtendedEventHandler eventHandler, Map<String, String> clientEnv) {
+    ProxyHelper proxyHelper = new ProxyHelper(clientEnv);
+    HttpConnector connector =
+        new HttpConnector(LOCALE, eventHandler, proxyHelper, SLEEPER, timeoutScaling);
+    ProgressInputStream.Factory progressInputStreamFactory =
+        new ProgressInputStream.Factory(LOCALE, CLOCK, eventHandler);
+    HttpStream.Factory httpStreamFactory = new HttpStream.Factory(progressInputStreamFactory);
+    return new HttpConnectorMultiplexer(eventHandler, connector, httpStreamFactory);
   }
 }

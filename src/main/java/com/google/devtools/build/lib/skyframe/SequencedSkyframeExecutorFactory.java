@@ -38,6 +38,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
@@ -49,6 +50,7 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
         .setExtraSkyFunctions(extraSkyFunctions)
         .setCustomDirtinessCheckers(customDirtinessCheckers)
         .setManagedDirectoriesKnowledge(managedDirectoriesKnowledge)
+        .setSkyKeyStateReceiver(skyKeyStateReceiver)
         .setBugReporter(bugReporter)
         .build();
   }

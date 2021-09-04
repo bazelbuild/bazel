@@ -271,8 +271,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
         return null;
       }
       Collection<BuildOptions> toOptions =
-          ConfigurationResolver.applyTransition(
-                  fromOptions, transition, buildSettingPackages, env.getListener())
+          ConfigurationResolver.applyTransitionWithSkyframe(
+                  fromOptions, transition, env, env.getListener())
               .values();
       for (BuildOptions toOption : toOptions) {
         configSkyKeys.add(
@@ -297,8 +297,8 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
         return null;
       }
       Collection<BuildOptions> toOptions =
-          ConfigurationResolver.applyTransition(
-                  fromOptions, transition, buildSettingPackages, env.getListener())
+          ConfigurationResolver.applyTransitionWithSkyframe(
+                  fromOptions, transition, env, env.getListener())
               .values();
       for (BuildOptions toOption : toOptions) {
         SkyKey configKey =

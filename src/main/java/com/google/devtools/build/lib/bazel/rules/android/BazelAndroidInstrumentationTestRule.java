@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidPlatformsTransition;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 
 /** Rule definition for Bazel android_instrumentation_test. */
@@ -27,7 +28,7 @@ public final class BazelAndroidInstrumentationTestRule implements RuleDefinition
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .cfg(AndroidRuleClasses.androidBinarySelfTransition())
+        .cfg(AndroidPlatformsTransition.create())
         .removeAttribute("deps")
         .removeAttribute("javacopts")
         .removeAttribute("plugins")

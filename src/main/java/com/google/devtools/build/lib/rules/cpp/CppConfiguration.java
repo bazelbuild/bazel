@@ -457,6 +457,18 @@ public final class CppConfiguration extends Fragment
     return cppOptions.cppCompiler;
   }
 
+  public boolean experimentalLinkStaticLibrariesOnce() {
+    return cppOptions.experimentalLinkStaticLibrariesOnce;
+  }
+
+  public boolean experimentalEnableTargetExportCheck() {
+    return cppOptions.experimentalEnableTargetExportCheck;
+  }
+
+  public boolean experimentalCcSharedLibraryDebug() {
+    return cppOptions.experimentalCcSharedLibraryDebug;
+  }
+
   public boolean legacyWholeArchive() {
     return cppOptions.legacyWholeArchive;
   }
@@ -804,6 +816,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.objcGenerateDotdFiles;
   }
 
+  public boolean experimentalCcImplementationDeps() {
+    return cppOptions.experimentalCcImplementationDeps;
+  }
+
   @Override
   public boolean macosSetInstallName() {
     return cppOptions.macosSetInstallName;
@@ -841,13 +857,13 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public boolean processHeadersInDependenciesStarlark(StarlarkThread thread) throws EvalException {
-    checkInExpandedApiAllowlist(thread, "process_headers_in_dependencies");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return processHeadersInDependencies();
   }
 
   @Override
   public boolean saveFeatureStateStarlark(StarlarkThread thread) throws EvalException {
-    checkInExpandedApiAllowlist(thread, "save_feature_state");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return saveFeatureState();
   }
 
@@ -856,6 +872,26 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     checkInExpandedApiAllowlist(thread, "fission_active_for_current_compilation_mode");
     return fissionIsActiveForCurrentCompilationMode();
+  }
+
+  @Override
+  public boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalLinkStaticLibrariesOnce();
+  }
+
+  @Override
+  public boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalEnableTargetExportCheck();
+  }
+
+  @Override
+  public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCcSharedLibraryDebug();
   }
 
   /**

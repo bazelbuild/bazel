@@ -13,17 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.ActionData;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.RunnerCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
@@ -37,12 +41,12 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.concurrent.ConcurrentHashMap;
@@ -67,10 +71,8 @@ class ActionStats {
 
 class MetricsCollector {
   private final CommandEnvironment env;
-  private final boolean bepPublishUsedHeapSizePostBuild;
   private final boolean recordMetricsForAllMnemonics;
   // For ActionSummary.
-  private final AtomicLong executedActionCount = new AtomicLong();
   private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
 
   // For CumulativeMetrics.
@@ -83,13 +85,12 @@ class MetricsCollector {
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
+  private final SpawnStats spawnStats = new SpawnStats();
 
   private MetricsCollector(
       CommandEnvironment env, AtomicInteger numAnalyses, AtomicInteger numBuilds) {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
-    this.bepPublishUsedHeapSizePostBuild =
-        options != null && options.bepPublishUsedHeapSizePostBuild;
     this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
@@ -147,12 +148,18 @@ class MetricsCollector {
   @Subscribe
   @AllowConcurrentEvents
   public void onActionComplete(ActionCompletionEvent event) {
-    executedActionCount.incrementAndGet();
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
     actionStats.numActions.incrementAndGet();
     actionStats.firstStarted.accumulate(event.getRelativeActionStartTime());
     actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
+    spawnStats.incrementActionCount();
+  }
+
+  @Subscribe
+  @AllowConcurrentEvents
+  public void actionResultReceived(ActionResultReceivedEvent event) {
+    spawnStats.countActionResult(event.getActionResult());
   }
 
   @SuppressWarnings("unused")
@@ -174,6 +181,16 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onBuildComplete(BuildPrecompleteEvent event) {
+    postBuildMetricsEvent();
+  }
+
+  @SuppressWarnings("unused") // Used reflectively
+  @Subscribe
+  public void onNoBuildRequestFinishedEvent(NoBuildRequestFinishedEvent event) {
+    postBuildMetricsEvent();
+  }
+
+  private void postBuildMetricsEvent() {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
@@ -215,17 +232,23 @@ class MetricsCollector {
                             action.lastEnded.longValue()))
                     .setActionsExecuted(action.numActions.get())
                     .build()));
-    return actionSummary.setActionsExecuted(executedActionCount.get()).build();
+
+    ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
+    actionSummary.setActionsExecuted(spawnSummary.getOrDefault("total", 0));
+    spawnSummary
+        .entrySet()
+        .forEach(
+            e ->
+                actionSummary.addRunnerCount(
+                    RunnerCount.newBuilder().setName(e.getKey()).setCount(e.getValue()).build()));
+    return actionSummary.build();
   }
 
   private MemoryMetrics createMemoryMetrics() {
     MemoryMetrics.Builder memoryMetrics = MemoryMetrics.newBuilder();
     long usedHeapSizePostBuild = 0;
-    if (bepPublishUsedHeapSizePostBuild) {
-      System.gc();
-      MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-      usedHeapSizePostBuild = memBean.getHeapMemoryUsage().getUsed();
-      memoryMetrics.setUsedHeapSizePostBuild(usedHeapSizePostBuild);
+    if (MemoryProfiler.instance().getHeapUsedMemoryAtFinish() > 0) {
+      memoryMetrics.setUsedHeapSizePostBuild(MemoryProfiler.instance().getHeapUsedMemoryAtFinish());
     }
     PostGCMemoryUseRecorder.get()
         .getPeakPostGcHeap()

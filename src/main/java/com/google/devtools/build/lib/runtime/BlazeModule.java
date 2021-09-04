@@ -94,6 +94,11 @@ public abstract class BlazeModule {
     return null;
   }
 
+  @Nullable
+  public FileSystem getFileSystemForBuildArtifacts(FileSystem fileSystem) {
+    return null;
+  }
+
   /**
    * Returns the {@link TopDownActionCache} used by Bazel. It is an error if more than one module
    * returns a top-down action cache. If all modules return null, there will be no top-down caching.
@@ -120,7 +125,7 @@ public abstract class BlazeModule {
     }
 
     public static ModuleFileSystem create(FileSystem fileSystem) {
-      return create(fileSystem, null);
+      return create(fileSystem, /*virtualExecRootBase=*/ null);
     }
   }
 
@@ -424,6 +429,11 @@ public abstract class BlazeModule {
       PackageSettings packageSettings,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
+    return null;
+  }
+
+  @Nullable
+  public String getSlowThreadInterruptMessageSuffix() {
     return null;
   }
 

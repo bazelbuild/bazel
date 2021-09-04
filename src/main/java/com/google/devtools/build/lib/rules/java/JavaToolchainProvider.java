@@ -28,9 +28,12 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -42,8 +45,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlark
 import java.util.Iterator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
@@ -91,9 +95,10 @@ public class JavaToolchainProvider extends NativeInfo
   public static JavaToolchainProvider create(
       Label label,
       ImmutableList<String> javacOptions,
-      ImmutableList<String> jvmOptions,
+      NestedSet<String> jvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
+      boolean javacSupportsWorkerCancellation,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,
       JavaToolchainTool javaBuilder,
@@ -141,6 +146,7 @@ public class JavaToolchainProvider extends NativeInfo
         jvmOptions,
         javacSupportsWorkers,
         javacSupportsMultiplexWorkers,
+        javacSupportsWorkerCancellation,
         packageConfiguration,
         jacocoRunner,
         proguardAllowlister,
@@ -168,9 +174,10 @@ public class JavaToolchainProvider extends NativeInfo
   private final FilesToRunProvider ijar;
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
   private final ImmutableList<String> javacOptions;
-  private final ImmutableList<String> jvmOptions;
+  private final NestedSet<String> jvmOptions;
   private final boolean javacSupportsWorkers;
   private final boolean javacSupportsMultiplexWorkers;
+  private final boolean javacSupportsWorkerCancellation;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
   private final FilesToRunProvider proguardAllowlister;
@@ -199,9 +206,10 @@ public class JavaToolchainProvider extends NativeInfo
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
       ImmutableList<String> javacOptions,
-      ImmutableList<String> jvmOptions,
+      NestedSet<String> jvmOptions,
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
+      boolean javacSupportsWorkerCancellation,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       FilesToRunProvider proguardAllowlister,
@@ -231,6 +239,7 @@ public class JavaToolchainProvider extends NativeInfo
     this.jvmOptions = jvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
+    this.javacSupportsWorkerCancellation = javacSupportsWorkerCancellation;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
     this.proguardAllowlister = proguardAllowlister;
@@ -311,6 +320,7 @@ public class JavaToolchainProvider extends NativeInfo
    * Return the {@link Artifact} of the binary that enforces one-version compliance of java
    * binaries.
    */
+  @Override
   @Nullable
   public Artifact getOneVersionBinary() {
     return oneVersion;
@@ -318,6 +328,7 @@ public class JavaToolchainProvider extends NativeInfo
 
   /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
   @Nullable
+  @Override
   public Artifact getOneVersionAllowlist() {
     return oneVersionAllowlist;
   }
@@ -373,9 +384,10 @@ public class JavaToolchainProvider extends NativeInfo
   }
 
   /**
-   * @return the list of default options for the JVM running the java compiler and associated tools.
+   * Returns the NestedSet of default options for the JVM running the java compiler and associated
+   * tools.
    */
-  public ImmutableList<String> getJvmOptions() {
+  public NestedSet<String> getJvmOptions() {
     return jvmOptions;
   }
 
@@ -387,6 +399,11 @@ public class JavaToolchainProvider extends NativeInfo
   /** Returns whether JavaBuilders supports running persistent workers in multiplex mode */
   public boolean getJavacSupportsMultiplexWorkers() {
     return javacSupportsMultiplexWorkers;
+  }
+
+  /** Returns whether JavaBuilders supports running persistent workers with cancellation */
+  public boolean getJavacSupportsWorkerCancellation() {
+    return javacSupportsWorkerCancellation;
   }
 
   /** Returns the global {@code java_plugin_configuration} data. */
@@ -406,8 +423,22 @@ public class JavaToolchainProvider extends NativeInfo
     return javaSemantics;
   }
 
+  @Override
   public JavaRuntimeInfo getJavaRuntime() {
     return javaRuntime;
+  }
+
+  @Override
+  @Nullable
+  public AndroidLintTool stalarkAndroidLinter(StarlarkThread thread) throws EvalException {
+    RepositoryName repository =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
+            .label()
+            .getRepository();
+    if (!"@_builtins".equals(repository.getName())) {
+      throw Starlark.errorf("private API only for use in builtins");
+    }
+    return getAndroidLint();
   }
 
   /** Returns the input Java language level */
@@ -442,8 +473,8 @@ public class JavaToolchainProvider extends NativeInfo
   }
 
   @Override
-  public Sequence<String> getStarlarkJvmOptions() {
-    return StarlarkList.immutableCopyOf(getJvmOptions());
+  public Depset getStarlarkJvmOptions() {
+    return Depset.of(ElementType.STRING, getJvmOptions());
   }
 
   @Override

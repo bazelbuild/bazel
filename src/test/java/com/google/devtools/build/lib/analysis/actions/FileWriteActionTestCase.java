@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
@@ -81,7 +82,8 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             /*actionFileSystem=*/ null,
             /*skyframeDepsResult=*/ null,
             NestedSetExpander.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS);
+            UnixGlob.DEFAULT_SYSCALLS,
+            ThreadStateReceiver.NULL_INSTANCE);
   }
 
   protected void checkNoInputsByDefault() {

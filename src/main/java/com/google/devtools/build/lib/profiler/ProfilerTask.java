@@ -77,6 +77,11 @@ public enum ProfilerTask {
   REMOTE_DOWNLOAD("remote output download"),
   REMOTE_NETWORK("remote network"),
   FILESYSTEM_TRAVERSAL("filesystem traversal"),
+  WORKER_EXECUTION("local execution in worker"),
+  WORKER_SETUP("setting up inputs for worker"),
+  WORKER_BORROW("borrowing a worker"),
+  WORKER_WORKING("waiting for response from worker"),
+  WORKER_COPYING_OUTPUTS("copying outputs from worker"),
   UNKNOWN("Unknown event");
 
   private static class Threshold {

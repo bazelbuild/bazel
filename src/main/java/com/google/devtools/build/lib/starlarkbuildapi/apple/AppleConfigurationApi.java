@@ -18,6 +18,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
@@ -84,4 +86,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
               + " device builds; for simulator builds, it always returns <code>'none'</code>.",
       structField = true)
   AppleBitcodeModeApi getBitcodeMode();
+
+  @StarlarkMethod(name = "mandatory_minimum_version", documented = false, useStarlarkThread = true)
+  boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException;
 }

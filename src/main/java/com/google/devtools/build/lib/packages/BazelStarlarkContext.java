@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.util.HashMap;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -27,7 +30,14 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** Contextual information associated with each Starlark thread created by Bazel. */
 // TODO(adonovan): rename BazelThreadContext, for symmetry with BazelModuleContext.
-public final class BazelStarlarkContext implements RuleDefinitionEnvironment, Label.HasRepoMapping {
+// TODO(brandjon): Use composition rather than inheritance for RuleDefinitionEnvironment; clients
+// should retrieve the RDE (if it exists) from this class in order to access e.g. the network
+// allowlist. The toolsRepository info will be duplicated between this class and RDE but we can
+// enforce consistency with a precondition check.
+public final class BazelStarlarkContext
+    implements RuleDefinitionEnvironment,
+        Label.HasRepoMapping,
+        StarlarkThread.UncheckedExceptionContext {
 
   /** The phase to which this Starlark thread belongs. */
   public enum Phase {
@@ -45,6 +55,7 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
   public void storeInThread(StarlarkThread thread) {
     thread.setThreadLocal(BazelStarlarkContext.class, this);
     thread.setThreadLocal(Label.HasRepoMapping.class, this);
+    thread.setUncheckedExceptionContext(this);
   }
 
   private final Phase phase;
@@ -52,10 +63,12 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
   @Nullable private final String toolsRepository;
   // Only necessary for loading phase threads to construct configuration_field.
   @Nullable private final ImmutableMap<String, Class<?>> fragmentNameToClass;
-  private final ImmutableMap<RepositoryName, RepositoryName> repoMapping;
+  private final RepositoryMapping repoMapping;
   private final HashMap<String, Label> convertedLabelsInPackage;
   private final SymbolGenerator<?> symbolGenerator;
   @Nullable private final Label analysisRuleLabel;
+  // TODO(b/192694287): Remove once we migrate all tests from the allowlist
+  @Nullable private final Label networkAllowlistForTests;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
@@ -84,22 +97,19 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
       Phase phase,
       @Nullable String toolsRepository,
       @Nullable ImmutableMap<String, Class<?>> fragmentNameToClass,
-      ImmutableMap<RepositoryName, RepositoryName> repoMapping,
+      RepositoryMapping repoMapping,
       HashMap<String, Label> convertedLabelsInPackage,
       SymbolGenerator<?> symbolGenerator,
-      @Nullable Label analysisRuleLabel) {
-    this.phase = phase;
+      @Nullable Label analysisRuleLabel,
+      @Nullable Label networkAllowlistForTests) {
+    this.phase = Preconditions.checkNotNull(phase);
     this.toolsRepository = toolsRepository;
     this.fragmentNameToClass = fragmentNameToClass;
     this.repoMapping = repoMapping;
     this.convertedLabelsInPackage = convertedLabelsInPackage;
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
     this.analysisRuleLabel = analysisRuleLabel;
-  }
-
-  /** Returns the phase to which this Starlark thread belongs. */
-  public Phase getPhase() {
-    return phase;
+    this.networkAllowlistForTests = networkAllowlistForTests;
   }
 
   /** Returns the name of the tools repository, such as "@bazel_tools". */
@@ -120,7 +130,7 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
    * in the BUILD files and the values are new repository names chosen by the main repository.
    */
   @Override
-  public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
+  public RepositoryMapping getRepoMapping() {
     return repoMapping;
   }
 
@@ -145,6 +155,16 @@ public final class BazelStarlarkContext implements RuleDefinitionEnvironment, La
   @Nullable
   public Label getAnalysisRuleLabel() {
     return analysisRuleLabel;
+  }
+
+  @Override
+  public String getContextForUncheckedException() {
+    return firstNonNull(analysisRuleLabel, phase).toString();
+  }
+
+  @Override
+  public Optional<Label> getNetworkAllowlistForTests() {
+    return Optional.ofNullable(networkAllowlistForTests);
   }
 
   /**
