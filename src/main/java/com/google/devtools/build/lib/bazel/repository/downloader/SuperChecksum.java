@@ -18,6 +18,7 @@ public class SuperChecksum {
   public static SuperChecksum fromString(KeyType keyType, String hash) {
     Checksum checksum = null;
     
+    # The if statement makes sure Checksum.fromString() will never return an exception.
     try {
       if(keyType == KeyType.SHA256 && keyType.isValid(hash)) {
         checksum = Checksum.fromString(keyType, hash);
