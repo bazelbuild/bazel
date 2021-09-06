@@ -102,7 +102,7 @@ java_test(
     }) + [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
