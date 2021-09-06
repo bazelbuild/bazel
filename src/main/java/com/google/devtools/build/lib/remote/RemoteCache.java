@@ -51,24 +51,36 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import io.netty.util.AbstractReferenceCounted;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** A cache for storing artifacts (input and output) as well as the output of running an action. */
+/**
+ * A cache for storing artifacts (input and output) as well as the output of running an action.
+ *
+ * <p>The cache is reference counted. Initially, the reference count is 1. Use {@link #retain()} to
+ * increase and {@link #release()} to decrease the reference count respectively. Once the reference
+ * count is reached to 0, the underlying resources will be released (after network I/Os finished).
+ *
+ * <p>Use {@link #awaitTermination()} to wait for the underlying network I/Os to finish. Use {@link
+ * #shutdownNow()} to cancel all active network I/Os and reject new requests.
+ */
 @ThreadSafety.ThreadSafe
-public class RemoteCache implements AutoCloseable {
+public class RemoteCache extends AbstractReferenceCounted {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
 
+  private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   protected final RemoteCacheClient cacheProtocol;
@@ -95,7 +107,7 @@ public class RemoteCache implements AutoCloseable {
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
     if (Iterables.isEmpty(digests)) {
-      return Futures.immediateFuture(ImmutableSet.of());
+      return immediateFuture(ImmutableSet.of());
     }
     return cacheProtocol.findMissingDigests(context, digests);
   }
@@ -426,10 +438,34 @@ public class RemoteCache implements AutoCloseable {
     return downloads;
   }
 
-  /** Release resources associated with the cache. The cache may not be used after calling this. */
   @Override
-  public void close() {
+  protected void deallocate() {
+    casUploadCache.shutdown();
     cacheProtocol.close();
+
+    closeCountDownLatch.countDown();
+  }
+
+  @Override
+  public RemoteCache touch(Object o) {
+    return this;
+  }
+
+  @Override
+  public RemoteCache retain() {
+    super.retain();
+    return this;
+  }
+
+  /** Waits for active network I/Os to finish. */
+  public void awaitTermination() throws InterruptedException {
+    casUploadCache.awaitTermination();
+    closeCountDownLatch.await();
+  }
+
+  /** Shuts the cache down and cancels active network I/Os. */
+  public void shutdownNow() {
+    casUploadCache.shutdownNow();
   }
 
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {

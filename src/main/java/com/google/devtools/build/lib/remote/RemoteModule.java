@@ -758,6 +758,10 @@ public final class RemoteModule extends BlazeModule {
     Code failureCode = null;
     String failureMessage = null;
 
+    if (actionContextProvider != null) {
+      actionContextProvider.afterCommand();
+    }
+
     try {
       closeRpcLogFile();
     } catch (IOException e) {
@@ -821,7 +825,6 @@ public final class RemoteModule extends BlazeModule {
     if (actionContextProvider == null) {
       return;
     }
-    builder.addExecutorLifecycleListener(actionContextProvider);
     RemoteOptions remoteOptions =
         Preconditions.checkNotNull(
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");

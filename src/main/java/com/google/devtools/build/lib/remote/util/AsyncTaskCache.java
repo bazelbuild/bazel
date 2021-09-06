@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.util;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,8 +61,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   private final Object lock = new Object();
 
   private static final int STATE_ACTIVE = 0;
-  private static final int STATE_PENDING_SHUTDOWN = 1;
-  private static final int STATE_SHUTDOWN = 2;
+  private static final int STATE_SHUTDOWN = 1;
+  private static final int STATE_TERMINATED = 2;
 
   @GuardedBy("lock")
   private int state = STATE_ACTIVE;
@@ -311,63 +312,93 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   }
 
   /**
-   * Shuts the cache down. Any in progress tasks will continue running while new tasks will be
-   * injected with {@link CancellationException}.
+   * Initiates an orderly shutdown in which preexisting tasks continue but new tasks are immediately
+   * cancelled with {@link CancellationException}.
    */
   public void shutdown() {
     synchronized (lock) {
       if (state == STATE_ACTIVE) {
-        state = STATE_PENDING_SHUTDOWN;
+        state = STATE_SHUTDOWN;
         maybeNotifyTermination();
       }
     }
   }
 
-  /** Returns a {@link Completable} which will complete once all the in progress tasks finished. */
-  public Completable awaitTermination() {
-    return Completable.create(
-        emitter -> {
-          synchronized (lock) {
-            if (state == STATE_SHUTDOWN) {
-              emitter.onComplete();
-            } else {
-              terminationSubscriber.add(emitter);
+  /** Waits for the channel to become terminated. */
+  public void awaitTermination() throws InterruptedException {
+    Completable completable =
+        Completable.create(
+            emitter -> {
+              synchronized (lock) {
+                if (state == STATE_TERMINATED) {
+                  emitter.onComplete();
+                } else {
+                  terminationSubscriber.add(emitter);
 
-              emitter.setCancellable(
-                  () -> {
-                    synchronized (lock) {
-                      if (state != STATE_SHUTDOWN) {
-                        terminationSubscriber.remove(emitter);
-                      }
-                    }
-                  });
-            }
-          }
-        });
+                  emitter.setCancellable(
+                      () -> {
+                        synchronized (lock) {
+                          if (state != STATE_TERMINATED) {
+                            terminationSubscriber.remove(emitter);
+                          }
+                        }
+                      });
+                }
+              }
+            });
+
+    try {
+      completable.blockingAwait();
+    } catch (RuntimeException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        throwIfInstanceOf(cause, InterruptedException.class);
+      }
+      throw e;
+    }
   }
 
   /**
-   * Shuts the cache down. All in progress and new tasks will be cancelled with {@link
-   * CancellationException}.
+   * Initiates a forceful shutdown in which preexisting and new tasks are cancelled with {@link
+   * CancellationException}. Although forceful, the shutdown process is still not instantaneous;
+   * {@link #isTerminated()} will likely return {@code false} immediately after this method returns.
    */
   public void shutdownNow() {
     shutdown();
 
     synchronized (lock) {
-      if (state == STATE_PENDING_SHUTDOWN) {
+      if (state == STATE_SHUTDOWN) {
         for (Execution execution : ImmutableList.copyOf(inProgress.values())) {
           execution.cancel();
         }
       }
     }
+  }
 
-    awaitTermination().blockingAwait();
+  /**
+   * Returns whether the cache is shutdown. Shutdown cache immediately cancels any new tasks, but
+   * may still have some tasks in the progress.
+   */
+  public boolean isShutdown() {
+    synchronized (lock) {
+      return state == STATE_SHUTDOWN || state == STATE_TERMINATED;
+    }
+  }
+
+  /**
+   * Returns whether the cache is terminated. Terminated cache have no running tasks and relevant
+   * resources released.
+   */
+  public boolean isTerminated() {
+    synchronized (lock) {
+      return state == STATE_TERMINATED;
+    }
   }
 
   @GuardedBy("lock")
   private void maybeNotifyTermination() {
-    if (state == STATE_PENDING_SHUTDOWN && inProgress.isEmpty()) {
-      state = STATE_SHUTDOWN;
+    if (state == STATE_SHUTDOWN && inProgress.isEmpty()) {
+      state = STATE_TERMINATED;
 
       for (CompletableEmitter emitter : terminationSubscriber) {
         emitter.onComplete();
@@ -416,26 +447,42 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     }
 
     /**
-     * Shuts the cache down. Any in progress tasks will continue running while new tasks will be
-     * injected with {@link CancellationException}.
+     * Initiates an orderly shutdown in which preexisting tasks continue but new tasks are
+     * immediately cancelled with {@link CancellationException}.
      */
     public void shutdown() {
       cache.shutdown();
     }
 
-    /**
-     * Returns a {@link Completable} which will complete once all the in progress tasks finished.
-     */
-    public Completable awaitTermination() {
-      return cache.awaitTermination();
+    /** Waits for the cache to become terminated. */
+    public void awaitTermination() throws InterruptedException {
+      cache.awaitTermination();
     }
 
     /**
-     * Shuts the cache down. All in progress and active tasks will be cancelled with {@link
-     * CancellationException}.
+     * Initiates a forceful shutdown in which preexisting and new tasks are cancelled with {@link
+     * CancellationException}. Although forceful, the shutdown process is still not instantaneous;
+     * {@link #isTerminated()} will likely return {@code false} immediately after this method
+     * returns.
      */
     public void shutdownNow() {
       cache.shutdownNow();
+    }
+
+    /**
+     * Returns whether the cache is shutdown. Shutdown cache immediately cancels any new tasks, but
+     * may still have some tasks in the progress.
+     */
+    public boolean isShutdown() {
+      return cache.isShutdown();
+    }
+
+    /**
+     * Returns whether the cache is terminated. Terminated cache have no running tasks and relevant
+     * resources released.
+     */
+    public boolean isTerminated() {
+      return cache.isTerminated();
     }
   }
 }

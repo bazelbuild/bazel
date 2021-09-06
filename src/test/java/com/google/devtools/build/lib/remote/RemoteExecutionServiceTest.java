@@ -23,6 +23,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -46,6 +47,8 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -58,12 +61,17 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
@@ -111,6 +119,8 @@ public class RemoteExecutionServiceTest {
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
+  private final Reporter reporter = new Reporter(new EventBus());
+  private final StoredEventHandler eventHandler = new StoredEventHandler();
 
   RemoteOptions remoteOptions;
   private Path execRoot;
@@ -124,6 +134,8 @@ public class RemoteExecutionServiceTest {
 
   @Before
   public final void setUp() throws Exception {
+    reporter.addHandler(eventHandler);
+
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
@@ -141,7 +153,7 @@ public class RemoteExecutionServiceTest {
     checkNotNull(stderr.getParentDirectory()).createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
 
-    cache = new InMemoryRemoteCache(remoteOptions, digestUtil);
+    cache = spy(new InMemoryRemoteCache(remoteOptions, digestUtil));
     executor = mock(RemoteExecutionClient.class);
 
     RequestMetadata metadata =
@@ -1272,6 +1284,30 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void uploadOutputs_uploadFails_printWarning() throws Exception {
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of());
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+    doReturn(Futures.immediateFailedFuture(new IOException("cache down")))
+        .when(cache)
+        .uploadActionResult(any(), any(), any());
+
+    service.uploadOutputs(action, spawnResult);
+
+    assertThat(eventHandler.getEvents()).hasSize(1);
+    Event evt = eventHandler.getEvents().get(0);
+    assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
+    assertThat(evt.getMessage()).contains("cache down");
+  }
+
+  @Test
   public void uploadInputsIfNotPresent_deduplicateFindMissingBlobCalls() throws Exception {
     int taskCount = 100;
     ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
@@ -1401,6 +1437,8 @@ public class RemoteExecutionServiceTest {
   private RemoteExecutionService newRemoteExecutionService(
       RemoteOptions remoteOptions, Collection<? extends ActionInput> topLevelOutputs) {
     return new RemoteExecutionService(
+        reporter,
+        /*verboseFailures=*/ true,
         execRoot,
         remotePathResolver,
         "none",

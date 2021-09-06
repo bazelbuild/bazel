@@ -200,19 +200,6 @@ final class RemoteSpawnCache implements SpawnCache {
 
           try (SilentCloseable c = prof.profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
             remoteExecutionService.uploadOutputs(action, result);
-          } catch (IOException e) {
-            String errorMessage;
-            if (!verboseFailures) {
-              errorMessage = Utils.grpcAwareErrorMessage(e);
-            } else {
-              // On --verbose_failures print the whole stack trace
-              errorMessage = Throwables.getStackTraceAsString(e);
-            }
-            if (isNullOrEmpty(errorMessage)) {
-              errorMessage = e.getClass().getSimpleName();
-            }
-            errorMessage = "Writing to Remote Cache:\n" + errorMessage;
-            report(Event.warn(errorMessage));
           }
         }
 

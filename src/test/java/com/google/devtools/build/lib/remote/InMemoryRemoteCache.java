@@ -77,9 +77,4 @@ class InMemoryRemoteCache extends RemoteExecutionCache {
   Map<Digest, Integer> getNumFindMissingDigests() {
     return ((InMemoryCacheClient) cacheProtocol).getNumFindMissingDigests();
   }
-
-  @Override
-  public void close() {
-    cacheProtocol.close();
-  }
 }

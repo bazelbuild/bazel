@@ -401,7 +401,8 @@ public class AsyncTaskCacheTest {
         .test()
         .assertNotComplete();
     cache.shutdown();
-    cache.awaitTermination().test().assertNotComplete();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
 
     TestObserver<String> ob = cache.executeIfNot("key2", Single.just("value2")).test();
 
@@ -409,10 +410,10 @@ public class AsyncTaskCacheTest {
   }
 
   @Test
-  public void execute_afterShutdown_getCancellationError() {
+  public void execute_afterShutdown_getCancellationError() throws InterruptedException {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
     cache.shutdown();
-    cache.awaitTermination().blockingAwait();
+    cache.awaitTermination();
 
     TestObserver<String> ob = cache.executeIfNot("key", Single.just("value")).test();
 
@@ -420,7 +421,7 @@ public class AsyncTaskCacheTest {
   }
 
   @Test
-  public void shutdownNow_cancelInProgressTasks() {
+  public void shutdownNow_cancelInProgressTasks() throws InterruptedException {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
     TestObserver<String> ob =
         cache
@@ -432,37 +433,47 @@ public class AsyncTaskCacheTest {
                     }))
             .test();
     cache.shutdown();
-    cache.awaitTermination().test().assertNotComplete();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
     ob.assertNotComplete();
 
     cache.shutdownNow();
+    cache.awaitTermination();
 
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
     ob.assertError(e -> e instanceof CancellationException);
-    cache.awaitTermination().test().assertComplete();
   }
 
   @Test
-  public void awaitTermination_pendingShutdown_completeAfterTaskFinished() {
+  public void awaitTermination_pendingShutdown_completeAfterTaskFinished()
+      throws InterruptedException {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
     AtomicReference<SingleEmitter<String>> emitterRef = new AtomicReference<>(null);
-    cache.executeIfNot("key", Single.create(emitterRef::set)).test().assertNotComplete();
+    TestObserver<String> ob =
+        cache.executeIfNot("key", Single.create(emitterRef::set)).test().assertNotComplete();
     assertThat(emitterRef.get()).isNotNull();
     cache.shutdown();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isFalse();
 
-    TestObserver<Void> ob = cache.awaitTermination().test();
-    ob.assertNotComplete();
     emitterRef.get().onSuccess("value");
+    cache.awaitTermination();
 
-    ob.assertComplete();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
+    ob.assertValue("value");
   }
 
   @Test
-  public void awaitTermination_afterShutdown_complete() {
+  public void awaitTermination_afterShutdown_complete() throws InterruptedException {
     AsyncTaskCache<String, String> cache = AsyncTaskCache.create();
     cache.shutdownNow();
+    cache.awaitTermination();
 
-    TestObserver<Void> ob = cache.awaitTermination().test();
+    cache.awaitTermination();
 
-    ob.assertComplete();
+    assertThat(cache.isShutdown()).isTrue();
+    assertThat(cache.isTerminated()).isTrue();
   }
 }

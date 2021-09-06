@@ -18,11 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
@@ -35,11 +32,10 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Provides a remote execution context. */
-final class RemoteActionContextProvider implements ExecutorLifecycleListener {
+final class RemoteActionContextProvider {
 
   private final CommandEnvironment env;
   @Nullable private final RemoteCache cache;
@@ -120,8 +116,12 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             workingDirectory.getRelative(remoteOptions.remoteCaptureCorruptedOutputs);
       }
 
+      boolean verboseFailures =
+          checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
       remoteExecutionService =
           new RemoteExecutionService(
+              env.getReporter(),
+              verboseFailures,
               env.getExecRoot(),
               createRemotePathResolver(),
               env.getBuildRequestId(),
@@ -132,6 +132,7 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
               executor,
               filesToDownload,
               captureCorruptedOutputsDir);
+      env.getEventBus().register(remoteExecutionService);
     }
 
     return remoteExecutionService;
@@ -189,20 +190,16 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
     this.filesToDownload = Preconditions.checkNotNull(topLevelOutputs, "filesToDownload");
   }
 
-  @Override
-  public void executorCreated() {}
-
-  @Override
-  public void executionPhaseStarting(
-      ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts) {}
-
-  @Override
-  public void executionPhaseEnding() {
-    if (cache != null) {
-      cache.close();
-    }
-    if (executor != null) {
-      executor.close();
+  public void afterCommand() {
+    if (remoteExecutionService != null) {
+      remoteExecutionService.shutdown();
+    } else {
+      if (cache != null) {
+        cache.release();
+      }
+      if (executor != null) {
+        executor.close();
+      }
     }
   }
 }

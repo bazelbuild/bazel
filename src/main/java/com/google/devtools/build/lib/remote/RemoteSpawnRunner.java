@@ -577,12 +577,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     try (SilentCloseable c = Profiler.instance().profile(UPLOAD_TIME, "upload outputs")) {
       remoteExecutionService.uploadOutputs(action, result);
-    } catch (IOException e) {
-      if (verboseFailures) {
-        report(Event.debug("Upload to remote cache failed: " + e.getMessage()));
-      } else {
-        reportOnce(Event.warn("Some artifacts failed be uploaded to the remote cache."));
-      }
     }
     return result;
   }
