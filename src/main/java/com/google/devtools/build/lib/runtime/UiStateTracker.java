@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Comparators;
@@ -28,6 +27,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachingActionEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
@@ -55,6 +56,8 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
@@ -360,6 +363,8 @@ final class UiStateTracker {
   }
 
   private final Map<Artifact, ActionState> activeActions;
+  private final AtomicInteger activeActionUploads = new AtomicInteger(0);
+  private final AtomicInteger activeActionDownloads = new AtomicInteger(0);
 
   // running downloads are identified by the original URL they were trying to access.
   private final Deque<String> runningDownloads;
@@ -392,7 +397,7 @@ final class UiStateTracker {
   // Set of build event protocol transports that need yet to be closed.
   private final Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
   // The point in time when closing of BEP transports was started.
-  private long bepTransportClosingStartTimeMillis;
+  private Instant buildCompleteAt;
 
   UiStateTracker(Clock clock, int targetWidth) {
     this.activeActions = new ConcurrentHashMap<>();
@@ -472,8 +477,7 @@ final class UiStateTracker {
 
   void buildComplete(BuildCompleteEvent event) {
     buildComplete = true;
-    // Build event protocol transports are closed right after the build complete event.
-    bepTransportClosingStartTimeMillis = clock.currentTimeMillis();
+    buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
 
     if (event.getResult().getSuccess()) {
       status = "INFO";
@@ -621,6 +625,14 @@ final class UiStateTracker {
     if (executionProgressReceiver != null) {
       executionProgressReceiver.actionCompleted(event.getActionLookupData());
     }
+  }
+
+  void actionUploadStarted(ActionUploadStartedEvent event) {
+    activeActionUploads.incrementAndGet();
+  }
+
+  void actionUploadFinished(ActionUploadFinishedEvent event) {
+    activeActionUploads.decrementAndGet();
   }
 
   /** From a string, take a suffix of at most the given length. */
@@ -990,8 +1002,11 @@ final class UiStateTracker {
     bepOpenTransports.remove(event.transport());
   }
 
-  synchronized int pendingTransports() {
-    return bepOpenTransports.size();
+  synchronized boolean hasActivities() {
+    return !(buildComplete
+        && bepOpenTransports.isEmpty()
+        && activeActionUploads.get() == 0
+        && activeActionDownloads.get() == 0);
   }
 
   /**
@@ -1006,7 +1021,7 @@ final class UiStateTracker {
     if (runningDownloads.size() >= 1) {
       return true;
     }
-    if (buildComplete && !bepOpenTransports.isEmpty()) {
+    if (buildComplete && hasActivities()) {
       return true;
     }
     if (status != null) {
@@ -1129,6 +1144,55 @@ final class UiStateTracker {
   }
 
   /**
+   * Display any action uploads/downloads that are still active after the build. Most likely,
+   * because upload/download takes longer than the build itself.
+   */
+  private void maybeReportActiveUploadsOrDownloads(PositionAwareAnsiTerminalWriter terminalWriter)
+      throws IOException {
+    int uploads = activeActionUploads.get();
+    int downloads = activeActionDownloads.get();
+
+    if (!buildComplete || (uploads == 0 && downloads == 0)) {
+      return;
+    }
+
+    Duration waitTime =
+        Duration.between(buildCompleteAt, Instant.ofEpochMilli(clock.currentTimeMillis()));
+    if (waitTime.getSeconds() == 0) {
+      // Special case for when bazel was interrupted, in which case we don't want to have a message.
+      return;
+    }
+
+    String suffix = "";
+    if (waitTime.compareTo(Duration.ofSeconds(SHOW_TIME_THRESHOLD_SECONDS)) > 0) {
+      suffix = "; " + waitTime.getSeconds() + "s";
+    }
+
+    String message = "Waiting for remote cache: ";
+    if (uploads != 0) {
+      if (uploads == 1) {
+        message += "1 upload";
+      } else {
+        message += uploads + " uploads";
+      }
+    }
+
+    if (downloads != 0) {
+      if (uploads != 0) {
+        message += ", ";
+      }
+
+      if (downloads == 1) {
+        message += "1 download";
+      } else {
+        message += downloads + " downloads";
+      }
+    }
+
+    terminalWriter.newline().append(message).append(suffix);
+  }
+
+  /**
    * Display any BEP transports that are still open after the build. Most likely, because uploading
    * build events takes longer than the build itself.
    */
@@ -1137,9 +1201,9 @@ final class UiStateTracker {
     if (!buildComplete || bepOpenTransports.isEmpty()) {
       return;
     }
-    long sinceSeconds =
-        MILLISECONDS.toSeconds(clock.currentTimeMillis() - bepTransportClosingStartTimeMillis);
-    if (sinceSeconds == 0) {
+    Duration waitTime =
+        Duration.between(buildCompleteAt, Instant.ofEpochMilli(clock.currentTimeMillis()));
+    if (waitTime.getSeconds() == 0) {
       // Special case for when bazel was interrupted, in which case we don't want to have
       // a BEP upload message.
       return;
@@ -1150,17 +1214,17 @@ final class UiStateTracker {
 
     String waitMessage = "Waiting for build events upload: ";
     String name = bepOpenTransports.iterator().next().name();
-    String line = waitMessage + name + " " + sinceSeconds + "s";
+    String line = waitMessage + name + " " + waitTime.getSeconds() + "s";
 
     if (count == 1 && line.length() <= maxWidth) {
       terminalWriter.newline().append(line);
     } else if (count == 1) {
       waitMessage = "Waiting for: ";
-      String waitSecs = " " + sinceSeconds + "s";
+      String waitSecs = " " + waitTime.getSeconds() + "s";
       int maxNameWidth = maxWidth - waitMessage.length() - waitSecs.length();
       terminalWriter.newline().append(waitMessage + shortenedString(name, maxNameWidth) + waitSecs);
     } else {
-      terminalWriter.newline().append(waitMessage + sinceSeconds + "s");
+      terminalWriter.newline().append(waitMessage + waitTime.getSeconds() + "s");
       for (BuildEventTransport transport : bepOpenTransports) {
         name = "  " + transport.name();
         terminalWriter.newline().append(shortenedString(name, maxWidth));
@@ -1197,6 +1261,7 @@ final class UiStateTracker {
       }
       if (!shortVersion) {
         reportOnDownloads(terminalWriter);
+        maybeReportActiveUploadsOrDownloads(terminalWriter);
         maybeReportBepTransports(terminalWriter);
       }
       return;
@@ -1269,6 +1334,7 @@ final class UiStateTracker {
     }
     if (!shortVersion) {
       reportOnDownloads(terminalWriter);
+      maybeReportActiveUploadsOrDownloads(terminalWriter);
       maybeReportBepTransports(terminalWriter);
     }
   }

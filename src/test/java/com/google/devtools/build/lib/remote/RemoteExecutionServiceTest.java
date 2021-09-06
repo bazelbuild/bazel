@@ -153,7 +153,7 @@ public class RemoteExecutionServiceTest {
     checkNotNull(stderr.getParentDirectory()).createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
 
-    cache = spy(new InMemoryRemoteCache(remoteOptions, digestUtil));
+    cache = spy(new InMemoryRemoteCache(reporter, remoteOptions, digestUtil));
     executor = mock(RemoteExecutionClient.class);
 
     RequestMetadata metadata =

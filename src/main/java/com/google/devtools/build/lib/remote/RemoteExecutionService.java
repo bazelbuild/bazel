@@ -65,6 +65,7 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -262,6 +263,11 @@ public class RemoteExecutionService {
       return remoteActionExecutionContext;
     }
 
+    /** Returns the {@link ActionExecutionMetadata} that owns this action. */
+    public ActionExecutionMetadata getOwner() {
+      return spawn.getResourceOwner();
+    }
+
     /**
      * Returns the sum of file sizes plus protobuf sizes used to represent the inputs of this
      * action.
@@ -381,7 +387,7 @@ public class RemoteExecutionService {
         TracingMetadataUtils.buildMetadata(
             buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
     RemoteActionExecutionContext remoteActionExecutionContext =
-        RemoteActionExecutionContext.createForSpawn(spawn, metadata);
+        RemoteActionExecutionContext.create(spawn, metadata);
 
     return new RemoteAction(
         spawn,

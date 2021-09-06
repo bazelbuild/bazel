@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -65,6 +67,7 @@ public class RemoteActionInputFetcherTest {
 
   private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
+  private final Reporter reporter = new Reporter(new EventBus());
   private Path execRoot;
   private ArtifactRoot artifactRoot;
   private RemoteOptions options;
@@ -385,13 +388,14 @@ public class RemoteActionInputFetcherTest {
     return a;
   }
 
-  private static RemoteCache newCache(
+  private RemoteCache newCache(
       RemoteOptions options, DigestUtil digestUtil, Map<Digest, ByteString> cacheEntries) {
     Map<Digest, byte[]> cacheEntriesByteArray =
         Maps.newHashMapWithExpectedSize(cacheEntries.size());
     for (Map.Entry<Digest, ByteString> entry : cacheEntries.entrySet()) {
       cacheEntriesByteArray.put(entry.getKey(), entry.getValue().toByteArray());
     }
-    return new RemoteCache(new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil);
+    return new RemoteCache(
+        reporter, new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil);
   }
 }

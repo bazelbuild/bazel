@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionProgressEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
@@ -1407,5 +1409,60 @@ public class UiStateTrackerTest extends FoundationTestCase {
     public boolean isFinished() {
       return false;
     }
+  }
+
+  @Test
+  public void waitingRemoteCacheMessage_beforeBuildComplete_invisible() throws IOException {
+    ManualClock clock = new ManualClock();
+    Action action = mockAction("Some action", "foo");
+    UiStateTracker stateTracker = new UiStateTracker(clock);
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    stateTracker.writeProgressBar(terminalWriter);
+
+    String output = terminalWriter.getTranscript();
+    assertThat(output).doesNotContain("1 upload");
+  }
+
+  @Test
+  public void waitingRemoteCacheMessage_afterBuildComplete_visible() throws IOException {
+    ManualClock clock = new ManualClock();
+    Action action = mockAction("Some action", "foo");
+    UiStateTracker stateTracker = new UiStateTracker(clock);
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
+    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
+    buildResult.setStopTime(clock.currentTimeMillis());
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    clock.advanceMillis(Duration.ofSeconds(2).toMillis());
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    stateTracker.writeProgressBar(terminalWriter);
+
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("1 upload");
+  }
+
+  @Test
+  public void waitingRemoteCacheMessage_multipleUploadEvents_countCorrectly() throws IOException {
+    ManualClock clock = new ManualClock();
+    Action action = mockAction("Some action", "foo");
+    UiStateTracker stateTracker = new UiStateTracker(clock);
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "a"));
+    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
+    buildResult.setStopTime(clock.currentTimeMillis());
+    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "b"));
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "c"));
+    stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, "a"));
+    clock.advanceMillis(Duration.ofSeconds(2).toMillis());
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+
+    stateTracker.writeProgressBar(terminalWriter);
+
+    String output = terminalWriter.getTranscript();
+    assertThat(output).contains("2 uploads");
   }
 }
