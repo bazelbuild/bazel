@@ -36,25 +36,39 @@ public abstract class RepositoryMapping {
 
   abstract ImmutableMap<RepositoryName, RepositoryName> repositoryMapping();
 
-  abstract boolean fallback();
+  /**
+   * The owner repo of this repository mapping. It is for providing useful debug information when
+   * repository mapping fails due to enforcing strict dependency, therefore it's only recorded when
+   * we don't fallback to the requested repo name.
+   */
+  @Nullable
+  abstract String ownerRepo();
 
-  public static RepositoryMapping create(Map<RepositoryName, RepositoryName> repositoryMapping) {
+  public static RepositoryMapping create(
+      Map<RepositoryName, RepositoryName> repositoryMapping, String ownerRepo) {
     return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ false);
+        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), ownerRepo);
   }
 
   public static RepositoryMapping createAllowingFallback(
       Map<RepositoryName, RepositoryName> repositoryMapping) {
     return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), /* fallback= */ true);
+        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), null);
   }
 
-  @Nullable
   public RepositoryName get(RepositoryName repositoryName) {
-    if (fallback()) {
+    // 1. Default repo ("") should always map to default repo
+    // 2. @bazel_tools is a special repo that should be visible to all repositories.
+    if (repositoryName.equals(RepositoryName.DEFAULT)
+        || repositoryName.equals(RepositoryName.BAZEL_TOOLS)) {
+      return repositoryName;
+    }
+    // If the owner repo is not present, that means we should fallback to the requested repo name.
+    if (ownerRepo() == null) {
       return repositoryMapping().getOrDefault(repositoryName, repositoryName);
     } else {
-      return repositoryMapping().get(repositoryName);
+      return repositoryMapping()
+          .getOrDefault(repositoryName, repositoryName.toNonVisible(ownerRepo()));
     }
   }
 }

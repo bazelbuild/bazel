@@ -39,9 +39,11 @@ public final class RepositoryMappingTest {
   public void neverFallback() throws Exception {
     RepositoryMapping mapping =
         RepositoryMapping.create(
-            ImmutableMap.of(RepositoryName.create("@A"), RepositoryName.create("@com_foo_bar_a")));
+            ImmutableMap.of(RepositoryName.create("@A"), RepositoryName.create("@com_foo_bar_a")),
+            "fake_owner_repo");
     assertThat(mapping.get(RepositoryName.create("@A")))
         .isEqualTo(RepositoryName.create("@com_foo_bar_a"));
-    assertThat(mapping.get(RepositoryName.create("@B"))).isNull();
+    assertThat(mapping.get(RepositoryName.create("@B")))
+        .isEqualTo(RepositoryName.create("@B").toNonVisible("fake_owner_repo"));
   }
 }

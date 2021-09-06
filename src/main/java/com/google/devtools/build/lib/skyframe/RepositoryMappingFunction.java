@@ -81,7 +81,8 @@ public class RepositoryMappingFunction implements SkyFunction {
       return Optional.empty();
     }
     Module module = selectionValue.getDepGraph().get(moduleKey);
-    return Optional.of(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO));
+    return Optional.of(
+        module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO, moduleKey));
   }
 
   private SkyValue computeFromWorkspace(

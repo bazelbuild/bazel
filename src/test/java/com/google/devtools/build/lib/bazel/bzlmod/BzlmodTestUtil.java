@@ -36,14 +36,14 @@ public final class BzlmodTestUtil {
     }
   }
 
-  public static RepositoryMapping createRepositoryMapping(String... names) {
+  public static RepositoryMapping createRepositoryMapping(ModuleKey key, String... names) {
     ImmutableMap.Builder<RepositoryName, RepositoryName> mappingBuilder = ImmutableMap.builder();
     for (int i = 0; i < names.length; i += 2) {
       mappingBuilder.put(
           RepositoryName.createFromValidStrippedName(names[i]),
           RepositoryName.createFromValidStrippedName(names[i + 1]));
     }
-    return RepositoryMapping.createAllowingFallback(mappingBuilder.build());
+    return RepositoryMapping.create(mappingBuilder.build(), key.getCanonicalRepoName());
   }
 
   public static TagClass createTagClass(Attribute... attrs) {

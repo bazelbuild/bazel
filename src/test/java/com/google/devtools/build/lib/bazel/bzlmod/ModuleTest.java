@@ -86,8 +86,11 @@ public class ModuleTest {
 
   @Test
   public void getRepoMapping() throws Exception {
+    ModuleKey key = createModuleKey("test_module", "1.0");
     Module module =
         Module.builder()
+            .setName(key.getName())
+            .setVersion(key.getVersion())
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))
             .addDep("my_root", ModuleKey.ROOT)
@@ -99,12 +102,24 @@ public class ModuleTest {
                     .setImports(ImmutableBiMap.of("my_guava", "guava"))
                     .build())
             .build();
-    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY))
-        .isEqualTo(
-            createRepositoryMapping("my_foo", "foo.1.0", "my_bar", "bar.2.0", "my_root", ""));
-    assertThat(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO))
+    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, key))
         .isEqualTo(
             createRepositoryMapping(
+                key,
+                "test_module",
+                "test_module.1.0",
+                "my_foo",
+                "foo.1.0",
+                "my_bar",
+                "bar.2.0",
+                "my_root",
+                ""));
+    assertThat(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO, key))
+        .isEqualTo(
+            createRepositoryMapping(
+                key,
+                "test_module",
+                "test_module.1.0",
                 "my_foo",
                 "foo.1.0",
                 "my_bar",
@@ -113,5 +128,21 @@ public class ModuleTest {
                 "",
                 "my_guava",
                 "maven.guava"));
+  }
+
+  @Test
+  public void getRepoMapping_asMainModule() throws Exception {
+    ModuleKey key = ModuleKey.ROOT;
+    Module module =
+        Module.builder()
+            .setName("test_module")
+            .setVersion(Version.parse("1.0"))
+            .addDep("my_foo", createModuleKey("foo", "1.0"))
+            .addDep("my_bar", createModuleKey("bar", "2.0"))
+            .build();
+    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, key))
+        .isEqualTo(
+            createRepositoryMapping(
+                key, "", "", "test_module", "", "my_foo", "foo.1.0", "my_bar", "bar.2.0"));
   }
 }

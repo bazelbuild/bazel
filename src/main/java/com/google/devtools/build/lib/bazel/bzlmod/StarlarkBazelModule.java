@@ -100,7 +100,7 @@ public class StarlarkBazelModule implements StarlarkValue {
     LabelConversionContext labelConversionContext =
         new LabelConversionContext(
             moduleRootLabel,
-            module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY),
+            module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, moduleKey),
             /* convertedLabelsInPackage= */ new HashMap<>());
     ImmutableListMultimap.Builder<String, TypeCheckedTag> typeCheckedTags =
         ImmutableListMultimap.builder();

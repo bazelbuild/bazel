@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildTag;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createTagClass;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
@@ -62,7 +63,7 @@ public class TypeCheckedTagTest {
                 .build(),
             new LabelConversionContext(
                 Label.parseAbsoluteUnchecked("@myrepo//mypkg:defs.bzl"),
-                createRepositoryMapping("repo", "other_repo"),
+                createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo"),
                 new HashMap<>()));
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(typeCheckedTag.getValue("foo"))
