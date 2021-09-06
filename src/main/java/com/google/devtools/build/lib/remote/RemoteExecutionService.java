@@ -1039,7 +1039,7 @@ public class RemoteExecutionService {
    *
    * <p>Must be called before calling {@link #executeRemotely}.
    */
-  public void uploadInputsIfNotPresent(RemoteAction action)
+  public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
       throws IOException, InterruptedException {
     checkState(mayBeExecutedRemotely(action.spawn), "spawn can't be executed remotely");
 
@@ -1049,7 +1049,7 @@ public class RemoteExecutionService {
     additionalInputs.put(action.actionKey.getDigest(), action.action);
     additionalInputs.put(action.commandHash, action.command);
     remoteExecutionCache.ensureInputsPresent(
-        action.remoteActionExecutionContext, action.merkleTree, additionalInputs);
+        action.remoteActionExecutionContext, action.merkleTree, additionalInputs, force);
   }
 
   /**

@@ -233,6 +233,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
 
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
+    AtomicBoolean forceUploadInput = new AtomicBoolean(false);
     try {
       return retrier.execute(
           () -> {
@@ -240,7 +241,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
             try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
-              remoteExecutionService.uploadInputsIfNotPresent(action);
+              // Upon retry, we force upload inputs
+              remoteExecutionService.uploadInputsIfNotPresent(
+                  action, forceUploadInput.getAndSet(true));
+
               // subtract network time consumed here to ensure wall clock during upload is not
               // double
               // counted, and metrics time computation does not exceed total time

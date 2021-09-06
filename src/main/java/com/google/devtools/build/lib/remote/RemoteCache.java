@@ -23,6 +23,7 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -31,7 +32,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -40,7 +40,9 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxFutures;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import io.reactivex.rxjava3.core.Completable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -62,14 +65,10 @@ import java.util.regex.Pattern;
 public class RemoteCache implements AutoCloseable {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /** See {@link SpawnExecutionContext#lockOutputFiles()}. */
-  @FunctionalInterface
-  interface OutputFilesLocker {
-    void lock() throws InterruptedException;
-  }
-
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
+
+  protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
@@ -88,11 +87,19 @@ public class RemoteCache implements AutoCloseable {
     return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));
   }
 
+  /**
+   * Returns a set of digests that the remote cache does not know about. The returned set is
+   * guaranteed to be a subset of {@code digests}.
+   */
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
+    if (Iterables.isEmpty(digests)) {
+      return Futures.immediateFuture(ImmutableSet.of());
+    }
     return cacheProtocol.findMissingDigests(context, digests);
   }
 
+  /** Upload the action result to the remote cache. */
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     return cacheProtocol.uploadActionResult(context, actionKey, actionResult);
@@ -100,6 +107,9 @@ public class RemoteCache implements AutoCloseable {
 
   /**
    * Upload a local file to the remote cache.
+   *
+   * <p>Trying to upload the same file multiple times concurrently, results in only one upload being
+   * performed.
    *
    * @param context the context for the action.
    * @param digest the digest of the file.
@@ -111,11 +121,19 @@ public class RemoteCache implements AutoCloseable {
       return COMPLETED_SUCCESS;
     }
 
-    return cacheProtocol.uploadFile(context, digest, file);
+    Completable upload =
+        casUploadCache.executeIfNot(
+            digest,
+            RxFutures.toCompletable(
+                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()));
+    return RxFutures.toListenableFuture(upload);
   }
 
   /**
    * Upload sequence of bytes to the remote cache.
+   *
+   * <p>Trying to upload the same BLOB multiple times concurrently, results in only one upload being
+   * performed.
    *
    * @param context the context for the action.
    * @param digest the digest of the file.
@@ -127,7 +145,12 @@ public class RemoteCache implements AutoCloseable {
       return COMPLETED_SUCCESS;
     }
 
-    return cacheProtocol.uploadBlob(context, digest, data);
+    Completable upload =
+        casUploadCache.executeIfNot(
+            digest,
+            RxFutures.toCompletable(
+                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()));
+    return RxFutures.toListenableFuture(upload);
   }
 
   public static void waitForBulkTransfer(

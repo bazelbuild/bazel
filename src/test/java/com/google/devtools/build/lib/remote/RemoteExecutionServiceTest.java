@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
@@ -68,6 +69,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
@@ -75,6 +77,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
+import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -91,7 +94,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -99,6 +107,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RemoteExecutionService}. */
 @RunWith(JUnit4.class)
 public class RemoteExecutionServiceTest {
+  @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
+
   private final DigestUtil digestUtil = new DigestUtil(DigestHashFunction.SHA256);
 
   RemoteOptions remoteOptions;
@@ -108,6 +118,7 @@ public class RemoteExecutionServiceTest {
   private RemotePathResolver remotePathResolver;
   private FileOutErr outErr;
   private InMemoryRemoteCache cache;
+  private RemoteExecutionClient executor;
   private RemoteActionExecutionContext remoteActionExecutionContext;
 
   @Before
@@ -130,6 +141,7 @@ public class RemoteExecutionServiceTest {
     outErr = new FileOutErr(stdout, stderr);
 
     cache = new InMemoryRemoteCache(remoteOptions, digestUtil);
+    executor = mock(RemoteExecutionClient.class);
 
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
@@ -1258,6 +1270,48 @@ public class RemoteExecutionServiceTest {
         .containsExactly(emptyDigest);
   }
 
+  @Test
+  public void uploadInputsIfNotPresent_deduplicateFindMissingBlobCalls() throws Exception {
+    int taskCount = 100;
+    ExecutorService executorService = Executors.newFixedThreadPool(taskCount);
+    AtomicReference<Throwable> error = new AtomicReference<>(null);
+    Semaphore semaphore = new Semaphore(0);
+    ActionInput input = ActionInputHelper.fromPath("inputs/foo");
+    Digest inputDigest = fakeFileCache.createScratchInput(input, "input-foo");
+    RemoteExecutionService service = newRemoteExecutionService();
+
+    for (int i = 0; i < taskCount; ++i) {
+      executorService.execute(
+          () -> {
+            try {
+              Spawn spawn =
+                  newSpawn(
+                      ImmutableMap.of(),
+                      ImmutableSet.of(),
+                      NestedSetBuilder.create(Order.STABLE_ORDER, input));
+              FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+              RemoteAction action = service.buildRemoteAction(spawn, context);
+
+              service.uploadInputsIfNotPresent(action, /*force=*/ false);
+            } catch (Throwable e) {
+              if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+              }
+              error.set(e);
+            } finally {
+              semaphore.release();
+            }
+          });
+    }
+    semaphore.acquire(taskCount);
+
+    assertThat(error.get()).isNull();
+    assertThat(cache.getNumFindMissingDigests()).containsEntry(inputDigest, 1);
+    for (Integer num : cache.getNumFindMissingDigests().values()) {
+      assertThat(num).isEqualTo(1);
+    }
+  }
+
   private Spawn newSpawnFromResult(RemoteActionResult result) {
     return newSpawnFromResult(ImmutableMap.of(), result);
   }
@@ -1304,12 +1358,19 @@ public class RemoteExecutionServiceTest {
 
   private Spawn newSpawn(
       ImmutableMap<String, String> executionInfo, ImmutableSet<Artifact> outputs) {
+    return newSpawn(executionInfo, outputs, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+  }
+
+  private Spawn newSpawn(
+      ImmutableMap<String, String> executionInfo,
+      ImmutableSet<Artifact> outputs,
+      NestedSet<? extends ActionInput> inputs) {
     return new SimpleSpawn(
         new FakeOwner("foo", "bar", "//dummy:label"),
         /*arguments=*/ ImmutableList.of(),
         /*environment=*/ ImmutableMap.of(),
         /*executionInfo=*/ executionInfo,
-        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /*inputs=*/ inputs,
         /*outputs=*/ outputs,
         ResourceSet.ZERO);
   }
@@ -1346,7 +1407,7 @@ public class RemoteExecutionServiceTest {
         digestUtil,
         remoteOptions,
         cache,
-        null,
+        executor,
         ImmutableSet.copyOf(topLevelOutputs),
         null);
   }
