@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.common;
 
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import java.io.IOException;
 
 /**
@@ -22,13 +21,13 @@ import java.io.IOException;
  * a trace point for the actual transfer, so that the intended operation can be observed in a stack,
  * with all constituent exceptions available for observation.
  */
-class BulkTransferException extends IOException {
+public class BulkTransferException extends IOException {
   // true since no empty BulkTransferException is ever thrown
   private boolean allCacheNotFoundException = true;
 
-  BulkTransferException() {}
+  public BulkTransferException() {}
 
-  BulkTransferException(IOException e) {
+  public BulkTransferException(IOException e) {
     add(e);
   }
 
@@ -38,16 +37,16 @@ class BulkTransferException extends IOException {
    * <p>The Java standard addSuppressed is final and this method stands in its place to selectively
    * filter and record whether all suppressed exceptions are CacheNotFoundExceptions
    */
-  void add(IOException e) {
+  public void add(IOException e) {
     allCacheNotFoundException &= e instanceof CacheNotFoundException;
     super.addSuppressed(e);
   }
 
-  boolean onlyCausedByCacheNotFoundException() {
+  public boolean onlyCausedByCacheNotFoundException() {
     return allCacheNotFoundException;
   }
 
-  static boolean isOnlyCausedByCacheNotFoundException(Exception e) {
+  public static boolean isOnlyCausedByCacheNotFoundException(Exception e) {
     return e instanceof BulkTransferException
         && ((BulkTransferException) e).onlyCausedByCacheNotFoundException();
   }

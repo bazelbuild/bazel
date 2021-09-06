@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteAction;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.Utils;
