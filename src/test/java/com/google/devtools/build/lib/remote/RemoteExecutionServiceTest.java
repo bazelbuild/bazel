@@ -263,7 +263,7 @@ public class RemoteExecutionServiceTest {
     // Test that downloading an empty output directory works.
 
     // arrange
-    Tree barTreeMessage = Tree.newBuilder().setRoot(Directory.newBuilder()).build();
+    Tree barTreeMessage = Tree.newBuilder().setRoot(Directory.getDefaultInstance()).build();
     Digest barTreeDigest =
         cache.addContents(remoteActionExecutionContext, barTreeMessage.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -520,7 +520,7 @@ public class RemoteExecutionServiceTest {
   public void downloadOutputs_onFailure_maintainDirectories() throws Exception {
     // Test that output directories are not deleted on download failure. See
     // https://github.com/bazelbuild/bazel/issues/6260.
-    Tree tree = Tree.newBuilder().setRoot(Directory.newBuilder()).build();
+    Tree tree = Tree.newBuilder().setRoot(Directory.getDefaultInstance()).build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     Digest outputFileDigest =
         cache.addException("outputdir/outputfile", new IOException("download failed"));
