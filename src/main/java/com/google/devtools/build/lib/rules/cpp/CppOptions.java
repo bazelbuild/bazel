@@ -1045,7 +1045,6 @@ public class CppOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = {
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
         OptionMetadataTag.INCOMPATIBLE_CHANGE,
         OptionMetadataTag.EXPERIMENTAL,
       },
