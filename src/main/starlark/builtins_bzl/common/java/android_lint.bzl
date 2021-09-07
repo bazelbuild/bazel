@@ -15,6 +15,7 @@
 """Creates the android lint action for java rules"""
 
 load(":common/rule_util.bzl", "create_dep")
+load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 
@@ -99,7 +100,7 @@ def _impl(ctx, java_info, source_files, source_jars, compilation_info):
     args.use_param_file(param_file_arg = "@%s", use_always = True)
     ctx.actions.run(
         mnemonic = "AndroidLint",
-        progress_message = "Running Android Lint for: %{label}",
+        progress_message = semantics.LINT_PROGRESS_MESSAGE,
         executable = executable,
         inputs = depset(
             source_files + source_jars,

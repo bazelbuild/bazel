@@ -60,6 +60,7 @@ semantics = struct(
         "sh_library",
     ],
     ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
+    LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
     macro_preprocess = _macro_preprocess,
     check_rule = _check_rule,
     check_dependency_rule_kinds = _check_dependency_rule_kinds,
