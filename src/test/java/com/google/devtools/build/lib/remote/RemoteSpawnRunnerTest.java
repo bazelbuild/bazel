@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -1034,6 +1035,7 @@ public class RemoteSpawnRunnerTest {
     executionOptions.materializeParamFiles = true;
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
+            directExecutor(),
             reporter,
             /*verboseFailures=*/ true,
             execRoot,
@@ -1570,6 +1572,7 @@ public class RemoteSpawnRunnerTest {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
+                directExecutor(),
                 reporter,
                 /*verboseFailures=*/ true,
                 execRoot,

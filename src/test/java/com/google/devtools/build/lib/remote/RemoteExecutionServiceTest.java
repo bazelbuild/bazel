@@ -14,6 +14,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
@@ -1437,6 +1438,7 @@ public class RemoteExecutionServiceTest {
   private RemoteExecutionService newRemoteExecutionService(
       RemoteOptions remoteOptions, Collection<? extends ActionInput> topLevelOutputs) {
     return new RemoteExecutionService(
+        directExecutor(),
         reporter,
         /*verboseFailures=*/ true,
         execRoot,

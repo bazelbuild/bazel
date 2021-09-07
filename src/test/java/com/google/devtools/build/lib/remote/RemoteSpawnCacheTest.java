@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -207,6 +208,7 @@ public class RemoteSpawnCacheTest {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
+                directExecutor(),
                 reporter,
                 /*verboseFailures=*/ true,
                 execRoot,

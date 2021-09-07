@@ -116,6 +116,7 @@ import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
 import io.reactivex.rxjava3.annotations.NonNull;
+import io.reactivex.rxjava3.core.Scheduler;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
@@ -132,6 +133,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeSet;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -153,10 +155,13 @@ public class RemoteExecutionService {
   private final ImmutableSet<PathFragment> filesToDownload;
   @Nullable private final Path captureCorruptedOutputsDir;
 
+  private final Scheduler scheduler;
+
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
   public RemoteExecutionService(
+      Executor executor,
       Reporter reporter,
       boolean verboseFailures,
       Path execRoot,
@@ -185,6 +190,8 @@ public class RemoteExecutionService {
     }
     this.filesToDownload = filesToDownloadBuilder.build();
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
+
+    this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
   }
 
   static Command buildCommand(
@@ -1065,7 +1072,7 @@ public class RemoteExecutionService {
                 remoteCache ->
                     manifest.uploadAsync(action.getRemoteActionExecutionContext(), remoteCache),
                 RemoteCache::release)
-            .subscribeOn(Schedulers.io())
+            .subscribeOn(scheduler)
             .subscribe(
                 new SingleObserver<ActionResult>() {
                   @Override

@@ -42,6 +42,7 @@ java_library(
         ":ExecutionStatusException",
         ":ReferenceCountedChannel",
         ":Retrier",
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
