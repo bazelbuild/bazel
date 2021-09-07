@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -100,5 +102,22 @@ public class WorkerFactoryTest {
     Worker proxiedWorker2 = workerFactory.create(workerKey2);
     assertThat(proxiedWorker1a.getLogFile()).isEqualTo(proxiedWorker1b.getLogFile());
     assertThat(proxiedWorker1a.getLogFile()).isNotEqualTo(proxiedWorker2.getLogFile());
+  }
+
+  /** WorkerFactory should create the base dir if needed and fail if that's impossible. */
+  @Test
+  public void testCreate_createsWorkerDirectory() throws Exception {
+    Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
+    final WorkerOptions workerOptions = new WorkerOptions();
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
+    WorkerKey sandboxedWorkerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
+    assertThat(workerBaseDir.isDirectory()).isFalse();
+    workerFactory.create(sandboxedWorkerKey);
+    assertThat(workerBaseDir.isDirectory()).isTrue();
+
+    workerBaseDir.delete();
+    workerBaseDir.createSymbolicLink(workerBaseDir.getRelative("whatevs"));
+    assertThat(workerBaseDir.isDirectory()).isFalse();
+    assertThrows(IOException.class, () -> workerFactory.create(sandboxedWorkerKey));
   }
 }

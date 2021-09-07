@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
@@ -50,9 +51,18 @@ class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
   }
 
   @Override
-  public Worker create(WorkerKey key) {
+  public Worker create(WorkerKey key) throws IOException {
     int workerId = pidCounter.getAndIncrement();
     String workTypeName = key.getWorkerTypeName();
+    if (!workerBaseDir.isDirectory()) {
+      try {
+        workerBaseDir.createDirectoryAndParents();
+      } catch (IOException e) {
+        System.err.println(
+            "Can't create worker dir, there is a " + workerBaseDir.stat() + " there.");
+      }
+    }
+
     Path logFile =
         workerBaseDir.getRelative(workTypeName + "-" + workerId + "-" + key.getMnemonic() + ".log");
 

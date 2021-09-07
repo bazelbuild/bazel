@@ -86,8 +86,8 @@ public class WorkerModule extends BlazeModule {
 
     WorkerFactory newWorkerFactory = new WorkerFactory(workerDir, options.workerSandboxing);
     if (!newWorkerFactory.equals(workerFactory)) {
-      try {
-        if (!workerDir.createDirectory()) {
+      if (workerDir.exists()) {
+        try {
           // Clean out old log files.
           for (Path logFile : workerDir.getDirectoryEntries()) {
             if (logFile.getBaseName().endsWith(".log")) {
@@ -96,21 +96,21 @@ public class WorkerModule extends BlazeModule {
               } catch (IOException e) {
                 env.getReporter()
                     .handle(
-                        Event.error(
+                        Event.warn(
                             String.format(
                                 "Could not delete old worker log '%s': %s",
                                 logFile, e.getMessage())));
               }
             }
           }
+        } catch (IOException e) {
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      String.format(
+                          "Could not delete old worker logs in '%s': %s",
+                          workerDir, e.getMessage())));
         }
-      } catch (IOException e) {
-        env.getReporter()
-            .handle(
-                Event.error(
-                    String.format(
-                        "Could not create worker base directory '%s': %s",
-                        workerDir, e.getMessage())));
       }
 
       shutdownPool(
