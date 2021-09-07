@@ -153,6 +153,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("LOCAL_CONFIG_PLATFORM");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
+  public static final SkyFunctionName BUILD_DRIVER =
+      SkyFunctionName.createNonHermetic("BUILD_DRIVER");
   public static final SkyFunctionName DISCOVERY = SkyFunctionName.createHermetic("DISCOVERY");
   public static final SkyFunctionName SELECTION = SkyFunctionName.createHermetic("SELECTION");
 
