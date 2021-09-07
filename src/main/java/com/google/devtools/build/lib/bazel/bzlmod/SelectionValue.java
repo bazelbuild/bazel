@@ -35,7 +35,10 @@ public abstract class SelectionValue implements SkyValue {
     return new AutoValue_SelectionValue(depGraph, canonicalRepoNameLookup, moduleNameLookup);
   }
 
-  /** The post-selection dep graph. Must have BFS iteration order, starting from the root module. */
+  /**
+   * The post-selection dep graph. Must have BFS iteration order, starting from the root module. For
+   * any KEY in the returned map, it's guaranteed that {@code depGraph[KEY].getKey() == KEY}.
+   */
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
 
   /** A mapping from a canonical repo name to the key of the module backing it. */

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -148,9 +147,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
     ImmutableList.Builder<String> executionPlatforms = ImmutableList.builder();
     try {
-      for (Map.Entry<ModuleKey, Module> dep : selectionValue.getDepGraph().entrySet()) {
-        executionPlatforms.addAll(
-            dep.getValue().getCanonicalizedExecutionPlatformsToRegister(dep.getKey()));
+      for (Module module : selectionValue.getDepGraph().values()) {
+        executionPlatforms.addAll(module.getCanonicalizedExecutionPlatformsToRegister());
       }
     } catch (ExternalDepsException e) {
       throw new RegisteredExecutionPlatformsFunctionException(e, Transience.PERSISTENT);

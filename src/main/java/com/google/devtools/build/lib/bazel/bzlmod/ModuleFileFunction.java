@@ -93,10 +93,15 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     ModuleFileGlobals moduleFileGlobals =
-        execModuleFile(getModuleFileResult.moduleFileContents, moduleKey, starlarkSemantics, env);
+        execModuleFile(
+            getModuleFileResult.moduleFileContents,
+            getModuleFileResult.registry,
+            moduleKey,
+            starlarkSemantics,
+            env);
 
     // Perform some sanity checks.
-    Module module = moduleFileGlobals.buildModule(getModuleFileResult.registry);
+    Module module = moduleFileGlobals.buildModule();
     if (!module.getName().equals(moduleKey.getName())) {
       throw errorf(
           Code.BAD_MODULE,
@@ -128,8 +133,8 @@ public class ModuleFileFunction implements SkyFunction {
     }
     byte[] moduleFile = readFile(moduleFilePath.asPath());
     ModuleFileGlobals moduleFileGlobals =
-        execModuleFile(moduleFile, ModuleKey.ROOT, starlarkSemantics, env);
-    Module module = moduleFileGlobals.buildModule(null);
+        execModuleFile(moduleFile, /*registry=*/ null, ModuleKey.ROOT, starlarkSemantics, env);
+    Module module = moduleFileGlobals.buildModule();
 
     // Check that overrides don't contain the root module itself.
     ImmutableMap<String, ModuleOverride> overrides = moduleFileGlobals.buildOverrides();
@@ -150,7 +155,11 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   private ModuleFileGlobals execModuleFile(
-      byte[] moduleFile, ModuleKey moduleKey, StarlarkSemantics starlarkSemantics, Environment env)
+      byte[] moduleFile,
+      @Nullable Registry registry,
+      ModuleKey moduleKey,
+      StarlarkSemantics starlarkSemantics,
+      Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     StarlarkFile starlarkFile =
         StarlarkFile.parse(ParserInput.fromUTF8(moduleFile, moduleKey + "/MODULE.bazel"));
@@ -159,7 +168,7 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "error parsing MODULE.bazel file for %s", moduleKey);
     }
 
-    ModuleFileGlobals moduleFileGlobals = new ModuleFileGlobals();
+    ModuleFileGlobals moduleFileGlobals = new ModuleFileGlobals(moduleKey, registry);
     try (Mutability mu = Mutability.create("module file", moduleKey)) {
       net.starlark.java.eval.Module predeclaredEnv =
           getPredeclaredEnv(moduleFileGlobals, starlarkSemantics);

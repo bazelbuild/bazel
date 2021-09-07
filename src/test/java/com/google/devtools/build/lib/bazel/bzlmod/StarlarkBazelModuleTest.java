@@ -85,12 +85,12 @@ public class StarlarkBazelModuleTest {
         Module.builder()
             .setName("foo")
             .setVersion(Version.parse("1.0"))
+            .setKey(createModuleKey("foo", ""))
             .addDep("bar", createModuleKey("bar", "2.0"))
             .addExtensionUsage(usage)
             .build();
 
-    StarlarkBazelModule moduleProxy =
-        StarlarkBazelModule.create(createModuleKey("foo", ""), module, extension, usage);
+    StarlarkBazelModule moduleProxy = StarlarkBazelModule.create(module, extension, usage);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
@@ -128,13 +128,14 @@ public class StarlarkBazelModuleTest {
         Module.builder()
             .setName("foo")
             .setVersion(Version.parse("1.0"))
+            .setKey(createModuleKey("foo", ""))
             .addExtensionUsage(usage)
             .build();
 
     ExternalDepsException e =
         assertThrows(
             ExternalDepsException.class,
-            () -> StarlarkBazelModule.create(createModuleKey("foo", ""), module, extension, usage));
+            () -> StarlarkBazelModule.create(module, extension, usage));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
 }

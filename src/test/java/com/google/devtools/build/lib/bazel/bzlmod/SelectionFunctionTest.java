@@ -111,6 +111,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("BfromA", createModuleKey("B", "1.0"))
                     .addDep("CfromA", createModuleKey("C", "2.0"))
                     .build())
@@ -119,6 +120,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
                     .addDep("DfromB", createModuleKey("D", "1.0"))
                     .build())
             .put(
@@ -126,6 +128,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .addDep("DfromC", createModuleKey("D", "2.0"))
                     .build())
             .put(
@@ -133,6 +136,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("D", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -140,6 +144,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .build(),
@@ -157,6 +162,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("BfromA", createModuleKey("B", "1.0"))
                 .addDep("CfromA", createModuleKey("C", "2.0"))
                 .build(),
@@ -164,18 +170,21 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("DfromB", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("C", "2.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .addDep("DfromC", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("D", "2.0"),
             Module.builder()
                 .setName("D")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("D", "2.0"))
                 .setCompatibilityLevel(1)
                 .build())
         .inOrder();
@@ -208,6 +217,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B", createModuleKey("B", "1.0"))
                     .addDep("C", createModuleKey("C", "2.0"))
                     .build())
@@ -216,6 +226,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
                     .addDep("D", createModuleKey("D", "1.0"))
                     .build())
             .put(
@@ -223,6 +234,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .addDep("D", createModuleKey("D", "2.0"))
                     .build())
             .put(
@@ -230,16 +242,25 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("D", "1.0"))
                     .addDep("E", createModuleKey("E", "1.0"))
                     .build())
             .put(
                 createModuleKey("D", "2.0"),
-                Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+                Module.builder()
+                    .setName("D")
+                    .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("D", "2.0"))
+                    .build())
             // Only D@1.0 needs E. When D@1.0 is removed, E should be gone as well (even though
             // E@1.0 is selected for E).
             .put(
                 createModuleKey("E", "1.0"),
-                Module.builder().setName("E").setVersion(Version.parse("1.0")).build())
+                Module.builder()
+                    .setName("E")
+                    .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("E", "1.0"))
+                    .build())
             .build(),
         ImmutableMap.of());
 
@@ -255,6 +276,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .build(),
@@ -262,16 +284,22 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("D", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("C", "2.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .addDep("D", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("D", "2.0"),
-            Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+            Module.builder()
+                .setName("D")
+                .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("D", "2.0"))
+                .build())
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
@@ -302,6 +330,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B", createModuleKey("B", "1.0"))
                     .build())
             .put(
@@ -309,6 +338,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
                     .addDep("C", createModuleKey("C", "2.0"))
                     .build())
             .put(
@@ -316,6 +346,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .addDep("B", createModuleKey("B", "1.0-pre"))
                     .build())
             .put(
@@ -323,11 +354,16 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0-pre"))
+                    .setKey(createModuleKey("B", "1.0-pre"))
                     .addDep("D", createModuleKey("D", "1.0"))
                     .build())
             .put(
                 createModuleKey("D", "1.0"),
-                Module.builder().setName("D").setVersion(Version.parse("1.0")).build())
+                Module.builder()
+                    .setName("D")
+                    .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("D", "1.0"))
+                    .build())
             .build(),
         ImmutableMap.of());
 
@@ -343,18 +379,21 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "1.0"))
                 .build(),
             createModuleKey("B", "1.0"),
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .build(),
             createModuleKey("C", "2.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .addDep("B", createModuleKey("B", "1.0"))
                 .build())
         .inOrder();
@@ -384,6 +423,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("BfromA", createModuleKey("B", "1.0"))
                     .addDep("CfromA", createModuleKey("C", "2.0"))
                     .build())
@@ -392,6 +432,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
                     .addDep("DfromB", createModuleKey("D", "1.0"))
                     .build())
             .put(
@@ -399,6 +440,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .addDep("DfromC", createModuleKey("D", "2.0"))
                     .build())
             .put(
@@ -406,6 +448,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("D", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -413,6 +456,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
             .build(),
@@ -440,6 +484,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B", createModuleKey("B", "1.0"))
                     .addDep("C", createModuleKey("C", "1.0"))
                     .addDep("D", createModuleKey("D", "1.0"))
@@ -450,6 +495,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
                     .addDep("C", createModuleKey("C", "2.0"))
                     .build())
             .put(
@@ -457,6 +503,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
             .put(
@@ -464,6 +511,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("C", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -471,16 +519,22 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("D", "1.0"))
                     .addDep("B", createModuleKey("B", "1.1"))
                     .build())
             .put(
                 createModuleKey("B", "1.1"),
-                Module.builder().setName("B").setVersion(Version.parse("1.1")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("1.1"))
+                    .setKey(createModuleKey("B", "1.1"))
+                    .build())
             .put(
                 createModuleKey("E", "1.0"),
                 Module.builder()
                     .setName("E")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("E", "1.0"))
                     .addDep("C", createModuleKey("C", "1.1"))
                     .build())
             .put(
@@ -488,6 +542,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.1"))
+                    .setKey(createModuleKey("C", "1.1"))
                     .setCompatibilityLevel(1)
                     .build())
             .build(),
@@ -510,29 +565,37 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("1.0"))
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "1.1"))
                 .addDep("C", createModuleKey("C", "1.1"))
                 .addDep("D", createModuleKey("D", "1.0"))
                 .addDep("E", createModuleKey("E", "1.0"))
                 .build(),
             createModuleKey("B", "1.1"),
-            Module.builder().setName("B").setVersion(Version.parse("1.1")).build(),
+            Module.builder()
+                .setName("B")
+                .setVersion(Version.parse("1.1"))
+                .setKey(createModuleKey("B", "1.1"))
+                .build(),
             createModuleKey("C", "1.1"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("1.1"))
+                .setKey(createModuleKey("C", "1.1"))
                 .setCompatibilityLevel(1)
                 .build(),
             createModuleKey("D", "1.0"),
             Module.builder()
                 .setName("D")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("D", "1.0"))
                 .addDep("B", createModuleKey("B", "1.1"))
                 .build(),
             createModuleKey("E", "1.0"),
             Module.builder()
                 .setName("E")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("E", "1.0"))
                 .addDep("C", createModuleKey("C", "1.1"))
                 .build())
         .inOrder();
@@ -569,15 +632,24 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B1", createModuleKey("B", "1.0"))
                     .addDep("B2", createModuleKey("B", "2.0"))
                     .build())
             .put(
                 createModuleKey("B", "1.0"),
-                Module.builder().setName("B").setVersion(Version.parse("1.0")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
+                    .build())
             .put(
                 createModuleKey("B", "2.0"),
-                Module.builder().setName("B").setVersion(Version.parse("2.0")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("B", "2.0"))
+                    .build())
             .build(),
         ImmutableMap.of(
             "B",
@@ -605,15 +677,24 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B1", createModuleKey("B", "1.0"))
                     .addDep("B2", createModuleKey("B", "2.0"))
                     .build())
             .put(
                 createModuleKey("B", "1.0"),
-                Module.builder().setName("B").setVersion(Version.parse("1.0")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
+                    .build())
             .put(
                 createModuleKey("B", "2.0"),
-                Module.builder().setName("B").setVersion(Version.parse("2.0")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("B", "2.0"))
+                    .build())
             .build(),
         ImmutableMap.of(
             "B",
@@ -632,13 +713,22 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("B1", createModuleKey("B", "1.0"))
                 .addDep("B2", createModuleKey("B", "2.0"))
                 .build(),
             createModuleKey("B", "1.0"),
-            Module.builder().setName("B").setVersion(Version.parse("1.0")).build(),
+            Module.builder()
+                .setName("B")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
+                .build(),
             createModuleKey("B", "2.0"),
-            Module.builder().setName("B").setVersion(Version.parse("2.0")).build())
+            Module.builder()
+                .setName("B")
+                .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("B", "2.0"))
+                .build())
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
@@ -661,19 +751,32 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B1", createModuleKey("B", "1.0"))
                     .addDep("B2", createModuleKey("B", "1.3"))
                     .addDep("B3", createModuleKey("B", "1.5"))
                     .build())
             .put(
                 createModuleKey("B", "1.0"),
-                Module.builder().setName("B").setVersion(Version.parse("1.0")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
+                    .build())
             .put(
                 createModuleKey("B", "1.3"),
-                Module.builder().setName("B").setVersion(Version.parse("1.3")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("1.3"))
+                    .setKey(createModuleKey("B", "1.3"))
+                    .build())
             .put(
                 createModuleKey("B", "1.5"),
-                Module.builder().setName("B").setVersion(Version.parse("1.5")).build())
+                Module.builder()
+                    .setName("B")
+                    .setVersion(Version.parse("1.5"))
+                    .setKey(createModuleKey("B", "1.5"))
+                    .build())
             .build(),
         ImmutableMap.of(
             "B",
@@ -698,6 +801,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("BfromA", createModuleKey("B", "1.0"))
                     .addDep("CfromA", createModuleKey("C", "2.0"))
                     .build())
@@ -706,6 +810,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
                     .addDep("DfromB", createModuleKey("D", "1.0"))
                     .build())
             .put(
@@ -713,6 +818,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .addDep("DfromC", createModuleKey("D", "2.0"))
                     .build())
             .put(
@@ -720,6 +826,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("D", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -727,6 +834,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("D")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
             .build(),
@@ -747,6 +855,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("BfromA", createModuleKey("B", "1.0"))
                 .addDep("CfromA", createModuleKey("C", "2.0"))
                 .build(),
@@ -754,24 +863,28 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("DfromB", createModuleKey("D", "1.0"))
                 .build(),
             createModuleKey("C", "2.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .addDep("DfromC", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("D", "1.0"),
             Module.builder()
                 .setName("D")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("D", "1.0"))
                 .setCompatibilityLevel(1)
                 .build(),
             createModuleKey("D", "2.0"),
             Module.builder()
                 .setName("D")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("D", "2.0"))
                 .setCompatibilityLevel(2)
                 .build())
         .inOrder();
@@ -804,6 +917,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("BfromA", createModuleKey("B", "1.0"))
                     .addDep("CfromA", createModuleKey("C", "2.0"))
                     .build())
@@ -812,6 +926,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B", "1.0"))
                     .addDep("DfromB", createModuleKey("D", "1.0"))
                     .build())
             .put(
@@ -819,14 +934,23 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .addDep("DfromC", createModuleKey("D", "2.0"))
                     .build())
             .put(
                 createModuleKey("D", "1.0"),
-                Module.builder().setName("D").setVersion(Version.parse("1.0")).build())
+                Module.builder()
+                    .setName("D")
+                    .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("D", "1.0"))
+                    .build())
             .put(
                 createModuleKey("D", "2.0"),
-                Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+                Module.builder()
+                    .setName("D")
+                    .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("D", "2.0"))
+                    .build())
             .build(),
         ImmutableMap.of(
             "D",
@@ -845,6 +969,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("BfromA", createModuleKey("B", "1.0"))
                 .addDep("CfromA", createModuleKey("C", "2.0"))
                 .build(),
@@ -852,18 +977,28 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("DfromB", createModuleKey("D", "1.0"))
                 .build(),
             createModuleKey("C", "2.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .addDep("DfromC", createModuleKey("D", "2.0"))
                 .build(),
             createModuleKey("D", "1.0"),
-            Module.builder().setName("D").setVersion(Version.parse("1.0")).build(),
+            Module.builder()
+                .setName("D")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("D", "1.0"))
+                .build(),
             createModuleKey("D", "2.0"),
-            Module.builder().setName("D").setVersion(Version.parse("2.0")).build())
+            Module.builder()
+                .setName("D")
+                .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("D", "2.0"))
+                .build())
         .inOrder();
     assertThat(selectionValue.getCanonicalRepoNameLookup())
         .containsExactly(
@@ -899,6 +1034,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B1", createModuleKey("B1", "1.0"))
                     .addDep("B2", createModuleKey("B2", "1.0"))
                     .addDep("B3", createModuleKey("B3", "1.0"))
@@ -910,6 +1046,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B1")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B1", "1.0"))
                     .addDep("C", createModuleKey("C", "1.0"))
                     .build())
             .put(
@@ -917,6 +1054,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B2")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B2", "1.0"))
                     .addDep("C", createModuleKey("C", "1.3"))
                     .build())
             .put(
@@ -924,6 +1062,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B3")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B3", "1.0"))
                     .addDep("C", createModuleKey("C", "1.5"))
                     .build())
             .put(
@@ -931,6 +1070,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B4")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B4", "1.0"))
                     .addDep("C", createModuleKey("C", "1.7"))
                     .build())
             .put(
@@ -938,6 +1078,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B5")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B5", "1.0"))
                     .addDep("C", createModuleKey("C", "2.0"))
                     .build())
             .put(
@@ -945,6 +1086,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("C", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -952,6 +1094,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.3"))
+                    .setKey(createModuleKey("C", "1.3"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -959,6 +1102,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.5"))
+                    .setKey(createModuleKey("C", "1.5"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -966,6 +1110,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.7"))
+                    .setKey(createModuleKey("C", "1.7"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -973,6 +1118,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
             .build(),
@@ -999,6 +1145,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("B1", createModuleKey("B1", "1.0"))
                 .addDep("B2", createModuleKey("B2", "1.0"))
                 .addDep("B3", createModuleKey("B3", "1.0"))
@@ -1009,48 +1156,56 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B1")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B1", "1.0"))
                 .addDep("C", createModuleKey("C", "1.3"))
                 .build(),
             createModuleKey("B2", "1.0"),
             Module.builder()
                 .setName("B2")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B2", "1.0"))
                 .addDep("C", createModuleKey("C", "1.3"))
                 .build(),
             createModuleKey("B3", "1.0"),
             Module.builder()
                 .setName("B3")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B3", "1.0"))
                 .addDep("C", createModuleKey("C", "1.7"))
                 .build(),
             createModuleKey("B4", "1.0"),
             Module.builder()
                 .setName("B4")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B4", "1.0"))
                 .addDep("C", createModuleKey("C", "1.7"))
                 .build(),
             createModuleKey("B5", "1.0"),
             Module.builder()
                 .setName("B5")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B5", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .build(),
             createModuleKey("C", "1.3"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("1.3"))
+                .setKey(createModuleKey("C", "1.3"))
                 .setCompatibilityLevel(1)
                 .build(),
             createModuleKey("C", "1.7"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("1.7"))
+                .setKey(createModuleKey("C", "1.7"))
                 .setCompatibilityLevel(1)
                 .build(),
             createModuleKey("C", "2.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .setCompatibilityLevel(2)
                 .build())
         .inOrder();
@@ -1100,6 +1255,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B1", createModuleKey("B1", "1.0"))
                     .addDep("B2", createModuleKey("B2", "1.0"))
                     .addDep("B3", createModuleKey("B3", "1.0"))
@@ -1109,6 +1265,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B1")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B1", "1.0"))
                     .addDep("C", createModuleKey("C", "1.0"))
                     .build())
             .put(
@@ -1116,6 +1273,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B2")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B2", "1.0"))
                     .addDep("C", createModuleKey("C", "1.7"))
                     .build())
             .put(
@@ -1123,6 +1281,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B3")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B3", "1.0"))
                     .addDep("C", createModuleKey("C", "2.0"))
                     .build())
             .put(
@@ -1130,6 +1289,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("C", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -1137,6 +1297,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.7"))
+                    .setKey(createModuleKey("C", "1.7"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -1144,6 +1305,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
             .build(),
@@ -1174,6 +1336,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B1", createModuleKey("B1", "1.0"))
                     .addDep("B2", createModuleKey("B2", "1.0"))
                     .addDep("B3", createModuleKey("B3", "1.0"))
@@ -1183,6 +1346,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B1")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B1", "1.0"))
                     .addDep("C", createModuleKey("C", "1.0"))
                     .build())
             .put(
@@ -1190,6 +1354,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B2")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B2", "1.0"))
                     .addDep("C", createModuleKey("C", "2.0"))
                     .build())
             .put(
@@ -1197,6 +1362,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B3")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B3", "1.0"))
                     .addDep("C", createModuleKey("C", "3.0"))
                     .build())
             .put(
@@ -1204,6 +1370,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("C", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -1211,6 +1378,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
             .put(
@@ -1218,6 +1386,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("3.0"))
+                    .setKey(createModuleKey("C", "3.0"))
                     .setCompatibilityLevel(3)
                     .build())
             .build(),
@@ -1251,6 +1420,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("A")
                     .setVersion(Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
                     .addDep("B1", createModuleKey("B1", "1.0"))
                     .addDep("B2", createModuleKey("B2", "1.0"))
                     .addDep("B3", createModuleKey("B3", "1.0"))
@@ -1261,6 +1431,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B1")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B1", "1.0"))
                     .addDep("C", createModuleKey("C", "1.0"))
                     .addDep("B2", createModuleKey("B2", "1.1"))
                     .build())
@@ -1269,16 +1440,22 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B2")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B2", "1.0"))
                     .addDep("C", createModuleKey("C", "1.5"))
                     .build())
             .put(
                 createModuleKey("B2", "1.1"),
-                Module.builder().setName("B2").setVersion(Version.parse("1.1")).build())
+                Module.builder()
+                    .setName("B2")
+                    .setVersion(Version.parse("1.1"))
+                    .setKey(createModuleKey("B2", "1.1"))
+                    .build())
             .put(
                 createModuleKey("B3", "1.0"),
                 Module.builder()
                     .setName("B3")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B3", "1.0"))
                     .addDep("C", createModuleKey("C", "2.0"))
                     .addDep("B4", createModuleKey("B4", "1.1"))
                     .build())
@@ -1287,16 +1464,22 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("B4")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("B4", "1.0"))
                     .addDep("C", createModuleKey("C", "3.0"))
                     .build())
             .put(
                 createModuleKey("B4", "1.1"),
-                Module.builder().setName("B4").setVersion(Version.parse("1.1")).build())
+                Module.builder()
+                    .setName("B4")
+                    .setVersion(Version.parse("1.1"))
+                    .setKey(createModuleKey("B4", "1.1"))
+                    .build())
             .put(
                 createModuleKey("C", "1.0"),
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.0"))
+                    .setKey(createModuleKey("C", "1.0"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -1304,6 +1487,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("1.5"))
+                    .setKey(createModuleKey("C", "1.5"))
                     .setCompatibilityLevel(1)
                     .build())
             .put(
@@ -1311,6 +1495,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("2.0"))
+                    .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
             .put(
@@ -1318,6 +1503,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 Module.builder()
                     .setName("C")
                     .setVersion(Version.parse("3.0"))
+                    .setKey(createModuleKey("C", "3.0"))
                     .setCompatibilityLevel(3)
                     .build())
             .build(),
@@ -1345,6 +1531,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
                 .addDep("B1", createModuleKey("B1", "1.0"))
                 .addDep("B2", createModuleKey("B2", "1.1"))
                 .addDep("B3", createModuleKey("B3", "1.0"))
@@ -1354,30 +1541,42 @@ public class SelectionFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B1")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B1", "1.0"))
                 .addDep("C", createModuleKey("C", "1.0"))
                 .addDep("B2", createModuleKey("B2", "1.1"))
                 .build(),
             createModuleKey("B2", "1.1"),
-            Module.builder().setName("B2").setVersion(Version.parse("1.1")).build(),
+            Module.builder()
+                .setName("B2")
+                .setVersion(Version.parse("1.1"))
+                .setKey(createModuleKey("B2", "1.1"))
+                .build(),
             createModuleKey("B3", "1.0"),
             Module.builder()
                 .setName("B3")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B3", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .addDep("B4", createModuleKey("B4", "1.1"))
                 .build(),
             createModuleKey("B4", "1.1"),
-            Module.builder().setName("B4").setVersion(Version.parse("1.1")).build(),
+            Module.builder()
+                .setName("B4")
+                .setVersion(Version.parse("1.1"))
+                .setKey(createModuleKey("B4", "1.1"))
+                .build(),
             createModuleKey("C", "1.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("C", "1.0"))
                 .setCompatibilityLevel(1)
                 .build(),
             createModuleKey("C", "2.0"),
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .setCompatibilityLevel(2)
                 .build())
         .inOrder();

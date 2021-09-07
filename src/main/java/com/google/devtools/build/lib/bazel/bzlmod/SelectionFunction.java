@@ -59,7 +59,7 @@ import javax.annotation.Nullable;
  *       selection groups by compatibility level). In the end, though, still only one version can
  *       remain in the dep graph after the removal of unselected and unreachable modules.
  *   <li>Things get more complicated with multiple-version overrides. If module foo has a
- *       multiple-version override which allows version [1.3, 1.5, 2.0] (using the major version as
+ *       multiple-version override which allows versions [1.3, 1.5, 2.0] (using the major version as
  *       the compatibility level), then we further split the selection groups by the target allowed
  *       version (keep in mind that versions are upgraded to the nearest higher-or-equal allowed
  *       version at the same compatibility level). If, for example, some module depends on foo@1.0,
@@ -213,19 +213,16 @@ public class SelectionFunction implements SkyFunction {
 
     // Build a new dep graph where deps with unselected versions are removed.
     ImmutableMap.Builder<ModuleKey, Module> newDepGraphBuilder = new ImmutableMap.Builder<>();
-    for (Map.Entry<ModuleKey, Module> entry : depGraph.entrySet()) {
-      ModuleKey moduleKey = entry.getKey();
-      Module module = entry.getValue();
-
+    for (Module module : depGraph.values()) {
       // Remove any dep whose version isn't selected.
-      Version selectedVersion = selectedVersions.get(selectionGroups.get(moduleKey));
-      if (!moduleKey.getVersion().equals(selectedVersion)) {
+      Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
+      if (!module.getKey().getVersion().equals(selectedVersion)) {
         continue;
       }
 
       // Rewrite deps to point to the selected version.
       newDepGraphBuilder.put(
-          moduleKey,
+          module.getKey(),
           module.withDepKeysTransformed(
               depKey ->
                   ModuleKey.create(

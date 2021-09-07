@@ -36,11 +36,33 @@ import javax.annotation.Nullable;
 @AutoValue
 public abstract class Module {
 
-  /** The name of the module. Can be empty if this is the root module. */
+  /**
+   * The name of the module, as specified in this module's MODULE.bazel file. Can be empty if this
+   * is the root module.
+   */
   public abstract String getName();
 
-  /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
+  /**
+   * The version of the module, as specified in this module's MODULE.bazel file. Can be empty if
+   * this is the root module, or if this module comes from a {@link NonRegistryOverride}.
+   */
   public abstract Version getVersion();
+
+  /**
+   * The key of this module in the dependency graph. Note that, although a {@link ModuleKey} is also
+   * just a (name, version) pair, its semantics differ from {@link #getName} and {@link
+   * #getVersion}, which are always as specified in the MODULE.bazel file. The {@link ModuleKey}
+   * returned by this method, however, will have the following special semantics:
+   *
+   * <ul>
+   *   <li>The name of the {@link ModuleKey} is the same as {@link #getName}, unless this is the
+   *       root module, in which case the name of the {@link ModuleKey} must be empty.
+   *   <li>The version of the {@link ModuleKey} is the same as {@link #getVersion}, unless this is
+   *       the root module OR this module has a {@link NonRegistryOverride}, in which case the
+   *       version of the {@link ModuleKey} must be empty.
+   * </ul>
+   */
+  public abstract ModuleKey getKey();
 
   /**
    * The compatibility level of the module, which essentially signifies the "major version" of the
@@ -63,39 +85,38 @@ public abstract class Module {
 
   /**
    * Target patterns (with canonical repo names) identifying execution platforms to register when
-   * this module is selected. We need the key of this module in the dep graph to know its canonical
-   * repo name.
+   * this module is selected.
    */
-  public final ImmutableList<String> getCanonicalizedExecutionPlatformsToRegister(ModuleKey key)
+  public final ImmutableList<String> getCanonicalizedExecutionPlatformsToRegister()
       throws ExternalDepsException {
-    return canonicalizeTargetPatterns(getExecutionPlatformsToRegister(), key);
+    return canonicalizeTargetPatterns(getExecutionPlatformsToRegister());
   }
 
   /**
    * Target patterns (with canonical repo names) identifying toolchains to register when this module
-   * is selected. We need the key of this module in the dep graph to know its canonical repo name.
+   * is selected.
    */
-  public final ImmutableList<String> getCanonicalizedToolchainsToRegister(ModuleKey key)
+  public final ImmutableList<String> getCanonicalizedToolchainsToRegister()
       throws ExternalDepsException {
-    return canonicalizeTargetPatterns(getToolchainsToRegister(), key);
+    return canonicalizeTargetPatterns(getToolchainsToRegister());
   }
 
   /**
    * Rewrites the given target patterns to have canonical repo names, assuming that they're
    * originally written in the context of the module identified by {@code key} and {@code module}.
    */
-  private ImmutableList<String> canonicalizeTargetPatterns(
-      ImmutableList<String> targetPatterns, ModuleKey key) throws ExternalDepsException {
+  private ImmutableList<String> canonicalizeTargetPatterns(ImmutableList<String> targetPatterns)
+      throws ExternalDepsException {
     ImmutableList.Builder<String> renamedPatterns = ImmutableList.builder();
     for (String pattern : targetPatterns) {
       if (!pattern.startsWith("@")) {
-        renamedPatterns.add("@" + key.getCanonicalRepoName() + pattern);
+        renamedPatterns.add("@" + getKey().getCanonicalRepoName() + pattern);
         continue;
       }
       int doubleSlashIndex = pattern.indexOf("//");
       if (doubleSlashIndex == -1) {
         throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE, "%s refers to malformed target pattern: %s", key, pattern);
+            Code.BAD_MODULE, "%s refers to malformed target pattern: %s", getKey(), pattern);
       }
       String repoName = pattern.substring(1, doubleSlashIndex);
       ModuleKey depKey = getDeps().get(repoName);
@@ -103,7 +124,7 @@ public abstract class Module {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
             "%s refers to target pattern %s with unknown repo %s",
-            key,
+            getKey(),
             pattern,
             repoName);
       }
@@ -129,11 +150,10 @@ public abstract class Module {
   }
 
   /** Returns the {@link RepositoryMapping} for the repo corresponding to this module. */
-  public final RepositoryMapping getRepoMapping(
-      WhichRepoMappings whichRepoMappings, ModuleKey key) {
+  public final RepositoryMapping getRepoMapping(WhichRepoMappings whichRepoMappings) {
     ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.
-    if (key == ModuleKey.ROOT) {
+    if (getKey().equals(ModuleKey.ROOT)) {
       mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
     }
     // Every module should be able to reference itself as @<module name>.
@@ -141,7 +161,7 @@ public abstract class Module {
     if (!getName().isEmpty()) {
       mapping.put(
           RepositoryName.createFromValidStrippedName(getName()),
-          RepositoryName.createFromValidStrippedName(key.getCanonicalRepoName()));
+          RepositoryName.createFromValidStrippedName(getKey().getCanonicalRepoName()));
     }
     for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
@@ -162,7 +182,7 @@ public abstract class Module {
         }
       }
     }
-    return RepositoryMapping.create(mapping.build(), key.getCanonicalRepoName());
+    return RepositoryMapping.create(mapping.build(), getKey().getCanonicalRepoName());
   }
 
   /**
@@ -183,6 +203,7 @@ public abstract class Module {
     return new AutoValue_Module.Builder()
         .setName("")
         .setVersion(Version.EMPTY)
+        .setKey(ModuleKey.ROOT)
         .setCompatibilityLevel(0)
         .setExecutionPlatformsToRegister(ImmutableList.of())
         .setToolchainsToRegister(ImmutableList.of());
@@ -206,6 +227,9 @@ public abstract class Module {
 
     /** Optional; defaults to {@link Version#EMPTY}. */
     public abstract Builder setVersion(Version value);
+
+    /** Optional; defaults to {@link ModuleKey#ROOT}. */
+    public abstract Builder setKey(ModuleKey value);
 
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);

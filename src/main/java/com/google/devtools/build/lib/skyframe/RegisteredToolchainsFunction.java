@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -141,8 +140,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     ImmutableList.Builder<String> toolchains = ImmutableList.builder();
     try {
-      for (Map.Entry<ModuleKey, Module> dep : selectionValue.getDepGraph().entrySet()) {
-        toolchains.addAll(dep.getValue().getCanonicalizedToolchainsToRegister(dep.getKey()));
+      for (Module module : selectionValue.getDepGraph().values()) {
+        toolchains.addAll(module.getCanonicalizedToolchainsToRegister());
       }
     } catch (ExternalDepsException e) {
       throw new RegisteredToolchainsFunctionException(e, Transience.PERSISTENT);

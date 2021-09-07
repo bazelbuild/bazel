@@ -85,22 +85,22 @@ public class StarlarkBazelModule implements StarlarkValue {
 
   /**
    * Creates a new {@link StarlarkBazelModule} object representing the given {@link Module}, with
-   * the given {@link ModuleKey}, and its scope limited to the given {@link ModuleExtension}. It'll
-   * be populated with the tags present in the given {@link ModuleExtensionUsage}.
+   * its scope limited to the given {@link ModuleExtension}. It'll be populated with the tags
+   * present in the given {@link ModuleExtensionUsage}.
    */
   public static StarlarkBazelModule create(
-      ModuleKey moduleKey, Module module, ModuleExtension extension, ModuleExtensionUsage usage)
+      Module module, ModuleExtension extension, ModuleExtensionUsage usage)
       throws ExternalDepsException {
     Label moduleRootLabel =
         Label.createUnvalidated(
             PackageIdentifier.create(
-                RepositoryName.createFromValidStrippedName(moduleKey.getCanonicalRepoName()),
+                RepositoryName.createFromValidStrippedName(module.getKey().getCanonicalRepoName()),
                 PathFragment.EMPTY_FRAGMENT),
             "unused_dummy_target_name");
     LabelConversionContext labelConversionContext =
         new LabelConversionContext(
             moduleRootLabel,
-            module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, moduleKey),
+            module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY),
             /* convertedLabelsInPackage= */ new HashMap<>());
     ImmutableListMultimap.Builder<String, TypeCheckedTag> typeCheckedTags =
         ImmutableListMultimap.builder();

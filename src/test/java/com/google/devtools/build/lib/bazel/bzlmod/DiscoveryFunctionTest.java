@@ -199,6 +199,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .build(),
@@ -206,6 +207,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("D", createModuleKey("D", "3.0"))
                 .setRegistry(registry)
                 .build(),
@@ -213,6 +215,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .addDep("D", createModuleKey("D", "3.0"))
                 .setRegistry(registry)
                 .build(),
@@ -220,6 +223,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("D")
                 .setVersion(Version.parse("3.0"))
+                .setKey(createModuleKey("D", "3.0"))
                 .setRegistry(registry)
                 .build());
   }
@@ -253,12 +257,14 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "1.0"))
                 .build(),
             createModuleKey("B", "1.0"),
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .setRegistry(registry)
                 .build(),
@@ -266,6 +272,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .addDep("B", createModuleKey("B", "1.0"))
                 .setRegistry(registry)
                 .build());
@@ -298,12 +305,14 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "1.0"))
                 .build(),
             createModuleKey("B", "1.0"),
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("A", ModuleKey.ROOT)
                 .setRegistry(registry)
                 .build());
@@ -338,12 +347,14 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "0.1"))
                 .build(),
             createModuleKey("B", "0.1"),
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("0.1"))
+                .setKey(createModuleKey("B", "0.1"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .setRegistry(registry)
                 .build(),
@@ -351,6 +362,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", "2.0"))
                 .setRegistry(registry)
                 .build());
   }
@@ -389,12 +401,14 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "0.1"))
                 .build(),
             createModuleKey("B", "0.1"),
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("0.1"))
+                .setKey(createModuleKey("B", "0.1"))
                 .addDep("C", createModuleKey("C", "1.0"))
                 .setRegistry(registry1)
                 .build(),
@@ -402,6 +416,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("C")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("C", "1.0"))
                 .addDep("B", createModuleKey("B", "0.1"))
                 .setRegistry(registry2)
                 .build());
@@ -439,16 +454,22 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .addDep("B", createModuleKey("B", "0.1"))
                 .build(),
             createModuleKey("B", "0.1"),
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("0.1"))
+                .setKey(createModuleKey("B", "0.1"))
                 .addDep("C", createModuleKey("C", ""))
                 .setRegistry(registry)
                 .build(),
             createModuleKey("C", ""),
-            Module.builder().setName("C").setVersion(Version.parse("2.0")).build());
+            Module.builder()
+                .setName("C")
+                .setVersion(Version.parse("2.0"))
+                .setKey(createModuleKey("C", ""))
+                .build());
   }
 }

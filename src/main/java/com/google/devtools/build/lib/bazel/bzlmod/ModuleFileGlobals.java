@@ -50,13 +50,15 @@ import net.starlark.java.syntax.Location;
 @DocumentMethods
 public class ModuleFileGlobals {
   private boolean moduleCalled = false;
-  private final Module.Builder module = Module.builder();
+  private final Module.Builder module;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionProxy> extensionProxies = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
-  public ModuleFileGlobals() {}
+  public ModuleFileGlobals(ModuleKey key, @Nullable Registry registry) {
+    module = Module.builder().setKey(key).setRegistry(registry);
+  }
 
   @AutoValue
   abstract static class RepoNameUsage {
@@ -661,10 +663,9 @@ public class ModuleFileGlobals {
     addOverride(moduleName, LocalPathOverride.create(path));
   }
 
-  public Module buildModule(Registry registry) {
+  public Module buildModule() {
     return module
         .setDeps(ImmutableMap.copyOf(deps))
-        .setRegistry(registry)
         .setExtensionUsages(
             extensionProxies.stream()
                 .map(ModuleExtensionProxy::buildUsage)

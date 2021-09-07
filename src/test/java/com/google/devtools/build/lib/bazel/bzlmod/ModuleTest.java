@@ -33,37 +33,34 @@ public class ModuleTest {
 
   @Test
   public void canonicalizedTargetPatterns_good() throws Exception {
-    ModuleKey key = createModuleKey("self", "1.0");
     Module module =
         Module.builder()
+            .setKey(createModuleKey("self", "1.0"))
             .setExecutionPlatformsToRegister(ImmutableList.of("//:self_target"))
             .setToolchainsToRegister(ImmutableList.of("@root//:root_target", "@hi//:hi_target"))
             .addDep("hi", createModuleKey("hello", "2.0"))
             .addDep("root", ModuleKey.ROOT)
             .build();
-    assertThat(module.getCanonicalizedExecutionPlatformsToRegister(key))
+    assertThat(module.getCanonicalizedExecutionPlatformsToRegister())
         .containsExactly("@self.1.0//:self_target")
         .inOrder();
-    assertThat(module.getCanonicalizedToolchainsToRegister(key))
+    assertThat(module.getCanonicalizedToolchainsToRegister())
         .containsExactly("@//:root_target", "@hello.2.0//:hi_target")
         .inOrder();
   }
 
   @Test
   public void canonicalizedTargetPatterns_bad() throws Exception {
-    ModuleKey key = createModuleKey("self", "1.0");
     Module module =
         Module.builder()
+            .setKey(createModuleKey("self", "1.0"))
             .setExecutionPlatformsToRegister(ImmutableList.of("@what//:target"))
             .setToolchainsToRegister(ImmutableList.of("@hi:target"))
             .addDep("hi", createModuleKey("hello", "2.0"))
             .addDep("root", ModuleKey.ROOT)
             .build();
-    assertThrows(
-        ExternalDepsException.class,
-        () -> module.getCanonicalizedExecutionPlatformsToRegister(key));
-    assertThrows(
-        ExternalDepsException.class, () -> module.getCanonicalizedToolchainsToRegister(key));
+    assertThrows(ExternalDepsException.class, module::getCanonicalizedExecutionPlatformsToRegister);
+    assertThrows(ExternalDepsException.class, module::getCanonicalizedToolchainsToRegister);
   }
 
   @Test
@@ -91,6 +88,7 @@ public class ModuleTest {
         Module.builder()
             .setName(key.getName())
             .setVersion(key.getVersion())
+            .setKey(key)
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))
             .addDep("my_root", ModuleKey.ROOT)
@@ -102,7 +100,7 @@ public class ModuleTest {
                     .setImports(ImmutableBiMap.of("my_guava", "guava"))
                     .build())
             .build();
-    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, key))
+    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY))
         .isEqualTo(
             createRepositoryMapping(
                 key,
@@ -114,7 +112,7 @@ public class ModuleTest {
                 "bar.2.0",
                 "my_root",
                 ""));
-    assertThat(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO, key))
+    assertThat(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO))
         .isEqualTo(
             createRepositoryMapping(
                 key,
@@ -132,17 +130,25 @@ public class ModuleTest {
 
   @Test
   public void getRepoMapping_asMainModule() throws Exception {
-    ModuleKey key = ModuleKey.ROOT;
     Module module =
         Module.builder()
             .setName("test_module")
             .setVersion(Version.parse("1.0"))
+            .setKey(ModuleKey.ROOT)
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))
             .build();
-    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY, key))
+    assertThat(module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY))
         .isEqualTo(
             createRepositoryMapping(
-                key, "", "", "test_module", "", "my_foo", "foo.1.0", "my_bar", "bar.2.0"));
+                ModuleKey.ROOT,
+                "",
+                "",
+                "test_module",
+                "",
+                "my_foo",
+                "foo.1.0",
+                "my_bar",
+                "bar.2.0"));
   }
 }

@@ -200,6 +200,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("A")
                 .setVersion(Version.parse("0.1"))
+                .setKey(ModuleKey.ROOT)
                 .setCompatibilityLevel(4)
                 .setExecutionPlatformsToRegister(
                     ImmutableList.of("//my:platform", "//my:platform2"))
@@ -240,7 +241,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     }
     RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     assertThat(rootModuleFileValue.getModule())
-        .isEqualTo(Module.builder().addDep("B", createModuleKey("B", "1.0")).build());
+        .isEqualTo(
+            Module.builder()
+                .setKey(ModuleKey.ROOT)
+                .addDep("B", createModuleKey("B", "1.0"))
+                .build());
     assertThat(rootModuleFileValue.getOverrides()).isEmpty();
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup()).isEmpty();
   }
@@ -292,6 +297,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .setRegistry(registry2)
                 .build());
@@ -332,6 +338,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", ""))
                 .addDep("C", createModuleKey("C", "2.0"))
                 .build());
   }
@@ -370,6 +377,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("B")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("B", "1.0"))
                 .setCompatibilityLevel(6)
                 .addDep("C", createModuleKey("C", "3.0"))
                 .setRegistry(registry2)
@@ -411,6 +419,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             Module.builder()
                 .setName("mymod")
                 .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("mymod", "1.0"))
                 .addDep("rules_jvm_external", createModuleKey("rules_jvm_external", "2.0"))
                 .setRegistry(registry)
                 .addExtensionUsage(

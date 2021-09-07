@@ -32,5 +32,9 @@ public abstract class DiscoveryValue implements SkyValue {
     return new AutoValue_DiscoveryValue(depGraph);
   }
 
+  /**
+   * The initial dependency graph. For any KEY in the returned map, it's guaranteed that {@code
+   * depGraph[KEY].getKey() == KEY}.
+   */
   public abstract ImmutableMap<ModuleKey, Module> getDepGraph();
 }
