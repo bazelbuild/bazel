@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,6 +36,11 @@ import org.junit.runners.JUnit4;
 public class WorkerFactoryTest {
 
   final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+
+  @After
+  public void tearDown() {
+    WorkerMultiplexerManager.reset();
+  }
 
   /**
    * Regression test for b/64689608: The execroot of the sandboxed worker process must end with the
