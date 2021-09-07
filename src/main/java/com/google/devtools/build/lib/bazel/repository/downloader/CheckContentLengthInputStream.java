@@ -54,10 +54,16 @@ public class CheckContentLengthInputStream extends InputStream {
   }
 
   private void check() throws IOException {
-    if (expectedSize != actualSize) {
+    if (actualSize < expectedSize) {
       throw new UnrecoverableHttpException(
           String.format(
-              "Connection was closed before Content-Length was fulfilled. Bytes read %s but wanted %s",
+              "Connection was closed before Content-Length was fulfilled. Bytes read %s but wanted"
+                  + " %s",
+              actualSize, expectedSize));
+    } else if (actualSize > expectedSize) {
+      throw new UnrecoverableHttpException(
+          String.format(
+              "Received more bytes than Content-Length. Bytes read %s but wanted %s",
               actualSize, expectedSize));
     }
   }
