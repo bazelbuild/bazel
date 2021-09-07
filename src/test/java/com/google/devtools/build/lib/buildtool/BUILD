@@ -264,13 +264,13 @@ java_test(
     name = "GenQueryIntegrationTest",
     srcs = ["GenQueryIntegrationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:guava",
@@ -659,7 +659,6 @@ build_test(
         ":EditDuringBuildTest",
         ":EnvironmentRestrictedBuildTest",
         ":ExecutionPhaseContainingPackageLookupTest",
-        ":GenQueryIntegrationTest",
         ":IncludeValidationTest",
         ":InconsistentFilesystemTest",
         ":LabelCrossesPackageBoundaryTest",
