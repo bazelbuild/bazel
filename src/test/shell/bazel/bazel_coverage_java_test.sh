@@ -693,4 +693,95 @@ end_of_record"
   assert_coverage_result "$expected_result_random" ${coverage_file_path}
 }
 
+function test_java_string_switch_coverage() {
+  # Verify that Jacoco's filtering is being applied.
+  # Switches on strings generate over double the number of expected branches
+  # (because a switch on String::hashCode is made first) - these branches should
+  # be filtered.
+  cat <<EOF > BUILD
+java_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.java"]),
+    test_class = "com.example.TestSwitch",
+    deps = [":switch-lib"],
+)
+
+java_library(
+    name = "switch-lib",
+    srcs = glob(["src/main/**/*.java"]),
+)
+EOF
+
+  mkdir -p src/main/com/example
+  cat <<EOF > src/main/com/example/Switch.java
+package com.example;
+
+public class Switch {
+
+  public static int switchString(String input) {
+    switch (input) {
+      case "AA":
+        return 0;
+      case "BB":
+        return 1;
+      case "CC":
+        return 2;
+      default:
+        return -1;
+    }
+  }
+}
+EOF
+
+  mkdir -p src/test/com/example
+  cat <<EOF > src/test/com/example/TestSwitch.java
+package com.example;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class TestSwitch {
+
+  @Test
+  public void testValues() {
+    assertEquals(Switch.switchString("CC"), 2);
+    // "Aa" has a hash collision with "BB"
+    assertEquals(Switch.switchString("Aa"), -1);
+    assertEquals(Switch.switchString("DD"), -1);
+  }
+
+}
+EOF
+
+  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+
+  local expected_result="SF:src/main/com/example/Switch.java
+FN:3,com/example/Switch::<init> ()V
+FN:6,com/example/Switch::switchString (Ljava/lang/String;)I
+FNDA:0,com/example/Switch::<init> ()V
+FNDA:1,com/example/Switch::switchString (Ljava/lang/String;)I
+FNF:2
+FNH:1
+BRDA:6,0,0,0
+BRDA:6,0,1,0
+BRDA:6,0,2,1
+BRDA:6,0,3,1
+BRF:4
+BRH:2
+DA:3,0
+DA:6,1
+DA:8,0
+DA:10,0
+DA:12,1
+DA:14,1
+LH:3
+LF:6
+end_of_record"
+
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+}
+
 run_suite "test tests"
