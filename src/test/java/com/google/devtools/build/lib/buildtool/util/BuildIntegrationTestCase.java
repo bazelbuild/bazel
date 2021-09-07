@@ -87,7 +87,9 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.sandbox.SandboxModule;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -119,6 +121,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
@@ -484,6 +487,13 @@ public abstract class BuildIntegrationTestCase {
     if ("blaze".equals(TestConstants.PRODUCT_NAME)) {
       // include scanning isn't supported in bazel
       builder.addBlazeModule(new IncludeScanningModule());
+
+    } else {
+      // Add in modules implicitly added in internal integration test case.
+      builder
+          .addBlazeModule(new NoSpawnCacheModule())
+          .addBlazeModule(new WorkerModule())
+          .addBlazeModule(new SandboxModule());
     }
     return builder;
   }
