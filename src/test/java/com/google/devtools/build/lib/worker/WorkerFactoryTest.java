@@ -49,44 +49,30 @@ public class WorkerFactoryTest {
   @Test
   public void sandboxedWorkerPathEndsWithWorkspaceName() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    final WorkerOptions workerOptions = new WorkerOptions();
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
-    WorkerKey workerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
+    WorkerKey workerKey = createWorkerKey(/* mustBeSandboxed= */ true, /* multiplex= */ false);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
     assertThat(sandboxedWorkerPath.getBaseName()).isEqualTo("workspace");
-  }
-
-  protected WorkerKey createWorkerKey(boolean mustBeSandboxed, boolean proxied, String... args) {
-    return new WorkerKey(
-        /* args= */ ImmutableList.copyOf(args),
-        /* env= */ ImmutableMap.of(),
-        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
-        /* mnemonic= */ "dummy",
-        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
-        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
-        /* mustBeSandboxed= */ mustBeSandboxed,
-        /* proxied= */ proxied,
-        /* cancellable= */ false,
-        WorkerProtocolFormat.PROTO);
   }
 
   /** WorkerFactory should create correct worker type based on WorkerKey. */
   @Test
   public void workerCreationTypeCheck() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    final WorkerOptions workerOptions = new WorkerOptions();
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
-    WorkerKey sandboxedWorkerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
+    WorkerKey sandboxedWorkerKey =
+        createWorkerKey(/* mustBeSandboxed= */ true, /* multiplex= */ false);
     Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
     assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
 
     WorkerKey nonProxiedWorkerKey =
-        createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ false);
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ false);
     Worker nonProxiedWorker = workerFactory.create(nonProxiedWorkerKey);
     assertThat(nonProxiedWorker.getClass()).isEqualTo(SingleplexWorker.class);
 
-    WorkerKey proxiedWorkerKey = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true);
+    WorkerKey proxiedWorkerKey =
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ true);
     Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);
     // If proxied = true, WorkerProxy is created along with a WorkerMultiplexer.
     // Destroy WorkerMultiplexer to avoid unexpected behavior in WorkerMultiplexerManagerTest.
@@ -98,13 +84,14 @@ public class WorkerFactoryTest {
   @Test
   public void testMultiplexWorkersShareLogfiles() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    final WorkerOptions workerOptions = new WorkerOptions();
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
 
-    WorkerKey workerKey1 = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true, "arg1");
+    WorkerKey workerKey1 =
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ true, "arg1");
     Worker proxiedWorker1a = workerFactory.create(workerKey1);
     Worker proxiedWorker1b = workerFactory.create(workerKey1);
-    WorkerKey workerKey2 = createWorkerKey(/* mustBeSandboxed */ false, /* proxied */ true, "arg2");
+    WorkerKey workerKey2 =
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ true, "arg2");
     Worker proxiedWorker2 = workerFactory.create(workerKey2);
     assertThat(proxiedWorker1a.getLogFile()).isEqualTo(proxiedWorker1b.getLogFile());
     assertThat(proxiedWorker1a.getLogFile()).isNotEqualTo(proxiedWorker2.getLogFile());
@@ -114,8 +101,7 @@ public class WorkerFactoryTest {
   @Test
   public void testCreate_createsWorkerDirectory() throws Exception {
     Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
-    final WorkerOptions workerOptions = new WorkerOptions();
-    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir, workerOptions.workerSandboxing);
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
     WorkerKey sandboxedWorkerKey = createWorkerKey(/* mustBeSandboxed */ true, /* proxied */ false);
     assertThat(workerBaseDir.isDirectory()).isFalse();
     workerFactory.create(sandboxedWorkerKey);
@@ -125,5 +111,19 @@ public class WorkerFactoryTest {
     workerBaseDir.createSymbolicLink(workerBaseDir.getRelative("whatevs"));
     assertThat(workerBaseDir.isDirectory()).isFalse();
     assertThrows(IOException.class, () -> workerFactory.create(sandboxedWorkerKey));
+  }
+
+  protected WorkerKey createWorkerKey(boolean mustBeSandboxed, boolean multiplex, String... args) {
+    return new WorkerKey(
+        /* args= */ ImmutableList.copyOf(args),
+        /* env= */ ImmutableMap.of(),
+        /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
+        /* mnemonic= */ "dummy",
+        /* workerFilesCombinedHash= */ HashCode.fromInt(0),
+        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+        /* sandboxed= */ mustBeSandboxed,
+        /* multiplex= */ multiplex,
+        /* cancellable= */ false,
+        WorkerProtocolFormat.PROTO);
   }
 }

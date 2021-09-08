@@ -88,7 +88,7 @@ public class WorkerModuleTest {
   }
 
   @Test
-  public void buildStarting_restartsOnSandboxChanges() throws IOException, AbruptExitException {
+  public void buildStarting_noRestartOnSandboxChanges() throws IOException, AbruptExitException {
     WorkerModule module = new WorkerModule();
     WorkerOptions options = WorkerOptions.DEFAULTS;
     when(request.getOptions(WorkerOptions.class)).thenReturn(options);
@@ -106,11 +106,9 @@ public class WorkerModuleTest {
     options.workerSandboxing = !options.workerSandboxing;
     module.beforeCommand(env);
     module.buildStarting(new BuildStartingEvent(env, request));
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    assertThat(storedEventHandler.getEvents().get(0).getMessage())
-        .contains("Worker factory configuration has changed");
-    assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
-    assertThat(aLog.exists()).isFalse();
+    assertThat(storedEventHandler.getEvents()).isEmpty();
+    assertThat(module.workerPool).isSameInstanceAs(oldPool);
+    assertThat(aLog.exists()).isTrue();
   }
 
   @Test
@@ -137,14 +135,14 @@ public class WorkerModuleTest {
     workerDir.createDirectoryAndParents();
     aLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
     WorkerPool oldPool = module.workerPool;
-    options.workerSandboxing = !options.workerSandboxing;
+    options.highPriorityWorkers = ImmutableList.of("Foobar");
     module.beforeCommand(env);
     module.buildStarting(new BuildStartingEvent(env, request));
     assertThat(storedEventHandler.getEvents()).hasSize(1);
     assertThat(storedEventHandler.getEvents().get(0).getMessage())
-        .contains("Worker factory configuration has changed");
+        .contains("Worker pool configuration has changed");
     assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
-    assertThat(aLog.exists()).isFalse();
+    assertThat(aLog.exists()).isTrue();
   }
 
   @Test
@@ -176,6 +174,26 @@ public class WorkerModuleTest {
     module.workerPool.getWorkerPoolConfig().getWorkerFactory().create(workerKey);
     assertThat(fs.getPath("/otherRootDir/outputBase/bazel-workers").exists()).isTrue();
     assertThat(oldLog.exists()).isTrue();
+  }
+
+  @Test
+  public void buildStarting_clearsLogsOnFactoryCreation() throws IOException, AbruptExitException {
+    WorkerModule module = new WorkerModule();
+    WorkerOptions options = WorkerOptions.DEFAULTS;
+    when(request.getOptions(WorkerOptions.class)).thenReturn(options);
+    setupEnvironment("/outputRoot");
+
+    Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
+    workerDir.createDirectoryAndParents();
+    Path oldLog = workerDir.getRelative("f.log");
+    oldLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
+
+    module.beforeCommand(env);
+    module.buildStarting(new BuildStartingEvent(env, request));
+
+    assertThat(storedEventHandler.getEvents()).isEmpty();
+    assertThat(fs.getPath("/outputRoot/outputBase/bazel-workers").exists()).isTrue();
+    assertThat(oldLog.exists()).isFalse();
   }
 
   @Test

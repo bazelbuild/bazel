@@ -84,7 +84,7 @@ public class WorkerModule extends BlazeModule {
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
 
-    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir, options.workerSandboxing);
+    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {

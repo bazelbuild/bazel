@@ -87,7 +87,7 @@ public class WorkerSpawnRunnerTest {
   private WorkerPool createWorkerPool() {
     return new WorkerPool(
         new WorkerPoolConfig(
-            new WorkerFactory(fs.getPath("/workerBase"), options.workerSandboxing) {
+            new WorkerFactory(fs.getPath("/workerBase")) {
               @Override
               public Worker create(WorkerKey key) {
                 return worker;

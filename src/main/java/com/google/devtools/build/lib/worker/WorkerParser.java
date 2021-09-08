@@ -122,8 +122,8 @@ class WorkerParser {
       Path execRoot,
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, HashCode> workerFiles,
-      WorkerOptions workerOptions,
-      boolean speculating,
+      WorkerOptions options,
+      boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
     return new WorkerKey(
         workerArgs,
@@ -132,11 +132,11 @@ class WorkerParser {
         Spawns.getWorkerKeyMnemonic(spawn),
         workerFilesCombinedHash,
         workerFiles,
-        /* sandboxed= */ workerOptions.workerSandboxing || speculating,
-        /* proxied= */ workerOptions.workerMultiplex
+        /* sandboxed= */ options.workerSandboxing || dynamic,
+        /* multiplex= */ options.workerMultiplex
             && Spawns.supportsMultiplexWorkers(spawn)
-            && !speculating
-            && !workerOptions.workerSandboxing,
+            && !dynamic
+            && !options.workerSandboxing,
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
   }
