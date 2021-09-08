@@ -246,7 +246,7 @@ java_plugin(
 distrib_java_import(
     name = "auto_common",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-common-0.10.jar"],
+    jars = ["auto/auto-common-1.1.2.jar"],
 )
 
 java_library(
@@ -272,7 +272,10 @@ java_plugin(
 distrib_java_import(
     name = "auto_service_lib",
     enable_distributions = ["debian"],
-    jars = ["auto/auto-service-1.0-rc4.jar"],
+    jars = [
+        "auto/auto-service-1.0-rc7.jar",
+        "auto/auto-service-annotations-1.0-rc7.jar",
+    ],
 )
 
 java_plugin(
@@ -306,8 +309,8 @@ distrib_java_import(
     name = "auto_value_value",
     enable_distributions = ["debian"],
     jars = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
 )
 
@@ -315,8 +318,8 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto/auto-value-1.6.3rc1.jar",
-        "auto/auto-value-annotations-1.6.3rc1.jar",
+        "auto/auto-value-1.8.2.jar",
+        "auto/auto-value-annotations-1.8.2.jar",
     ],
     enable_distributions = ["debian"],
 )
