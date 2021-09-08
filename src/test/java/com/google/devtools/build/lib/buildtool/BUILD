@@ -510,11 +510,11 @@ java_test(
     name = "SymlinkDependencyAnalysisTest",
     srcs = ["SymlinkDependencyAnalysisTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:guava",
