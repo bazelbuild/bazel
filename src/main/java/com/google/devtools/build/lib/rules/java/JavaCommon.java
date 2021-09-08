@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -810,7 +811,8 @@ public class JavaCommon {
     return ImmutableList.of();
   }
 
-  JavaPluginInfo createJavaPluginInfo(RuleContext ruleContext) {
+  JavaPluginInfo createJavaPluginInfo(
+      RuleContext ruleContext, ImmutableList<JavaOutput> javaOutputs) {
     NestedSet<String> processorClasses =
         NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, getProcessorClasses(ruleContext));
     NestedSet<Artifact> processorClasspath = getRuntimeClasspath();
@@ -821,7 +823,8 @@ public class JavaCommon {
             : NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     return JavaPluginInfo.create(
         JavaPluginData.create(processorClasses, processorClasspath, data),
-        ruleContext.attributes().get("generates_api", Type.BOOLEAN));
+        ruleContext.attributes().get("generates_api", Type.BOOLEAN),
+        javaOutputs);
   }
 
   /**

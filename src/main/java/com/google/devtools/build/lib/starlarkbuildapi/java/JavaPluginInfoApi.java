@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -36,7 +37,11 @@ import net.starlark.java.eval.StarlarkValue;
         "A provider encapsulating information about Java plugins. "
             + "<p>At the moment, the only supported kind of plugins are annotation processors.",
     category = DocCategory.PROVIDER)
-public interface JavaPluginInfoApi<JavaPluginDataT extends JavaPluginDataApi> extends StructApi {
+public interface JavaPluginInfoApi<
+        FileT extends FileApi,
+        JavaPluginDataT extends JavaPluginDataApi,
+        JavaOutputT extends JavaOutputApi<FileT>>
+    extends StructApi {
   @StarlarkMethod(name = "plugins", doc = "Returns data about all plugins.", structField = true)
   JavaPluginDataT plugins();
 
@@ -80,6 +85,12 @@ public interface JavaPluginInfoApi<JavaPluginDataT extends JavaPluginDataApi> ex
         structField = true)
     Depset /*<FileApi>*/ getProcessorDataForStarlark();
   }
+
+  @StarlarkMethod(
+      name = "java_outputs",
+      doc = "Returns information about outputs of this Java/Java-like target.",
+      structField = true)
+  ImmutableList<JavaOutputT> getJavaOutputs();
 
   /** Provider class for {@link JavaPluginInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false)
@@ -133,7 +144,7 @@ public interface JavaPluginInfoApi<JavaPluginDataT extends JavaPluginDataApi> ex
         },
         selfCall = true)
     @StarlarkConstructor
-    JavaPluginInfoApi<?> javaPluginInfo(
+    JavaPluginInfoApi<?, ?, ?> javaPluginInfo(
         Sequence<?> runtimeDeps, Object processorClass, Object processorData, Boolean generatesApi)
         throws EvalException;
   }
