@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
-import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -141,13 +141,14 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     if (!RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
       return ImmutableList.of();
     }
-    SelectionValue selectionValue = (SelectionValue) env.getValue(SelectionValue.KEY);
-    if (selectionValue == null) {
+    BazelModuleResolutionValue bazelModuleResolutionValue =
+        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
+    if (bazelModuleResolutionValue == null) {
       return null;
     }
     ImmutableList.Builder<String> executionPlatforms = ImmutableList.builder();
     try {
-      for (Module module : selectionValue.getDepGraph().values()) {
+      for (Module module : bazelModuleResolutionValue.getDepGraph().values()) {
         executionPlatforms.addAll(module.getCanonicalizedExecutionPlatformsToRegister());
       }
     } catch (ExternalDepsException e) {

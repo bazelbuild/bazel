@@ -22,17 +22,20 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/** The result of running selection, containing the dependency graph post-version-resolution. */
+/**
+ * The result of running Bazel module resolution, containing the Bazel module dependency graph
+ * post-version-resolution.
+ */
 @AutoValue
-public abstract class SelectionValue implements SkyValue {
+public abstract class BazelModuleResolutionValue implements SkyValue {
+  @AutoCodec public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;
 
-  @AutoCodec public static final SkyKey KEY = () -> SkyFunctions.SELECTION;
-
-  public static SelectionValue create(
+  public static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> depGraph,
       ImmutableMap<String, ModuleKey> canonicalRepoNameLookup,
       ImmutableMap<String, ModuleKey> moduleNameLookup) {
-    return new AutoValue_SelectionValue(depGraph, canonicalRepoNameLookup, moduleNameLookup);
+    return new AutoValue_BazelModuleResolutionValue(
+        depGraph, canonicalRepoNameLookup, moduleNameLookup);
   }
 
   /**

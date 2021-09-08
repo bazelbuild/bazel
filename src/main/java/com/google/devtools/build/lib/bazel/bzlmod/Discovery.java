@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
-import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -34,17 +34,16 @@ import javax.annotation.Nullable;
  * (i.e. the current workspace), adds its direct {@code bazel_dep}s to the dependency graph, and
  * repeats the step for any added dependencies until the entire graph is discovered.
  */
-public class DiscoveryFunction implements SkyFunction {
+final class Discovery {
+  private Discovery() {}
 
+  /**
+   * Runs module discovery. This function follows SkyFunction semantics (returns null if a Skyframe
+   * dependency is missing and this function needs a restart).
+   */
   @Nullable
-  @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
+  public static ImmutableMap<ModuleKey, Module> run(Environment env, RootModuleFileValue root)
       throws SkyFunctionException, InterruptedException {
-    RootModuleFileValue root =
-        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
-    if (root == null) {
-      return null;
-    }
     String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
     Map<ModuleKey, Module> depGraph = new HashMap<>();
@@ -79,7 +78,7 @@ public class DiscoveryFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    return DiscoveryValue.create(ImmutableMap.copyOf(depGraph));
+    return ImmutableMap.copyOf(depGraph);
   }
 
   private static Module rewriteDepKeys(
@@ -103,11 +102,5 @@ public class DiscoveryFunction implements SkyFunction {
 
           return ModuleKey.create(depKey.getName(), newVersion);
         });
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

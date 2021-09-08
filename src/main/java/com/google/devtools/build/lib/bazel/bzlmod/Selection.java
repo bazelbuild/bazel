@@ -15,8 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -25,12 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,9 +33,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Runs module selection. This step of module resolution reads the output of {@link
- * DiscoveryFunction} and applies the Minimal Version Selection algorithm to it, removing unselected
- * modules from the dependency graph and rewriting dependencies to point to the selected versions.
+ * Runs module selection. This step of module resolution reads the output of {@link Discovery} and
+ * applies the Minimal Version Selection algorithm to it, removing unselected modules from the
+ * dependency graph and rewriting dependencies to point to the selected versions.
  *
  * <p>Essentially, what needs to happen is:
  *
@@ -70,14 +63,15 @@ import javax.annotation.Nullable;
  *       selection groups that have no valid target allowed version).
  * </ul>
  */
-public class SelectionFunction implements SkyFunction {
+final class Selection {
+  private Selection() {}
 
   /** During selection, a version is selected for each distinct "selection group". */
   @AutoValue
   abstract static class SelectionGroup {
     static SelectionGroup create(
         String moduleName, int compatibilityLevel, Version targetAllowedVersion) {
-      return new AutoValue_SelectionFunction_SelectionGroup(
+      return new AutoValue_Selection_SelectionGroup(
           moduleName, compatibilityLevel, targetAllowedVersion);
     }
 
@@ -92,7 +86,7 @@ public class SelectionFunction implements SkyFunction {
   @AutoValue
   abstract static class ModuleNameAndCompatibilityLevel {
     static ModuleNameAndCompatibilityLevel create(String moduleName, int compatibilityLevel) {
-      return new AutoValue_SelectionFunction_ModuleNameAndCompatibilityLevel(
+      return new AutoValue_Selection_ModuleNameAndCompatibilityLevel(
           moduleName, compatibilityLevel);
     }
 
@@ -170,29 +164,17 @@ public class SelectionFunction implements SkyFunction {
         allowedVersionSet.ceiling(module.getVersion()));
   }
 
-  @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
-    DiscoveryValue discovery = (DiscoveryValue) env.getValue(DiscoveryValue.KEY);
-    if (discovery == null) {
-      return null;
-    }
-    ImmutableMap<ModuleKey, Module> depGraph = discovery.getDepGraph();
-    RootModuleFileValue rootModule =
-        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
-    if (rootModule == null) {
-      return null;
-    }
-    ImmutableMap<String, ModuleOverride> overrides = rootModule.getOverrides();
-
+  /**
+   * Runs module selection (aka version resolution). Returns a dep graph sorted in BFS iteration
+   * order.
+   */
+  public static ImmutableMap<ModuleKey, Module> run(
+      ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
+      throws ExternalDepsException {
     // For any multiple-version overrides, build a mapping from (moduleName, compatibilityLevel) to
     // the set of allowed versions.
-    ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>> allowedVersionSets;
-    try {
-      allowedVersionSets = computeAllowedVersionSets(overrides, depGraph);
-    } catch (ExternalDepsException e) {
-      throw new SelectionFunctionException(e);
-    }
+    ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>> allowedVersionSets =
+        computeAllowedVersionSets(overrides, depGraph);
 
     // For each module in the dep graph, pre-compute its selection group. For most modules this is
     // simply its (moduleName, compatibilityLevel) tuple; for modules with multiple-version
@@ -235,25 +217,7 @@ public class SelectionFunction implements SkyFunction {
     // We can also take this opportunity to check that none of the remaining modules conflict with
     // each other (e.g. same module name but different compatibility levels, or not satisfying
     // multiple_version_override).
-    DepGraphWalker walker = new DepGraphWalker(newDepGraph, overrides, selectionGroups);
-    try {
-      newDepGraph = walker.walk();
-    } catch (ExternalDepsException e) {
-      throw new SelectionFunctionException(e);
-    }
-
-    // Build reverse lookups.
-    ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
-        newDepGraph.keySet().stream()
-            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
-    ImmutableMap<String, ModuleKey> moduleNameLookup =
-        newDepGraph.keySet().stream()
-            // The root module is not meaningfully used by this lookup so we skip it (it's
-            // guaranteed to be the first in iteration order).
-            .skip(1)
-            .filter(key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
-            .collect(toImmutableMap(ModuleKey::getName, key -> key));
-    return SelectionValue.create(newDepGraph, canonicalRepoNameLookup, moduleNameLookup);
+    return new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk();
   }
 
   /**
@@ -373,8 +337,7 @@ public class SelectionFunction implements SkyFunction {
       abstract ModuleKey getDependent();
 
       static ModuleKeyAndDependent create(ModuleKey moduleKey, @Nullable ModuleKey dependent) {
-        return new AutoValue_SelectionFunction_DepGraphWalker_ModuleKeyAndDependent(
-            moduleKey, dependent);
+        return new AutoValue_Selection_DepGraphWalker_ModuleKeyAndDependent(moduleKey, dependent);
       }
     }
 
@@ -389,20 +352,9 @@ public class SelectionFunction implements SkyFunction {
 
       static ExistingModule create(
           ModuleKey moduleKey, int compatibilityLevel, ModuleKey dependent) {
-        return new AutoValue_SelectionFunction_DepGraphWalker_ExistingModule(
+        return new AutoValue_Selection_DepGraphWalker_ExistingModule(
             moduleKey, compatibilityLevel, dependent);
       }
-    }
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  static final class SelectionFunctionException extends SkyFunctionException {
-    SelectionFunctionException(Exception cause) {
-      super(cause, Transience.PERSISTENT);
     }
   }
 }

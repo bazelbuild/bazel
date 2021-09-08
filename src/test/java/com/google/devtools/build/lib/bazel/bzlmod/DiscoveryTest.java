@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.fail;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -60,7 +62,10 @@ import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -70,15 +75,46 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link DiscoveryFunction}. */
+/** Tests for {@link Discovery}. */
 @RunWith(JUnit4.class)
-public class DiscoveryFunctionTest extends FoundationTestCase {
+public class DiscoveryTest extends FoundationTestCase {
 
   private Path workspaceRoot;
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
   private FakeRegistry.Factory registryFactory;
+
+  @AutoValue
+  abstract static class DiscoveryValue implements SkyValue {
+    static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.createHermetic("test_discovery");
+    static final SkyKey KEY = () -> FUNCTION_NAME;
+
+    static DiscoveryValue create(ImmutableMap<ModuleKey, Module> depGraph) {
+      return new AutoValue_DiscoveryTest_DiscoveryValue(depGraph);
+    }
+
+    abstract ImmutableMap<ModuleKey, Module> getDepGraph();
+  }
+
+  static class DiscoveryFunction implements SkyFunction {
+    @Override
+    public SkyValue compute(SkyKey skyKey, Environment env)
+        throws SkyFunctionException, InterruptedException {
+      RootModuleFileValue root =
+          (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+      if (root == null) {
+        return null;
+      }
+      ImmutableMap<ModuleKey, Module> depGraph = Discovery.run(env, root);
+      return depGraph == null ? null : DiscoveryValue.create(depGraph);
+    }
+
+    @Override
+    public String extractTag(SkyKey skyKey) {
+      return null;
+    }
+  }
 
   @Before
   public void setup() throws Exception {
@@ -128,7 +164,7 @@ public class DiscoveryFunctionTest extends FoundationTestCase {
                         new AtomicReference<TimestampGranularityMonitor>(),
                         new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
                         externalFilesHelper))
-                .put(SkyFunctions.DISCOVERY, new DiscoveryFunction())
+                .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, workspaceRoot))

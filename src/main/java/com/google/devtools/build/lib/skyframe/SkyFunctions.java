@@ -155,8 +155,8 @@ public final class SkyFunctions {
       SkyFunctionName.createNonHermetic("MODULE_FILE");
   public static final SkyFunctionName BUILD_DRIVER =
       SkyFunctionName.createNonHermetic("BUILD_DRIVER");
-  public static final SkyFunctionName DISCOVERY = SkyFunctionName.createHermetic("DISCOVERY");
-  public static final SkyFunctionName SELECTION = SkyFunctionName.createHermetic("SELECTION");
+  public static final SkyFunctionName BAZEL_MODULE_RESOLUTION =
+      SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

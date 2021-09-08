@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -45,14 +45,16 @@ public class RepositoryMappingFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
 
-    SelectionValue selectionValue = null;
+    BazelModuleResolutionValue bazelModuleResolutionValue = null;
     if (Preconditions.checkNotNull(RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env))) {
-      selectionValue = (SelectionValue) env.getValue(SelectionValue.KEY);
+      bazelModuleResolutionValue =
+          (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
       if (env.valuesMissing()) {
         return null;
       }
 
-      Optional<RepositoryMapping> mapping = computeFromBzlmod(repositoryName, selectionValue);
+      Optional<RepositoryMapping> mapping =
+          computeFromBzlmod(repositoryName, bazelModuleResolutionValue);
       if (mapping.isPresent()) {
         return RepositoryMappingValue.withMapping(mapping.get());
       }
@@ -64,7 +66,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       return null;
     }
 
-    return computeFromWorkspace(repositoryName, externalPackageValue, selectionValue);
+    return computeFromWorkspace(repositoryName, externalPackageValue, bazelModuleResolutionValue);
   }
 
   /**
@@ -74,33 +76,34 @@ public class RepositoryMappingFunction implements SkyFunction {
    *     Optional.empty().
    */
   private Optional<RepositoryMapping> computeFromBzlmod(
-      RepositoryName repositoryName, SelectionValue selectionValue) {
+      RepositoryName repositoryName, BazelModuleResolutionValue bazelModuleResolutionValue) {
     ModuleKey moduleKey =
-        selectionValue.getCanonicalRepoNameLookup().get(repositoryName.strippedName());
+        bazelModuleResolutionValue.getCanonicalRepoNameLookup().get(repositoryName.strippedName());
     if (moduleKey == null) {
       return Optional.empty();
     }
-    Module module = selectionValue.getDepGraph().get(moduleKey);
+    Module module = bazelModuleResolutionValue.getDepGraph().get(moduleKey);
     return Optional.of(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO));
   }
 
   private SkyValue computeFromWorkspace(
       RepositoryName repositoryName,
       PackageValue externalPackageValue,
-      @Nullable SelectionValue selectionValue)
+      @Nullable BazelModuleResolutionValue bazelModuleResolutionValue)
       throws RepositoryMappingFunctionException {
     Package externalPackage = externalPackageValue.getPackage();
     if (externalPackage.containsErrors()) {
       throw new RepositoryMappingFunctionException();
     }
-    if (selectionValue == null) {
+    if (bazelModuleResolutionValue == null) {
       return RepositoryMappingValue.withMapping(
           RepositoryMapping.createAllowingFallback(
               externalPackage.getRepositoryMapping(repositoryName)));
     }
     // If bzlmod is in play, we need to transform mappings to "foo" into mappings for "foo.1.3" (if
     // there is a module called "foo" in the dep graph and its version is 1.3, that is).
-    ImmutableMap<String, ModuleKey> moduleNameLookup = selectionValue.getModuleNameLookup();
+    ImmutableMap<String, ModuleKey> moduleNameLookup =
+        bazelModuleResolutionValue.getModuleNameLookup();
     HashMap<RepositoryName, RepositoryName> mapping = new HashMap<>();
     mapping.putAll(
         Maps.transformValues(

@@ -82,7 +82,7 @@ java_library(
     name = "resolution",
     srcs = [
         "ArchiveOverride.java",
-        "DiscoveryValue.java",
+        "BazelModuleResolutionValue.java",
         "GitOverride.java",
         "LocalPathOverride.java",
         "Module.java",
@@ -91,7 +91,6 @@ java_library(
         "MultipleVersionOverride.java",
         "NonRegistryOverride.java",
         "RegistryOverride.java",
-        "SelectionValue.java",
         "SingleVersionOverride.java",
     ],
     deps = [
@@ -114,11 +113,12 @@ java_library(
 java_library(
     name = "resolution_impl",
     srcs = [
-        "DiscoveryFunction.java",
+        "BazelModuleResolutionFunction.java",
+        "Discovery.java",
         "ModuleExtensionContext.java",
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",
-        "SelectionFunction.java",
+        "Selection.java",
         "StarlarkBazelModule.java",
         "TypeCheckedTag.java",
     ],

@@ -17,94 +17,21 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.skyframe.EvaluationContext;
-import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.RecordingDifferencer;
-import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link SelectionFunction}. */
+/** Tests for {@link Selection}. */
 @RunWith(JUnit4.class)
-public class SelectionFunctionTest extends FoundationTestCase {
-
-  private SequentialBuildDriver driver;
-  private RecordingDifferencer differencer;
-  private EvaluationContext evaluationContext;
-
-  @Before
-  public void setup() throws Exception {
-    differencer = new SequencedRecordingDifferencer();
-    evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
-  }
-
-  private void setUpSkyFunctions(
-      ImmutableMap<ModuleKey, Module> depGraph,
-      ImmutableMap<String, ModuleOverride> overrides)
-      throws Exception {
-    MemoizingEvaluator evaluator =
-        new InMemoryMemoizingEvaluator(
-            ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(
-                    SkyFunctions.MODULE_FILE,
-                    new SkyFunction() {
-                      @Override
-                      public SkyValue compute(SkyKey skyKey, Environment env) {
-                        // This is only called for the root module to get overrides.
-                        Preconditions.checkArgument(
-                            skyKey.equals(ModuleFileValue.KEY_FOR_ROOT_MODULE));
-                        return RootModuleFileValue.create(
-                            depGraph.get(ModuleKey.ROOT),
-                            overrides,
-                            // This lookup is not used in this test
-                            ImmutableMap.of());
-                      }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
-                      }
-                    })
-                .put(
-                    SkyFunctions.DISCOVERY,
-                    new SkyFunction() {
-                      @Override
-                      public SkyValue compute(SkyKey skyKey, Environment env) {
-                        return DiscoveryValue.create(depGraph);
-                      }
-
-                      @Override
-                      public String extractTag(SkyKey skyKey) {
-                        return null;
-                      }
-                    })
-                .put(SkyFunctions.SELECTION, new SelectionFunction())
-                .build(),
-            differencer);
-    driver = new SequentialBuildDriver(evaluator);
-  }
+public class SelectionTest {
 
   @Test
   public void diamond_simple() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -147,16 +74,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(1)
                     .build())
-            .build(),
-        ImmutableMap.of());
+            .build();
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -188,29 +108,11 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setCompatibilityLevel(1)
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B.1.0",
-            createModuleKey("B", "1.0"),
-            "C.2.0",
-            createModuleKey("C", "2.0"),
-            "D.2.0",
-            createModuleKey("D", "2.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B",
-            createModuleKey("B", "1.0"),
-            "C",
-            createModuleKey("C", "2.0"),
-            "D",
-            createModuleKey("D", "2.0"));
   }
 
   @Test
   public void diamond_withFurtherRemoval() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -261,16 +163,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setVersion(Version.parse("1.0"))
                     .setKey(createModuleKey("E", "1.0"))
                     .build())
-            .build(),
-        ImmutableMap.of());
+            .build();
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -301,29 +196,11 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setKey(createModuleKey("D", "2.0"))
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B.1.0",
-            createModuleKey("B", "1.0"),
-            "C.2.0",
-            createModuleKey("C", "2.0"),
-            "D.2.0",
-            createModuleKey("D", "2.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B",
-            createModuleKey("B", "1.0"),
-            "C",
-            createModuleKey("C", "2.0"),
-            "D",
-            createModuleKey("D", "2.0"));
   }
 
   @Test
   public void circularDependencyDueToSelection() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -364,16 +241,9 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setVersion(Version.parse("1.0"))
                     .setKey(createModuleKey("D", "1.0"))
                     .build())
-            .build(),
-        ImmutableMap.of());
+            .build();
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -398,25 +268,11 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .build())
         .inOrder();
     // D is completely gone.
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B.1.0",
-            createModuleKey("B", "1.0"),
-            "C.2.0",
-            createModuleKey("C", "2.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B",
-            createModuleKey("B", "1.0"),
-            "C",
-            createModuleKey("C", "2.0"));
   }
 
   @Test
   public void differentCompatibilityLevelIsRejected() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -459,13 +315,13 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build(),
-        ImmutableMap.of());
+            .build();
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    String error = result.getError().toString();
+    ExternalDepsException e =
+        assertThrows(
+            ExternalDepsException.class,
+            () -> Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()));
+    String error = e.getMessage();
     assertThat(error).contains("B@1.0 depends on D@1.0 with compatibility level 1");
     assertThat(error).contains("C@2.0 depends on D@2.0 with compatibility level 2");
     assertThat(error).contains("which is different");
@@ -477,7 +333,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //       \-> C 1.0
     //        \-> D 1.0 -> B 1.1
     //         \-> E 1.0 -> C 1.1
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -545,21 +401,14 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("C", "1.1"))
                     .setCompatibilityLevel(1)
                     .build())
-            .build(),
-        ImmutableMap.of());
+            .build();
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
     // After selection, C 2.0 is gone, so we're okay.
     // A 1.0 -> B 1.1
     //       \-> C 1.1
     //        \-> D 1.0 -> B 1.1
     //         \-> E 1.0 -> C 1.1
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, /*overrides=*/ ImmutableMap.of()))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -599,33 +448,11 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .addDep("C", createModuleKey("C", "1.1"))
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B.1.1",
-            createModuleKey("B", "1.1"),
-            "C.1.1",
-            createModuleKey("C", "1.1"),
-            "D.1.0",
-            createModuleKey("D", "1.0"),
-            "E.1.0",
-            createModuleKey("E", "1.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B",
-            createModuleKey("B", "1.1"),
-            "C",
-            createModuleKey("C", "1.1"),
-            "D",
-            createModuleKey("D", "1.0"),
-            "E",
-            createModuleKey("E", "1.0"));
   }
 
   @Test
   public void multipleVersionOverride_fork_allowedVersionMissingInDepGraph() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -650,18 +477,18 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setVersion(Version.parse("2.0"))
                     .setKey(createModuleKey("B", "2.0"))
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "B",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.0"), Version.parse("2.0"), Version.parse("3.0")),
-                "")));
+                ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    String error = result.getError().toString();
-    assertThat(error)
+    ExternalDepsException e =
+        assertThrows(ExternalDepsException.class, () -> Selection.run(depGraph, overrides));
+    assertThat(e)
+        .hasMessageThat()
         .contains(
             "multiple_version_override for module B contains version 3.0, but it doesn't exist in"
                 + " the dependency graph");
@@ -670,7 +497,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
   @Test
   public void multipleVersionOverride_fork_goodCase() throws Exception {
     // For more complex good cases, see the "diamond" test cases below.
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -695,19 +522,14 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setVersion(Version.parse("2.0"))
                     .setKey(createModuleKey("B", "2.0"))
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "B",
             MultipleVersionOverride.create(
-                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), "")));
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, overrides))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -730,21 +552,11 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setKey(createModuleKey("B", "2.0"))
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B.1.0",
-            createModuleKey("B", "1.0"),
-            "B.2.0",
-            createModuleKey("B", "2.0"));
-    // No B in the module name lookup because there's a multiple-version override.
-    assertThat(selectionValue.getModuleNameLookup()).isEmpty();
   }
 
   @Test
   public void multipleVersionOverride_fork_sameVersionUsedTwice() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -777,24 +589,24 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setVersion(Version.parse("1.5"))
                     .setKey(createModuleKey("B", "1.5"))
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "B",
             MultipleVersionOverride.create(
-                ImmutableList.of(Version.parse("1.0"), Version.parse("1.5")), "")));
+                ImmutableList.of(Version.parse("1.0"), Version.parse("1.5")), ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    String error = result.getError().toString();
-    assertThat(error)
+    ExternalDepsException e =
+        assertThrows(ExternalDepsException.class, () -> Selection.run(depGraph, overrides));
+    assertThat(e)
+        .hasMessageThat()
         .containsMatch(
             "A@_ depends on B@1.5 at least twice \\(with repo names (B2 and B3)|(B3 and B2)\\)");
   }
 
   @Test
   public void multipleVersionOverride_diamond_differentCompatibilityLevels() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -837,19 +649,14 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("D", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "D",
             MultipleVersionOverride.create(
-                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), "")));
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, overrides))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -888,29 +695,11 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setCompatibilityLevel(2)
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B.1.0",
-            createModuleKey("B", "1.0"),
-            "C.2.0",
-            createModuleKey("C", "2.0"),
-            "D.1.0",
-            createModuleKey("D", "1.0"),
-            "D.2.0",
-            createModuleKey("D", "2.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B",
-            createModuleKey("B", "1.0"),
-            "C",
-            createModuleKey("C", "2.0"));
   }
 
   @Test
   public void multipleVersionOverride_diamond_sameCompatibilityLevel() throws Exception {
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -951,19 +740,14 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setVersion(Version.parse("2.0"))
                     .setKey(createModuleKey("D", "2.0"))
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "D",
             MultipleVersionOverride.create(
-                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), "")));
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, overrides))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -1000,24 +784,6 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setKey(createModuleKey("D", "2.0"))
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B.1.0",
-            createModuleKey("B", "1.0"),
-            "C.2.0",
-            createModuleKey("C", "2.0"),
-            "D.1.0",
-            createModuleKey("D", "1.0"),
-            "D.2.0",
-            createModuleKey("D", "2.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B",
-            createModuleKey("B", "1.0"),
-            "C",
-            createModuleKey("C", "2.0"));
   }
 
   @Test
@@ -1027,7 +793,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \-> B3@1.0 -> C@1.5
     //   \-> B4@1.0 -> C@1.7  [allowed]
     //   \-> B5@1.0 -> C@2.0  [allowed]
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -1121,25 +887,20 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",
             MultipleVersionOverride.create(
                 ImmutableList.of(Version.parse("1.3"), Version.parse("1.7"), Version.parse("2.0")),
-                "")));
+                ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
     // A --> B1@1.0 -> C@1.3  [originally C@1.0]
     //   \-> B2@1.0 -> C@1.3  [allowed]
     //   \-> B3@1.0 -> C@1.7  [originally C@1.5]
     //   \-> B4@1.0 -> C@1.7  [allowed]
     //   \-> B5@1.0 -> C@2.0  [allowed]
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, overrides))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -1209,38 +970,6 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setCompatibilityLevel(2)
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B1.1.0",
-            createModuleKey("B1", "1.0"),
-            "B2.1.0",
-            createModuleKey("B2", "1.0"),
-            "B3.1.0",
-            createModuleKey("B3", "1.0"),
-            "B4.1.0",
-            createModuleKey("B4", "1.0"),
-            "B5.1.0",
-            createModuleKey("B5", "1.0"),
-            "C.1.3",
-            createModuleKey("C", "1.3"),
-            "C.1.7",
-            createModuleKey("C", "1.7"),
-            "C.2.0",
-            createModuleKey("C", "2.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B1",
-            createModuleKey("B1", "1.0"),
-            "B2",
-            createModuleKey("B2", "1.0"),
-            "B3",
-            createModuleKey("B3", "1.0"),
-            "B4",
-            createModuleKey("B4", "1.0"),
-            "B5",
-            createModuleKey("B5", "1.0"));
   }
 
   @Test
@@ -1248,7 +977,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     // A --> B1@1.0 -> C@1.0  [allowed]
     //   \-> B2@1.0 -> C@1.7
     //   \-> B3@1.0 -> C@2.0  [allowed]
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -1308,17 +1037,17 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("C", "2.0"))
                     .setCompatibilityLevel(2)
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",
             MultipleVersionOverride.create(
-                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), "")));
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    String error = result.getError().toString();
-    assertThat(error)
+    ExternalDepsException e =
+        assertThrows(ExternalDepsException.class, () -> Selection.run(depGraph, overrides));
+    assertThat(e)
+        .hasMessageThat()
         .contains(
             "B2@1.0 depends on C@1.7 which is not allowed by the multiple_version_override on C,"
                 + " which allows only [1.0, 2.0]");
@@ -1329,7 +1058,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     // A --> B1@1.0 -> C@1.0  [allowed]
     //   \-> B2@1.0 -> C@2.0  [allowed]
     //   \-> B3@1.0 -> C@3.0
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -1389,17 +1118,17 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("C", "3.0"))
                     .setCompatibilityLevel(3)
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",
             MultipleVersionOverride.create(
-                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), "")));
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    String error = result.getError().toString();
-    assertThat(error)
+    ExternalDepsException e =
+        assertThrows(ExternalDepsException.class, () -> Selection.run(depGraph, overrides));
+    assertThat(e)
+        .hasMessageThat()
         .contains(
             "B3@1.0 depends on C@3.0 which is not allowed by the multiple_version_override on C,"
                 + " which allows only [1.0, 2.0]");
@@ -1413,7 +1142,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \-> B3@1.0 --> C@2.0  [allowed]
     //   \          \-> B4@1.1
     //   \-> B4@1.0 --> C@3.0
-    setUpSkyFunctions(
+    ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
@@ -1506,18 +1235,13 @@ public class SelectionFunctionTest extends FoundationTestCase {
                     .setKey(createModuleKey("C", "3.0"))
                     .setCompatibilityLevel(3)
                     .build())
-            .build(),
+            .build();
+    ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.of(
             "C",
             MultipleVersionOverride.create(
-                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), "")));
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
 
-    EvaluationResult<SelectionValue> result =
-        driver.evaluate(ImmutableList.of(SelectionValue.KEY), evaluationContext);
-    if (result.hasError()) {
-      fail(result.getError().toString());
-    }
-    SelectionValue selectionValue = result.get(SelectionValue.KEY);
     // A --> B1@1.0 --> C@1.0  [allowed]
     //   \          \-> B2@1.1
     //   \-> B2@1.1
@@ -1525,7 +1249,7 @@ public class SelectionFunctionTest extends FoundationTestCase {
     //   \          \-> B4@1.1
     //   \-> B4@1.1
     // C@1.5 and C@3.0, the versions violating the allowlist, are gone.
-    assertThat(selectionValue.getDepGraph())
+    assertThat(Selection.run(depGraph, overrides))
         .containsExactly(
             ModuleKey.ROOT,
             Module.builder()
@@ -1580,31 +1304,5 @@ public class SelectionFunctionTest extends FoundationTestCase {
                 .setCompatibilityLevel(2)
                 .build())
         .inOrder();
-    assertThat(selectionValue.getCanonicalRepoNameLookup())
-        .containsExactly(
-            "",
-            ModuleKey.ROOT,
-            "B1.1.0",
-            createModuleKey("B1", "1.0"),
-            "B2.1.1",
-            createModuleKey("B2", "1.1"),
-            "B3.1.0",
-            createModuleKey("B3", "1.0"),
-            "B4.1.1",
-            createModuleKey("B4", "1.1"),
-            "C.1.0",
-            createModuleKey("C", "1.0"),
-            "C.2.0",
-            createModuleKey("C", "2.0"));
-    assertThat(selectionValue.getModuleNameLookup())
-        .containsExactly(
-            "B1",
-            createModuleKey("B1", "1.0"),
-            "B2",
-            createModuleKey("B2", "1.1"),
-            "B3",
-            createModuleKey("B3", "1.0"),
-            "B4",
-            createModuleKey("B4", "1.1"));
   }
 }

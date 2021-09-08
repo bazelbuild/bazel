@@ -24,9 +24,9 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.SelectionValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -855,13 +855,15 @@ public class BzlLoadFunction implements SkyFunction {
       // Otherwise, we must be trying to load a .bzl file from a repo corresponding to a Bazel
       // module (repos created by module extensions can't themselves have repo rules or module
       // extensions), or from the WORKSPACE file. This means that selection has finished running.
-      SelectionValue selectionValue = (SelectionValue) env.getValue(SelectionValue.KEY);
+      BazelModuleResolutionValue bazelModuleResolutionValue =
+          (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
       Objects.requireNonNull(
-          selectionValue,
+          bazelModuleResolutionValue,
           "Internal error: trying to load a .bzl file for bzlmod before selection has finished");
-      ModuleKey moduleKey = selectionValue.getCanonicalRepoNameLookup().get(canonicalRepoName);
+      ModuleKey moduleKey =
+          bazelModuleResolutionValue.getCanonicalRepoNameLookup().get(canonicalRepoName);
       Objects.requireNonNull(moduleKey, "Internal error: unknown repo " + canonicalRepoName);
-      return selectionValue
+      return bazelModuleResolutionValue
           .getDepGraph()
           .get(moduleKey)
           .getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY);

@@ -25,11 +25,10 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.bazel.bzlmod.DiscoveryFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
-import com.google.devtools.build.lib.bazel.bzlmod.SelectionFunction;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.SyncCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
@@ -219,8 +218,8 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addSkyFunction(
         SkyFunctions.MODULE_FILE,
         new ModuleFileFunction(registryFactory, directories.getWorkspace()));
-    builder.addSkyFunction(SkyFunctions.DISCOVERY, new DiscoveryFunction());
-    builder.addSkyFunction(SkyFunctions.SELECTION, new SelectionFunction());
+    builder.addSkyFunction(
+        SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction());
     filesystem = runtime.getFileSystem();
   }
 

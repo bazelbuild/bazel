@@ -113,8 +113,7 @@ public final class BzlmodRepoRuleHelperTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, workspaceRoot))
-                .put(SkyFunctions.DISCOVERY, new DiscoveryFunction())
-                .put(SkyFunctions.SELECTION, new SelectionFunction())
+                .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     GET_REPO_SPEC_BY_NAME_FUNCTION,
                     new GetRepoSpecByNameFunction(new BzlmodRepoRuleHelperImpl()))
