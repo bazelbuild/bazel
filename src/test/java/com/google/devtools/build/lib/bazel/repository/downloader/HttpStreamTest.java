@@ -18,6 +18,7 @@ import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.repository.downloader.DownloaderTestUtils.makeUrl;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -203,6 +204,56 @@ public class HttpStreamTest {
       ByteStreams.exhaust(stream);
       fail("Should have thrown error before close()");
     }
+  }
+
+  @Test
+  public void bigDataTruncated_throwsExpectedError() throws Exception {
+    byte[] bigData = new byte[HttpStream.PRECHECK_BYTES + 70001];
+    randoCalrissian.nextBytes(bigData);
+    when(connection.getHeaderField("Content-Length"))
+        .thenReturn(String.valueOf(bigData.length + 1));
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(bigData));
+
+    IOException thrown =
+        assertThrows(
+            IOException.class,
+            () -> {
+              try (HttpStream stream =
+                  streamFactory.create(
+                      connection,
+                      AURL,
+                      makeChecksum(Hashing.sha256().hashBytes(bigData).toString()),
+                      reconnector)) {
+                ByteStreams.exhaust(stream);
+              }
+            });
+
+    assertThat(thrown).hasMessageThat().contains("Content-Length");
+  }
+
+  @Test
+  public void bigDataOverflowed_throwsExpectedError() throws Exception {
+    byte[] bigData = new byte[HttpStream.PRECHECK_BYTES + 70001];
+    randoCalrissian.nextBytes(bigData);
+    when(connection.getHeaderField("Content-Length"))
+        .thenReturn(String.valueOf(bigData.length - 1));
+    when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(bigData));
+
+    IOException thrown =
+        assertThrows(
+            IOException.class,
+            () -> {
+              try (HttpStream stream =
+                  streamFactory.create(
+                      connection,
+                      AURL,
+                      makeChecksum(Hashing.sha256().hashBytes(bigData).toString()),
+                      reconnector)) {
+                ByteStreams.exhaust(stream);
+              }
+            });
+
+    assertThat(thrown).hasMessageThat().contains("Content-Length");
   }
 
   @Test
