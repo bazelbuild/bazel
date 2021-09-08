@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -1100,23 +1099,7 @@ public class RemoteExecutionService {
       return;
     }
 
-    String errorMessage;
-    if (error instanceof IOException) {
-      errorMessage = grpcAwareErrorMessage((IOException) error);
-    } else {
-      errorMessage = error.getMessage();
-    }
-
-    if (isNullOrEmpty(errorMessage)) {
-      errorMessage = error.getClass().getSimpleName();
-    }
-
-    if (verboseFailures) {
-      // On --verbose_failures print the whole stack trace
-      errorMessage += "\n" + getStackTraceAsString(error);
-    }
-
-    errorMessage = "Writing to Remote Cache: " + errorMessage;
+    String errorMessage = "Writing to Remote Cache: " + grpcAwareErrorMessage(error, verboseFailures);
 
     reporter.handle(Event.warn(errorMessage));
   }

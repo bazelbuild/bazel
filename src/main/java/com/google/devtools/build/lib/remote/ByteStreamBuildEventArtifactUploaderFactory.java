@@ -14,31 +14,34 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import java.util.concurrent.Executor;
 
-/**
- * A factory for {@link ByteStreamBuildEventArtifactUploader}.
- */
-class ByteStreamBuildEventArtifactUploaderFactory implements
-    BuildEventArtifactUploaderFactory {
+/** A factory for {@link ByteStreamBuildEventArtifactUploader}. */
+class ByteStreamBuildEventArtifactUploaderFactory implements BuildEventArtifactUploaderFactory {
 
-  private final ByteStreamUploader uploader;
+  private final Executor executor;
+  private final ExtendedEventHandler reporter;
+  private final boolean verboseFailures;
+  private final RemoteCache remoteCache;
   private final String remoteServerInstanceName;
   private final String buildRequestId;
   private final String commandId;
-  private final MissingDigestsFinder missingDigestsFinder;
 
   ByteStreamBuildEventArtifactUploaderFactory(
-      ByteStreamUploader uploader,
-      MissingDigestsFinder missingDigestsFinder,
-      String remoteServerInstanceName,
-      String buildRequestId,
-      String commandId) {
-    this.uploader = uploader;
-    this.missingDigestsFinder = missingDigestsFinder;
+          Executor executor,
+          ExtendedEventHandler reporter,
+          boolean verboseFailures,
+          RemoteCache remoteCache,
+          String remoteServerInstanceName,
+          String buildRequestId,
+          String commandId) {
+    this.executor = executor;
+    this.reporter = reporter;
+    this.verboseFailures = verboseFailures;
+    this.remoteCache = remoteCache;
     this.remoteServerInstanceName = remoteServerInstanceName;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
@@ -47,11 +50,6 @@ class ByteStreamBuildEventArtifactUploaderFactory implements
   @Override
   public BuildEventArtifactUploader create(CommandEnvironment env) {
     return new ByteStreamBuildEventArtifactUploader(
-        uploader.retain(),
-        missingDigestsFinder,
-        remoteServerInstanceName,
-        buildRequestId,
-        commandId,
-        env.getOptions().getOptions(RemoteOptions.class).buildEventUploadMaxThreads);
+        executor, reporter, verboseFailures, remoteCache.retain(), remoteServerInstanceName, buildRequestId, commandId);
   }
 }
