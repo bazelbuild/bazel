@@ -265,7 +265,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
     protected void runInternal(ImmutableList<Pair<SkyKey, InvalidationType>> pendingList)
         throws InterruptedException {
       try (AutoProfiler ignored =
-          GoogleAutoProfilerUtils.logged("invalidation enqueuing", MIN_TIME_FOR_LOGGING)) {
+          GoogleAutoProfilerUtils.logged(
+              "invalidation enqueuing for " + pendingList.size() + " nodes",
+              MIN_TIME_FOR_LOGGING)) {
         // To avoid contention and scheduling too many jobs for our #cpus, we start
         // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
         int listSize = pendingList.size();
@@ -287,17 +289,24 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
           GoogleAutoProfilerUtils.logged("invalidation graph traversal", MIN_TIME_FOR_LOGGING)) {
         executor.awaitQuiescence(/*interruptWorkers=*/ true);
       }
+      ConcurrentHashMap.KeySetView<SkyKey, Boolean> deletedKeys =
+          state.visitedKeysAcrossInterruptions.keySet();
+      // TODO(b/150299871): this is uninterruptible.
       try (AutoProfiler ignored =
-          GoogleAutoProfilerUtils.logged("reverse dep removal", MIN_TIME_FOR_LOGGING)) {
+          GoogleAutoProfilerUtils.logged(
+              "reverse dep removal of "
+                  + deletedKeys.size()
+                  + " deleted rdeps from "
+                  + state.doneKeysWithRdepsToRemove.size()
+                  + " deps",
+              MIN_TIME_FOR_LOGGING)) {
         state.doneKeysWithRdepsToRemove.forEachEntry(
             /*parallelismThreshold=*/ 1024,
             e -> {
               NodeEntry entry = graph.get(null, Reason.RDEP_REMOVAL, e.getKey());
-              if (entry == null) {
-                return;
+              if (entry != null) {
+                entry.removeReverseDepsFromDoneEntryDueToDeletion(deletedKeys);
               }
-              entry.removeReverseDepsFromDoneEntryDueToDeletion(
-                  state.visitedKeysAcrossInterruptions.keySet());
             });
         state.clear();
       }
