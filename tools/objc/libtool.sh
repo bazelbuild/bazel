@@ -35,7 +35,8 @@ fi
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
 if [ ! -f "${MY_LOCATION}"/libtool_check_unique ] ; then
-    echo "libtool_check_unique not found. Please file an issue at github.com/bazelbuild/bazel"
+  echo "libtool_check_unique not found. Please file an issue at github.com/bazelbuild/bazel"
+  exit 1
 elif "${MY_LOCATION}"/libtool_check_unique "$@"; then
   # If there are no duplicate .o basenames,
   # libtool can be invoked with the original arguments.
@@ -44,7 +45,7 @@ elif "${MY_LOCATION}"/libtool_check_unique "$@"; then
 fi
 
 TEMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/libtool.XXXXXXXX")"
-trap "rm -rf \"${TEMPDIR}\"" EXIT
+trap 'rm -rf "$TEMPDIR"' EXIT
 
 # Creates a symbolic link to the input argument file and returns the symlink
 # file path.
@@ -96,7 +97,6 @@ while [[ $# -gt 0 ]]; do
      ARG="$1"
      shift
      ARGS+=("${ARG}")
-     OUTPUTFILE="${ARG}"
      ;;
    # Flags with no args
     -static|-s|-a|-c|-L|-T|-D|-no_warning_for_no_symbols)
@@ -120,7 +120,7 @@ while [[ $# -gt 0 ]]; do
      ;;
    # Remaining args are input objects
    *)
-     ARGS+=("$(echo "$(hash_objfile "${ARG}")")")
+     ARGS+=("$(hash_objfile "${ARG}")")
      ;;
    esac
 done
