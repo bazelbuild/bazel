@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
@@ -1070,7 +1071,7 @@ public class RemoteExecutionService {
         Single.using(
                 remoteCache::retain,
                 remoteCache ->
-                    manifest.uploadAsync(action.getRemoteActionExecutionContext(), remoteCache),
+                    manifest.uploadAsync(action.getRemoteActionExecutionContext(), remoteCache, reporter),
                 RemoteCache::release)
             .subscribeOn(scheduler)
             .subscribe(
@@ -1087,7 +1088,10 @@ public class RemoteExecutionService {
                   }
                 });
       } else {
-        manifest.upload(action.getRemoteActionExecutionContext(), remoteCache);
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
+          manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
+        }
       }
     } catch (IOException e) {
       reportUploadError(e);

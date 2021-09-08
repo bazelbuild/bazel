@@ -299,7 +299,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             DIGEST_UTIL,
             uploader);
     RemoteExecutionCache remoteCache =
-        new RemoteExecutionCache(reporter, cacheProtocol, remoteOptions, DIGEST_UTIL);
+        new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             directExecutor(),

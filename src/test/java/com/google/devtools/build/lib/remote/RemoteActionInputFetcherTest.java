@@ -67,7 +67,6 @@ public class RemoteActionInputFetcherTest {
 
   private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
 
-  private final Reporter reporter = new Reporter(new EventBus());
   private Path execRoot;
   private ArtifactRoot artifactRoot;
   private RemoteOptions options;
@@ -395,7 +394,6 @@ public class RemoteActionInputFetcherTest {
     for (Map.Entry<Digest, ByteString> entry : cacheEntries.entrySet()) {
       cacheEntriesByteArray.put(entry.getKey(), entry.getValue().toByteArray());
     }
-    return new RemoteCache(
-        reporter, new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil);
+    return new RemoteCache(new InMemoryCacheClient(cacheEntriesByteArray), options, digestUtil);
   }
 }

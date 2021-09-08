@@ -30,11 +30,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
-import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
@@ -66,7 +62,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /**
  * A cache for storing artifacts (input and output) as well as the output of running an action.
@@ -85,7 +80,6 @@ public class RemoteCache extends AbstractReferenceCounted {
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
 
-  private final ExtendedEventHandler reporter;
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
@@ -94,11 +88,9 @@ public class RemoteCache extends AbstractReferenceCounted {
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      ExtendedEventHandler reporter,
       RemoteCacheClient cacheProtocol,
       RemoteOptions options,
       DigestUtil digestUtil) {
-    this.reporter = reporter;
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
@@ -108,23 +100,6 @@ public class RemoteCache extends AbstractReferenceCounted {
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
     return getFromFuture(cacheProtocol.downloadActionResult(context, actionKey, inlineOutErr));
-  }
-
-  private void postUploadStartedEvent(@Nullable ActionExecutionMetadata action, String resourceId) {
-    if (action == null) {
-      return;
-    }
-
-    reporter.post(ActionUploadStartedEvent.create(action, resourceId));
-  }
-
-  private void postUploadFinishedEvent(
-      @Nullable ActionExecutionMetadata action, String resourceId) {
-    if (action == null) {
-      return;
-    }
-
-    reporter.post(ActionUploadFinishedEvent.create(action, resourceId));
   }
 
   /**
@@ -143,36 +118,12 @@ public class RemoteCache extends AbstractReferenceCounted {
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
 
-    ActionExecutionMetadata action = context.getSpawnOwner();
-
     Completable upload =
-        Completable.using(
-            () -> {
-              String resourceId = "ac/" + actionKey.getDigest().getHash();
-              postUploadStartedEvent(action, resourceId);
-              return resourceId;
-            },
-            resourceId ->
-                RxFutures.toCompletable(
-                    () -> cacheProtocol.uploadActionResult(context, actionKey, actionResult),
-                    directExecutor()),
-            resourceId -> postUploadFinishedEvent(action, resourceId));
+        RxFutures.toCompletable(
+            () -> cacheProtocol.uploadActionResult(context, actionKey, actionResult),
+            directExecutor());
 
     return RxFutures.toListenableFuture(upload);
-  }
-
-  private Completable doUploadFile(RemoteActionExecutionContext context, Digest digest, Path file) {
-    ActionExecutionMetadata action = context.getSpawnOwner();
-    return Completable.using(
-        () -> {
-          String resourceId = "cas/" + digest.getHash();
-          postUploadStartedEvent(action, resourceId);
-          return resourceId;
-        },
-        resourceId ->
-            RxFutures.toCompletable(
-                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()),
-        resourceId -> postUploadFinishedEvent(action, resourceId));
   }
 
   /**
@@ -191,24 +142,13 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
-    Completable upload = casUploadCache.executeIfNot(digest, doUploadFile(context, digest, file));
+    Completable upload =
+        casUploadCache.executeIfNot(
+            digest,
+            RxFutures.toCompletable(
+                () -> cacheProtocol.uploadFile(context, digest, file), directExecutor()));
 
     return RxFutures.toListenableFuture(upload);
-  }
-
-  private Completable doUploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    ActionExecutionMetadata action = context.getSpawnOwner();
-    return Completable.using(
-        () -> {
-          String resourceId = "cas/" + digest.getHash();
-          postUploadStartedEvent(action, resourceId);
-          return resourceId;
-        },
-        resourceId ->
-            RxFutures.toCompletable(
-                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()),
-        resourceId -> postUploadFinishedEvent(action, resourceId));
   }
 
   /**
@@ -227,7 +167,11 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
-    Completable upload = casUploadCache.executeIfNot(digest, doUploadBlob(context, digest, data));
+    Completable upload =
+        casUploadCache.executeIfNot(
+            digest,
+            RxFutures.toCompletable(
+                () -> cacheProtocol.uploadBlob(context, digest, data), directExecutor()));
 
     return RxFutures.toListenableFuture(upload);
   }
