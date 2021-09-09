@@ -203,7 +203,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         transitiveOutputJars.addTransitive(provider.getJars());
       }
 
-      if (shouldGenerateCode()) {
+      if (aspectCommon.shouldGenerateCode(protoInfo, "java_proto_library")) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
         Artifact outputJar = aspectCommon.getOutputJarArtifact();
@@ -266,25 +266,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                       javaProtoLibraryAspectProviders,
                       generatedCompilationArgsProvider,
                       aspectCommon.getProtoRuntimeDeps())));
-    }
-
-    /**
-     * Decides whether code should be generated for the .proto files in the currently-processed
-     * proto_library.
-     */
-    private boolean shouldGenerateCode() {
-      if (protoInfo.getDirectSources().isEmpty()) {
-        return false;
-      }
-
-      NestedSetBuilder<Artifact> forbiddenProtos = NestedSetBuilder.stableOrder();
-      forbiddenProtos.addTransitive(aspectCommon.getProtoToolchainProvider().forbiddenProtos());
-      forbiddenProtos.addTransitive(rpcSupport.getForbiddenProtos(ruleContext));
-
-      final ProtoSourceFileExcludeList protoExcludeList =
-          new ProtoSourceFileExcludeList(ruleContext, forbiddenProtos.build());
-
-      return protoExcludeList.checkSrcs(protoInfo.getDirectSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
