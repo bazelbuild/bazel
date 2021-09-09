@@ -17,6 +17,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r19:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r20:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r21:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r23:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -39,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r19",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r20",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r21",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools/r23",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",
     ],
