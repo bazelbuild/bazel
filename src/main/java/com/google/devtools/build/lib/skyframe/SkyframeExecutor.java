@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
@@ -111,9 +112,10 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
+import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -3112,28 +3114,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   final AnalysisTraversalResult getActionLookupValuesInBuild(
       List<ConfiguredTargetKey> topLevelCtKeys, ImmutableList<AspectKey> aspectKeys)
       throws InterruptedException {
-    AnalysisTraversalResult result = new AnalysisTraversalResult();
-    if (!isAnalysisIncremental()) {
-      // If we do not have incremental analysis state we do not have graph edges, so we cannot
-      // traverse the graph and find only actions in the current build. In this case we can simply
-      // return all ActionLookupValues in the graph, since the graph's lifetime is a single build
-      // anyway.
-      for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getDoneValues().entrySet()) {
-        if ((entry.getKey() instanceof ActionLookupKey) && entry.getValue() != null) {
-          result.accumulate(entry.getValue(), (ActionLookupKey) entry.getKey());
+    try (SilentCloseable c =
+        Profiler.instance().profile("skyframeExecutor.getActionLookupValuesInBuild")) {
+      AnalysisTraversalResult result = new AnalysisTraversalResult();
+      if (!isAnalysisIncremental()) {
+        // If we do not have incremental analysis state we do not have graph edges, so we cannot
+        // traverse the graph and find only actions in the current build. In this case we can simply
+        // return all ActionLookupValues in the graph, since the graph's lifetime is a single build
+        // anyway.
+        for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getDoneValues().entrySet()) {
+          if ((entry.getKey() instanceof ActionLookupKey) && entry.getValue() != null) {
+            result.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());
+          }
         }
+        return result;
       }
+      Map<ActionLookupKey, SkyValue> foundActions =
+          FindActionsRecursively.run(
+              Iterables.concat(topLevelCtKeys, aspectKeys),
+              SkyframeExecutorWrappingWalkableGraph.of(this));
+      foundActions.forEach(result::accumulate);
       return result;
     }
-    WalkableGraph walkableGraph = SkyframeExecutorWrappingWalkableGraph.of(this);
-    Set<SkyKey> seen = CompactHashSet.create();
-    for (ConfiguredTargetKey key : topLevelCtKeys) {
-      findActionsRecursively(walkableGraph, key, seen, result);
-    }
-    for (AspectKey key : aspectKeys) {
-      findActionsRecursively(walkableGraph, key, seen, result);
-    }
-    return result;
   }
 
   static class AnalysisTraversalResult {
@@ -3151,7 +3153,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     private AnalysisTraversalResult() {}
 
-    private void accumulate(SkyValue value, ActionLookupKey keyForDebugging) {
+    private void accumulate(ActionLookupKey keyForDebugging, SkyValue value) {
       boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
       boolean isActionLookupValue = value instanceof ActionLookupValue;
       if (!isConfiguredTarget && !isActionLookupValue) {
@@ -3215,22 +3217,74 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  private static void findActionsRecursively(
-      WalkableGraph walkableGraph, SkyKey key, Set<SkyKey> seen, AnalysisTraversalResult result)
-      throws InterruptedException {
-    if (!(key instanceof ActionLookupKey) || !seen.add(key)) {
-      // The subgraph of dependencies of ActionLookupKeys never has a non-ActionLookupKey depending
-      // on an ActionLookupKey. So we can skip any non-ActionLookupKeys in the traversal as an
-      // optimization.
-      return;
+  private static final class FindActionsRecursively {
+    private final QuiescingExecutor quiescingExecutor =
+        ForkJoinQuiescingExecutor.newBuilder()
+            .withOwnershipOf(
+                NamedForkJoinPool.newNamedPool(
+                    "find-action-lookup-values-in-build",
+                    Runtime.getRuntime().availableProcessors()))
+            .build();
+    private final WalkableGraph walkableGraph;
+    private final Set<SkyKey> seen = Sets.newConcurrentHashSet();
+    private final Map<ActionLookupKey, SkyValue> found = Maps.newConcurrentMap();
+
+    private FindActionsRecursively(WalkableGraph walkableGraph) {
+      this.walkableGraph = walkableGraph;
     }
-    SkyValue value = walkableGraph.getValue(key);
-    if (value == null) {
-      return; // The value failed to evaluate.
+
+    static Map<ActionLookupKey, SkyValue> run(
+        Iterable<ActionLookupKey> visitationRoots, WalkableGraph walkableGraph)
+        throws InterruptedException {
+      FindActionsRecursively findActionsRecursively = new FindActionsRecursively(walkableGraph);
+      for (ActionLookupKey actionLookupKey : visitationRoots) {
+        findActionsRecursively.enqueueIfNotYetSeen(actionLookupKey);
+      }
+      findActionsRecursively.quiescingExecutor.awaitQuiescence(true);
+      return findActionsRecursively.found;
     }
-    result.accumulate(value, (ActionLookupKey) key);
-    for (SkyKey dep : walkableGraph.getDirectDeps(key)) {
-      findActionsRecursively(walkableGraph, dep, seen, result);
+
+    private void enqueueIfNotYetSeen(ActionLookupKey key) {
+      if (seen.add(key)) {
+        quiescingExecutor.execute(new VisitActionLookupKey(key));
+      }
+    }
+
+    private final class VisitActionLookupKey implements Runnable {
+      private final ActionLookupKey key;
+
+      private VisitActionLookupKey(ActionLookupKey key) {
+        this.key = key;
+      }
+
+      @Override
+      public void run() {
+        SkyValue value;
+        try {
+          value = walkableGraph.getValue(key);
+        } catch (InterruptedException e) {
+          return;
+        }
+        if (value == null) {
+          return; // The value failed to evaluate.
+        }
+        found.put(key, value);
+        Iterable<SkyKey> directDeps;
+        try {
+          directDeps = walkableGraph.getDirectDeps(key);
+        } catch (InterruptedException e) {
+          return;
+        }
+        for (SkyKey dep : directDeps) {
+          if (!(dep instanceof ActionLookupKey)) {
+            // The subgraph of dependencies of ActionLookupKeys never has a non-ActionLookupKey
+            // depending on an ActionLookupKey. So we can skip any non-ActionLookupKeys in the
+            // traversal as an optimization.
+            continue;
+          }
+          enqueueIfNotYetSeen((ActionLookupKey) dep);
+        }
+      }
     }
   }
 
