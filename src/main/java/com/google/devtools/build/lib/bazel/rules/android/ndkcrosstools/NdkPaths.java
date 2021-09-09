@@ -208,6 +208,20 @@ public class NdkPaths {
         .replace("%repositoryName%", repositoryName);
   }
 
+  /**
+   * NDK 22 and above. The headers have been unified into ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+   *
+   * @return the sysroot location for NDK 22 and above.
+   */
+  public String createClangBuiltinSysroot() {
+    // This location does not exist prior to NDK 22
+    Preconditions.checkState(majorRevision >= 22);
+
+    return "%externalExecPathBase%/%repositoryName%/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+        .replace("%externalExecPathBase%", externalExecPathBase)
+        .replace("%repositoryName%", repositoryName);
+  }
+
   public String getCorrectedApiLevel(String targetCpu) {
     return apiLevel.getCpuCorrectedApiLevel(targetCpu);
   }

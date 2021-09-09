@@ -50,11 +50,15 @@ final class ArmCrosstools {
   }
 
   private CToolchain.Builder createAarch64ClangToolchain() {
-    String toolchainName = "aarch64-linux-android-4.9";
+    // String toolchainName = "aarch64-linux-android-4.9";
+    String toolchainName = "llvm";
     String targetPlatform = "aarch64-linux-android";
-    String gccToolchain = ndkPaths.createGccToolchainPath(toolchainName);
+    // String gccToolchain = ndkPaths.createGccToolchainPath(toolchainName);
+    // String clangToolchain = ndkPaths.createClangToolchainPath(toolchainName);
     String llvmTriple = "aarch64-none-linux-android";
 
+    
+    System.out.println("sysroot: " + ndkPaths.createClangBuiltinSysroot());
     return CToolchain.newBuilder()
         .setToolchainIdentifier("aarch64-linux-android-clang" + clangVersion)
         .setTargetSystemName(targetPlatform)
@@ -63,11 +67,12 @@ final class ArmCrosstools {
         .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
         .addCxxBuiltinIncludeDirectory(
             ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
+        .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot())
+        // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
 
         // Compiler flags
-        .addCompilerFlag("-gcc-toolchain")
-        .addCompilerFlag(gccToolchain)
+        // .addCompilerFlag("-gcc-toolchain")
+        // .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-target")
         .addCompilerFlag(llvmTriple)
         .addCompilerFlag("-fpic")
@@ -78,8 +83,8 @@ final class ArmCrosstools {
         .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
 
         // Linker flags
-        .addLinkerFlag("-gcc-toolchain")
-        .addLinkerFlag(gccToolchain)
+        // .addLinkerFlag("-gcc-toolchain")
+        // .addLinkerFlag(gccToolchain)
         .addLinkerFlag("-target")
         .addLinkerFlag(llvmTriple)
 
