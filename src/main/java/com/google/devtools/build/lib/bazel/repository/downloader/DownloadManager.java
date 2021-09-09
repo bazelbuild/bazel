@@ -101,8 +101,11 @@ public class DownloadManager {
     }
 
     List<URL> rewrittenUrls = originalUrls;
+    Map<URI, Map<String, String>> rewrittenAuthHeaders = authHeaders;
+
     if (rewriter != null) {
       rewrittenUrls = rewriter.amend(originalUrls);
+      rewrittenAuthHeaders = rewriter.updateAuthHeaders(rewrittenUrls, authHeaders);
     }
 
     URL mainUrl; // The "main" URL for this request
@@ -218,7 +221,7 @@ public class DownloadManager {
     try {
       downloader.download(
           rewrittenUrls,
-          authHeaders,
+          rewrittenAuthHeaders,
           checksum,
           canonicalId,
           destination,
