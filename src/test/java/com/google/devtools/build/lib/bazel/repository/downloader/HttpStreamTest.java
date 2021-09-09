@@ -214,9 +214,9 @@ public class HttpStreamTest {
         .thenReturn(String.valueOf(bigData.length + 1));
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(bigData));
 
-    IOException thrown =
+    ContentLengthMismatchException thrown =
         assertThrows(
-            IOException.class,
+                ContentLengthMismatchException.class,
             () -> {
               try (HttpStream stream =
                   streamFactory.create(
@@ -239,9 +239,9 @@ public class HttpStreamTest {
         .thenReturn(String.valueOf(bigData.length - 1));
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(bigData));
 
-    IOException thrown =
+    ContentLengthMismatchException thrown =
         assertThrows(
-            IOException.class,
+                ContentLengthMismatchException.class,
             () -> {
               try (HttpStream stream =
                   streamFactory.create(
