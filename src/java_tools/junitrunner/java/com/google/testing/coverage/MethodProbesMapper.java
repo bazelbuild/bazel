@@ -424,7 +424,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
           if (lineExp == null) {
             lineToBranchExp.put(insn.getLine(), exp);
           } else {
-            lineExp.merge(exp);
+            lineToBranchExp.put(insn.getLine(), lineExp.merge(exp));
           }
         } else {
           // If we reach here, the internal data of the mapping is inconsistent, either

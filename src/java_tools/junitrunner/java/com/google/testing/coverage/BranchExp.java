@@ -58,8 +58,10 @@ public class BranchExp implements CovExp {
   }
 
   /** Make a union of the branches of two BranchExp. */
-  public void merge(BranchExp other) {
-    branches.addAll(other.branches);
+  public BranchExp merge(BranchExp other) {
+    List<CovExp> mergedBranches = new ArrayList<>(branches);
+    mergedBranches.addAll(other.branches);
+    return new BranchExp(mergedBranches);
   }
 
   @Override
