@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -79,6 +80,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -126,7 +129,8 @@ public abstract class CcModule
       ImmutableList.of("executable", "dynamic_library", "archive");
 
   private static final ImmutableList<String> PRIVATE_STARLARKIFICATION_ALLOWLIST =
-      ImmutableList.of("bazel_internal/test_rules/cc");
+      ImmutableList.of(
+          "bazel_internal/test_rules/cc", "rust/private");
 
   /** Enum for strings coming in from Starlark representing languages */
   protected enum Language {
@@ -2338,5 +2342,83 @@ public abstract class CcModule
             Joiner.on(",").join(fileTypeForErrorMessage.getExtensions()));
       }
     }
+  }
+
+  @StarlarkMethod(
+      name = "register_linkstamp_compile_action",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "actions",
+            positional = false,
+            named = true,
+            doc = "<code>actions</code> object."),
+        @Param(
+            name = "cc_toolchain",
+            doc = "<code>CcToolchainInfo</code> provider to be used.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "feature_configuration",
+            doc = "<code>feature_configuration</code> to be queried.",
+            positional = false,
+            named = true),
+        @Param(name = "grep_includes", documented = false, positional = false, named = true),
+        @Param(name = "source_file", documented = false, positional = false, named = true),
+        @Param(name = "output_file", documented = false, positional = false, named = true),
+        @Param(name = "compilation_inputs", documented = false, positional = false, named = true),
+        @Param(
+            name = "inputs_for_validation",
+            documented = false,
+            positional = false,
+            named = true),
+        @Param(name = "label_replacement", documented = false, positional = false, named = true),
+        @Param(name = "output_replacement", documented = false, positional = false, named = true),
+      })
+  public void registerLinkstampCompileAction(
+      StarlarkActionFactory starlarkActionFactoryApi,
+      CcToolchainProvider ccToolchain,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      Artifact grepIncludes,
+      Artifact sourceFile,
+      Artifact outputFile,
+      Depset compilationInputs,
+      Depset inputsForValidation,
+      String labelReplacement,
+      String outputReplacement,
+      StarlarkThread thread)
+      throws EvalException, InterruptedException, TypeException {
+    checkPrivateStarlarkificationAllowlist(thread);
+    RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
+    CppConfiguration cppConfiguration =
+        ruleContext.getConfiguration().getFragment(CppConfiguration.class);
+    starlarkActionFactoryApi
+        .getActionConstructionContext()
+        .registerAction(
+            CppLinkstampCompileHelper.createLinkstampCompileAction(
+                ruleContext,
+                ruleContext,
+                grepIncludes,
+                ruleContext.getConfiguration(),
+                sourceFile,
+                outputFile,
+                compilationInputs.getSet(Artifact.class),
+                /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                inputsForValidation.getSet(Artifact.class),
+                ruleContext.getBuildInfo(CppBuildInfo.KEY),
+                /* additionalLinkstampDefines= */ ImmutableList.of(),
+                ccToolchain,
+                ruleContext.getConfiguration().isCodeCoverageEnabled(),
+                cppConfiguration,
+                CppHelper.getFdoBuildStamp(
+                    cppConfiguration,
+                    ccToolchain.getFdoContext(),
+                    featureConfigurationForStarlark.getFeatureConfiguration()),
+                featureConfigurationForStarlark.getFeatureConfiguration(),
+                /* needsPic= */ false,
+                labelReplacement,
+                outputReplacement,
+                getSemantics()));
   }
 }
