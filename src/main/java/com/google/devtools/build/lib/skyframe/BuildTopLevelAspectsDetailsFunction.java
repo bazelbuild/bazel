@@ -208,10 +208,6 @@ public class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
               /** baseAspectName= */
               null,
               aspectsList,
-              /** inheritedRequiredProviders= */
-              ImmutableList.of(),
-              /** inheritedAttributeAspects= */
-              ImmutableList.of(),
               /** allowAspectsParameters= */
               false);
         } catch (EvalException | AspectCreationException e) {

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import net.starlark.java.eval.EvalException;
@@ -34,19 +33,14 @@ public abstract class StarlarkNativeAspect extends NativeAspectClass implements 
 
   @Override
   public void attachToAspectsList(
-      String baseAspectName,
-      AspectsListBuilder aspectsList,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
-      ImmutableList<String> inheritedAttributeAspects,
-      boolean allowAspectsParameters)
+      String baseAspectName, AspectsListBuilder aspectsList, boolean allowAspectsParameters)
       throws EvalException {
 
     if (!allowAspectsParameters && !this.getParamAttributes().isEmpty()) {
       throw Starlark.errorf("Cannot use parameterized aspect %s at the top level.", this.getName());
     }
 
-    aspectsList.addAspect(
-        this, baseAspectName, inheritedRequiredProviders, inheritedAttributeAspects);
+    aspectsList.addAspect(this, baseAspectName);
   }
 
   @Override

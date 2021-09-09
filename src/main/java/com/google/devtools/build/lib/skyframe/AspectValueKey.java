@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
@@ -171,15 +169,6 @@ public final class AspectValueKey {
     @Nullable
     public AspectParameters getParameters() {
       return aspectDescriptor.getParameters();
-    }
-
-    public RequiredProviders getInheritedRequiredProviders() {
-      return aspectDescriptor.getInheritedRequiredProviders();
-    }
-
-    @Nullable
-    public ImmutableSet<String> getInheritedAttributeAspects() {
-      return aspectDescriptor.getInheritedAttributeAspects();
     }
 
     public AspectDescriptor getAspectDescriptor() {

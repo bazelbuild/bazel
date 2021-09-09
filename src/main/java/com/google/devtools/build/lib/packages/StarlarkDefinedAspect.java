@@ -269,11 +269,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
 
   @Override
   public void attachToAspectsList(
-      String baseAspectName,
-      AspectsListBuilder aspectsList,
-      ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> inheritedRequiredProviders,
-      ImmutableList<String> inheritedAttributeAspects,
-      boolean allowAspectsParameters)
+      String baseAspectName, AspectsListBuilder aspectsList, boolean allowAspectsParameters)
       throws EvalException {
 
     if (!this.isExported()) {
@@ -285,40 +281,11 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       throw Starlark.errorf("Cannot use parameterized aspect %s at the top level.", this.getName());
     }
 
-    if (!this.requiredAspects.isEmpty()) {
-      ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>>
-          requiredAspectInheritedRequiredProviders = ImmutableList.builder();
-      ImmutableList.Builder<String> requiredAspectInheritedAttributeAspects =
-          ImmutableList.builder();
-      if (baseAspectName == null) {
-        requiredAspectInheritedRequiredProviders.addAll(this.requiredProviders);
-        requiredAspectInheritedAttributeAspects.addAll(this.attributeAspects);
-      } else {
-        if (!requiredProviders.isEmpty() && !inheritedRequiredProviders.isEmpty()) {
-          requiredAspectInheritedRequiredProviders.addAll(inheritedRequiredProviders);
-          requiredAspectInheritedRequiredProviders.addAll(requiredProviders);
-        }
-        if (!ALL_ATTR_ASPECTS.equals(inheritedAttributeAspects)
-            && !ALL_ATTR_ASPECTS.equals(attributeAspects)) {
-          requiredAspectInheritedAttributeAspects.addAll(inheritedAttributeAspects);
-          requiredAspectInheritedAttributeAspects.addAll(attributeAspects);
-        } else {
-          requiredAspectInheritedAttributeAspects.add("*");
-        }
-      }
-
-      for (StarlarkAspect requiredAspect : requiredAspects) {
-        requiredAspect.attachToAspectsList(
-            this.getName(),
-            aspectsList,
-            requiredAspectInheritedRequiredProviders.build(),
-            requiredAspectInheritedAttributeAspects.build(),
-            allowAspectsParameters);
-      }
+    for (StarlarkAspect requiredAspect : requiredAspects) {
+      requiredAspect.attachToAspectsList(this.getName(), aspectsList, allowAspectsParameters);
     }
 
-    aspectsList.addAspect(
-        this, baseAspectName, inheritedRequiredProviders, inheritedAttributeAspects);
+    aspectsList.addAspect(this, baseAspectName);
   }
 
   public ImmutableSet<StarlarkAspect> getRequiredAspects() {

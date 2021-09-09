@@ -496,6 +496,7 @@ public class TestAspects {
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder(STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
+      builder.requireProviders(RequiredProvider.class);
       return builder.build();
     }
 
@@ -506,7 +507,9 @@ public class TestAspects {
         AspectParameters parameters,
         String toolsRepository)
         throws ActionConflictException, InterruptedException {
-      return new ConfiguredAspect.Builder(ruleContext).addProvider(new FooProvider()).build();
+      return new ConfiguredAspect.Builder(ruleContext)
+          .addStarlarkTransitiveInfo("native_aspect_prov", "native_aspect_val")
+          .build();
     }
   }
 

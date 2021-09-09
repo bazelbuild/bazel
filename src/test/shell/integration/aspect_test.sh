@@ -827,4 +827,164 @@ EOF
   expect_log "Cannot instantiate parameterized aspect .* at the top level"
 }
 
+function test_aspect_requires_aspect_no_providers_duplicates() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_a = provider()
+prov_b = provider()
+
+def _aspect_b_impl(target, ctx):
+  res = "aspect_b run on target {}".format(target.label.name)
+  print(res)
+  return [prov_b(value = res)]
+
+aspect_b = aspect(
+  implementation = _aspect_b_impl,
+)
+
+def _aspect_a_impl(target, ctx):
+  res = "aspect_a run on target {}".format(target.label.name)
+  print(res)
+  return [prov_a(value = res)]
+
+aspect_a = aspect(
+  implementation = _aspect_a_impl,
+  requires = [aspect_b],
+  attr_aspects = ['dep'],
+)
+
+def _rule_1_impl(ctx):
+  pass
+
+rule_1 = rule(
+  implementation = _rule_1_impl,
+  attrs = {
+      'dep': attr.label(aspects = [aspect_a]),
+  }
+)
+
+def _rule_2_impl(ctx):
+  pass
+
+rule_2 = rule(
+  implementation = _rule_2_impl,
+  attrs = {
+    'dep': attr.label(aspects = [aspect_b]),
+  }
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//${package}:defs.bzl', 'rule_1', 'rule_2')
+exports_files(["write.sh"])
+rule_1(
+  name = 't1',
+  dep = ':t2',
+)
+rule_2(
+  name = 't2',
+  dep = ':t3',
+)
+rule_2(
+  name = 't3',
+)
+EOF
+
+  bazel build "//${package}:t1"\
+        --experimental_required_aspects &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_a run on target t3"
+  expect_log "aspect_b run on target t3"
+  expect_log "aspect_a run on target t2"
+  expect_log "aspect_b run on target t2"
+}
+
+# test that although a required aspect runs once on a target, it can still keep
+# propagating while inheriting its main aspect attr_aspects
+function test_aspect_requires_aspect_no_providers_duplicates_2() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov_a = provider()
+prov_b = provider()
+
+def _aspect_b_impl(target, ctx):
+  res = "aspect_b run on target {}".format(target.label.name)
+  print(res)
+  return [prov_b(value = res)]
+
+aspect_b = aspect(
+  implementation = _aspect_b_impl,
+)
+
+def _aspect_a_impl(target, ctx):
+  res = "aspect_a run on target {}".format(target.label.name)
+  print(res)
+  return [prov_a(value = res)]
+
+aspect_a = aspect(
+  implementation = _aspect_a_impl,
+  requires = [aspect_b],
+  attr_aspects = ['dep_1', 'dep_2'],
+)
+
+def _empty_impl(ctx):
+  pass
+
+rule_1 = rule(
+  implementation = _empty_impl,
+  attrs = {
+      'dep_1': attr.label(aspects = [aspect_a]),
+  }
+)
+
+rule_2 = rule(
+  implementation = _empty_impl,
+  attrs = {
+    'dep_1': attr.label(aspects = [aspect_b]),
+  }
+)
+
+rule_3 = rule(
+  implementation = _empty_impl,
+  attrs = {
+    'dep_2': attr.label(),
+  }
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//${package}:defs.bzl', 'rule_1', 'rule_2', 'rule_3')
+exports_files(["write.sh"])
+rule_1(
+  name = 't1',
+  dep_1 = ':t2',
+)
+rule_2(
+  name = 't2',
+  dep_1 = ':t3',
+)
+rule_3(
+  name = 't3',
+  dep_2 = ':t4',
+)
+rule_3(
+  name = 't4',
+)
+EOF
+
+  bazel build "//${package}:t1"\
+        --experimental_required_aspects &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect_a run on target t4"
+  expect_log "aspect_b run on target t4"
+  expect_log "aspect_a run on target t3"
+  expect_log "aspect_b run on target t3"
+  expect_log "aspect_a run on target t2"
+  expect_log "aspect_b run on target t2"
+}
+
 run_suite "Tests for aspects"

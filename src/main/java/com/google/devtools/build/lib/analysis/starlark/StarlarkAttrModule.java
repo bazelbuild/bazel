@@ -265,10 +265,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             /** baseAspectName= */
             null,
             builder.getAspectsListBuilder(),
-            /** inheritedRequiredProviders= */
-            ImmutableList.of(),
-            /** inheritedAttributeAspects= */
-            ImmutableList.of(),
             /** allowAspectsParameters= */
             true);
       }
