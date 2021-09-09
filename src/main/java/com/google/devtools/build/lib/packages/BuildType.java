@@ -117,7 +117,11 @@ public final class BuildType {
   @AutoCodec public static final Type<Label> OUTPUT = new OutputType();
   /** The type of a list of {@linkplain #OUTPUT outputs}. */
   @AutoCodec public static final ListType<Label> OUTPUT_LIST = ListType.create(OUTPUT);
-
+  /** The type of a FilesetEntry attribute inside a Fileset. */
+  @AutoCodec public static final Type<FilesetEntry> FILESET_ENTRY = new FilesetEntryType();
+  /** The type of a list of {@linkplain #FILESET_ENTRY FilesetEntries}. */
+  @AutoCodec
+  public static final ListType<FilesetEntry> FILESET_ENTRY_LIST = ListType.create(FILESET_ENTRY);
   /** The type of a TriState with values: true (x>0), false (x==0), auto (x<0). */
   @AutoCodec public static final Type<TriState> TRISTATE = new TriStateType();
 
@@ -151,6 +155,44 @@ public final class BuildType {
           type);
     } else {
       return type.convert(x, what, context);
+    }
+  }
+
+  private static final class FilesetEntryType extends Type<FilesetEntry> {
+    @Override
+    public FilesetEntry cast(Object value) {
+      return (FilesetEntry) value;
+    }
+
+    @Override
+    public FilesetEntry convert(Object x, Object what, Object context)
+        throws ConversionException {
+      if (!(x instanceof FilesetEntry)) {
+        throw new ConversionException(this, x, what);
+      }
+      return (FilesetEntry) x;
+    }
+
+    @Override
+    public String toString() {
+      return "FilesetEntry";
+    }
+
+    @Override
+    public LabelClass getLabelClass() {
+      return LabelClass.FILESET_ENTRY;
+    }
+
+    @Override
+    public FilesetEntry getDefaultValue() {
+      return null;
+    }
+
+    @Override
+    public void visitLabels(LabelVisitor visitor, FilesetEntry value, @Nullable Attribute context) {
+      for (Label label : value.getLabels()) {
+        visitor.visit(label, context);
+      }
     }
   }
 
