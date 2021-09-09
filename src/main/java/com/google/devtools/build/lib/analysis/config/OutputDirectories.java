@@ -147,8 +147,7 @@ public class OutputDirectories {
       throws InvalidMnemonicException {
     this.directories = directories;
     this.mnemonic = buildMnemonic(options, fragments);
-    this.outputDirName =
-        (options.outputDirectoryName != null) ? options.outputDirectoryName : mnemonic;
+    this.outputDirName = options.isHost ? "host" : mnemonic;
 
     this.outputDirectory =
         OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
