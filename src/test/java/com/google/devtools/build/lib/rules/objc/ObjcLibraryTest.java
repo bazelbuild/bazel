@@ -64,8 +64,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -780,41 +778,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> useConfiguration(args));
     assertThat(thrown).hasMessageThat().contains(INVALID_APPLE_BITCODE_OPTION_FORMAT);
-  }
-
-  @Test
-  public void testModuleNameAttributeChangesName() throws Exception {
-    RULE_TYPE.scratchTarget(scratch, "module_name", "'foo'");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:x");
-    Artifact moduleMap = getGenfilesArtifact("x.modulemaps/module.modulemap", configuredTarget);
-
-    CppModuleMapAction genMap = (CppModuleMapAction) getGeneratingAction(moduleMap);
-
-    CppModuleMap cppModuleMap = genMap.getCppModuleMap();
-    assertThat(cppModuleMap.getName()).isEqualTo("foo");
-  }
-
-  @Test
-  public void testModuleMapActionFiltersHeaders() throws Exception {
-    RULE_TYPE.scratchTarget(
-        scratch,
-        "srcs",
-        "['a.m', 'b.m', 'private.h', 'private.inc']",
-        "hdrs",
-        "['a.h', 'x.inc', 'foo.m', 'bar.mm']");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:x");
-    Artifact moduleMap = getGenfilesArtifact("x.modulemaps/module.modulemap", configuredTarget);
-
-    CppModuleMapAction genMap = (CppModuleMapAction) getGeneratingAction(moduleMap);
-
-    assertThat(Artifact.toRootRelativePaths(genMap.getPrivateHeaders())).isEmpty();
-    assertThat(Artifact.toRootRelativePaths(genMap.getPublicHeaders())).containsExactly("x/a.h");
-
-    // now check the generated name
-    CppModuleMap cppModuleMap = genMap.getCppModuleMap();
-    assertThat(cppModuleMap.getName()).isEqualTo("x_x");
   }
 
   @Test
@@ -1846,11 +1809,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCustomModuleMap() throws Exception {
-    checkCustomModuleMap(RULE_TYPE);
-  }
-
-  @Test
   public void testHeaderPassedToCcLib() throws Exception {
     createLibraryTargetWriter("//objc:lib").setList("hdrs", "objc_hdr.h").write();
     ScratchAttributeWriter.fromLabelString(this, "cc_library", "//cc:lib")
@@ -1918,8 +1876,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsExactly("bar.h", "bar.inc");
     assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
         .containsExactly("bar.m", "bar_impl.h");
-    assertThat(Artifact.toRootRelativePaths(dependerProvider.getDirect(ObjcProvider.MODULE_MAP)))
-        .containsExactly("x/bar.modulemaps/module.modulemap");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bar");
     CcCompilationContext ccCompilationContext =

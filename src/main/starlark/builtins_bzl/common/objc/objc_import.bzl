@@ -32,7 +32,6 @@ def _objc_import_impl(ctx):
         alwayslink = ctx.attr.alwayslink,
         extra_import_libraries = ctx.files.archives,
         empty_compilation_artifacts = True,
-        has_module_map = True,
     )
 
     (cc_compilation_context, _, _) = compilation_support.register_compile_and_archive_actions(

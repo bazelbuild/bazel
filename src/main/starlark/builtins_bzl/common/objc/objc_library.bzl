@@ -119,7 +119,6 @@ def _objc_library_impl(ctx):
         runtime_deps = ctx.attr.runtime_deps,
         linkopts = ctx.attr.linkopts,
         alwayslink = ctx.attr.alwayslink,
-        has_module_map = True,
     )
     files = []
     if common_variables.compilation_artifacts.archive != None:
