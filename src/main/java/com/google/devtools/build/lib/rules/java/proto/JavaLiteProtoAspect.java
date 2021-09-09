@@ -170,7 +170,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         transitiveOutputJars.addTransitive(provider.getJars());
       }
 
-      if (!protoInfo.getDirectProtoSources().isEmpty()) {
+      if (aspectCommon.shouldGenerateCode(protoInfo, "java_lite_proto_library")) {
         Artifact sourceJar = aspectCommon.getSourceJarArtifact();
         createProtoCompileAction(sourceJar);
         Artifact outputJar = aspectCommon.getOutputJarArtifact();
