@@ -62,7 +62,6 @@ import net.starlark.java.syntax.Location;
 @AutoCodec
 public class StarlarkCustomCommandLine extends CommandLine {
 
-  private final StarlarkSemantics starlarkSemantics;
   private final ImmutableList<Object> arguments;
   /**
    * If non-empty, an extra level of grouping on top of the 'arguments' list. Each element is the
@@ -124,7 +123,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return interner.intern(new VectorArg(features));
     }
 
-    private static void push(List<Object> arguments, Builder arg) {
+    private static void push(
+        List<Object> arguments, Builder arg, StarlarkSemantics starlarkSemantics) {
       int features = 0;
       features |= arg.mapEach != null ? HAS_MAP_EACH : 0;
       features |= arg.nestedSet != null ? IS_NESTED_SET : 0;
@@ -148,6 +148,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       if (arg.mapEach != null) {
         arguments.add(arg.mapEach);
+        arguments.add(starlarkSemantics);
       }
       if (arg.nestedSet != null) {
         arguments.add(arg.nestedSet);
@@ -183,14 +184,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         List<String> builder,
-        @Nullable ArtifactExpander artifactExpander,
-        StarlarkSemantics starlarkSemantics)
+        @Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
       final List<Object> originalValues;
       StarlarkCallable mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
+      StarlarkSemantics starlarkSemantics =
+          ((features & HAS_MAP_EACH) != 0) ? (StarlarkSemantics) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
         @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
@@ -366,13 +368,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
-        StarlarkSemantics starlarkSemantics,
         @Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
       StarlarkCallable mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
+      StarlarkSemantics starlarkSemantics =
+          ((features & HAS_MAP_EACH) != 0) ? (StarlarkSemantics) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
@@ -665,7 +668,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     Builder add(VectorArg.Builder vectorArg) {
-      VectorArg.push(arguments, vectorArg);
+      VectorArg.push(arguments, vectorArg, starlarkSemantics);
       return this;
     }
 
@@ -676,7 +679,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     StarlarkCustomCommandLine build(boolean flagPerLine) {
       return new StarlarkCustomCommandLine(
-          starlarkSemantics,
           ImmutableList.copyOf(arguments),
           flagPerLine ? ImmutableList.copyOf(argStartIndexes) : ImmutableList.of());
     }
@@ -685,11 +687,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
   @AutoCodec.VisibleForSerialization
   @AutoCodec.Instantiator
   StarlarkCustomCommandLine(
-      StarlarkSemantics starlarkSemantics,
       ImmutableList<Object> arguments,
       ImmutableList<Integer> argStartIndexes) {
     this.arguments = arguments;
-    this.starlarkSemantics = starlarkSemantics;
     this.argStartIndexes = argStartIndexes;
   }
 
@@ -720,7 +720,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
-        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, starlarkSemantics);
+        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).eval(arguments, argi, result);
       } else {
@@ -768,7 +768,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     argi,
                     actionKeyContext,
                     fingerprint,
-                    starlarkSemantics,
                     artifactExpander);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).addToFingerprint(arguments, argi, fingerprint);
