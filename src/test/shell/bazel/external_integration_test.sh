@@ -2126,7 +2126,6 @@ EOF
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
   expect_log '@ext.*badargument'
-  expect_log 'SHA256 (.*/ext.tar) = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 }
 
 function test_prefix_suggestions() {
