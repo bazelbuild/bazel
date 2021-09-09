@@ -353,7 +353,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder.setExecutable(provider);
       }
     } else if (executableUnchecked instanceof String) {
-      builder.setExecutable(PathFragment.create((String) executableUnchecked));
+      // Normalise if needed and then pass as a String; this keeps the reference when PathFragment
+      // is passed from native to Starlark
+      builder.setExecutableAsString(
+          PathFragment.create((String) executableUnchecked).getPathString());
     } else if (executableUnchecked instanceof FilesToRunProvider) {
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
     } else {
