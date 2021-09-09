@@ -84,6 +84,18 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         RepositoryMapping.create(repositoryMapping, ownerRepo.strippedName()));
   }
 
+  public RepositoryMappingValue withMappingForRootModule(
+      ImmutableMap<RepositoryName, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
+    ImmutableMap.Builder<RepositoryName, RepositoryName> allMappings = ImmutableMap.builder();
+    allMappings.putAll(repositoryMapping);
+    for (String name : analysisMock.getWorkspaceRepos()) {
+      RepositoryName repoName = RepositoryName.createFromValidStrippedName(name);
+      allMappings.put(repoName, repoName);
+    }
+    return RepositoryMappingValue.withMapping(
+        RepositoryMapping.create(allMappings.build(), ownerRepo.strippedName()));
+  }
+
   @Test
   public void testSimpleMapping() throws Exception {
     scratch.overwriteFile(
@@ -126,7 +138,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(result)
         .hasEntryThat(skyKey)
         .isEqualTo(
-            withMapping(
+            withMappingForRootModule(
                 ImmutableMap.of(
                     RepositoryName.create("@"),
                     RepositoryName.create("@"),
@@ -216,7 +228,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     assertThatEvaluationResult(result)
         .hasEntryThat(skyKey)
         .isEqualTo(
-            withMapping(
+            withMappingForRootModule(
                 ImmutableMap.of(
                     RepositoryName.create("@"),
                     RepositoryName.create("@"),

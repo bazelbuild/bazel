@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -47,13 +48,25 @@ public abstract class RepositoryMapping {
   public static RepositoryMapping create(
       Map<RepositoryName, RepositoryName> repositoryMapping, String ownerRepo) {
     return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), ownerRepo);
+        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)),
+        Preconditions.checkNotNull(ownerRepo));
   }
 
   public static RepositoryMapping createAllowingFallback(
       Map<RepositoryName, RepositoryName> repositoryMapping) {
     return new AutoValue_RepositoryMapping(
         ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), null);
+  }
+
+  /**
+   * Create a new {@link RepositoryMapping} instance based on existing repo mappings and given
+   * additional mappings. If there are conflicts, existing mappings will take precedence.
+   */
+  public RepositoryMapping withAdditionalMappings(
+      Map<RepositoryName, RepositoryName> additionalMappings) {
+    HashMap<RepositoryName, RepositoryName> allMappings = new HashMap<>(additionalMappings);
+    allMappings.putAll(repositoryMapping());
+    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(allMappings), ownerRepo());
   }
 
   public RepositoryName get(RepositoryName repositoryName) {

@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
@@ -51,6 +52,31 @@ public class RepositoryMappingFunction implements SkyFunction {
           (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
       if (env.valuesMissing()) {
         return null;
+      }
+
+      // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
+      // workspace repos and add them as extra visible repos in root module's repo mappings.
+      if (repositoryName.isMain()) {
+        SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+        PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        Map<RepositoryName, RepositoryName> additionalMappings =
+            externalPackageValue.getPackage().getTargets().entrySet().stream()
+                // We need to filter out the non repository rule targets in the //external package.
+                .filter(
+                    entry ->
+                        entry.getValue().getAssociatedRule() != null
+                            && !entry.getValue().getAssociatedRule().getRuleClass().equals("bind"))
+                .collect(
+                    Collectors.toMap(
+                        entry -> RepositoryName.createFromValidStrippedName(entry.getKey()),
+                        entry -> RepositoryName.createFromValidStrippedName(entry.getKey())));
+        return RepositoryMappingValue.withMapping(
+            computeFromBzlmod(repositoryName, bazelModuleResolutionValue)
+                .get()
+                .withAdditionalMappings(additionalMappings));
       }
 
       Optional<RepositoryMapping> mapping =

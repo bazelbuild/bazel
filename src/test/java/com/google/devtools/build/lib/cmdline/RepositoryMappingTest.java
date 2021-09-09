@@ -46,4 +46,22 @@ public final class RepositoryMappingTest {
     assertThat(mapping.get(RepositoryName.create("@B")))
         .isEqualTo(RepositoryName.create("@B").toNonVisible("fake_owner_repo"));
   }
+
+  @Test
+  public void additionalMappings() throws Exception {
+    RepositoryMapping mapping =
+        RepositoryMapping.create(
+                ImmutableMap.of(
+                    RepositoryName.create("@A"), RepositoryName.create("@com_foo_bar_a")),
+                "fake_owner_repo")
+            .withAdditionalMappings(
+                ImmutableMap.of(
+                    RepositoryName.create("@B"), RepositoryName.create("@com_foo_bar_b")));
+    assertThat(mapping.get(RepositoryName.create("@A")))
+        .isEqualTo(RepositoryName.create("@com_foo_bar_a"));
+    assertThat(mapping.get(RepositoryName.create("@B")))
+        .isEqualTo(RepositoryName.create("@com_foo_bar_b"));
+    assertThat(mapping.get(RepositoryName.create("@C")))
+        .isEqualTo(RepositoryName.create("@C").toNonVisible("fake_owner_repo"));
+  }
 }

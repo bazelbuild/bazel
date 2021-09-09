@@ -89,7 +89,10 @@ public abstract class AnalysisMock extends LoadingMock {
       MockToolsConfig mockToolsConfig, List<String> getWorkspaceContents) throws IOException;
 
   /** Returns the contents of WORKSPACE. */
-  public abstract List<String> getWorkspaceContents(MockToolsConfig config);
+  public abstract ImmutableList<String> getWorkspaceContents(MockToolsConfig config);
+
+  /** Returns the repos defined in the contents of WORKSPACE above. */
+  public abstract ImmutableList<String> getWorkspaceRepos();
 
   /**
    * This is called from test setup to create any necessary mock workspace files in the <code>
@@ -162,8 +165,13 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
-    public List<String> getWorkspaceContents(MockToolsConfig mockToolsConfig) {
+    public ImmutableList<String> getWorkspaceContents(MockToolsConfig mockToolsConfig) {
       return delegate.getWorkspaceContents(mockToolsConfig);
+    }
+
+    @Override
+    public ImmutableList<String> getWorkspaceRepos() {
+      return delegate.getWorkspaceRepos();
     }
 
     @Override
