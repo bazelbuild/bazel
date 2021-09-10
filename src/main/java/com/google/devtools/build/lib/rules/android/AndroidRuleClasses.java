@@ -935,15 +935,10 @@ public final class AndroidRuleClasses {
   /** Definition of the {@code android_tools_defaults_jar} rule. */
   public static final class AndroidToolsDefaultsJarRule implements RuleDefinition {
 
-    private final Label[] compatibleWithAndroidEnvironments;
-
     private final Class<? extends AndroidToolsDefaultsJar> factoryClass;
 
-    public AndroidToolsDefaultsJarRule(
-        Class<? extends AndroidToolsDefaultsJar> factoryClass,
-        Label... compatibleWithAndroidEnvironments) {
+    public AndroidToolsDefaultsJarRule(Class<? extends AndroidToolsDefaultsJar> factoryClass) {
       this.factoryClass = factoryClass;
-      this.compatibleWithAndroidEnvironments = compatibleWithAndroidEnvironments;
     }
 
     @Override
@@ -954,9 +949,6 @@ public final class AndroidRuleClasses {
               attr(":android_sdk", LABEL)
                   .allowedRuleClasses("android_sdk")
                   .value(getAndroidSdkLabel(environment.getToolsLabel(DEFAULT_SDK))));
-      if (compatibleWithAndroidEnvironments.length > 0) {
-        builder.compatibleWith(compatibleWithAndroidEnvironments);
-      }
       return builder.build();
     }
 
