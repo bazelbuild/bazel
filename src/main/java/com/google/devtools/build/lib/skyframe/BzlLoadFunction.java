@@ -25,7 +25,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
-import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -866,7 +865,7 @@ public class BzlLoadFunction implements SkyFunction {
       return bazelModuleResolutionValue
           .getDepGraph()
           .get(moduleKey)
-          .getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY);
+          .getRepoMappingWithBazelDepsOnly();
     }
 
     // We are fully done with workspace evaluation so we should get the mappings from the

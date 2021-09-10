@@ -18,8 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
-import com.google.devtools.build.lib.bazel.bzlmod.Module;
-import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -108,8 +106,7 @@ public class RepositoryMappingFunction implements SkyFunction {
     if (moduleKey == null) {
       return Optional.empty();
     }
-    Module module = bazelModuleResolutionValue.getDepGraph().get(moduleKey);
-    return Optional.of(module.getRepoMapping(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO));
+    return Optional.of(bazelModuleResolutionValue.getFullRepoMapping(moduleKey));
   }
 
   private SkyValue computeFromWorkspace(

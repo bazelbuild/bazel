@@ -81,14 +81,14 @@ public class StarlarkBazelModuleTest {
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                                 .build())))
             .build();
-    Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
-            .setKey(createModuleKey("foo", ""))
-            .addDep("bar", createModuleKey("bar", "2.0"))
-            .addExtensionUsage(usage)
-            .build();
+    AbridgedModule module =
+        AbridgedModule.from(
+            Module.builder()
+                .setName("foo")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("foo", ""))
+                .addDep("bar", createModuleKey("bar", "2.0"))
+                .build());
 
     StarlarkBazelModule moduleProxy = StarlarkBazelModule.create(module, extension, usage);
 
@@ -124,13 +124,13 @@ public class StarlarkBazelModuleTest {
     ModuleExtensionUsage usage = getBaseUsageBuilder().addTag(buildTag("blep").build()).build();
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
-    Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
-            .setKey(createModuleKey("foo", ""))
-            .addExtensionUsage(usage)
-            .build();
+    AbridgedModule module =
+        AbridgedModule.from(
+            Module.builder()
+                .setName("foo")
+                .setVersion(Version.parse("1.0"))
+                .setKey(createModuleKey("foo", ""))
+                .build());
 
     ExternalDepsException e =
         assertThrows(

@@ -63,6 +63,10 @@ public abstract class Module {
    */
   public abstract ModuleKey getKey();
 
+  public final String getCanonicalRepoName() {
+    return getKey().getCanonicalRepoName();
+  }
+
   /**
    * The compatibility level of the module, which essentially signifies the "major version" of the
    * module in terms of SemVer.
@@ -75,49 +79,36 @@ public abstract class Module {
    */
   public abstract ImmutableMap<String, ModuleKey> getDeps();
 
-  /**
-   * Used in {@link #getRepoMapping} to denote whether only repos from {@code bazel_dep}s should be
-   * returned, or repos from module extensions should also be returned.
-   */
-  public enum WhichRepoMappings {
-    BAZEL_DEPS_ONLY,
-    WITH_MODULE_EXTENSIONS_TOO
-  }
-
-  /** Returns the {@link RepositoryMapping} for the repo corresponding to this module. */
-  public final RepositoryMapping getRepoMapping(WhichRepoMappings whichRepoMappings) {
+  static RepositoryMapping getRepoMappingWithBazelDepsOnly(
+      ModuleKey key, String name, ImmutableMap<String, ModuleKey> deps) {
     ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.
-    if (getKey().equals(ModuleKey.ROOT)) {
+    if (key.equals(ModuleKey.ROOT)) {
       mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
     }
     // Every module should be able to reference itself as @<module name>.
     // If this is the root module, this perfectly falls into @<module name> => @
-    if (!getName().isEmpty()) {
+    if (!name.isEmpty()) {
       mapping.put(
-          RepositoryName.createFromValidStrippedName(getName()),
-          RepositoryName.createFromValidStrippedName(getKey().getCanonicalRepoName()));
+          RepositoryName.createFromValidStrippedName(name),
+          RepositoryName.createFromValidStrippedName(key.getCanonicalRepoName()));
     }
-    for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
+    for (Map.Entry<String, ModuleKey> dep : deps.entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
       mapping.put(
           RepositoryName.createFromValidStrippedName(dep.getKey()),
           RepositoryName.createFromValidStrippedName(dep.getValue().getCanonicalRepoName()));
     }
-    if (whichRepoMappings.equals(WhichRepoMappings.WITH_MODULE_EXTENSIONS_TOO)) {
-      for (ModuleExtensionUsage usage : getExtensionUsages()) {
-        for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
-          // TODO(wyv): work out a rigorous canonical repo name format (and potentially a shorter
-          //   version when ambiguities aren't present).
-          String canonicalRepoName = usage.getExtensionName() + "." + entry.getValue();
-          mapping.put(
-              RepositoryName.createFromValidStrippedName(entry.getKey()),
-              RepositoryName.createFromValidStrippedName(canonicalRepoName));
-        }
-      }
-    }
-    return RepositoryMapping.create(mapping.build(), getKey().getCanonicalRepoName());
+    return RepositoryMapping.create(mapping.build(), key.getCanonicalRepoName());
+  }
+
+  /**
+   * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
+   * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMappings}.
+   */
+  public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
+    return getRepoMappingWithBazelDepsOnly(getKey(), getName(), getDeps());
   }
 
   /**

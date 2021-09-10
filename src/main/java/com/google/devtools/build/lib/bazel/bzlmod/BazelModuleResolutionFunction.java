@@ -15,16 +15,24 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.HashMap;
 
 /**
  * Runs Bazel module resolution. This function produces the dependency graph containing all Bazel
@@ -57,7 +65,9 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
   @VisibleForTesting
   static BazelModuleResolutionValue createValue(
-      ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides) {
+      ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
+      throws BazelModuleResolutionFunctionException {
+    // Build some reverse lookups for later use.
     ImmutableMap<String, ModuleKey> canonicalRepoNameLookup =
         depGraph.keySet().stream()
             .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
@@ -69,7 +79,58 @@ public class BazelModuleResolutionFunction implements SkyFunction {
             .filter(key -> !(overrides.get(key.getName()) instanceof MultipleVersionOverride))
             .collect(toImmutableMap(ModuleKey::getName, key -> key));
 
-    return BazelModuleResolutionValue.create(depGraph, canonicalRepoNameLookup, moduleNameLookup);
+    // For each extension usage, we resolve (i.e. canonicalize) its bzl file label. Then we can
+    // group all usages by the label + name (the ModuleExtensionId).
+    ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
+        extensionUsagesTableBuilder = ImmutableTable.builder();
+    for (Module module : depGraph.values()) {
+      LabelConversionContext labelConversionContext =
+          new LabelConversionContext(
+              StarlarkBazelModule.createModuleRootLabel(module.getCanonicalRepoName()),
+              module.getRepoMappingWithBazelDepsOnly(),
+              new HashMap<>());
+      for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
+        try {
+          ModuleExtensionId moduleExtensionId =
+              ModuleExtensionId.create(
+                  labelConversionContext.convert(usage.getExtensionBzlFile()),
+                  usage.getExtensionName());
+          extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
+        } catch (LabelSyntaxException e) {
+          throw new BazelModuleResolutionFunctionException(
+              ExternalDepsException.withCauseAndMessage(
+                  Code.BAD_MODULE,
+                  e,
+                  "invalid label for module extension found at %s",
+                  usage.getLocation()),
+              Transience.PERSISTENT);
+        }
+      }
+    }
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
+        extensionUsagesTableBuilder.build();
+
+    // Calculate a unique name for each used extension id.
+    BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
+    for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
+      String bestName =
+          id.getBzlFileLabel().getRepository().strippedName() + "." + id.getExtensionName();
+      if (extensionUniqueNames.putIfAbsent(bestName, id) == null) {
+        continue;
+      }
+      int suffix = 2;
+      while (extensionUniqueNames.putIfAbsent(bestName + suffix, id) != null) {
+        suffix++;
+      }
+    }
+
+    return BazelModuleResolutionValue.create(
+        depGraph,
+        canonicalRepoNameLookup,
+        moduleNameLookup,
+        depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
+        extensionUsagesById,
+        ImmutableMap.copyOf(extensionUniqueNames.inverse()));
   }
 
   @Override

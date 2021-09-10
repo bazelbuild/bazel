@@ -44,6 +44,7 @@ java_library(
     name = "module_extension",
     srcs = [
         "ModuleExtension.java",
+        "ModuleExtensionId.java",
         "ModuleExtensionUsage.java",
         "Tag.java",
         "TagClass.java",
@@ -81,6 +82,7 @@ java_library(
 java_library(
     name = "resolution",
     srcs = [
+        "AbridgedModule.java",
         "ArchiveOverride.java",
         "BazelModuleResolutionValue.java",
         "GitOverride.java",

@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -84,27 +84,34 @@ public class StarlarkBazelModule implements StarlarkValue {
   }
 
   /**
-   * Creates a new {@link StarlarkBazelModule} object representing the given {@link Module}, with
-   * its scope limited to the given {@link ModuleExtension}. It'll be populated with the tags
+   * Creates a label pointing to the root package of the repo with the given canonical repo name.
+   * This label can be used to anchor (relativize) labels with no "@foo" part.
+   */
+  static Label createModuleRootLabel(String canonicalRepoName) {
+    return Label.createUnvalidated(
+        PackageIdentifier.create(
+            RepositoryName.createFromValidStrippedName(canonicalRepoName),
+            PathFragment.EMPTY_FRAGMENT),
+        "unused_dummy_target_name");
+  }
+
+  /**
+   * Creates a new {@link StarlarkBazelModule} object representing the given {@link AbridgedModule},
+   * with its scope limited to the given {@link ModuleExtension}. It'll be populated with the tags
    * present in the given {@link ModuleExtensionUsage}.
    */
   public static StarlarkBazelModule create(
-      Module module, ModuleExtension extension, ModuleExtensionUsage usage)
+      AbridgedModule module, ModuleExtension extension, @Nullable ModuleExtensionUsage usage)
       throws ExternalDepsException {
-    Label moduleRootLabel =
-        Label.createUnvalidated(
-            PackageIdentifier.create(
-                RepositoryName.createFromValidStrippedName(module.getKey().getCanonicalRepoName()),
-                PathFragment.EMPTY_FRAGMENT),
-            "unused_dummy_target_name");
     LabelConversionContext labelConversionContext =
         new LabelConversionContext(
-            moduleRootLabel,
-            module.getRepoMapping(WhichRepoMappings.BAZEL_DEPS_ONLY),
+            createModuleRootLabel(module.getCanonicalRepoName()),
+            module.getRepoMapping(),
             /* convertedLabelsInPackage= */ new HashMap<>());
+    ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     ImmutableListMultimap.Builder<String, TypeCheckedTag> typeCheckedTags =
         ImmutableListMultimap.builder();
-    for (Tag tag : usage.getTags()) {
+    for (Tag tag : tags) {
       TagClass tagClass = extension.getTagClasses().get(tag.getTagName());
       if (tagClass == null) {
         throw ExternalDepsException.withMessage(

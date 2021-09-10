@@ -16,11 +16,16 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 
 /**
  * The result of running Bazel module resolution, containing the Bazel module dependency graph
@@ -33,9 +38,17 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
   public static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> depGraph,
       ImmutableMap<String, ModuleKey> canonicalRepoNameLookup,
-      ImmutableMap<String, ModuleKey> moduleNameLookup) {
+      ImmutableMap<String, ModuleKey> moduleNameLookup,
+      ImmutableList<AbridgedModule> abridgedModules,
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
+      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames) {
     return new AutoValue_BazelModuleResolutionValue(
-        depGraph, canonicalRepoNameLookup, moduleNameLookup);
+        depGraph,
+        canonicalRepoNameLookup,
+        moduleNameLookup,
+        abridgedModules,
+        extensionUsagesTable,
+        extensionUniqueNames);
   }
 
   /**
@@ -52,4 +65,46 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
    * or modules with multiple-version overrides.
    */
   public abstract ImmutableMap<String, ModuleKey> getModuleNameLookup();
+
+  /** All modules in the same order as {@link #getDepGraph}, but with limited information. */
+  public abstract ImmutableList<AbridgedModule> getAbridgedModules();
+
+  /**
+   * All module extension usages grouped by the extension's ID and the key of the module where this
+   * usage occurs. For each extension identifier ID, extensionUsagesTable[ID][moduleKey] is the
+   * ModuleExtensionUsage of ID in the module keyed by moduleKey.
+   */
+  public abstract ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
+      getExtensionUsagesTable();
+
+  /**
+   * A mapping from the ID of a module extension to a unique string that serves as its "name". This
+   * is not the same as the extension's declared name, as the declared name is only unique within
+   * the .bzl file, whereas this unique name is guaranteed to be unique across the workspace.
+   */
+  public abstract ImmutableMap<ModuleExtensionId, String> getExtensionUniqueNames();
+
+  /**
+   * Returns the full {@link RepositoryMapping} for the given module, including repos from Bazel
+   * module deps and module extensions.
+   */
+  public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
+    ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
+    for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> e :
+        getExtensionUsagesTable().column(key).entrySet()) {
+      ModuleExtensionId extensionId = e.getKey();
+      ModuleExtensionUsage usage = e.getValue();
+      for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
+        String canonicalRepoName =
+            getExtensionUniqueNames().get(extensionId) + "." + entry.getValue();
+        mapping.put(
+            RepositoryName.createFromValidStrippedName(entry.getKey()),
+            RepositoryName.createFromValidStrippedName(canonicalRepoName));
+      }
+    }
+    return getDepGraph()
+        .get(key)
+        .getRepoMappingWithBazelDepsOnly()
+        .withAdditionalMappings(mapping.build());
+  }
 }
