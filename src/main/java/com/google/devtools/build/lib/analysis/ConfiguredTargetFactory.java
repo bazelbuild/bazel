@@ -283,8 +283,9 @@ public final class ConfiguredTargetFactory {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
+    RuleClass ruleClass = rule.getRuleClassObject();
     ConfigurationFragmentPolicy configurationFragmentPolicy =
-        rule.getRuleClassObject().getConfigurationFragmentPolicy();
+        ruleClass.getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
     RuleContext ruleContext =
         new RuleContext.Builder(
@@ -307,11 +308,10 @@ public final class ConfiguredTargetFactory {
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
-                RequiredFragmentsUtil.getRequiredFragmentsIfEnabled(
+                RequiredFragmentsUtil.getRuleRequiredFragmentsIfEnabled(
                     rule,
                     configuration,
                     ruleClassProvider.getUniversalFragments(),
-                    configurationFragmentPolicy,
                     configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();
@@ -355,21 +355,21 @@ public final class ConfiguredTargetFactory {
       }
 
       try {
-        if (rule.getRuleClassObject().isStarlark()) {
+        if (ruleClass.isStarlark()) {
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
           ConfiguredTarget target =
               StarlarkRuleConfiguredTargetUtil.buildRule(
                   ruleContext,
-                  rule.getRuleClassObject().getAdvertisedProviders(),
+                  ruleClass.getAdvertisedProviders(),
                   ruleClassProvider.getToolsRepository());
 
           return target != null ? target : erroredConfiguredTarget(ruleContext);
-        } else {
-          RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext, ActionConflictException>
-              factory = rule.getRuleClassObject().getConfiguredTargetFactory();
-          Preconditions.checkNotNull(factory, rule.getRuleClassObject());
-          return factory.create(ruleContext);
         }
+        return Preconditions.checkNotNull(
+                ruleClass.getConfiguredTargetFactory(RuleConfiguredTargetFactory.class),
+                "No configured target factory for %s",
+                ruleClass)
+            .create(ruleContext);
       } finally {
         ruleContext.close();
       }
@@ -529,12 +529,12 @@ public final class ConfiguredTargetFactory {
             .setExecProperties(ImmutableMap.of())
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
-                RequiredFragmentsUtil.getRequiredFragmentsIfEnabled(
+                RequiredFragmentsUtil.getAspectRequiredFragmentsIfEnabled(
                     aspect,
+                    aspectFactory,
                     associatedTarget.getTarget().getAssociatedRule(),
                     aspectConfiguration,
                     ruleClassProvider.getUniversalFragments(),
-                    aspect.getDefinition().getConfigurationFragmentPolicy(),
                     configConditions.asProviders(),
                     prerequisiteMap.values()))
             .build();

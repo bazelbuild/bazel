@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -55,11 +56,13 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -104,7 +107,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   protected abstract CppSemantics createCppSemantics();
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext)
+  public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     CppSemantics cppSemantics = createCppSemantics();
     JavaSemantics javaSemantics = createJavaSemantics();
@@ -117,6 +120,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder =
         init(ruleContext, filesBuilder, cppSemantics, javaSemantics, androidSemantics);
     return builder.build();
+  }
+
+  @Override
+  public final void addRuleImplSpecificRequiredConfigFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments,
+      AttributeMap attributes,
+      BuildConfiguration configuration) {
+    requiredFragments.addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(attributes));
   }
 
   /** Checks expected rule invariants, throws rule errors if anything is set wrong. */
@@ -682,16 +693,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           signingKeys,
           signingLineage,
           additionalMergedManifests);
-    }
-
-    if (ruleContext.shouldIncludeRequiredConfigFragmentsProvider()) {
-      // Report set feature flags as required "config fragments".
-      // While these aren't technically fragments, in practice they're user-defined settings with
-      // the same meaning: pieces of configuration the rule requires to work properly. So it makes
-      // sense to treat them equivalently for "requirements" reporting purposes.
-      builder
-          .getRuleImplSpecificRequiredConfigFragmentsBuilder()
-          .addStarlarkOptions(AndroidFeatureFlagSetProvider.getFeatureFlags(ruleContext));
     }
 
     // First propagate validations from most rule attributes as usual; then handle "deps" separately

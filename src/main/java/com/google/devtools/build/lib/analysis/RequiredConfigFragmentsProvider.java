@@ -91,18 +91,6 @@ public final class RequiredConfigFragmentsProvider implements TransitiveInfoProv
         .toString();
   }
 
-  /** Merges the values of two {@link RequiredConfigFragmentsProvider} instances. */
-  public static RequiredConfigFragmentsProvider merge(
-      RequiredConfigFragmentsProvider a, RequiredConfigFragmentsProvider b) {
-    if (a == EMPTY) {
-      return b;
-    }
-    if (b == EMPTY) {
-      return a;
-    }
-    return builder().merge(a).merge(b).build();
-  }
-
   /** Merges the values of one or more {@link RequiredConfigFragmentsProvider} instances. */
   public static RequiredConfigFragmentsProvider merge(
       List<RequiredConfigFragmentsProvider> providers) {

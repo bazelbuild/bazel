@@ -37,4 +37,8 @@ public interface ConfiguredAspectFactory {
       AspectParameters parameters,
       String toolsRepository)
       throws ActionConflictException, InterruptedException;
+
+  /** Adds any aspect implementation-specific requirements to the given builder. */
+  default void addAspectImplSpecificRequiredConfigFragments(
+      RequiredConfigFragmentsProvider.Builder requiredFragments) {}
 }

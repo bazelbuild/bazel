@@ -1893,10 +1893,8 @@ public class RuleClass {
     return transitionFactory;
   }
 
-  @SuppressWarnings("unchecked")
-  public <CT, RC, ACE extends Throwable>
-      ConfiguredTargetFactory<CT, RC, ACE> getConfiguredTargetFactory() {
-    return (ConfiguredTargetFactory<CT, RC, ACE>) configuredTargetFactory;
+  public <T extends ConfiguredTargetFactory<?, ?, ?>> T getConfiguredTargetFactory(Class<T> clazz) {
+    return clazz.cast(configuredTargetFactory);
   }
 
   /**
