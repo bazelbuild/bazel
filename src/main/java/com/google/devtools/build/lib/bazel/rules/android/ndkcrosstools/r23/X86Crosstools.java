@@ -46,7 +46,8 @@ final class X86Crosstools {
             .setToolchainIdentifier("x86-clang" + clangVersion)
             .setTargetCpu("x86")
             .addAllToolPath(ndkPaths.createClangToolpaths("x86-4.9", "i686-linux-android", null))
-            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"));
+            .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot());
+            // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"));
 
     stlImpl.addStlImpl(x86Clang, null);
 
@@ -57,7 +58,8 @@ final class X86Crosstools {
             .setTargetCpu("x86_64")
             .addAllToolPath(
                 ndkPaths.createClangToolpaths("x86_64-4.9", "x86_64-linux-android", null))
-            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
+            .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot());
+            // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
 
     stlImpl.addStlImpl(x8664Clang, null);
 
@@ -82,10 +84,12 @@ final class X86Crosstools {
         .addCompilerFlag("-target")
         .addCompilerFlag(llvmTriple)
         .addCompilerFlag("-fPIC")
+        /*
         .addCompilerFlag(
             "-isystem%ndk%/usr/include/%triple%"
                 .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                 .replace("%triple%", triple))
+                */
         .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel(x86Arch))
 
         // Linker flags

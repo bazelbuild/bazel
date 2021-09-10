@@ -57,8 +57,9 @@ final class ArmCrosstools {
     // String clangToolchain = ndkPaths.createClangToolchainPath(toolchainName);
     String llvmTriple = "aarch64-none-linux-android";
 
-    
     System.out.println("sysroot: " + ndkPaths.createClangBuiltinSysroot());
+    // System.out.println("clang tool:" + ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null));
+
     return CToolchain.newBuilder()
         .setToolchainIdentifier("aarch64-linux-android-clang" + clangVersion)
         .setTargetSystemName(targetPlatform)
@@ -69,6 +70,7 @@ final class ArmCrosstools {
             ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
         .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot())
         // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
+        // .setBuiltinSysroot("external/androidndk/ndk/sysroot")
 
         // Compiler flags
         // .addCompilerFlag("-gcc-toolchain")
@@ -76,10 +78,18 @@ final class ArmCrosstools {
         .addCompilerFlag("-target")
         .addCompilerFlag(llvmTriple)
         .addCompilerFlag("-fpic")
+        /*
+        .addCompilerFlag("-isystemexternal/androidndk/ndk/sources/cxx-stl/llvm-libc++/include")
+        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include")
+        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/linux")
+        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include/aarch64-linux-android")
+        .addCompilerFlag("-isystemexternal/androidndk/ndk/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.5/include")*/
+/*
         .addCompilerFlag(
             "-isystem%ndk%/usr/include/%triple%"
                 .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                 .replace("%triple%", targetPlatform))
+*/
         .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
 
         // Linker flags
@@ -106,7 +116,8 @@ final class ArmCrosstools {
   }
 
   private CToolchain.Builder createArmeabiClangToolchain() {
-    String toolchainName = "arm-linux-androideabi-4.9";
+    // String toolchainName = "arm-linux-androideabi-4.9";
+    String toolchainName = "llvm";
     String targetPlatform = "arm-linux-androideabi";
     String gccToolchain = ndkPaths.createGccToolchainPath("arm-linux-androideabi-4.9");
 
@@ -118,12 +129,15 @@ final class ArmCrosstools {
         .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
         .addCxxBuiltinIncludeDirectory(
             ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
+        .setBuiltinSysroot(ndkPaths.createClangBuiltinSysroot())
+        // .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
         .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
+        /*
         .addCompilerFlag(
             "-isystem%ndk%/usr/include/%triple%"
                 .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                 .replace("%triple%", targetPlatform))
+                */
 
         // Compiler flags
         .addCompilerFlag("-target")
@@ -134,15 +148,15 @@ final class ArmCrosstools {
         // allows the compiler to make use of the FPU."
         // https://android.googlesource.com/platform/ndk/+/ndk-release-r19/docs/BuildSystemMaintainers.md#additional-required-arguments
         .addCompilerFlag("-mfpu=vfpv3-d16")
-        .addCompilerFlag("-gcc-toolchain")
-        .addCompilerFlag(gccToolchain)
+        // .addCompilerFlag("-gcc-toolchain")
+        // .addCompilerFlag(gccToolchain)
         .addCompilerFlag("-fpic")
 
         // Linker flags
         .addLinkerFlag("-target")
         .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
-        .addLinkerFlag("-gcc-toolchain")
-        .addLinkerFlag(gccToolchain)
+        // .addLinkerFlag("-gcc-toolchain")
+        // .addLinkerFlag(gccToolchain)
 
         // Additional release flags
         .addCompilationModeFlags(

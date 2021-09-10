@@ -644,6 +644,7 @@ public final class UnixGlob {
             public void run() {
               try (SilentCloseable c =
                   Profiler.instance().profile(ProfilerTask.VFS_GLOB, base.getPathString())) {
+                System.out.println("queueing " + base);
                 reallyGlob(base, baseIsDir, idx, context);
               } catch (IOException e) {
                 ioException.set(e);
@@ -829,6 +830,7 @@ public final class UnixGlob {
       }
 
       String pattern = context.patternParts[idx];
+      System.out.println("pattern: " + base + " " + pattern);
 
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
@@ -842,18 +844,22 @@ public final class UnixGlob {
         FileStatus status = context.syscalls.statIfFound(child, Symlinks.FOLLOW);
         if (status == null || (!status.isDirectory() && !status.isFile())) {
           // The file is a dangling symlink, fifo, does not exist, etc.
+          System.out.println("not queueing pattern: " + base + " " + pattern);
           return;
         }
 
         context.queueGlob(child, status.isDirectory(), idx + 1);
+        System.out.println("queueing pattern: " + base + " " + pattern);
         return;
       }
 
       Collection<Dirent> dents = context.syscalls.readdir(base);
       for (Dirent dent : dents) {
         Dirent.Type childType = dent.getType();
+        System.out.println("checking: " + base + " " + dent.getName());
         if (childType == Dirent.Type.UNKNOWN) {
           // The file is a special file (fifo, etc.). No need to even match against the pattern.
+          System.out.println("unknown: " + base + " " + dent.getName());
           continue;
         }
         if (matches(pattern, dent.getName(), cache)) {
@@ -864,6 +870,8 @@ public final class UnixGlob {
           } else {
             processFileOrDirectory(child, childType == Dirent.Type.DIRECTORY, idx, context);
           }
+        } else {
+          System.out.println("matches problem: " + base + " " + dent.getName());
         }
       }
     }
