@@ -267,13 +267,15 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       Map<PackageValue.Key, PackageValue> buildSettingPackages,
       Map<String, BuildOptions> toOptions)
       throws TransitionException {
-    // collect settings changed during this transition and their types
+    // Collect settings changed during this transition and their types. This includes settings that
+    // were only used as inputs as to the transition and thus had their default values added to the
+    // fromOptions, which in case of a no-op transition directly end up in toOptions.
     Map<Label, Rule> changedSettingToRule = Maps.newHashMap();
     root.visit(
         (StarlarkTransitionVisitor)
             transition -> {
-              ImmutableSet<Label> changedSettings =
-                  getRelevantStarlarkSettingsFromTransition(transition, Settings.OUTPUTS);
+              ImmutableSet<Label> changedSettings = getRelevantStarlarkSettingsFromTransition(
+                  transition, Settings.INPUTS_AND_OUTPUTS);
               for (Label setting : changedSettings) {
                 changedSettingToRule.put(
                     setting, getActual(buildSettingPackages, setting).getAssociatedRule());
