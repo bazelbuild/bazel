@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
@@ -48,6 +50,7 @@ public class DownloadManager {
   private UrlRewriter rewriter;
   private final Downloader downloader;
   private boolean disableDownload = false;
+  private int retries = 0;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -64,6 +67,11 @@ public class DownloadManager {
 
   public void setDisableDownload(boolean disableDownload) {
     this.disableDownload = disableDownload;
+  }
+
+  public void setRetries(int retries) {
+    checkArgument(retries >= 0, "Invalid retries");
+    this.retries = retries;
   }
 
   /**
@@ -218,18 +226,25 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
     }
 
-    try {
-      downloader.download(
-          rewrittenUrls,
-          rewrittenAuthHeaders,
-          checksum,
-          canonicalId,
-          destination,
-          eventHandler,
-          clientEnv,
-          type);
-    } catch (InterruptedIOException e) {
-      throw new InterruptedException(e.getMessage());
+    for (int attempt = 0; attempt <= retries; ++attempt) {
+      try {
+        downloader.download(
+            rewrittenUrls,
+            rewrittenAuthHeaders,
+            checksum,
+            canonicalId,
+            destination,
+            eventHandler,
+            clientEnv,
+            type);
+        break;
+      } catch (ContentLengthMismatchException e) {
+        if (attempt == retries) {
+          throw e;
+        }
+      } catch (InterruptedIOException e) {
+        throw new InterruptedException(e.getMessage());
+      }
     }
 
     if (isCachingByProvidedChecksum) {

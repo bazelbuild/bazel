@@ -78,6 +78,17 @@ public class RepositoryOptions extends OptionsBase {
   public boolean disableDownload;
 
   @Option(
+      name = "experimental_repository_downloader_retries",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "The maximum number of attempts to retry a download error. If set to 0, retries are"
+              + " disabled.")
+  public int repositoryDownloaderRetries;
+
+  @Option(
       name = "distdir",
       oldName = "experimental_distdir",
       defaultValue = "null",

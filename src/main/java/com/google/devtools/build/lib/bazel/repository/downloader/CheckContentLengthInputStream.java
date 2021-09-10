@@ -39,7 +39,7 @@ public class CheckContentLengthInputStream extends InputStream {
     if (result == -1) {
       checkContentLength();
     } else {
-      actualSize += result;
+      actualSize += 1;
     }
     return result;
   }
@@ -67,17 +67,8 @@ public class CheckContentLengthInputStream extends InputStream {
   }
 
   private void checkContentLength() throws IOException {
-    if (actualSize < expectedSize) {
-      throw new UnrecoverableHttpException(
-          String.format(
-              "Connection was closed before Content-Length was fulfilled. Bytes read %s but wanted"
-                  + " %s",
-              actualSize, expectedSize));
-    } else if (actualSize > expectedSize) {
-      throw new UnrecoverableHttpException(
-          String.format(
-              "Received more bytes than Content-Length. Bytes read %s but wanted %s",
-              actualSize, expectedSize));
+    if (actualSize != expectedSize) {
+      throw new ContentLengthMismatchException(actualSize, expectedSize);
     }
   }
 }
