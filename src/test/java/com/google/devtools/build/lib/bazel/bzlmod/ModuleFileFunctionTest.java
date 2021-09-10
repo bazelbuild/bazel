@@ -173,13 +173,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testRootModule() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(",
-        "    name='A',",
-        "    version='0.1',",
-        "    compatibility_level=4,",
-        "    toolchains_to_register=['//my:toolchain', '//my:toolchain2'],",
-        "    execution_platforms_to_register=['//my:platform', '//my:platform2'],",
-        ")",
+        "module(name='A',version='0.1',compatibility_level=4)",
         "bazel_dep(name='B',version='1.0')",
         "bazel_dep(name='C',version='2.0',repo_name='see')",
         "single_version_override(module_name='D',version='18')",
@@ -202,9 +196,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setVersion(Version.parse("0.1"))
                 .setKey(ModuleKey.ROOT)
                 .setCompatibilityLevel(4)
-                .setExecutionPlatformsToRegister(
-                    ImmutableList.of("//my:platform", "//my:platform2"))
-                .setToolchainsToRegister(ImmutableList.of("//my:toolchain", "//my:toolchain2"))
                 .addDep("B", createModuleKey("B", "1.0"))
                 .addDep("see", createModuleKey("C", "2.0"))
                 .build());

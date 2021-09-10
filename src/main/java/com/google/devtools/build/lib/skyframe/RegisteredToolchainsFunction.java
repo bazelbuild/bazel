@@ -24,15 +24,12 @@ import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
-import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -68,13 +65,6 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
     targetPatternBuilder.addAll(platformConfiguration.getExtraToolchains());
-
-    // Get registered toolchains from bzlmod.
-    ImmutableList<String> bzlmodToolchains = getBzlmodToolchains(env);
-    if (bzlmodToolchains == null) {
-      return null;
-    }
-    targetPatternBuilder.addAll(bzlmodToolchains);
 
     // Get the registered toolchains from the WORKSPACE.
     ImmutableList<String> workspaceToolchains = getWorkspaceToolchains(env);
@@ -126,28 +116,6 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     Package externalPackage = externalPackageValue.getPackage();
     return externalPackage.getRegisteredToolchains();
-  }
-
-  @Nullable
-  private static ImmutableList<String> getBzlmodToolchains(Environment env)
-      throws InterruptedException, RegisteredToolchainsFunctionException {
-    if (!RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
-      return ImmutableList.of();
-    }
-    BazelModuleResolutionValue bazelModuleResolutionValue =
-        (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-    if (bazelModuleResolutionValue == null) {
-      return null;
-    }
-    ImmutableList.Builder<String> toolchains = ImmutableList.builder();
-    try {
-      for (Module module : bazelModuleResolutionValue.getDepGraph().values()) {
-        toolchains.addAll(module.getCanonicalizedToolchainsToRegister());
-      }
-    } catch (ExternalDepsException e) {
-      throw new RegisteredToolchainsFunctionException(e, Transience.PERSISTENT);
-    }
-    return toolchains.build();
   }
 
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(

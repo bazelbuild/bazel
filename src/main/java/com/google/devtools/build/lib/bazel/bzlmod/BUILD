@@ -95,7 +95,6 @@ java_library(
     ],
     deps = [
         ":common",
-        ":exception",
         ":module_extension",
         ":registry",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -103,7 +102,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

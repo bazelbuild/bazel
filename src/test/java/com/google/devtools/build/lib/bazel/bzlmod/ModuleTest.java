@@ -17,10 +17,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.Module.WhichRepoMappings;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
@@ -30,38 +28,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link Module}. */
 @RunWith(JUnit4.class)
 public class ModuleTest {
-
-  @Test
-  public void canonicalizedTargetPatterns_good() throws Exception {
-    Module module =
-        Module.builder()
-            .setKey(createModuleKey("self", "1.0"))
-            .setExecutionPlatformsToRegister(ImmutableList.of("//:self_target"))
-            .setToolchainsToRegister(ImmutableList.of("@root//:root_target", "@hi//:hi_target"))
-            .addDep("hi", createModuleKey("hello", "2.0"))
-            .addDep("root", ModuleKey.ROOT)
-            .build();
-    assertThat(module.getCanonicalizedExecutionPlatformsToRegister())
-        .containsExactly("@self.1.0//:self_target")
-        .inOrder();
-    assertThat(module.getCanonicalizedToolchainsToRegister())
-        .containsExactly("@//:root_target", "@hello.2.0//:hi_target")
-        .inOrder();
-  }
-
-  @Test
-  public void canonicalizedTargetPatterns_bad() throws Exception {
-    Module module =
-        Module.builder()
-            .setKey(createModuleKey("self", "1.0"))
-            .setExecutionPlatformsToRegister(ImmutableList.of("@what//:target"))
-            .setToolchainsToRegister(ImmutableList.of("@hi:target"))
-            .addDep("hi", createModuleKey("hello", "2.0"))
-            .addDep("root", ModuleKey.ROOT)
-            .build();
-    assertThrows(ExternalDepsException.class, module::getCanonicalizedExecutionPlatformsToRegister);
-    assertThrows(ExternalDepsException.class, module::getCanonicalizedToolchainsToRegister);
-  }
 
   @Test
   public void withDepKeysTransformed() throws Exception {
