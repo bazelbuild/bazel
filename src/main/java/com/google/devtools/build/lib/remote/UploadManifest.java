@@ -244,7 +244,8 @@ public class UploadManifest {
         .addOutputFilesBuilder()
         .setPath(remotePathResolver.localPathToOutputPath(file))
         .setDigest(digest)
-        .setIsExecutable(file.isExecutable());
+        // The permission of output file is changed to 0555 after action execution
+        .setIsExecutable(true);
 
     digestToFile.put(digest, file);
   }
