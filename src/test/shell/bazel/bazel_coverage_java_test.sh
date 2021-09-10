@@ -784,4 +784,211 @@ end_of_record"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
+
+function test_finally_block_branch_coverage() {
+  # Verify branches in finally blocks are handled correctly.
+  # The java compiler duplicates finally blocks for the various code paths that
+  # may enter them (e.g. via an exception handler or when no exception is
+  # thrown).
+  cat <<EOF > BUILD
+java_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.java"]),
+    test_class = "com.example.TestFinally",
+    deps = [":finally-lib"],
+)
+
+java_library(
+    name = "finally-lib",
+    srcs = glob(["src/main/**/*.java"]),
+)
+EOF
+
+  mkdir -p src/main/com/example
+  cat <<EOF > src/main/com/example/Finally.java
+package com.example;
+
+public class Finally {
+
+  private static int secret = 0;
+
+  public static int runFinally(int x) {
+    try {
+      if (x == 1 || x == -1) {
+        throw new RuntimeException();
+      }
+      if (x % 2 == 0) {
+        return x * 2;
+      } else {
+        return x * 2 - 1;
+      }
+    } finally {
+      if (x >= 0) {
+        secret++;
+      } else {
+        secret--;
+      }
+    }
+  }
+}
+EOF
+
+  mkdir -p src/test/com/example
+  cat <<EOF > src/test/com/example/TestFinally.java
+package com.example;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import org.junit.Test;
+
+public class TestFinally {
+
+  @Test
+  public void testEven() {
+    assertEquals(4, Finally.runFinally(2));
+  }
+  @Test
+  public void testOdd() {
+    assertEquals(5, Finally.runFinally(3));
+  }
+  @Test
+  public void testNegativeEven() {
+    assertEquals(-4, Finally.runFinally(-2));
+  }
+  @Test
+  public void testNegativeOdd() {
+    assertEquals(-7, Finally.runFinally(-3));
+  }
+  @Test
+  public void testException() {
+    assertThrows(RuntimeException.class, () -> Finally.runFinally(1));
+  }
+  @Test
+  public void testNegativeException() {
+    assertThrows(RuntimeException.class, () -> Finally.runFinally(-1));
+  }
+
+}
+EOF
+
+  # For the sake of brevity, only check the output for the branches
+  # corresponding to the finally block in the method under test rather than the
+  # entire coverage output.
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=TestFinally.testNegativeException \
+   || echo "Coverage for //:test failed"
+
+    #--test_filter=".*(testNegativeException)" \
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,1
+BRDA:9,0,3,0
+BRDA:12,0,0,-
+BRDA:12,0,1,-
+BRDA:18,0,0,0
+BRDA:18,0,1,0
+BRDA:18,0,2,0
+BRDA:18,0,3,0
+BRDA:18,0,4,0
+BRDA:18,0,5,1
+BRF:12
+BRH:3"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testOdd|testNegativeOdd)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,0
+BRDA:18,0,0,0
+BRDA:18,0,1,0
+BRDA:18,0,2,1
+BRDA:18,0,3,1
+BRDA:18,0,4,0
+BRDA:18,0,5,0
+BRF:12
+BRH:5"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testEven|testNegativeOdd)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,1
+BRDA:18,0,0,1
+BRDA:18,0,1,0
+BRDA:18,0,2,0
+BRDA:18,0,3,1
+BRDA:18,0,4,0
+BRDA:18,0,5,0
+BRF:12
+BRH:6"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testNegativeEven|testException)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,0
+BRDA:12,0,1,1
+BRDA:18,0,0,0
+BRDA:18,0,1,1
+BRDA:18,0,2,0
+BRDA:18,0,3,0
+BRDA:18,0,4,1
+BRDA:18,0,5,0
+BRF:12
+BRH:6"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testNegativeEven|testNegativeOdd)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,0
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,1
+BRDA:18,0,0,0
+BRDA:18,0,1,1
+BRDA:18,0,2,0
+BRDA:18,0,3,1
+BRDA:18,0,4,0
+BRDA:18,0,5,0
+BRF:12
+BRH:6"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+}
+
 run_suite "test tests"
