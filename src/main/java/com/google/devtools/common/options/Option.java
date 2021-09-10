@@ -155,17 +155,6 @@ public @interface Option {
   String[] expansion() default {};
 
   /**
-   * A mechanism for specifying an expansion that is a function of the parser's {@link
-   * IsolatedOptionsData}. This can be used to create an option that expands to different strings
-   * depending on what other options the parser knows about.
-   *
-   * <p>If provided (i.e. not {@link ExpansionFunction}{@code .class}), the {@code expansion} field
-   * must not be set. The mechanism of expansion is as if the {@code expansion} field were set to
-   * whatever the return value of this function is.
-   */
-  Class<? extends ExpansionFunction> expansionFunction() default ExpansionFunction.class;
-
-  /**
    * Additional options that need to be implicitly added for this option.
    *
    * <p>Nothing guarantees that these options are not overridden by later or higher-priority values

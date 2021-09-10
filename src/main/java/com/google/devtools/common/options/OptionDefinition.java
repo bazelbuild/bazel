@@ -147,11 +147,6 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     return optionAnnotation.expansion();
   }
 
-  /** {@link Option#expansionFunction()} ()} */
-  public Class<? extends ExpansionFunction> getExpansionFunction() {
-    return optionAnnotation.expansionFunction();
-  }
-
   /** {@link Option#implicitRequirements()} ()} */
   public String[] getImplicitRequirements() {
     return optionAnnotation.implicitRequirements();
@@ -188,20 +183,12 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
 
   /** Returns whether the arg is an expansion option. */
   public boolean isExpansionOption() {
-    return (getOptionExpansion().length > 0 || usesExpansionFunction());
+    return getOptionExpansion().length > 0;
   }
 
   /** Returns whether the arg is an expansion option. */
   public boolean hasImplicitRequirements() {
     return (getImplicitRequirements().length > 0);
-  }
-
-  /**
-   * Returns whether the arg is an expansion option defined by an expansion function (and not a
-   * constant expansion value).
-   */
-  public boolean usesExpansionFunction() {
-    return getExpansionFunction() != ExpansionFunction.class;
   }
 
   /**

@@ -329,8 +329,8 @@ public abstract class OptionValueDescription {
 
   /**
    * The form of a value for an expansion option, one that does not have its own value but expands
-   * in place to other options. This should be used for both flags with a static expansion defined
-   * in {@link Option#expansion()} and flags with an {@link Option#expansionFunction()}.
+   * in place to other options. This should be used for flags with anN expansion defined in {@link
+   * Option#expansion()}.
    */
   private static class ExpansionOptionValueDescription extends OptionValueDescription {
     private final List<String> expansion;

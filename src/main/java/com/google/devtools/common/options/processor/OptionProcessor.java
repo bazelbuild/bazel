@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
-import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -454,25 +453,8 @@ public final class OptionProcessor extends AbstractProcessor {
    */
   private void checkExpansionOptions(VariableElement optionField) throws OptionProcessorException {
     Option annotation = optionField.getAnnotation(Option.class);
-    boolean isStaticExpansion = annotation.expansion().length > 0;
+    boolean isExpansion = annotation.expansion().length > 0;
     boolean hasImplicitRequirements = annotation.implicitRequirements().length > 0;
-
-    AnnotationMirror annotationMirror =
-        ProcessorUtils.getAnnotation(elementUtils, typeUtils, optionField, Option.class);
-    TypeElement expansionFunction =
-        ProcessorUtils.getClassTypeFromAnnotationField(
-            elementUtils, annotationMirror, "expansionFunction");
-    TypeElement defaultExpansionFunction =
-        elementUtils.getTypeElement(ExpansionFunction.class.getCanonicalName());
-    boolean isFunctionalExpansion =
-        !typeUtils.isSameType(expansionFunction.asType(), defaultExpansionFunction.asType());
-
-    if (isStaticExpansion && isFunctionalExpansion) {
-      throw new OptionProcessorException(
-          optionField,
-          "Options cannot expand using both a static expansion list and an expansion function.");
-    }
-    boolean isExpansion = isStaticExpansion || isFunctionalExpansion;
 
     if (isExpansion && hasImplicitRequirements) {
       throw new OptionProcessorException(
