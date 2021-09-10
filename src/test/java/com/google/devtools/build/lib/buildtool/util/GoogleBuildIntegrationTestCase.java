@@ -13,10 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool.util;
 
-import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
-
 /**
  * Base class for some integration tests.
  *
@@ -28,12 +24,5 @@ import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
  * inside and outside of Google, and enables importing Bazel changes into Google's source tree.
  */
 public abstract class GoogleBuildIntegrationTestCase extends BuildIntegrationTestCase {
-  @Override
-  protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    BlazeRuntime.Builder builder = super.getRuntimeBuilder();
-    builder
-        .addBlazeModule(new BazelRepositoryModule())
-        .addBlazeModule(new NoSpawnCacheModule());
-    return builder;
-  }
+
 }
