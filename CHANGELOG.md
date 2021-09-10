@@ -1,3 +1,21 @@
+## Release 5.0.0-pre.20210831.2 (2021-09-10)
+
+```
+Baseline: 14fe5dff967cf91f130746f646d1bb1cfc1053f2
+
+Cherry picks:
+
+   + 6f5c4bb4d17abd6b9654f255c12775eb35638000:
+     Automated rollback of commit
+     8181f0abe6591bc14957e6a941a6556fb040ca9f.
+```
+
+Important changes:
+
+  - The --all_incompatible_changes flag is now a no-op
+
+This release contains contributions from many people at Google, as well as Keith Smiley, kekxv, ron-stripe, Sergey Tyurin.
+
 ## Release 5.0.0-pre.20210826.1 (2021-09-03)
 
 ```
