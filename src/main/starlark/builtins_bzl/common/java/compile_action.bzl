@@ -39,7 +39,11 @@ def _filter_strict_deps(mode):
     return "error" if mode in ["strict", "default"] else mode
 
 # TODO(b/11285003): disallow jar files in deps, require java_import instead
-def _append_legacy_jars(attr, dep_list):
+def _filter_javainfo_and_legacy_jars(attr):
+    dep_list = []
+
+    # Native code collected data into a NestedSet, using add for legacy jars and
+    # addTransitive for JavaInfo. This resulted in legacy jars being first in the list.
     for dep in attr:
         if not JavaInfo in dep or dep.kind == "java_binary" or dep.kind == "java_test":
             for file in dep[DefaultInfo].files.to_list():
@@ -47,6 +51,11 @@ def _append_legacy_jars(attr, dep_list):
                     # Native doesn't construct JavaInfo
                     java_info = JavaInfo(output_jar = file, compile_jar = file)
                     dep_list.append(java_info)
+
+    for dep in attr:
+        if JavaInfo in dep:
+            dep_list.append(dep[JavaInfo])
+    return dep_list
 
 def _collect_plugins(deps, plugins):
     transitive_processor_jars = []
@@ -86,12 +95,9 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
     plugins = _filter_provider(JavaPluginInfo, ctx.attr.plugins)
     plugins.append(ctx.attr._java_plugins[JavaPluginInfo])
 
-    deps_javainfo = _filter_provider(JavaInfo, deps)
-    _append_legacy_jars(deps, deps_javainfo)
-    runtime_deps_javainfo = _filter_provider(JavaInfo, runtime_deps)
-    _append_legacy_jars(runtime_deps, runtime_deps_javainfo)
-    exports_javainfo = _filter_provider(JavaInfo, exports)
-    _append_legacy_jars(exports, exports_javainfo)
+    deps_javainfo = _filter_javainfo_and_legacy_jars(deps)
+    runtime_deps_javainfo = _filter_javainfo_and_legacy_jars(runtime_deps)
+    exports_javainfo = _filter_javainfo_and_legacy_jars(exports)
 
     if semantics.EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY and not semantics.EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY:
         output = ctx.actions.declare_file(output_prefix + "%s.jar" % ctx.attr.name)
