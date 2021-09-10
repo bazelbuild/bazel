@@ -272,35 +272,25 @@ http_file(
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689080.zip"],
 )
 
-dist_http_archive(
-    name = "bazel_toolchains",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+http_archive(
+    name = "bazel_ci_rules",
+    sha256 = "092772e52fd573ee39282d88880ff2a49a2482affeabc1a30e295e0a2891624c",
+    urls = [
+        "https://github.com/bazelbuild/continuous-integration/releases/download/rules_1.0.0/bazel_ci_rules.tar.gz"
+    ]
 )
 
-load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+load("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
-rbe_autoconfig(
-    name = "rbe_ubuntu1804_java11",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1804-bazel-java11",
-    tag = "latest",
-)
-
-rbe_autoconfig(
+rbe_preconfig(
     name = "rbe_ubuntu1604_java8",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1604-bazel-java8",
-    tag = "latest",
+    toolchain = "ubuntu1604-bazel-java8",
 )
 
-# Creates toolchain configuration for remote execution with BuildKite CI
-# for rbe_ubuntu1604.
-# To run the tests with RBE on BuildKite CI uncomment the two lines below
-# load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
-# rbe_autoconfig(name = "buildkite_config")
+rbe_preconfig(
+    name = "rbe_ubuntu1804_java11",
+    toolchain = "ubuntu1804-bazel-java11",
+)
 
 http_archive(
     name = "com_google_googletest",
