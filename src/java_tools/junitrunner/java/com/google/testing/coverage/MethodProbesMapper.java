@@ -72,6 +72,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   private IFilter filter;
   private IFilterContext filterContext;
   private HashSet<AbstractInsnNode> ignored = new HashSet<>();
+  private Map<AbstractInsnNode, AbstractInsnNode> unioned = new HashMap<>();
 
   // Result
   private Map<Integer, BranchExp> lineToBranchExp = new TreeMap();
@@ -349,13 +350,6 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   /** Finishing the method */
   @Override
   public void visitEnd() {
-    HashSet<Instruction> ignoredInstructions = new HashSet<>();
-    for (Map.Entry<AbstractInsnNode, Instruction> entry : instructionMap.entrySet()) {
-      if (ignored.contains(entry.getKey())) {
-        ignoredInstructions.add(entry.getValue());
-      }
-    }
-
     for (Jump jump : jumps) {
       Instruction insn = labelToInsn.get(jump.target);
       jump.source.addBranch(insn, jump.branch);
@@ -366,9 +360,6 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     for (Map.Entry<Integer, Instruction> entry : probeToInsn.entrySet()) {
       int probeId = entry.getKey();
       Instruction ins = entry.getValue();
-      if (ignoredInstructions.contains(ins)) {
-        continue;
-      }
 
       Instruction insn = ins;
       CovExp exp = new ProbeExp(probeId);
@@ -411,6 +402,24 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       }
     }
 
+    // Handle merged instructions
+    for (AbstractInsnNode node : unioned.keySet()) {
+      AbstractInsnNode rep = findRepresentative(node);
+      Instruction insn = instructionMap.get(node);
+      Instruction repInsn = instructionMap.get(rep);
+      BranchExp branch = BranchExp.ensureIsBranchExp(insnToCovExp.get(insn));
+      BranchExp repBranch = BranchExp.ensureIsBranchExp(insnToCovExp.get(repInsn));
+      insnToCovExp.put(repInsn, BranchExp.union(repBranch, branch));
+      ignored.add(node);
+    }
+
+    HashSet<Instruction> ignoredInstructions = new HashSet<>();
+    for (Map.Entry<AbstractInsnNode, Instruction> entry : instructionMap.entrySet()) {
+      if (ignored.contains(entry.getKey())) {
+        ignoredInstructions.add(entry.getValue());
+      }
+    }
+
     // Merge branches in the instructions on the same line
     for (Instruction insn : instructions) {
       if (ignoredInstructions.contains(insn)) {
@@ -424,7 +433,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
           if (lineExp == null) {
             lineToBranchExp.put(insn.getLine(), exp);
           } else {
-            lineToBranchExp.put(insn.getLine(), lineExp.merge(exp));
+            lineToBranchExp.put(insn.getLine(), BranchExp.concatenate(lineExp, exp));
           }
         } else {
           // If we reach here, the internal data of the mapping is inconsistent, either
@@ -447,12 +456,30 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
 
   @Override
   public void merge(AbstractInsnNode i1, AbstractInsnNode i2) {
-    // TODO(cmita): Implement as part of https://github.com/bazelbuild/bazel/issues/12696
+    i1 = findRepresentative(i1);
+    i2 = findRepresentative(i2);
+    if (i1 != i2) {
+      unioned.put(i1, i2);
+    }
   }
 
   @Override
   public void replaceBranches(AbstractInsnNode source, Set<AbstractInsnNode> newTargets) {
     // TODO(cmita): Implement as part of https://github.com/bazelbuild/bazel/issues/12696
+  }
+
+  private AbstractInsnNode findRepresentative(AbstractInsnNode node) {
+    // Walk the chain of nodes to find the representative node (at the root), flattening the tree a
+    // little as we go
+    AbstractInsnNode parent;
+    AbstractInsnNode grandParent;
+    while ((parent = unioned.get(node)) != null) {
+      if ((grandParent = unioned.get(parent)) != null) {
+        unioned.put(node, grandParent);
+      }
+      node = parent;
+    }
+    return node;
   }
 
   /** Jumps between instructions and labels */
