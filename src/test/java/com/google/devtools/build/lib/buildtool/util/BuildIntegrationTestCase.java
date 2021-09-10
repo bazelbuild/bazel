@@ -50,10 +50,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil.DummyWorkspaceStatusActionContext;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
+import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -78,10 +75,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -96,12 +90,9 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
@@ -131,7 +122,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
 import org.junit.Before;
@@ -420,26 +410,6 @@ public abstract class BuildIntegrationTestCase {
   private static BlazeModule getMockBazelRepositoryModule() {
     return new BlazeModule() {
       @Override
-      public void workspaceInit(
-          BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-        ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
-            new ImmutableMap.Builder<String, RepositoryFunction>()
-                .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-                .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-                .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
-        builder.addSkyFunction(
-            SkyFunctions.REPOSITORY_DIRECTORY,
-            new RepositoryDelegatorFunction(
-                repositoryHandlers.build(),
-                null,
-                new AtomicBoolean(true),
-                ImmutableMap::of,
-                directories,
-                ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
-                BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-      }
-
-      @Override
       public ImmutableList<Injected> getPrecomputedValues() {
         ImmutableList.Builder<Injected> builder = ImmutableList.builder();
         return builder
@@ -493,7 +463,8 @@ public abstract class BuildIntegrationTestCase {
       builder
           .addBlazeModule(new NoSpawnCacheModule())
           .addBlazeModule(new WorkerModule())
-          .addBlazeModule(new SandboxModule());
+          .addBlazeModule(new SandboxModule())
+          .addBlazeModule(new BazelRepositoryModule());
     }
     return builder;
   }
