@@ -12,7 +12,7 @@ apps specifically. For general build performance optimization with Bazel, see
 ## Recommended flags
 
 The flags are in the
-[`bazelrc` configuration syntax](guide.html#bazelrc-syntax-and-semantics), so
+[`bazelrc` configuration syntax](/guide.md#bazelrc-syntax-and-semantics), so
 they can be pasted directly into a `bazelrc` file and invoked with
 `--config=<configuration_name>` on the command line.
 
