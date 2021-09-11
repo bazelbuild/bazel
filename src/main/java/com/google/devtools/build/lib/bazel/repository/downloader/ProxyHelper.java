@@ -133,7 +133,7 @@ public class ProxyHelper {
 
     // Here there be dragons.
     Pattern urlPattern =
-        Pattern.compile("^(https?)://(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
+        Pattern.compile("^(https|http|socks5|socks4)://(([^:@]+?)(?::([^@]+?))?@)?([^:]+)(?::(\\d+))?/?$");
     Matcher matcher = urlPattern.matcher(proxyAddress);
     if (!matcher.matches()) {
       throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
