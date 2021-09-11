@@ -152,19 +152,26 @@ public class ProxyHelper {
           proxyAddress.replace(idAndPassword, ""); // Used to remove id+pwd from logging
     }
 
-    boolean https;
+    Proxy.Type proxyType;
+    int port = 80; // Default port numbers
+    boolean https = false;
     switch (protocol) {
       case "https":
-        https = true;
+        port = 443;
+        proxyType = Proxy.Type.HTTP;
         break;
       case "http":
-        https = false;
+        proxyType = Proxy.Type.HTTP;
+        break;
+      case "socks5":
+        proxyType = Proxy.Type.SOCKS;
+        break;
+      case "socks4":
+        proxyType = Proxy.Type.SOCKS;
         break;
       default:
         throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
     }
-
-    int port = https ? 443 : 80; // Default port numbers
 
     if (portRaw != null) {
       try {
@@ -191,6 +198,6 @@ public class ProxyHelper {
           });
     }
 
-    return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port));
+    return new Proxy(proxyType, new InetSocketAddress(hostname, port));
   }
 }
