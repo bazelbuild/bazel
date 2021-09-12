@@ -205,12 +205,10 @@ public class NdkPaths {
   public String createBuiltinSysroot() {
     // This location does not exist prior to NDK 15
     Preconditions.checkState(majorRevision >= 15);
-    System.out.println("here createBuiltinSysroot");
 
     StackTraceElement[] elements = Thread.currentThread().getStackTrace();
 for (int i = 1; i < elements.length; i++) {
      StackTraceElement s = elements[i];
-     System.out.println("\tat " + s.getClassName() + "." + s.getMethodName() + "(" + s.getFileName() + ":" + s.getLineNumber() + ")");
 }
 
     return "%externalExecPathBase%/%repositoryName%/ndk/sysroot"
@@ -227,9 +225,10 @@ for (int i = 1; i < elements.length; i++) {
     // This location does not exist prior to NDK 22
     Preconditions.checkState(majorRevision >= 22);
 
-    return "%externalExecPathBase%/%repositoryName%/ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+    return "%externalExecPathBase%/%repositoryName%/ndk/toolchains/llvm/prebuilt/%hostPlatform%/sysroot"
         .replace("%externalExecPathBase%", externalExecPathBase)
-        .replace("%repositoryName%", repositoryName);
+        .replace("%repositoryName%", repositoryName)
+        .replace("%hostPlatform%", hostPlatform);
   }
 
   public String getCorrectedApiLevel(String targetCpu) {

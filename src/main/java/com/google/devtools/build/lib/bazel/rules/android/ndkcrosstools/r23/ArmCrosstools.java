@@ -52,10 +52,10 @@ final class ArmCrosstools {
   private CToolchain.Builder createAarch64ClangToolchain() {
     // String toolchainName = "aarch64-linux-android-4.9";
     String toolchainName = "llvm";
-    String targetPlatform = "aarch64-linux-android";
+    String targetPlatform = "aarch64-none-linux-android";
     // String gccToolchain = ndkPaths.createGccToolchainPath(toolchainName);
     // String clangToolchain = ndkPaths.createClangToolchainPath(toolchainName);
-    String llvmTriple = "aarch64-none-linux-android";
+    String llvmTriple = "aarch64-none-linux-android" + ndkPaths.getCorrectedApiLevel("arm");
 
     System.out.println("sysroot: " + ndkPaths.createClangBuiltinSysroot());
     // System.out.println("clang tool:" + ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null));
@@ -90,7 +90,7 @@ final class ArmCrosstools {
                 .replace("%ndk%", ndkPaths.createBuiltinSysroot())
                 .replace("%triple%", targetPlatform))
 */
-        .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
+        // .addCompilerFlag("-D__ANDROID_API__=" + ndkPaths.getCorrectedApiLevel("arm"))
 
         // Linker flags
         // .addLinkerFlag("-gcc-toolchain")

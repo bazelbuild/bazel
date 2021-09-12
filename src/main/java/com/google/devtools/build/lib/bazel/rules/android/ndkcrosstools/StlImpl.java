@@ -126,7 +126,6 @@ public abstract class StlImpl {
   protected static Iterable<String> createIncludeFlags(Iterable<String> includePaths) {
     ImmutableList.Builder<String> includeFlags = ImmutableList.builder();
     for (String includePath : includePaths) {
-      System.out.println("adding: " + includePath);
       includeFlags.add("-isystem");
       includeFlags.add(includePath);
     }

@@ -56,7 +56,6 @@ public final class StlImpls {
       addBaseStlImpl(toolchain, null);
       toolchain.addAllUnfilteredCxxFlag(createIncludeFlags(ndkPaths.createLibcxxIncludePaths()));
       toolchain.addLinkerFlag("-L" + ndkPaths.createLibcppLinkerPath(toolchain.getTargetCpu()));
-      System.out.println("path: " + ndkPaths.createLibcxxIncludePaths());
     } 
   }
 

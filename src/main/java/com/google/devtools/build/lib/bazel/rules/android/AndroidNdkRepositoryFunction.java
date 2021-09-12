@@ -206,7 +206,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/local/incude/**/*");
 
     // test
-    toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/include/**/*");
+    // String hostPlatform = AndroidNdkCrosstools.getHostPlatform(31);
+    // toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/" + hostPlatform + "/lib64/clang/12.0.5/include/**/*");
+    toolchainFileGlobPatterns.add("ndk/toolchains/llvm/prebuilt/darwin-x86_64/lib64/clang/12.0.5/include/**/*");
 
     // If this is a clang toolchain, also add the corresponding gcc toolchain to the globs.
     int gccToolchainIndex = toolchain.getCompilerFlagList().indexOf("-gcc-toolchain");
@@ -220,7 +222,6 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       toolchainFileGlobs.append(String.format("        \"%s\",\n", toolchainFileGlobPattern));
     }
 
-    System.out.println("toolchainFileGlobPatterns:" + toolchainFileGlobPatterns);
     return ccToolchainTemplate
         .replace("%toolchainName%", toolchain.getToolchainIdentifier())
         .replace("%cpu%", toolchain.getTargetCpu())
