@@ -31,13 +31,11 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
-    "bazel_toolchains": {
-        "archive": "bazel-toolchains-4.1.0.tar.gz",
-        "sha256": "179ec02f809e86abf56356d8898c8bd74069f1bd7c56044050c2cd3d79d0e024",
-        "strip_prefix": "bazel-toolchains-4.1.0",
+    "bazel_ci_rules": {
+        "archive": "bazel_ci_rules-1.0.0.tar.gz",
+        "sha256": "092772e52fd573ee39282d88880ff2a49a2482affeabc1a30e295e0a2891624c",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/4.1.0/bazel-toolchains-4.1.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/releases/download/4.1.0/bazel-toolchains-4.1.0.tar.gz",
+            "https://github.com/bazelbuild/continuous-integration/releases/download/rules_1.0.0/bazel_ci_rules.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",

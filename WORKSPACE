@@ -272,12 +272,10 @@ http_file(
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689080.zip"],
 )
 
-http_archive(
+dist_http_archive(
     name = "bazel_ci_rules",
-    sha256 = "092772e52fd573ee39282d88880ff2a49a2482affeabc1a30e295e0a2891624c",
-    urls = [
-        "https://github.com/bazelbuild/continuous-integration/releases/download/rules_1.0.0/bazel_ci_rules.tar.gz"
-    ]
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
 load("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
