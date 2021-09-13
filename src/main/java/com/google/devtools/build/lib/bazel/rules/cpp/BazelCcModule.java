@@ -227,10 +227,15 @@ public class BazelCcModule extends CcModule
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCopmilationContextObject,
+      Object compilationOutputs,
       StarlarkThread thread)
       throws EvalException {
     return super.createCompilationOutputsFromStarlark(
-        objectsObject, picObjectsObject, ltoCopmilationContextObject, thread);
+        objectsObject,
+        picObjectsObject,
+        ltoCopmilationContextObject,
+        convertFromNoneable(compilationOutputs, /* defaultValue= */ null),
+        thread);
   }
 
   @Override

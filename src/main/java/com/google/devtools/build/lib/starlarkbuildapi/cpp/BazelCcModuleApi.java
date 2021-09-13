@@ -649,11 +649,22 @@ public interface BazelCcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "compilation_outputs",
+            doc = "Compilation outputs object to base new object on.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = CcCompilationOutputsApi.class),
+              @ParamType(type = NoneType.class)
+            }),
       })
   CompilationOutputsT createCompilationOutputsFromStarlark(
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCopmilationContextObject,
+      Object compilationOutputs,
       StarlarkThread thread)
       throws EvalException;
 

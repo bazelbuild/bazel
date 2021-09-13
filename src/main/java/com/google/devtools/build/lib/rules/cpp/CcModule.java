@@ -2454,12 +2454,16 @@ public abstract class CcModule
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCompilationContextObject,
+      CcCompilationOutputs compilationOutputs,
       StarlarkThread thread)
       throws EvalException {
     if (checkObjectsBound(ltoCompilationContextObject)) {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
     }
     CcCompilationOutputs.Builder ccCompilationOutputsBuilder = CcCompilationOutputs.builder();
+    if (compilationOutputs != null) {
+      ccCompilationOutputsBuilder.merge(compilationOutputs);
+    }
     NestedSet<Artifact> objects = convertToNestedSet(objectsObject, Artifact.class, "objects");
     validateExtensions(
         "objects",
@@ -2477,8 +2481,8 @@ public abstract class CcModule
         Link.OBJECT_FILETYPES,
         Link.OBJECT_FILETYPES,
         /* allowAnyTreeArtifacts= */ false);
-    ccCompilationOutputsBuilder.addObjectFiles(objects.toList());
-    ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
+    ccCompilationOutputsBuilder.setObjectFiles(objects.toList());
+    ccCompilationOutputsBuilder.setPicObjectFiles(picObjects.toList());
     if (ltoCompilationContext != null) {
       ccCompilationOutputsBuilder.addLtoCompilationContext(ltoCompilationContext);
     }

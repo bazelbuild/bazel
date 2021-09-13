@@ -254,6 +254,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
+    public Builder setObjectFiles(Iterable<Artifact> artifacts) {
+      objectFiles.clear();
+      return addObjectFiles(artifacts);
+    }
+
     /** Adds a pic object file. */
     public Builder addPicObjectFile(Artifact artifact) {
       picObjectFiles.add(artifact);
@@ -279,6 +284,11 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
 
       Iterables.addAll(picObjectFiles, artifacts);
       return this;
+    }
+
+    public Builder setPicObjectFiles(Iterable<Artifact> artifacts) {
+      picObjectFiles.clear();
+      return addPicObjectFiles(artifacts);
     }
 
     public Builder addDwoFile(Artifact artifact) {
