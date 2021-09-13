@@ -143,12 +143,12 @@ java_test(
     name = "CorruptedActionCacheTest",
     srcs = ["CorruptedActionCacheTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//third_party:junit4",
