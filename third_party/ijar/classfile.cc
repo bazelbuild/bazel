@@ -501,7 +501,6 @@ struct InnerClassesAttribute : Attribute {
     // kept. Then we mark its outer class and its class name as kept, too, then
     // iterate until a fixed point is reached.
     int entry_count;
-    int iteration = 0;
 
     do {
       entry_count = kept_entries.size();
@@ -527,7 +526,6 @@ struct InnerClassesAttribute : Attribute {
           entry->inner_name->slot();
         }
       }
-      iteration += 1;
     } while (entry_count != static_cast<int>(kept_entries.size()));
 
     if (kept_entries.empty()) {
