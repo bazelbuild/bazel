@@ -273,12 +273,12 @@ http_file(
 )
 
 dist_http_archive(
-    name = "bazel_ci_rules",
+    name = "bazelci_rules",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
-load("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
+load("@bazelci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
 rbe_preconfig(
     name = "rbe_ubuntu1604_java8",
