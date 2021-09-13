@@ -328,11 +328,11 @@ java_test(
     name = "LabelCrossesPackageBoundaryTest",
     srcs = ["LabelCrossesPackageBoundaryTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
     ],
