@@ -48,7 +48,7 @@ def _build_variable_extensions(
         for cc_lib in objc_provider.flattened_cc_libraries():
             cc_libs[cc_lib.path] = True
         exclusively_objc_libs = []
-        for objc_lib in objc_provider.jre_ordered_objc_libraries():
+        for objc_lib in objc_provider.flattened_objc_libraries():
             if objc_lib.path in cc_libs:
                 continue
             exclusively_objc_libs.append(objc_lib.path)
@@ -589,7 +589,7 @@ def _register_fully_link_action(common_variables, objc_provider, name):
     )
 
     linker_inputs = []
-    linker_inputs.extend(objc_provider.jre_ordered_objc_libraries())
+    linker_inputs.extend(objc_provider.flattened_objc_libraries())
     linker_inputs.extend(objc_provider.flattened_cc_libraries())
     linker_inputs.extend(objc_provider.imported_library.to_list())
 
