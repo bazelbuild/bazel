@@ -109,7 +109,7 @@ public class CppActionConfigs {
                         "    action: 'clif-match'",
                         "    flag_group {",
                         "      expand_if_all_available: 'dependency_file'",
-                        "      flag: '-MD'",
+                        "      flag: '-MMD'",
                         "      flag: '-MF'",
                         "      flag: '%{dependency_file}'",
                         "    }",
