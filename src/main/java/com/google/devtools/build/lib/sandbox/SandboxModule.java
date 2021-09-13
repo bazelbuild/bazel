@@ -126,6 +126,10 @@ public final class SandboxModule extends BlazeModule {
               env.getRuntime().getProductName(),
               Fingerprint.getHexDigest(env.getOutputBase().toString()));
       FileSystem fileSystem = env.getRuntime().getFileSystem();
+      if (OS.getCurrent() == OS.DARWIN) {
+        // Don't resolve symlinks on macOS: See https://github.com/bazelbuild/bazel/issues/13766
+        return fileSystem.getPath(options.sandboxBase).getRelative(dirName);
+      }
       Path resolvedSandboxBase = fileSystem.getPath(options.sandboxBase).resolveSymbolicLinks();
       return resolvedSandboxBase.getRelative(dirName);
     }
