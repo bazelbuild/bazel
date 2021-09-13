@@ -248,6 +248,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                         BaseRuleClasses.coverageSupportAttribute(
                             labelCache.get(
                                 toolsRepository + BaseRuleClasses.DEFAULT_COVERAGE_SUPPORT_VALUE))))
+            .add(
+                attr(":default_lcov_merger", LABEL)
+                    .cfg(HostTransition.createFactory())
+                    .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
             // Used in the one-per-build coverage report generation action.
             .add(
                 attr(":coverage_report_generator", LABEL)

@@ -269,6 +269,8 @@ public final class TestActionBuilder {
         lcovMergerAttr = ":lcov_merger";
       } else if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
         lcovMergerAttr = "$lcov_merger";
+      } else if (ruleContext.isAttrDefined(":default_lcov_merger", LABEL)) {
+        lcovMergerAttr = ":default_lcov_merger";
       }
       if (lcovMergerAttr != null) {
         TransitiveInfoCollection lcovMerger = ruleContext.getPrerequisite(lcovMergerAttr);
