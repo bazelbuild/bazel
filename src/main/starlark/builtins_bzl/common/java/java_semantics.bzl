@@ -36,7 +36,7 @@ def _postprocess(ctx, base_info):
 
 semantics = struct(
     EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
-    EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = True,
+    EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = False,
     COLLECT_SRCS_FROM_PROTO_LIBRARY = False,
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",

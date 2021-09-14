@@ -414,7 +414,7 @@ genrule(
 java_library(
   name = "test",
   srcs = ["A.java"],
-  javacopts = ["-sourcepath $(GENDIR)/$(location :stub)", "-implicit:none"],
+  javacopts = ["-sourcepath $(location :stub)", "-implicit:none"],
   deps = [":stub"]
 )
 EOF
