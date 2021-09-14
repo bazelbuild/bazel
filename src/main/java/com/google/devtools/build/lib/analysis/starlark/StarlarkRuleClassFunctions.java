@@ -461,6 +461,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     if (compileOneFiletype instanceof String) {
+      if (!bzlModule.label().getRepository().getName().equals("@_builtins")) {
+        throw Starlark.errorf(
+            "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
+      }
       builder.setPreferredDependencyPredicate(FileType.of((String) compileOneFiletype));
     }
 
