@@ -115,7 +115,7 @@ public class StarlarkBazelModuleTest {
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseAbsoluteUnchecked("@foo.//:pom.xml"),
+                Label.parseAbsoluteUnchecked("@foo//:pom.xml"),
                 Label.parseAbsoluteUnchecked("@bar.2.0//:pom.xml")));
   }
 

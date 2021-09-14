@@ -58,11 +58,11 @@ public abstract class ModuleKey {
 
   /** Returns the canonical name of the repo backing this module. */
   public String getCanonicalRepoName() {
-    if (this.equals(ROOT)) {
-      return "";
-    }
     if (WELL_KNOWN_MODULES.containsKey(getName())) {
       return WELL_KNOWN_MODULES.get(getName());
+    }
+    if (getVersion().isEmpty()) {
+      return getName();
     }
     return getName() + "." + getVersion();
   }
