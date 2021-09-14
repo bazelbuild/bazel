@@ -37,9 +37,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   /** All <code>ConfiguredTarget</code>s have a "label" field. */
   String LABEL_FIELD = "label";
 
-  /** All <code>ConfiguredTarget</code>s have a "kind" field. */
-  String KIND_FIELD = "kind";
-
   /** All <code>ConfiguredTarget</code>s have a "files" field. */
   String FILES_FIELD = "files";
 
