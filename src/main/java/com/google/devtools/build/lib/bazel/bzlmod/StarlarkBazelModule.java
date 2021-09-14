@@ -16,18 +16,22 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
@@ -42,13 +46,10 @@ public class StarlarkBazelModule implements StarlarkValue {
 
   @StarlarkBuiltin(name = "bazel_module_tags", doc = "TODO")
   static class Tags implements Structure {
-    private final ModuleExtension extension;
-    private final ImmutableListMultimap<String, TypeCheckedTag> typeCheckedTags;
+    private final ImmutableMap<String, StarlarkList<TypeCheckedTag>> typeCheckedTags;
 
-    private Tags(
-        ModuleExtension extension, ImmutableListMultimap<String, TypeCheckedTag> typeCheckedTags) {
-      this.extension = extension;
-      this.typeCheckedTags = typeCheckedTags;
+    private Tags(Map<String, StarlarkList<TypeCheckedTag>> typeCheckedTags) {
+      this.typeCheckedTags = ImmutableMap.copyOf(typeCheckedTags);
     }
 
     @Override
@@ -59,15 +60,12 @@ public class StarlarkBazelModule implements StarlarkValue {
     @Nullable
     @Override
     public Object getValue(String name) throws EvalException {
-      if (extension.getTagClasses().containsKey(name)) {
-        return typeCheckedTags.get(name);
-      }
-      return null;
+      return typeCheckedTags.get(name);
     }
 
     @Override
     public ImmutableCollection<String> getFieldNames() {
-      return extension.getTagClasses().keySet();
+      return typeCheckedTags.keySet();
     }
 
     @Nullable
@@ -109,8 +107,10 @@ public class StarlarkBazelModule implements StarlarkValue {
             module.getRepoMapping(),
             /* convertedLabelsInPackage= */ new HashMap<>());
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
-    ImmutableListMultimap.Builder<String, TypeCheckedTag> typeCheckedTags =
-        ImmutableListMultimap.builder();
+    HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();
+    for (String tagClassName : extension.getTagClasses().keySet()) {
+      typeCheckedTags.put(tagClassName, new ArrayList<>());
+    }
     for (Tag tag : tags) {
       TagClass tagClass = extension.getTagClasses().get(tag.getTagName());
       if (tagClass == null) {
@@ -125,13 +125,14 @@ public class StarlarkBazelModule implements StarlarkValue {
 
       // Now we need to type-check the attribute values and convert them into "build language types"
       // (for example, String to Label).
-      typeCheckedTags.put(
-          tag.getTagName(), TypeCheckedTag.create(tagClass, tag, labelConversionContext));
+      typeCheckedTags
+          .get(tag.getTagName())
+          .add(TypeCheckedTag.create(tagClass, tag, labelConversionContext));
     }
     return new StarlarkBazelModule(
         module.getName(),
         module.getVersion().getOriginal(),
-        new Tags(extension, typeCheckedTags.build()));
+        new Tags(Maps.transformValues(typeCheckedTags, StarlarkList::immutableCopyOf)));
   }
 
   @Override

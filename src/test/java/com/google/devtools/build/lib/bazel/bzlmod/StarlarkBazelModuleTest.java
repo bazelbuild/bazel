@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -98,20 +97,20 @@ public class StarlarkBazelModuleTest {
 
     // We have 2 "dep" tags...
     @SuppressWarnings("unchecked")
-    ImmutableList<TypeCheckedTag> depTags =
-        (ImmutableList<TypeCheckedTag>) moduleProxy.getTags().getValue("dep");
-    assertThat(depTags).hasSize(2);
+    StarlarkList<TypeCheckedTag> depTags =
+        (StarlarkList<TypeCheckedTag>) moduleProxy.getTags().getValue("dep");
+    assertThat(depTags.size()).isEqualTo(2);
     assertThat(depTags.get(0).getValue("coord")).isEqualTo("junit");
     assertThat(depTags.get(1).getValue("coord")).isEqualTo("guava");
 
     // ... zero "repos" tags...
-    assertThat(moduleProxy.getTags().getValue("repos")).isEqualTo(ImmutableList.of());
+    assertThat(moduleProxy.getTags().getValue("repos")).isEqualTo(StarlarkList.empty());
 
     // ... and 1 "pom" tag.
     @SuppressWarnings("unchecked")
-    ImmutableList<TypeCheckedTag> pomTags =
-        (ImmutableList<TypeCheckedTag>) moduleProxy.getTags().getValue("pom");
-    assertThat(pomTags).hasSize(1);
+    StarlarkList<TypeCheckedTag> pomTags =
+        (StarlarkList<TypeCheckedTag>) moduleProxy.getTags().getValue("pom");
+    assertThat(pomTags.size()).isEqualTo(1);
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
