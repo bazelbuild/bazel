@@ -18,10 +18,12 @@ import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOpti
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.Objects;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -279,5 +282,19 @@ public class JavaStarlarkCommon
   @Override
   public ProviderApi getBootClassPathInfo() {
     return BootClassPathInfo.PROVIDER;
+  }
+
+  @Override
+  public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
+    if (target instanceof AbstractConfiguredTarget) {
+      return ((AbstractConfiguredTarget) target).getRuleClassString();
+    }
+    return "";
   }
 }

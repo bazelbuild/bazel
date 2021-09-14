@@ -577,4 +577,14 @@ public interface JavaCommonApi<
       doc = "The provider used to supply bootclasspath information",
       structField = true)
   ProviderApi getBootClassPathInfo();
+
+  /** Returns target kind. */
+  @StarlarkMethod(
+      name = "target_kind",
+      parameters = {
+        @Param(name = "target", positional = true, named = false, doc = "The target."),
+      },
+      documented = false,
+      useStarlarkThread = true)
+  String getTargetKind(Object target, StarlarkThread thread) throws EvalException;
 }
