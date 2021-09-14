@@ -402,6 +402,7 @@ java_library(
     name = "repository/repository_function",
     srcs = [
         "repository/LocalRepositoryFunction.java",
+        "repository/NeedsSkyframeRestartException.java",
         "repository/RepositoryDelegatorFunction.java",
         "repository/RepositoryDirectoryDirtinessChecker.java",
         "repository/RepositoryFunction.java",

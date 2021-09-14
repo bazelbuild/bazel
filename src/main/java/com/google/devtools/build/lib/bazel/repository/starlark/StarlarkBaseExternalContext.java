@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -84,7 +85,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
       Environment env,
-      ImmutableMap<String, String> envVariables,
+      Map<String, String> envVariables,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -92,8 +93,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       @Nullable RepositoryRemoteExecutor remoteExecutor) {
     this.workingDirectory = workingDirectory;
     this.env = env;
-    this.envVariables = envVariables;
-    this.osObject = new StarlarkOS(envVariables);
+    this.envVariables = ImmutableMap.copyOf(envVariables);
+    this.osObject = new StarlarkOS(this.envVariables);
     this.downloadManager = downloadManager;
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
@@ -509,8 +510,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     }
 
     if (fileValue == null) {
-      // TODO(wyv): Find out if this is okay for module extensions
-      throw RepositoryFunction.restart();
+      throw new NeedsSkyframeRestartException();
     }
     if (!fileValue.isFile() || fileValue.isSpecialFile()) {
       throw Starlark.errorf("Not a regular file: %s", rootedPath.asPath().getPathString());
