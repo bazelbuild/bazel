@@ -889,12 +889,8 @@ BRDA:9,0,3,0
 BRDA:12,0,0,-
 BRDA:12,0,1,-
 BRDA:18,0,0,0
-BRDA:18,0,1,0
-BRDA:18,0,2,0
-BRDA:18,0,3,0
-BRDA:18,0,4,0
-BRDA:18,0,5,1
-BRF:12
+BRDA:18,0,1,1
+BRF:8
 BRH:3"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 
@@ -911,13 +907,9 @@ BRDA:9,0,2,0
 BRDA:9,0,3,1
 BRDA:12,0,0,1
 BRDA:12,0,1,0
-BRDA:18,0,0,0
-BRDA:18,0,1,0
-BRDA:18,0,2,1
-BRDA:18,0,3,1
-BRDA:18,0,4,0
-BRDA:18,0,5,0
-BRF:12
+BRDA:18,0,0,1
+BRDA:18,0,1,1
+BRF:8
 BRH:5"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 
@@ -935,12 +927,8 @@ BRDA:9,0,3,1
 BRDA:12,0,0,1
 BRDA:12,0,1,1
 BRDA:18,0,0,1
-BRDA:18,0,1,0
-BRDA:18,0,2,0
-BRDA:18,0,3,1
-BRDA:18,0,4,0
-BRDA:18,0,5,0
-BRF:12
+BRDA:18,0,1,1
+BRF:8
 BRH:6"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 
@@ -957,13 +945,9 @@ BRDA:9,0,2,0
 BRDA:9,0,3,1
 BRDA:12,0,0,0
 BRDA:12,0,1,1
-BRDA:18,0,0,0
+BRDA:18,0,0,1
 BRDA:18,0,1,1
-BRDA:18,0,2,0
-BRDA:18,0,3,0
-BRDA:18,0,4,1
-BRDA:18,0,5,0
-BRF:12
+BRF:8
 BRH:6"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 
@@ -982,12 +966,27 @@ BRDA:12,0,0,1
 BRDA:12,0,1,1
 BRDA:18,0,0,0
 BRDA:18,0,1,1
-BRDA:18,0,2,0
-BRDA:18,0,3,1
-BRDA:18,0,4,0
-BRDA:18,0,5,0
-BRF:12
-BRH:6"
+BRF:8
+BRH:5"
+  assert_coverage_result "$expected_result" "$coverage_file_path"
+
+  bazel coverage --test_output=all //:test \
+    --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator \
+    --combined_report=lcov &>$TEST_log \
+    --test_filter=".*(testOdd|testException)" \
+   || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$( get_coverage_file_path_from_test_log )"
+  local expected_result="BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRDA:9,0,2,0
+BRDA:9,0,3,1
+BRDA:12,0,0,1
+BRDA:12,0,1,0
+BRDA:18,0,0,1
+BRDA:18,0,1,0
+BRF:8
+BRH:5"
   assert_coverage_result "$expected_result" "$coverage_file_path"
 }
 
