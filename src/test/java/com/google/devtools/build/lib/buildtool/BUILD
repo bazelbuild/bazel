@@ -121,7 +121,6 @@ java_test(
     name = "ContextProviderInitializationTest",
     srcs = ["ContextProviderInitializationTest.java"],
     tags = [
-        "manual",
         "no_windows",
     ],
     deps = [
@@ -133,6 +132,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
         "//third_party:junit4",

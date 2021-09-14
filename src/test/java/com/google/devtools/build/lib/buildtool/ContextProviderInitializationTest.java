@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
@@ -31,16 +32,22 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.function.Supplier;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
 
 /**
  * Test to make sure that context provider initialization failure is handled correctly.
  */
 @RunWith(JUnit4.class)
 public class ContextProviderInitializationTest extends BuildIntegrationTestCase {
+
+  @Before
+  public final void setUpToolsConfigMock() throws Exception {
+    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
+  }
+
   private static class BadContextProviderModule extends BlazeModule {
     @Override
     public void executorInit(
