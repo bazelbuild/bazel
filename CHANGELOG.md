@@ -1,3 +1,17 @@
+## Release 5.0.0-pre.20210907.1 (2021-09-14)
+
+```
+Baseline: 9cb59369a84d9328c2929eefcb58c1b972ab15f2
+```
+
+Important changes:
+
+  - The `--toolchain_resolution_debug` flag now accepts regexes
+    matching targets, as well as toolchain types, when choosing what
+    debug messages to print.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, frazze-jobb, Tetsuo Kiso.
+
 ## Release 5.0.0-pre.20210831.2 (2021-09-10)
 
 ```
