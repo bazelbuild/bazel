@@ -27,6 +27,7 @@ import io.reactivex.rxjava3.core.CompletableObserver;
 import io.reactivex.rxjava3.core.CompletableOnSubscribe;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleEmitter;
+import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.core.SingleOnSubscribe;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.exceptions.Exceptions;
@@ -192,7 +193,7 @@ public class RxFutures {
    * the {@link Completable} will automatically be cancelled.
    */
   public static ListenableFuture<Void> toListenableFuture(Completable completable) {
-    CompletableFuture future = new CompletableFuture();
+    CompletableFuture<Void> future = new CompletableFuture<>();
     completable.subscribe(
         new CompletableObserver() {
           @Override
@@ -214,7 +215,35 @@ public class RxFutures {
     return future;
   }
 
-  private static final class CompletableFuture extends AbstractFuture<Void> {
+  /**
+   * Returns a {@link ListenableFuture} that is complete once the {@link Single} has succeeded.
+   *
+   * <p>Errors are also propagated. If the {@link ListenableFuture} is canceled, the subscription to
+   * the {@link Single} will automatically be cancelled.
+   */
+  public static <T> ListenableFuture<T> toListenableFuture(Single<T> single) {
+    CompletableFuture<T> future = new CompletableFuture<>();
+    single.subscribe(
+        new SingleObserver<T>() {
+          @Override
+          public void onSubscribe(Disposable d) {
+            future.setCancelCallback(d);
+          }
+
+          @Override
+          public void onSuccess(@NonNull T t) {
+            future.set(t);
+          }
+
+          @Override
+          public void onError(Throwable e) {
+            future.setException(e);
+          }
+        });
+    return future;
+  }
+
+  private static final class CompletableFuture<T> extends AbstractFuture<T> {
     private final AtomicReference<Disposable> cancelCallback = new AtomicReference<>();
 
     private void setCancelCallback(Disposable cancelCallback) {
@@ -239,7 +268,7 @@ public class RxFutures {
 
     // Allow set to be called by other members.
     @Override
-    protected boolean set(@Nullable Void t) {
+    protected boolean set(@Nullable T t) {
       return super.set(t);
     }
 

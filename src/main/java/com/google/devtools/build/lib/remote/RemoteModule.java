@@ -532,9 +532,6 @@ public final class RemoteModule extends BlazeModule {
             digestUtil,
             uploader.retain());
     uploader.release();
-    buildEventArtifactUploaderFactoryDelegate.init(
-        new ByteStreamBuildEventArtifactUploaderFactory(
-            uploader, cacheClient, remoteBytestreamUriPrefix, buildRequestId, invocationId));
 
     if (enableRemoteExecution) {
       if (enableDiskCache) {
@@ -618,6 +615,16 @@ public final class RemoteModule extends BlazeModule {
           RemoteActionContextProvider.createForRemoteCaching(
               executorService, env, remoteCache, retryScheduler, digestUtil);
     }
+
+    buildEventArtifactUploaderFactoryDelegate.init(
+        new ByteStreamBuildEventArtifactUploaderFactory(
+            executorService,
+            env.getReporter(),
+            verboseFailures,
+            actionContextProvider.getRemoteCache(),
+            remoteBytestreamUriPrefix,
+            buildRequestId,
+            invocationId));
 
     if (enableRemoteDownloader) {
       remoteDownloaderSupplier.set(

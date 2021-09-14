@@ -14,20 +14,21 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.common.util.concurrent.Futures;
@@ -46,37 +47,40 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.Options;
 import io.grpc.Server;
 import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -86,8 +90,12 @@ import org.mockito.MockitoAnnotations;
 /** Test for {@link ByteStreamBuildEventArtifactUploader}. */
 @RunWith(JUnit4.class)
 public class ByteStreamBuildEventArtifactUploaderTest {
+  @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+
+  private final Reporter reporter = new Reporter(new EventBus());
+  private final StoredEventHandler eventHandler = new StoredEventHandler();
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private ListeningScheduledExecutorService retryService;
@@ -102,7 +110,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
   @Before
   public final void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
+    reporter.addHandler(eventHandler);
 
     String serverName = "Server for " + this.getClass();
     server =
@@ -194,7 +202,12 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     dir.createDirectoryAndParents();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(dir, new LocalFile(dir, LocalFileType.OUTPUT));
-    ByteStreamUploader uploader = mock(ByteStreamUploader.class);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
@@ -203,9 +216,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   }
 
   @Test
-  public void someUploadsFail() throws Exception {
-    // Test that if one of multiple file uploads fails, the upload future fails and that the
-    // error is propagated correctly.
+  public void someUploadsFail_succeedsWithWarningMessages() throws Exception {
+    // Test that if one of multiple file uploads fails, the upload future succeeds but the
+    // error is reported correctly.
 
     int numUploads = 10;
     Map<HashCode, byte[]> blobsByHash = new HashMap<>();
@@ -260,14 +273,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
-    ExecutionException e =
-        assertThrows(ExecutionException.class, () -> artifactUploader.upload(filesToUpload).get());
-    // The gRPC library uses StatusRuntimeException to raise errors. However, throughout the Bazel
-    // codebase runtime exceptions are considered bugs. This test ensures that a SRE is converted
-    // to a checked exception type.
-    assertThat(e.getCause()).isInstanceOf(IOException.class);
-    assertThat(e.getCause().getCause()).isInstanceOf(StatusRuntimeException.class);
-    assertThat(Status.fromThrowable(e).getCode()).isEqualTo(Status.CANCELLED.getCode());
+    artifactUploader.upload(filesToUpload).get();
+
+    assertThat(eventHandler.getEvents()).isNotEmpty();
+    assertThat(eventHandler.getEvents().get(0).getMessage())
+        .contains("Uploading BEP referenced local files: ");
 
     artifactUploader.release();
 
@@ -282,7 +292,13 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     // arrange
 
-    ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    ByteStreamUploader uploader =
+        spy(
+            new ByteStreamUploader(
+                "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier));
     RemoteActionInputFetcher actionInputFetcher = Mockito.mock(RemoteActionInputFetcher.class);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(uploader);
 
@@ -316,7 +332,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
                 + digest.getHash()
                 + "/"
                 + digest.getSizeBytes());
-    verifyNoMoreInteractions(uploader);
+    verify(uploader, times(0)).uploadBlobAsync(any(), any(Digest.class), any(), anyBoolean());
   }
 
   @Test
@@ -334,9 +350,16 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
-    ByteStreamUploader uploader = Mockito.mock(ByteStreamUploader.class);
-    when(uploader.uploadBlobAsync(any(), any(Digest.class), any(), anyBoolean()))
-        .thenReturn(Futures.immediateFuture(null));
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    ByteStreamUploader uploader =
+        spy(
+            new ByteStreamUploader(
+                "instance", refCntChannel, CallCredentialsProvider.NO_CREDENTIALS, 3, retrier));
+    doReturn(Futures.immediateFuture(null))
+        .when(uploader)
+        .uploadBlobAsync(any(), any(Digest.class), any(), anyBoolean());
     ByteStreamBuildEventArtifactUploader artifactUploader =
         newArtifactUploader(uploader, digestQuerier);
 
@@ -369,19 +392,38 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     return a;
   }
 
-  private ByteStreamBuildEventArtifactUploader newArtifactUploader(
-      ByteStreamUploader uploader, MissingDigestsFinder missingDigestsFinder) {
-    return new ByteStreamBuildEventArtifactUploader(
-        uploader,
-        missingDigestsFinder,
-        "localhost/instance",
-        "none",
-        "none",
-        /* maxUploadThreads= */ 100);
+  private ByteStreamBuildEventArtifactUploader newArtifactUploader(ByteStreamUploader uploader) {
+    return newArtifactUploader(uploader, new AllMissingDigestsFinder());
   }
 
-  private ByteStreamBuildEventArtifactUploader newArtifactUploader(ByteStreamUploader uploader) {
-    return newArtifactUploader(uploader, AllMissingDigestsFinder.INSTANCE);
+  private ByteStreamBuildEventArtifactUploader newArtifactUploader(
+      ByteStreamUploader uploader, MissingDigestsFinder missingDigestsFinder) {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    GrpcCacheClient cacheClient =
+        spy(
+            new GrpcCacheClient(
+                uploader.getChannel().retain(),
+                CallCredentialsProvider.NO_CREDENTIALS,
+                remoteOptions,
+                uploader.getRetrier(),
+                DIGEST_UTIL,
+                uploader));
+    doAnswer(
+            invocationOnMock ->
+                missingDigestsFinder.findMissingDigests(
+                    invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
+        .when(cacheClient)
+        .findMissingDigests(any(), any());
+    RemoteCache remoteCache = new RemoteCache(reporter, cacheClient, remoteOptions, DIGEST_UTIL);
+
+    return new ByteStreamBuildEventArtifactUploader(
+        MoreExecutors.directExecutor(),
+        reporter,
+        /*verboseFailures=*/ true,
+        remoteCache,
+        /*remoteServerInstanceName=*/ "localhost/instance",
+        /*buildRequestId=*/ "none",
+        /*commandId=*/ "none");
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {
