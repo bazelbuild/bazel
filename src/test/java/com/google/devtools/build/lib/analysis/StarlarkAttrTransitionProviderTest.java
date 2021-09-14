@@ -1137,8 +1137,57 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         .isEqualTo(StarlarkInt.of(42));
   }
 
+  @Test
+  public void testTransitionOnBuildSetting_onlyTransitionsAffectsDirectory() throws Exception {
+    writeAllowlistFile();
+    writeBuildSettingsBzl();
+    writeRulesWithAttrTransitionBzl();
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "my_rule(name = 'dep')",
+        "int_flag(name = 'the-answer', build_setting_default = 0)",
+        "int_flag(name = 'cmd-line-option', build_setting_default = 0)");
+
+    useConfiguration(ImmutableMap.of("//test/starlark:cmd-line-option", 100), "--cpu=FOO");
+
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
+
+    @SuppressWarnings("unchecked")
+    ConfiguredTarget dep =
+        Iterables.getOnlyElement(
+            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
+
+    // Assert starlark option set via transition.
+    assertThat(getStarlarkOption(dep, "//test/starlark:the-answer")).isEqualTo(StarlarkInt.of(42));
+
+    // Assert starlark option set via command line.
+    assertThat(getStarlarkOption(dep, "//test/starlark:cmd-line-option")).isEqualTo(100);
+
+    // Assert native option set via command line.
+    assertThat(getCoreOptions(dep).cpu).isEqualTo("FOO");
+
+    // Assert that transitionDirectoryNameFragment is only affected by options
+    // set via transitions. Not by native or starlark options set via command line,
+    // never touched by any transition.
+    assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
+        .isEqualTo(
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("//test/starlark:the-answer=42")));
+  }
+
   private CoreOptions getCoreOptions(ConfiguredTarget target) {
     return getConfiguration(target).getOptions().get(CoreOptions.class);
+  }
+
+  private ImmutableMap<Label, Object> getStarlarkOptions(ConfiguredTarget target) {
+    return getConfiguration(target).getOptions().getStarlarkOptions();
+  }
+
+  private Object getStarlarkOption(ConfiguredTarget target, String absName) {
+    return getStarlarkOptions(target).get(Label.parseAbsoluteUnchecked(absName));
   }
 
   @Test
@@ -1182,7 +1231,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     List<String> affectedOptions = getCoreOptions(test).affectedByStarlarkTransition;
 
-    assertThat(affectedOptions).containsExactly("foo");
+    assertThat(affectedOptions).containsExactly("//command_line_option:foo");
 
     @SuppressWarnings("unchecked")
     ConfiguredTarget dep =
@@ -1191,17 +1240,19 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
     affectedOptions = getCoreOptions(dep).affectedByStarlarkTransition;
 
-    assertThat(affectedOptions).containsExactly("foo", "bar");
+    assertThat(affectedOptions)
+        .containsExactly("//command_line_option:foo", "//command_line_option:bar");
 
     assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("foo=foosball")));
+                ImmutableList.of("//command_line_option:foo=foosball")));
 
     assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("bar=barsball", "foo=foosball")));
+                ImmutableList.of(
+                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball")));
   }
 
   // Test that a no-op starlark transition to an already starlark transitioned configuration
@@ -1523,8 +1574,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptions =
         getConfiguration(dep).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    // Assert that affectedOptions is empty but final fragment is still different.
-    assertThat(affectedOptions).isEmpty();
+    assertThat(affectedOptions).containsExactly("//test:bar", "//test:foo");
     assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
@@ -1611,12 +1661,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptionsTop =
         getConfiguration(top).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    assertThat(affectedOptionsTop).containsExactly("foo");
+    assertThat(affectedOptionsTop).containsExactly("//command_line_option:foo");
     assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
     assertThat(getCoreOptions(top).transitionDirectoryNameFragment)
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("foo=foosball")));
+                ImmutableList.of("//command_line_option:foo=foosball")));
 
     // test:middle (foo_transition, zee_transition, bar_transition)
     @SuppressWarnings("unchecked")
@@ -1626,14 +1676,20 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptionsMiddle =
         getConfiguration(middle).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    assertThat(affectedOptionsMiddle).containsExactly("foo", "bar");
+    assertThat(affectedOptionsMiddle)
+        .containsExactly("//command_line_option:foo", "//command_line_option:bar", "//test:zee");
+
     assertThat(getConfiguration(middle).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"));
+
     assertThat(getCoreOptions(middle).transitionDirectoryNameFragment)
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
-                ImmutableList.of("//test:zee=zeesball", "bar=barsball", "foo=foosball")));
+                ImmutableList.of(
+                    "//command_line_option:bar=barsball",
+                    "//command_line_option:foo=foosball",
+                    "//test:zee=zeesball")));
 
     // test:bottom (foo_transition, zee_transition, bar_transition, xan_transition)
     @SuppressWarnings("unchecked")
@@ -1644,7 +1700,10 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     List<String> affectedOptionsBottom =
         getConfiguration(bottom).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
 
-    assertThat(affectedOptionsBottom).containsExactly("foo", "bar");
+    assertThat(affectedOptionsBottom)
+        .containsExactly(
+            "//command_line_option:foo", "//command_line_option:bar", "//test:xan", "//test:zee");
+
     assertThat(getConfiguration(bottom).getOptions().getStarlarkOptions().entrySet())
         .containsExactly(
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"),
@@ -1653,7 +1712,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         .isEqualTo(
             FunctionTransitionUtil.transitionDirectoryNameFragment(
                 ImmutableList.of(
-                    "//test:xan=xansball", "//test:zee=zeesball", "bar=barsball", "foo=foosball")));
+                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball",
+                    "//test:xan=xansball", "//test:zee=zeesball")));
   }
 
   @Test

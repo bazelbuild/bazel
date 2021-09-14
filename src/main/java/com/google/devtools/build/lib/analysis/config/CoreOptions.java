@@ -261,9 +261,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   /**
-   * This internal option is a *set* of names (e.g. "cpu") of *native* options that have been
-   * changed by starlark transitions at any point in the build at the time of accessing. This is
-   * used to regenerate {@code transitionDirectoryNameFragment} after each starlark transition.
+   * This internal option is a *set* of names of options that have been changed by starlark
+   * transitions at any point in the build at the time of accessing. It contains both native and
+   * starlark options in label form. e.g. "//command_line_option:cpu" for native options and
+   * "//myapp:foo" for starlark options. This is used to regenerate {@code
+   * transitionDirectoryNameFragment} after each starlark transition.
    */
   @Option(
       name = "affected by starlark transition",
