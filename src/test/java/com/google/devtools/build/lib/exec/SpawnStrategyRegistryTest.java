@@ -179,9 +179,8 @@ public class SpawnStrategyRegistryTest {
   }
 
   /**
-   * This demostrate a legacy behavior that the latter description filter doesn't override
-   * preceeding one of same regexp. filter=val_1 filter=val_2 is equivalent to filter=val_2,val_1
-   * TODO: b/196025286 will fix this legacy behavior.
+   * This demostrate that the latter description filter overrides preceding one of same regexp.
+   * filter=val_1 filter=val_2 is equivalent to filter=val_2
    */
   @Test
   public void testDuplicatedDescriptionFilter() throws Exception {
@@ -199,7 +198,7 @@ public class SpawnStrategyRegistryTest {
             strategyRegistry.getStrategies(
                 createSpawnWithMnemonicAndDescription("", "hello"),
                 SpawnStrategyRegistryTest::noopEventHandler))
-        .containsExactly(strategy2, strategy1);
+        .containsExactly(strategy2);
   }
 
   @Test
@@ -300,12 +299,27 @@ public class SpawnStrategyRegistryTest {
     assertThat(exception).hasMessageThat().containsMatch("bar.*Valid.*foo");
   }
 
-  /**
-   * TODO: b/196025286 will gracefully ignore unregistered strategy, which changes the expected
-   * outcome here.
-   */
+  /** Don't throw an error if any of the replaced strategies was not registered. */
   @Test
-  public void testDescriptionStrategyNotPresent() {
+  public void testDescriptionStrategyReplacedNotPresent() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("bar", "foo"))
+            .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", "hello"),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1);
+  }
+
+  /** Throw error when some of strategies were not registered. */
+  @Test
+  public void testDescriptionStrategyNotPresent() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
     AbruptExitException exception =
         assertThrows(
@@ -316,7 +330,9 @@ public class SpawnStrategyRegistryTest {
                     .addDescriptionFilter(ELLO_MATCHER, ImmutableList.of("bar", "foo"))
                     .build());
 
-    assertThat(exception).hasMessageThat().containsMatch("bar.*Valid.*foo");
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch("'bar' was requested.*Valid values are: \\[foo\\]");
   }
 
   @Test

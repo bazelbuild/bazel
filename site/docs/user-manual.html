@@ -953,7 +953,7 @@ the compilation of binaries during the build.
   strategies and their effects.
 </p>
 <p>
-The first <code>regex_filter</code> that matches the description is used. This option overrides
+The last <code>regex_filter</code> that matches the description is used. This option overrides
 other flags for specifying strategy.
 </p>
 <ul>
@@ -964,8 +964,14 @@ other flags for specifying strategy.
   <li>
     Example:
     <code>--strategy_regexp='Compiling.*/bar=local' --strategy_regexp=Compiling=sandboxed</code>
-    will run 'Compiling //foo/bar/baz' with the <code>local</code> strategy, but reversing the order
-    would run it with <code>sandboxed</code>.
+    will run 'Compiling //foo/bar/baz' with the <code>sandboxed</code> strategy, but reversing
+    the order would run it with <code>local</code>.
+  </li>
+  <li>
+    Example:
+    <code>--strategy_regexp='Compiling.*/bar=local,sandboxed'</code>
+    will run 'Compiling //foo/bar/baz' with the <code>local</code> strategy and fall back to
+    <code>sandboxed</code> if fails.
   </li>
 </ul>
 
