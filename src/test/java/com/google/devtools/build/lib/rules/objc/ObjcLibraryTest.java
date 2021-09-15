@@ -2356,4 +2356,31 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(preprocessedAsmAction.getInputs().toList())
         .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
   }
+
+  /** b/197608223 */
+  @Test
+  public void testCompilationPrerequisitesHasHeaders() throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        "objc_library(",
+        "    name = 'objc',",
+        "    srcs = ['objc.m'],",
+        "    deps = [':cc'],",
+        ")",
+        "cc_library(",
+        "    name = 'cc',",
+        "    hdrs = ['cc.h'],",
+        "    srcs = ['cc.cc'],",
+        ")");
+
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+
+    ConfiguredTarget cc = getConfiguredTarget("//bin:objc");
+
+    assertThat(
+            artifactsToStrings(
+                cc.get(OutputGroupInfo.STARLARK_CONSTRUCTOR)
+                    .getOutputGroup(OutputGroupInfo.COMPILATION_PREREQUISITES)))
+        .contains("src bin/cc.h");
+  }
 }

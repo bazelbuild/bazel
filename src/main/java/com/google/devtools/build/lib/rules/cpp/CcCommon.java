@@ -642,11 +642,10 @@ public final class CcCommon {
   static NestedSet<Artifact> collectCompilationPrerequisites(
       RuleContext ruleContext, CcCompilationContext ccCompilationContext) {
     // TODO(bazel-team): Use ccCompilationContext.getCompilationPrerequisites() instead; note
-    // that this
-    // will
-    // need cleaning up the prerequisites, as the {@code CcCompilationContext} currently
-    // collects them
-    // transitively (to get transitive headers), but source files are not transitive compilation
+    // that this will need cleaning up the prerequisites, as the {@code CcCompilationContext}
+    // currently
+    // collects them transitively (to get transitive headers), but source files are not transitive
+    // compilation
     // prerequisites.
     NestedSetBuilder<Artifact> prerequisites = NestedSetBuilder.stableOrder();
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {

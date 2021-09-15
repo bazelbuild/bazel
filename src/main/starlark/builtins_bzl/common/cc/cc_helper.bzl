@@ -18,6 +18,7 @@ load(":common/objc/semantics.bzl", "semantics")
 
 CcInfo = _builtins.toplevel.CcInfo
 cc_common = _builtins.toplevel.cc_common
+cc_internal = _builtins.internal.cc_internal
 
 def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
     debug_context = cc_common.create_debug_context(compilation_outputs)
@@ -106,7 +107,7 @@ def _build_output_groups_for_emitting_compile_providers(
         use_pic = use_pic,
     )
     output_groups_builder["compilation_outputs"] = files_to_compile
-    output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx, compilation_context)
+    output_groups_builder["compilation_prerequisites_INTERNAL_"] = cc_internal.collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(

@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryPermissionsRule;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
+import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
@@ -273,6 +274,7 @@ public class BazelRuleClassProvider {
 
           builder.addStarlarkBuiltinsInternal(
               ObjcStarlarkInternal.NAME, new ObjcStarlarkInternal());
+          builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
           builder.addStarlarkBuiltinsInternal(
               BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
         }
