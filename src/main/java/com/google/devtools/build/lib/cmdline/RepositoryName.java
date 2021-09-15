@@ -25,17 +25,13 @@ import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
-/** A human-readable name for the repository. */
+/** The name of an external repository. */
 @AutoCodec
 public final class RepositoryName implements Serializable {
 
@@ -52,44 +48,6 @@ public final class RepositoryName implements Serializable {
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("@");
 
   private static final Pattern VALID_REPO_NAME = Pattern.compile("@[\\w\\-.]*");
-
-  /** Helper for serializing {@link RepositoryName}. */
-  private static final class SerializationProxy implements Serializable {
-    private RepositoryName repositoryName;
-
-    private SerializationProxy(RepositoryName repositoryName) {
-      this.repositoryName = repositoryName;
-    }
-
-    private void writeObject(ObjectOutputStream out) throws IOException {
-      out.writeObject(repositoryName.toString());
-    }
-
-    private void readObject(ObjectInputStream in)
-        throws IOException, ClassNotFoundException {
-      try {
-        repositoryName = RepositoryName.create((String) in.readObject());
-      } catch (LabelSyntaxException e) {
-        throw new IOException("Error serializing repository name: " + e.getMessage());
-      }
-    }
-
-    @SuppressWarnings("unused")
-    private void readObjectNoData() throws ObjectStreamException {
-    }
-
-    private Object readResolve() {
-      return repositoryName;
-    }
-  }
-
-  private void readObject(@SuppressWarnings("unused") ObjectInputStream in) throws IOException {
-    throw new IOException("Serialization is allowed only by proxy");
-  }
-
-  private Object writeReplace() {
-    return new SerializationProxy(this);
-  }
 
   private static final LoadingCache<String, RepositoryName> repositoryNameCache =
       Caffeine.newBuilder()
