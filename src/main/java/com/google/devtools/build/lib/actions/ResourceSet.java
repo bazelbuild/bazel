@@ -14,13 +14,16 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Doubles;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
+import io.reactivex.rxjava3.annotations.NonNull;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -43,12 +46,23 @@ public class ResourceSet implements ResourceSetOrBuilder {
   /** The number of CPUs, or fractions thereof. */
   private final double cpuUsage;
 
+  /**
+   * Map of extra resources (for example: GPUs, embedded boards, ...) mapping
+   * name of the resource to a value.
+   */
+  private final ImmutableMap<String, Float> extraResourceUsage;
+
   /** The number of local tests. */
   private final int localTestCount;
 
   private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
+    this(memoryMb, cpuUsage, ImmutableMap.of(), localTestCount);
+  }
+
+  private ResourceSet(double memoryMb, double cpuUsage, @NonNull ImmutableMap<String, Float> extraResourceUsage, int localTestCount) {
     this.memoryMb = memoryMb;
     this.cpuUsage = cpuUsage;
+    this.extraResourceUsage = extraResourceUsage;
     this.localTestCount = localTestCount;
   }
 
@@ -74,18 +88,28 @@ public class ResourceSet implements ResourceSetOrBuilder {
   }
 
   /**
-   * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, ioUsage, and
+   * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, and
+   * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or
+   * {@link #createWithLocalTestCount(int)}. Use this method primarily when constructing
+   * ResourceSets that represent available resources.
+   */
+  public static ResourceSet create(double memoryMb, double cpuUsage, int localTestCount) {
+    return ResourceSet.create(memoryMb, cpuUsage, ImmutableMap.of(), localTestCount);
+  }
+
+  /**
+   * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, extraResources, and
    * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or
    * {@link #createWithLocalTestCount(int)}. Use this method primarily when constructing
    * ResourceSets that represent available resources.
    */
   @AutoCodec.Instantiator
   public static ResourceSet create(
-      double memoryMb, double cpuUsage, int localTestCount) {
-    if (memoryMb == 0 && cpuUsage == 0 && localTestCount == 0) {
+      double memoryMb, double cpuUsage, ImmutableMap<String, Float> extraResourceUsage, int localTestCount) {
+    if (memoryMb == 0 && cpuUsage == 0 && extraResourceUsage.size() == 0 && localTestCount == 0) {
       return ZERO;
     }
-    return new ResourceSet(memoryMb, cpuUsage, localTestCount);
+    return new ResourceSet(memoryMb, cpuUsage, extraResourceUsage, localTestCount);
   }
 
   /** Returns the amount of real memory (resident set size) used in MB. */
@@ -105,6 +129,10 @@ public class ResourceSet implements ResourceSetOrBuilder {
     return cpuUsage;
   }
 
+  public ImmutableMap<String, Float> getExtraResourceUsage() {
+    return extraResourceUsage;
+  }
+
   /** Returns the local test count used. */
   public int getLocalTestCount() {
     return localTestCount;
@@ -115,6 +143,7 @@ public class ResourceSet implements ResourceSetOrBuilder {
     return "Resources: \n"
         + "Memory: " + memoryMb + "M\n"
         + "CPU: " + cpuUsage + "\n"
+        + Joiner.on("\n").withKeyValueSeparator(": ").join(extraResourceUsage.entrySet())
         + "Local tests: " + localTestCount + "\n";
   }
 

@@ -107,6 +107,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -883,10 +884,14 @@ public class ExecutionTool {
     resources = ResourceSet.createWithRamCpu(options.localRamResources, options.localCpuResources);
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 
+    ImmutableMap<String, Float> extraResources = options.localExtraResources.stream().collect(
+      ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (v1,v2) -> v1));
+
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             resources.getMemoryMb(),
             resources.getCpuUsage(),
+            extraResources,
             request.getExecutionOptions().usingLocalTestJobs()
                 ? request.getExecutionOptions().localTestJobs
                 : Integer.MAX_VALUE));

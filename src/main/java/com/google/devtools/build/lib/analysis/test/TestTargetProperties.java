@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -162,32 +163,22 @@ public class TestTargetProperties {
     return isPersistentTestRunner;
   }
 
-  public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)
-      throws UserExecException {
-    if (usingLocalTestJobs) {
-      return LOCAL_TEST_JOBS_BASED_RESOURCES;
-    }
-
+  private double getLocalCpuResourceUsage(Label label) throws UserExecException {
     ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
-
     // Tests can override their CPU reservation with a "cpu:<n>" tag.
-    ResourceSet testResourcesFromTag = null;
+    double cpuCount = -1.0;
     for (String tag : executionInfo.keySet()) {
       try {
         String cpus = ExecutionRequirements.CPU.parseIfMatches(tag);
         if (cpus != null) {
-          if (testResourcesFromTag != null) {
+          if (cpuCount != -1.0) {
             String message =
                 String.format(
                     "%s has more than one '%s' tag, but duplicate tags aren't allowed",
                     label, ExecutionRequirements.CPU.userFriendlyName());
             throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
           }
-          testResourcesFromTag =
-              ResourceSet.create(
-                  testResourcesFromSize.getMemoryMb(),
-                  Float.parseFloat(cpus),
-                  testResourcesFromSize.getLocalTestCount());
+          cpuCount = Float.parseFloat(cpus);
         }
       } catch (ValidationException e) {
         String message =
@@ -200,8 +191,54 @@ public class TestTargetProperties {
         throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
       }
     }
+    return cpuCount != -1.0 ? cpuCount : testResourcesFromSize.getCpuUsage();
+  }
 
-    return testResourcesFromTag != null ? testResourcesFromTag : testResourcesFromSize;
+  private ImmutableMap<String, Float> getLocalExtraResourceUsage(Label label) throws UserExecException {
+    // Tests can specify requirements for extra resources using "resources:<resourcename>:<amount>" tag.
+    Map<String, Float> extraResources = new HashMap<>();
+    for (String tag : executionInfo.keySet()) {
+      try {
+        String extras = ExecutionRequirements.RESOURCES.parseIfMatches(tag);
+        if (extras != null) {
+          int splitIndex = extras.indexOf(":");
+          String resourceName = extras.substring(0, splitIndex);
+          String resourceCount = extras.substring(splitIndex+1);
+          if (extraResources.get(resourceName) != null) {
+            String message =
+                String.format(
+                    "%s has more than one '%s' tag, but duplicate tags aren't allowed",
+                    label, ExecutionRequirements.RESOURCES.userFriendlyName());
+            throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
+          }
+          extraResources.put(resourceName, Float.parseFloat(resourceCount));
+        }
+      } catch (ValidationException e) {
+        String message =
+            String.format(
+                "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
+                label,
+                ExecutionRequirements.RESOURCES.userFriendlyName(),
+                e.getTagValue(),
+                e.getMessage());
+        throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
+      }
+    }
+    return ImmutableMap.copyOf(extraResources);
+  }
+
+  public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)
+      throws UserExecException {
+    if (usingLocalTestJobs) {
+      return LOCAL_TEST_JOBS_BASED_RESOURCES;
+    }
+
+    ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
+    return ResourceSet.create(
+            testResourcesFromSize.getMemoryMb(),
+            getLocalCpuResourceUsage(label),
+            getLocalExtraResourceUsage(label),
+            testResourcesFromSize.getLocalTestCount());
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

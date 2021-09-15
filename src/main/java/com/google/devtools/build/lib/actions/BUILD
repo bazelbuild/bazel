@@ -124,6 +124,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:rxjava3",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -305,6 +306,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:rxjava3",
     ],
 )
 

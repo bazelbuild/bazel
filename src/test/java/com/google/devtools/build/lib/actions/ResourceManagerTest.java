@@ -51,7 +51,14 @@ public class ResourceManagerTest {
   @Before
   public final void configureResourceManager() throws Exception  {
     rm.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
+        ResourceSet.create(
+          /*memoryMb=*/ 1000,
+          /*cpuUsage=*/ 1,
+          /*extraResourceUsage*/ ImmutableMap.of(
+            "gpu", 2.0f,
+            "fancyresource", 1.5f
+          ),
+          /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
@@ -63,12 +70,25 @@ public class ResourceManagerTest {
     return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
   }
 
+  private ResourceHandle acquire(double ram, double cpu, int tests, ImmutableMap<String, Float> extraResources)
+      throws InterruptedException {
+    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, extraResources, tests));
+  }
+
   private ResourceHandle acquireNonblocking(double ram, double cpu, int tests) {
     return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, tests));
   }
 
+  private ResourceHandle acquireNonblocking(double ram, double cpu, int tests, ImmutableMap<String, Float> extraResources) {
+    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, extraResources, tests));
+  }
+
   private void release(double ram, double cpu, int tests) {
     rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
+  }
+
+  private void release(double ram, double cpu, int tests, ImmutableMap<String, Float> extraResources) {
+    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, extraResources, tests));
   }
 
   private void validate(int count) {
@@ -103,6 +123,13 @@ public class ResourceManagerTest {
     acquire(0, 0, bigTests);
     assertThat(rm.inUse()).isTrue();
     release(0, 0, bigTests);
+    assertThat(rm.inUse()).isFalse();
+
+    // Ditto, for extra resources (even if they don't exist in the available resource set):
+    ImmutableMap<String, Float> bigExtraResources = ImmutableMap.of("gpu", 10.0f, "fancyresource", 10.0f, "nonexisting", 10.0f);
+    acquire(0, 0, 0, bigExtraResources);
+    assertThat(rm.inUse()).isTrue();
+    release(0, 0, 0, bigExtraResources);
     assertThat(rm.inUse()).isFalse();
   }
 
@@ -184,10 +211,24 @@ public class ResourceManagerTest {
   }
 
   @Test
+  public void testThatExtraResourcesCannotBeOverallocated() throws Exception {
+    assertThat(rm.inUse()).isFalse();
+
+    // Given a partially acquired extra resources:
+    acquire(0, 0, 1, ImmutableMap.of("gpu", 1.0f));
+
+    // When a request for extra resources is made that would overallocate,
+    // Then the request fails:
+    TestThread thread1 = new TestThread(() -> assertThat(acquireNonblocking(0, 0, 0, ImmutableMap.of("gpu", 1.1f))).isNull());
+    thread1.start();
+    thread1.joinAndAssertState(10000);
+  }
+
+  @Test
   public void testHasResources() throws Exception {
     assertThat(rm.inUse()).isFalse();
     assertThat(rm.threadHasResources()).isFalse();
-    acquire(1, 0.1, 1);
+    acquire(1, 0.1, 1, ImmutableMap.of("gpu", 1.0f));
     assertThat(rm.threadHasResources()).isTrue();
 
     // We have resources in this thread - make sure other threads
@@ -208,11 +249,15 @@ public class ResourceManagerTest {
               assertThat(rm.threadHasResources()).isTrue();
               release(0, 0, 1);
               assertThat(rm.threadHasResources()).isFalse();
+              acquire(0, 0, 0, ImmutableMap.of("gpu", 1.0f));
+              assertThat(rm.threadHasResources()).isTrue();
+              release(0, 0, 0, ImmutableMap.of("gpu", 1.0f));
+              assertThat(rm.threadHasResources()).isFalse();
             });
     thread1.start();
     thread1.joinAndAssertState(10000);
 
-    release(1, 0.1, 1);
+    release(1, 0.1, 1, ImmutableMap.of("gpu", 1.0f));
     assertThat(rm.threadHasResources()).isFalse();
     assertThat(rm.inUse()).isFalse();
   }

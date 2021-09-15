@@ -302,8 +302,7 @@ public class ExecutionOptions extends OptionsBase {
               + "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float> "
               + "(eg. HOST_CPUS*.5 to use half the available CPU cores)."
               + "By default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate "
-              + "number of CPU cores available for the locally executed build actions. "
-              + "Note: This is a no-op if --local_resources is set.",
+              + "number of CPU cores available for the locally executed build actions.",
       converter = CpuResourceConverter.class)
   public float localCpuResources;
 
@@ -318,10 +317,26 @@ public class ExecutionOptions extends OptionsBase {
               + "(eg. HOST_RAM*.5 to use half the available RAM)."
               + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
               + "amount of RAM available for the locally executed build actions and will use 67% "
-              + "of available RAM. "
-              + "Note: This is a no-op if --local_resources is set.",
+              + "of available RAM.",
       converter = RamResourceConverter.class)
   public float localRamResources;
+
+  @Option(
+      name = "local_extra_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Set the number of extra resources available to Bazel. "
+            + "Takes in a string-float pair. Can be used multiple times to specify multiple "
+            + "types of extra resources. Bazel will limit concurrently running test actions "
+            + "based on the available extra resources and the extra resources required "
+            + "by the test actions.  Tests can declare the amount of extra resources they need "
+            + "by using a tag of the \"resources:<resoucename>:<amount>\" format. "
+            + "Available CPU, RAM and test job resources cannot be set with this flag.",
+      converter = Converters.StringToFloatAssignmentConverter.class)
+  public List<Map.Entry<String, Float>> localExtraResources;
 
   @Option(
     name = "experimental_local_memory_estimate",
