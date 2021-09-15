@@ -4568,13 +4568,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromStarlarkRequiredHostSystemName() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("host_system_name");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required named argument: host_system_name");
-  }
-
-  @Test
   public void testCcToolchainInfoFromStarlarkRequiredTargetSystemName() throws Exception {
     setupStarlarkRuleForStringFieldsTesting("target_system_name");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));

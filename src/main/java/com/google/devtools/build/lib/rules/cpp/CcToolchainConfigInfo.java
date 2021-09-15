@@ -166,10 +166,6 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return toolchainIdentifier;
   }
 
-  public String getHostSystemName() {
-    return hostSystemName;
-  }
-
   public String getTargetSystemName() {
     return targetSystemName;
   }

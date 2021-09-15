@@ -1020,8 +1020,10 @@ public interface CcModuleApi<
         @Param(
             name = "host_system_name",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The system name which is required by the toolchain to run."),
+            doc = "Ignored."),
         @Param(
             name = "target_system_name",
             positional = false,
@@ -1096,7 +1098,7 @@ public interface CcModuleApi<
       Sequence<?> artifactNamePatterns, // <StructApi> expected
       Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
-      String hostSystemName,
+      Object hostSystemName,
       String targetSystemName,
       String targetCpu,
       String targetLibc,
