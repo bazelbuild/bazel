@@ -473,6 +473,24 @@ public final class Converters {
   }
 
   /**
+   * A converter for for assignments from a string value to a float value.
+   */
+  public static class StringToFloatAssignmentConverter implements Converter<Map.Entry<String, Float>> {
+    private static final AssignmentConverter baseConverter = new AssignmentConverter();
+
+    @Override
+    public Map.Entry<String, Float> convert(String input) throws OptionsParsingException, NumberFormatException {
+      Map.Entry<String, String> stringEntry = baseConverter.convert(input);
+      return Maps.immutableEntry(stringEntry.getKey(), Float.parseFloat(stringEntry.getValue()));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a named float, 'name=value'";
+    }
+  }
+
+  /**
    * A converter for command line flag aliases. It does additional validation on the name and value
    * of the assignment to ensure they conform to the naming limitations.
    */

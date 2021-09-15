@@ -326,6 +326,23 @@ public class ExecutionOptions extends OptionsBase {
   public float localRamResources;
 
   @Option(
+      name = "local_extra_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Set the number of extra resources available to Bazel. "
+            + "Takes in a string-float pair. Can be used multiple times to specify multiple "
+            + "types of extra resources. Bazel will limit concurrently running test actions "
+            + "based on the available extra resources and the extra resources required "
+            + "by the test actions.  Tests can declare the amount of extra resources they need "
+            + "by using a tag of the \"resources:<resoucename>:<amount>\" format. "
+            + "Available CPU, RAM and test job resources cannot be set with this flag.",
+      converter = Converters.StringToFloatAssignmentConverter.class)
+  public List<Map.Entry<String, Float>> localExtraResources;
+
+  @Option(
       name = "local_test_jobs",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TESTING,

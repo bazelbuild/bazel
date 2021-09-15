@@ -27,8 +27,12 @@ import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
 import java.io.IOException;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
 
@@ -183,13 +187,19 @@ public class ResourceManager implements ResourceEstimator {
   // definition in the ResourceSet class.
   private double usedRam;
 
+  // Used amount of extra resources. Corresponds to the extra resource
+  // definition in the ResourceSet class.
+  private Map<String, Float> usedExtraResources;
+
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
 
   /** If set, local-only actions are given priority over dynamically run actions. */
   private boolean prioritizeLocalActions;
 
-  private ResourceManager() {}
+  private ResourceManager() {
+    usedExtraResources = new HashMap<>();
+  }
 
   @VisibleForTesting
   public static ResourceManager instanceForTestingOnly() {
@@ -204,6 +214,7 @@ public class ResourceManager implements ResourceEstimator {
   public synchronized void resetResourceUsage() {
     usedCpu = 0;
     usedRam = 0;
+    usedExtraResources = new HashMap<>();
     usedLocalTestCount = 0;
     for (Pair<ResourceSet, LatchWithWorker> request : localRequests) {
       request.second.latch.countDown();
@@ -298,6 +309,17 @@ public class ResourceManager implements ResourceEstimator {
       throws IOException, InterruptedException {
     usedCpu += resources.getCpuUsage();
     usedRam += resources.getMemoryMb();
+
+    resources.getExtraResourceUsage().entrySet().forEach(
+      resource -> {
+        String key = (String)resource.getKey();
+        float value = resource.getValue();
+        if (usedExtraResources.containsKey(key)) {
+          value += (float)usedExtraResources.get(key);
+        }
+        usedExtraResources.put(key, value);
+      });
+
     usedLocalTestCount += resources.getLocalTestCount();
 
     if (resources.getWorkerKey() != null) {
@@ -310,6 +332,7 @@ public class ResourceManager implements ResourceEstimator {
   public synchronized boolean inUse() {
     return usedCpu != 0.0
         || usedRam != 0.0
+        || !usedExtraResources.isEmpty()
         || usedLocalTestCount != 0
         || !localRequests.isEmpty()
         || !dynamicWorkerRequests.isEmpty()
@@ -417,6 +440,13 @@ public class ResourceManager implements ResourceEstimator {
   private synchronized void releaseResourcesOnly(ResourceSet resources) {
     usedCpu -= resources.getCpuUsage();
     usedRam -= resources.getMemoryMb();
+
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String)resource.getKey();
+      float value = (float)usedExtraResources.get(key) - resource.getValue();
+      usedExtraResources.put(key, value);
+    }
+
     usedLocalTestCount -= resources.getLocalTestCount();
 
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
@@ -427,6 +457,19 @@ public class ResourceManager implements ResourceEstimator {
     }
     if (usedRam < epsilon) {
       usedRam = 0;
+    }
+
+    Set<String> toRemove = new HashSet<>();
+    usedExtraResources.entrySet().forEach(
+      resource -> {
+        String key = (String)resource.getKey();
+        float value = (float)usedExtraResources.get(key);
+        if (value < epsilon) {
+          toRemove.add(key);
+        }
+      });
+    for (String key : toRemove) {
+      usedExtraResources.remove(key);
     }
   }
 
@@ -466,6 +509,23 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
+  /**
+   * Return true iff all requested extra resources are considered to be available.
+   */
+  private boolean areExtraResourcesAvailable(ResourceSet resources) {
+    for (Map.Entry<String, Float> resource : resources.getExtraResourceUsage().entrySet()) {
+      String key = (String)resource.getKey();
+      float used = (float)usedExtraResources.getOrDefault(key, 0f);
+      float requested = resource.getValue();
+      float available = (float)availableResources.getExtraResourceUsage().getOrDefault(key, 0f);
+      float epsilon = 0.0001f;  // Account for possible rounding errors.
+      if (requested != 0.0 && used != 0.0 && requested + used > available + epsilon) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // Method will return true if all requested resources are considered to be available.
   @VisibleForTesting
   boolean areResourcesAvailable(ResourceSet resources) {
@@ -484,7 +544,7 @@ public class ResourceManager implements ResourceEstimator {
         workerKey == null
             || (activeWorkers < availableWorkers && workerPool.couldBeBorrowed(workerKey));
 
-    if (usedCpu == 0.0 && usedRam == 0.0 && usedLocalTestCount == 0 && workerIsAvailable) {
+    if (usedCpu == 0.0 && usedRam == 0.0 && usedExtraResources.isEmpty() && usedLocalTestCount == 0 && workerIsAvailable) {
       return true;
     }
     // Use only MIN_NECESSARY_???_RATIO of the resource value to check for
@@ -515,7 +575,8 @@ public class ResourceManager implements ResourceEstimator {
         localTestCount == 0
             || usedLocalTestCount == 0
             || usedLocalTestCount + localTestCount <= availableLocalTestCount;
-    return cpuIsAvailable && ramIsAvailable && localTestCountIsAvailable && workerIsAvailable;
+    boolean extraResourcesIsAvailable = areExtraResourcesAvailable(resources);
+    return cpuIsAvailable && ramIsAvailable && extraResourcesIsAvailable && localTestCountIsAvailable && workerIsAvailable;
   }
 
   @VisibleForTesting
