@@ -169,11 +169,11 @@ public class FdoHelper {
           branchFdoMode = BranchFdoMode.LLVM_CS_FDO;
         }
       }
-      if (branchFdoMode != BranchFdoMode.XBINARY_FDO
+      if ((branchFdoMode != BranchFdoMode.XBINARY_FDO)
+          && (branchFdoMode != BranchFdoMode.AUTO_FDO)
           && cppConfiguration.getXFdoProfileLabelUnsafeSinceItCanReturnValueFromWrongConfiguration()
               != null) {
-        ruleContext.throwWithRuleError(
-            "--xbinary_fdo cannot accept profile input other than *.xfdo");
+        ruleContext.throwWithRuleError("--xbinary_fdo only accepts *.xfdo and *.afdo");
       }
 
       if (configuration.isCodeCoverageEnabled()) {
