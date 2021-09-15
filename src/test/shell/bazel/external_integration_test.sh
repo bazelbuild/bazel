@@ -311,7 +311,7 @@ function test_jar_download() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
-         sha256='$sha256')
+         sha256='$sha256', file_name="foo.jar")
 EOF
 
   mkdir -p zoo
@@ -337,6 +337,9 @@ EOF
   bazel run //zoo:ball-pit >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
+  output_base=$(bazel info output_base)
+  jar_dir=$output_base/external/endangered/file
+  [[ -f ${jar_dir}/foo.jar ]] || fail "${jar_dir}/foo.jar not found"
 }
 
 function test_http_to_https_redirect() {
