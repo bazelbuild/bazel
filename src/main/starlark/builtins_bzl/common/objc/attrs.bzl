@@ -101,7 +101,7 @@ _COPTS_RULE = {
     "copts": attr.string_list(),
 }
 
-_X_C_RUNE_RULE = {
+_XCRUN_RULE = {
     "_xcrunwrapper": attr.label(
         cfg = "host",
         default = "@" + semantics.get_repo() + "//tools/objc:xcrunwrapper",
@@ -134,7 +134,7 @@ common_attrs = struct(
     INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,
     SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
     COPTS_RULE = _COPTS_RULE,
-    X_C_RUNE_RULE = _X_C_RUNE_RULE,
+    XCRUN_RULE = _XCRUN_RULE,
     LICENSES = semantics.get_licenses_attr(),
     PLATFORM_RULE = _PLATFORM_RULE,
 )

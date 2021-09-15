@@ -165,7 +165,7 @@ objc_library = rule(
         common_attrs.INCLUDE_SCANNING_RULE,
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
         common_attrs.COPTS_RULE,
-        common_attrs.X_C_RUNE_RULE,
+        common_attrs.XCRUN_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
     cfg = apple_crosstool_transition,

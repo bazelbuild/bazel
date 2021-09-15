@@ -230,8 +230,9 @@ def _validate_attributes(common_variables):
                     "File '{}' is present in both srcs and non_arc_srcs which is forbidden.".format(src.path),
                 )
 
-    if ctx.attr.module_name != "" and ctx.attr.module_map != None:
-        cc_helper.attribute_error("module_name", "Specifying both module_name and module_map is invalid, please remove one of them.")
+    if hasattr(ctx.attr, "module_name") and hasattr(ctx.attr, "module_map"):
+        if ctx.attr.module_name != "" and ctx.attr.module_map != None:
+            cc_helper.attribute_error("module_name", "Specifying both module_name and module_map is invalid, please remove one of them.")
 
 def _get_compile_rule_copts(common_variables):
     attributes = common_variables.compilation_attributes

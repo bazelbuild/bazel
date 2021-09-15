@@ -189,7 +189,7 @@ apple_static_library = rule(
             ),
         },
         common_attrs.LICENSES,
-        common_attrs.X_C_RUNE_RULE,
+        common_attrs.XCRUN_RULE,
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
         common_attrs.PLATFORM_RULE,
     ),
