@@ -21,11 +21,13 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionEvalStarlarkThreadContext;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -128,8 +130,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       name = "repository_rule",
       category = DocCategory.BUILTIN,
       doc =
-          "A callable value that may be invoked during evaluation of the WORKSPACE file to"
-              + " instantiate and return a repository rule.")
+          "A callable value that may be invoked during evaluation of the WORKSPACE file or within"
+              + " the implementation function of a module extension to instantiate and return a"
+              + " repository rule.")
   private static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, BzlmodRepoRuleCreator {
     private final RuleClass.Builder builder;
@@ -175,10 +178,38 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     @Override
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
-      BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
       if (!args.isEmpty()) {
         throw new EvalException("unexpected positional arguments");
       }
+      // Decide whether we're operating in the new mode (during module extension evaluation) or in
+      // legacy mode (during workspace evaluation).
+      ModuleExtensionEvalStarlarkThreadContext extensionEvalContext =
+          ModuleExtensionEvalStarlarkThreadContext.from(thread);
+      if (extensionEvalContext == null) {
+        return createRuleLegacy(thread, kwargs);
+      }
+      if (!isExported()) {
+        throw new EvalException("attempting to instantiate a non-exported repository rule");
+      }
+      Object nameValue = kwargs.getOrDefault("name", Starlark.NONE);
+      if (!(nameValue instanceof String)) {
+        throw Starlark.errorf(
+            "expected string for attribute 'name', got '%s'", Starlark.type(nameValue));
+      }
+      String name = (String) nameValue;
+      String prefixedName = extensionEvalContext.getRepoPrefix() + name;
+      extensionEvalContext.createRepo(
+          name,
+          this,
+          Maps.transformEntries(kwargs, (k, v) -> k.equals("name") ? prefixedName : v),
+          thread.getSemantics(),
+          thread.getCallerLocation());
+      return Starlark.NONE;
+    }
+
+    private Object createRuleLegacy(StarlarkThread thread, Dict<String, Object> kwargs)
+        throws EvalException, InterruptedException {
+      BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
       String ruleClassName;
       // If the function ever got exported (the common case), we take the name
       // it was exported to. Only in the not intended case of calling an unexported

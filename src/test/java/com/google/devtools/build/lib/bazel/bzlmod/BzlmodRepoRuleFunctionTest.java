@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
@@ -177,6 +178,21 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         return BazelModuleResolutionFunction.createValue(
                             ImmutableMap.of(ModuleKey.ROOT, Module.builder().build()),
                             ImmutableMap.of());
+                      }
+
+                      @Override
+                      public String extractTag(SkyKey skyKey) {
+                        return null;
+                      }
+                    })
+                .put(
+                    SkyFunctions.MODULE_EXTENSION_RESOLUTION,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        // Dummy function that returns nothing.
+                        return ModuleExtensionResolutionValue.create(
+                            ImmutableMap.of(), ImmutableMap.of(), ImmutableListMultimap.of());
                       }
 
                       @Override

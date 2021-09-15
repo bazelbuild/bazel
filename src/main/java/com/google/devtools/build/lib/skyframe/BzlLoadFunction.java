@@ -880,6 +880,21 @@ public class BzlLoadFunction implements SkyFunction {
     return repositoryMappingValue.getRepositoryMapping();
   }
 
+  public static void checkValidLoadLabel(Label label, boolean fromBuiltinsRepo)
+      throws LabelSyntaxException {
+    if (!label.getName().endsWith(".bzl")) {
+      throw new LabelSyntaxException("The label must reference a file with extension '.bzl'");
+    }
+    if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
+      throw new LabelSyntaxException(
+          "Starlark files may not be loaded from the //external package");
+    }
+    if (fromBuiltinsRepo && !StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
+      throw new LabelSyntaxException(
+          ".bzl files in @_builtins cannot load from outside of @_builtins");
+    }
+  }
+
   /**
    * Given a list of {@code load("module")} strings and their locations, in source order, returns a
    * corresponding list of Labels they each resolve to. Labels are resolved relative to {@code
@@ -906,18 +921,9 @@ public class BzlLoadFunction implements SkyFunction {
       // It must end in .bzl and not be in package "//external".
       try {
         Label label = buildLabel.getRelativeWithRemapping(load.first, repoMapping);
-        if (!label.getName().endsWith(".bzl")) {
-          throw new LabelSyntaxException("The label must reference a file with extension '.bzl'");
-        }
-        if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-          throw new LabelSyntaxException(
-              "Starlark files may not be loaded from the //external package");
-        }
-        if (StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository())
-            && !StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository())) {
-          throw new LabelSyntaxException(
-              ".bzl files in @_builtins cannot load from outside of @_builtins");
-        }
+        checkValidLoadLabel(
+            label,
+            /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()));
         loadLabels.add(label);
       } catch (LabelSyntaxException ex) {
         handler.handle(Event.error(load.second, "in load statement: " + ex.getMessage()));
@@ -1244,7 +1250,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  static final class BzlLoadFailedException extends Exception implements SaneAnalysisException {
+  /** Indicates a failure to load a .bzl file. */
+  public static final class BzlLoadFailedException extends Exception
+      implements SaneAnalysisException {
     private final Transience transience;
     private final DetailedExitCode detailedExitCode;
 

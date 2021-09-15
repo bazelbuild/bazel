@@ -53,15 +53,8 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
     }
 
     // Step 2: Look for repositories derived from Bazel Modules.
-    repoSpec =
-        checkRepoFromBazelModules(
-            bazelModuleResolutionValue, overrides, env.getListener(), repositoryName);
-    if (repoSpec.isPresent()) {
-      return repoSpec;
-    }
-
-    // Step 3: Look for repositories derived from module rules.
-    return checkRepoFromModuleRules();
+    return checkRepoFromBazelModules(
+        bazelModuleResolutionValue, overrides, env.getListener(), repositoryName);
   }
 
   private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
@@ -109,10 +102,5 @@ public final class BzlmodRepoRuleHelperImpl implements BzlmodRepoRuleHelper {
         .setRuleClassName(repoSpec.ruleClassName())
         .setAttributes(attrBuilder.build())
         .build();
-  }
-
-  private static Optional<RepoSpec> checkRepoFromModuleRules() {
-    // TODO(pcloudy): Implement calculating RepoSpec from module rules.
-    return Optional.empty();
   }
 }

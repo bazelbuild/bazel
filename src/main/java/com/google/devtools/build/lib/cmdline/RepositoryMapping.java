@@ -69,6 +69,15 @@ public abstract class RepositoryMapping {
     return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(allMappings), ownerRepo());
   }
 
+  /**
+   * Create a new {@link RepositoryMapping} instance based on existing repo mappings and given
+   * additional mappings. If there are conflicts, existing mappings will take precedence. The owner
+   * repo of the given additional mappings is ignored.
+   */
+  public RepositoryMapping withAdditionalMappings(RepositoryMapping additionalMappings) {
+    return withAdditionalMappings(additionalMappings.repositoryMapping());
+  }
+
   public RepositoryName get(RepositoryName repositoryName) {
     // 1. Default repo ("") should always map to default repo
     // 2. @bazel_tools is a special repo that should be visible to all repositories.

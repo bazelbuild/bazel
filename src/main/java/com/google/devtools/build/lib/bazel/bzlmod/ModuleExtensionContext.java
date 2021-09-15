@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -45,7 +46,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   protected ModuleExtensionContext(
       Path workingDirectory,
       Environment env,
-      ImmutableMap<String, String> envVariables,
+      Map<String, String> envVariables,
       DownloadManager downloadManager,
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
@@ -62,6 +63,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         starlarkSemantics,
         remoteExecutor);
     this.modules = modules;
+  }
+
+  public Path getWorkingDirectory() {
+    return workingDirectory;
   }
 
   @Override

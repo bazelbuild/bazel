@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleHelper;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -117,6 +118,17 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       }
     } catch (IOException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
+    }
+
+    // Otherwise, look for the repo from module extension evaluation results.
+    ModuleExtensionResolutionValue extensionResolution =
+        (ModuleExtensionResolutionValue) env.getValue(ModuleExtensionResolutionValue.KEY);
+    if (extensionResolution == null) {
+      return null;
+    }
+    Package pkg = extensionResolution.getCanonicalRepoNameToPackage().get(repositoryName);
+    if (pkg != null) {
+      return new BzlmodRepoRuleValue(pkg, repositoryName);
     }
 
     return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
