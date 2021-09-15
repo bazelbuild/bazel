@@ -190,10 +190,10 @@ def _http_jar_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
     auth = _get_auth(ctx, all_urls)
-    downloaded_file_path = ctx.attr.downloaded_file_path
+    downloaded_file_path = "jar/" + ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,
-        "jar/" + downloaded_file_path,
+        downloaded_file_path,
         ctx.attr.sha256,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
@@ -503,9 +503,9 @@ unless it was added to the cache by a request with the same canonical id.
     "auth_patterns": attr.string_dict(
         doc = _AUTH_PATTERN_DOC,
     ),
-    "downloaded_file_path": attr.string(
+    "downloaded_file_name": attr.string(
         default = "downloaded.jar",
-        doc = "Path assigned to the jar downloaded",
+        doc = "Filename assigned to the jar downloaded",
     ),
 }
 
