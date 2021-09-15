@@ -69,5 +69,5 @@ java_library = create_rule(
         "classjar": "lib%{name}.jar",
         "sourcejar": "lib%{name}-src.jar",
     },
-    compile_one_filetype = ".java",
+    compile_one_filetype = [".java"],
 )

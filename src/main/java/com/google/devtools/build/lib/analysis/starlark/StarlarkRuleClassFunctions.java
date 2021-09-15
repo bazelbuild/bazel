@@ -460,12 +460,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
     }
 
-    if (compileOneFiletype instanceof String) {
+    if (compileOneFiletype instanceof Sequence) {
       if (!bzlModule.label().getRepository().getName().equals("@_builtins")) {
         throw Starlark.errorf(
             "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
       }
-      builder.setPreferredDependencyPredicate(FileType.of((String) compileOneFiletype));
+      ImmutableList<String> filesTypes =
+          Sequence.cast(compileOneFiletype, String.class, "compile_one_filetype")
+              .getImmutableList();
+      builder.setPreferredDependencyPredicate(FileType.of(filesTypes));
     }
 
     StarlarkRuleFunction starlarkRuleFunction =

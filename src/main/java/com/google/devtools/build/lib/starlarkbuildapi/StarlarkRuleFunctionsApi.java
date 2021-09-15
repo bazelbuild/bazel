@@ -344,7 +344,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "compile_one_filetype",
             defaultValue = "None",
             allowedTypes = {
-              @ParamType(type = String.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
               @ParamType(type = NoneType.class),
             },
             named = true,
