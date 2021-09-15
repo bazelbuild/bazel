@@ -74,7 +74,7 @@ public class ExecutionPhaseContainingPackageLookupTest extends IoHookTestCase {
 
     final AtomicBoolean interrupted = new AtomicBoolean(true);
 
-    // GoogleBuildIntegrationTestCase installs a remote logger that calls Runtime.halt, and
+    // BuildIntegrationTestCase installs a remote logger that calls Runtime.halt, and
     // SkyframeBuilder calls logToRemote when there's a BuildFileNotFoundException, and the code
     // below triggers a BuildFileNotFoundException. Previously, the ActionExecutionFunction was
     // rethrowing that exception as a ActionExecutionFunctionException during error bubbling, but

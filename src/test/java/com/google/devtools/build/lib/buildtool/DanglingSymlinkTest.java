@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for dangling symlinks. */
 @RunWith(JUnit4.class)
-public class DanglingSymlinkTest extends GoogleBuildIntegrationTestCase {
+public class DanglingSymlinkTest extends BuildIntegrationTestCase {
 
   @Before
   public final void addNoJobsOption() throws Exception  {

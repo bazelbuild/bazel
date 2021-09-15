@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
@@ -34,12 +34,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Miscellaneous tests of the analysis phase.  (Sometimes it's easier to
- * express these in terms of the BuildTool than of the BuildView because the
- * latter's class interface is quite complex.)
+ * Miscellaneous tests of the analysis phase. (Sometimes it's easier to express these in terms of
+ * the BuildTool than of the BuildView because the latter's class interface is quite complex.)
  */
 @RunWith(JUnit4.class)
-public class MiscAnalysisTest extends GoogleBuildIntegrationTestCase {
+public class MiscAnalysisTest extends BuildIntegrationTestCase {
 
   // Regression test for bug #1324794, "Replay of errors in --cache_analysis
   // mode is not working".

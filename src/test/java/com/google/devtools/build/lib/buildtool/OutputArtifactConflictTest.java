@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.TargetCompletedId;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -38,7 +38,7 @@ import org.junit.runner.RunWith;
 
 /** Tests for action conflicts. */
 @RunWith(TestParameterInjector.class)
-public class OutputArtifactConflictTest extends GoogleBuildIntegrationTestCase {
+public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   static class AnalysisFailureEventListener extends BlazeModule {
 

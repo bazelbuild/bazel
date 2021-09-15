@@ -20,7 +20,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -34,7 +34,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests related to "missing input file" errors. */
 @RunWith(JUnit4.class)
-public final class MissingInputActionTest extends GoogleBuildIntegrationTestCase {
+public final class MissingInputActionTest extends BuildIntegrationTestCase {
 
   @Override
   protected BlazeModule getBuildInfoModule() {

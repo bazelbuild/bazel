@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
-import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -46,11 +46,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests the the action_listener/extra_action feature.
- * (--experimental_action_listener blaze option)
+ * Tests the the action_listener/extra_action feature. (--experimental_action_listener blaze option)
  */
 @RunWith(JUnit4.class)
-public class ActionListenerIntegrationTest extends GoogleBuildIntegrationTestCase {
+public class ActionListenerIntegrationTest extends BuildIntegrationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private Map<ConfiguredTarget, Iterable<Artifact.DerivedArtifact>> getExtraArtifactMap() {
