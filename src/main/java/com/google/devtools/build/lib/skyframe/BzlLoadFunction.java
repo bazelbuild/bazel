@@ -24,8 +24,6 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -66,7 +64,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -842,30 +839,14 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      String canonicalRepoName = enclosingFileLabel.getRepository().strippedName();
-      if (canonicalRepoName.equals("bazel_tools")) {
-        // Special case: we're only here to get the @bazel_tools repo (for example, for
-        // http_archive). This repo shouldn't have visibility into anything else (during repo
-        // generation), so we just return an empty repo mapping.
-        // TODO(wyv): disallow fallback.
-        return RepositoryMapping.ALWAYS_FALLBACK;
+      RepoMappingForBzlmodBzlLoadValue repoMapping =
+          (RepoMappingForBzlmodBzlLoadValue)
+              env.getValue(
+                  RepoMappingForBzlmodBzlLoadValue.key(enclosingFileLabel.getRepository()));
+      if (repoMapping == null) {
+        return null;
       }
-
-      // Otherwise, we must be trying to load a .bzl file from a repo corresponding to a Bazel
-      // module (repos created by module extensions can't themselves have repo rules or module
-      // extensions), or from the WORKSPACE file. This means that selection has finished running.
-      BazelModuleResolutionValue bazelModuleResolutionValue =
-          (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-      Objects.requireNonNull(
-          bazelModuleResolutionValue,
-          "Internal error: trying to load a .bzl file for bzlmod before selection has finished");
-      ModuleKey moduleKey =
-          bazelModuleResolutionValue.getCanonicalRepoNameLookup().get(canonicalRepoName);
-      Objects.requireNonNull(moduleKey, "Internal error: unknown repo " + canonicalRepoName);
-      return bazelModuleResolutionValue
-          .getDepGraph()
-          .get(moduleKey)
-          .getRepoMappingWithBazelDepsOnly();
+      return repoMapping.getRepoMapping();
     }
 
     // We are fully done with workspace evaluation so we should get the mappings from the

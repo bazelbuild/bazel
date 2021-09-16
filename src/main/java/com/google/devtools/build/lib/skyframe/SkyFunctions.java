@@ -145,6 +145,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName REPOSITORY_MAPPING =
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
+  public static final SkyFunctionName REPO_MAPPING_FOR_BZLMOD_BZL_LOAD =
+      SkyFunctionName.createHermetic("REPO_MAPPING_FOR_BZLMOD_BZL_LOAD");
   public static final SkyFunctionName RESOLVED_FILE =
       SkyFunctionName.createHermetic("RESOLVED_FILE");
   public static final SkyFunctionName RESOLVED_HASH_VALUES =

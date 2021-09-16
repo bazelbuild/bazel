@@ -182,6 +182,8 @@ java_library(
         ":recursive_package_provider_backed_target_pattern_resolver",
         ":recursive_pkg_function",
         ":recursive_pkg_value",
+        ":repo_mapping_for_bzlmod_bzl_load_function",
+        ":repo_mapping_for_bzlmod_bzl_load_value",
         ":repository_mapping_function",
         ":repository_mapping_value",
         ":sane_analysis_exception",
@@ -2276,6 +2278,33 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "repo_mapping_for_bzlmod_bzl_load_function",
+    srcs = ["RepoMappingForBzlmodBzlLoadFunction.java"],
+    deps = [
+        ":repo_mapping_for_bzlmod_bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "repo_mapping_for_bzlmod_bzl_load_value",
+    srcs = ["RepoMappingForBzlmodBzlLoadValue.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )

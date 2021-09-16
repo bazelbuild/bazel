@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepoMappingForBzlmodBzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
@@ -202,6 +203,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                     new IgnoredPackagePrefixesFunction(
                         /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
+                .put(
+                    SkyFunctions.REPO_MAPPING_FOR_BZLMOD_BZL_LOAD,
+                    new RepoMappingForBzlmodBzlLoadFunction())
                 .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
