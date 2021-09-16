@@ -47,6 +47,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -578,6 +580,7 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     private final Map<PathFragment, Integer> badPaths = new HashMap<>();
     private final Map<PathFragment, Integer> statBadPaths = new HashMap<>();
     private final Set<String> createDirectoryErrorNames = new HashSet<>();
+    private Consumer<PathFragment> pathConsumer = null;
 
     private CustomRealFilesystem(DigestHashFunction digestHashFunction) {
       super(digestHashFunction, /*hashAttributeName=*/ "");
@@ -603,6 +606,10 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
       return badPaths.getOrDefault(path.asFragment(), 0);
     }
 
+    void setConsumer(Consumer<PathFragment> pathConsumer) {
+      this.pathConsumer = pathConsumer;
+    }
+
     private static boolean shouldThrowExn(PathFragment path, Map<PathFragment, Integer> paths) {
       if (paths.containsKey(path)) {
         Integer numCallsRemaining = paths.get(path);
@@ -618,6 +625,9 @@ public class CustomRealFilesystemBuildIntegrationTest extends GoogleBuildIntegra
     private synchronized void maybeThrowExn(PathFragment path) throws IOException {
       if (shouldThrowExn(path, badPaths)) {
         throw new IOException("nope");
+      }
+      if (pathConsumer != null) {
+        pathConsumer.accept(path);
       }
     }
 
