@@ -169,7 +169,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
         throw Starlark.errorf(
             "cfg parameter is mandatory when executable=True is provided. Please see "
-                + "https://www.bazel.build/versions/main/docs/skylark/rules.html#configurations "
+                + "https://docs.bazel.build/versions/main/skylark/rules.html#configurations "
                 + "for more details.");
       }
     }
