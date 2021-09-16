@@ -313,7 +313,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
       metadataTags = OptionMetadataTag.DEPRECATED,
       help =
           "If true, %{product} tries to use the operating system's file watch service for local "
-              + "changes instead of scanning every file for a change.")
+              + "changes instead of scanning every file for a change. "
+              + "If the source is stored on NFS, and edited on a different machine it is built on, "
+              + "this flag might cause %{product} to miss changes.")
   public boolean watchFS;
 
   // This option is only passed in --batch mode. The value is otherwise passed as part of the
