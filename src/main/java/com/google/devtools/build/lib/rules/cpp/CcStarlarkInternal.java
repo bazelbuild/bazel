@@ -59,4 +59,14 @@ public class CcStarlarkInternal implements StarlarkValue {
       throw new EvalException(e);
     }
   }
+
+  @StarlarkMethod(
+      name = "create_cc_provider",
+      documented = false,
+      parameters = {
+        @Param(name = "cc_info", positional = false, named = true),
+      })
+  public CcStarlarkApiInfo createCcProvider(CcInfo ccInfo) {
+    return new CcStarlarkApiInfo(ccInfo);
+  }
 }
