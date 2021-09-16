@@ -595,6 +595,13 @@ public final class Utils {
         && (spawn == null || Spawns.mayBeCachedRemotely(spawn));
   }
 
+  public static boolean shouldUploadContentToRemoteCache(
+      RemoteOptions remoteOptions, @Nullable Spawn spawn) {
+    return remoteOptions.isRemoteExecutionEnabled()
+        || (remoteOptions.remoteUploadLocalResults
+            && (spawn == null || Spawns.mayBeCachedRemotely(spawn)));
+  }
+
   public static boolean shouldUploadLocalResultsToDiskCache(
       RemoteOptions remoteOptions, @Nullable Spawn spawn) {
     if (remoteOptions.incompatibleRemoteResultsIgnoreDisk) {

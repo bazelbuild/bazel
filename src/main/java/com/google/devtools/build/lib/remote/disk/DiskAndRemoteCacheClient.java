@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.disk;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldAcceptCachedResultFromRemoteCache;
+import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadContentToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 
 import build.bazel.remote.execution.v2.ActionResult;
@@ -75,7 +76,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     ListenableFuture<Void> future = diskCache.uploadFile(context, digest, file);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (shouldUploadContentToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadFile(context, digest, file), directExecutor());
@@ -87,7 +88,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     ListenableFuture<Void> future = diskCache.uploadBlob(context, digest, data);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (shouldUploadContentToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadBlob(context, digest, data), directExecutor());
