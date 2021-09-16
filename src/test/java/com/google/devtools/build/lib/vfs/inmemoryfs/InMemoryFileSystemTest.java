@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -64,8 +65,8 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   /**
-   * Tests concurrent creation of a substantial tree hierarchy including
-   * files, directories, symlinks, file contents, and permissions.
+   * Tests concurrent creation of a substantial tree hierarchy including files, directories,
+   * symlinks, file contents, and permissions.
    */
   @Test
   public void testConcurrentTreeConstruction() throws Exception {
@@ -410,4 +411,19 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
 
     assertThat(symlink.getxattr("some.xattr")).isNull();
   }
+
+  // createSeekableByteChannel is not supported by InMemoryFileSystem.
+  @Test
+  @Override
+  public void testCreateReadWriteByteChannelWrite(@TestParameter boolean overwrite) {}
+
+  // createSeekableByteChannel is not supported by InMemoryFileSystem.
+  @Test
+  @Override
+  public void testCreateReadWriteByteChannelWriteAfterSeek() {}
+
+  // createSeekableByteChannel is not supported by InMemoryFileSystem.
+  @Test
+  @Override
+  public void testCreateReadWriteByteChannelRead(@TestParameter({"0"}) int seekPosition) {}
 }
