@@ -338,7 +338,7 @@ EOF
   kill_nc
   expect_log "Tra-la!"
   output_base=$(bazel info output_base)
-  jar_dir=$output_base/external/endangered/file
+  jar_dir=$output_base/external/endangered/jar
   [[ -f ${jar_dir}/foo.jar ]] || fail "${jar_dir}/foo.jar not found"
 }
 
