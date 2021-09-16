@@ -18,9 +18,11 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utility methods for Objc rules in Starlark Builtins */
@@ -42,5 +44,19 @@ public class CcStarlarkInternal implements StarlarkValue {
         Artifact.TYPE,
         CcCommon.collectCompilationPrerequisites(
             starlarkRuleContext.getRuleContext(), compilationContext));
+  }
+
+  @StarlarkMethod(
+      name = "create_common",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      })
+  public CcCommon createCommon(StarlarkRuleContext starlarkRuleContext) throws EvalException {
+    try {
+      return new CcCommon(starlarkRuleContext.getRuleContext());
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
   }
 }

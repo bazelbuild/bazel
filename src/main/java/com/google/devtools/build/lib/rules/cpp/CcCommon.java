@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
@@ -72,13 +73,17 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 
-/**
- * Common parts of the implementation of cc rules.
- */
-public final class CcCommon {
+/** Common parts of the implementation of cc rules. */
+public final class CcCommon implements StarlarkValue {
 
   /** Name of the build variable for the sysroot path variable name. */
   public static final String SYSROOT_VARIABLE_NAME = "sysroot";
@@ -201,9 +206,14 @@ public final class CcCommon {
     return mergedOutputGroups;
   }
 
+  @StarlarkMethod(name = "linkopts", structField = true, documented = false)
+  public Sequence<String> getLinkoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getLinkopts());
+  }
+
   /**
-   * Returns our own linkopts from the rule attribute. This determines linker
-   * options to use when building this target and anything that depends on it.
+   * Returns our own linkopts from the rule attribute. This determines linker options to use when
+   * building this target and anything that depends on it.
    */
   public ImmutableList<String> getLinkopts() {
     Preconditions.checkState(hasAttribute("linkopts", Type.STRING_LIST));
@@ -215,6 +225,11 @@ public final class CcCommon {
     }
 
     return ImmutableList.copyOf(result);
+  }
+
+  @StarlarkMethod(name = "copts", structField = true, documented = false)
+  public Sequence<String> getCoptsForStarlark() {
+    return StarlarkList.immutableCopyOf(getCopts());
   }
 
   public ImmutableList<String> getCopts() {
@@ -261,6 +276,30 @@ public final class CcCommon {
       }
     }
     return mapToListOfPairs(map);
+  }
+
+  @StarlarkMethod(name = "srcs", documented = false, structField = true)
+  public Sequence<Tuple> getSourcesForStarlark() {
+    List<Pair<Artifact, Label>> sources = getSources();
+    ImmutableList<Tuple> tupleList =
+        sources.stream().map(p -> Tuple.pair(p.first, p.second)).collect(toImmutableList());
+    return StarlarkList.immutableCopyOf(tupleList);
+  }
+
+  @StarlarkMethod(name = "private_hdrs", documented = false, structField = true)
+  public Sequence<Tuple> getPrivateHeaderForStarlark() {
+    return convertListPairToTuple(getPrivateHeaders());
+  }
+
+  @StarlarkMethod(name = "public_hdrs", documented = false, structField = true)
+  public Sequence<Tuple> getPublicHeaderForStarlark() {
+    return convertListPairToTuple(getHeaders());
+  }
+
+  private Sequence<Tuple> convertListPairToTuple(List<Pair<Artifact, Label>> listPair) {
+    ImmutableList<Tuple> tupleList =
+        listPair.stream().map(p -> Tuple.pair(p.first, p.second)).collect(toImmutableList());
+    return StarlarkList.immutableCopyOf(tupleList);
   }
 
   /**
@@ -335,9 +374,8 @@ public final class CcCommon {
     return result.build();
   }
 
-  /**
-   * Returns the C++ toolchain provider.
-   */
+  /** Returns the C++ toolchain provider. */
+  @StarlarkMethod(name = "toolchain", documented = false, structField = true)
   public CcToolchainProvider getToolchain() {
     return ccToolchain;
   }
@@ -353,6 +391,21 @@ public final class CcCommon {
    */
   public List<Pair<Artifact, Label>> getHeaders() {
     return getHeaders(ruleContext);
+  }
+
+  @StarlarkMethod(
+      name = "report_invalid_options",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      })
+  public void reportInvalidOptionsForStarlark(StarlarkRuleContext starlarkRuleContext)
+      throws EvalException {
+    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+    reportInvalidOptions(ruleContext);
+    if (ruleContext.hasErrors()) {
+      throw new EvalException("Invalid options.");
+    }
   }
 
   public void reportInvalidOptions(RuleContext ruleContext) {
@@ -388,10 +441,17 @@ public final class CcCommon {
         return null;
       }
 
+      TransitiveInfoCollection toolchain;
+      if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
+        toolchain = ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+      } else {
+        toolchain =
+            ruleContext.getPrerequisite(
+                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
+      }
+
       try {
-        return CcCommon.computeCcFlags(
-            ruleContext,
-            ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME));
+        return CcCommon.computeCcFlags(ruleContext, toolchain);
       } catch (RuleErrorException e) {
         throw new ExpansionException(e.getMessage());
       }
@@ -407,7 +467,7 @@ public final class CcCommon {
 
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
   @AutoCodec
-  static class CoptsFilter {
+  public static class CoptsFilter implements StarlarkValue {
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 
@@ -441,7 +501,8 @@ public final class CcCommon {
   }
 
   /** Returns copts filter built from the make variable expanded nocopts attribute. */
-  CoptsFilter getCoptsFilter() {
+  @StarlarkMethod(name = "copts_filter", structField = true, documented = false)
+  public CoptsFilter getCoptsFilter() {
     return getCoptsFilter(ruleContext);
   }
 
@@ -482,18 +543,6 @@ public final class CcCommon {
     }
   }
 
-  // TODO(bazel-team): calculating nocopts every time is not very efficient,
-  // fix this after the rule migration. The problem is that in some cases we call this after
-  // the RCT is created (so RuleContext is not accessible), in some cases during the creation.
-  // It would probably make more sense to use TransitiveInfoProviders.
-  /**
-   * Returns true if the rule context has a nocopts regex that matches the given value, false
-   * otherwise.
-   */
-  static boolean noCoptsMatches(String option, RuleContext ruleContext) {
-    return !getCoptsFilter(ruleContext).passesFilter(option);
-  }
-
   private static final String DEFINES_ATTRIBUTE = "defines";
   private static final String LOCAL_DEFINES_ATTRIBUTE = "local_defines";
 
@@ -509,6 +558,11 @@ public final class CcCommon {
     return getDefinesFromAttribute(DEFINES_ATTRIBUTE);
   }
 
+  @StarlarkMethod(name = "defines", structField = true, documented = false)
+  public Sequence<String> getDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(getDefines());
+  }
+
   /**
    * Returns a list of define tokens from "local_defines" attribute.
    *
@@ -519,6 +573,11 @@ public final class CcCommon {
    */
   public List<String> getNonTransitiveDefines() {
     return getDefinesFromAttribute(LOCAL_DEFINES_ATTRIBUTE);
+  }
+
+  @StarlarkMethod(name = "local_defines", structField = true, documented = false)
+  public Sequence<String> getLocalDefinesForStarlark() {
+    return StarlarkList.immutableCopyOf(getNonTransitiveDefines());
   }
 
   private List<String> getDefinesFromAttribute(String attr) {
@@ -558,6 +617,12 @@ public final class CcCommon {
     return defines;
   }
 
+  @StarlarkMethod(name = "loose_include_dirs", structField = true, documented = false)
+  public Sequence<String> getLooseIncludeDirsForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getLooseIncludeDirs().stream().map(PathFragment::toString).collect(toImmutableList()));
+  }
+
   /**
    * Determines a list of loose include directories that are only allowed to be referenced when
    * headers checking is {@link HeadersCheckingMode#LOOSE}.
@@ -588,6 +653,12 @@ public final class CcCommon {
       result.add(packageFragment.getRelative("**"));
     }
     return result.build();
+  }
+
+  @StarlarkMethod(name = "system_include_dirs", structField = true, documented = false)
+  public Sequence<String> getSystemIncludeDirsForStarlark() {
+    return StarlarkList.immutableCopyOf(
+        getSystemIncludeDirs().stream().map(PathFragment::toString).collect(toImmutableList()));
   }
 
   List<PathFragment> getSystemIncludeDirs() {
@@ -642,10 +713,11 @@ public final class CcCommon {
   static NestedSet<Artifact> collectCompilationPrerequisites(
       RuleContext ruleContext, CcCompilationContext ccCompilationContext) {
     // TODO(bazel-team): Use ccCompilationContext.getCompilationPrerequisites() instead; note
-    // that this will need cleaning up the prerequisites, as the {@code CcCompilationContext}
-    // currently
-    // collects them transitively (to get transitive headers), but source files are not transitive
-    // compilation
+    // that this
+    // will
+    // need cleaning up the prerequisites, as the {@code CcCompilationContext} currently
+    // collects them
+    // transitively (to get transitive headers), but source files are not transitive compilation
     // prerequisites.
     NestedSetBuilder<Artifact> prerequisites = NestedSetBuilder.stableOrder();
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
@@ -719,6 +791,23 @@ public final class CcCommon {
     }
 
     return ruleContext.getPrerequisiteArtifact("$def_parser");
+  }
+
+  @StarlarkMethod(
+      name = "instrumented_files_info",
+      documented = false,
+      parameters = {
+        @Param(name = "files", positional = false, named = true),
+        @Param(name = "with_base_line_coverage", positional = false, named = true),
+      })
+  public InstrumentedFilesInfo getInstrumentedFilesProviderForStarlark(
+      Sequence<?> files, boolean withBaselineCoverage) throws EvalException {
+    try {
+      return getInstrumentedFilesProvider(
+          Sequence.cast(files, Artifact.class, "files"), withBaselineCoverage);
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
   }
 
   /** Provides support for instrumentation. */
