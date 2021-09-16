@@ -170,13 +170,13 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
   name = 'jar',
-  jars = ["{file_path}"],
+  jars = ["{file_name}"],
   visibility = ['//visibility:public'],
 )
 
 filegroup(
   name = 'file',
-  srcs = ["{file_path}"],
+  srcs = ["{file_name}"],
   visibility = ['//visibility:public'],
 )
 
@@ -190,16 +190,16 @@ def _http_jar_impl(ctx):
     if ctx.attr.url:
         all_urls = [ctx.attr.url] + all_urls
     auth = _get_auth(ctx, all_urls)
-    downloaded_file_path = "jar/" + ctx.attr.downloaded_file_name
+    downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,
-        downloaded_file_path,
+        "jar/" + downloaded_file_name,
         ctx.attr.sha256,
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
-    ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(file_path = downloaded_file_path))
+    ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(file_name = downloaded_file_name))
     return update_attrs(ctx.attr, _http_jar_attrs.keys(), {"sha256": download_info.sha256})
 
 _http_archive_attrs = {
