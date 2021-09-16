@@ -369,6 +369,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               view,
               env,
               ctgValue,
+              configuredTargetKey,
               depValueMap,
               configConditions,
               toolchainContexts,
@@ -960,6 +961,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       SkyframeBuildView view,
       Environment env,
       TargetAndConfiguration ctgValue,
+      ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
@@ -968,7 +970,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws ConfiguredValueCreationException, InterruptedException {
     Target target = ctgValue.getTarget();
     BuildConfiguration configuration = ctgValue.getConfiguration();
-    ConfiguredTargetKey configuredTargetKey = ctgValue.getConfiguredTargetKey();
 
     // Should be successfully evaluated and cached from the loading phase.
     StarlarkBuiltinsValue starlarkBuiltinsValue =

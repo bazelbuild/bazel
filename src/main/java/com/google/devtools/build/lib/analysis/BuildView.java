@@ -271,7 +271,7 @@ public class BuildView {
 
     List<ConfiguredTargetKey> topLevelCtKeys =
         topLevelTargetsWithConfigs.stream()
-            .map(TargetAndConfiguration::getConfiguredTargetKey)
+            .map(BuildView::getConfiguredTargetKey)
             .collect(Collectors.toList());
 
     ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
@@ -437,6 +437,14 @@ public class BuildView {
             topLevelTargetsWithConfigsResult);
     logger.atInfo().log("Finished analysis");
     return result;
+  }
+
+  private static ConfiguredTargetKey getConfiguredTargetKey(
+      TargetAndConfiguration targetAndConfiguration) {
+    return ConfiguredTargetKey.builder()
+        .setLabel(targetAndConfiguration.getLabel())
+        .setConfiguration(targetAndConfiguration.getConfiguration())
+        .build();
   }
 
   private AnalysisResult createResult(
