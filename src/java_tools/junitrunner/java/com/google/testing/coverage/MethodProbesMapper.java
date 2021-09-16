@@ -14,6 +14,8 @@
 
 package com.google.testing.coverage;
 
+import static java.util.Comparator.comparing;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,12 +69,15 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
   private List<Label> currentLabels = new ArrayList<>();
   private AbstractInsnNode currentInstructionNode = null;
   private Map<AbstractInsnNode, Instruction> instructionMap = new HashMap<>();
+  private int instructionNodeIndex = 0;
+  private Map<AbstractInsnNode, Integer> instructionNodeIndexMap = new HashMap<>();
 
   // Filtering
   private IFilter filter;
   private IFilterContext filterContext;
   private HashSet<AbstractInsnNode> ignored = new HashSet<>();
   private Map<AbstractInsnNode, AbstractInsnNode> unioned = new HashMap<>();
+  private Map<AbstractInsnNode, Set<AbstractInsnNode>> branchReplacements = new HashMap<>();
 
   // Result
   private Map<Integer, BranchExp> lineToBranchExp = new TreeMap();
@@ -134,6 +139,8 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
     currentLabels.clear(); // Update states
     lastInstruction = instruction;
     instructionMap.put(currentInstructionNode, instruction);
+    instructionNodeIndexMap.put(currentInstructionNode, instructionNodeIndex);
+    instructionNodeIndex++;
   }
 
   // Plain visitors: called from adapter when no probe is needed
@@ -413,6 +420,22 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
       ignored.add(node);
     }
 
+    // Handle branch replacements
+    for (Map.Entry<AbstractInsnNode, Set<AbstractInsnNode>> entry : branchReplacements.entrySet()) {
+      // The replacement set is not ordered deterministically and we require it to be so to be able
+      // to merge multiple coverage reports later on. We use the order in which we encountered
+      // nodes to determine the order of branches for the new BranchExp
+      ArrayList<AbstractInsnNode> replacements = new ArrayList<>(entry.getValue());
+      replacements.sort(comparing(instructionNodeIndexMap::get));
+      BranchExp newBranch = new BranchExp(new ArrayList<>());
+      // Merging of coverage reports down the line only makes sense now if replacements is iterated
+      // in a deterministic order, which is a false assumption.
+      for (AbstractInsnNode node : replacements) {
+        newBranch.add(insnToCovExp.get(instructionMap.get(node)));
+      }
+      insnToCovExp.put(instructionMap.get(entry.getKey()), newBranch);
+    }
+
     HashSet<Instruction> ignoredInstructions = new HashSet<>();
     for (Map.Entry<AbstractInsnNode, Instruction> entry : instructionMap.entrySet()) {
       if (ignored.contains(entry.getKey())) {
@@ -466,7 +489,7 @@ public class MethodProbesMapper extends MethodProbesVisitor implements IFilterOu
 
   @Override
   public void replaceBranches(AbstractInsnNode source, Set<AbstractInsnNode> newTargets) {
-    // TODO(cmita): Implement as part of https://github.com/bazelbuild/bazel/issues/12696
+    branchReplacements.put(source, newTargets);
   }
 
   private AbstractInsnNode findRepresentative(AbstractInsnNode node) {
