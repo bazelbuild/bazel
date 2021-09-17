@@ -203,8 +203,7 @@ public final class ProfilerTest {
                 .collect(Collectors.toList()))
         .hasSize(2);
 
-    assertThat(
-            Iterables.filter(jsonProfile.getTraceEvents(), t -> t.name().equals("action counters")))
+    assertThat(Iterables.filter(jsonProfile.getTraceEvents(), t -> t.name().equals("action count")))
         .hasSize(1);
 
     assertThat(
@@ -258,8 +257,7 @@ public final class ProfilerTest {
                     traceEvent -> ProfilerTask.VFS_STAT.description.equals(traceEvent.category()))
                 .collect(Collectors.toList()));
     assertThat(vfsStat.duration().toMillis()).isLessThan(ProfilerTask.VFS_STAT.minDuration);
-    assertThat(
-            Iterables.filter(jsonProfile.getTraceEvents(), t -> t.name().equals("action counters")))
+    assertThat(Iterables.filter(jsonProfile.getTraceEvents(), t -> t.name().equals("action count")))
         .hasSize(1);
   }
 

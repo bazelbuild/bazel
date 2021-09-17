@@ -18,8 +18,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.unix.ProcMeminfoParser;
+import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
@@ -40,7 +43,13 @@ public class CollectLocalResourceUsage extends Thread {
   private TimeSeries localCpuUsage;
 
   @GuardedBy("this")
+  private TimeSeries systemCpuUsage;
+
+  @GuardedBy("this")
   private TimeSeries localMemoryUsage;
+
+  @GuardedBy("this")
+  private TimeSeries systemMemoryUsage;
 
   private Stopwatch stopwatch;
 
@@ -50,12 +59,19 @@ public class CollectLocalResourceUsage extends Thread {
 
   @Override
   public void run() {
+    int numProcessors = Runtime.getRuntime().availableProcessors();
     stopwatch = Stopwatch.createStarted();
     synchronized (this) {
       localCpuUsage =
           new TimeSeries(
               /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
       localMemoryUsage =
+          new TimeSeries(
+              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      systemCpuUsage =
+          new TimeSeries(
+              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
+      systemMemoryUsage =
           new TimeSeries(
               /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
     }
@@ -73,6 +89,29 @@ public class CollectLocalResourceUsage extends Thread {
       }
       Duration nextElapsed = stopwatch.elapsed();
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
+
+      double systemLoad = osBean.getSystemCpuLoad();
+      double systemUsage = systemLoad * numProcessors;
+
+      long systemMemoryUsageMb = -1;
+      if (OS.getCurrent() == OS.LINUX) {
+        // On Linux we get a better estimate by using /proc/meminfo. See
+        // https://www.linuxatemyram.com/ for more info on buffer caches.
+        try {
+          ProcMeminfoParser procMeminfoParser = new ProcMeminfoParser("/proc/meminfo");
+          systemMemoryUsageMb =
+              (procMeminfoParser.getTotalKb() - procMeminfoParser.getFreeRamKb()) / 1024;
+        } catch (IOException e) {
+          // Silently ignore and fallback.
+        }
+      }
+      if (systemMemoryUsageMb <= 0) {
+        // In case we aren't running on Linux or /proc/meminfo parsing went wrong, fall back to the
+        // OS bean.
+        systemMemoryUsageMb =
+            (osBean.getTotalPhysicalMemorySize() - osBean.getFreePhysicalMemorySize())
+                / (1024 * 1024);
+      }
 
       long memoryUsage;
       try {
@@ -95,6 +134,13 @@ public class CollectLocalResourceUsage extends Thread {
           long memoryUsageMb = memoryUsage / (1024 * 1024);
           localMemoryUsage.addRange(
               previousElapsed.toMillis(), nextElapsed.toMillis(), memoryUsageMb);
+        }
+        if (systemCpuUsage != null) {
+          systemCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), systemUsage);
+        }
+        if (systemMemoryUsage != null) {
+          systemMemoryUsage.addRange(
+              previousElapsed.toMillis(), nextElapsed.toMillis(), systemMemoryUsageMb);
         }
       }
       previousElapsed = nextElapsed;
@@ -125,6 +171,13 @@ public class CollectLocalResourceUsage extends Thread {
     logCollectedData(
         profiler, localMemoryUsage, ProfilerTask.LOCAL_MEMORY_USAGE, startTimeNanos, len);
     localMemoryUsage = null;
+
+    logCollectedData(profiler, systemCpuUsage, ProfilerTask.SYSTEM_CPU_USAGE, startTimeNanos, len);
+    systemCpuUsage = null;
+
+    logCollectedData(
+        profiler, systemMemoryUsage, ProfilerTask.SYSTEM_MEMORY_USAGE, startTimeNanos, len);
+    systemMemoryUsage = null;
   }
 
   private static void logCollectedData(
