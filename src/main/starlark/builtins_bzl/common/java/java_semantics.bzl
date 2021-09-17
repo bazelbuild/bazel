@@ -34,6 +34,9 @@ def _preprocess(ctx):
 def _postprocess(ctx, base_info):
     return base_info.java_info
 
+def _postprocess_plugin(base_info):
+    return base_info.default_info
+
 semantics = struct(
     EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,
     EXPERIMENTAL_USE_OUTPUTATTR_IN_JAVALIBRARY = False,
@@ -45,7 +48,11 @@ semantics = struct(
     EXTRA_ATTRIBUTES = {
         "resource_strip_prefix": attr.string(),
     },
+    EXTRA_PLUGIN_ATTRIBUTES = {
+        "resource_strip_prefix": attr.string(),
+    },
     EXTRA_DEPS = [],
+    EXTRA_PLUGIN_DEPS = [],
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1
         "cc_library",
@@ -66,4 +73,5 @@ semantics = struct(
     check_dependency_rule_kinds = _check_dependency_rule_kinds,
     preprocess = _preprocess,
     postprocess = _postprocess,
+    postprocess_plugin = _postprocess_plugin,
 )
