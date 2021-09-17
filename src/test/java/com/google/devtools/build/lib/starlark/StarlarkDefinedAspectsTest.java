@@ -6143,19 +6143,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "aspect_b = aspect(implementation = _impl)",
         "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    reporter.removeHandler(failFastHandler);
 
-    AssertionError expected =
-        assertThrows(
-            AssertionError.class,
-            () ->
-                update(
-                    ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
-                    "//test:main_target"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "aspect //test:defs.bzl%aspect_b was added before as a required"
-                + " aspect of aspect //test:defs.bzl%aspect_a");
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result =
+          update(
+              ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+              "//test:main_target");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () ->
+              update(
+                  ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"),
+                  "//test:main_target"));
+    }
+    assertContainsEvent(
+        "aspect //test:defs.bzl%aspect_b was added before as a required"
+            + " aspect of aspect //test:defs.bzl%aspect_a");
   }
 
   @Test
@@ -6171,15 +6179,21 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "aspect_a = aspect(implementation = _impl,",
         "                  requires = [parametrized_native_aspect])");
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    reporter.removeHandler(failFastHandler);
 
-    AssertionError expected =
-        assertThrows(
-            AssertionError.class,
-            () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "Cannot use parameterized aspect ParametrizedAspectWithProvider at the top level.");
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result =
+          update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
+    }
+    assertContainsEvent(
+        "Cannot use parameterized aspect ParametrizedAspectWithProvider at the top level.");
   }
 
   @Test
@@ -6187,6 +6201,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       throws Exception {
     useConfiguration(
         "--experimental_required_aspects", "--incompatible_top_level_aspects_dependency");
+    reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/defs.bzl",
         "def _impl(target, ctx):",
@@ -6196,14 +6211,21 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "aspect_a = aspect(implementation = _impl,",
         "                  requires = [aspect_b])");
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
+    reporter.removeHandler(failFastHandler);
 
-    AssertionError expected =
-        assertThrows(
-            AssertionError.class,
-            () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("Cannot use parameterized aspect //test:defs.bzl%aspect_b at the top level.");
+    // The call to `update` does not throw an exception when "--keep_going" is passed in the
+    // WithKeepGoing test suite. Otherwise, it throws ViewCreationFailedException.
+    if (keepGoing()) {
+      AnalysisResult result =
+          update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(
+          ViewCreationFailedException.class,
+          () -> update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target"));
+    }
+    assertContainsEvent(
+        "Cannot use parameterized aspect //test:defs.bzl%aspect_b at the top level.");
   }
 
   @Test

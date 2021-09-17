@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
@@ -137,35 +136,12 @@ final class AspectFunction implements SkyFunction {
    * @throws AspectCreationException if the value loaded is not a {@link StarlarkDefinedAspect}.
    */
   @Nullable
-  private static StarlarkDefinedAspect loadStarlarkDefinedAspect(
+  public static StarlarkDefinedAspect loadStarlarkDefinedAspect(
       Environment env, StarlarkAspectClass starlarkAspectClass)
       throws AspectCreationException, InterruptedException {
     Label extensionLabel = starlarkAspectClass.getExtensionLabel();
     String starlarkValueName = starlarkAspectClass.getExportedName();
 
-    StarlarkAspect starlarkAspect = loadStarlarkAspect(env, extensionLabel, starlarkValueName);
-    if (starlarkAspect == null) {
-      return null;
-    }
-    if (!(starlarkAspect instanceof StarlarkDefinedAspect)) {
-      throw new AspectCreationException(
-          String.format(
-              "%s from %s is not a Starlark-defined aspect", starlarkValueName, extensionLabel),
-          extensionLabel);
-    } else {
-      return (StarlarkDefinedAspect) starlarkAspect;
-    }
-  }
-
-  /**
-   * Load Starlark aspect from an extension file. Is to be called from a SkyFunction.
-   *
-   * @return {@code null} if dependencies cannot be satisfied.
-   */
-  @Nullable
-  static StarlarkAspect loadStarlarkAspect(
-      Environment env, Label extensionLabel, String starlarkValueName)
-      throws AspectCreationException, InterruptedException {
     SkyKey importFileKey =
         StarlarkBuiltinsValue.isBuiltinsRepo(extensionLabel.getRepository())
             ? BzlLoadValue.keyForBuiltins(extensionLabel)
@@ -185,12 +161,11 @@ final class AspectFunction implements SkyFunction {
             String.format(
                 "%s is not exported from %s", starlarkValueName, extensionLabel.toString()));
       }
-      if (!(starlarkValue instanceof StarlarkAspect)) {
+      if (!(starlarkValue instanceof StarlarkDefinedAspect)) {
         throw new ConversionException(
-            String.format(
-                "%s from %s is not an aspect", starlarkValueName, extensionLabel.toString()));
+            String.format("%s from %s is not an aspect", starlarkValueName, extensionLabel));
       }
-      return (StarlarkAspect) starlarkValue;
+      return (StarlarkDefinedAspect) starlarkValue;
     } catch (BzlLoadFailedException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new AspectCreationException(e.getMessage(), extensionLabel, e.getDetailedExitCode());

@@ -576,7 +576,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             new BuildViewProvider(),
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis()));
-    map.put(SkyFunctions.LOAD_STARLARK_ASPECT, new LoadStarlarkAspectFunction());
     map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
     map.put(
         SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
