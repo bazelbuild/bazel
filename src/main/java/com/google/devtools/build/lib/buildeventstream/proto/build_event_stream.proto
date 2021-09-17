@@ -873,6 +873,9 @@ message BuildMetrics {
     // Size of the peak JVM heap size in bytes post GC. Note that this reports 0
     // if there was no major GC during the build.
     int64 peak_post_gc_heap_size = 2;
+
+    // The total number of bytes collected by GC during the invocation.
+    int64 total_garbage_collected = 3;
   }
   MemoryMetrics memory_metrics = 2;
 

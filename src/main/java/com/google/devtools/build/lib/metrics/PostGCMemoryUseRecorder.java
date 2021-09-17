@@ -34,11 +34,13 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.sun.management.GarbageCollectionNotificationInfo;
+import com.sun.management.GcInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.GuardedBy;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
@@ -94,6 +96,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   @GuardedBy("this")
   private boolean memoryUsageReportedZero = false;
 
+  private AtomicLong totalGarbage = new AtomicLong(0);
+
   @VisibleForTesting
   PostGCMemoryUseRecorder(Iterable<GarbageCollectorMXBean> mxBeans) {
     for (GarbageCollectorMXBean mxBean : mxBeans) {
@@ -114,9 +118,18 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     return memoryUsageReportedZero;
   }
 
+  /**
+   * Returns the total number of garbage in bytes collected during this invocation. Does not
+   * distinguish between different types of garbage (think old vs new), just returns the sum.
+   */
+  public synchronized long getTotalGarbage() {
+    return totalGarbage.get();
+  }
+
   public synchronized void reset() {
     peakHeap = Optional.empty();
     memoryUsageReportedZero = false;
+    totalGarbage = new AtomicLong(0);
   }
 
   private synchronized void updatePostGCHeapMemoryUsed(long used, long timestampMillis) {
@@ -139,6 +152,17 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
 
     GarbageCollectionNotificationInfo info =
         GarbageCollectionNotificationInfo.from((CompositeData) notification.getUserData());
+
+    GcInfo gcInfo = info.getGcInfo();
+    long delta = 0;
+    for (MemoryUsage memoryUsage : gcInfo.getMemoryUsageBeforeGc().values()) {
+      delta += memoryUsage.getUsed();
+    }
+    for (MemoryUsage memoryUsage : gcInfo.getMemoryUsageAfterGc().values()) {
+      delta -= memoryUsage.getUsed();
+    }
+    totalGarbage.addAndGet(delta);
+
     if (wasStopTheWorldGc(info)) {
       long durationNs = info.getGcInfo().getDuration() * 1_000_000;
       long end = Profiler.nanoTimeMaybe();
