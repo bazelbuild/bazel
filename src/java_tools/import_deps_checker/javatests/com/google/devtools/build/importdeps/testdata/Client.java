@@ -51,7 +51,7 @@ public class Client<@TypeAnnotation T> extends Library
   @MethodAnnotation(name = "method")
   public void method(@ParameterAnnotation(position = 0) int p, Library.Class2 p2)
       throws LibraryException {
-    Objects.nonNull(p2); // javac9 silently uses Objects.
+    boolean unused = Objects.nonNull(p2); // javac9 silently uses Objects.
     Class3 c3 = new Class3();
     Class4 c4 = c3.field;
     c3.field = c4;
