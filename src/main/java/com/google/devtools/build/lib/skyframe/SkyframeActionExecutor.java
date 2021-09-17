@@ -205,8 +205,9 @@ public final class SkyframeActionExecutor {
   private MetadataProvider perBuildFileCache;
   private ActionInputPrefetcher actionInputPrefetcher;
   /** These variables are nulled out between executions. */
-  private ProgressSupplier progressSupplier;
-  private ActionCompletedReceiver completionReceiver;
+  @Nullable private ProgressSupplier progressSupplier;
+
+  @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
@@ -250,7 +251,9 @@ public final class SkyframeActionExecutor {
 
       @Override
       public void actionCompleted() {
-        completionReceiver.actionCompleted(actionLookupData);
+        if (completionReceiver != null) {
+          completionReceiver.actionCompleted(actionLookupData);
+        }
       }
     };
   }
@@ -417,7 +420,9 @@ public final class SkyframeActionExecutor {
   }
 
   void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
-    this.completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
+    if (completionReceiver != null) {
+      completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
+    }
   }
 
   /**
@@ -913,7 +918,7 @@ public final class SkyframeActionExecutor {
     private final long actionStartTime;
     private final ActionExecutionContext actionExecutionContext;
     private final ActionLookupData actionLookupData;
-    private final ActionExecutionStatusReporter statusReporter;
+    @Nullable private final ActionExecutionStatusReporter statusReporter;
     private final ActionPostprocessing postprocessing;
 
     ActionRunner(
@@ -972,7 +977,9 @@ public final class SkyframeActionExecutor {
           // that they can be reposted when rewinding and simplify this code path. Maybe also keep
           // track of the rewind attempt, so that listeners can use that to adjust their behavior.
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
-          statusReporter.updateStatus(event);
+          if (statusReporter != null) {
+            statusReporter.updateStatus(event);
+          }
           env.getListener().post(event);
           if (!actionFileSystemType().inMemoryFileSystem()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
@@ -1041,7 +1048,9 @@ public final class SkyframeActionExecutor {
 
     private void notifyActionCompletion(
         ExtendedEventHandler eventHandler, boolean postActionCompletionEvent) {
-      statusReporter.remove(action);
+      if (statusReporter != null) {
+        statusReporter.remove(action);
+      }
       if (postActionCompletionEvent) {
         eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
       }
@@ -1050,7 +1059,9 @@ public final class SkyframeActionExecutor {
         // Tell the receiver that the action has completed *before* telling the reporter.
         // This way the latter will correctly show the number of completed actions when task
         // completion messages are enabled (--show_task_finish).
-        completionReceiver.actionCompleted(actionLookupData);
+        if (completionReceiver != null) {
+          completionReceiver.actionCompleted(actionLookupData);
+        }
         reporter.finishTask(null, prependExecPhaseStats(message));
       }
     }
@@ -1337,9 +1348,15 @@ public final class SkyframeActionExecutor {
     }
   }
 
+  /**
+   * Returns a progress message like:
+   *
+   * <p>[2608/6445] Compiling foo/bar.cc [host]
+   */
   private String prependExecPhaseStats(String message) {
-    // Prints a progress message like:
-    //   [2608/6445] Compiling foo/bar.cc [host]
+    if (progressSupplier == null) {
+      return "";
+    }
     return progressSupplier.getProgressString() + " " + message;
   }
 
