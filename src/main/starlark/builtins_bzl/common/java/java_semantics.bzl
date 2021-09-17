@@ -34,7 +34,7 @@ def _preprocess(ctx):
 def _postprocess(ctx, base_info):
     return base_info.java_info
 
-def _postprocess_plugin(base_info):
+def _postprocess_plugin(ctx, base_info):
     return base_info.java_info, base_info.default_info
 
 semantics = struct(
