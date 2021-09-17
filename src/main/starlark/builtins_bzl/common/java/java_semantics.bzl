@@ -35,7 +35,7 @@ def _postprocess(ctx, base_info):
     return base_info.java_info
 
 def _postprocess_plugin(base_info):
-    return base_info.default_info
+    return base_info.java_info, base_info.default_info
 
 semantics = struct(
     EXPERIMENTAL_USE_FILEGROUPS_IN_JAVALIBRARY = False,

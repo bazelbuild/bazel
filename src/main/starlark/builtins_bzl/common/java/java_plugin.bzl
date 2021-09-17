@@ -35,10 +35,10 @@ def _java_plugin_rule_impl(ctx):
     base_info.output_groups["_hidden_top_level_INTERNAL_"] = proguard_specs_provider.specs
     base_info.extra_providers.append(proguard_specs_provider)
 
-    default_info = semantics.postprocess_plugin(ctx, base_info)
+    java_info, default_info = semantics.postprocess_plugin(ctx, base_info)
 
     java_plugin_info = JavaPluginInfo(
-        runtime_deps = [base_info.java_info],
+        runtime_deps = [java_info],
         processor_class = ctx.attr.processor_class if ctx.attr.processor_class else None,  # ignore empty string (default)
         data = ctx.files.data,
         generates_api = ctx.attr.generates_api,
