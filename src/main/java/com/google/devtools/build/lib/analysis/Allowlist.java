@@ -22,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -50,7 +51,7 @@ public final class Allowlist {
     String attributeName = getAttributeNameFromAllowlistName(allowlistName).iterator().next();
     return attr(attributeName, LABEL)
         .cfg(HostTransition.createFactory())
-        .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class));
+        .mandatoryProviders(PackageGroupConfiguredTarget.PROVIDER.id());
   }
 
   /**
@@ -115,7 +116,10 @@ public final class Allowlist {
       Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL), attributeName);
       TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName);
       PackageSpecificationProvider packageSpecificationProvider =
-          packageGroup.getProvider(PackageSpecificationProvider.class);
+          packageGroup.get(PackageGroupConfiguredTarget.PROVIDER);
+      if (packageSpecificationProvider == null) {
+        packageSpecificationProvider = packageGroup.get(PackageGroupConfiguredTarget.PROVIDER);
+      }
       return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
     }
     return null;
@@ -130,7 +134,7 @@ public final class Allowlist {
   public static boolean isAvailableForAllowlist(
       TransitiveInfoCollection allowlist, Label relevantLabel) {
     PackageSpecificationProvider packageSpecificationProvider =
-        allowlist.getProvider(PackageSpecificationProvider.class);
+        allowlist.get(PackageGroupConfiguredTarget.PROVIDER);
     return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
   }
 

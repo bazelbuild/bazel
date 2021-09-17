@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -52,16 +53,37 @@ import net.starlark.java.eval.StarlarkThread;
  */
 @AutoCodec
 @Immutable
-public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
-    implements PackageSpecificationProvider {
+public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
+    implements PackageSpecificationProvider, Info {
   private static final FileProvider NO_FILES = new FileProvider(
       NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<PackageGroupContents> packageSpecifications;
 
+  public static final BuiltinProvider<PackageGroupConfiguredTarget> PROVIDER =
+      new BuiltinProvider<PackageGroupConfiguredTarget>(
+          "PackageSpecificationInfo", PackageGroupConfiguredTarget.class) {};
+
+  // TODO(b/200065655): Only builtins should depend on a PackageGroupConfiguredTarget.
+  //  Allowlists should be migrated to a new rule type that isn't package_group. Do not expose this
+  //  to pure Starlark.
+  @Override
+  public Provider getProvider() {
+    return PROVIDER;
+  }
+
+  @Override
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
+    if (provider == FileProvider.class) {
+      return provider.cast(NO_FILES); // can't fail
+    } else {
+      return super.getProvider(provider);
+    }
+  }
+
   @VisibleForSerialization
   @Instantiator
-  PackageGroupConfiguredTarget(
+  public PackageGroupConfiguredTarget(
       Label label,
       NestedSet<PackageGroupContents> visibility,
       NestedSet<PackageGroupContents> packageSpecifications) {
@@ -83,8 +105,8 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
       TransitiveInfoCollection include =
           targetContext.findDirectPrerequisite(
               label, Optional.ofNullable(targetContext.getConfiguration()));
-      PackageSpecificationProvider provider = include == null ? null
-          : include.getProvider(PackageSpecificationProvider.class);
+      PackageSpecificationProvider provider =
+          include == null ? null : include.get(PackageGroupConfiguredTarget.PROVIDER);
       if (provider == null) {
         targetContext
             .getAnalysisEnvironment()
@@ -109,16 +131,10 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-    if (provider == FileProvider.class) {
-      return provider.cast(NO_FILES); // can't fail
-    } else {
-      return super.getProvider(provider);
-    }
-  }
-
-  @Override
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
+    if (providerKey.equals(PROVIDER.getKey())) {
+      return this;
+    }
     return null;
   }
 
