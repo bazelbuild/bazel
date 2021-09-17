@@ -104,6 +104,8 @@ def _impl(ctx):
     all_compile_actions = [
         ACTION_NAMES.c_compile,
         ACTION_NAMES.cpp_compile,
+        ACTION_NAMES.objc_compile,
+        ACTION_NAMES.objcpp_compile,
         ACTION_NAMES.linkstamp_compile,
         ACTION_NAMES.assemble,
         ACTION_NAMES.preprocess_assemble,
@@ -126,6 +128,8 @@ def _impl(ctx):
     preprocessor_compile_actions = [
         ACTION_NAMES.c_compile,
         ACTION_NAMES.cpp_compile,
+        ACTION_NAMES.objc_compile,
+        ACTION_NAMES.objcpp_compile,
         ACTION_NAMES.linkstamp_compile,
         ACTION_NAMES.preprocess_assemble,
         ACTION_NAMES.cpp_header_parsing,
@@ -136,6 +140,8 @@ def _impl(ctx):
     codegen_compile_actions = [
         ACTION_NAMES.c_compile,
         ACTION_NAMES.cpp_compile,
+        ACTION_NAMES.objc_compile,
+        ACTION_NAMES.objcpp_compile,
         ACTION_NAMES.linkstamp_compile,
         ACTION_NAMES.assemble,
         ACTION_NAMES.preprocess_assemble,
@@ -2263,20 +2269,7 @@ def _impl(ctx):
                 with_features = [with_feature_set(features = ["fastbuild"])],
             ),
             flag_set(
-                actions = [
-                    ACTION_NAMES.assemble,
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.linkstamp_compile,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.cpp_module_codegen,
-                    ACTION_NAMES.lto_backend,
-                    ACTION_NAMES.clif_match,
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
+                actions = all_compile_actions,
                 flag_groups = [
                     flag_group(
                         flags = [
@@ -2290,20 +2283,7 @@ def _impl(ctx):
                 with_features = [with_feature_set(features = ["opt"])],
             ),
             flag_set(
-                actions = [
-                    ACTION_NAMES.assemble,
-                    ACTION_NAMES.preprocess_assemble,
-                    ACTION_NAMES.linkstamp_compile,
-                    ACTION_NAMES.c_compile,
-                    ACTION_NAMES.cpp_compile,
-                    ACTION_NAMES.cpp_header_parsing,
-                    ACTION_NAMES.cpp_module_compile,
-                    ACTION_NAMES.cpp_module_codegen,
-                    ACTION_NAMES.lto_backend,
-                    ACTION_NAMES.clif_match,
-                    ACTION_NAMES.objc_compile,
-                    ACTION_NAMES.objcpp_compile,
-                ],
+                actions = all_compile_actions,
                 flag_groups = [flag_group(flags = ["-g"])],
                 with_features = [with_feature_set(features = ["dbg"])],
             ),
