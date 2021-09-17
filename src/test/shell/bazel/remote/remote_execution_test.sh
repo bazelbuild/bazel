@@ -2140,11 +2140,8 @@ EOF
 
   echo "Hello world" > ${TEST_TMPDIR}/test_expected
   expect_log "2 processes: 1 internal, 1 remote." "CASE 1: unexpected action line [[$(grep processes $TEST_log)]]"
-
-  if [[ "$testcase_flags" != --noremote_accept_cached* ]]; then
-    diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
-        || fail "Disk cache generated different result [$(cat bazel-genfiles/a/test.txt)] [$(cat $TEST_TMPDIR/test_expected)]"
-  fi
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+      || fail "Disk cache generated different result [$(cat bazel-genfiles/a/test.txt)] [$(cat $TEST_TMPDIR/test_expected)]"
 
   disk_action_cache_files="$(count_disk_ac_files "$cache")"
   remote_action_cache_files="$(count_remote_ac_files)"
@@ -2229,6 +2226,45 @@ EOF
   fi
 }
 
+function test_combined_disk_remote_exec_nocache_tag() {
+  local cache="${TEST_TMPDIR}/disk_cache"
+  local flags=("--disk_cache=$cache"
+               "--remote_cache=grpc://localhost:${worker_port}"
+               "--remote_executor=grpc://localhost:${worker_port}"
+               "--spawn_strategy=remote"
+               "--genrule_strategy=remote")
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+genrule(
+  name = 'nocache_test',
+  cmd = 'echo "Hello world" > $@',
+  outs = ['test.txt'],
+  tags = ['no-cache'],
+)
+EOF
+
+  rm -rf $cache
+  mkdir $cache
+
+  bazel build "${flags[@]}" //a:nocache_test &> $TEST_log \
+      || fail "CASE 1 Failed to build"
+
+  echo "Hello world" > ${TEST_TMPDIR}/test_expected
+  expect_log "2 processes: 1 internal, 1 remote." "CASE 1: unexpected action line [[$(grep processes $TEST_log)] $flags]"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+      || fail "different result 1 [$(cat bazel-bin/a/test.txt)] [$(cat $TEST_TMPDIR/test_expected)]"
+
+  # build it again, there should be no caching
+  bazel clean
+  bazel build "${flags[@]}" //a:nocache_test &> $TEST_log \
+      || fail "CASE 2 Failed to build"
+  ls -l bazel-bin/a
+  expect_log "2 processes: 1 internal, 1 remote." "CASE 2: unexpected action line [[$(grep processes $TEST_log)]]"
+  diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
+      || fail "different result 2 [$(cat bazel-bin/a/test.txt)] [$(cat $TEST_TMPDIR/test_expected)]"
+}
 
 function test_genrule_combined_disk_grpc_cache() {
   # Test for the combined disk and grpc cache.

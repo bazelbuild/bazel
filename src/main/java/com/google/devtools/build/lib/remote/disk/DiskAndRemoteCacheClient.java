@@ -157,7 +157,8 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     final OutputStream tempOut;
     tempOut = new LazyFileOutputStream(tempPath);
 
-    if (shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
+    if (options.isRemoteExecutionEnabled() ||
+        shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
       ListenableFuture<Void> download =
           closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);
       return Futures.transformAsync(
