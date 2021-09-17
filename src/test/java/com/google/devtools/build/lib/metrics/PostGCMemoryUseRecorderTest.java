@@ -35,7 +35,6 @@ import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
 import javax.management.NotificationFilter;
@@ -100,8 +99,7 @@ public final class PostGCMemoryUseRecorderTest {
             GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION,
             "end of major GC",
             /*cause=*/ "No GC",
-            ImmutableMap.of("somepool", 100L),
-            /* memUsedBefore= */ null);
+            ImmutableMap.of("somepool", 100L));
 
     underTest.handleNotification(notificationWithNoGcCause, /*handback=*/ null);
 
@@ -194,34 +192,6 @@ public final class PostGCMemoryUseRecorderTest {
     assertThat(rec.wasMemoryUsageReportedZero()).isFalse();
   }
 
-  @Test
-  public void totalGarbageReported() {
-    PostGCMemoryUseRecorder rec = new PostGCMemoryUseRecorder(new ArrayList<>());
-    assertThat(rec.getTotalGarbage()).isEqualTo(0);
-
-    rec.handleNotification(
-        createMockNotification(
-            GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION,
-            "action",
-            "cause",
-            ImmutableMap.of("old", 1000L, "young", 2000L),
-            ImmutableMap.of("old", 5000L, "young", 10000L)),
-        /* handback= */ null);
-    assertThat(rec.getTotalGarbage()).isEqualTo(12000);
-    rec.handleNotification(
-        createMockNotification(
-            GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION,
-            "action",
-            "cause",
-            ImmutableMap.of("young", 15000L),
-            ImmutableMap.of("young", 20000L)),
-        /* handback= */ null);
-    assertThat(rec.getTotalGarbage()).isEqualTo(17000);
-
-    rec.reset();
-    assertThat(rec.getTotalGarbage()).isEqualTo(0);
-  }
-
   private static GarbageCollectorMXBean createMXBeanWithName(String name) {
     GarbageCollectorMXBean b =
         mock(
@@ -245,32 +215,19 @@ public final class PostGCMemoryUseRecorderTest {
     return mu;
   }
 
-  private static ImmutableMap<String, MemoryUsage> createMemoryUsageMap(Map<String, Long> memUsed) {
+  private Notification createMockNotification(
+      String type, String action, Map<String, Long> memUsed) {
+    return createMockNotification(type, action, "dummycause", memUsed);
+  }
+
+  private Notification createMockNotification(
+      String type, String action, String cause, Map<String, Long> memUsed) {
     ImmutableMap.Builder<String, MemoryUsage> memUsageMap = ImmutableMap.builder();
     for (Map.Entry<String, Long> e : memUsed.entrySet()) {
       memUsageMap.put(e.getKey(), createMockMemoryUsage(e.getValue()));
     }
-    return memUsageMap.build();
-  }
-
-  private Notification createMockNotification(
-      String type, String action, Map<String, Long> memUsed) {
-    return createMockNotification(type, action, "dummycause", memUsed, /* memUsedBefore= */ null);
-  }
-
-  private Notification createMockNotification(
-      String type,
-      String action,
-      String cause,
-      Map<String, Long> memUsed,
-      @Nullable Map<String, Long> memUsedBefore) {
     GcInfo gcInfo = mock(GcInfo.class);
-    ImmutableMap<String, MemoryUsage> memoryUsageMap = createMemoryUsageMap(memUsed);
-    when(gcInfo.getMemoryUsageAfterGc()).thenReturn(memoryUsageMap);
-    if (memUsedBefore != null) {
-      ImmutableMap<String, MemoryUsage> memoryUsageBeforeMap = createMemoryUsageMap(memUsedBefore);
-      when(gcInfo.getMemoryUsageBeforeGc()).thenReturn(memoryUsageBeforeMap);
-    }
+    when(gcInfo.getMemoryUsageAfterGc()).thenReturn(memUsageMap.build());
 
     GarbageCollectionNotificationInfo notInfo =
         new GarbageCollectionNotificationInfo("DummyGCName", action, cause, gcInfo);

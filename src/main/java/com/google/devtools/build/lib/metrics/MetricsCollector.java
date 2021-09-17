@@ -260,7 +260,6 @@ class MetricsCollector {
       // notification (which may arrive too late for this specific GC).
       memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
     }
-    memoryMetrics.setTotalGarbageCollected(PostGCMemoryUseRecorder.get().getTotalGarbage());
     return memoryMetrics.build();
   }
 
