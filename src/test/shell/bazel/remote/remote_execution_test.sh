@@ -3029,6 +3029,72 @@ EOF
   expect_log "ERROR: Failed to query remote execution capabilities: Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope"
 }
 
-run_suite "Remote execution and remote cache tests"
+function test_output_file_permission() {
+  # Test that permission of output files are always 0555
 
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo"],
+  cmd = "echo 'foo' > \$@",
+)
+
+genrule(
+  name = "bar",
+  srcs = [":foo"],
+  outs = ["bar"],
+  cmd = "ls -lL \$(SRCS) > \$@",
+  tags = ["no-remote"],
+)
+EOF
+
+  # no remote execution
+  bazel build \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # normal remote execution
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  bazel clean >& $TEST_log || fail "Failed to clean"
+
+  # build without bytes
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  ls -l bazel-bin/a/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  ls -l bazel-bin/a/foo >& $TEST_log
+  expect_log "-r-xr-xr-x"
+
+  cat bazel-bin/a/bar >& $TEST_log
+  expect_log "-r-xr-xr-x"
 }
+
+run_suite "Remote execution and remote cache tests"

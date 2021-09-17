@@ -648,10 +648,11 @@ public class RemoteExecutionService {
      */
     Collections.sort(finishedDownloads, Comparator.comparing(f -> toTmpDownloadPath(f.path())));
 
-    // Move the output files from their temporary name to the actual output file name.
+    // Move the output files from their temporary name to the actual output file name. Executable
+    // bit
+    // is ignored since the file permission will be changed to 0555 after execution.
     for (FileMetadata outputFile : finishedDownloads) {
       FileSystemUtils.moveFile(toTmpDownloadPath(outputFile.path()), outputFile.path());
-      outputFile.path().setExecutable(outputFile.isExecutable());
     }
   }
 

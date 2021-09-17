@@ -77,7 +77,7 @@ public class UploadManifestTest {
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest);
+    expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest).setIsExecutable(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -135,7 +135,7 @@ public class UploadManifestTest {
     assertThat(um.getDigestToFile()).containsExactly(digest, link);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest);
+    expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest).setIsExecutable(true);
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 

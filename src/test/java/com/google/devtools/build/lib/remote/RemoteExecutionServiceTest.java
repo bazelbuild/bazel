@@ -163,8 +163,10 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_outputFiles_maintainsExecutableBit() throws Exception {
-    // Test that downloading output files maintains executable bit works.
+  public void downloadOutputs_outputFiles_executableBitIgnored() throws Exception {
+    // Test that executable bit of downloaded output files are ignored since it will be chmod 555
+    // after action
+    // execution.
 
     // arrange
     Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
@@ -190,7 +192,7 @@ public class RemoteExecutionServiceTest {
     assertThat(digestUtil.compute(execRoot.getRelative("outputs/foo"))).isEqualTo(fooDigest);
     assertThat(digestUtil.compute(execRoot.getRelative("outputs/bar"))).isEqualTo(barDigest);
     assertThat(execRoot.getRelative("outputs/foo").isExecutable()).isFalse();
-    assertThat(execRoot.getRelative("outputs/bar").isExecutable()).isTrue();
+    assertThat(execRoot.getRelative("outputs/bar").isExecutable()).isFalse();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -255,7 +257,7 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(digestUtil.compute(execRoot.getRelative("outputs/a/foo"))).isEqualTo(fooDigest);
     assertThat(digestUtil.compute(execRoot.getRelative("outputs/a/bar/qux"))).isEqualTo(quxDigest);
-    assertThat(execRoot.getRelative("outputs/a/bar/qux").isExecutable()).isTrue();
+    assertThat(execRoot.getRelative("outputs/a/bar/qux").isExecutable()).isFalse();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -1141,7 +1143,11 @@ public class RemoteExecutionServiceTest {
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFilesBuilder().setPath("outputs/a/foo").setDigest(fooDigest);
+    expectedResult
+        .addOutputFilesBuilder()
+        .setPath("outputs/a/foo")
+        .setDigest(fooDigest)
+        .setIsExecutable(true);
     expectedResult.addOutputDirectoriesBuilder().setPath("outputs/bar").setTreeDigest(barDigest);
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
 

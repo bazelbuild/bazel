@@ -173,9 +173,12 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
   private void finalizeDownload(Path path) {
     try {
-      path.chmod(0755);
+      // The permission of output file is changed to 0555 after action execution. We manually change
+      // the permission here
+      // for the downloaded file to keep this behaviour consistent.
+      path.chmod(0555);
     } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to chmod 755 on %s", path);
+      logger.atWarning().withCause(e).log("Failed to chmod 555 on %s", path);
     }
   }
 
