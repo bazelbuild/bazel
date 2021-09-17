@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import java.util.regex.Pattern;
-
 /**
  * C++-related file type definitions.
  */
 public final class CppFileTypes {
+  private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
+
   // .cu and .cl are CUDA and OpenCL source extensions, respectively. They are expected to only be
   // supported with clang. Bazel is not officially supporting these targets, and the extensions are
   // listed only as long as they work with the existing C++ actions.
@@ -64,7 +66,7 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return path.endsWith(ext) && !PIC_PREPROCESSED_C.matches(path);
+          return OS.endsWith(path, ext) && !PIC_PREPROCESSED_C.matches(path);
         }
 
         @Override
@@ -79,7 +81,7 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return path.endsWith(ext) && !PIC_PREPROCESSED_CPP.matches(path);
+          return OS.endsWith(path, ext) && !PIC_PREPROCESSED_CPP.matches(path);
         }
 
         @Override
@@ -96,7 +98,7 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return (path.endsWith(ext) && !PIC_ASSEMBLER.matches(path)) || path.endsWith(".asm");
+          return (OS.endsWith(path, ext) && !PIC_ASSEMBLER.matches(path)) || OS.endsWith(path, ".asm");
         }
 
         @Override
@@ -114,11 +116,11 @@ public final class CppFileTypes {
         public boolean apply(String path) {
           if (PIC_ARCHIVE.matches(path)
               || ALWAYS_LINK_LIBRARY.matches(path)
-              || path.endsWith(".if.lib")) {
+              || OS.endsWith(path, ".if.lib")) {
             return false;
           }
           for (String ext : extensions) {
-            if (path.endsWith(ext)) {
+            if (OS.endsWith(path, ext)) {
               return true;
             }
           }
@@ -138,8 +140,8 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return (path.endsWith(ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(path))
-              || path.endsWith(".lo.lib");
+          return (OS.endsWith(path, ext) && !ALWAYS_LINK_PIC_LIBRARY.matches(path))
+              || OS.endsWith(path, ".lo.lib");
         }
 
         @Override
@@ -155,7 +157,7 @@ public final class CppFileTypes {
 
         @Override
         public boolean apply(String path) {
-          return (path.endsWith(ext) && !PIC_OBJECT_FILE.matches(path)) || path.endsWith(".obj");
+          return (OS.endsWith(path, ext) && !PIC_OBJECT_FILE.matches(path)) || OS.endsWith(path, ".obj");
         }
 
         @Override
@@ -220,7 +222,7 @@ public final class CppFileTypes {
           // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't
           // have '.inc' files in the module map (since they're implictly textual).
           // TODO(bazel-team): Use HEADERS file type once clang-700 is the base clang we support.
-          return artifact.getFilename().endsWith(".h");
+          return OS.endsWith(artifact.getFilename(), ".h");
         }
       };
 
