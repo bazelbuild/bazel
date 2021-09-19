@@ -18,7 +18,9 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -35,6 +37,12 @@ import org.junit.runner.RunWith;
 public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTestCase {
 
   @TestParameter private boolean keepGoing;
+
+  @Before
+  public void stageEmbeddedTools() throws Exception {
+    AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
+    MockGenruleSupport.setup(mockToolsConfig);
+  }
 
   @Before
   public void setOptions() {
