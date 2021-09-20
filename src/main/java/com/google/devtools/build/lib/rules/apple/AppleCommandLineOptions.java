@@ -497,6 +497,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // build.
     host.preferMutualXcode = preferMutualXcode;
     host.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
+    host.appleCrosstoolTop = appleCrosstoolTop;
 
     return host;
   }
