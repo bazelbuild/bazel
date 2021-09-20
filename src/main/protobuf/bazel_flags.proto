@@ -35,6 +35,12 @@ message FlagInfo {
   optional string abbreviation = 5;
   // True if a flag is allowed to occur multiple times in a single arg list.
   optional bool allows_multiple = 6 [default = false];
+  // The effect tags associated with the flag
+  repeated string effect_tags = 7;
+  // The metadata tags associated with the flag
+  repeated string metadata_tags = 8;
+  // The documentation category assigned to this flag, empty if uncategorized
+  optional string documentation_category = 9;
 }
 
 message FlagCollection {
