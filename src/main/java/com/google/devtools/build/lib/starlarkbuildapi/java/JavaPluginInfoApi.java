@@ -84,6 +84,11 @@ public interface JavaPluginInfoApi<
             "Returns the files needed during execution by the encapsulated annotation processors.",
         structField = true)
     Depset /*<FileApi>*/ getProcessorDataForStarlark();
+
+    @Override
+    default boolean isImmutable() {
+      return true;
+    }
   }
 
   @StarlarkMethod(
