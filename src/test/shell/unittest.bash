@@ -704,7 +704,17 @@ function run_suite() {
         # Run test in a subshell.
         rm -f $TEST_TMPDIR/__err_handled
         __trap_with_arg __test_terminated INT KILL PIPE TERM ABRT FPE ILL QUIT SEGV
+
+        # Remember -o pipefail value and disable it for the subshell result
+        # collection.
+        if [[ "${SHELLOPTS}" =~ (^|:)pipefail(:|$) ]]; then
+          __opt_switch=-o
+        else
+          __opt_switch=+o
+        fi
+        set +o pipefail
         (
+          set "${__opt_switch}" pipefail
           timestamp >$TEST_TMPDIR/__ts_start
           testenv_set_up
           set_up
@@ -719,6 +729,7 @@ function run_suite() {
         # their stdout.
 
         test_subshell_status=${PIPESTATUS[0]}
+        set "${__opt_switch}" pipefail
         if [ "$test_subshell_status" != 0 ]; then
           TEST_passed="false"
           # Ensure that an end time is recorded in case the test subshell
