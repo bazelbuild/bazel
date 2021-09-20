@@ -626,7 +626,6 @@ public class CompilationSupport implements StarlarkValue {
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .addNonCodeLinkerInputs(bazelBuiltLibraries)
             .addNonCodeLinkerInputs(objcProvider.getCcLibraries())
-            .addNonCodeLinkerInputs(ImmutableList.copyOf(prunedJ2ObjcArchives))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(extraLinkInputs))
             .addNonCodeLinkerInputs(ImmutableList.copyOf(attributes.linkInputs()))
             .addNonCodeLinkerInputs(ImmutableList.of(inputFileList))
