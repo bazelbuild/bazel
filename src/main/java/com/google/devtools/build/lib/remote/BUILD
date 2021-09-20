@@ -99,6 +99,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party:rxjava3",
+        "//third_party:zstd-jni",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",

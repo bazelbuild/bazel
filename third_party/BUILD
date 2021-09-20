@@ -143,6 +143,12 @@ distrib_java_import(
 )
 
 distrib_java_import(
+    name = "zstd-jni",
+    enable_distributions = ["debian"],
+    jars = ["zstd-jni/zstd-jni-1.5.0-4.jar"],
+)
+
+distrib_java_import(
     name = "apache_commons_logging",
     enable_distributions = ["debian"],
     jars = ["apache_commons_logging/commons-logging-1.1.1.jar"],
