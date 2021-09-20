@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyZeroInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.testing.junit.runner.util.TestClock.TestInstant;
@@ -49,7 +49,7 @@ public class TestSuiteNodeTest {
   @Test
   public void testIsTestCase() {
     assertThat(testSuiteNode.isTestCase()).isFalse();
-    verifyZeroInteractions(testCaseNode);
+    verifyNoMoreInteractions(testCaseNode);
   }
 
   @Test
@@ -83,7 +83,7 @@ public class TestSuiteNodeTest {
     Exception failure = new Exception();
     testSuiteNode.dynamicTestFailure(dynamicTestCaseDescription, failure, NOW);
     verify(testCaseNode, times(1)).dynamicTestFailure(dynamicTestCaseDescription, failure, NOW);
-    verifyZeroInteractions(dynamicTestCaseDescription);
+    verifyNoMoreInteractions(dynamicTestCaseDescription);
   }
 
   @Test
