@@ -365,6 +365,14 @@ public final class RemoteOptions extends OptionsBase {
   public boolean incompatibleRemoteSymlinks;
 
   @Option(
+      name = "experimental_cache_bytestream_compression",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, compress/decompress cache blobs with zstd.")
+  public boolean cacheByteStreamCompression;
+
+  @Option(
       name = "build_event_upload_max_threads",
       defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
