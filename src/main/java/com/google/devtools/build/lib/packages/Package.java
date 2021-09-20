@@ -19,7 +19,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -978,7 +977,10 @@ public class Package {
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
-    private BiMap<String, Target> targets = HashBiMap.create();
+    // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
+    // Rule targets, for use by native.existing_rules().
+    private BiMap<String, Target> targets =
+        new SnapshottableBiMap<>(target -> target instanceof Rule);
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
     /**
@@ -1479,18 +1481,44 @@ public class Package {
     }
 
     /**
-     * Removes a target from the {@link Package} under construction. Intended to be used only by
-     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose labels
-     * cross subpackage boundaries.
+     * Replaces a target in the {@link Package} under construction with a new target with the same
+     * name and belonging to the same package.
+     *
+     * <p>A hack needed for {@link WorkspaceFactoryHelper}.
      */
-    void removeTarget(Target target) {
-      if (target.getPackage() == pkg) {
-        this.targets.remove(target.getName());
-      }
+    void replaceTarget(Target newTarget) {
+      Preconditions.checkArgument(
+          targets.containsKey(newTarget.getName()),
+          "No existing target with name '%s' in the targets map",
+          newTarget.getName());
+      Preconditions.checkArgument(
+          newTarget.getPackage() == pkg, // pointer comparison since we're constructing `pkg`
+          "Replacement target belongs to package '%s', expected '%s'",
+          newTarget.getPackage(),
+          pkg);
+      targets.put(newTarget.getName(), newTarget);
     }
 
     public Set<Target> getTargets() {
       return Package.getTargets(targets);
+    }
+
+    /**
+     * Returns a lightweight snapshot view of the names of all rule targets belonging to this
+     * package at the time of this call.
+     *
+     * @throws IllegalStateException if this method is called after {@link beforeBuild} has been
+     *     called.
+     */
+    Map<String, Rule> getRulesSnapshotView() {
+      if (targets instanceof SnapshottableBiMap<?, ?>) {
+        return Maps.transformValues(
+            ((SnapshottableBiMap<String, Target>) targets).getTrackedSnapshot(),
+            target -> (Rule) target);
+      } else {
+        throw new IllegalStateException(
+            "getRulesSnapshotView() cannot be used after beforeBuild() has been called");
+      }
     }
 
     /**
@@ -1556,8 +1584,10 @@ public class Package {
       if (!((InputFile) cacheInstance).isVisibilitySpecified()
           || cacheInstance.getVisibility() != visibility
           || !Objects.equals(cacheInstance.getLicense(), license)) {
-        targets.put(filename, new InputFile(
-            pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
+        targets.put(
+            filename,
+            new InputFile(
+                pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
       }
     }
 
@@ -1716,6 +1746,17 @@ public class Package {
       if (ioException != null) {
         throw new NoSuchPackageException(
             getPackageIdentifier(), ioExceptionMessage, ioException, ioExceptionDetailedExitCode);
+      }
+
+      // SnapshottableBiMap does not allow removing targets (in order to efficiently track rule
+      // insertion order). However, we *do* need to support removal of targets in
+      // PackageFunction.handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions
+      // which is called *between* calls to beforeBuild and finishBuild. We thus repoint the targets
+      // map to the SnapshottableBiMap's underlying bimap and thus stop tracking insertion order.
+      // After this point, snapshots of targets should no longer be used, and any further
+      // getRulesSnapshotView calls will throw.
+      if (targets instanceof SnapshottableBiMap<?, ?>) {
+        targets = ((SnapshottableBiMap<String, Target>) targets).getUnderlyingBiMap();
       }
 
       // We create the original BUILD InputFile when the package filename is set; however, the

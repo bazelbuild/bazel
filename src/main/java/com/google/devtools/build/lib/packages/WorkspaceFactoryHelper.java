@@ -152,10 +152,9 @@ public class WorkspaceFactoryHelper {
       if (old instanceof Rule) {
         Verify.verify(((Rule) old).getOutputFiles().isEmpty());
       }
-
-      pkg.removeTarget(rule);
+      pkg.replaceTarget(rule);
+    } else {
+      pkg.addRule(rule);
     }
-
-    pkg.addRule(rule);
   }
 }
