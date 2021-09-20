@@ -438,7 +438,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     return uploader.uploadBlobAsync(
         context,
         digest,
-        Chunker.builder().setInput(digest.getSizeBytes(), path).build(),
+        Chunker.builder()
+            .setInput(digest.getSizeBytes(), path)
+            .setCompressed(options.cacheByteStreamCompression)
+            .build(),
         /* forceUpload= */ true);
   }
 
@@ -448,7 +451,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     return uploader.uploadBlobAsync(
         context,
         digest,
-        Chunker.builder().setInput(data.toByteArray()).build(),
+        Chunker.builder()
+            .setInput(data.toByteArray())
+            .setCompressed(options.cacheByteStreamCompression)
+            .build(),
         /* forceUpload= */ true);
   }
 }

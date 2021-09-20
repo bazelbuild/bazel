@@ -130,7 +130,7 @@ public class ChunkerTest {
       return in.get();
     };
 
-    Chunker chunker = new Chunker(supplier, data.length, 1);
+    Chunker chunker = new Chunker(supplier, data.length, 1, false);
     assertThat(in.get()).isNull();
     assertNextEquals(chunker, (byte) 1);
     Mockito.verify(in.get(), Mockito.never()).close();

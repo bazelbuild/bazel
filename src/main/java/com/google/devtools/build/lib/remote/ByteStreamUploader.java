@@ -298,9 +298,11 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     }
   }
 
-  private static String buildUploadResourceName(String instanceName, UUID uuid, Digest digest) {
-    String resourceName =
-        format("uploads/%s/blobs/%s/%d", uuid, digest.getHash(), digest.getSizeBytes());
+  private static String buildUploadResourceName(
+      String instanceName, UUID uuid, Digest digest, boolean compressed) {
+    String template =
+        compressed ? "uploads/%s/compressed-blobs/zstd/%s/%d" : "uploads/%s/blobs/%s/%d";
+    String resourceName = format(template, uuid, digest.getHash(), digest.getSizeBytes());
     if (!Strings.isNullOrEmpty(instanceName)) {
       resourceName = instanceName + "/" + resourceName;
     }
@@ -325,7 +327,8 @@ class ByteStreamUploader extends AbstractReferenceCounted {
     }
 
     UUID uploadId = UUID.randomUUID();
-    String resourceName = buildUploadResourceName(instanceName, uploadId, digest);
+    String resourceName =
+        buildUploadResourceName(instanceName, uploadId, digest, chunker.isCompressed());
     AsyncUpload newUpload =
         new AsyncUpload(
             context,
@@ -405,7 +408,8 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               () ->
                   retrier.executeAsync(
                       () -> {
-                        if (committedOffset.get() < chunker.getSize()) {
+                        if (chunker.bytesLeft() != 0
+                            || committedOffset.get() < chunker.getActualSize()) {
                           return callAndQueryOnFailure(committedOffset, progressiveBackoff);
                         }
                         return Futures.immediateFuture(null);
@@ -417,7 +421,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
           callFuture,
           (result) -> {
             long committedSize = committedOffset.get();
-            long expected = chunker.getSize();
+            long expected = chunker.getActualSize();
             if (committedSize != expected) {
               String message =
                   format(

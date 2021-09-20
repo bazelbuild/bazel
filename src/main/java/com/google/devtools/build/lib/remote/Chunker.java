@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
@@ -25,12 +26,14 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -53,6 +56,10 @@ public final class Chunker {
 
   static int getDefaultChunkSize() {
     return defaultChunkSize;
+  }
+
+  public boolean isCompressed() {
+    return compressed;
   }
 
   /** A piece of a byte[] blob. */
@@ -102,15 +109,23 @@ public final class Chunker {
   private long offset;
   private byte[] chunkCache;
 
+
+  private final boolean compressed;
+  private ByteArrayOutputStream baos;
+  private ZstdOutputStream zos;
+
   // Set to true on the first call to next(). This is so that the Chunker can open its data source
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  Chunker(Supplier<InputStream> dataSupplier, long size, int chunkSize) {
+  private AtomicLong actualSize = new AtomicLong(0);
+
+  Chunker(Supplier<InputStream> dataSupplier, long size, int chunkSize, boolean compressed) {
     this.dataSupplier = checkNotNull(dataSupplier);
     this.size = size;
     this.chunkSize = chunkSize;
     this.emptyChunk = new Chunk(ByteString.EMPTY, 0);
+    this.compressed = compressed;
   }
 
   public long getOffset() {
@@ -121,6 +136,13 @@ public final class Chunker {
     return size;
   }
 
+  public long getActualSize() {
+    long actualSize = this.actualSize.get();
+    checkState(bytesLeft() == 0);
+    checkState(compressed || actualSize == size);
+    return actualSize;
+  }
+
   /**
    * Reset the {@link Chunker} state to when it was newly constructed.
    *
@@ -129,6 +151,14 @@ public final class Chunker {
   public void reset() throws IOException {
     if (data != null) {
       data.close();
+    }
+    if (zos != null) {
+      zos.close();
+      zos = null;
+    }
+    if (baos != null) {
+      baos.close();
+      baos = null;
     }
     data = null;
     offset = 0;
@@ -146,7 +176,35 @@ public final class Chunker {
       reset();
     }
     maybeInitialize();
-    ByteStreams.skipFully(data, toOffset - offset);
+    if (compressed && toOffset > 0) {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      ZstdOutputStream zos = new ZstdOutputStream(baos);
+      long remaining = toOffset;
+
+      while (remaining > 0) {
+        int toRead = (int) Math.min(chunkSize, remaining);
+        byte[] chunk = new byte[toRead];
+        int read = 0;
+        while(read != toRead) {
+            int n = data.read(chunk, read, toRead - read);
+            if (n < 0) {
+              throw new EOFException("Reached end of stream before finishing seeking!");
+            }
+            read += n;
+        }
+        remaining -= toRead;
+        zos.write(chunk);
+        zos.flush();
+        if (remaining == 0 && toOffset == size) {
+          zos.close();
+        }
+        actualSize.addAndGet(baos.toByteArray().length);
+        baos.reset();
+      }
+    } else {
+      ByteStreams.skipFully(data, toOffset - offset);
+      actualSize.addAndGet(toOffset);
+    }
     offset = toOffset;
   }
 
@@ -201,10 +259,25 @@ public final class Chunker {
       throw new IllegalStateException("Reached EOF, but expected "
           + bytesToRead + " bytes.", e);
     }
+
+    ByteString blob;
+    if (compressed) {
+      zos.write(chunkCache, 0, bytesToRead);
+      zos.flush();
+      if (size - offsetBefore - bytesToRead == 0) {
+        zos.close();
+      }
+      byte[] compressed = baos.toByteArray();
+      baos.reset();
+      blob = ByteString.copyFrom(compressed, 0, compressed.length);
+    } else {
+      blob = ByteString.copyFrom(chunkCache, 0, bytesToRead);
+    }
+    actualSize.addAndGet(blob.size());
+
+    // This has to happen after actualSize has been updated
+    // or the guard in getActualSize won't work.
     offset += bytesToRead;
-
-    ByteString blob = ByteString.copyFrom(chunkCache, 0, bytesToRead);
-
     if (bytesLeft() == 0) {
       data.close();
       data = null;
@@ -225,12 +298,19 @@ public final class Chunker {
     checkState(data == null);
     checkState(offset == 0);
     checkState(chunkCache == null);
+    checkState(zos == null);
+    checkState(baos == null);
     try {
       data = dataSupplier.get();
     } catch (RuntimeException e) {
       Throwables.propagateIfPossible(e.getCause(), IOException.class);
       throw e;
     }
+    if (compressed) {
+      baos = new ByteArrayOutputStream();
+      zos = new ZstdOutputStream(baos);
+    }
+    actualSize = new AtomicLong(0);
     initialized = true;
   }
 
@@ -242,12 +322,18 @@ public final class Chunker {
   public static class Builder {
     private int chunkSize = getDefaultChunkSize();
     private long size;
+    private boolean compressed;
     private Supplier<InputStream> inputStream;
 
     public Builder setInput(byte[] data) {
       checkState(inputStream == null);
       size = data.length;
       inputStream = () -> new ByteArrayInputStream(data);
+      return this;
+    }
+
+    public Builder setCompressed(boolean compressed) {
+      this.compressed = compressed;
       return this;
     }
 
@@ -305,7 +391,7 @@ public final class Chunker {
 
     public Chunker build() {
       checkNotNull(inputStream);
-      return new Chunker(inputStream, size, chunkSize);
+      return new Chunker(inputStream, size, chunkSize, compressed);
     }
   }
 }
