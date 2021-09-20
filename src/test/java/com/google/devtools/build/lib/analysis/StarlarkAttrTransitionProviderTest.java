@@ -345,6 +345,51 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testNullTransitionAttributeWithMissingSkyframeDep() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/starlark/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def transition_func(settings, attr):",
+        "  return {'//test/starlark/nested:flag': True}",
+        "my_transition = transition(",
+        "  implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = ['//test/starlark/nested:flag']",
+        ")",
+        "def _impl(ctx): ",
+        "  return MyInfo(data = ctx.attr.data)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'data': attr.label_list(cfg = my_transition, allow_files = True, default = []),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  }",
+        ")",
+        "def _basic_impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")"
+    );
+
+    scratch.file("test/starlark/nested/BUILD",
+        "load('//test/starlark:rules.bzl', 'bool_flag')",
+        "bool_flag(name = 'flag', build_setting_default = False)"
+    );
+    scratch.file("test/starlark/some_file.txt", "Random content");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "my_rule(name = 'test', data = ['some_file.txt'])");
+
+    assertThat(getConfiguredTarget("//test/starlark:test")).isNotNull();
+  }
+
+  @Test
   public void testTargetAndRuleNotInAllowlist() throws Exception {
     writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
