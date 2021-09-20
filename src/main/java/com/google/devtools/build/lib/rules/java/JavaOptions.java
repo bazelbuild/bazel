@@ -544,7 +544,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_require_javaplugininfo_in_javacommon",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
