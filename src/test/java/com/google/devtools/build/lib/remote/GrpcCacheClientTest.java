@@ -38,6 +38,7 @@ import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
+import com.github.luben.zstd.Zstd;
 import com.google.api.client.json.GenericJson;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -105,6 +106,7 @@ import io.reactivex.rxjava3.core.Single;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -1086,6 +1088,46 @@ public class GrpcCacheClientTest {
         });
 
     assertThat(downloadBlob(context, client, digest)).isEqualTo(downloadContents.toByteArray());
+  }
+
+  @Test
+  public void testCompressedDownload() throws IOException, InterruptedException {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.cacheByteStreamCompression = true;
+    final GrpcCacheClient client = newClient(options);
+    final byte[] data = "abcdefg".getBytes();
+    final Digest digest = DIGEST_UTIL.compute(data);
+    final byte[] compressed = Zstd.compress(data);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            responseObserver.onNext(
+                ReadResponse.newBuilder()
+                    .setData(
+                        ByteString.copyFrom(
+                            Arrays.copyOfRange(compressed, 0, compressed.length / 3)))
+                    .build());
+            responseObserver.onNext(
+                ReadResponse.newBuilder()
+                    .setData(
+                        ByteString.copyFrom(
+                            Arrays.copyOfRange(
+                                compressed, compressed.length / 3, compressed.length / 3 * 2)))
+                    .build());
+            responseObserver.onNext(
+                ReadResponse.newBuilder()
+                    .setData(
+                        ByteString.copyFrom(
+                            Arrays.copyOfRange(
+                                compressed, compressed.length / 3 * 2, compressed.length)))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    assertThat(downloadBlob(context, client, digest)).isEqualTo(data);
   }
 
   @Test
