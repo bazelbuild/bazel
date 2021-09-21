@@ -1015,13 +1015,13 @@ other flags for specifying strategy.
   <var>resources or resource expression</var></h4>
 <p>
   These options specify the amount of local resources (RAM in MB and number of CPU logical cores)
-  that Bazel can take into consideration when scheduling build and test activities. They take
-  an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
+  that Bazel can take into consideration when scheduling build and test activities to run locally.
+  They take an integer, or a keyword (HOST_RAM or HOST_CPUS) optionally followed by [-|*<code>float</code>]
   (for example, <code class='flag'>--local_cpu_resources=2</code>,
   <code class='flag'>--local_ram_resources=HOST_RAM*.5</code>,
   <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
-  The flags are independent; one or both may be set. By default Bazel will estimate amount of RAM
-  and number of CPU cores directly from system configuration.
+  The flags are independent; one or both may be set. By default Bazel will estimate the amount of
+  RAM and number of CPU cores directly from the local system's configuration.
 </p>
 
 <h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>
