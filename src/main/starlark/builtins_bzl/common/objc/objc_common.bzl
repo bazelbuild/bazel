@@ -39,11 +39,20 @@ def _create_context_and_provider(
         if apple_common.Objc in dep:
             objc_providers.append(dep[apple_common.Objc])
         elif CcInfo in dep:
+            # This is the way we inject cc_library attributes into direct fields.
             cc_compilation_contexts_for_direct_fields.append(dep[CcInfo].compilation_context)
+
+            # We only use CcInfo's linking info if there is no ObjcProvider.
+            # This is required so that objc_library archives do not get treated
+            # as if they are from cc targets.
             cc_linking_contexts.append(dep[CcInfo].linking_context)
 
         if CcInfo in dep:
             cc_compilation_contexts.append(dep[CcInfo].compilation_context)
+
+            # Temporary solution to specially handle linkstamps, so that they
+            # don't get dropped.  When linking info has been fully migrated to
+            # CcInfo, we can drop this.
             cc_linkstamp_contexts.append(dep[CcInfo].linking_context)
 
     runtime_objc_providers = []
