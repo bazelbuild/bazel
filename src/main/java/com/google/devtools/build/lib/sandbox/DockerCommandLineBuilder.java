@@ -113,7 +113,7 @@ final class DockerCommandLineBuilder {
     return this;
   }
 
-  public List<String> build() {
+  public ImmutableList<String> build() {
     Preconditions.checkNotNull(sandboxExecRoot, "sandboxExecRoot must be set");
     Preconditions.checkState(!imageName.isEmpty(), "imageName must be set");
     Preconditions.checkState(!commandArguments.isEmpty(), "commandArguments must be set");

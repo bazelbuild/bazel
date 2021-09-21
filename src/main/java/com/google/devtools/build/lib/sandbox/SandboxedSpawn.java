@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -32,10 +32,10 @@ interface SandboxedSpawn {
   Path getSandboxExecRoot();
 
   /** The command-line of the subprocess. */
-  List<String> getArguments();
+  ImmutableList<String> getArguments();
 
   /** The environment variables to be set for the subprocess. */
-  Map<String, String> getEnvironment();
+  ImmutableMap<String, String> getEnvironment();
 
   /** Returns {@code true}, if the runner should use the Subprocess timeout feature. */
   default boolean useSubprocessTimeout() {

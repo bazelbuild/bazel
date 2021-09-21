@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -86,7 +87,7 @@ public class CommandEnvironment {
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
-  private final Map<String, String> clientEnv;
+  private final ImmutableMap<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
   private final Map<String, String> repoEnv = new TreeMap<>();
@@ -380,7 +381,7 @@ public class CommandEnvironment {
    * Return an unmodifiable view of the blaze client's environment when it invoked the current
    * command.
    */
-  public Map<String, String> getClientEnv() {
+  public ImmutableMap<String, String> getClientEnv() {
     return clientEnv;
   }
 
@@ -422,13 +423,13 @@ public class CommandEnvironment {
     return Collections.unmodifiableMap(result);
   }
 
-  private static Map<String, String> makeMapFromMapEntries(
+  private static ImmutableMap<String, String> makeMapFromMapEntries(
       List<Map.Entry<String, String>> mapEntryList) {
     Map<String, String> result = new TreeMap<>();
     for (Map.Entry<String, String> entry : mapEntryList) {
       result.put(entry.getKey(), entry.getValue());
     }
-    return Collections.unmodifiableMap(result);
+    return ImmutableMap.copyOf(result);
   }
 
   private UUID computeCommandId(UUID idFromOptions, List<String> warnings) {

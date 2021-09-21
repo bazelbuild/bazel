@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.sandbox;
 
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -26,8 +28,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -40,8 +40,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   final Path sandboxPath;
   final Path sandboxExecRoot;
-  private final List<String> arguments;
-  private final Map<String, String> environment;
+  private final ImmutableList<String> arguments;
+  private final ImmutableMap<String, String> environment;
   final SandboxInputs inputs;
   final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
@@ -51,8 +51,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   public AbstractContainerizingSandboxedSpawn(
       Path sandboxPath,
       Path sandboxExecRoot,
-      List<String> arguments,
-      Map<String, String> environment,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
       SandboxInputs inputs,
       SandboxOutputs outputs,
       Set<Path> writableDirs,
@@ -75,12 +75,12 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   }
 
   @Override
-  public List<String> getArguments() {
+  public ImmutableList<String> getArguments() {
     return arguments;
   }
 
   @Override
-  public Map<String, String> getEnvironment() {
+  public ImmutableMap<String, String> getEnvironment() {
     return environment;
   }
 
