@@ -529,8 +529,7 @@ dep_rule_with_prov_a(
 
 EOF
 
-  bazel build "${package}:main" \
-      --experimental_required_aspects &>"$TEST_log" \
+  bazel build "${package}:main" &>"$TEST_log" \
       || fail "Build failed but should have succeeded"
 
   # base_aspect will run on dep_target_without_providers,
@@ -610,8 +609,7 @@ rule_r(
 )
 EOF
 
-  bazel build "${package}:test" \
-      --experimental_required_aspects &>"$TEST_log" \
+  bazel build "${package}:test" &>"$TEST_log" \
       || fail "Build failed but should have succeeded"
 
   # Check that aspects: aspect_a, aspect_b, aspect_c were propagated to the
@@ -892,8 +890,7 @@ rule_2(
 )
 EOF
 
-  bazel build "//${package}:t1"\
-        --experimental_required_aspects &> $TEST_log || fail "Build failed"
+  bazel build "//${package}:t1" &> $TEST_log || fail "Build failed"
 
   expect_log "aspect_a run on target t3"
   expect_log "aspect_b run on target t3"
@@ -976,8 +973,7 @@ rule_3(
 )
 EOF
 
-  bazel build "//${package}:t1"\
-        --experimental_required_aspects &> $TEST_log || fail "Build failed"
+  bazel build "//${package}:t1" &> $TEST_log || fail "Build failed"
 
   expect_log "aspect_a run on target t4"
   expect_log "aspect_b run on target t4"

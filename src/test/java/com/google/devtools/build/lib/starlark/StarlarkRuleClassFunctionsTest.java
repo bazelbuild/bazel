@@ -427,8 +427,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testAttrWithAspectRequiringAspects_stackOfRequiredAspects() throws Exception {
-    setBuildLanguageOptions("--experimental_required_aspects=true");
-
     evalAndExport(
         ev,
         "def _impl(target, ctx):",
@@ -453,8 +451,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrWithAspectRequiringAspects_aspectRequiredByMultipleAspects()
       throws Exception {
-    setBuildLanguageOptions("--experimental_required_aspects=true");
-
     evalAndExport(
         ev,
         "def _impl(target, ctx):",
@@ -479,8 +475,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrWithAspectRequiringAspects_aspectRequiredByMultipleAspects2()
       throws Exception {
-    setBuildLanguageOptions("--experimental_required_aspects=true");
-
     evalAndExport(
         ev,
         "def _impl(target, ctx):",
@@ -511,8 +505,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testAttrWithAspectRequiringAspects_requireExistingAspect_passed() throws Exception {
-    setBuildLanguageOptions("--experimental_required_aspects=true");
-
     evalAndExport(
         ev,
         "def _impl(target, ctx):",
@@ -533,7 +525,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testAttrWithAspectRequiringAspects_requireExistingAspect_failed() throws Exception {
-    setBuildLanguageOptions("--experimental_required_aspects=true");
     ev.setFailFast(false);
 
     evalAndExport(
@@ -2355,7 +2346,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrWithAspectRequiringAspects_requiredNativeAspect_getsParamsFromBaseRules()
       throws Exception {
-    setBuildLanguageOptions("--experimental_required_aspects=true");
     scratch.file(
         "lib.bzl",
         "rule_prov = provider()",

@@ -448,8 +448,7 @@ rule_2(
 rule_2(name = 'dep_target_2')
 EOF
 
-  bazel build "//${package}:main_target"\
-        --experimental_required_aspects &> $TEST_log || fail "Build failed"
+  bazel build "//${package}:main_target" &> $TEST_log || fail "Build failed"
 
   expect_log "aspect_a can see file dep_target_2_aspect_b_file.txt"
   expect_log "dep_target_1 can see file dep_target_2_aspect_b_file.txt"

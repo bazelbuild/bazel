@@ -499,10 +499,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "requires",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkAspectApi.class)},
             named = true,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REQUIRED_ASPECTS,
             defaultValue = "[]",
-            valueWhenDisabled = "[]",
-            doc = "(Experimental) List of aspects required to be propagated before this aspect."),
+            doc = "List of aspects required to be propagated before this aspect."),
         @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},

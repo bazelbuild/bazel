@@ -443,6 +443,15 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     // Historically passed to all Bazel commands by certain tools.
     @Option(
+        name = "experimental_required_aspects",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.EXPERIMENTAL},
+        help = "No-op")
+    public boolean experimentalRequiredAspects;
+
+    @Option(
         name = "experimental_shadowed_action",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
