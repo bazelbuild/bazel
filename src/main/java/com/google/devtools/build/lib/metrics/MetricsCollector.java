@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -260,6 +262,14 @@ class MetricsCollector {
       // notification (which may arrive too late for this specific GC).
       memoryMetrics.setPeakPostGcHeapSize(usedHeapSizePostBuild);
     }
+
+    Map<String, Long> garbageStats = PostGCMemoryUseRecorder.get().getGarbageStats();
+    for (Map.Entry<String, Long> garbageEntry : garbageStats.entrySet()) {
+      GarbageMetrics.Builder garbageMetrics = GarbageMetrics.newBuilder();
+      garbageMetrics.setType(garbageEntry.getKey()).setGarbageCollected(garbageEntry.getValue());
+      memoryMetrics.addGarbageMetrics(garbageMetrics.build());
+    }
+
     return memoryMetrics.build();
   }
 
