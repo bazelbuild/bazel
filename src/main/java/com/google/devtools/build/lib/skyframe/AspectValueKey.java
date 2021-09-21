@@ -176,7 +176,7 @@ public final class AspectValueKey {
     }
 
     @Nullable
-    ImmutableList<AspectKey> getBaseKeys() {
+    public ImmutableList<AspectKey> getBaseKeys() {
       return baseKeys;
     }
 
