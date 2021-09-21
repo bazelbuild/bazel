@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.util;
 
 import static java.util.Map.Entry.comparingByKey;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -245,7 +246,8 @@ public class CommandFailureUtils {
    * Construct an error message that describes a failed command invocation. Currently this returns a
    * message of the form "error executing command foo bar baz".
    */
-  public static String describeCommandError(
+  @VisibleForTesting
+  static String describeCommandError(
       boolean verbose,
       Collection<String> commandLineElements,
       Map<String, String> env,
