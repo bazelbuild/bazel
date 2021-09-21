@@ -297,6 +297,106 @@ EOF
   grep "test_value" out.txt || fail "Did not find the test-action value"
 }
 
+function test_starlark_test_has_test_execgroup_by_default() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  if "$is_windows"; then
+    script_name="test_script.bat"
+    script_content="@echo off\necho hello\n"
+  else
+    script_name="test_script.sh"
+    script_content="#!/bin/bash\necho hello\n"
+  fi
+
+  cat > ${pkg}/defs.bzl <<EOF
+def _impl(ctx):
+    out_file = ctx.actions.declare_file("$script_name")
+    ctx.actions.write(out_file, "$script_content", is_executable=True)
+    return [DefaultInfo(executable = out_file)]
+
+starlark_test = rule(
+    implementation = _impl,
+    test = True,
+)
+EOF
+  cat > ${pkg}/BUILD <<EOF
+load("//$pkg:defs.bzl", "starlark_test")
+constraint_setting(name = "setting")
+constraint_value(name = "local", constraint_setting = ":setting")
+starlark_test(
+  name = "a_test",
+  exec_compatible_with = [":local"],
+)
+
+platform(
+    name = "my_platform",
+    parents = ["${default_host_platform}"],
+    exec_properties = {
+        "platform_key": "default_value",
+        "test.platform_key": "test_value",
+    },
+    constraint_values = [":local"],
+)
+EOF
+
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a_test --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_value" out.txt || fail "Did not find the test-action value"
+}
+
+function test_starlark_test_can_define_test_execgroup_manually() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir $pkg || fail "mkdir $pkg"
+
+  if "$is_windows"; then
+    script_name="test_script.bat"
+    script_content="@echo off\necho hello\n"
+  else
+    script_name="test_script.sh"
+    script_content="#!/bin/bash\necho hello\n"
+  fi
+
+  cat > ${pkg}/defs.bzl <<EOF
+def _impl(ctx):
+    out_file = ctx.actions.declare_file("$script_name")
+    ctx.actions.write(out_file, "$script_content", is_executable=True)
+    return [DefaultInfo(executable = out_file)]
+
+starlark_with_manual_test_exec_group_test = rule(
+    implementation = _impl,
+    test = True,
+    exec_groups = {
+        "test": exec_group(),
+    },
+)
+EOF
+  cat > ${pkg}/BUILD <<EOF
+load("//$pkg:defs.bzl", "starlark_with_manual_test_exec_group_test")
+constraint_setting(name = "setting")
+constraint_value(name = "local", constraint_setting = ":setting")
+
+starlark_with_manual_test_exec_group_test(
+  name = "a_test",
+  exec_compatible_with = [":local"],
+)
+
+platform(
+    name = "my_platform",
+    parents = ["${default_host_platform}"],
+    exec_properties = {
+        "platform_key": "default_value",
+        "test.platform_key": "test_value",
+    },
+    constraint_values = [":local"],
+)
+EOF
+
+  bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a_test --execution_log_json_file out.txt || fail "Test failed"
+  grep "platform_key" out.txt || fail "Did not find the platform key"
+  grep "test_value" out.txt || fail "Did not find the test-action value"
+}
+
 function test_platform_execgroup_properties_nongroup_override_cc_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
