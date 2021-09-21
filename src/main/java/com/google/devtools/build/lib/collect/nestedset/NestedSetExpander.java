@@ -25,7 +25,7 @@ import java.util.concurrent.TimeoutException;
  */
 public interface NestedSetExpander {
 
-  <T> ImmutableList<? extends T> toListInterruptibly(NestedSet<? extends T> nestedSet)
+  <T> ImmutableList<T> toListInterruptibly(NestedSet<T> nestedSet)
       throws InterruptedException, TimeoutException, MissingNestedSetException;
 
   /** Simply delegates to {@link NestedSet#toListInterruptibly} without doing anything special. */

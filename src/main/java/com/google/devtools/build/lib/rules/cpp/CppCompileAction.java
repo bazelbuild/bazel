@@ -541,7 +541,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return additionalInputs;
     }
 
-    Map<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
+    Map<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
         computeTransitivelyUsedModules(
             actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
     if (transitivelyUsedModules == null) {
@@ -553,7 +553,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // gives us an effective way to compute and store discoveredModules.
     Set<Artifact> topLevel = new LinkedHashSet<>(usedModules);
 
-    Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> iterator =
+    Iterator<Map.Entry<Artifact, NestedSet<Artifact>>> iterator =
         transitivelyUsedModules.entrySet().iterator();
     while (iterator.hasNext()) {
       // It is better to iterate over each nested set here instead of creating a joint one and
@@ -563,16 +563,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // (transitive, which is a linear scan).
       // We get a collection view of the NestedSet in a way that can throw an InterruptedException
       // because a NestedSet may contain a future.
-      Map.Entry<Artifact, NestedSet<? extends Artifact>> entry = iterator.next();
+      Map.Entry<Artifact, NestedSet<Artifact>> entry = iterator.next();
       Artifact dep = entry.getKey();
       if (!topLevel.contains(dep)) {
         // If this module was removed from topLevel because it is a dependency of another module,
         // we can safely ignore it now as all of its dependants have also been removed.
         continue;
       }
-      NestedSet<? extends Artifact> transitive = entry.getValue();
+      NestedSet<Artifact> transitive = entry.getValue();
 
-      List<? extends Artifact> modules;
+      List<Artifact> modules;
       try {
         modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
       } catch (TimeoutException | MissingNestedSetException e) {
@@ -662,7 +662,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   private LostInputsActionExecutionException lostInputsExceptionForFailedNestedSetExpansion(
       Artifact timedOut,
-      Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
+      Iterator<Map.Entry<Artifact, NestedSet<Artifact>>> remainingModules,
       Exception e,
       DetailedExitCode code) {
     ImmutableMap.Builder<String, ActionInput> lostInputsBuilder = ImmutableMap.builder();
@@ -1815,7 +1815,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * thus {@link #discoveredModules} aren't known yet, returns null.
    */
   @Nullable
-  private static Map<Artifact, NestedSet<? extends Artifact>> computeTransitivelyUsedModules(
+  private static ImmutableMap<Artifact, NestedSet<Artifact>> computeTransitivelyUsedModules(
       SkyFunction.Environment env, Collection<Artifact.DerivedArtifact> usedModules)
       throws InterruptedException {
     // Because this env.getValues call does not specify any exceptions, it is impossible for input
@@ -1829,7 +1829,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableMap.Builder<Artifact, NestedSet<? extends Artifact>> transitivelyUsedModules =
+    ImmutableMap.Builder<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
         ImmutableMap.builderWithExpectedSize(usedModules.size());
     for (Artifact.DerivedArtifact module : usedModules) {
       Preconditions.checkState(
