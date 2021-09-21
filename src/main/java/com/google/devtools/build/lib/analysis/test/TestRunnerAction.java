@@ -122,6 +122,7 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment undeclaredOutputsAnnotationsDir;
   private final PathFragment undeclaredOutputsManifestPath;
   private final PathFragment undeclaredOutputsAnnotationsPath;
+  private final PathFragment undeclaredOutputsAnnotationsPbPath;
   private final PathFragment xmlOutputPath;
   @Nullable private final PathFragment testShard;
   private final PathFragment testExitSafe;
@@ -248,6 +249,8 @@ public class TestRunnerAction extends AbstractAction
     this.undeclaredOutputsAnnotationsDir = baseDir.getChild("test.outputs_manifest");
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
+    this.undeclaredOutputsAnnotationsPbPath =
+        undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS.pb");
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
 
@@ -339,6 +342,7 @@ public class TestRunnerAction extends AbstractAction
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsZipPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
+    outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPbPath()));
     if (isCoverageMode()) {
       if (!splitCoveragePostProcessing) {
         outputs.add(coverageData);
@@ -396,6 +400,12 @@ public class TestRunnerAction extends AbstractAction
             Pair.of(
                 TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
                 resolvedPaths.getUndeclaredOutputsAnnotationsPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsAnnotationsPbPath().exists()) {
+        builder.add(
+            Pair.of(
+                TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS_PB,
+                resolvedPaths.getUndeclaredOutputsAnnotationsPbPath()));
       }
       if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
         builder.add(
@@ -735,6 +745,11 @@ public class TestRunnerAction extends AbstractAction
     return undeclaredOutputsAnnotationsPath;
   }
 
+  /** Returns path to the undeclared output annotations file. */
+  public PathFragment getUndeclaredOutputsAnnotationsPbPath() {
+    return undeclaredOutputsAnnotationsPbPath;
+  }
+
   public PathFragment getTestShard() {
     return testShard;
   }
@@ -1038,6 +1053,11 @@ public class TestRunnerAction extends AbstractAction
     /** Returns path to the undeclared output annotations file. */
     public Path getUndeclaredOutputsAnnotationsPath() {
       return getPath(undeclaredOutputsAnnotationsPath);
+    }
+
+    /** Returns path to the undeclared output annotations pb file. */
+    public Path getUndeclaredOutputsAnnotationsPbPath() {
+      return getPath(undeclaredOutputsAnnotationsPbPath);
     }
 
     @Nullable

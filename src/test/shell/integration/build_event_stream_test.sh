@@ -520,6 +520,45 @@ function test_test_attempts() {
   expect_not_log 'name:.*SUCCESS'
 }
 
+function test_undeclared_output_annotations() {
+  mkdir -p undeclared_annotations || fail "mkdir undeclared_annotations failed"
+  cat > undeclared_annotations/undeclared_annotations_test.sh <<'EOF'
+#!/bin/sh
+
+base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
+[ -d $base ] || exit 2
+[ ! -e $base/1.txt ]] | exit 2
+
+echo "some information" > $base/something.part
+EOF
+  chmod u+x undeclared_annotations/undeclared_annotations_test.sh
+  echo "sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
+    > undeclared_annotations/BUILD
+  bazel test  --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_test || fail "Expected success"
+  expect_log 'test_result'
+  expect_log 'test.outputs_manifest__ANNOTATIONS'
+  expect_not_log 'test.outputs_manifest__ANNOTATIONS.pb'
+}
+
+function test_undeclared_output_annotations_pb() {
+  mkdir -p undeclared_annotations || fail "mkdir undeclared_annotations failed"
+  cat > undeclared_annotations/undeclared_annotations_test.sh <<'EOF'
+#!/bin/sh
+
+base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
+[ -d $base ] || exit 2
+[ ! -e $base/1.txt ]] | exit 2
+
+echo "some information" > $base/something.pb
+EOF
+  chmod u+x undeclared_annotations/undeclared_annotations_test.sh
+  echo "sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
+    > undeclared_annotations/BUILD
+  bazel test --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_pb_test || fail "Expected success"
+  expect_log 'test_result'
+  expect_log 'test.outputs_manifest__ANNOTATIONS.pb'
+}
+
 function test_test_runtime() {
   bazel test --build_event_text_file=$TEST_log pkg:slow \
     || fail "bazel test failed"
