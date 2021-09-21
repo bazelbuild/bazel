@@ -299,7 +299,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   public void postLoggingStats(ExtendedEventHandler eventHandler) {
-    eventHandler.post(new SkyframeGraphStatsEvent(graph.getValues().size()));
+    eventHandler.post(new SkyframeGraphStatsEvent(graph.valuesSize()));
   }
 
   @Override

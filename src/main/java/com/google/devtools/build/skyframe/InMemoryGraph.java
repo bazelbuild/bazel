@@ -40,6 +40,10 @@ public interface InMemoryGraph extends ProcessableGraph {
    */
   Map<SkyKey, SkyValue> getValues();
 
+  default int valuesSize() {
+    return getValues().size();
+  }
+
   /**
    * Returns a read-only live view of the done values in the graph. Dirty, changed, and error values
    * are not present in the returned map
