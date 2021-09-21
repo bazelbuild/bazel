@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.github.luben.zstd.ZstdInputStream;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
@@ -63,6 +64,7 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -1343,6 +1345,99 @@ public class ByteStreamUploaderTest {
     Mockito.verifyNoInteractions(mockBackoff);
 
     blockUntilInternalStateConsistent(uploader);
+  }
+
+  @Test
+  public void testCompressedUploads() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            new ReferenceCountedChannel(channelConnectionFactory),
+            CallCredentialsProvider.NO_CREDENTIALS,
+            /* callTimeoutSecs= */ 60,
+            retrier);
+
+    byte[] blob = new byte[CHUNK_SIZE * 2 + 1];
+    new Random().nextBytes(blob);
+
+    AtomicInteger numUploads = new AtomicInteger();
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              ByteArrayOutputStream baos = new ByteArrayOutputStream();
+              String resourceName = null;
+
+              @Override
+              public void onNext(WriteRequest writeRequest) {
+                if (!writeRequest.getResourceName().isEmpty()) {
+                  if (resourceName != null) {
+                    assertThat(resourceName).isEqualTo(writeRequest.getResourceName());
+                  } else {
+                    resourceName = writeRequest.getResourceName();
+                    assertThat(resourceName.contains("/compressed-blobs/zstd/")).isTrue();
+                  }
+                }
+                try {
+                  baos.write(writeRequest.getData().toByteArray());
+                  if (writeRequest.getFinishWrite()) {
+                    baos.close();
+                  }
+                } catch (IOException e) {
+                  fail("I/O error on ByteArrayOutputStream.");
+                }
+              }
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                byte[] data = baos.toByteArray();
+                try {
+                  ZstdInputStream zis = new ZstdInputStream(new ByteArrayInputStream(data));
+                  byte[] decompressed = ByteString.readFrom(zis).toByteArray();
+                  zis.close();
+                  Digest digest = DIGEST_UTIL.compute(decompressed);
+
+                  assertThat(blob.length).isEqualTo(decompressed.length);
+                  assertThat(resourceName).isNotNull();
+                  assertThat(resourceName)
+                      .endsWith(String.format("/%s/%s", digest.getHash(), digest.getSizeBytes()));
+
+                  numUploads.incrementAndGet();
+                } catch (IOException e) {
+                  fail("Failed decompressing data.");
+                } finally {
+                  WriteResponse response =
+                      WriteResponse.newBuilder().setCommittedSize(data.length).build();
+
+                  streamObserver.onNext(response);
+                  streamObserver.onCompleted();
+                }
+              }
+            };
+          }
+        });
+
+    Chunker chunker =
+        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(CHUNK_SIZE).build();
+    HashCode hash = HashCode.fromString(DIGEST_UTIL.compute(blob).getHash());
+
+    uploader.uploadBlob(context, hash, chunker, true);
+
+    // This test should not have triggered any retries.
+    Mockito.verifyZeroInteractions(mockBackoff);
+
+    blockUntilInternalStateConsistent(uploader);
+
+    assertThat(numUploads.get()).isEqualTo(1);
   }
 
   private static class NoopStreamObserver implements StreamObserver<WriteRequest> {
