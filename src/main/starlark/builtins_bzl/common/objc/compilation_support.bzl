@@ -32,15 +32,11 @@ def _build_variable_extensions(
     if hasattr(ctx.attr, "pch") and ctx.attr.pch != None:
         extensions["pch_file"] = ctx.file.pch.path
 
-    extensions["modules_cache_path"] = ctx.genfiles_dir.path + "/" + "_objc_module_cache"
+    if "MODULE_MAP_VARIABLES" in variable_categories:
+        extensions["modules_cache_path"] = ctx.genfiles_dir.path + "/" + "_objc_module_cache"
 
-    if "ARCHIVE_VARIABLE" in variable_categories:
+    if "ARCHIVE_VARIABLES" in variable_categories:
         extensions["obj_list_path"] = intermediate_artifacts.archive_obj_list.path
-
-    if arc_enabled:
-        extensions["objc_arc"] = ""
-    else:
-        extensions["no_objc_arc"] = ""
 
     if "FULLY_LINK_VARIABLES" in variable_categories:
         extensions["fully_linked_archive_path"] = fully_link_archive.path
@@ -60,6 +56,11 @@ def _build_variable_extensions(
         extensions["objc_library_exec_paths"] = exclusively_objc_libs
         extensions["cc_library_exec_paths"] = cc_libs.keys()
         extensions["imported_library_exec_paths"] = import_paths
+
+    if arc_enabled:
+        extensions["objc_arc"] = ""
+    else:
+        extensions["no_objc_arc"] = ""
 
     return extensions
 
@@ -318,7 +319,7 @@ def _register_compile_and_archive_actions(
             priority_headers,
             "OBJC_ARCHIVE",
             obj_list,
-            ["ARCHIVE_VARIABLE"],
+            ["ARCHIVE_VARIABLES", "MODULE_MAP_VARIABLES"],
             generate_module_map_for_swift,
         )
 
@@ -334,7 +335,7 @@ def _register_compile_and_archive_actions(
             priority_headers,
             link_type = None,
             link_action_input = None,
-            variable_categories = [],
+            variable_categories = ["MODULE_MAP_VARIABLES"],
             generate_module_map_for_swift = generate_module_map_for_swift,
         )
 
