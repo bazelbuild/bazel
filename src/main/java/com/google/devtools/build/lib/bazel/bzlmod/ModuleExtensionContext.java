@@ -26,10 +26,9 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.Tuple;
 
 /** The Starlark object passed to the implementation function of module extensions. */
 @StarlarkBuiltin(
@@ -41,7 +40,7 @@ import net.starlark.java.eval.Tuple;
             + " argument to the <code>implementation</code> function when you create a module"
             + " extension.")
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
-  private final Dict<Tuple, StarlarkBazelModule> modules;
+  private final StarlarkList<StarlarkBazelModule> modules;
 
   protected ModuleExtensionContext(
       Path workingDirectory,
@@ -52,7 +51,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
-      Dict<Tuple, StarlarkBazelModule> modules) {
+      StarlarkList<StarlarkBazelModule> modules) {
     super(
         workingDirectory,
         env,
@@ -89,12 +88,11 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       name = "modules",
       structField = true,
       doc =
-          "A dictionary containing all the Bazel modules in the external dependency graph, each of"
-              + " which exposes all the tags it specified for this module extension. The keys of"
-              + " the returned dictionary are the (name, version) tuples of the modules. The"
-              + " iteration order of this dictionary is guaranteed to be the same as breadth-first"
-              + " search starting from the root module.")
-  public Dict<Tuple, StarlarkBazelModule> getModules() {
+          "A list of all the Bazel modules in the external dependency graph, each of which exposes"
+              + " all the tags it specified for this module extension. The iteration order of this"
+              + " dictionary is guaranteed to be the same as breadth-first search starting from the"
+              + " root module.")
+  public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
   }
 }

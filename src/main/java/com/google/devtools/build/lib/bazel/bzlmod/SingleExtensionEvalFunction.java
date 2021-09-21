@@ -35,16 +35,16 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -206,12 +206,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             .getOutputBase()
             .getRelative(LabelConstants.MODULE_EXTENSION_WORKING_DIRECTORY_LOCATION)
             .getRelative(usagesValue.getExtensionUniqueName());
-    Dict.Builder<Tuple, StarlarkBazelModule> modulesBuilder = Dict.builder();
+    ArrayList<StarlarkBazelModule> modules = new ArrayList<>();
     for (AbridgedModule abridgedModule : usagesValue.getAbridgedModules()) {
       ModuleKey moduleKey = abridgedModule.getKey();
       try {
-        modulesBuilder.put(
-            Tuple.pair(moduleKey.getName(), moduleKey.getVersion().getOriginal()),
+        modules.add(
             StarlarkBazelModule.create(
                 abridgedModule, extension, usagesValue.getExtensionUsages().get(moduleKey)));
       } catch (ExternalDepsException e) {
@@ -227,7 +226,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         processWrapper,
         starlarkSemantics,
         repositoryRemoteExecutor,
-        modulesBuilder.buildImmutable());
+        StarlarkList.immutableCopyOf(modules));
   }
 
   @Override
