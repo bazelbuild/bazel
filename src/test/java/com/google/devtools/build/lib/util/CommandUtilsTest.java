@@ -41,8 +41,22 @@ public class CommandUtilsTest {
     File directory = new File("/tmp");
     CommandException exception =
         assertThrows(CommandException.class, () -> new Command(args, env, directory).execute());
-    String message = CommandUtils.describeCommandError(false, exception.getCommand());
-      String verboseMessage = CommandUtils.describeCommandError(true, exception.getCommand());
+    Command command1 = exception.getCommand();
+    String message =
+        CommandFailureUtils.describeCommandError(
+            false,
+            CommandUtils.commandLine(command1),
+            CommandUtils.env(command1),
+            CommandUtils.cwd(command1),
+            null);
+    Command command = exception.getCommand();
+    String verboseMessage =
+        CommandFailureUtils.describeCommandError(
+            true,
+            CommandUtils.commandLine(command),
+            CommandUtils.env(command),
+            CommandUtils.cwd(command),
+            null);
     assertThat(message)
         .isEqualTo(
             "error executing command this_command_will_not_be_found arg1 "
