@@ -180,7 +180,9 @@ def _compile(
     user_compile_flags.extend(_get_compile_rule_copts(common_variables))
     user_compile_flags.extend(common_variables.objc_config.copts_for_current_compilation_mode)
     user_compile_flags.extend(extra_compile_args)
-    user_compile_flags.extend(_paths_to_include_args(objc_compilation_context.strict_dependency_includes))
+    user_compile_flags.extend(
+        _paths_to_include_args(objc_compilation_context.strict_dependency_includes),
+    )
 
     textual_hdrs = []
     textual_hdrs.extend(objc_compilation_context.public_textual_hdrs)
@@ -216,7 +218,9 @@ def _compile(
 def _validate_attributes(common_variables):
     for include in common_variables.compilation_attributes.includes.to_list():
         if include.startswith("/"):
-            cc_helper.rule_error("The path '{}' is absolute, but only relative paths are allowed.".format(include))
+            cc_helper.rule_error(
+                "The path '{}' is absolute, but only relative paths are allowed.".format(include),
+            )
 
     ctx = common_variables.ctx
     if hasattr(ctx.attr, "srcs"):
@@ -232,7 +236,10 @@ def _validate_attributes(common_variables):
 
     if hasattr(ctx.attr, "module_name") and hasattr(ctx.attr, "module_map"):
         if ctx.attr.module_name != "" and ctx.attr.module_map != None:
-            cc_helper.attribute_error("module_name", "Specifying both module_name and module_map is invalid, please remove one of them.")
+            cc_helper.attribute_error(
+                "module_name",
+                "Specifying both module_name and module_map is invalid, please remove one of them.",
+            )
 
 def _get_compile_rule_copts(common_variables):
     attributes = common_variables.compilation_attributes
