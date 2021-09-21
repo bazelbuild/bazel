@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -279,7 +280,15 @@ public abstract class BuildIntegrationTestCase {
       throw new RuntimeException(subscriberException.getException());
     }
     LoggingUtil.installRemoteLoggerForTesting(null);
-    testRoot.deleteTreesBelow(); // (comment out during debugging)
+    try {
+      testRoot.deleteTreesBelow(); // (comment out during debugging)
+    } catch (IOException e) {
+      // Ignore any IO failures on Windows when deleting the test root during clean up, because
+      // the Bazel runtime still holds the file handle of windows_jni.dll.
+      if (OS.getCurrent() != OS.WINDOWS) {
+        throw e;
+      }
+    }
     // Make sure that a test which crashes with on a bug report does not taint following ones with
     // an unprocessed exception stored statically in BugReport.
     BugReport.maybePropagateUnprocessedThrowableIfInTest();
