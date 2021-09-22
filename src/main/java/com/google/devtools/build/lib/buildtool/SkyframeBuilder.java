@@ -394,6 +394,22 @@ public class SkyframeBuilder implements Builder {
                 .build()));
   }
 
+  ActionCacheChecker getActionCacheChecker() {
+    return actionCacheChecker;
+  }
+
+  TopDownActionCache getTopDownActionCache() {
+    return topDownActionCache;
+  }
+
+  MetadataProvider getFileCache() {
+    return fileCache;
+  }
+
+  ActionInputPrefetcher getActionInputPrefetcher() {
+    return actionInputPrefetcher;
+  }
+
   private static int countTestActions(Iterable<ConfiguredTarget> testTargets) {
     int count = 0;
     for (ConfiguredTarget testTarget : testTargets) {

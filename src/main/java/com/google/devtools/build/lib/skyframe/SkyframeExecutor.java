@@ -1610,14 +1610,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     deleteActionsIfRemoteOptionsChanged(options);
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
-      skyframeActionExecutor.prepareForExecution(
-          reporter,
-          executor,
-          options,
-          actionCacheChecker,
-          topDownActionCache,
-          outputService,
-          isAnalysisIncremental());
+      prepareSkyframeActionExecutorForExecution(
+          reporter, executor, options, actionCacheChecker, topDownActionCache);
     }
 
     resourceManager.resetResourceUsage();
@@ -1650,6 +1644,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
+  public void prepareSkyframeActionExecutorForExecution(
+      Reporter reporter,
+      Executor executor,
+      OptionsProvider options,
+      ActionCacheChecker actionCacheChecker,
+      TopDownActionCache topDownActionCache) {
+    skyframeActionExecutor.prepareForExecution(
+        reporter,
+        executor,
+        options,
+        actionCacheChecker,
+        topDownActionCache,
+        outputService,
+        isAnalysisIncremental());
+  }
+
   /** Asks the Skyframe evaluator to run a single exclusive test. */
   public EvaluationResult<?> runExclusiveTest(
       Reporter reporter,
@@ -1666,14 +1676,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     try (SilentCloseable c =
         Profiler.instance().profile("skyframeActionExecutor.prepareForExecution")) {
-      skyframeActionExecutor.prepareForExecution(
-          reporter,
-          executor,
-          options,
-          actionCacheChecker,
-          topDownActionCache,
-          outputService,
-          isAnalysisIncremental());
+      prepareSkyframeActionExecutorForExecution(
+          reporter, executor, options, actionCacheChecker, topDownActionCache);
     }
 
     resourceManager.resetResourceUsage();
@@ -1702,14 +1706,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       OptionsProvider options,
       ActionCacheChecker checker,
       TopDownActionCache topDownActionCache) {
-    skyframeActionExecutor.prepareForExecution(
-        reporter,
-        executor,
-        options,
-        checker,
-        topDownActionCache,
-        outputService,
-        isAnalysisIncremental());
+    prepareSkyframeActionExecutorForExecution(
+        reporter, executor, options, checker, topDownActionCache);
   }
 
   private void deleteActionsIfRemoteOptionsChanged(OptionsProvider options)
