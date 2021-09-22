@@ -382,7 +382,7 @@ public final class SkyframeBuildView {
   public SkyframeAnalysisResult configureTargets(
       ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> ctKeys,
-      ImmutableList<TopLevelAspectsKey> topLevelAspectsKey,
+      ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
       Supplier<Map<BuildConfigurationValue.Key, BuildConfiguration>> configurationLookupSupplier,
       TopLevelArtifactContext topLevelArtifactContextForConflictPruning,
       EventBus eventBus,
@@ -399,7 +399,7 @@ public final class SkyframeBuildView {
           skyframeExecutor.configureTargets(
               eventHandler,
               ctKeys,
-              topLevelAspectsKey,
+              topLevelAspectsKeys,
               keepGoing,
               numThreads,
               cpuHeavySkyKeysThreadPoolSize);
@@ -408,9 +408,10 @@ public final class SkyframeBuildView {
     }
 
     int numOfAspects = 0;
-    if (!topLevelAspectsKey.isEmpty()) {
+    if (!topLevelAspectsKeys.isEmpty()) {
       numOfAspects =
-          topLevelAspectsKey.size() * topLevelAspectsKey.get(0).getTopLevelAspectsClasses().size();
+          topLevelAspectsKeys.size()
+              * topLevelAspectsKeys.get(0).getTopLevelAspectsClasses().size();
     }
     Map<AspectKey, ConfiguredAspect> aspects = Maps.newHashMapWithExpectedSize(numOfAspects);
     Root singleSourceRoot = skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
@@ -418,7 +419,7 @@ public final class SkyframeBuildView {
         singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
     ImmutableList.Builder<AspectKey> aspectKeysBuilder = ImmutableList.builder();
 
-    for (TopLevelAspectsKey key : topLevelAspectsKey) {
+    for (TopLevelAspectsKey key : topLevelAspectsKeys) {
       TopLevelAspectsValue value = (TopLevelAspectsValue) result.get(key);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
