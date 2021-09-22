@@ -603,6 +603,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
     UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -621,6 +622,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
     UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 30);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -639,6 +641,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
     UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 50);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id", "action progress", false));
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
@@ -657,6 +660,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ManualClock clock = new ManualClock();
     Action action = createDummyAction("Some random action");
     UiStateTracker stateTracker = new UiStateTracker(clock, /* targetWidth= */ 70);
+    stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
     stateTracker.actionProgress(
         ActionProgressEvent.create(action, "action-id1", "action progress 1", false));
     stateTracker.actionProgress(
