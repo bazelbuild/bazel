@@ -280,7 +280,7 @@ public class CommandFailureUtils {
       boolean verbose,
       Collection<String> commandLineElements,
       Map<String, String> env,
-      String cwd,
+      @Nullable String cwd,
       @Nullable PlatformInfo executionPlatform) {
 
     String commandName = commandLineElements.iterator().next();
@@ -289,5 +289,15 @@ public class CommandFailureUtils {
     return shortCommandName
         + " failed: "
         + describeCommandError(verbose, commandLineElements, env, cwd, executionPlatform);
+  }
+
+  public static String describeCommandFailure(
+      boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
+    return describeCommandFailure(
+        verboseFailures,
+        command.getArguments(),
+        command.getEnvironment(),
+        cwd,
+        command.getExecutionPlatform());
   }
 }

@@ -18,16 +18,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
- * An object representing a subprocess to be invoked, including its command and
- * arguments, its working directory, its environment, a boolean indicating
- * whether remote execution is appropriate for this command, and if so, the set
- * of files it is expected to read and write.
+ * An object representing a subprocess to be invoked, including its command and arguments, its
+ * working directory, its environment, a boolean indicating whether remote execution is appropriate
+ * for this command, and if so, the set of files it is expected to read and write.
  */
-public interface Spawn {
+public interface Spawn extends DescribableExecutionUnit {
   /**
    * Out-of-band data for this spawn. This can be used to signal hints (hardware requirements, local
    * vs. remote) to the execution subsystem. This data can come from multiple places e.g. tags, hard
