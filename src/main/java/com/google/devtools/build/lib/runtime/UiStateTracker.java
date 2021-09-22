@@ -526,6 +526,11 @@ final class UiStateTracker {
     return activeActions.computeIfAbsent(actionId, (key) -> new ActionState(action, nanoTimeNow));
   }
 
+  @Nullable
+  private ActionState getActionStateIfPresent(Artifact actionId) {
+    return activeActions.get(actionId);
+  }
+
   void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
     Artifact actionId = action.getPrimaryOutput();
@@ -579,10 +584,12 @@ final class UiStateTracker {
   }
 
   void actionProgress(ActionProgressEvent event) {
-    ActionExecutionMetadata action = event.action();
     Artifact actionId = event.action().getPrimaryOutput();
     long now = clock.nanoTime();
-    getActionState(action, actionId, now).onProgressEvent(event, now);
+    ActionState actionState = getActionStateIfPresent(actionId);
+    if (actionState != null) {
+      actionState.onProgressEvent(event, now);
+    }
   }
 
   void actionCompletion(ActionScanningCompletedEvent event) {
