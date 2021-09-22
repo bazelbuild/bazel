@@ -312,12 +312,13 @@ function test_starlark_test_has_test_execgroup_by_default() {
   cat > ${pkg}/defs.bzl <<EOF
 def _impl(ctx):
     out_file = ctx.actions.declare_file("$script_name")
-    ctx.actions.write(out_file, "$script_content", is_executable=True)
+    ctx.actions.write(out_file, "$script_content", is_executable = True)
     return [DefaultInfo(executable = out_file)]
 
 starlark_test = rule(
     implementation = _impl,
     test = True,
+    # Do not define a "test" execgroup: it should exist by default.
 )
 EOF
   cat > ${pkg}/BUILD <<EOF
@@ -360,13 +361,14 @@ function test_starlark_test_can_define_test_execgroup_manually() {
   cat > ${pkg}/defs.bzl <<EOF
 def _impl(ctx):
     out_file = ctx.actions.declare_file("$script_name")
-    ctx.actions.write(out_file, "$script_content", is_executable=True)
+    ctx.actions.write(out_file, "$script_content", is_executable = True)
     return [DefaultInfo(executable = out_file)]
 
 starlark_with_manual_test_exec_group_test = rule(
     implementation = _impl,
     test = True,
     exec_groups = {
+        # Override the default "test" execgroup.
         "test": exec_group(),
     },
 )
