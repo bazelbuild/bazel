@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -50,6 +51,7 @@ public class ApkActionsBuilder {
   private String artifactLocation;
   private Artifact v4SignatureFile;
   private boolean deterministicSigning;
+  private String signingKeyRotationMinSdk;
 
   private final String apkName;
 
@@ -145,6 +147,11 @@ public class ApkActionsBuilder {
   /** Sets the signing lineage file used to sign the APK. */
   public ApkActionsBuilder setSigningLineageFile(Artifact signingLineage) {
     this.signingLineage = signingLineage;
+    return this;
+  }
+
+  public ApkActionsBuilder setSigningKeyRotationMinSdk(String minSdk) {
+    this.signingKeyRotationMinSdk = minSdk;
     return this;
   }
 
@@ -371,6 +378,9 @@ public class ApkActionsBuilder {
         .add("--v2-signing-enabled", Boolean.toString(signingMethod.signV2()));
     if (signingMethod.signV4() != null) {
       commandLine.add("--v4-signing-enabled", Boolean.toString(signingMethod.signV4()));
+    }
+    if (!Strings.isNullOrEmpty(signingKeyRotationMinSdk)) {
+      commandLine.add("--rotation-min-sdk-version", signingKeyRotationMinSdk);
     }
     commandLine.add("--out").addExecPath(signedAndZipalignedApk).addExecPath(unsignedApk);
 

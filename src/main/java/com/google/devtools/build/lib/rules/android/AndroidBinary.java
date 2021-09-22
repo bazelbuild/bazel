@@ -524,6 +524,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             : null;
     ImmutableList<Artifact> signingKeys = AndroidCommon.getApkDebugSigningKeys(ruleContext);
     Artifact signingLineage = ruleContext.getPrerequisiteArtifact("debug_signing_lineage_file");
+    String keyRotationMinSdk = ruleContext.attributes().get("key_rotation_min_sdk", Type.STRING);
     FilesToRunProvider resourceExtractor =
         ruleContext.getExecutablePrerequisite("$resource_extractor");
 
@@ -591,6 +592,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setSignedApk(zipAlignedApk)
         .setSigningKeys(signingKeys)
         .setSigningLineageFile(signingLineage)
+        .setSigningKeyRotationMinSdk(keyRotationMinSdk)
         .setV4Signature(v4Signature)
         .setZipalignApk(true)
         .setDeterministicSigning(androidSemantics.deterministicSigning())
