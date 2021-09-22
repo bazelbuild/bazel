@@ -16,7 +16,7 @@ For information on cc_library and hdrs header files, see
 ## Including multiple files in a target
 
 You can include multiple files in a single target with
-[glob](../be/functions.html#glob).
+<a href="be/functions.html#glob">glob</a>.
 For example:
 
 ```python
