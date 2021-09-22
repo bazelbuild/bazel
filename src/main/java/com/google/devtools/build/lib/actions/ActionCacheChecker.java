@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -678,7 +679,7 @@ public class ActionCacheChecker {
       }
     }
 
-    Map<PathFragment, Artifact> resolvedArtifacts =
+    Map<PathFragment, SourceArtifact> resolvedArtifacts =
         artifactResolver.resolveSourceArtifacts(unresolvedPaths, resolver);
     if (resolvedArtifacts == null) {
       // We are missing some dependencies. We need to rerun this update later.

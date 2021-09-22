@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -914,23 +915,23 @@ public final class ActionsTestUtil {
    */
   public static class FakeArtifactResolverBase implements ArtifactResolver {
     @Override
-    public Artifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
+    public SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Artifact getSourceArtifact(PathFragment execPath, Root root) {
+    public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Artifact resolveSourceArtifact(
+    public SourceArtifact resolveSourceArtifact(
         PathFragment execPath, RepositoryName repositoryName) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<PathFragment, Artifact> resolveSourceArtifacts(
+    public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
         Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
       throw new UnsupportedOperationException();
     }

@@ -21,10 +21,11 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
-import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
@@ -222,13 +223,12 @@ public class ArtifactTest {
 
   @Test
   public void testCodec() throws Exception {
-    Artifact.DerivedArtifact artifact =
-        (Artifact.DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "src/a");
+    DerivedArtifact artifact = (DerivedArtifact) ActionsTestUtil.createArtifact(rootDir, "src/a");
     artifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     ArtifactRoot anotherRoot =
         ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
-    Artifact.DerivedArtifact anotherArtifact =
-        new Artifact.DerivedArtifact(
+    DerivedArtifact anotherArtifact =
+        new DerivedArtifact(
             anotherRoot,
             anotherRoot.getExecPath().getRelative("src/c"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
@@ -247,18 +247,6 @@ public class ArtifactTest {
     ArtifactRoot artifactRoot = ArtifactRoot.asSourceRoot(root);
     ArtifactFactory artifactFactory =
         new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
-    ArtifactResolverSupplier artifactResolverSupplierForTest =
-        new ArtifactResolverSupplier() {
-          @Override
-          public Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original) {
-            return original;
-          }
-
-          @Override
-          public ArtifactResolver get() {
-            return artifactFactory;
-          }
-        };
 
     ObjectCodecs objectCodecs =
         new ObjectCodecs(
@@ -269,7 +257,7 @@ public class ArtifactTest {
                 .build(),
             ImmutableClassToInstanceMap.builder()
                 .put(FileSystem.class, scratch.getFileSystem())
-                .put(ArtifactResolverSupplier.class, artifactResolverSupplierForTest)
+                .put(ArtifactSerializationContext.class, artifactFactory::getSourceArtifact)
                 .put(
                     Root.RootCodecDependencies.class,
                     new Root.RootCodecDependencies(artifactRoot.getRoot()))
@@ -370,11 +358,11 @@ public class ArtifactTest {
             return null;
           }
         };
-    Artifact.DerivedArtifact derived1 =
-        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"), firstOwner);
+    DerivedArtifact derived1 =
+        new DerivedArtifact(root, PathFragment.create("newRoot/shared"), firstOwner);
     derived1.setGeneratingActionKey(ActionLookupData.create(firstOwner, 0));
-    Artifact.DerivedArtifact derived2 =
-        new Artifact.DerivedArtifact(root, PathFragment.create("newRoot/shared"), secondOwner);
+    DerivedArtifact derived2 =
+        new DerivedArtifact(root, PathFragment.create("newRoot/shared"), secondOwner);
     derived2.setGeneratingActionKey(ActionLookupData.create(secondOwner, 0));
     ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(root.getRoot().asPath()));
     Artifact source1 = new SourceArtifact(sourceRoot, PathFragment.create("shared"), firstOwner);
@@ -413,7 +401,7 @@ public class ArtifactTest {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
     assertThat(
-            new Artifact.DerivedArtifact(
+            new DerivedArtifact(
                     root,
                     PathFragment.create("newRoot/my.output"),
                     ActionsTestUtil.NULL_ARTIFACT_OWNER,

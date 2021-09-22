@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -63,8 +62,8 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -84,7 +83,6 @@ import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -158,7 +156,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -703,37 +700,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   private static final ActionCacheChecker NULL_CHECKER =
       new ActionCacheChecker(
           AMNESIAC_CACHE,
-          new ArtifactResolver() {
-            @Override
-            public Artifact getSourceArtifact(
-                PathFragment execPath, Root root, ArtifactOwner owner) {
-              throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Artifact getSourceArtifact(PathFragment execPath, Root root) {
-              throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Artifact resolveSourceArtifact(
-                PathFragment execPath, RepositoryName repositoryName) {
-              throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Map<PathFragment, Artifact> resolveSourceArtifacts(
-                Iterable<PathFragment> execPaths, PackageRootResolver resolver) {
-              throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
-              throw new UnsupportedOperationException();
-            }
-          },
+          new ActionsTestUtil.FakeArtifactResolverBase(),
           new ActionKeyContext(),
-          Predicates.<Action>alwaysTrue(),
+          Predicates.alwaysTrue(),
           null,
           PathFragment.create("bazel-out"));
 

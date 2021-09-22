@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -481,6 +481,16 @@ public abstract class Artifact
     }
   }
 
+  /** Supplies {@link SourceArtifact} instances and allows for interning of derived artifacts. */
+  public interface ArtifactSerializationContext {
+
+    SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
+
+    default DerivedArtifact intern(DerivedArtifact original) {
+      return original;
+    }
+  }
+
   @SuppressWarnings("unused") // Codec used by reflection.
   private static class DerivedArtifactCodec implements ObjectCodec<DerivedArtifact> {
     @Override
@@ -506,12 +516,9 @@ public abstract class Artifact
           new DerivedArtifact(
               root,
               validateAndGetRootExecPath(root, generatingActionKey, context, codedIn),
-              generatingActionKey.getActionLookupKey(),
-              /*contentBasedPath=*/ false);
+              generatingActionKey.getActionLookupKey());
       artifact.setGeneratingActionKey(generatingActionKey);
-      return context
-          .getDependency(ArtifactResolver.ArtifactResolverSupplier.class)
-          .intern(artifact);
+      return context.getDependency(ArtifactSerializationContext.class).intern(artifact);
     }
 
     static PathFragment validateAndGetRootExecPath(
@@ -561,7 +568,7 @@ public abstract class Artifact
    */
   @Override
   public final String getDirname() {
-    PathFragment parent = getExecPath().getParentDirectory();
+    PathFragment parent = execPath.getParentDirectory();
     return (parent == null) ? "/" : parent.getSafePathString();
   }
 
@@ -570,19 +577,19 @@ public abstract class Artifact
    */
   @Override
   public final String getFilename() {
-    return getExecPath().getBaseName();
+    return execPath.getBaseName();
   }
 
   @Override
   public final String getExtension() {
-    return getExecPath().getFileExtension();
+    return execPath.getFileExtension();
   }
 
   /**
    * Checks whether this artifact is of the supplied file type.
    *
    * <p>Prefer this method to pulling out strings from the Artifact and passing to {@link
-   * FileType#matches(String)} manually. This method has been optimized to generate a minimum of
+   * FileType#apply(String)} manually. This method has been optimized to generate a minimum of
    * garbage.
    */
   public boolean isFileType(FileType fileType) {
@@ -596,7 +603,7 @@ public abstract class Artifact
 
   @Override
   public final String filePathForFileTypeMatcher() {
-    return getExecPath().filePathForFileTypeMatcher();
+    return execPath.filePathForFileTypeMatcher();
   }
 
   @Override
@@ -687,7 +694,7 @@ public abstract class Artifact
   /** Returns this.getExecPath().getPathString(). */
   @Override
   public final String getExecPathString() {
-    return getExecPath().getPathString();
+    return execPath.getPathString();
   }
 
   public final String getRootRelativePathString() {
@@ -699,20 +706,14 @@ public abstract class Artifact
   }
 
   @Override
-  public boolean contentBasedPath() {
-    return false;
-  }
-
-  @Override
   public boolean isSymlink() {
     return false;
   }
 
   /**
-   * Returns the path of this Artifact relative to this containing Artifact. Since
-   * ordinary Artifacts correspond to only one Artifact -- itself -- for ordinary Artifacts,
-   * this just returns the empty path. For special Artifacts, throws
-   * {@link UnsupportedOperationException}. See also {@link Artifact#getParentRelativePath()}.
+   * Returns the path of this Artifact relative to this containing Artifact. Since ordinary
+   * Artifacts correspond to only one Artifact -- itself -- for ordinary Artifacts, this just
+   * returns the empty path. For special Artifacts, returns {@code null}.
    */
   public PathFragment getParentRelativePath() {
     return PathFragment.EMPTY_FRAGMENT;
@@ -750,7 +751,7 @@ public abstract class Artifact
    * <p>If true, this artifact is necessarily a {@link DerivedArtifact}.
    */
   public final boolean isMiddlemanArtifact() {
-    return getRoot().isMiddlemanRoot();
+    return root.isMiddlemanRoot();
   }
 
   /**
@@ -823,7 +824,7 @@ public abstract class Artifact
         // i.e. external/<repo name>/... and bazel-out/<repo name>/...
         // This is a pure coincidence, and the below line needs to be updated if any of the
         // directory structures change.
-        String repoName = getExecPath().getSegment(1);
+        String repoName = execPath.getSegment(1);
         relativePath =
             LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX
                 .getRelative(repoName)
@@ -895,7 +896,7 @@ public abstract class Artifact
   }
 
   public String toDebugString() {
-    if (getOwner() == null || getOwner().toPathFragment().equals(getExecPath())) {
+    if (getOwner() == null || getOwner().toPathFragment().equals(execPath)) {
       return toDetailString();
     }
     return toDetailString() + " (" + getArtifactOwner() + ")";
@@ -1003,7 +1004,7 @@ public abstract class Artifact
     @VisibleForTesting
     public SpecialArtifact(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, SpecialArtifactType type) {
-      super(root, execPath, owner, /*contentBasedPath=*/ false);
+      super(root, execPath, owner);
       this.type = type;
     }
 
@@ -1030,12 +1031,6 @@ public abstract class Artifact
     @Override
     public boolean hasParent() {
       return false;
-    }
-
-    @Override
-    @Nullable
-    public SpecialArtifact getParent() {
-      return null;
     }
 
     @Override
@@ -1083,7 +1078,7 @@ public abstract class Artifact
               type);
       artifact.setGeneratingActionKey(generatingActionKey);
       return (SpecialArtifact)
-          context.getDependency(ArtifactResolverSupplier.class).intern(artifact);
+          context.getDependency(ArtifactSerializationContext.class).intern(artifact);
     }
   }
 
@@ -1313,11 +1308,7 @@ public abstract class Artifact
 
     private TreeFileArtifact(
         SpecialArtifact parent, PathFragment parentRelativePath, ActionLookupKey owner) {
-      super(
-          parent.getRoot(),
-          parent.getExecPath().getRelative(parentRelativePath),
-          owner,
-          /*contentBasedPath=*/ false);
+      super(parent.getRoot(), parent.getExecPath().getRelative(parentRelativePath), owner);
       Preconditions.checkArgument(
           parent.isTreeArtifact(),
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
@@ -1374,7 +1365,7 @@ public abstract class Artifact
   private static class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
 
     @Override
-    public Class<? extends SourceArtifact> getEncodedClass() {
+    public Class<SourceArtifact> getEncodedClass() {
       return SourceArtifact.class;
     }
 
@@ -1393,11 +1384,9 @@ public abstract class Artifact
       PathFragment execPath = context.deserialize(codedIn);
       ArtifactRoot artifactRoot = context.deserialize(codedIn);
       ArtifactOwner owner = context.deserialize(codedIn);
-      return (SourceArtifact)
-          context
-              .getDependency(ArtifactResolverSupplier.class)
-              .get()
-              .getSourceArtifact(execPath, artifactRoot.getRoot(), owner);
+      return context
+          .getDependency(ArtifactSerializationContext.class)
+          .getSourceArtifact(execPath, artifactRoot.getRoot(), owner);
     }
   }
 
@@ -1502,7 +1491,7 @@ public abstract class Artifact
       Iterable<Artifact> artifacts,
       Collection<? super Artifact> output,
       ArtifactExpander artifactExpander) {
-    addExpandedArtifacts(artifacts, output, Functions.<Artifact>identity(), artifactExpander);
+    addExpandedArtifacts(artifacts, output, Functions.identity(), artifactExpander);
   }
 
   /**
@@ -1546,7 +1535,7 @@ public abstract class Artifact
   public static List<Artifact> filterFiles(Iterable<Artifact> artifacts, FileType allowedType) {
     List<Artifact> filesToBuild = new ArrayList<>();
     for (Artifact artifact : artifacts) {
-      if (allowedType.matches(artifact.getFilename())) {
+      if (allowedType.apply(artifact.getFilename())) {
         filesToBuild.add(artifact);
       }
     }
