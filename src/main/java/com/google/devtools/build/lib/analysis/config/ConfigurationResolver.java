@@ -249,8 +249,13 @@ public final class ConfigurationResolver {
     Dependency.Builder dependencyBuilder = dependencyKey.getDependencyBuilder();
 
     ConfigurationTransition transition = dependencyKey.getTransition();
+
     if (transition == NullTransition.INSTANCE) {
-      return ImmutableList.of(resolveNullTransition(dependencyBuilder, dependencyKind));
+      Dependency resolvedDep = resolveNullTransition(dependencyBuilder, dependencyKind);
+      if (resolvedDep == null) {
+        return null; // Need Skyframe deps.
+      }
+      return ImmutableList.of(resolvedDep);
     } else if (transition.isHostTransition()) {
       return ImmutableList.of(resolveHostTransition(dependencyBuilder, dependencyKey));
     }
