@@ -19,8 +19,6 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.RemoteCache;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -34,17 +32,6 @@ class OnDiskBlobStoreCache extends RemoteCache {
 
   public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil) {
     super(
-        new ExtendedEventHandler() {
-          @Override
-          public void post(Postable obj) {
-            // do nothing
-          }
-
-          @Override
-          public void handle(Event event) {
-            // do nothing
-          }
-        },
         new DiskCacheClient(cacheDir, /* verifyDownloads= */ true, digestUtil),
         options,
         digestUtil);

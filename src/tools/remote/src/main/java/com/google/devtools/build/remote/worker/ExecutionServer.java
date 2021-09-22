@@ -35,6 +35,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.UploadManifest;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -356,7 +357,7 @@ final class ExecutionServer extends ExecutionImplBase {
                 outputs,
                 outErr,
                 exitCode);
-        result = manifest.upload(context, cache);
+        result = manifest.upload(context, cache, NullEventHandler.INSTANCE);
       } catch (ExecException e) {
         if (errStatus == null) {
           errStatus =

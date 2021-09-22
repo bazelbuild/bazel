@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -43,11 +42,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RemoteExecutionCache extends RemoteCache {
 
   public RemoteExecutionCache(
-      ExtendedEventHandler reporter,
       RemoteCacheClient protocolImpl,
       RemoteOptions options,
       DigestUtil digestUtil) {
-    super(reporter, protocolImpl, options, digestUtil);
+    super(protocolImpl, options, digestUtil);
   }
 
   /**

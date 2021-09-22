@@ -414,7 +414,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
                     invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
         .when(cacheClient)
         .findMissingDigests(any(), any());
-    RemoteCache remoteCache = new RemoteCache(reporter, cacheClient, remoteOptions, DIGEST_UTIL);
+    RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, DIGEST_UTIL);
 
     return new ByteStreamBuildEventArtifactUploader(
         MoreExecutors.directExecutor(),

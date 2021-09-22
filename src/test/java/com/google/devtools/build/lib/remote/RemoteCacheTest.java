@@ -16,19 +16,15 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
-import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
-import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -37,11 +33,8 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -71,8 +64,6 @@ import org.mockito.MockitoAnnotations;
 @RunWith(JUnit4.class)
 public class RemoteCacheTest {
 
-  private final Reporter reporter = new Reporter(new EventBus());
-  private final StoredEventHandler eventHandler = new StoredEventHandler();
   private RemoteActionExecutionContext context;
   private FileSystem fs;
   private Path execRoot;
@@ -84,8 +75,6 @@ public class RemoteCacheTest {
 
   @Before
   public void setUp() throws Exception {
-    reporter.addHandler(eventHandler);
-
     MockitoAnnotations.initMocks(this);
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
@@ -170,7 +159,7 @@ public class RemoteCacheTest {
     Path file = fs.getPath("/execroot/symlink-to-file");
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteDownloadSymlinkTemplate = "/home/alice/cas/{hash}-{size_bytes}";
-    RemoteCache remoteCache = new InMemoryRemoteCache(reporter, cas, options, digestUtil);
+    RemoteCache remoteCache = new InMemoryRemoteCache(cas, options, digestUtil);
 
     // act
     getFromFuture(remoteCache.downloadFile(context, file, helloDigest));
@@ -199,53 +188,8 @@ public class RemoteCacheTest {
         .containsExactly(emptyDigest);
   }
 
-  @Test
-  public void uploadActionResult_firesUploadEvents() throws Exception {
-    InMemoryRemoteCache remoteCache = newRemoteCache();
-    ActionKey actionKey = new ActionKey(digestUtil.compute(Action.getDefaultInstance()));
-    ActionResult actionResult = ActionResult.getDefaultInstance();
-
-    getFromFuture(remoteCache.uploadActionResult(context, actionKey, actionResult));
-
-    String resourceId = "ac/" + actionKey.getDigest().getHash();
-    assertThat(eventHandler.getPosts())
-        .containsExactly(
-            ActionUploadStartedEvent.create(context.getSpawn().getResourceOwner(), resourceId),
-            ActionUploadFinishedEvent.create(context.getSpawn().getResourceOwner(), resourceId));
-  }
-
-  @Test
-  public void uploadBlob_firesUploadEvents() throws Exception {
-    InMemoryRemoteCache remoteCache = newRemoteCache();
-    ByteString content = ByteString.copyFromUtf8("content");
-    Digest digest = digestUtil.compute(content.toByteArray());
-
-    getFromFuture(remoteCache.uploadBlob(context, digest, content));
-
-    String resourceId = "cas/" + digest.getHash();
-    assertThat(eventHandler.getPosts())
-        .containsExactly(
-            ActionUploadStartedEvent.create(context.getSpawn().getResourceOwner(), resourceId),
-            ActionUploadFinishedEvent.create(context.getSpawn().getResourceOwner(), resourceId));
-  }
-
-  @Test
-  public void uploadFile_firesUploadEvents() throws Exception {
-    InMemoryRemoteCache remoteCache = newRemoteCache();
-    Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
-    Path file = execRoot.getRelative("file");
-
-    getFromFuture(remoteCache.uploadFile(context, digest, file));
-
-    String resourceId = "cas/" + digest.getHash();
-    assertThat(eventHandler.getPosts())
-        .containsExactly(
-            ActionUploadStartedEvent.create(context.getSpawn().getResourceOwner(), resourceId),
-            ActionUploadFinishedEvent.create(context.getSpawn().getResourceOwner(), resourceId));
-  }
-
   private InMemoryRemoteCache newRemoteCache() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    return new InMemoryRemoteCache(reporter, options, digestUtil);
+    return new InMemoryRemoteCache(options, digestUtil);
   }
 }

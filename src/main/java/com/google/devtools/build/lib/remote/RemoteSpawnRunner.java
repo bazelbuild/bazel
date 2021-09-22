@@ -575,9 +575,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       }
     }
 
-    try (SilentCloseable c = Profiler.instance().profile(UPLOAD_TIME, "upload outputs")) {
-      remoteExecutionService.uploadOutputs(action, result);
-    }
+    remoteExecutionService.uploadOutputs(action, result);
     return result;
   }
 

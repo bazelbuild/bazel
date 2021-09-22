@@ -52,6 +52,8 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
+import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -154,7 +156,7 @@ public class RemoteExecutionServiceTest {
     checkNotNull(stderr.getParentDirectory()).createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
 
-    cache = spy(new InMemoryRemoteCache(reporter, remoteOptions, digestUtil));
+    cache = spy(new InMemoryRemoteCache(remoteOptions, digestUtil));
     executor = mock(RemoteExecutionClient.class);
 
     RequestMetadata metadata =
@@ -1312,6 +1314,34 @@ public class RemoteExecutionServiceTest {
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
     assertThat(evt.getMessage()).contains("cache down");
+  }
+
+  @Test
+  public void uploadOutputs_firesUploadEvents() throws Exception {
+    Digest digest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("outputs/file"), "content");
+    Path file = execRoot.getRelative("outputs/file");
+    Artifact outputFile = ActionsTestUtil.createArtifact(artifactRoot, file);
+    RemoteExecutionService service = newRemoteExecutionService();
+    Spawn spawn = newSpawn(ImmutableMap.of(), ImmutableSet.of(outputFile));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+    SpawnResult spawnResult =
+        new SpawnResult.Builder()
+            .setExitCode(0)
+            .setStatus(SpawnResult.Status.SUCCESS)
+            .setRunnerName("test")
+            .build();
+
+    service.uploadOutputs(action, spawnResult);
+
+    assertThat(eventHandler.getPosts())
+        .containsAtLeast(
+            ActionUploadStartedEvent.create(spawn.getResourceOwner(), "cas/" + digest.getHash()),
+            ActionUploadFinishedEvent.create(spawn.getResourceOwner(), "cas/" + digest.getHash()),
+            ActionUploadStartedEvent.create(spawn.getResourceOwner(), "ac/" + action.getActionId()),
+            ActionUploadFinishedEvent.create(
+                spawn.getResourceOwner(), "ac/" + action.getActionId()));
   }
 
   @Test
