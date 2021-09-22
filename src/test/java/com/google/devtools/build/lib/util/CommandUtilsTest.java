@@ -28,8 +28,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CommandUtilsTest {
 
-  @Test
-  public void longCommand() throws Exception {
+  private static Command buildLongCommand() {
     String[] args = new String[40];
     args[0] = "this_command_will_not_be_found";
     for (int i = 1; i < args.length; i++) {
@@ -39,35 +38,33 @@ public class CommandUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     env.put("FOO", "foo");
     File directory = new File("/tmp");
-    CommandException exception =
-        assertThrows(CommandException.class, () -> new Command(args, env, directory).execute());
-    Command command1 = exception.getCommand();
+    return new Command(args, env, directory);
+  }
+
+  @Test
+  public void longCommand() throws Exception {
+    Command command = buildLongCommand();
     String message =
-        CommandFailureUtils.describeCommandError(
-            false,
-            CommandUtils.commandLine(command1),
-            CommandUtils.env(command1),
-            CommandUtils.cwd(command1),
-            null);
-    Command command = exception.getCommand();
-    String verboseMessage =
-        CommandFailureUtils.describeCommandError(
-            true,
-            CommandUtils.commandLine(command),
-            CommandUtils.env(command),
-            CommandUtils.cwd(command),
-            null);
+        CommandFailureUtils.describeCommandFailure(false, CommandUtils.cwd(command), command);
     assertThat(message)
         .isEqualTo(
-            "error executing command this_command_will_not_be_found arg1 "
+            "this_command_will_not_be_found failed: "
+                + "error executing command this_command_will_not_be_found arg1 "
                 + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
                 + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
                 + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
                 + "arg27 arg28 arg29 arg30 "
                 + "... (remaining 9 arguments skipped)");
+  }
+
+  @Test
+  public void longCommand_verbose() throws Exception {
+    Command command = buildLongCommand();
+    String verboseMessage =
+        CommandFailureUtils.describeCommandFailure(true, CommandUtils.cwd(command), command);
     assertThat(verboseMessage)
         .isEqualTo(
-            "error executing command \n"
+            "this_command_will_not_be_found failed: error executing command \n"
                 + "  (cd /tmp && \\\n"
                 + "  exec env - \\\n"
                 + "    FOO=foo \\\n"
