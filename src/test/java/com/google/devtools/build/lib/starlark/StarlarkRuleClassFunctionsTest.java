@@ -915,6 +915,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testExportWithNonStringNameFailsCleanly() throws Exception {
+    ev.setFailFast(false);
+
+    evalAndExport(
+        ev, //
+        "def _impl(ctx): pass",
+        "rule(implementation = _impl, name = {'not_a_string': True})");
+
+    ev.assertContainsError("got value of type 'dict', want 'string or NoneType'");
+  }
+
+  @Test
   public void testExportWithMultipleErrors() throws Exception {
     ev.setFailFast(false);
 
