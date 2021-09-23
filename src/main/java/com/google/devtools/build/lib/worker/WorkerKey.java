@@ -220,6 +220,8 @@ final class WorkerKey {
         /* prettyPrintArgs= */ false,
         args,
         env,
-        execRoot.getPathString());
+        execRoot.getPathString(),
+        /* configurationChecksum=*/ null,
+        /* executionPlatform= */ null);
   }
 }

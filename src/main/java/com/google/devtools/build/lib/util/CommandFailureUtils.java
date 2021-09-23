@@ -145,20 +145,21 @@ public class CommandFailureUtils {
   private CommandFailureUtils() {} // Prevent instantiation.
 
   /**
-   * Construct a string that describes the command.
-   * Currently this returns a message of the form "foo bar baz",
-   * with shell meta-characters appropriately quoted and/or escaped,
-   * prefixed (if verbose is true) with an "env" command to set the environment.
+   * Construct a string that describes the command. Currently this returns a message of the form
+   * "foo bar baz", with shell meta-characters appropriately quoted and/or escaped, prefixed (if
+   * verbose is true) with an "env" command to set the environment.
    *
-   * @param form Form of the command to generate; see the documentation of the
-   * {@link CommandDescriptionForm} values.
+   * @param form Form of the command to generate; see the documentation of the {@link
+   *     CommandDescriptionForm} values.
    */
   public static String describeCommand(
       CommandDescriptionForm form,
       boolean prettyPrintArgs,
       Collection<String> commandLineElements,
       @Nullable Map<String, String> environment,
-      @Nullable String cwd) {
+      @Nullable String cwd,
+      @Nullable String configurationChecksum,
+      @Nullable PlatformInfo executionPlatform) {
 
     Preconditions.checkNotNull(form);
     StringBuilder message = new StringBuilder();
@@ -239,6 +240,19 @@ public class CommandFailureUtils {
       describeCommandImpl.describeCommandEndIsolate(message);
     }
 
+    if (form == CommandDescriptionForm.COMPLETE) {
+
+      if (configurationChecksum != null) {
+        message.append("\n");
+        message.append("# Configuration: ").append(configurationChecksum);
+      }
+
+      if (executionPlatform != null) {
+        message.append("\n");
+        message.append("# Execution platform: ").append(executionPlatform.label());
+      }
+    }
+
     return message.toString();
   }
 
@@ -252,6 +266,7 @@ public class CommandFailureUtils {
       Collection<String> commandLineElements,
       Map<String, String> env,
       @Nullable String cwd,
+      @Nullable String configurationChecksum,
       @Nullable PlatformInfo executionPlatform) {
 
     String commandName = commandLineElements.iterator().next();
@@ -268,12 +283,14 @@ public class CommandFailureUtils {
       output.append("\n  ");
     }
     output.append(
-        describeCommand(form, /* prettyPrintArgs= */ false, commandLineElements, env, cwd));
-    // TODO(b/200708349): Include the config hash in the output.
-    if (verbose && executionPlatform != null) {
-      output.append("\n");
-      output.append("Execution platform: ").append(executionPlatform.label());
-    }
+        describeCommand(
+            form,
+            /* prettyPrintArgs= */ false,
+            commandLineElements,
+            env,
+            cwd,
+            configurationChecksum,
+            executionPlatform));
     return shortCommandName + " failed: " + output;
   }
 
@@ -284,6 +301,7 @@ public class CommandFailureUtils {
         command.getArguments(),
         command.getEnvironment(),
         cwd,
+        command.getConfigurationChecksum(),
         command.getExecutionPlatform());
   }
 }

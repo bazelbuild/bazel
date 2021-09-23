@@ -42,7 +42,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, executionPlatform);
+            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing command "
@@ -63,7 +63,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            true, Arrays.asList(args), env, cwd, executionPlatform);
+            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing command \n"
@@ -71,7 +71,8 @@ public class CommandFailureUtilsTest {
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"
                 + "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')\n"
-                + "Execution platform: //platform:exec");
+                + "# Configuration: cfg12345\n"
+                + "# Execution platform: //platform:exec");
   }
 
   @Test
@@ -91,7 +92,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, executionPlatform);
+            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing command some_command arg1 "
@@ -119,7 +120,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            true, Arrays.asList(args), env, cwd, executionPlatform);
+            true, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing command \n"
@@ -132,7 +133,8 @@ public class CommandFailureUtilsTest {
                 + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
                 + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
                 + "arg35 arg36 arg37 arg38 arg39)\n"
-                + "Execution platform: //platform:exec");
+                + "# Configuration: cfg12345\n"
+                + "# Execution platform: //platform:exec");
   }
 
   @Test
@@ -148,7 +150,7 @@ public class CommandFailureUtilsTest {
         PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
-            false, Arrays.asList(args), env, cwd, executionPlatform);
+            false, Arrays.asList(args), env, cwd, "cfg12345", executionPlatform);
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing command some_command"
@@ -157,6 +159,7 @@ public class CommandFailureUtilsTest {
                 + " arg23 arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ..."
                 + " (remaining 1 argument skipped)");
   }
+
   @Test
   public void describeCommandPrettyPrintArgs() throws Exception {
 
@@ -173,12 +176,21 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
 
     String cwd = "/my/working/directory";
-    String message = CommandFailureUtils.describeCommand(
-        CommandDescriptionForm.COMPLETE, true, Arrays.asList(args), env, cwd);
+    PlatformInfo executionPlatform =
+        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+    String message =
+        CommandFailureUtils.describeCommand(
+            CommandDescriptionForm.COMPLETE,
+            true,
+            Arrays.asList(args),
+            env,
+            cwd,
+            "cfg12345",
+            executionPlatform);
 
     assertThat(message)
         .isEqualTo(
-                  "(cd /my/working/directory && \\\n"
+            "(cd /my/working/directory && \\\n"
                 + "  exec env - \\\n"
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"
@@ -187,6 +199,8 @@ public class CommandFailureUtilsTest {
                 + "    arg2 \\\n"
                 + "    'with spaces' \\\n"
                 + "    '*' \\\n"
-                + "    arg5)");
+                + "    arg5)\n"
+                + "# Configuration: cfg12345\n"
+                + "# Execution platform: //platform:exec");
   }
 }

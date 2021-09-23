@@ -260,7 +260,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* prettyPrintArgs= */ true,
                   ((CommandAction) action).getArguments(),
                   /* environment= */ null,
-                  /* cwd= */ null))
+                  /* cwd= */ null,
+                  action.getOwner().getConfigurationChecksum(),
+                  action.getExecutionPlatform()))
           .append("\n");
     }
 
