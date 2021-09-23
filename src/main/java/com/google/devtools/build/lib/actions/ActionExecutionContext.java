@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.CommandDescriptionForm;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -328,7 +330,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       }
       reason.append("]");
     }
-    String message = Spawns.asShellCommand(spawn, getExecRoot(), showSubcommands.prettyPrintArgs);
+
+    // We print this command out in such a way that it can safely be
+    // copied+pasted as a Bourne shell command.  This is extremely valuable for
+    // debugging.
+    String message =
+        CommandFailureUtils.describeCommand(
+            CommandDescriptionForm.COMPLETE,
+            showSubcommands.prettyPrintArgs,
+            spawn.getArguments(),
+            spawn.getEnvironment(),
+            getExecRoot().getPathString());
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 

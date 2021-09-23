@@ -18,7 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
-import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.util.CommandDescriptionForm;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -211,6 +212,14 @@ final class WorkerKey {
 
   @Override
   public String toString() {
-    return Spawns.asShellCommand(args, execRoot, env, /* prettyPrintArgs= */ false);
+    // We print this command out in such a way that it can safely be
+    // copied+pasted as a Bourne shell command.  This is extremely valuable for
+    // debugging.
+    return CommandFailureUtils.describeCommand(
+        CommandDescriptionForm.COMPLETE,
+        /* prettyPrintArgs= */ false,
+        args,
+        env,
+        execRoot.getPathString());
   }
 }
