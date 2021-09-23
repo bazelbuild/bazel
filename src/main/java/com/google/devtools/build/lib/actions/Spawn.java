@@ -137,4 +137,10 @@ public interface Spawn extends DescribableExecutionUnit {
 
   @Nullable
   PlatformInfo getExecutionPlatform();
+
+  @Override
+  @Nullable
+  default String getConfigurationChecksum() {
+    return getResourceOwner().getOwner().getConfigurationChecksum();
+  }
 }

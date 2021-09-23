@@ -37,4 +37,10 @@ public interface DescribableExecutionUnit {
   default PlatformInfo getExecutionPlatform() {
     return null;
   }
+
+  /** Returns the configuration hash for this command, if any. */
+  @Nullable
+  default String getConfigurationChecksum() {
+    return null;
+  }
 }

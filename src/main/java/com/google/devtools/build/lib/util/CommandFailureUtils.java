@@ -269,6 +269,7 @@ public class CommandFailureUtils {
     }
     output.append(
         describeCommand(form, /* prettyPrintArgs= */ false, commandLineElements, env, cwd));
+    // TODO(b/200708349): Include the config hash in the output.
     if (verbose && executionPlatform != null) {
       output.append("\n");
       output.append("Execution platform: ").append(executionPlatform.label());
