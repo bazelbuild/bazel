@@ -188,7 +188,7 @@ public final class UiEventHandler implements EventHandler {
         this.cursorControl
             ? new UiStateTracker(clock, this.terminalWidth - 2)
             : new UiStateTracker(clock);
-    this.stateTracker.setProgressMode(options.uiProgressMode, options.uiSamplesShown);
+    this.stateTracker.setProgressSampleSize(options.uiActionsShown);
     this.numLinesProgressBar = 0;
     if (this.cursorControl) {
       this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);

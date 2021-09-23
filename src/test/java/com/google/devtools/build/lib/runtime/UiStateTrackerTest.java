@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
-import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
 import com.google.devtools.build.lib.runtime.UiStateTracker.StrategyIds;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
@@ -334,7 +333,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
     // For various sample sizes verify the progress bar
     for (int i = 1; i < 11; i++) {
-      stateTracker.setProgressMode(ProgressMode.OLDEST_ACTIONS, i);
+      stateTracker.setProgressSampleSize(i);
       LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
       stateTracker.writeProgressBar(terminalWriter);
       String output = terminalWriter.getTranscript();
@@ -1353,43 +1352,6 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertThat(output, containsString("@repoFoo"));
     assertThat(output, containsString("7s"));
     assertThat(output, containsString("30 fetches"));
-  }
-
-  private Action mockActionWithMnemonic(String mnemonic, String primaryOutput) {
-    Path path = outputBase.getRelative(PathFragment.create(primaryOutput));
-    Artifact artifact =
-        ActionsTestUtil.createArtifact(ArtifactRoot.asSourceRoot(Root.fromPath(outputBase)), path);
-    Action action = mock(Action.class);
-    when(action.getMnemonic()).thenReturn(mnemonic);
-    when(action.getPrimaryOutput()).thenReturn(artifact);
-    return action;
-  }
-
-  @Test
-  public void testMnemonicHistogram() throws IOException {
-    // Verify that the number of actions shown in the progress bar can be set as sample size.
-    ManualClock clock = new ManualClock();
-    clock.advanceMillis(Duration.ofSeconds(123).toMillis());
-    UiStateTracker stateTracker = new UiStateTracker(clock);
-    clock.advanceMillis(Duration.ofSeconds(2).toMillis());
-
-    // Start actions with 10 different mnemonics Mnemonic0-9, n+1 of each mnemonic.
-    for (int i = 0; i < 10; i++) {
-      clock.advanceMillis(Duration.ofSeconds(1).toMillis());
-      for (int j = 0; j <= i; j++) {
-        Action action = mockActionWithMnemonic("Mnemonic" + i, "action-" + i + "-" + j + ".out");
-        stateTracker.actionStarted(new ActionStartedEvent(action, clock.nanoTime()));
-      }
-    }
-
-    for (int sampleSize = 1; sampleSize < 11; sampleSize++) {
-      stateTracker.setProgressMode(ProgressMode.MNEMONIC_HISTOGRAM, sampleSize);
-      LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
-      stateTracker.writeProgressBar(terminalWriter);
-      String output = terminalWriter.getTranscript();
-      assertThat(output).contains("Mnemonic" + (10 - sampleSize) + " " + (10 - sampleSize + 1));
-      assertThat(output).doesNotContain("Mnemonic" + (10 - sampleSize - 1));
-    }
   }
 
   private static class FetchEvent implements FetchProgress {
