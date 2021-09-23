@@ -598,4 +598,17 @@ public interface JavaCommonApi<
       documented = false,
       useStarlarkThread = true)
   String getTargetKind(Object target, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "to_java_binary_info",
+      doc = "Returns a copy of the given JavaInfo with minimal info returned by a java_binary",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            doc = "The JavaInfo to enhance."),
+      },
+      useStarlarkThread = true)
+  JavaInfoT toJavaBinaryInfo(JavaInfoT javaInfo, StarlarkThread thread) throws EvalException;
 }

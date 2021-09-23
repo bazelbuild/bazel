@@ -26,10 +26,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -304,5 +306,37 @@ public class JavaStarlarkCommon
     if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
+  }
+
+  @Override
+  public JavaInfo toJavaBinaryInfo(JavaInfo javaInfo, StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    JavaRuleOutputJarsProvider ruleOutputs =
+        JavaRuleOutputJarsProvider.builder()
+            .addJavaOutput(
+                javaInfo.getJavaOutputs().stream()
+                    .map(
+                        output ->
+                            JavaOutput.create(
+                                output.getClassJar(),
+                                null,
+                                null,
+                                output.getGeneratedClassJar(),
+                                output.getGeneratedSourceJar(),
+                                output.getNativeHeadersJar(),
+                                output.getManifestProto(),
+                                output.getJdeps(),
+                                output.getSourceJars()))
+                    .collect(Collectors.toList()))
+            .build();
+    return JavaInfo.Builder.create()
+        .addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider())
+        .addProvider(JavaCcInfoProvider.class, javaInfo.getProvider(JavaCcInfoProvider.class))
+        .addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider())
+        .addProvider(
+            JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
+        .addTransitiveOnlyRuntimeJars(javaInfo.getTransitiveOnlyRuntimeJars())
+        .build();
   }
 }
