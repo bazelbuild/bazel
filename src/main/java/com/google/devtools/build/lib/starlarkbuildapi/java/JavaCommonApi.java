@@ -213,7 +213,17 @@ public interface JavaCommonApi<
             doc =
                 "Disables annotation processing in this compilation, causing any annotation"
                     + " processors provided in plugins or in exported_plugins of deps to be"
-                    + " ignored.")
+                    + " ignored."),
+        @Param(
+            name = "enable_compile_jar_action",
+            positional = false,
+            named = true,
+            defaultValue = "True",
+            doc =
+                "Enables header compilation or ijar creation. If set to False, it forces use of the"
+                    + " full class jar in the compilation classpaths of any dependants. Doing so is"
+                    + " intended for use by non-library targets such as binaries that do not have"
+                    + " dependants.")
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
@@ -238,6 +248,7 @@ public interface JavaCommonApi<
       Sequence<?> resources, // <FileT> expected.
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
+      Boolean enableCompileJarAction,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

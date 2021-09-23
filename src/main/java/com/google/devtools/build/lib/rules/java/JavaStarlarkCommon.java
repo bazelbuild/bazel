@@ -80,6 +80,7 @@ public class JavaStarlarkCommon
       Sequence<?> resources, // <Artifact> expected
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
+      Boolean enableCompileJarAction,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -116,7 +117,9 @@ public class JavaStarlarkCommon
           Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins")
               .getImmutableList();
     }
-
+    if (!enableCompileJarAction) {
+      checkPrivateAccess(thread);
+    }
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
             starlarkRuleContext,
@@ -145,6 +148,7 @@ public class JavaStarlarkCommon
             Sequence.cast(resources, Artifact.class, "resources"),
             neverlink,
             enableAnnotationProcessing,
+            enableCompileJarAction,
             javaSemantics,
             thread);
   }
@@ -286,15 +290,19 @@ public class JavaStarlarkCommon
 
   @Override
   public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
+    if (target instanceof AbstractConfiguredTarget) {
+      return ((AbstractConfiguredTarget) target).getRuleClassString();
+    }
+    return "";
+  }
+
+  private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
     if (!label.getPackageIdentifier().getRepository().toString().equals("@_builtins")) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
-    if (target instanceof AbstractConfiguredTarget) {
-      return ((AbstractConfiguredTarget) target).getRuleClassString();
-    }
-    return "";
   }
 }

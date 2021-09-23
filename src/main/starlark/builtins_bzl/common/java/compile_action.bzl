@@ -72,7 +72,13 @@ def _collect_plugins(deps, plugins):
         processor_data = depset(transitive = transitive_processor_data),
     )
 
-def _compile_action(ctx, extra_resources, source_files, source_jars, output_prefix):
+def _compile_action(
+        ctx,
+        extra_resources,
+        source_files,
+        source_jars,
+        output_prefix,
+        enable_compile_jar_action = True):
     deps = ctx.attr.deps
     runtime_deps = _get_attr_safe(ctx, "runtime_deps", [])
     exports = _get_attr_safe(ctx, "exports", [])
@@ -124,6 +130,7 @@ def _compile_action(ctx, extra_resources, source_files, source_jars, output_pref
         output = output,
         output_source_jar = output_source_jar,
         strict_deps = _filter_strict_deps(ctx.fragments.java.strict_java_deps),
+        enable_compile_jar_action = enable_compile_jar_action,
     )
 
     files = [out.class_jar for out in java_info.java_outputs]

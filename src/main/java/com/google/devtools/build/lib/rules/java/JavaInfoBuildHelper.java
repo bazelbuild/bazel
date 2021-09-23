@@ -265,6 +265,7 @@ final class JavaInfoBuildHelper {
       List<Artifact> resources,
       Boolean neverlink,
       Boolean enableAnnotationProcessing,
+      Boolean enableCompileJarAction,
       JavaSemantics javaSemantics,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -320,6 +321,7 @@ final class JavaInfoBuildHelper {
             outputJarsBuilder,
             /*createOutputSourceJar=*/ true,
             outputSourceJar,
+            enableCompileJarAction,
             javaInfoBuilder,
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
