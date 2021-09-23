@@ -244,15 +244,19 @@ public class CommandFailureUtils {
 
   /**
    * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "error executing command foo bar baz".
+   * message of the form "foo failed: error executing command /dir/foo bar baz".
    */
   @VisibleForTesting
-  static String describeCommandError(
+  static String describeCommandFailure(
       boolean verbose,
       Collection<String> commandLineElements,
       Map<String, String> env,
-      String cwd,
+      @Nullable String cwd,
       @Nullable PlatformInfo executionPlatform) {
+
+    String commandName = commandLineElements.iterator().next();
+    // Extract the part of the command name after the last "/", if any.
+    String shortCommandName = new File(commandName).getName();
 
     CommandDescriptionForm form = verbose
         ? CommandDescriptionForm.COMPLETE
@@ -269,26 +273,7 @@ public class CommandFailureUtils {
       output.append("\n");
       output.append("Execution platform: ").append(executionPlatform.label());
     }
-    return output.toString();
-  }
-
-  /**
-   * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "foo failed: error executing command /dir/foo bar baz".
-   */
-  public static String describeCommandFailure(
-      boolean verbose,
-      Collection<String> commandLineElements,
-      Map<String, String> env,
-      @Nullable String cwd,
-      @Nullable PlatformInfo executionPlatform) {
-
-    String commandName = commandLineElements.iterator().next();
-    // Extract the part of the command name after the last "/", if any.
-    String shortCommandName = new File(commandName).getName();
-    return shortCommandName
-        + " failed: "
-        + describeCommandError(verbose, commandLineElements, env, cwd, executionPlatform);
+    return shortCommandName + " failed: " + output;
   }
 
   public static String describeCommandFailure(

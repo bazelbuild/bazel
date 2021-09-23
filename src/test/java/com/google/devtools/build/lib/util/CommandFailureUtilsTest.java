@@ -29,72 +29,6 @@ import org.junit.runners.JUnit4;
 public class CommandFailureUtilsTest {
 
   @Test
-  public void describeCommandError() throws Exception {
-    String[] args = new String[40];
-    args[0] = "some_command";
-    for (int i = 1; i < args.length; i++) {
-      args[i] = "arg" + i;
-    }
-    args[7] = "with spaces"; // Test embedded spaces in argument.
-    args[9] = "*";           // Test shell meta characters.
-    Map<String, String> env = new LinkedHashMap<>();
-    env.put("FOO", "foo");
-    env.put("PATH", "/usr/bin:/bin:/sbin");
-    String cwd = "/my/working/directory";
-    PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
-    String message =
-        CommandFailureUtils.describeCommandError(
-            false, Arrays.asList(args), env, cwd, executionPlatform);
-    String verboseMessage =
-        CommandFailureUtils.describeCommandError(
-            true, Arrays.asList(args), env, cwd, executionPlatform);
-    assertThat(message)
-        .isEqualTo(
-            "error executing command some_command arg1 "
-                + "arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
-                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-                + "arg27 arg28 arg29 arg30 arg31 "
-                + "... (remaining 8 arguments skipped)");
-    assertThat(verboseMessage)
-        .isEqualTo(
-            "error executing command \n"
-                + "  (cd /my/working/directory && \\\n"
-                + "  exec env - \\\n"
-                + "    FOO=foo \\\n"
-                + "    PATH=/usr/bin:/bin:/sbin \\\n"
-                + "  some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
-                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-                + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
-                + "arg35 arg36 arg37 arg38 arg39)\n"
-                + "Execution platform: //platform:exec");
-  }
-
-  @Test
-  public void describeCommandErrorWithSingleSkippedArgument() throws Exception {
-    String[] args = new String[35]; // Long enough to make us skip 1 argument below.
-    args[0] = "some_command";
-    for (int i = 1; i < args.length; i++) {
-      args[i] = "arg" + i;
-    }
-    Map<String, String> env = new LinkedHashMap<>();
-    String cwd = "/my/working/directory";
-    PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
-    String message =
-        CommandFailureUtils.describeCommandError(
-            false, Arrays.asList(args), env, cwd, executionPlatform);
-    assertThat(message)
-        .isEqualTo(
-            "error executing command some_command arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9"
-                + " arg10 arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22"
-                + " arg23 arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ..."
-                + " (remaining 1 argument skipped)");
-  }
-
-  @Test
   public void describeCommandFailure() throws Exception {
     String[] args = new String[3];
     args[0] = "/bin/sh";
@@ -109,14 +43,28 @@ public class CommandFailureUtilsTest {
     String message =
         CommandFailureUtils.describeCommandFailure(
             false, Arrays.asList(args), env, cwd, executionPlatform);
-    String verboseMessage =
-        CommandFailureUtils.describeCommandFailure(
-            true, Arrays.asList(args), env, cwd, executionPlatform);
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing command "
                 + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'");
-    assertThat(verboseMessage)
+  }
+
+  @Test
+  public void describeCommandFailure_verbose() throws Exception {
+    String[] args = new String[3];
+    args[0] = "/bin/sh";
+    args[1] = "-c";
+    args[2] = "echo Some errors 1>&2; echo Some output; exit 42";
+    Map<String, String> env = new LinkedHashMap<>();
+    env.put("FOO", "foo");
+    env.put("PATH", "/usr/bin:/bin:/sbin");
+    String cwd = null;
+    PlatformInfo executionPlatform =
+        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+    String message =
+        CommandFailureUtils.describeCommandFailure(
+            true, Arrays.asList(args), env, cwd, executionPlatform);
+    assertThat(message)
         .isEqualTo(
             "sh failed: error executing command \n"
                 + "  (exec env - \\\n"
@@ -126,6 +74,89 @@ public class CommandFailureUtilsTest {
                 + "Execution platform: //platform:exec");
   }
 
+  @Test
+  public void describeCommandFailure_longMessage() throws Exception {
+    String[] args = new String[40];
+    args[0] = "some_command";
+    for (int i = 1; i < args.length; i++) {
+      args[i] = "arg" + i;
+    }
+    args[7] = "with spaces"; // Test embedded spaces in argument.
+    args[9] = "*";           // Test shell meta characters.
+    Map<String, String> env = new LinkedHashMap<>();
+    env.put("FOO", "foo");
+    env.put("PATH", "/usr/bin:/bin:/sbin");
+    String cwd = "/my/working/directory";
+    PlatformInfo executionPlatform =
+        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+    String message =
+        CommandFailureUtils.describeCommandFailure(
+            false, Arrays.asList(args), env, cwd, executionPlatform);
+    assertThat(message)
+        .isEqualTo(
+            "some_command failed: error executing command some_command arg1 "
+                + "arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
+                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
+                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
+                + "arg27 arg28 arg29 arg30 arg31 "
+                + "... (remaining 8 arguments skipped)");
+  }
+
+  @Test
+  public void describeCommandFailure_longMessage_verbose() throws Exception {
+    String[] args = new String[40];
+    args[0] = "some_command";
+    for (int i = 1; i < args.length; i++) {
+      args[i] = "arg" + i;
+    }
+    args[7] = "with spaces"; // Test embedded spaces in argument.
+    args[9] = "*"; // Test shell meta characters.
+    Map<String, String> env = new LinkedHashMap<>();
+    env.put("FOO", "foo");
+    env.put("PATH", "/usr/bin:/bin:/sbin");
+    String cwd = "/my/working/directory";
+    PlatformInfo executionPlatform =
+        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+    String message =
+        CommandFailureUtils.describeCommandFailure(
+            true, Arrays.asList(args), env, cwd, executionPlatform);
+    assertThat(message)
+        .isEqualTo(
+            "some_command failed: error executing command \n"
+                + "  (cd /my/working/directory && \\\n"
+                + "  exec env - \\\n"
+                + "    FOO=foo \\\n"
+                + "    PATH=/usr/bin:/bin:/sbin \\\n"
+                + "  some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
+                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
+                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
+                + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
+                + "arg35 arg36 arg37 arg38 arg39)\n"
+                + "Execution platform: //platform:exec");
+  }
+
+  @Test
+  public void describeCommandFailure_singleSkippedArgument() throws Exception {
+    String[] args = new String[35]; // Long enough to make us skip 1 argument below.
+    args[0] = "some_command";
+    for (int i = 1; i < args.length; i++) {
+      args[i] = "arg" + i;
+    }
+    Map<String, String> env = new LinkedHashMap<>();
+    String cwd = "/my/working/directory";
+    PlatformInfo executionPlatform =
+        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+    String message =
+        CommandFailureUtils.describeCommandFailure(
+            false, Arrays.asList(args), env, cwd, executionPlatform);
+    assertThat(message)
+        .isEqualTo(
+            "some_command failed: error executing command some_command"
+                + " arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9"
+                + " arg10 arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22"
+                + " arg23 arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ..."
+                + " (remaining 1 argument skipped)");
+  }
   @Test
   public void describeCommandPrettyPrintArgs() throws Exception {
 
