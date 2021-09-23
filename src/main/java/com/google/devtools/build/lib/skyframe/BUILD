@@ -114,7 +114,7 @@ java_library(
         ":artifact_nested_set_function",
         ":artifact_nested_set_key",
         ":aspect_creation_exception",
-        ":aspect_value_key",
+        ":aspect_key_creator",
         ":build_configuration_value",
         ":build_info_collection_value",
         ":bzl_compile",
@@ -884,8 +884,8 @@ java_library(
 )
 
 java_library(
-    name = "aspect_value_key",
-    srcs = ["AspectValueKey.java"],
+    name = "aspect_key_creator",
+    srcs = ["AspectKeyCreator.java"],
     deps = [
         ":build_configuration_value",
         ":configured_target_key",
@@ -1020,7 +1020,7 @@ java_library(
     name = "builder",
     srcs = ["Builder.java"],
     deps = [
-        ":aspect_value_key",
+        ":aspect_key_creator",
         ":configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -2703,7 +2703,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",

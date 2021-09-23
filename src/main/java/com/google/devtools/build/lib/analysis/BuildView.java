@@ -72,9 +72,9 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.TopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
@@ -344,7 +344,7 @@ public class BuildView {
       // aspect and the base target while the top-level configuration is untrimmed.
       if (!aspectClasses.isEmpty()) {
         aspectsKeys.add(
-            AspectValueKey.createTopLevelAspectsKey(
+            AspectKeyCreator.createTopLevelAspectsKey(
                 aspectClasses, targetSpec.getLabel(), configuration));
       }
     }

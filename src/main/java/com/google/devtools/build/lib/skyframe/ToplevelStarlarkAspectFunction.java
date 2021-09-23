@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.TopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.AspectDetails;
 import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsValue;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -99,7 +99,7 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
     }
 
     AspectKey aspectKey =
-        AspectValueKey.createAspectKey(
+        AspectKeyCreator.createAspectKey(
             aspect.getAspectDescriptor(),
             dependentAspects.build(),
             topLevelTargetKey.getConfigurationKey(),

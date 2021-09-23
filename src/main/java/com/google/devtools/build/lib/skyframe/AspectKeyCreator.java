@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
-/** A wrapper class for sky keys needed to compute sky values for aspects. */
-public final class AspectValueKey {
+/** The class responsible for creating & interning the various types of AspectKeys. */
+public final class AspectKeyCreator {
 
-  private AspectValueKey() {}
+  private AspectKeyCreator() {}
 
   private static final Interner<AspectKey> aspectKeyInterner = BlazeInterners.newWeakInterner();
   private static final Interner<TopLevelAspectsKey> topLevelAspectsKeyInterner =

@@ -308,7 +308,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
         "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",

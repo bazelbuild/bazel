@@ -87,8 +87,8 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.TopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.TopLevelActionConflictReport;
 import com.google.devtools.build.lib.skyframe.ToplevelStarlarkAspectFunction.TopLevelAspectsValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -733,7 +733,7 @@ public final class SkyframeBuildView {
    * SkyframeExecutor#getConfiguredTargetMapForTesting(ExtendedEventHandler, BuildConfiguration,
    * Iterable)}. When called there, {@code eventBus} must be null to indicate that this is a test,
    * and so there may be additional {@link SkyKey}s in the {@code result} that are not {@link
-   * AspectValueKey}s or {@link ConfiguredTargetKey}s. Those keys will be ignored.
+   * AspectKeyCreator}s or {@link ConfiguredTargetKey}s. Those keys will be ignored.
    */
   static Pair<Boolean, ViewCreationFailedException> processErrors(
       EvaluationResult<? extends SkyValue> result,

@@ -77,7 +77,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -780,7 +780,7 @@ final class AspectFunction implements SkyFunction {
         originalKey.getBaseKeys().stream()
             .map(baseKey -> buildAliasAspectKey(baseKey, aliasLabel, dep))
             .collect(toImmutableList());
-    return AspectValueKey.createAspectKey(
+    return AspectKeyCreator.createAspectKey(
         aliasLabel,
         dep.getConfiguration(),
         aliasedBaseKeys,

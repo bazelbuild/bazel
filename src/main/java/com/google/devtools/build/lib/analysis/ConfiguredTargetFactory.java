@@ -71,7 +71,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
-import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -494,7 +494,7 @@ public final class ConfiguredTargetFactory {
       @Nullable ResolvedToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration,
-      AspectValueKey.AspectKey aspectKey)
+      AspectKeyCreator.AspectKey aspectKey)
       throws InterruptedException, ActionConflictException, InvalidExecGroupException {
 
     RuleContext.Builder builder =
@@ -641,7 +641,7 @@ public final class ConfiguredTargetFactory {
 
   private static void validateAdvertisedProviders(
       ConfiguredAspect configuredAspect,
-      AspectValueKey.AspectKey aspectKey,
+      AspectKeyCreator.AspectKey aspectKey,
       AdvertisedProviderSet advertisedProviders,
       Target target,
       EventHandler eventHandler) {
