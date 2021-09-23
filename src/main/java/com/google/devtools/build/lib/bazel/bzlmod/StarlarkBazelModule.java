@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType.LabelConversionContext;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
@@ -96,15 +97,19 @@ public class StarlarkBazelModule implements StarlarkValue {
   /**
    * Creates a new {@link StarlarkBazelModule} object representing the given {@link AbridgedModule},
    * with its scope limited to the given {@link ModuleExtension}. It'll be populated with the tags
-   * present in the given {@link ModuleExtensionUsage}.
+   * present in the given {@link ModuleExtensionUsage}. Any labels present in tags will be converted
+   * using the given {@link RepositoryMapping}.
    */
   public static StarlarkBazelModule create(
-      AbridgedModule module, ModuleExtension extension, @Nullable ModuleExtensionUsage usage)
+      AbridgedModule module,
+      ModuleExtension extension,
+      RepositoryMapping repoMapping,
+      @Nullable ModuleExtensionUsage usage)
       throws ExternalDepsException {
     LabelConversionContext labelConversionContext =
         new LabelConversionContext(
             createModuleRootLabel(module.getCanonicalRepoName()),
-            module.getRepoMapping(),
+            repoMapping,
             /* convertedLabelsInPackage= */ new HashMap<>());
     ImmutableList<Tag> tags = usage == null ? ImmutableList.of() : usage.getTags();
     HashMap<String, ArrayList<TypeCheckedTag>> typeCheckedTags = new HashMap<>();

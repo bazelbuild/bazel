@@ -838,19 +838,18 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
 
-    if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      RepoMappingForBzlmodBzlLoadValue repoMapping =
-          (RepoMappingForBzlmodBzlLoadValue)
-              env.getValue(
-                  RepoMappingForBzlmodBzlLoadValue.key(enclosingFileLabel.getRepository()));
-      if (repoMapping == null) {
-        return null;
-      }
-      return repoMapping.getRepoMapping();
+    if (key instanceof BzlLoadValue.KeyForBzlmod
+        && enclosingFileLabel.getRepository().strippedName().equals("bazel_tools")) {
+      // Special case: we're only here to get the @bazel_tools repo (for example, for http_archive).
+      // This repo shouldn't have visibility into anything else (during repo generation), so we just
+      // return an empty repo mapping.
+      // TODO(wyv): disallow fallback.
+      return RepositoryMapping.ALWAYS_FALLBACK;
     }
 
-    // We are fully done with workspace evaluation so we should get the mappings from the
-    // final RepositoryMappingValue
+    // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod (in which case the
+    // .bzl file *has* to be from a Bazel module anyway). So we can just use the full repo mapping
+    // from RepositoryMappingFunction.
     PackageIdentifier packageIdentifier = enclosingFileLabel.getPackageIdentifier();
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)

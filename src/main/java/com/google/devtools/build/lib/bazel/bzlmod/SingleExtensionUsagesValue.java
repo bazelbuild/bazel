@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -41,12 +42,16 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** All {@link AbridgedModule}s in the dependency graph that used this extension. */
   public abstract ImmutableList<AbridgedModule> getAbridgedModules();
 
+  /** The repo mappings to use for each module that used this extension. */
+  public abstract ImmutableMap<ModuleKey, RepositoryMapping> getRepoMappings();
+
   public static SingleExtensionUsagesValue create(
       ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
       String extensionUniqueName,
-      ImmutableList<AbridgedModule> abridgedModules) {
+      ImmutableList<AbridgedModule> abridgedModules,
+      ImmutableMap<ModuleKey, RepositoryMapping> repoMappings) {
     return new AutoValue_SingleExtensionUsagesValue(
-        extensionUsages, extensionUniqueName, abridgedModules);
+        extensionUsages, extensionUniqueName, abridgedModules, repoMappings);
   }
 
   public static Key key(ModuleExtensionId id) {

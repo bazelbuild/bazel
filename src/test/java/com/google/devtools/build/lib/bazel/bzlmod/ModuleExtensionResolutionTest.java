@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepoMappingForBzlmodBzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
@@ -203,9 +202,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                     new IgnoredPackagePrefixesFunction(
                         /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
-                .put(
-                    SkyFunctions.REPO_MAPPING_FOR_BZLMOD_BZL_LOAD,
-                    new RepoMappingForBzlmodBzlLoadFunction())
                 .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
@@ -496,6 +492,65 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
         .isEqualTo("get up at 6am. go to bed at 11pm.");
+  }
+
+  @Test
+  public void labels_fromExtensionGeneratedRepo() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext',version='1.0')",
+        "myext = use_extension('//:defs.bzl','myext')",
+        "use_repo(myext,'myrepo')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "ext.tag(file='@myrepo//:requirements.txt')",
+        "use_repo(ext,'ext_repo')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext_repo//:data.bzl', ext_data='data')",
+        "data=ext_data");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _myrepo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "  ctx.file('requirements.txt', 'get up at 6am.')",
+        "myrepo = repository_rule(implementation=_myrepo_impl)",
+        "",
+        "def _myext_impl(ctx):",
+        "  myrepo(name='myrepo')",
+        "myext=module_extension(implementation=_myext_impl)");
+    scratch.file(workspaceRoot.getRelative("requirements.txt").getPathString(), "get up at 6am.");
+
+    registry.addModule(createModuleKey("ext", "1.0"), "module(name='ext',version='1.0')");
+    scratch.file(modulesRoot.getRelative("ext.1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext.1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext.1.0/defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "  content = ' '.join([ctx.read(l).strip() for l in ctx.attr.files])",
+        "  ctx.file('data.bzl', 'data='+json.encode(content))",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl, attrs={'files':attr.label_list()})",
+        "",
+        "def _ext_impl(ctx):",
+        "  data_files = []",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_files.append(tag.file)",
+        "  data_repo(name='ext_repo',files=data_files)",
+        "tag=tag_class(attrs={'file':attr.label()})",
+        "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        driver.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("get up at 6am.");
   }
 
   // TODO(wyv): labels_constructedInModuleExtension

@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -56,7 +57,10 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
         // Filter abridged modules down to only those that actually used this extension.
         bazelModuleResolutionValue.getAbridgedModules().stream()
             .filter(module -> usagesTable.contains(id, module.getKey()))
-            .collect(toImmutableList()));
+            .collect(toImmutableList()),
+        // TODO(wyv): Maybe cache these mappings?
+        usagesTable.row(id).keySet().stream()
+            .collect(toImmutableMap(key -> key, bazelModuleResolutionValue::getFullRepoMapping)));
   }
 
   @Override

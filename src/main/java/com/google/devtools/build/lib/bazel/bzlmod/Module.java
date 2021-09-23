@@ -79,36 +79,31 @@ public abstract class Module {
    */
   public abstract ImmutableMap<String, ModuleKey> getDeps();
 
-  static RepositoryMapping getRepoMappingWithBazelDepsOnly(
-      ModuleKey key, String name, ImmutableMap<String, ModuleKey> deps) {
+  /**
+   * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
+   * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMapping}.
+   */
+  public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
     ImmutableMap.Builder<RepositoryName, RepositoryName> mapping = ImmutableMap.builder();
     // If this is the root module, then the main repository should be visible as `@`.
-    if (key.equals(ModuleKey.ROOT)) {
+    if (getKey().equals(ModuleKey.ROOT)) {
       mapping.put(RepositoryName.MAIN, RepositoryName.MAIN);
     }
     // Every module should be able to reference itself as @<module name>.
     // If this is the root module, this perfectly falls into @<module name> => @
-    if (!name.isEmpty()) {
+    if (!getName().isEmpty()) {
       mapping.put(
-          RepositoryName.createFromValidStrippedName(name),
-          RepositoryName.createFromValidStrippedName(key.getCanonicalRepoName()));
+          RepositoryName.createFromValidStrippedName(getName()),
+          RepositoryName.createFromValidStrippedName(getCanonicalRepoName()));
     }
-    for (Map.Entry<String, ModuleKey> dep : deps.entrySet()) {
+    for (Map.Entry<String, ModuleKey> dep : getDeps().entrySet()) {
       // Special note: if `dep` is actually the root module, its ModuleKey would be ROOT whose
       // canonicalRepoName is the empty string. This perfectly maps to the main repo ("@").
       mapping.put(
           RepositoryName.createFromValidStrippedName(dep.getKey()),
           RepositoryName.createFromValidStrippedName(dep.getValue().getCanonicalRepoName()));
     }
-    return RepositoryMapping.create(mapping.build(), key.getCanonicalRepoName());
-  }
-
-  /**
-   * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
-   * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMappings}.
-   */
-  public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
-    return getRepoMappingWithBazelDepsOnly(getKey(), getName(), getDeps());
+    return RepositoryMapping.create(mapping.build(), getCanonicalRepoName());
   }
 
   /**

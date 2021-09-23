@@ -16,8 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 
 /**
  * An abridged version of a {@link Module}, with a reduced set of information available, used for
@@ -35,14 +33,7 @@ public abstract class AbridgedModule {
     return getKey().getCanonicalRepoName();
   }
 
-  public abstract ImmutableMap<String, ModuleKey> getDeps();
-
-  public final RepositoryMapping getRepoMapping() {
-    return Module.getRepoMappingWithBazelDepsOnly(getKey(), getName(), getDeps());
-  }
-
   public static AbridgedModule from(Module module) {
-    return new AutoValue_AbridgedModule(
-        module.getName(), module.getVersion(), module.getKey(), module.getDeps());
+    return new AutoValue_AbridgedModule(module.getName(), module.getVersion(), module.getKey());
   }
 }

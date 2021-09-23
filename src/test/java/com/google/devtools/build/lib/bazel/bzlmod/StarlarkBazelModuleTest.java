@@ -80,16 +80,18 @@ public class StarlarkBazelModuleTest {
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                                 .build())))
             .build();
-    AbridgedModule module =
-        AbridgedModule.from(
-            Module.builder()
-                .setName("foo")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("foo", ""))
-                .addDep("bar", createModuleKey("bar", "2.0"))
-                .build());
+    Module module =
+        Module.builder()
+            .setName("foo")
+            .setVersion(Version.parse("1.0"))
+            .setKey(createModuleKey("foo", ""))
+            .addDep("bar", createModuleKey("bar", "2.0"))
+            .build();
+    AbridgedModule abridgedModule = AbridgedModule.from(module);
 
-    StarlarkBazelModule moduleProxy = StarlarkBazelModule.create(module, extension, usage);
+    StarlarkBazelModule moduleProxy =
+        StarlarkBazelModule.create(
+            abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
@@ -123,18 +125,20 @@ public class StarlarkBazelModuleTest {
     ModuleExtensionUsage usage = getBaseUsageBuilder().addTag(buildTag("blep").build()).build();
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
-    AbridgedModule module =
-        AbridgedModule.from(
-            Module.builder()
-                .setName("foo")
-                .setVersion(Version.parse("1.0"))
-                .setKey(createModuleKey("foo", ""))
-                .build());
+    Module module =
+        Module.builder()
+            .setName("foo")
+            .setVersion(Version.parse("1.0"))
+            .setKey(createModuleKey("foo", ""))
+            .build();
+    AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =
         assertThrows(
             ExternalDepsException.class,
-            () -> StarlarkBazelModule.create(module, extension, usage));
+            () ->
+                StarlarkBazelModule.create(
+                    abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
 }

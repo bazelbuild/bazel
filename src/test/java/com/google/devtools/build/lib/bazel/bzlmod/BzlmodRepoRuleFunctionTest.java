@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -52,7 +53,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepoMappingForBzlmodBzlLoadFunction;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -187,8 +188,20 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                       }
                     })
                 .put(
-                    SkyFunctions.REPO_MAPPING_FOR_BZLMOD_BZL_LOAD,
-                    new RepoMappingForBzlmodBzlLoadFunction())
+                    SkyFunctions.REPOSITORY_MAPPING,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        // Dummy function that always falls back.
+                        return RepositoryMappingValue.withMapping(
+                            RepositoryMapping.ALWAYS_FALLBACK);
+                      }
+
+                      @Override
+                      public String extractTag(SkyKey skyKey) {
+                        return null;
+                      }
+                    })
                 .put(
                     SkyFunctions.MODULE_EXTENSION_RESOLUTION,
                     new SkyFunction() {
