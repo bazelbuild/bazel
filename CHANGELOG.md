@@ -1,3 +1,11 @@
+## Release 5.0.0-pre.20210916.1 (2021-09-23)
+
+```
+Baseline: e4a26b6391fd2d3112a29bf81b4397055c854184
+```
+
+This release contains contributions from many people at Google, as well as Peter Kasting, Ulrik Falklof.
+
 ## Release 5.0.0-pre.20210913.1 (2021-09-17)
 
 ```
