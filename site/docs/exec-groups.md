@@ -39,11 +39,11 @@ namely any constraints via `exec_compatible_with` and toolchain types via
 my_rule = rule(
     _impl,
     exec_groups = {
-        “link”: exec_group(
-            exec_compatible_with = [ "@platforms//os:linux" ]
+        "link": exec_group(
+            exec_compatible_with = ["@platforms//os:linux"],
             toolchains = ["//foo:toolchain_type"],
         ),
-        “test”: exec_group(
+        "test": exec_group(
             toolchains = ["//foo_tools:toolchain_type"],
         ),
     },
@@ -61,6 +61,9 @@ attribute param and the
 module. The module exposes an `exec` function which takes a single string
 parameter which is the name of the exec group for which the dependency should be
 built.
+
+As on native rules, the `test` execution group is present by default on Stalark
+test rules.
 
 ### Execution group inheritance
 
@@ -80,7 +83,7 @@ those specified by the rule itself. In other words, given the following:
 my_rule = rule(
     _impl,
     exec_groups = {
-        “copied”: exec_group(
+        "copied": exec_group(
             copy_from_rule = True,
             # This will inherit exec_compatible_with and toolchains.
             # Setting them here directly would be an error, however.
@@ -194,7 +197,7 @@ my_rule = rule(
     toolchains = ["//foo:toolchain_type"],
     exec_groups = {
         # The following two groups have the same toolchains and constraints:
-        “foo”: exec_group(copy_from_rule = True),
+        "foo": exec_group(copy_from_rule = True),
         "bar": exec_group(
             exec_compatible_with = [ "@platforms//os:linux" ],
             toolchains = ["//foo:toolchain_type"],
