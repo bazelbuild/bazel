@@ -579,30 +579,17 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "Label",
       doc =
-          "Creates a Label referring to a BUILD target. Use "
-              + "this function only when you want to give a default value for the label "
-              + "attributes. The argument must refer to an absolute label. "
-              + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
+          "Creates a Label referring to a BUILD target. Use this function only when you want to"
+              + " give a default value for the label attributes. The argument must refer to an"
+              + " absolute label. The repo part of the label (or its absence) is interpreted in the"
+              + " context of the repo where this Label() call appears. Example: <br><pre"
+              + " class=language-python>Label(\"//tools:default\")</pre>",
       parameters = {
         @Param(name = "label_string", doc = "the label string."),
-        @Param(
-            name = "relative_to_caller_repository",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc =
-                "Deprecated. Do not use. "
-                    + "When relative_to_caller_repository is True and the calling thread is a "
-                    + "rule's implementation function, then a repo-relative label //foo:bar is "
-                    + "resolved relative to the rule's repository.  For calls to Label from any "
-                    + "other thread, or calls in which the relative_to_caller_repository flag is "
-                    + "False, a repo-relative label is resolved relative to the file in which the "
-                    + "Label() call appears.")
       },
       useStarlarkThread = true)
   @StarlarkConstructor
-  Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException;
+  Label label(String labelString, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "exec_group",

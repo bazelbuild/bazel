@@ -953,35 +953,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException {
+  public Label label(String labelString, StarlarkThread thread) throws EvalException {
     BazelStarlarkContext context = BazelStarlarkContext.from(thread);
 
     // This function is surprisingly complex.
     //
-    // Doc:
-    // "When relative_to_caller_repository is True and the calling thread is a
-    // rule's implementation function, then a repo-relative label //foo:bar is
-    // resolved relative to the rule's repository. For calls to Label from any
-    // other thread, or calls in which the relative_to_caller_repository flag is
-    // False, a repo-relative label is resolved relative to the file in which the
-    // Label() call appears.)"
-    //
-    // - The "and" conjunction in first line of the doc above doesn't match the code.
-    //   There are three cases to consider, not two, as parentLabel can be null or
-    //   in the relativeToCallerRepository branch.
-    //   Thus in a loading phase thread with relativeToCallerRepository=True,
-    //   the repo mapping is (I suspect) erroneously skipped.
-    //   TODO(adonovan): verify, and file a doc bug if so.
-    //
-    // - The deprecated relative_to_caller_repository semantics can be explained
-    //   as thread-local state, something we've embraced elsewhere in the build language.
-    //   (For example, in the loading phase, calling cc_binary creates a rule in the
-    //   package associated with the calling thread.)
-    //
-    //   By contrast, the default relative_to_caller_repository=False semantics
-    //   are more magical, using dynamic scope: introspection on the call stack.
-    //   This is an obstacle to removing GlobalFrame.
+    // - The logic to find the "current repo" is rather magical, using dynamic scope:
+    //   introspection on the call stack. This is an obstacle to removing GlobalFrame.
     //
     //   An alternative way to implement that would be to say that each BUILD/.bzl file
     //   has its own function value called Label that is a closure over the current
@@ -1003,25 +981,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     //   getRelativeWithRemapping, getUnambiguousCanonicalForm, parseAbsoluteLabel
     //   in labelCache)
 
-    Label parentLabel;
-    if (relativeToCallerRepository) {
-      // This is the label of the rule, if this is an analysis-phase
-      // rule or aspect implementation thread, or null otherwise.
-      parentLabel = context.getAnalysisRuleLabel();
-    } else {
-      // This is the label of the innermost BUILD/.bzl file on the current call stack.
-      parentLabel =
-          BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
-    }
+    // This is the label of the innermost BUILD/.bzl file on the current call stack.
+    Label parentLabel =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label();
 
     try {
-      if (parentLabel != null) {
-        LabelValidator.parseAbsoluteLabel(labelString);
-        labelString =
-            parentLabel
-                .getRelativeWithRemapping(labelString, context.getRepoMapping())
-                .getUnambiguousCanonicalForm();
-      }
+      LabelValidator.parseAbsoluteLabel(labelString);
+      labelString =
+          parentLabel
+              .getRelativeWithRemapping(labelString, context.getRepoMapping())
+              .getUnambiguousCanonicalForm();
       return labelCache.get(labelString);
     } catch (LabelValidator.BadLabelException | LabelSyntaxException e) {
       throw Starlark.errorf("Illegal absolute label syntax: %s", labelString);

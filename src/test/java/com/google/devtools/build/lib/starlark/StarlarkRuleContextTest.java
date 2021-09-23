@@ -1331,42 +1331,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCallerRelativeLabelInExternalRepository() throws Exception {
-    scratch.file("BUILD");
-    scratch.file(
-        "external_rule.bzl",
-        "def _impl(ctx):",
-        "  return",
-        "external_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'internal_dep': attr.label(",
-        "        default = Label('//:dep', relative_to_caller_repository = True)",
-        "    )",
-        "  }",
-        ")");
-
-    scratch.file("/r/WORKSPACE");
-    scratch.file("/r/BUILD", "filegroup(name='dep')");
-
-    scratch.file(
-        "/r/a/BUILD", "load('@//:external_rule.bzl', 'external_rule')", "external_rule(name='r')");
-
-    scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='/r')")
-            .build());
-
-    invalidatePackages(
-        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
-    setRuleContext(createRuleContext("@r//a:r"));
-    Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
-    assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep", ImmutableMap.of()));
-  }
-
-  @Test
   public void testExternalWorkspaceLoad() throws Exception {
     // RepositoryDelegatorFunction deletes and creates symlink for the repository and as such is not
     // safe to execute in parallel. Disable checks with package loader to avoid parallel

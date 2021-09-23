@@ -167,8 +167,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
   }
 
   @Override
-  public Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
-      throws EvalException {
+  public Label label(String labelString, StarlarkThread thread) throws EvalException {
     try {
       return Label.parseAbsolute(
           labelString,
