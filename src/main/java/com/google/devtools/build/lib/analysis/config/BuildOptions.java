@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -177,26 +179,29 @@ public final class BuildOptions implements Cloneable, Serializable {
     if (checksum == null) {
       synchronized (this) {
         if (checksum == null) {
-          Fingerprint fingerprint = new Fingerprint();
-          for (FragmentOptions options : fragmentOptionsMap.values()) {
-            fingerprint.addString(options.cacheKey());
+          if (fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty()) {
+            checksum = Strings.repeat("0", 64); // Make empty build options easy to distinguish.
+          } else {
+            Fingerprint fingerprint = new Fingerprint();
+            for (FragmentOptions options : fragmentOptionsMap.values()) {
+              fingerprint.addString(options.cacheKey());
+            }
+            fingerprint.addString(OptionsBase.mapToCacheKey(starlarkOptionsMap));
+            checksum = fingerprint.hexDigestAndReset();
           }
-          fingerprint.addString(OptionsBase.mapToCacheKey(starlarkOptionsMap));
-          checksum = fingerprint.hexDigestAndReset();
         }
       }
     }
     return checksum;
   }
 
-  /** String representation of build options. */
   @Override
   public String toString() {
-    StringBuilder stringBuilder = new StringBuilder();
-    for (FragmentOptions options : fragmentOptionsMap.values()) {
-      stringBuilder.append(options);
-    }
-    return stringBuilder.toString();
+    return MoreObjects.toStringHelper(this)
+        .add("checksum", checksum())
+        .add("fragmentOptions", fragmentOptionsMap.values())
+        .add("starlarkOptions", starlarkOptionsMap)
+        .toString();
   }
 
   /** Returns the options contained in this collection. */
