@@ -247,24 +247,6 @@ java_test(
 )
 
 java_test(
-    name = "ExecutionPhaseContainingPackageLookupTest",
-    srcs = ["ExecutionPhaseContainingPackageLookupTest.java"],
-    tags = [
-        "manual",
-        "no_windows",
-    ],
-    deps = [
-        ":IoHookTestCase",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "GenQueryIntegrationTest",
     srcs = ["GenQueryIntegrationTest.java"],
     tags = [
@@ -589,46 +571,6 @@ java_test(
 )
 
 java_test(
-    name = "CustomRealFilesystemBuildIntegrationTest",
-    srcs = ["CustomRealFilesystemBuildIntegrationTest.java"],
-    shard_count = 4,
-    tags = ["manual"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
-        "//src/test/java/com/google/devtools/build/skyframe:testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
-    ],
-)
-
-java_library(
-    name = "IoHookTestCase",
-    srcs = ["IoHookTestCase.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-    ],
-)
-
-java_test(
     name = "AqueryBuildToolTest",
     srcs = ["AqueryBuildToolTest.java"],
     tags = ["manual"],
@@ -661,12 +603,10 @@ build_test(
         ":CompileOneDependencyIntegrationTest",
         ":ContextProviderInitializationTest",
         ":CorruptedActionCacheTest",
-        ":CustomRealFilesystemBuildIntegrationTest",
         ":DanglingSymlinkTest",
         ":DirectoryArtifactWarningTest",
         ":EditDuringBuildTest",
         ":EnvironmentRestrictedBuildTest",
-        ":ExecutionPhaseContainingPackageLookupTest",
         ":IncludeValidationTest",
         ":InconsistentFilesystemTest",
         ":LabelCrossesPackageBoundaryTest",
