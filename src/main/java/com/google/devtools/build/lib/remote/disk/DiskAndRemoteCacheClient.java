@@ -75,7 +75,8 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     ListenableFuture<Void> future = diskCache.uploadFile(context, digest, file);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (options.isRemoteExecutionEnabled()
+        || shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadFile(context, digest, file), directExecutor());
@@ -87,7 +88,8 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     ListenableFuture<Void> future = diskCache.uploadBlob(context, digest, data);
-    if (shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
+    if (options.isRemoteExecutionEnabled()
+        || shouldUploadLocalResultsToRemoteCache(options, context.getSpawn())) {
       future =
           Futures.transformAsync(
               future, v -> remoteCache.uploadBlob(context, digest, data), directExecutor());
@@ -155,7 +157,8 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     final OutputStream tempOut;
     tempOut = new LazyFileOutputStream(tempPath);
 
-    if (shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
+    if (options.isRemoteExecutionEnabled()
+        || shouldAcceptCachedResultFromRemoteCache(options, context.getSpawn())) {
       ListenableFuture<Void> download =
           closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);
       return Futures.transformAsync(
