@@ -313,7 +313,7 @@ public class ActionExecutionValue implements SkyValue {
    * com.google.devtools.build.lib.actions.Actions#canBeShared shareable} with the action that
    * originally produced this {@code ActionExecutionValue}.
    */
-  ActionExecutionValue transformForSharedAction(Action action) {
+  public ActionExecutionValue transformForSharedAction(Action action) {
     Preconditions.checkArgument(
         action.getOutputs().size() == artifactData.size() + treeArtifactData.size(),
         "Cannot share %s with %s",
