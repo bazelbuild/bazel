@@ -37,8 +37,8 @@ title: Make Variables
 
 <p>
   Bazel provides both <i>predefined</i> variables, which are available to all
-  rules, and <i>custom</i> variables, which are defined in dependency rules and
-  only available to rules that depend on them.
+  targets, and <i>custom</i> variables, which are defined in dependency targets
+  and only available to targets that depend on them.
 </p>
 
 <p>
@@ -71,7 +71,7 @@ title: Make Variables
 
 <p>
   If <code>FOO</code> doesn't correspond to a variable known to the consuming
-  rule, Bazel fails with an error.
+  target, Bazel fails with an error.
 </p>
 
 
@@ -94,7 +94,7 @@ title: Make Variables
 
 <p>
   Predefined "Make" variables can be referenced by any attribute marked as
-  <i>"Subject to 'Make variable' substitution"</i> on any rule.
+  <i>"Subject to 'Make variable' substitution"</i> on any target.
 </p>
 
 <p>
@@ -184,26 +184,28 @@ title: Make Variables
   </li>
   <li>
     <p>
-      <code>RULEDIR</code>: The output directory of the rule, that is, the
-      directory corresponding to the name of the package containing the rule
-      under the <code>genfiles</code> or the <code>bin</code> tree.
+      <code>RULEDIR</code>: The output directory of the target, that is, the
+      directory corresponding to the name of the package containing the target
+      under the <code>genfiles</code> or <code>bin</code> tree. For
+      <code>//my/pkg:my_genrule</code> this always ends in <code>my/pkg</code>,
+      even if <code>//my/pkg:my_genrule</code>'s outputs are in subdirectories.
     </p>
   </li>
   <li>
     <p>
-      <b>WARNING:</b> The Make variable <code>RULEDIR</code> should be used
-      instead because it has simpler semantics and behaves in the same way
-      regardless of the number of output files of the rule.
+      <code>@D</code>: The output directory. If
+      <a
+      href="$expander.expandRef("genrule.outs")">outs</a></code> has one entry,
+      this expands to the directory containing that file. If it has multiple
+      entries, this expands to the package's root directory in the
+      <code>genfiles</code> tree, <i>even if all output files are in the same
+      subdirectory</i>!
+      <!-- (as a consequence of the "middleman" implementation) -->
     </p>
     <p>
-      <code>@D</code>: The output directory.  If there is only one file name in
-      <a
-      href="$expander.expandRef("genrule.outs")">outs</a></code>, this expands
-      to the directory containing that file.  If there are multiple files, this
-      instead expands to the package's root directory in the
-      <code>genfiles</code> tree, <i>even if all generated files belong to the
-      same subdirectory</i>!
-      <!-- (as a consequence of the "middleman" implementation) -->
+      <b>Note:</b> Use <code>RULEDIR</code> over <code>@D</code> because
+      <code>RULEDIR</code> has simpler semantics and behaves the same way
+      regardless of the number of output files.
     </p>
     <p>
       If the genrule needs to generate temporary intermediate files (perhaps as
@@ -263,7 +265,7 @@ title: Make Variables
       So its output file <code>app</code> is written to
       <code>bazel-myproject/bazel-out/host/bin/testapp/app</code>. The exec path
       is thus <code>bazel-out/host/bin/testapp/app</code>. This extra prefix
-      makes it possible to build the same rule for, say, two different CPUs in
+      makes it possible to build the same target for, say, two different CPUs in
       the same build without the results clobbering each other.
     </p>
     <p>
@@ -309,8 +311,8 @@ title: Make Variables
 </p>
 
 <p>
-  All referenced labels must appear in the consuming rule's <code>srcs</code>,
-  output files, or <code>deps</code>. Otherwise the build fails. C++ rules can
+  All referenced labels must appear in the consuming target's <code>srcs</code>,
+  output files, or <code>deps</code>. Otherwise the build fails. C++ targets can
   also reference labels in <code><a
   href="$expander.expandRef("cc_binary.data")">data</a></code>.
 </p>
@@ -324,15 +326,15 @@ title: Make Variables
 
 <p>
   Custom "Make" variables can be referenced by any attribute marked as
-  <i>"Subject to 'Make variable' substitution"</i>, but only on rules that
-  depend on other rules that <i>define</i> these variables.
+  <i>"Subject to 'Make variable' substitution"</i>, but only on targets that
+  depend on other targets that <i>define</i> these variables.
 </p>
 
 <p>
   As best practice all variables should be custom unless there's a really good
   reason to bake them into core Bazel. This saves Bazel from having to load
-  potentially expensive dependencies to supply variables consuming rules may not
-  care about.
+  potentially expensive dependencies to supply variables consuming tarets may
+  not care about.
 </p>
 
 <p><strong>C++ toolchain variables</strong></p>
