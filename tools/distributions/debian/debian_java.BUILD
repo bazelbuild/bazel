@@ -230,7 +230,7 @@ filegroup(
 )
 
 # libjacoco-java - BEGIN
-JACOCOVERSION = "0.8.7"
+JACOCOVERSION = "0.8.6"
 
 java_import(
     name = "agent",
