@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -78,7 +77,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.FileTarget;
-import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -150,40 +148,6 @@ public final class RuleContext extends TargetContext
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
   }
 
-  /** The configured version of FilesetEntry. */
-  @Immutable
-  public static final class ConfiguredFilesetEntry {
-    private final FilesetEntry entry;
-    private final TransitiveInfoCollection src;
-    private final ImmutableList<TransitiveInfoCollection> files;
-
-    ConfiguredFilesetEntry(FilesetEntry entry, TransitiveInfoCollection src) {
-      this.entry = entry;
-      this.src = src;
-      this.files = null;
-    }
-
-    ConfiguredFilesetEntry(FilesetEntry entry, ImmutableList<TransitiveInfoCollection> files) {
-      this.entry = entry;
-      this.src = null;
-      this.files = files;
-    }
-
-    public FilesetEntry getEntry() {
-      return entry;
-    }
-
-    public TransitiveInfoCollection getSrc() {
-      return src;
-    }
-
-    /** Targets from FilesetEntry.files, or null if the user omitted it. */
-    @Nullable
-    public ImmutableList<TransitiveInfoCollection> getFiles() {
-      return files;
-    }
-  }
-
   private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
 
   private final Rule rule;
@@ -197,7 +161,6 @@ public final class RuleContext extends TargetContext
 
   private final ImmutableList<AspectDescriptor> aspectDescriptors;
   private final ListMultimap<String, ConfiguredTargetAndData> targetMap;
-  private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final AspectAwareAttributeMapper attributes;
   private final ImmutableSet<String> enabledFeatures;
@@ -248,7 +211,6 @@ public final class RuleContext extends TargetContext
       Builder builder,
       AttributeMap attributes,
       ListMultimap<String, ConfiguredTargetAndData> targetMap,
-      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       FragmentClassSet universalFragments,
       String ruleClassNameForLogging,
@@ -274,7 +236,6 @@ public final class RuleContext extends TargetContext
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.universalFragments = universalFragments;
     this.targetMap = targetMap;
-    this.filesetEntryMap = filesetEntryMap;
     this.configConditions = configConditions;
     this.attributes = new AspectAwareAttributeMapper(attributes, aspectAttributes);
     Set<String> allEnabledFeatures = new HashSet<>();
@@ -470,11 +431,6 @@ public final class RuleContext extends TargetContext
   /** Returns the {@link ConfiguredTargetAndData} the given attribute. */
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargets(String attributeName) {
     return targetMap.get(attributeName);
-  }
-
-  /** Returns an immutable map from attribute name to list of fileset entries. */
-  public ListMultimap<String, ConfiguredFilesetEntry> getFilesetEntryMap() {
-    return filesetEntryMap;
   }
 
   @Override
@@ -1745,14 +1701,11 @@ public final class RuleContext extends TargetContext
           validateDirectPrerequisite(configSettingAttr, condition);
         }
       }
-      ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
-          createFilesetEntryMap(target.getAssociatedRule(), configConditions.asProviders());
 
       return new RuleContext(
           this,
           attributes,
           targetMap,
-          filesetEntryMap,
           configConditions.asProviders(),
           universalFragments,
           getRuleClassNameForLogging(),
@@ -1909,85 +1862,6 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    private boolean validateFilesetEntry(FilesetEntry filesetEntry, ConfiguredTargetAndData src) {
-      NestedSet<Artifact> filesToBuild =
-          src.getConfiguredTarget().getProvider(FileProvider.class).getFilesToBuild();
-      if (filesToBuild.isSingleton() && filesToBuild.getSingleton().isFileset()) {
-        return true;
-      }
-
-      if (filesetEntry.isSourceFileset()) {
-        return true;
-      }
-
-      Target srcTarget = src.getTarget();
-      if (!(srcTarget instanceof FileTarget)) {
-        attributeError(
-            "entries",
-            String.format(
-                "Invalid 'srcdir' target '%s'. Must be another Fileset or package",
-                srcTarget.getLabel()));
-        return false;
-      }
-
-      if (srcTarget instanceof OutputFile) {
-        attributeWarning(
-            "entries",
-            String.format(
-                "'srcdir' target '%s' is not an input file. "
-                    + "This forces the Fileset to be executed unconditionally",
-                srcTarget.getLabel()));
-      }
-
-      return true;
-    }
-
-    /**
-     * Determines and returns a map from attribute name to list of configured fileset entries, based
-     * on a PrerequisiteMap instance.
-     */
-    private ListMultimap<String, ConfiguredFilesetEntry> createFilesetEntryMap(
-        final Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
-      if (!target.getTargetKind().equals("Fileset rule")) {
-        return ImmutableSortedKeyListMultimap.<String, ConfiguredFilesetEntry>builder().build();
-      }
-
-      final ImmutableSortedKeyListMultimap.Builder<String, ConfiguredFilesetEntry> mapBuilder =
-          ImmutableSortedKeyListMultimap.builder();
-      for (Attribute attr : rule.getAttributes()) {
-        if (attr.getType() != BuildType.FILESET_ENTRY_LIST) {
-          continue;
-        }
-        String attributeName = attr.getName();
-        Map<Label, ConfiguredTargetAndData> ctMap = new HashMap<>();
-        for (ConfiguredTargetAndData prerequisite : prerequisiteMap.get(attr)) {
-          ctMap.put(
-              AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget()), prerequisite);
-        }
-        List<FilesetEntry> entries =
-            ConfiguredAttributeMapper.of(rule, configConditions, configuration.checksum())
-                .get(attributeName, BuildType.FILESET_ENTRY_LIST);
-        for (FilesetEntry entry : entries) {
-          if (entry.getFiles() == null) {
-            Label label = entry.getSrcLabel();
-            ConfiguredTargetAndData src = ctMap.get(label);
-            if (!validateFilesetEntry(entry, src)) {
-              continue;
-            }
-
-            mapBuilder.put(
-                attributeName, new ConfiguredFilesetEntry(entry, src.getConfiguredTarget()));
-          } else {
-            ImmutableList.Builder<TransitiveInfoCollection> files = ImmutableList.builder();
-            for (Label file : entry.getFiles()) {
-              files.add(ctMap.get(file).getConfiguredTarget());
-            }
-            mapBuilder.put(attributeName, new ConfiguredFilesetEntry(entry, files.build()));
-          }
-        }
-      }
-      return mapBuilder.build();
-    }
 
     /** Determines and returns a map from attribute name to list of configured targets. */
     private ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> createTargetMap() {
