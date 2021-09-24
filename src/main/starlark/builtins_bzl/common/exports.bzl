@@ -32,7 +32,7 @@ exported_toplevels = {
 exported_rules = {
     "+cc_import": cc_import,
     "+java_library": java_library,
-    "-java_plugin": java_plugin,
+    "+java_plugin": java_plugin,
     "objc_import": objc_import,
     "objc_library": objc_library,
     "+apple_static_library": apple_static_library,
