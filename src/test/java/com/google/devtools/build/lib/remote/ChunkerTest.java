@@ -202,23 +202,6 @@ public class ChunkerTest {
   }
 
   @Test
-  public void testActualSizeThrowsIfCalledEarly() throws IOException {
-    byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
-    Chunker chunker = Chunker.builder().setInput(data).setChunkSize(data.length / 2).build();
-    chunker.next();
-    assertThrows(IllegalStateException.class, chunker::getActualSize);
-  }
-
-  @Test
-  public void testActualSizeIsSizeForUncompressedBlob() throws IOException {
-    byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
-    Chunker chunker = Chunker.builder().setInput(data).setChunkSize(data.length * 2).build();
-    chunker.next();
-    assertThat(chunker.hasNext()).isFalse();
-    assertThat(chunker.getActualSize()).isEqualTo(chunker.getSize());
-  }
-
-  @Test
   public void testActualSizeIsCorrectAfterSeek() throws IOException {
     byte[] data = {72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33};
     int[] expectedSizes = {12, 33};

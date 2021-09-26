@@ -408,8 +408,9 @@ class ByteStreamUploader extends AbstractReferenceCounted {
               () ->
                   retrier.executeAsync(
                       () -> {
-                        if (chunker.bytesLeft() != 0
-                            || committedOffset.get() < chunker.getActualSize()) {
+                        long offset = committedOffset.get();
+                        if ((offset == 0 && chunker.bytesLeft() != 0)
+                            || (offset < chunker.getActualSize())) {
                           return callAndQueryOnFailure(committedOffset, progressiveBackoff);
                         }
                         return Futures.immediateFuture(null);

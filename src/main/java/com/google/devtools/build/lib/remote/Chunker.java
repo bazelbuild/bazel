@@ -118,7 +118,8 @@ public final class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  private AtomicLong actualSize = new AtomicLong(0);
+  private AtomicLong processedBytes = new AtomicLong(0);
+  private long actualSize = -1;
 
   Chunker(Supplier<InputStream> dataSupplier, long size, int chunkSize, boolean compressed) {
     this.dataSupplier = checkNotNull(dataSupplier);
@@ -136,11 +137,25 @@ public final class Chunker {
     return size;
   }
 
-  public long getActualSize() {
-    long actualSize = this.actualSize.get();
-    checkState(bytesLeft() == 0);
-    checkState(compressed || actualSize == size);
-    return actualSize;
+  public long getActualSize() throws IOException {
+    if (compressed) {
+      if (actualSize == -1) {
+        if (bytesLeft() != 0) {
+          // If there are bytes left, compute the remaining size
+          long currentOffset = offset;
+          while (hasNext()) {
+            next();
+          }
+          actualSize = processedBytes.get();
+          seek(currentOffset);
+        } else {
+          actualSize = processedBytes.get();
+        }
+      }
+      return actualSize;
+    } else {
+      return size;
+    }
   }
 
   /**
@@ -198,12 +213,12 @@ public final class Chunker {
         if (remaining == 0 && toOffset == size) {
           zos.close();
         }
-        actualSize.addAndGet(baos.toByteArray().length);
+        processedBytes.addAndGet(baos.toByteArray().length);
         baos.reset();
       }
     } else {
       ByteStreams.skipFully(data, toOffset - offset);
-      actualSize.addAndGet(toOffset);
+      processedBytes.addAndGet(toOffset);
     }
     offset = toOffset;
   }
@@ -273,7 +288,7 @@ public final class Chunker {
     } else {
       blob = ByteString.copyFrom(chunkCache, 0, bytesToRead);
     }
-    actualSize.addAndGet(blob.size());
+    processedBytes.addAndGet(blob.size());
 
     // This has to happen after actualSize has been updated
     // or the guard in getActualSize won't work.
@@ -310,7 +325,7 @@ public final class Chunker {
       baos = new ByteArrayOutputStream();
       zos = new ZstdOutputStream(baos);
     }
-    actualSize = new AtomicLong(0);
+    processedBytes = new AtomicLong(0);
     initialized = true;
   }
 
