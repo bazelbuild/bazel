@@ -145,7 +145,20 @@ distrib_java_import(
 distrib_java_import(
     name = "zstd-jni",
     enable_distributions = ["debian"],
-    jars = ["zstd-jni/zstd-jni-1.5.0-4.jar"],
+    jars = select({
+        "//src/conditions:linux_aarch64": ["zstd-jni/zstd-jni-1.5.0-4-linux_aarch64.jar"],
+        "//src/conditions:linux_arm": ["zstd-jni/zstd-jni-1.5.0-4-linux_arm.jar"],
+        "//src/conditions:linux_ppc": ["zstd-jni/zstd-jni-1.5.0-4-linux_ppc64.jar"],
+        "//src/conditions:linux_ppc64le": ["zstd-jni/zstd-jni-1.5.0-4-linux_ppc64le.jar"],
+        "//src/conditions:linux_s390x": ["zstd-jni/zstd-jni-1.5.0-4-linux_s390x.jar"],
+        "//src/conditions:linux_mips64": ["zstd-jni/zstd-jni-1.5.0-4-linux_mips64.jar"],
+        "//src/conditions:linux_x86_64": ["zstd-jni/zstd-jni-1.5.0-4-linux_amd64.jar"],
+        "//src/conditions:darwin_x86_64": ["zstd-jni/zstd-jni-1.5.0-4-darwin_x86_64.jar"],
+        "//src/conditions:darwin_arm64": ["zstd-jni/zstd-jni-1.5.0-4-darwin_aarch64.jar"],
+        "//src/conditions:freebsd": ["zstd-jni/zstd-jni-1.5.0-4-freebsd_amd64.jar"],
+        "//src/conditions:windows": ["zstd-jni/zstd-jni-1.5.0-4-win_amd64.jar"],
+        "//conditions:default": ["zstd-jni/zstd-jni-1.5.0-4.jar"],
+    })
 )
 
 distrib_java_import(
