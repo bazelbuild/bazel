@@ -33,9 +33,10 @@ DIST_DEPS = {
     },
     "bazelci_rules": {
         "archive": "bazelci_rules-1.0.0.tar.gz",
-        "sha256": "092772e52fd573ee39282d88880ff2a49a2482affeabc1a30e295e0a2891624c",
+        "sha256": "eca21884e6f66a88c358e580fd67a6b148d30ab57b1680f62a96c00f9bc6a07e",
+        "strip_prefix": "bazelci_rules-1.0.0",
         "urls": [
-            "https://github.com/bazelbuild/continuous-integration/releases/download/rules_1.0.0/bazelci_rules.tar.gz",
+            "https://github.com/bazelbuild/continuous-integration/releases/download/rules-1.0.0/bazelci_rules-1.0.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
