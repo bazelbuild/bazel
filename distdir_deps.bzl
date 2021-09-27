@@ -312,7 +312,7 @@ DIST_DEPS = {
             "remote_java_tools_test_darwin",
             "remote_java_tools_darwin_for_testing",
         ],
-        "archive": "java_tools_darwin-v11.4.zip",
+        "archive": "java_tools_darwin-v11.4-rc1.zip",
         "sha256": "fc0df786c3487874e0bc0ba86f7ca40c939eaddfebac35cb2426969e1bb133cf",
         "urls": [
             "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.4/java_tools_darwin-v11.4-rc1.zip",
