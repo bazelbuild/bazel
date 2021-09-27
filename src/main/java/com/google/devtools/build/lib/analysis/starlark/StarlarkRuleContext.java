@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -260,6 +261,17 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
 
       for (Attribute attribute : rule.getAttributes()) {
+        // The aspect_hints attribute is experimental. When not enabled through the
+        // --enable_aspect_hints flag, we don't add it to the list of attributes that the aspect
+        // has access to.
+        if (attribute.getName().equals("aspect_hints")
+            && !ruleContext
+                .getConfiguration()
+                .getOptions()
+                .get(CoreOptions.class)
+                .enableAspectHints) {
+          continue;
+        }
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         ruleBuilder.addAttribute(attribute, value);
       }

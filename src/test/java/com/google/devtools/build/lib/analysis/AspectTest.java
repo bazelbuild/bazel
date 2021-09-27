@@ -1159,6 +1159,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnNativeRule() throws Exception {
+    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     scratch.file(
         "aspect_hints/BUILD",
@@ -1179,6 +1180,7 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnStarlarkRule() throws Exception {
+    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     setupStarlarkRule();
     scratch.file(
