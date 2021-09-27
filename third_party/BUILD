@@ -651,7 +651,7 @@ distrib_java_import(
 
 java_import(
     name = "mockito",
-    jars = ["mockito/mockito-core-2.25.1.jar"],
+    jars = ["mockito/mockito-core-3.12.4.jar"],
     deps = [
         ":byte_buddy",
         ":objenesis",
