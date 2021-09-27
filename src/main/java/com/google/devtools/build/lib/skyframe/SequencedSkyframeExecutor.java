@@ -116,6 +116,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -476,38 +477,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       boolean managedDirectoriesChanged,
       int fsvcThreads)
       throws InterruptedException {
-    ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
-    if (pathEntriesWithoutDiffInformation.isEmpty()
-        && Iterables.isEmpty(customDirtinessCheckers)
-        && ((!externalFilesKnowledge.anyOutputFilesSeen || !checkOutputFiles)
-            && !externalFilesKnowledge.anyNonOutputExternalFilesSeen)) {
-      // Avoid a full graph scan if we have good diff information for all path entries, there are
-      // no custom checkers that need to look at the whole graph, and no external (not under any
-      // path) files need to be checked.
-      return;
-    }
-    // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
-    // have actually been invalidated (recall that invalidation happens at the beginning of the
-    // next evaluate() call), because checking those is a waste of time.
-    EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder()
-            .setKeepGoing(false)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHandler(eventHandler)
-            .build();
-    getDriver().evaluate(ImmutableList.of(), evaluationContext);
-
-    FilesystemValueChecker fsvc =
-        new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
-    // We need to manually check for changes to known files. This entails finding all dirty file
-    // system values under package roots for which we don't have diff information. If at least
-    // one path entry doesn't have diff information, then we're going to have to iterate over
-    // the skyframe values at least once no matter what.
-    Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
-    for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
-        pathEntriesWithoutDiffInformation) {
-      diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
-    }
 
     // We freshly compute knowledge of the presence of external files in the skyframe graph. We use
     // a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after* we
@@ -515,37 +484,101 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // incorrectly think there are no longer any external files.
     ExternalFilesHelper tmpExternalFilesHelper =
         externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
-    // See the comment for FileType.OUTPUT for why we need to consider output files here.
-    EnumSet<FileType> fileTypesToCheck =
-        checkOutputFiles
-            ? EnumSet.of(
-                FileType.EXTERNAL,
-                FileType.EXTERNAL_REPO,
-                FileType.EXTERNAL_IN_MANAGED_DIRECTORY,
-                FileType.OUTPUT)
-            : EnumSet.of(
-                FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
-    logger.atInfo().log(
-        "About to scan skyframe graph checking for filesystem nodes of types %s",
-        Iterables.toString(fileTypesToCheck));
-    ImmutableBatchDirtyResult batchDirtyResult;
-    try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
-      batchDirtyResult =
-          fsvc.getDirtyKeys(
-              memoizingEvaluator.getValues(),
-              new UnionDirtinessChecker(
-                  Iterables.concat(
-                      customDirtinessCheckers,
-                      ImmutableList.<SkyValueDirtinessChecker>of(
-                          new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
-                          new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
-    }
-    handleChangedFiles(
-        diffPackageRootsUnderWhichToCheck,
-        batchDirtyResult,
-        /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked(),
-        managedDirectoriesChanged);
 
+    ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
+    if (!pathEntriesWithoutDiffInformation.isEmpty()
+        || (externalFilesKnowledge.anyOutputFilesSeen && checkOutputFiles)
+        || !Iterables.isEmpty(customDirtinessCheckers)
+        || externalFilesKnowledge.anyFilesInExternalReposSeen
+        || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+
+      // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
+      // have actually been invalidated (recall that invalidation happens at the beginning of the
+      // next evaluate() call), because checking those is a waste of time.
+      EvaluationContext evaluationContext =
+          EvaluationContext.newBuilder()
+              .setKeepGoing(false)
+              .setNumThreads(DEFAULT_THREAD_COUNT)
+              .setEventHandler(eventHandler)
+              .build();
+      getDriver().evaluate(ImmutableList.of(), evaluationContext);
+
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
+      // We need to manually check for changes to known files. This entails finding all dirty file
+      // system values under package roots for which we don't have diff information. If at least
+      // one path entry doesn't have diff information, then we're going to have to iterate over
+      // the skyframe values at least once no matter what.
+      Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
+      for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
+          pathEntriesWithoutDiffInformation) {
+        diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
+      }
+
+      EnumSet<FileType> fileTypesToCheck =
+          EnumSet.of(FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
+      // See the comment for FileType.OUTPUT for why we need to consider output files here.
+      if (checkOutputFiles) {
+        fileTypesToCheck.add(FileType.OUTPUT);
+      }
+      if (externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+        fileTypesToCheck.add(FileType.EXTERNAL);
+      }
+      logger.atInfo().log(
+          "About to scan skyframe graph checking for filesystem nodes of types %s",
+          Iterables.toString(fileTypesToCheck));
+      ImmutableBatchDirtyResult batchDirtyResult;
+      try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
+        batchDirtyResult =
+            fsvc.getDirtyKeys(
+                memoizingEvaluator.getValues(),
+                new UnionDirtinessChecker(
+                    Iterables.concat(
+                        customDirtinessCheckers,
+                        ImmutableList.<SkyValueDirtinessChecker>of(
+                            new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck),
+                            new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)))));
+      }
+      handleChangedFiles(
+          diffPackageRootsUnderWhichToCheck,
+          batchDirtyResult,
+          /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked(),
+          managedDirectoriesChanged);
+    }
+    if (!externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()
+        && !externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+      logger.atInfo().log(
+          "About to scan %d external files",
+          externalFilesKnowledge.nonOutputExternalFilesSeen.size());
+      FilesystemValueChecker fsvc =
+          new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, fsvcThreads);
+      ImmutableBatchDirtyResult batchDirtyResult;
+      try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
+        Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
+        for (RootedPath path : externalFilesKnowledge.nonOutputExternalFilesSeen) {
+          SkyKey key = FileStateValue.key(path);
+          SkyValue value = memoizingEvaluator.getExistingValue(key);
+          if (value != null) {
+            externalDirtyNodes.put(key, value);
+          }
+          key = DirectoryListingStateValue.key(path);
+          memoizingEvaluator.getExistingValue(key);
+          if (value != null) {
+            externalDirtyNodes.put(key, value);
+          }
+        }
+        batchDirtyResult =
+            fsvc.getDirtyKeys(
+                externalDirtyNodes,
+                new ExternalDirtinessChecker(
+                    tmpExternalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
+      }
+      handleChangedFiles(
+          ImmutableList.<Root>of(),
+          batchDirtyResult,
+          batchDirtyResult.getNumKeysChecked(),
+          /*managedDirectoriesChanged=*/ false);
+    }
     for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
         pathEntriesWithoutDiffInformation) {
       pair.getSecond().markProcessed();
