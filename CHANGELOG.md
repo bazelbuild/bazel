@@ -1,3 +1,33 @@
+## Release 5.0.0-pre.20210921.1 (2021-09-27)
+
+```
+Baseline: 11f1a6d3ce529a63d4b7111c62ae504ceac2a019
+```
+
+Incompatible changes:
+
+  - Remove --bep_publish_used_heap_size_post_build
+  - JSON trace profile: rename counter names.
+
+Important changes:
+
+  - Adds --experimental_existing_rules_immutable_view flag to make the
+    native.existing_rule and native.existing_rules functions more
+    efficient by
+    returning immutable, lightweight dict-like view objects instead
+    of mutable
+    dicts.
+
+This release contains contributions from many people at Google, as well as Wren Turkal.
+
+## Release 5.0.0-pre.20210916.1 (2021-09-23)
+
+```
+Baseline: e4a26b6391fd2d3112a29bf81b4397055c854184
+```
+
+This release contains contributions from many people at Google, as well as Peter Kasting, Ulrik Falklof.
+
 ## Release 5.0.0-pre.20210913.1 (2021-09-17)
 
 ```
