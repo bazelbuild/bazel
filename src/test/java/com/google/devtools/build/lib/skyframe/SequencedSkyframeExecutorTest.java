@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -745,7 +746,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // an action from its respective configured target.
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output1 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc1);
     Action action1 =
         new MissingOutputAction(
@@ -753,7 +754,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc2);
     Action action2 =
         new MissingOutputAction(
@@ -808,7 +809,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // "out/input" so we can synchronize their execution.
     ActionLookupKey inputKey = new InjectedActionLookupKey("input");
     Artifact input =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             PathFragment.create("out").getRelative("input"),
             inputKey);
@@ -817,7 +818,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue ctBase = createActionLookupValue(baseAction, inputKey);
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output1 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc1);
     Action action1 =
         new DummyAction(
@@ -825,7 +826,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc2);
     Action action2 =
         new DummyAction(
@@ -908,7 +909,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // thing if they executed, but they look the same to our execution engine.
     ActionLookupKey lcA = new InjectedActionLookupKey("lcA");
     Artifact outputA =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lcA);
     CountDownLatch actionAStartedSoOthersCanProceed = new CountDownLatch(1);
     CountDownLatch actionCFinishedSoACanFinish = new CountDownLatch(1);
@@ -933,7 +934,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Shared actions: they look the same from the point of view of Blaze data.
     ActionLookupKey lcB = new InjectedActionLookupKey("lcB");
     Artifact outputB =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lcB);
     Action actionB =
         new DummyAction(
@@ -941,7 +942,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue ctB = createActionLookupValue(actionB, lcB);
     ActionLookupKey lcC = new InjectedActionLookupKey("lcC");
     Artifact outputC =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lcC);
     Action actionC =
         new DummyAction(
@@ -1065,7 +1066,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // an action from its respective configured target.
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     SpecialArtifact output1 =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath,
             lc1,
@@ -1076,7 +1077,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     SpecialArtifact output2 =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath,
             lc2,
@@ -1162,7 +1163,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // an action from its respective configured target.
     ActionLookupKey baseKey = new InjectedActionLookupKey("base");
     SpecialArtifact baseOutput =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath,
             baseKey,
@@ -1174,7 +1175,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupKey shared1 = new InjectedActionLookupKey("shared1");
     PathFragment execPath2 = PathFragment.create("out").getRelative("treesShared");
     SpecialArtifact sharedOutput1 =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath2,
             shared1,
@@ -1184,7 +1185,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue shared1Ct = createActionLookupValue(template1, shared1);
     ActionLookupKey shared2 = new InjectedActionLookupKey("shared2");
     SpecialArtifact sharedOutput2 =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath2,
             shared2,
@@ -1356,7 +1357,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // an action from its respective configured target.
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output1 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc1);
     Action action1 =
         new DummyAction(
@@ -1364,7 +1365,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"), execPath, lc2);
     CountDownLatch action2Running = new CountDownLatch(1);
     CountDownLatch topActionTestedOutput = new CountDownLatch(1);
@@ -1383,7 +1384,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     ActionLookupKey topLc = new InjectedActionLookupKey("top");
     Artifact top =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             relativeOut.getChild("top"),
             topLc);
@@ -1457,7 +1458,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     PathFragment execPath = PathFragment.create("out").getRelative("dir");
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("foo"),
             lc1);
@@ -1472,7 +1473,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("bar"),
             lc2);
@@ -1634,7 +1635,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     PathFragment execPath = PathFragment.create("out").getRelative("dir");
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
     Artifact output =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("foo"),
             lc1);
@@ -1642,7 +1643,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue ctValue1 = createActionLookupValue(action1, lc1);
     ActionLookupKey lc2 = new InjectedActionLookupKey("lc2");
     Artifact output2 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("bar"),
             lc2);
@@ -1733,7 +1734,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     PathFragment execPath = PathFragment.create("out").getRelative("dir");
     ActionLookupKey catastropheCTK = new InjectedActionLookupKey("catastrophe");
     Artifact catastropheArtifact =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("zcatas"),
             catastropheCTK);
@@ -1751,7 +1752,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue catastropheALV = createActionLookupValue(catastrophicAction, catastropheCTK);
     ActionLookupKey failureCTK = new InjectedActionLookupKey("failure");
     Artifact failureArtifact =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("fail"),
             failureCTK);
@@ -1759,7 +1760,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     ActionLookupValue failureALV = createActionLookupValue(failureAction, failureCTK);
     ActionLookupKey topCTK = new InjectedActionLookupKey("top");
     Artifact topArtifact =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("top"),
             topCTK);
@@ -1846,7 +1847,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     PathFragment execPath = PathFragment.create("out").getRelative("dir");
     ActionLookupKey configuredTargetKey = new InjectedActionLookupKey("key");
     Artifact catastropheArtifact =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("catas"),
             configuredTargetKey);
@@ -1870,7 +1871,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     for (int i = 0; i < failedSize; i++) {
       String failString = HashCode.fromBytes(("fail" + i).getBytes(UTF_8)).toString();
       Artifact failureArtifact =
-          new Artifact.DerivedArtifact(
+          DerivedArtifact.create(
               ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
               execPath.getRelative(failString),
               configuredTargetKey);
@@ -1990,7 +1991,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // When we have an action that throws a (non-catastrophic) exception when it is executed,
     ActionLookupKey failedKey = new InjectedActionLookupKey("failed");
     Artifact failedOutput =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("failed"),
             failedKey);
@@ -2015,7 +2016,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // And an action that throws a catastrophic exception when it is executed,
     ActionLookupKey catastrophicKey = new InjectedActionLookupKey("catastrophic");
     Artifact catastrophicOutput =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("catastrophic"),
             catastrophicKey);
@@ -2112,14 +2113,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     ActionLookupKey succeededKey = new InjectedActionLookupKey("succeeded");
     Artifact succeededOutput =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("succeeded"),
             succeededKey);
 
     ActionLookupKey failedKey = new InjectedActionLookupKey("failed");
     Artifact failedOutput =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("failed"),
             failedKey);
@@ -2198,21 +2199,21 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     ActionLookupKey succeededKey = new InjectedActionLookupKey("succeeded");
     Artifact succeededOutput =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("succeeded"),
             succeededKey);
 
     ActionLookupKey failedKey1 = new InjectedActionLookupKey("failed1");
     Artifact failedOutput1 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("failed1"),
             failedKey1);
 
     ActionLookupKey failedKey2 = new InjectedActionLookupKey("failed2");
     Artifact failedOutput2 =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("failed2"),
             failedKey2);
@@ -2299,7 +2300,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     ActionLookupKey topKey = new InjectedActionLookupKey("top");
     Artifact topOutput =
-        new Artifact.DerivedArtifact(
+        DerivedArtifact.create(
             ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
             execPath.getRelative("top"),
             topKey);

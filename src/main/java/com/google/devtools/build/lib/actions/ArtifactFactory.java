@@ -15,7 +15,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -349,9 +351,9 @@ public class ArtifactFactory implements ArtifactResolver {
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : new Artifact.DerivedArtifact(root, execPath, (ActionLookupKey) owner, contentBasedPath);
+          : DerivedArtifact.create(root, execPath, (ActionLookupKey) owner, contentBasedPath);
     } else {
-      return new Artifact.SpecialArtifact(root, execPath, (ActionLookupKey) owner, type);
+      return SpecialArtifact.create(root, execPath, (ActionLookupKey) owner, type);
     }
   }
 

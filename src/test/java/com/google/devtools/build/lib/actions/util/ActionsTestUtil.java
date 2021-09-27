@@ -249,13 +249,13 @@ public final class ActionsTestUtil {
   public static Artifact createArtifactWithExecPath(ArtifactRoot root, PathFragment execPath) {
     return root.isSourceRoot()
         ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NULL_OWNER)
-        : new Artifact.DerivedArtifact(root, execPath, NULL_ARTIFACT_OWNER);
+        : DerivedArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
       ArtifactRoot root, PathFragment execPath) {
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
+        SpecialArtifact.create(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
     treeArtifact.setGeneratingActionKey(NULL_ACTION_LOOKUP_DATA);
     return treeArtifact;
   }

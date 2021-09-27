@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -180,10 +181,8 @@ public class RunfilesTest extends FoundationTestCase {
 
     SimpleActionLookupKey owner1 = new SimpleActionLookupKey("//owner1");
     SimpleActionLookupKey owner2 = new SimpleActionLookupKey("//owner2");
-    Artifact artifact1 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path), owner1);
-    Artifact artifact2 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path), owner2);
+    Artifact artifact1 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner1);
+    Artifact artifact2 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner2);
 
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
@@ -205,10 +204,9 @@ public class RunfilesTest extends FoundationTestCase {
 
     SimpleActionLookupKey owner1 = new SimpleActionLookupKey("//owner1");
     SimpleActionLookupKey owner2 = new SimpleActionLookupKey("//owner2");
-    Artifact artifact1 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path), owner1);
+    Artifact artifact1 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner1);
     Artifact artifact2 =
-        new Artifact.DerivedArtifact(root, root.getExecPath().getRelative(path2), owner2);
+        DerivedArtifact.create(root, root.getExecPath().getRelative(path2), owner2);
 
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 

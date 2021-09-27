@@ -228,7 +228,7 @@ public class ArtifactTest {
     ArtifactRoot anotherRoot =
         ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
     DerivedArtifact anotherArtifact =
-        new DerivedArtifact(
+        DerivedArtifact.create(
             anotherRoot,
             anotherRoot.getExecPath().getRelative("src/c"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
@@ -359,10 +359,10 @@ public class ArtifactTest {
           }
         };
     DerivedArtifact derived1 =
-        new DerivedArtifact(root, PathFragment.create("newRoot/shared"), firstOwner);
+        DerivedArtifact.create(root, PathFragment.create("newRoot/shared"), firstOwner);
     derived1.setGeneratingActionKey(ActionLookupData.create(firstOwner, 0));
     DerivedArtifact derived2 =
-        new DerivedArtifact(root, PathFragment.create("newRoot/shared"), secondOwner);
+        DerivedArtifact.create(root, PathFragment.create("newRoot/shared"), secondOwner);
     derived2.setGeneratingActionKey(ActionLookupData.create(secondOwner, 0));
     ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(root.getRoot().asPath()));
     Artifact source1 = new SourceArtifact(sourceRoot, PathFragment.create("shared"), firstOwner);
@@ -401,7 +401,7 @@ public class ArtifactTest {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
     assertThat(
-            new DerivedArtifact(
+            DerivedArtifact.create(
                     root,
                     PathFragment.create("newRoot/my.output"),
                     ActionsTestUtil.NULL_ARTIFACT_OWNER,
@@ -577,7 +577,7 @@ public class ArtifactTest {
   private static SpecialArtifact createTreeArtifact(
       ArtifactRoot root, String relativePath, ActionLookupData actionLookupData) {
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             root,
             root.getExecPath().getRelative(relativePath),
             actionLookupData.getActionLookupKey(),

@@ -206,7 +206,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
           public ImmutableSet<Artifact> getOutputs() {
             return ImmutableSet.of(
                 outputTree,
-                new DerivedArtifact(
+                DerivedArtifact.create(
                     outputTree.getRoot(),
                     outputTree.getRoot().getExecPath().getRelative("not_tree"),
                     outputTree.getArtifactOwner()));
@@ -262,7 +262,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
               ActionLookupKey artifactOwner) {
             TreeFileArtifact input = Iterables.getOnlyElement(inputTreeFileArtifacts);
             Artifact notTreeFileArtifact =
-                new DerivedArtifact(
+                DerivedArtifact.create(
                     input.getRoot(),
                     input.getRoot().getExecPath().getRelative("a.txt"),
                     artifactOwner);
@@ -372,7 +372,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
   private SpecialArtifact createTreeArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
-    return new SpecialArtifact(
+    return SpecialArtifact.create(
         ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"),
         execPath,
         CTKEY,

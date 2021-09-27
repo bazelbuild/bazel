@@ -234,12 +234,13 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   }
 
   private DerivedArtifact createFileArtifact(String relativePath, ActionLookupKey owner) {
-    return new DerivedArtifact(derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
+    return DerivedArtifact.create(
+        derivedRoot, DERIVED_PATH_PREFIX.getRelative(relativePath), owner);
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath, ActionLookupKey owner) {
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
+        SpecialArtifact.create(
             derivedRoot,
             DERIVED_PATH_PREFIX.getRelative(relativePath),
             owner,

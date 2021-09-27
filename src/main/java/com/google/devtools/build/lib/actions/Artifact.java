@@ -388,22 +388,32 @@ public abstract class Artifact
      */
     private final boolean contentBasedPath;
 
-    /** Standard constructor for derived artifacts. */
-    public DerivedArtifact(ArtifactRoot root, PathFragment execPath, ActionLookupKey owner) {
-      this(root, execPath, owner, /*contentBasedPath=*/ false);
+    /** Standard factory method for derived artifacts. */
+    public static DerivedArtifact create(
+        ArtifactRoot root, PathFragment execPath, ActionLookupKey owner) {
+      return create(root, execPath, owner, /*contentBasedPath=*/ false);
     }
 
     /**
-     * Same as {@link #DerivedArtifact(ArtifactRoot, PathFragment, ActionLookupKey)} but includes
-     * tge option to use a content-based path for this artifact (see {@link
+     * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKey)} but includes the option
+     * to use a content-based path for this artifact (see {@link
      * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}).
      */
-    public DerivedArtifact(
+    public static DerivedArtifact create(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, boolean contentBasedPath) {
+      return new DerivedArtifact(root, execPath, owner, contentBasedPath);
+    }
+
+    private DerivedArtifact(ArtifactRoot root, PathFragment execPath, Object owner) {
+      this(root, execPath, owner, /*contentBasedPath=*/ false);
+    }
+
+    private DerivedArtifact(
+        ArtifactRoot root, PathFragment execPath, Object owner, boolean contentBasedPath) {
       super(root, execPath);
       Preconditions.checkState(
           !root.getExecPath().isEmpty(), "Derived root has no exec path: %s, %s", root, execPath);
-      this.owner = owner;
+      this.owner = Preconditions.checkNotNull(owner);
       this.contentBasedPath = contentBasedPath;
     }
 
@@ -503,45 +513,40 @@ public abstract class Artifact
         SerializationContext context, DerivedArtifact obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serialize(obj.getRoot(), codedOut);
-      context.serialize(obj.getGeneratingActionKey(), codedOut);
       context.serialize(obj.getRootRelativePath(), codedOut);
+      context.serialize(obj.getGeneratingActionKey(), codedOut);
     }
 
     @Override
     public DerivedArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       ArtifactRoot root = context.deserialize(codedIn);
+      PathFragment rootRelativePath = context.deserialize(codedIn);
       ActionLookupData generatingActionKey = context.deserialize(codedIn);
       DerivedArtifact artifact =
           new DerivedArtifact(
               root,
-              validateAndGetRootExecPath(root, generatingActionKey, context, codedIn),
-              generatingActionKey.getActionLookupKey());
-      artifact.setGeneratingActionKey(generatingActionKey);
+              getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
+              generatingActionKey);
       return context.getDependency(ArtifactSerializationContext.class).intern(artifact);
     }
+  }
 
-    static PathFragment validateAndGetRootExecPath(
-        ArtifactRoot root,
-        ActionLookupData generatingActionKey,
-        DeserializationContext context,
-        CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      PathFragment rootRelativePath = context.deserialize(codedIn);
-      if (rootRelativePath == null
-          || rootRelativePath.isAbsolute() != root.getRoot().isAbsolute()) {
-        throw new IllegalArgumentException(
-            rootRelativePath
-                + ": illegal rootRelativePath for "
-                + root
-                + " (generatingActionKey: "
-                + generatingActionKey
-                + ")");
-      }
-      Preconditions.checkState(
-          !root.isSourceRoot(), "Root not derived: %s %s", root, rootRelativePath);
-      return root.getExecPath().getRelative(rootRelativePath);
-    }
+  private static PathFragment getExecPathForDeserialization(
+      ArtifactRoot root, PathFragment rootRelativePath, ActionLookupData generatingActionKey) {
+    Preconditions.checkArgument(
+        !root.isSourceRoot(),
+        "Root not derived: %s (rootRelativePath=%s, generatingActionKey=%s)",
+        root,
+        rootRelativePath,
+        generatingActionKey);
+    Preconditions.checkArgument(
+        root.getRoot().isAbsolute() == rootRelativePath.isAbsolute(),
+        "Illegal root relative path: %s (root=%s, generatingActionKey=%s)",
+        rootRelativePath,
+        root,
+        generatingActionKey);
+    return root.getExecPath().getRelative(rootRelativePath);
   }
 
   public final Path getPath() {
@@ -1002,8 +1007,13 @@ public abstract class Artifact
     private final SpecialArtifactType type;
 
     @VisibleForTesting
-    public SpecialArtifact(
+    public static SpecialArtifact create(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, SpecialArtifactType type) {
+      return new SpecialArtifact(root, execPath, owner, type);
+    }
+
+    private SpecialArtifact(
+        ArtifactRoot root, PathFragment execPath, Object owner, SpecialArtifactType type) {
       super(root, execPath, owner);
       this.type = type;
     }
@@ -1058,25 +1068,24 @@ public abstract class Artifact
         SerializationContext context, SpecialArtifact obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serialize(obj.getRoot(), codedOut);
+      context.serialize(obj.getRootRelativePath(), codedOut);
       context.serialize(obj.getGeneratingActionKey(), codedOut);
       context.serialize(obj.type, codedOut);
-      context.serialize(obj.getRootRelativePath(), codedOut);
     }
 
     @Override
     public SpecialArtifact deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       ArtifactRoot root = context.deserialize(codedIn);
+      PathFragment rootRelativePath = context.deserialize(codedIn);
       ActionLookupData generatingActionKey = context.deserialize(codedIn);
       SpecialArtifactType type = context.deserialize(codedIn);
       SpecialArtifact artifact =
           new SpecialArtifact(
               root,
-              DerivedArtifactCodec.validateAndGetRootExecPath(
-                  root, generatingActionKey, context, codedIn),
-              generatingActionKey.getActionLookupKey(),
+              getExecPathForDeserialization(root, rootRelativePath, generatingActionKey),
+              generatingActionKey,
               type);
-      artifact.setGeneratingActionKey(generatingActionKey);
       return (SpecialArtifact)
           context.getDependency(ArtifactSerializationContext.class).intern(artifact);
     }
@@ -1307,7 +1316,7 @@ public abstract class Artifact
     }
 
     private TreeFileArtifact(
-        SpecialArtifact parent, PathFragment parentRelativePath, ActionLookupKey owner) {
+        SpecialArtifact parent, PathFragment parentRelativePath, Object owner) {
       super(parent.getRoot(), parent.getExecPath().getRelative(parentRelativePath), owner);
       Preconditions.checkArgument(
           parent.isTreeArtifact(),
@@ -1328,11 +1337,7 @@ public abstract class Artifact
         SpecialArtifact parent,
         PathFragment parentRelativePath,
         ActionLookupData generatingActionKey) {
-      TreeFileArtifact result =
-          new TreeFileArtifact(
-              parent, parentRelativePath, generatingActionKey.getActionLookupKey());
-      result.setGeneratingActionKey(generatingActionKey);
-      return result;
+      return new TreeFileArtifact(parent, parentRelativePath, generatingActionKey);
     }
 
     @Override
@@ -1575,7 +1580,7 @@ public abstract class Artifact
    * A utility class that compares {@link Artifact}s without taking their owners into account.
    * Should only be used for detecting action conflicts and merging shared action data.
    */
-  public static class OwnerlessArtifactWrapper {
+  public static final class OwnerlessArtifactWrapper {
     private final Artifact artifact;
 
     public OwnerlessArtifactWrapper(Artifact artifact) {

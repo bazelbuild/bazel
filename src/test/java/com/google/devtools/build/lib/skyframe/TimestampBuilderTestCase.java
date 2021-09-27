@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
@@ -477,7 +478,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   Artifact createDerivedArtifact(FileSystem fs, String name) {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new Artifact.DerivedArtifact(
+    return DerivedArtifact.create(
         ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"), execPath, ACTION_LOOKUP_KEY);
   }
 

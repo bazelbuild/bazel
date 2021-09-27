@@ -3086,7 +3086,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
           artifact.getRootRelativePath().equals(PathFragment.create(dirRelativePath)));
       for (String file : files) {
         output.add(
-            new DerivedArtifact(
+            DerivedArtifact.create(
                 artifact.getRoot(),
                 artifact.getExecPath().getRelative(file),
                 (ActionLookupKey) artifact.getArtifactOwner()));
