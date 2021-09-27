@@ -315,7 +315,7 @@ DIST_DEPS = {
         "archive": "java_tools_darwin-v11.4.zip",
         "sha256": "fc0df786c3487874e0bc0ba86f7ca40c939eaddfebac35cb2426969e1bb133cf",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.4/java_tools_darwin-v11.4.zip",
+            "https://mirror.bazel.build/bazel_java_tools/release_candidates/java/v11.4/java_tools_darwin-v11.4.zip",
         ],
         "used_in": [
             "additional_distfiles",
