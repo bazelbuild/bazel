@@ -216,7 +216,7 @@ public class PlatformOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_override_toolchain_transition",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
