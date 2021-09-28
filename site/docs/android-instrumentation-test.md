@@ -329,7 +329,7 @@ graphical interface of the emulator while the test is running. To do this, pass
 these test arguments to Bazel:
 
 ```
-bazel test //my/test:target --test_arg=--enable_display --test_env=DISPLAY
+bazel test //my/test:target --test_arg=--enable_display=true --test_env=DISPLAY
 ```
 
 ### Testing with a local emulator or device
