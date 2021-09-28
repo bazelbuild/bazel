@@ -108,6 +108,9 @@ title: Make Variables
   and look at the top output lines with capital letters.
 </p>
 
+<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-variables">
+  See an example of predefined variables</a>.</p>
+
 <p><strong>Toolchain option variables</strong></p>
 
 <ul><!--  keep alphabetically sorted  -->
@@ -161,6 +164,9 @@ title: Make Variables
   <code><a href="$expander.expandRef("genrule.cmd")">cmd</a></code> attribute and are
   generally important for making that attribute work.
 </p>
+
+<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-genrule-variables">
+  See an example of predefined genrule variables</a>.</p>
 
 <ul><!--  keep alphabetically sorted  -->
   <li><code>OUTS</code>: The <code>genrule</code>'s <code><a
@@ -235,8 +241,8 @@ title: Make Variables
   (see the explanation of <i>output files</i> below).
 </p>
 
-<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables">
-  See an example of predefined variables</a>.</p>
+<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables#predefined-path-variables">
+  See an example of predefined path variables</a>.</p>
 
 <ul>
   <li>
@@ -440,7 +446,7 @@ title: Make Variables
   <code>toolchains</code> attribute can then read their values:
 </p>
 
-<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables">
+<p><a href="https://github.com/bazelbuild/examples/tree/main/make-variables#custom-starlark-defined-variables">
   See an example of Starlark-defined variables</a>.</p>
 
 #if (!$singlePage)
