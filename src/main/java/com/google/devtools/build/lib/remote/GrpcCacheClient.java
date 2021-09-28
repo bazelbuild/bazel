@@ -27,7 +27,6 @@ import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
-import com.github.luben.zstd.ZstdInputStream;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.ReadRequest;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
@@ -61,9 +61,7 @@ import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -298,6 +296,14 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       out = digestOut;
     }
 
+    if (options.cacheByteStreamCompression) {
+      try {
+        out = new ZstdDecompressingOutputStream(out);
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
+    }
+
     return downloadBlob(context, digest, out, digestSupplier);
   }
 
@@ -352,41 +358,13 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
                 .setReadOffset(offset.get())
                 .build(),
             new StreamObserver<ReadResponse>() {
-              InputStream inner;
-              ZstdInputStream zis;
-
-              {
-                initialise();
-              }
-
-              private void initialise() throws IOException {
-                if (options.cacheByteStreamCompression) {
-                  zis =
-                      new ZstdInputStream(
-                          new InputStream() {
-                            @Override
-                            public int read() throws IOException {
-                              return inner.read();
-                            }
-                          });
-
-                  zis.setContinuous(true);
-                }
-              }
 
               @Override
               public void onNext(ReadResponse readResponse) {
                 ByteString data = readResponse.getData();
                 try {
-                  if (options.cacheByteStreamCompression) {
-                    inner = new ByteArrayInputStream(data.toByteArray());
-                    ByteString bs = ByteString.readFrom(zis);
-                    bs.writeTo(out);
-                    offset.addAndGet(bs.size());
-                  } else {
-                    data.writeTo(out);
-                    offset.addAndGet(data.size());
-                  }
+                  data.writeTo(out);
+                  offset.addAndGet(data.size());
                 } catch (IOException e) {
                   // Cancel the call.
                   throw new RuntimeException(e);
